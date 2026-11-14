@@ -46,9 +46,29 @@ const HANDLERS = ['handle', 'handleOnce'] as const
 const LISTENERS = ['on', 'once', 'addListener', 'prependListener', 'prependOnceListener'] as const
 type Registrar = Record<(typeof HANDLERS)[number] | (typeof LISTENERS)[number], (channel: string, listener: Listener) => unknown>
 
+let measure: ((channel: string, ms: number) => void) | null = null
+/** The performance journal's hook: each answered request's time, by channel name only. Null stops measuring. */
+export function measureIpcWith(next: typeof measure): void { measure = next }
+
+/** Runs a request handler and reports how long its answer took, sync or async; the result is returned untouched. */
+function timed(channel: string, run: () => unknown): unknown {
+  const report = measure
+  if (!report) return run()
+  const start = performance.now()
+  const done = (): void => { try { report(channel, performance.now() - start) } catch { /* measuring never fails a request */ } }
+  let result: unknown
+  try { result = run() } catch (error) { done(); throw error }
+  if (result && typeof (result as Promise<unknown>).then === 'function') (result as Promise<unknown>).then(done, done)
+  else done()
+  return result
+}
+
 function wrap(channel: string, listener: Listener, invoke: boolean): Listener {
   const wrapped = (event: IpcMainEvent | IpcMainInvokeEvent, ...args: unknown[]): unknown => {
-    if (isSenderAllowed(channel, event)) return (listener as (...values: unknown[]) => unknown)(event, ...args)
+    if (isSenderAllowed(channel, event)) {
+      const run = (): unknown => (listener as (...values: unknown[]) => unknown)(event, ...args)
+      return invoke ? timed(channel, run) : run()
+    }
     recordIncident('incident.ipc.senderRefused', channel) // the channel only: no URL, path or payload
     if (invoke) throw new IpcSenderRefusedError()
     return undefined // a send has no caller to reject; it is dropped

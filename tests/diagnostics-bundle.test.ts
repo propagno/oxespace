@@ -67,6 +67,15 @@ describe('diagnostics bundle', () => {
     expect(bundle.preview.files.map(file => [file.name, file.bytes])).toEqual(bundle.entries.map(entry => [entry.name, entry.data.length]))
   })
 
+  it('adds the performance journal when there is one, redacted like every other file', async () => {
+    expect((await buildBundle(sources)).entries.map(entry => entry.name)).not.toContain('performance.txt')
+    const bundle = await buildBundle({ ...sources, performance: () => `ipc:terminal:create 3 450 450 450 3 at ${WINDOWS_PATH} by ${EMAIL}` })
+    const file = bundle.entries.find(entry => entry.name === 'performance.txt')!.data.toString('utf8')
+    expect(file).toContain('ipc:terminal:create 3 450 450 450 3')
+    for (const secret of [EMAIL, 'acme-contract']) expect(file).not.toContain(secret)
+    expect(bundle.preview.files.find(item => item.name === 'performance.txt')?.summary).toEqual({ code: 'bundle.file.performance', params: {} })
+  })
+
   it('keeps what a diagnosis needs: times, levels, fixed words, codes and counts', async () => {
     const bundle = await buildBundle(sources)
     const text = (name: string) => bundle.entries.find(entry => entry.name === name)!.data.toString('utf8')

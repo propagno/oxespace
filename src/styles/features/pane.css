@@ -208,6 +208,12 @@
   .pane-header .pane-agent-chip-label { display: none; }
   .pane-header .pane-agent-chip { padding: 0 5px; }
 }
+/* Narrower still, the name has less room than its eight-character floor: without the floor it ends in "…" where its
+   room ends. With it, the name ran on under the pane's buttons ("Termi" with the search icon over the rest). */
+.pane-header-left { overflow: hidden; }
+@container (max-width: 240px) {
+  .pane-header .pane-intent { min-width: 0; }
+}
 
 .pane-intent {
   min-width: min(8ch, 100%);

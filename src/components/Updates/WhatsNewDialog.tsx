@@ -4,14 +4,14 @@ import { Button } from '../../ui/Button'
 import { Dialog } from '../../ui/Overlay'
 import styles from './WhatsNewDialog.module.css'
 
-export type WhatsNewTarget = 'browser' | 'approvals' | 'httpCalls' | 'timeTravel'
+export type WhatsNewTarget = 'browser' | 'approvals' | 'httpCalls'
 
 export interface WhatsNewDialogProps {
   onClose: () => void
   onOpen: (target: WhatsNewTarget) => void
 }
 
-const TARGETS: readonly WhatsNewTarget[] = ['browser', 'approvals', 'httpCalls', 'timeTravel']
+const TARGETS: readonly WhatsNewTarget[] = ['browser', 'approvals', 'httpCalls']
 
 export function WhatsNewDialog({ onClose, onOpen }: WhatsNewDialogProps): ReactElement {
   const { t } = useTranslation()

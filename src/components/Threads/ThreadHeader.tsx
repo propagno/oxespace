@@ -63,16 +63,15 @@ export function ThreadHeader({
   pending,
   running,
   activePanel,
-  historyOpen,
   showAddTool = false,
   cell,
   onTogglePanel,
-  onToggleHistory,
   onCommand,
   onExport,
   onDelegate,
   onPin,
   onNowAction,
+  requestInView,
   onCloseCell
 }: {
   thread?: ConversationThread
@@ -85,17 +84,17 @@ export function ThreadHeader({
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
-  historyOpen?: boolean
   showAddTool?: boolean
   cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
-  onToggleHistory?: () => void
   onCommand: (command: string) => void
   onExport?: () => void
   onImport?: () => void
   onDelegate: () => void
   onPin: () => void
   onNowAction?: (action: NowLineAction) => void
+  /** The pending request's own buttons are on screen: the status line shows no second pair. */
+  requestInView?: boolean
   onCloseCell?: () => void
 }) {
   const { t } = useTranslation('thread')
@@ -157,6 +156,7 @@ export function ThreadHeader({
           return {
             label: entry.label,
             icon: iconFor(id),
+            checked: viewMode === 'verbose',
             onSelect: () => useThreadViewModeStore.getState().setMode(viewMode === 'verbose' ? 'normal' : 'verbose')
           }
         case 'details':
@@ -190,29 +190,18 @@ export function ThreadHeader({
           : thread?.status === 'interrupted' ? 'paused'
             : thread ? 'ready' : undefined)
 
+  // A conversation gets its title from its first message; until then its title is empty and the heading said nothing.
+  const heading = thread?.title?.trim() || (thread ? t('view.newConversation') : t('header.projectConversations'))
+
   return (
     <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}>
       <div className="thread-heading-identity">
         <div className="thread-heading-title-row">
           <div className="thread-heading-title-main">
             {statusKind && <span className="thread-heading-glyph" data-kind={statusKind} aria-hidden="true" />}
-            <h1 ref={headingRef} tabIndex={-1} title={thread?.title ?? t('header.projectConversations')}>
-              {thread?.title ?? t('header.projectConversations')}
-            </h1>
+            <h1 ref={headingRef} tabIndex={-1} title={heading}>{heading}</h1>
           </div>
           <div className="thread-heading-actions">
-            {thread && onToggleHistory && (
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={<History size={13} aria-hidden="true" />}
-                aria-pressed={Boolean(historyOpen)}
-                title={withShortcut(t('timeTravel.button'), 'thread.history')}
-                onClick={onToggleHistory}
-              >
-                {t('timeTravel.button')}
-              </Button>
-            )}
             {thread && showAddTool && (
               <ThreadAddToolMenu activePanel={activePanel} onTogglePanel={onTogglePanel} />
             )}
@@ -263,6 +252,7 @@ export function ThreadHeader({
             agent={threadAgentName(thread.provider)}
             irreversible={irreversible}
             hasPullRequest={hasPullRequest}
+            requestInView={requestInView}
             onAction={action => onNowAction?.(action)}
           />
         )}

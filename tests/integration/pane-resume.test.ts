@@ -10,6 +10,7 @@ import { TerminalManager } from '../../electron/main/services/terminal.service'
 import { PaneAgentSessions } from '../../electron/main/services/agent-state/pane-sessions'
 import { encodeClaudeProjectPath } from '../../electron/main/services/usage/claude-project-path'
 import { RESUME_LOAD_MS } from '../../electron/main/services/agent-state/pane-resume'
+import { POSIX_SHELL_PROFILE_ID, WINDOWS_SHELL_PROFILE_ID } from '../../electron/main/services/shell-profile.defaults'
 import { removeTempDir } from '../helpers/removeTempDir'
 
 const A = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
@@ -40,8 +41,12 @@ function codexRollout(id: string): void {
   writeFileSync(join(folder, `rollout-2026-10-31T09-00-00-${id}.jsonl`), '{}\n')
 }
 
-/** One app run: its own session map and terminal manager over the same database, as after a restart. */
-function run(db: AppDatabase) {
+/**
+ * One app run: its own session map and terminal manager over the same database, as after a restart. How a pane goes
+ * back to its session is told with "Start agents without permission prompts" off, since it adds an option to every
+ * start; the last block of this file is about that setting, as installed and as the person changes it.
+ */
+function run(db: AppDatabase, agentAccess: boolean | 'as installed' = false) {
   const sessions = new PaneAgentSessions(db)
   const pty = createFakePtyModule()
   const terminals = new TerminalManager(db, {
@@ -51,6 +56,7 @@ function run(db: AppDatabase) {
     clearSession: paneId => sessions.clear(paneId),
     currentSession: paneId => sessions.current(paneId)
   })
+  if (agentAccess !== 'as installed') terminals.setAgentsFullAccess(agentAccess)
   return { sessions, pty, terminals }
 }
 
@@ -544,6 +550,137 @@ describe('what survives the crash', () => {
       await terminals.start({ workspaceId: ws.id, paneId: ws.panes[1].id, agentCommand: 'claude -p hello' })
       expect(pty.spawn).toHaveBeenLastCalledWith('claude', ['-p', 'hello'], expect.anything())
       expect(db.prepare('SELECT COUNT(*) AS n FROM pane_agent_sessions').get()).toEqual({ n: 0 })
+    } finally { terminals.stopAll(); db.close() }
+  })
+})
+
+describe('agents the person starts in a pane skip their permission prompts (Settings > Terminal)', () => {
+  const C = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
+  const SKIP = '--dangerously-skip-permissions'
+  const CODEX_SKIP = '--dangerously-bypass-approvals-and-sandbox'
+  const lastArgs = (pty: ReturnType<typeof run>['pty']): string[] => pty.spawn.mock.calls.at(-1)![1]
+
+  test('as installed it is on: each agent starts with the option its own CLI has', async () => {
+    for (const [agent, option] of [['claude', SKIP], ['codex', CODEX_SKIP], ['agy', SKIP]] as const) {
+      const db = openInMemoryDatabase()
+      const ws = workspace(db)
+      const { pty, terminals } = run(db, 'as installed')
+      try {
+        expect(terminals.agentsFullAccess(), agent).toBe(true)
+        await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: agent })
+        expect(pty.spawn.mock.calls.at(-1)![0], agent).toBe(agent)
+        expect(lastArgs(pty).filter(part => part === option), agent).toEqual([option])
+        // Claude still gets the session id main names for it, first, so the pane can go back to it.
+        if (agent === 'claude') expect(lastArgs(pty).slice(0, 1)).toEqual(['--session-id'])
+        else expect(lastArgs(pty), agent).toEqual([option])
+      } finally { terminals.stopAll(); db.close() }
+    }
+  })
+
+  test('a pane whose own program is the agent gets it too; a plain shell and an agent it does not know get nothing', async () => {
+    const db = openInMemoryDatabase()
+    const { pty, terminals } = run(db, 'as installed')
+    try {
+      const own = new WorkspaceService(db).create({ rootPath: root, layout: '1x1', autoStart: false, defaultShellProfileId: 'builtin-codex' })
+      await terminals.start({ workspaceId: own.id, paneId: own.panes[0].id })
+      expect(pty.spawn).toHaveBeenLastCalledWith('codex', [CODEX_SKIP], expect.anything())
+      const shell = new WorkspaceService(db).create({ rootPath: join(dir, 'other'), layout: '1x2', autoStart: false, defaultShellProfileId: process.platform === 'win32' ? WINDOWS_SHELL_PROFILE_ID : POSIX_SHELL_PROFILE_ID })
+      await terminals.start({ workspaceId: shell.id, paneId: shell.panes[0].id })
+      expect(lastArgs(pty).some(part => part.startsWith('--dangerously'))).toBe(false)
+      await terminals.start({ workspaceId: shell.id, paneId: shell.panes[1].id, agentCommand: 'cursor-agent' })
+      expect(pty.spawn).toHaveBeenLastCalledWith('cursor-agent', [], expect.anything())
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('off: agents ask the way their own CLI does, and the choice is still there after a restart', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const first = run(db, 'as installed')
+    try {
+      expect(first.terminals.setAgentsFullAccess(false)).toBe(false)
+      await first.terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'codex' })
+      expect(first.pty.spawn).toHaveBeenLastCalledWith('codex', [], expect.anything())
+    } finally { first.terminals.stopAll() }
+    const second = run(db, 'as installed')
+    try {
+      expect(second.terminals.agentsFullAccess()).toBe(false)
+      await second.terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand: 'claude' })
+      expect(lastArgs(second.pty)).not.toContain(SKIP)
+      expect(second.terminals.setAgentsFullAccess(true)).toBe(true)
+      expect(run(db, 'as installed').terminals.agentsFullAccess()).toBe(true)
+    } finally { second.terminals.stopAll(); db.close() }
+  })
+
+  test('a command that already chooses how it asks, or where it runs, keeps its choice', async () => {
+    for (const [agentCommand, agentArgs, option] of [
+      ['claude --permission-mode plan', undefined, SKIP],
+      ['claude', ['--permission-mode=acceptEdits'], SKIP],
+      ['claude --dangerously-skip-permissions', undefined, null],
+      ['codex --sandbox read-only', undefined, CODEX_SKIP],
+      ['codex', ['--full-auto'], CODEX_SKIP],
+      ['codex -a untrusted', undefined, CODEX_SKIP]
+    ] as const) {
+      const db = openInMemoryDatabase()
+      const ws = workspace(db)
+      const { pty, terminals } = run(db, 'as installed')
+      try {
+        await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, agentCommand, agentArgs: agentArgs ? [...agentArgs] : undefined })
+        if (option) expect(lastArgs(pty), agentCommand).not.toContain(option)
+        // Its own option is passed once, never doubled.
+        else expect(lastArgs(pty).filter(part => part === SKIP), agentCommand).toEqual([SKIP])
+      } finally { terminals.stopAll(); db.close() }
+    }
+  })
+
+  test('an agent started by an agent or a Team (a launch) is never given it: that start says its own arguments', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const { pty, terminals } = run(db, 'as installed')
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, launch: { executable: 'claude', args: ['--model', 'sonnet'] } })
+      expect(lastArgs(pty)).not.toContain(SKIP)
+      terminals.stopAll()
+      await terminals.start({ workspaceId: ws.id, paneId: ws.panes[0].id, launch: { executable: 'codex', args: [] } })
+      expect(lastArgs(pty)).not.toContain(CODEX_SKIP)
+    } finally { terminals.stopAll(); db.close() }
+  })
+
+  test('going back to a session: one that chose a mode keeps it, the others come back without prompts', async () => {
+    const cases = [
+      // The session skipped its prompts: it comes back that way by this setting alone, with nothing held back.
+      { mode: 'bypassPermissions', args: [SKIP, '--resume', C] },
+      // The person put that session in plan mode, or accepting edits: it comes back there.
+      { mode: 'plan', args: ['--permission-mode', 'plan', '--resume', C] },
+      { mode: 'acceptEdits', args: ['--permission-mode', 'acceptEdits', '--resume', C] },
+      { mode: 'default', args: [SKIP, '--resume', C] },
+      { mode: undefined, args: [SKIP, '--resume', C] }
+    ] as const
+    for (const { mode, args } of cases) {
+      const db = openInMemoryDatabase()
+      const ws = workspace(db)
+      const pane = ws.panes[0]
+      new PaneAgentSessions(db).record(pane.id, 'claude', C, 'hook', mode)
+      claudeTranscript(C)
+      const { pty, terminals } = run(db, 'as installed')
+      try {
+        expect(terminals.resumeBypass(), String(mode)).toBe(false)
+        await terminals.start({ workspaceId: ws.id, paneId: pane.id, resumeAgent: true })
+        expect(pty.spawn, String(mode)).toHaveBeenLastCalledWith('claude', [...args], expect.objectContaining({ cwd: root }))
+        expect(terminals.status(pane.id).agentResume, String(mode)).toEqual({ outcome: 'resumed', agent: 'claude', sessionId: C })
+      } finally { terminals.stopAll(); db.close() }
+    }
+  })
+
+  test('a Codex pane goes back to its session without prompts, with the session still right after "resume"', async () => {
+    const db = openInMemoryDatabase()
+    const ws = workspace(db)
+    const pane = ws.panes[0]
+    new PaneAgentSessions(db).record(pane.id, 'codex', B, 'hook')
+    codexRollout(B)
+    const { pty, terminals } = run(db, 'as installed')
+    try {
+      await terminals.start({ workspaceId: ws.id, paneId: pane.id, agentCommand: 'codex', resumeAgent: true })
+      expect(pty.spawn).toHaveBeenLastCalledWith('codex', [CODEX_SKIP, 'resume', B, '--no-alt-screen'], expect.objectContaining({ cwd: root }))
     } finally { terminals.stopAll(); db.close() }
   })
 })

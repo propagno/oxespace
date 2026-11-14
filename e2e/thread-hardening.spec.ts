@@ -6,11 +6,11 @@ import { join } from 'node:path'
 
 /**
  * Renderer-level proof for the Thread hardening work, against the real built
- * renderer in Electron: delivery notes, queue pause, context ring and rewind,
+ * renderer in Electron: delivery notes, queue pause and the context ring,
  * plus the incremental read path of the store. Provider behaviour is covered by
  * tests/live/thread-live.test.ts and the integration suites.
  */
-test('Thread shows delivery, queue pause, context usage and rewind, and merges incremental reads', async () => {
+test('Thread shows delivery, queue pause and context usage, offers no rewind, and merges incremental reads', async () => {
   test.setTimeout(120000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-thread-hardening-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
@@ -27,7 +27,7 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
 
     await app.evaluate(({ ipcMain, BrowserWindow }, fixtureRoot) => {
       const g = globalThis as Record<string, unknown>
-      const calls: Record<string, unknown[][]> = { send: [], resume: [], sendNow: [], rewind: [], redo: [], read: [], readSince: [] }
+      const calls: Record<string, unknown[][]> = { send: [], resume: [], sendNow: [], read: [], readSince: [] }
       g.hardeningCalls = calls
       let snapshot: Record<string, any> | null = null
       let delta: Record<string, unknown> | { ok: false; reset: string } = { ok: false, reset: 'epoch' }
@@ -78,21 +78,6 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
       })
       ipcMain.handle('thread:queue-send-now', (_event, _id, itemId) => { calls.sendNow.push([itemId]) })
       ipcMain.handle('thread:context-usage', () => snapshot?.thread.contextReport ?? null)
-      // A rewind sets the turns aside; the next message would confirm it, Redo brings them back.
-      ipcMain.handle('thread:rewind', (_event, _id, turnId, options) => {
-        calls.rewind.push([turnId, options])
-        snapshot!.thread.rewind = { turnId, at: Date.now(), removedTurns: 1 }
-        snapshot!.sync = { epoch: 'epoch-2', revision: 1 }
-        changed()
-        return { snapshot, removedTurns: 1, restoredFiles: 0 }
-      })
-      ipcMain.handle('thread:redo-rewind', () => {
-        calls.redo = [...(calls.redo ?? []), []]
-        delete snapshot!.thread.rewind
-        snapshot!.sync = { epoch: 'epoch-3', revision: 1 }
-        changed()
-        return snapshot
-      })
       ipcMain.handle('thread:pin', () => {})
       ipcMain.handle('thread:models', () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: '', efforts: ['low', 'high'], defaultEffort: 'low' }] }))
       ipcMain.handle('thread:configure', () => snapshot)
@@ -177,26 +162,15 @@ test('Thread shows delivery, queue pause, context usage and rewind, and merges i
     expect((await calls()).readSince.at(-1)?.[0]).toMatchObject({ epoch: 'epoch-1', revision: 5 })
     expect((await calls()).read.length).toBe(readsBefore)
 
-    // Rewind: confirmation, then the later turn disappears.
+    // Rewind left 1.5.0 (product decision, 2026-11-12): a message offers neither "Rewind to here" nor "Edit", and no
+    // strip offers a Redo.
     await app.evaluate(() => { const g = globalThis as Record<string, any>; g.setHardeningDelta({ ok: false, reset: 'epoch' }); g.seedHardening() })
     await expect(page.getByText('Second request that may be lost')).toBeVisible()
-    await page.locator('.thread-message-user').filter({ hasText: 'Second request that may be lost' }).hover()
-    await page.getByRole('button', { name: /Rewind to here/ }).last().click()
-    const confirm = page.getByRole('group', { name: 'Confirm rewind' })
-    await expect(confirm).toContainText('Redo brings them back')
-    await expect(confirm.getByRole('checkbox')).toBeChecked()
-    await confirm.getByRole('button', { name: 'Rewind', exact: true }).click()
-    await expect.poll(async () => (await calls()).rewind.length).toBe(1)
-    expect((await calls()).rewind[0]).toEqual(['turn-2', { restoreFiles: true }])
-    // Set aside, not removed: greyed until the next message, with Redo above the composer.
-    const setAside = page.locator('.thread-turn.is-superseded').filter({ hasText: 'Second request that may be lost' })
-    await expect(setAside).toBeVisible()
-    await expect(page.getByTestId('thread-dock-rewind')).toContainText('Rewound 1 turn')
-    await expect(page.getByText('First answer from the agent.')).toBeVisible()
-    await page.getByTestId('thread-dock-rewind').getByRole('button', { name: 'Redo' }).click()
+    const sent = page.locator('.thread-message-user').filter({ hasText: 'Second request that may be lost' })
+    await sent.hover()
+    await expect(sent.getByRole('button', { name: /Rewind|Edit/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Rewind to here/ })).toHaveCount(0)
     await expect(page.getByTestId('thread-dock-rewind')).toHaveCount(0)
-    await expect(page.locator('.thread-turn.is-superseded')).toHaveCount(0)
-    await expect(page.getByText('Second request that may be lost')).toBeVisible()
   } finally {
     await app.close()
   }

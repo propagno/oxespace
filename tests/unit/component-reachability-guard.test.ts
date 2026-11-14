@@ -10,12 +10,18 @@ const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.css']
  * Modules intentionally kept unmounted from `src/main.tsx`:
  * - `src/components/OxePod/*`: frozen F2 contract (`tests/acceptance/f2/r15-oxepod-mode-removed.test.tsx`)
  *   explicitly forbids importing `src/components/OxePod/` outside that folder.
- * - `approvalsMock.ts`, `Threads/side/*`, `WorkspaceDelegationSettings.tsx`: standalone unit/integration test subjects.
+ * - `approvalsMock.ts`, `Threads/side/*`: standalone unit/integration test subjects.
+ * - The conversation's Terminal and Pull request tabs and its background shell list left the UI in 1.5.2 (product
+ *   owner, 13/11); frozen tests still render these components alone (f4/u44, f4/u46, f4/crf4-d, f6/u64), so they stay
+ *   until those tests are released with them.
  */
 const ALLOWED_UNMOUNTED_PREFIXES = ['src/components/OxePod/', 'src/components/Threads/side/']
 const ALLOWED_UNMOUNTED_FILES = new Set([
   'src/components/Approvals/approvalsMock.ts',
-  'src/components/Workspace/WorkspaceDelegationSettings.tsx'
+  'src/components/Threads/PullRequestTab.tsx',
+  'src/components/Threads/pullRequestModel.ts',
+  'src/components/Threads/ThreadTerminalTab.tsx',
+  'src/components/Threads/ThreadBackgroundShells.tsx'
 ])
 
 function walk(dir: string, predicate: (fullPath: string) => boolean): string[] {

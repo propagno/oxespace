@@ -1,5 +1,5 @@
 import { ChevronsRight, Maximize2, Minimize2 } from 'lucide-react'
-import { lazy, Suspense, useState, type ReactElement } from 'react'
+import { Suspense, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { ReviewPane } from '../Review/ReviewPane'
 import { PanelScopeBadge } from './PanelScopeBadge'
@@ -7,10 +7,13 @@ import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { i18n } from '../../i18n'
 import { LoadingState } from '../../ui'
+import { lazyFrom } from '../../lib/chunk'
+import { CHANGES_PANEL_CHUNK } from './panelChunks'
 
 const tc = i18n.getFixedT(null, 'code')
 
-const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
+// Over the shared chunk the surface warms at idle: once it has arrived, the Changes view opens without a fallback.
+const ChangesPanel = lazyFrom(CHANGES_PANEL_CHUNK, module => module.ChangesPanel)
 
 interface WorkspaceReviewPanelProps {
   workspace: Workspace

@@ -107,6 +107,9 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
     if (pane.type !== 'terminal') return
     try {
       await window.oxe.terminal.stop({ paneId: pane.id })
+      // A stop by hand sends no exit to the pane (main forgets the process first): without this the pane kept
+      // reading "running" over a shell that was gone, and nothing said the stop had happened.
+      useTerminalStore.getState().setStatus(pane.id, 'exited')
     } catch {
       // The pane may already be stopped; the close action should stay available.
     }

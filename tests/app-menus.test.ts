@@ -29,6 +29,22 @@ describe('application menus', () => {
     for (const prefix of MENU_ACTION_PREFIXES) expect(source).toContain(`id: \`${prefix}`)
   })
 
+  it('with no workspace open, the items that need one say so instead of being disabled without a word (MENU-R1)', () => {
+    const run = vi.fn()
+    const needsWorkspace = new Set(['workspace-settings', 'tool-editor', 'tool-github', 'tool-background'])
+    const actions = MENU_ACTION_IDS.map(id => ({ id, title: id, category: 'Test', run, disabled: needsWorkspace.has(id) }))
+    const menus = buildAppMenus({ actions, applicationView: 'thread', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), openCommandMenu: vi.fn(), version: '1.5.0' })
+    const nodes = menus.flatMap(menu => flat(menu.items))
+    for (const id of ['tool-editor', 'tool-github', 'tool-background']) {
+      const node = nodes.find(value => value.id === id)
+      expect(node, id).toMatchObject({ kind: 'item', unavailable: 'Open a workspace in OxeCode first' })
+      expect(node && 'disabled' in node ? node.disabled : undefined, id).toBeFalsy()
+      if (node?.kind === 'item') node.onSelect()
+    }
+    // Choosing one says the reason and runs nothing.
+    expect(run).not.toHaveBeenCalled()
+  })
+
   it('show every listed action and the appearance choices without a workspace', () => {
     const run = vi.fn()
     const actions = [...MENU_ACTION_IDS.map(id => ({ id, title: id, category: 'Test', run })),
@@ -40,4 +56,30 @@ describe('application menus', () => {
     expect(appearance).toMatchObject({ kind: 'submenu', label: 'Appearance' })
     expect(appearance && 'disabled' in appearance ? appearance.disabled : undefined).toBeFalsy()
   })
+
+  it('File > Exit closes the window only after the question about work in progress allows it (FUNC-3)', async () => {
+    const menus = buildAppMenus({ actions: [], applicationView: 'code', setApplicationView: vi.fn(), openSettings: vi.fn(), addThreadProject: vi.fn(), openCommandMenu: vi.fn(), version: '1.5.0' })
+    const exit = menus.flatMap(menu => flat(menu.items)).find(node => node.id === 'quit')
+    if (!exit || exit.kind !== 'item') throw new Error('File > Exit is missing')
+    const close = vi.spyOn(window, 'close').mockImplementation(() => undefined)
+    const before = (window as unknown as { oxe?: Record<string, unknown> }).oxe
+    try {
+      // Nothing running: it closes.
+      Object.assign(window, { oxe: { ...before, thread: { list: vi.fn(async () => []) } } })
+      exit.onSelect()
+      await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1))
+      // A turn in progress: the question comes first, and nothing closes while it is open.
+      Object.assign(window, { oxe: { ...before, thread: { list: vi.fn(async () => [{ id: 't1', title: 'Fix the Pix webhook', status: 'running' }]) } } })
+      exit.onSelect()
+      await vi.waitFor(() => expect(document.querySelector('[data-testid="unsaved-work-dialog"]')).not.toBeNull(), { timeout: 20_000 })
+      expect(close).toHaveBeenCalledTimes(1)
+      const cancel = [...document.querySelectorAll('button')].find(button => button.textContent === 'Cancel')
+      cancel!.click()
+      await vi.waitFor(() => expect(document.querySelector('[data-testid="unsaved-work-dialog"]')).toBeNull())
+      expect(close).toHaveBeenCalledTimes(1)
+    } finally {
+      close.mockRestore()
+      Object.assign(window, { oxe: before })
+    }
+  }, 30_000)
 })

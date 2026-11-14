@@ -2,6 +2,10 @@ import { i18n } from '../../i18n'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
 import { tCommand } from '../../commands/commandText'
+import { toast } from '../../ui/Toast'
+import type { EditCommand } from '../../../shared/types/ipc'
+import { editUnavailable, requestEdit } from './editTarget'
+import { confirmClose } from '../../lib/closeGuard'
 
 export type AppMenuNode =
   /**
@@ -39,27 +43,38 @@ export const MENU_ACTION_IDS = ['new-workspace', 'workspace-settings', 'toggle-s
 export const MENU_ACTION_PREFIXES = ['appearance-', 'density-', 'layout-'] as const
 type MenuActionId = typeof MENU_ACTION_IDS[number]
 
-/** Native text-editing commands run against whichever field has focus. */
-const edit = (command: 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'selectAll') => (): void => { document.execCommand(command) }
+/**
+ * An editing command for the place the person was in before the menu opened (editTarget.ts). Where it cannot act (Undo
+ * in a terminal, Paste with no field) the item says why instead of doing nothing.
+ */
+function editItem(id: string, command: EditCommand, label: string, shortcut: string): AppMenuNode {
+  const unavailable = editUnavailable(command)
+  return { kind: 'item', id, label, shortcut, unavailable, onSelect: unavailable ? () => { toast({ title: unavailable }) } : () => requestEdit(command) }
+}
 
 export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const t = i18n.t.bind(i18n)
   const byId = new Map(ctx.actions.map(action => [action.id, action]))
   // An item says what its palette command says, from the same catalog key, without the category its menu already gives.
   const menuLabel = (action: CommandPaletteAction): string => action.action ?? action.title
+  const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
+  // With no workspace open, the items of OxeCode cannot run. They say so, as Edit's do, instead of being grey without
+  // a word (MENU-R1): reachable by keyboard, with the reason as a second line and again when chosen.
+  const item = (action: CommandPaletteAction, shortcut?: string): AppMenuNode => {
+    const unavailable = action.disabled && noWorkspace ? t('menu.needsWorkspace') : undefined
+    return unavailable
+      ? { kind: 'item', id: action.id, label: menuLabel(action), shortcut, unavailable, onSelect: () => { toast({ title: unavailable }) } }
+      : { kind: 'item', id: action.id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
+  }
   const fromAction = (id: MenuActionId, shortcut?: string): AppMenuNode | null => {
     const action = byId.get(id)
-    if (!action) return null
-    return { kind: 'item', id, label: menuLabel(action), shortcut, disabled: action.disabled, onSelect: action.run }
+    return action ? item(action, shortcut) : null
   }
-  const group = (prefix: string): AppMenuNode[] => ctx.actions
-    .filter(action => action.id.startsWith(prefix))
-    .map(action => ({ kind: 'item', id: action.id, label: menuLabel(action), disabled: action.disabled, onSelect: action.run }) as AppMenuNode)
+  const group = (prefix: string): AppMenuNode[] => ctx.actions.filter(action => action.id.startsWith(prefix)).map(action => item(action))
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
   const appearances = group('appearance-')
   const densities = group('density-')
   const layouts = group('layout-')
-  const noWorkspace = !byId.get('workspace-settings') || byId.get('workspace-settings')!.disabled === true
 
   return [
     {
@@ -71,18 +86,19 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         { kind: 'item', id: 'settings', label: t('menu.settings'), shortcut: shortcutLabel('settings.open'), onSelect: ctx.openSettings },
         fromAction('workspace-settings'),
         sep('file-2'),
-        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => window.close() }
+        // Asked here first: a window.close() from the page closes at once, and main's own question never runs.
+        { kind: 'item', id: 'quit', label: t('menu.exit'), onSelect: () => { void confirmClose('quit').then(go => { if (go) window.close() }) } }
       ])
     },
     {
       id: 'edit', label: t('menu.edit'), items: [
-        { kind: 'item', id: 'undo', label: t('menu.undo'), shortcut: 'Ctrl+Z', onSelect: edit('undo') },
-        { kind: 'item', id: 'redo', label: t('menu.redo'), shortcut: 'Ctrl+Shift+Z', onSelect: edit('redo') },
+        editItem('undo', 'undo', t('menu.undo'), 'Ctrl+Z'),
+        editItem('redo', 'redo', t('menu.redo'), 'Ctrl+Shift+Z'),
         sep('edit-1'),
-        { kind: 'item', id: 'cut', label: t('menu.cut'), shortcut: 'Ctrl+X', onSelect: edit('cut') },
-        { kind: 'item', id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', onSelect: edit('copy') },
-        { kind: 'item', id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', onSelect: edit('paste') },
-        { kind: 'item', id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', onSelect: edit('selectAll') }
+        editItem('cut', 'cut', t('menu.cut'), 'Ctrl+X'),
+        editItem('copy', 'copy', t('menu.copy'), 'Ctrl+C'),
+        editItem('paste', 'paste', t('menu.paste'), 'Ctrl+V'),
+        editItem('select-all', 'selectAll', t('menu.selectAll'), 'Ctrl+A')
       ]
     },
     {

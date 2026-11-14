@@ -12,6 +12,7 @@
  * what lets the E2E suite run on a machine with no native modules built, and
  * what makes the perf benchmark measure the renderer rather than the shell.
  */
+import { registerEditCommandIpc } from '../ipc/clipboard.ipc'
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
@@ -58,6 +59,8 @@ import { requestOutcome } from '../../../shared/threadRequestOutcome'
 import { registerE2eSideChat } from './side-chat-mock'
 
 export function registerE2eMockIpcHandlers(): void {
+  // Not a double: the Edit menu's commands act on the real window here too.
+  registerEditCommandIpc()
   const shellProfiles: ShellProfile[] = fallbackShellProfiles()
   const workspaces: Workspace[] = []
   registerOxeQueryMock()
@@ -342,8 +345,6 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.thread.projects, (): ThreadProjectCatalog => ({ projects: [], unavailable: [] }))
   ipcMain.handle(IPC_CHANNELS.thread.toolTabs, () => [{ tab: 'conversation' as const, count: null }])
   ipcMain.handle(IPC_CHANNELS.thread.background, () => [])
-  ipcMain.handle(IPC_CHANNELS.thread.timeline, () => ({ checkpoints: [], cantGoBack: { dbWrites: 0, pushes: 0, containers: 0, commands: 0, httpWrites: 0, scope: 'conversation' as const }, canBranch: true }))
-  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, () => ({ ok: false as const, refusal: { code: 'thread.branch.notGit' as const, params: {} } }))
   ipcMain.handle(IPC_CHANNELS.thread.steerQueued, () => { throw new MainRefusal('thread.steer.unavailable', {}) })
   const pendingRequests: ThreadPendingRequestSummary[] = JSON.parse(process.env.OXESPACE_E2E_PENDING_REQUESTS || '[]')
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, () => pendingRequests)
@@ -580,6 +581,17 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.android.status, () => ({ adb: 'missing', devices: [], avds: [] }))
   ipcMain.handle(IPC_CHANNELS.android.connect, () => ({ ok: true }))
   ipcMain.handle(IPC_CHANNELS.android.screenshot, () => ({ path: '/tmp/screenshot.png', name: 'screenshot.png' }))
+  ipcMain.handle(IPC_CHANNELS.schedules.state, () => ({ paused: false, schedules: [] }))
+  ipcMain.handle(IPC_CHANNELS.schedules.runs, () => [])
+  ipcMain.handle(IPC_CHANNELS.schedules.save, () => ({ ok: false, refusal: 'project' }))
+  ipcMain.handle(IPC_CHANNELS.schedules.remove, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.schedules.setEnabled, () => ({ ok: false, refusal: 'unknown' }))
+  ipcMain.handle(IPC_CHANNELS.schedules.setPaused, () => undefined)
+  ipcMain.handle(IPC_CHANNELS.schedules.runNow, () => ({ ok: false, refusal: 'unknown' }))
+  ipcMain.handle(IPC_CHANNELS.androidActions.pickApk, () => null)
+  ipcMain.handle(IPC_CHANNELS.androidActions.installApk, () => ({ ok: false, reason: 'no device' }))
+  ipcMain.handle(IPC_CHANNELS.androidActions.openLink, () => ({ ok: false, reason: 'no device' }))
+  ipcMain.handle(IPC_CHANNELS.androidActions.pair, () => ({ ok: false, reason: 'no device' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.has, () => false)
   ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)

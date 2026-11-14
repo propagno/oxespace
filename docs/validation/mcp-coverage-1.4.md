@@ -40,7 +40,9 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `delegation.authorize` | `delegation.configure`, `delegation.configureTarget`, `delegation.adopt` |
 | `web_preview.access` | `browserPreview.setAccess`, `browserPreview.revokeGrant` (external sites and ending an agent browser grant) |
 | `android.controls` | `android.*` (the person's Android mirror, input and Agents can see switch) |
-| `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal) |
+| `android.device_actions` | `androidActions.*` (install an APK, open a link, send the pairing link: the person's own actions on their device) |
+| `schedules.admin` | `schedules.*` (the person's schedules: requests sent to an agent at a set time) |
+| `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal), `terminal.agentsFullAccess`, `terminal.setAgentsFullAccess` (1.5.0: whether agents the person starts in a pane skip their permission prompts; on as installed, and only the person changes it, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |
 | `mcp_internal.token` | `mcpInternal.regenerateToken` |
@@ -139,7 +141,7 @@ before. Code panes receive the whole registry.
 | `code.local_input` | Clipboard and voice | Excluded: The person's own input devices. |
 | `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_preview_interact`<br>**confirm**: `oxespace_open_web_preview` (a local http(s) URL runs as write; see below) |
 | `web_preview.access` | Let the preview reach external sites | **Forbidden**: Raises access. |
-| `code.resume_bypass` | Resume Claude sessions that skipped permissions that way | **Forbidden**: Raises access: only the person turns it on. |
+| `code.resume_bypass` | Resume Claude sessions that skipped permissions that way; start agents in a terminal without permission prompts | **Forbidden**: Raises access: only the person changes it. |
 | `git.read` | Status, branch, diffs, files at a ref, checkpoints | **read**: `oxespace_git#status`, `oxespace_git#branch`, `oxespace_git#diff_summary`, `oxespace_git#diff`, `oxespace_git#file_at_ref`, `oxespace_git#checkpoints` |
 | `git.change` | Stage, commit, branch, fetch, pull, push, checkpoints | **write**: `oxespace_git_change#stage`, `oxespace_git_change#stage_all`, `oxespace_git_change#unstage`, `oxespace_git_change#commit`, `oxespace_git_change#create_branch`, `oxespace_git_change#fetch`, `oxespace_git_change#pull`, `oxespace_git_change#create_checkpoint`<br>**confirm**: `oxespace_git_change#checkout`, `oxespace_git_change#push`, `oxespace_git_change#restore_checkpoint`, `oxespace_git_change#delete_checkpoint` |
 | `git.commit_message` | Generate a commit message | Excluded: Asks an AI provider on the person's behalf; an agent writes its own message. |
@@ -154,7 +156,7 @@ before. Code panes receive the whole registry.
 | `thread.read` | List and read Threads, their usage, and CLI sessions of the folder | **read**: `oxespace_threads#list`, `oxespace_threads#read`, `oxespace_threads#usage`, `oxespace_threads#native_sessions`, `oxespace_thread_read` |
 | `thread.drive` | Create Threads, send, steer, stop, set the model, rename, archive | **write**: `oxespace_thread_create`, `oxespace_thread_send`<br>**confirm**: `oxespace_threads_change#send`, `oxespace_threads_change#steer`, `oxespace_threads_change#interrupt`, `oxespace_threads_change#configure`, `oxespace_threads_change#rename`, `oxespace_threads_change#archive` |
 | `thread.history_edit` | Rewind, undo a turn's edits, export, import, recover, attach files, slash commands | Excluded: Rewrites or acts inside another conversation's session; the person does it. Agents drive Threads with send and steer. |
-| `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; shell check | Excluded: The person's settings. |
+| `thread.project_admin` | Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check | Excluded: The person's settings. |
 | `thread.sections` | Sections of the conversation list (F13) | **Forbidden**: For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
@@ -192,6 +194,8 @@ before. Code panes receive the whole registry.
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
 | `android.screenshot` | Capture a screenshot of an Android device when Agents can see is on | **read**: `oxespace_device_screenshot` |
 | `android.controls` | Android mirror window controls, input and the Agents can see switch | **Forbidden**: The person's Android mirror, input and device access switch; no MCP tool may send input to a device or raise access. |
+| `android.device_actions` | Install an APK, open a link or send the pairing link to an Android device from the panel | **Forbidden**: The person's own actions on their device: no MCP tool may install an app, start an activity or pair a phone. |
+| `schedules.admin` | Create, change, pause, run or delete a schedule | **Forbidden**: A schedule sends a request to an agent with no one watching: only the person sets one up. An agent never schedules itself. |
 | `mcp.tool_rules_admin` | Choose, per MCP tool, to run it without asking, ask, or block it | **Forbidden**: Approvals and access stay with the person. |
 | `settings.data_export` | The one-time export of the features removed in 1.5, its notice, and opening the file | Excluded: The person's own data, saved once for them; opening the file or exporting again is theirs. |
 | `settings.agent_audit` | Audit of agent actions; internal MCP status | Excluded: The person's review of what agents did. OxeQuery's trail is oxespace_db_activity. |

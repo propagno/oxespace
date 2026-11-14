@@ -36,6 +36,8 @@ const REPORTED_STYLES = [
 ]
 
 let enabled = false
+/** Asked by the host, or by Shift on the click: the picker stays on after a pick, for several elements in a row. */
+let keepPicking = false
 let highlight: HTMLDivElement | null = null
 let label: HTMLDivElement | null = null
 
@@ -124,7 +126,7 @@ function collectStyles(element: Element): DesignGrabStyle[] {
   return styles
 }
 
-function buildPayload(element: Element): DesignGrabPayload {
+function buildPayload(element: Element, point: { x: number; y: number }, keep: boolean): DesignGrabPayload {
   const rect = element.getBoundingClientRect()
   const html = element.outerHTML ?? ''
   return {
@@ -138,7 +140,9 @@ function buildPayload(element: Element): DesignGrabPayload {
     styles: collectStyles(element),
     pageUrl: location.href,
     pageTitle: document.title,
-    devicePixelRatio: window.devicePixelRatio || 1
+    devicePixelRatio: window.devicePixelRatio || 1,
+    point,
+    keepPicking: keep
   }
 }
 
@@ -168,10 +172,11 @@ function onClick(event: MouseEvent): void {
   event.stopPropagation()
   const element = event.target as Element | null
   if (!element || element.nodeType !== Node.ELEMENT_NODE) return
-  const payload = buildPayload(element)
+  const keep = keepPicking || event.shiftKey
+  const payload = buildPayload(element, { x: event.clientX, y: event.clientY }, keep)
   ipcRenderer.send(DESIGN_MODE_CHANNELS.grab, payload)
   try { ipcRenderer.sendToHost(DESIGN_MODE_CHANNELS.grab, payload) } catch { /* WebContentsView has no webview host. */ }
-  setEnabled(false)
+  if (!keep) setEnabled(false)
 }
 
 function onKeyDown(event: KeyboardEvent): void {
@@ -198,7 +203,8 @@ function setEnabled(next: boolean): void {
   }
 }
 
-ipcRenderer.on(DESIGN_MODE_CHANNELS.setEnabled, (_event, value: boolean) => {
+ipcRenderer.on(DESIGN_MODE_CHANNELS.setEnabled, (_event, value: boolean, keep?: boolean) => {
+  keepPicking = value === true && keep === true
   setEnabled(value === true)
 })
 

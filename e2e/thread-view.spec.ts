@@ -303,7 +303,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
+    // Both modes have a rail with this button, and switching modes swaps them. Taking the first in the page waited on
+    // a rail no longer shown (run 43130476576); taking the first one on screen still raced, since the rail of the mode
+    // being left was on screen when the click began and replaced before it landed (2026-11-12). Each rail says its
+    // mode, so this is OxeCode's and no other.
+    await page.locator('.nav-rail[data-mode="code"]').getByRole('button', { name: /^Expand (the )?sidebar/ }).click()
 
     const codeSidebar = page.locator('.sidebar')
     const resize = codeSidebar.getByRole('separator', { name: 'Sidebar width', exact: true })
@@ -454,7 +458,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const permissions = page.getByRole('dialog', { name: 'Permissions', exact: true })
     await expect(permissions).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-permissions-popover.png' })
-    await permissions.getByRole('button', { name: /Workspace access Allow edits inside this project/ }).click()
+    await permissions.getByRole('button', { name: /Can edit Allow edits inside this project/ }).click()
     const accessDialog = page.getByRole('dialog', { name: 'Change conversation access?', exact: true })
     await expect(accessDialog.getByRole('button', { name: 'Apply access', exact: true })).toBeInViewport()
     await page.screenshot({ path: 'test-results/thread-access-dialog.png' })
@@ -512,7 +516,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await accountsDialog.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('button', { name: 'Retry', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
-    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Completed')
+    await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Finished')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
     expect(completedIcon.icon).toContain('circle-check')
     // Since the 1.5 sidebar a finished conversation is a green check; the blue dot is one that has not started.
@@ -635,7 +639,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       if (!row) throw Error('No visible timeline anchor')
       return { key: row.dataset.threadRow, offset: Math.round(row.getBoundingClientRect().top - viewportTop) }
     })
-    const expectReadingAnchor = async (tolerance = 0) => expect.poll(() => timeline.evaluate((el, expected) => {
+    // Both positions are rounded from fractions of a pixel, so the same place can read one pixel apart (it did, once
+    // in several runs on Linux: "Expected <= 0, Received 1"). One pixel is that rounding, not a jump.
+    const expectReadingAnchor = async (tolerance = 1) => expect.poll(() => timeline.evaluate((el, expected) => {
       const row = [...el.querySelectorAll<HTMLElement>('.thread-virtual-row')].find(candidate => candidate.dataset.threadRow === expected.key)
       return row ? Math.abs(Math.round(row.getBoundingClientRect().top - el.getBoundingClientRect().top) - expected.offset) : Number.NaN
     }, readingAnchor)).toBeLessThanOrEqual(tolerance)
@@ -691,7 +697,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.screenshot({ path: 'test-results/thread-long-900.png' })
     await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
     await expect(page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first()).toBeVisible()
-    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
+    await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).filter({ visible: true }).first().click()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Sidebar history fixture'))
@@ -725,7 +731,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const savedReadingTop = await timeline.evaluate(el => el.scrollTop)
     await page.getByRole('button', { name: /^History conversation 69/ }).click()
     await mainThreadButton.click()
-    await page.waitForTimeout(700)
     await expect.poll(() => timeline.evaluate((el, top) => Math.abs(el.scrollTop - top), savedReadingTop)).toBeLessThanOrEqual(64)
     const sessionActions = page.getByRole('button', { name: 'Actions for History conversation 69' })
     const actionBounds = await sessionActions.boundingBox()
@@ -761,22 +766,24 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.setViewportSize({ width: 1440, height: 900 })
     const wideGeometry = await page.evaluate(() => {
       const view = document.querySelector('.thread-view')!.getBoundingClientRect()
-      const reading = document.querySelector('.thread-reading-column')!.getBoundingClientRect()
+      const column = document.querySelector('.thread-reading-column')!
+      const reading = column.getBoundingClientRect()
+      const padding = getComputedStyle(column)
       const composer = document.querySelector('.thread-composer-column')!.getBoundingClientRect()
       return {
-        readingWidth: reading.width,
+        // The column's content box: what messages, cards and code are laid out in.
+        readingWidth: reading.width - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight),
         composerWidth: composer.width,
         viewWidth: view.width,
         readingCenterDelta: Math.abs((reading.left + reading.width / 2) - (view.left + view.width / 2)),
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // The 1.5 conversation canvas is 780 px wide, centred, however wide the window is.
-    expect(wideGeometry.readingWidth).toBeGreaterThan(700)
-    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(780)
-    // The floating panels (gaps + borders) narrow the view, so the composer may sit a little inside the reading column.
-    expect(wideGeometry.composerWidth).toBeLessThanOrEqual(wideGeometry.readingWidth)
-    expect(wideGeometry.composerWidth).toBeGreaterThan(wideGeometry.readingWidth - 32)
+    // The conversation canvas is 880 px wide (780 until 1.5.2, widened on the user's request), centred, however wide the window is.
+    expect(wideGeometry.readingWidth).toBeGreaterThan(800)
+    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(880)
+    // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
+    expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)
     // The timeline reserves an 8px scrollbar gutter, so its visual center may
     // differ by half that gutter while remaining aligned with the composer.
@@ -852,9 +859,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitem', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
-    // A finished turn folds its work under one line; opening it shows the one-line action summaries.
+    // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
+    // under the answer. Opening the fold shows the one-line action summaries.
     const fold = page.getByTestId('thread-turn-fold').first()
-    await expect(fold).toHaveText(/^Completed \d+ steps?/)
+    await expect(fold).toHaveText(/^\d+ steps?/)
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
@@ -903,7 +911,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: /^Select workbench panel: / }).click()
     await expect(page.getByRole('menuitemradio', { name: 'Files', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Search', exact: true })).toBeVisible()
-    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toBeVisible()
+    // The Scripts panel left 1.5.0 (product owner, 2026-11-12).
+    await expect(page.getByRole('menuitemradio', { name: 'Scripts', exact: true })).toHaveCount(0)
     await expect(page.getByRole('menuitemradio', { name: 'Android device', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitemradio', { name: 'Browser', exact: true })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) await expect(page.getByRole('menuitemradio', { name: removed, exact: true })).toHaveCount(0)
@@ -959,7 +968,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(latestMessage.getByRole('button')).toHaveCount(0)
     await expect(latestResponse).toHaveClass(/is-final-response/)
     await expect(latestResponse.getByRole('button', { name: 'Copy final response' })).toBeVisible()
-    await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Completed')
+    await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Finished')
     await page.screenshot({ path: 'test-results/thread-message-actions.png' })
     await latestResponse.getByRole('button', { name: 'Copy final response' }).click()
     await expect.poll(() => page.evaluate(() => window.oxe.clipboard.readText())).toContain('A detailed response to verify the conversation history.')
@@ -1032,8 +1041,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const requestDock = page.getByRole('region', { name: 'Pending agent requests' })
     await expect(requestDock.getByText('Allow this memory update?')).toBeVisible()
     await timeline.evaluate(element => { element.scrollTop = 0 })
-    await expect(requestDock.getByRole('button', { name: 'Continue', exact: true })).toBeInViewport()
-    await requestDock.getByRole('button', { name: 'Continue', exact: true }).click()
+    // An MCP request with nothing to fill in is a yes or no, with the words of an approval.
+    await expect(requestDock.getByRole('button', { name: 'Approve', exact: true })).toBeInViewport()
+    await requestDock.getByRole('button', { name: 'Approve', exact: true }).click()
     await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).lastThreadAnswer)).toEqual({ decision: 'accept', content: {} })
     await expect(requestDock).toHaveCount(0)
     await page.evaluate(() => window.oxe.thread!.send('e2e-thread', 'Historical questions fixture'))

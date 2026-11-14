@@ -270,7 +270,18 @@ describe('Claude print conversation', () => {
     writable.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
     await writable.adapter.respondRequest!('plan', { decision: 'accept' })
     expect((writable.turns[0].writes.at(-1) as { response: { response: Record<string, unknown> } }).response.response).not.toHaveProperty('updatedPermissions')
+    // CHAT-9: the conversation leaves plan mode with the CLI, so the switch does not stay on Plan while the agent edits.
+    expect(writable.events).toContainEqual({ type: 'configuration', mode: 'default', confirmed: true })
     await writable.adapter.dispose()
+
+    // A declined plan stays in plan mode.
+    const declined = fixture()
+    await declined.adapter.start({ rootPath: '/project', nativeSessionId: null, access: 'workspace-write', mode: 'plan' }, event => declined.events.push(event))
+    await declined.adapter.send('Plan, then implement')
+    declined.emit(0, { type: 'control_request', request_id: 'plan', request: { subtype: 'can_use_tool', tool_name: 'ExitPlanMode', input: { plan: 'Run echo hi' } } })
+    await declined.adapter.respondRequest!('plan', { decision: 'decline' })
+    expect(declined.events.some(event => event.type === 'configuration' && event.mode !== undefined)).toBe(false)
+    await declined.adapter.dispose()
   })
   it('answers AskUserQuestion in-process and maps full access to the native bypass mode', async () => {
     const f = fixture()
@@ -349,6 +360,20 @@ describe('Claude MCP server status', () => {
 })
 
 describe('Claude session location', () => {
+  it('reports the model the session really runs, from the init message', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => f.events.push(event))
+    await f.adapter.send('Hello')
+    f.emit(0, { type: 'system', subtype: 'init', session_id: 'native-model', model: 'claude-fable-5-2' })
+    expect(f.events.find(event => event.type === 'session')).toMatchObject({ nativeSessionId: 'native-model', model: 'claude-fable-5-2' })
+    // A value that is not a model id is not passed on.
+    const other = fixture()
+    await other.adapter.start({ rootPath: '/project', nativeSessionId: null }, event => other.events.push(event))
+    await other.adapter.send('Hello')
+    other.emit(0, { type: 'system', subtype: 'init', session_id: 'native-odd', model: 'not a model id' })
+    expect(other.events.find(event => event.type === 'session')).toEqual({ type: 'session', nativeSessionId: 'native-odd' })
+  })
+
   it('reports the init directory and the worktree EnterWorktree moved into, and the root again on ExitWorktree', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/project', nativeSessionId: 'native' }, event => f.events.push(event))

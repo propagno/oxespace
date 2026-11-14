@@ -2,6 +2,7 @@ import { app } from 'electron'
 import log from 'electron-log/main.js'
 import { broadcastOxePodEvent, registerOxePodIpc } from '../../ipc/oxepod.ipc'
 import { describeStartupFailure } from '../oxequery/startup-failure'
+import type { AppDatabase } from '../../db'
 import type { OxePodService } from './service'
 
 export interface OxePodHandle {
@@ -11,12 +12,16 @@ export interface OxePodHandle {
   peek(): OxePodService | undefined
 }
 
-/** Registers OxePod's channel. The service itself (the container runtime) is imported on first use. */
-export function startOxePod(): OxePodHandle {
+/**
+ * Registers OxePod's channel. The service itself (the container runtime) is imported on first use, and takes the
+ * app's database then: handing it over at boot imported the whole service into every start.
+ */
+export function startOxePod(db?: AppDatabase): OxePodHandle {
   let loading: Promise<OxePodService> | undefined
   let ready: OxePodService | undefined
   const load = (): Promise<OxePodService> => {
-    loading ??= Promise.all([import('./service'), import('../../runtime/execution-host')]).then(([{ OxePodService }, { LocalExecutionHost }]) => {
+    loading ??= Promise.all([import('./service'), import('../../runtime/execution-host')]).then(([{ OxePodService, setOxePodAppDatabase }, { LocalExecutionHost }]) => {
+      setOxePodAppDatabase(db)
       ready = new OxePodService({ host: new LocalExecutionHost(), emit: broadcastOxePodEvent })
       return ready
     }).catch((error: unknown) => {

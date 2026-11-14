@@ -20,7 +20,7 @@ import { WS_CLOSE } from './websocket'
 export const SUBSCRIBE_FRAME_KEYS = ['type', 'id', 'topic', 'target', 'sinceSeq', 'cursor', 'snapshotOnly'] as const
 
 /** What this desktop's hello lists beyond the version (1.5.0 F10; MOBILE F1, TECH LEAD 08/11). Server to phone only. */
-export const DESKTOP_FEATURES = ['terminal.snapshotOnly', 'pane.conversation'] as const
+export const DESKTOP_FEATURES = ['terminal.snapshotOnly', 'pane.conversation', 'terminal.resize'] as const
 
 export type AuthOutcome = { ok: true; deviceId: string; expiresAt: number; result: RemoteAuthResult } | { ok: false; code: RemoteErrorCode; reason?: RemoteErrorReason }
 

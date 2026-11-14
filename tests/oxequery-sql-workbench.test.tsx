@@ -275,7 +275,7 @@ describe('SqlWorkbench', () => {
     it('shows the statement time and offers no more rows than the connection may read', async () => {
       render(<SqlWorkbench connection={connection({ ...production, maxRows: 5000 })} />)
       await waitFor(() => expect(api.callsOf('safety.get')).toHaveLength(1))
-      expect(await screen.findByText('30 s')).toBeInTheDocument()
+      expect(await screen.findByText('Timeout 30 s')).toBeInTheDocument()
       const limit = screen.getByLabelText('Limit')
       const offered = within(limit).getAllByRole('option').map(option => option.textContent)
       expect(offered).toEqual(['100 rows', '500 rows', '1,000 rows'])

@@ -86,16 +86,35 @@ function midSentence(text: string): string {
   return /^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text
 }
 
+/**
+ * The first line of the answer that is prose: not a heading, a table row, a rule or what is inside a code fence. An
+ * answer that opens with "## Report" is summed up by its first sentence, not by the word "Report". An answer made only
+ * of headings or code falls back to its first heading.
+ */
+export function firstProseLine(text: string): string {
+  let fenced = false
+  let fallback = ''
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^(```|~~~)/.test(line)) { fenced = !fenced; continue }
+    if (fenced || !line) continue
+    if (/^#{1,6}\s/.test(line) || /^\|.*\|$/.test(line) || /^([-*_=])\1{2,}$/.test(line)) { fallback ||= stripInlineMarkdown(line); continue }
+    // A line that is only an image says nothing in words.
+    if (/^!\[[^\]]*\]\([^)]*\)$/.test(line)) continue
+    const clean = stripInlineMarkdown(line.replace(/^(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/, '').replace(/^>\s*/, ''))
+    if (clean) return clean
+  }
+  return fallback
+}
+
+/** An answer that only says it is over adds nothing to a band that already says "Done". */
+const ONLY_SAYS_DONE = /^(?:done|ok|okay|finished|complete[d]?|feito|pronto|conclu[ií]do|certo)[.!]*$/i
+
 function firstSentence(raw: string, root: string, limit: number): string {
-  const withRelPaths = relativizeInText(redactSecrets(raw), root)
-  const firstLine = withRelPaths
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => Boolean(line) && !line.startsWith('```'))
-    .map(stripInlineMarkdown)
-    .find(Boolean) ?? ''
+  const firstLine = firstProseLine(relativizeInText(redactSecrets(raw), root))
   if (!firstLine) return ''
   const collapsed = firstLine.replace(/\s+/g, ' ')
+  if (ONLY_SAYS_DONE.test(collapsed)) return ''
   const match = /^(.+?[.!?])(?=\s|$)/.exec(collapsed)
   return cutSafe((match ? match[1] : collapsed).replace(/\.+$/, ''), limit)
 }
@@ -164,6 +183,15 @@ export function deriveThreadActivity(
   }
   if (pending.length > 0) {
     const first = pending[0]
+    // A plan to review has its own words in the line: the request's title is whatever the agent called it, in its
+    // language, and read "asks to aprovar o plano?." inside the sentence (CHAT-7).
+    if (first.nativeMethod === 'can_use_tool:ExitPlanMode') return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'plan' }
+    // An MCP server's request is titled with the server's name, which read "asks to oxespace-delegation." in the
+    // line (CHAT-15). It has its own words; a title that is not one name is left out of them.
+    if (first.kind === 'elicitation') {
+      const source = cleanText(first.title, root, 80)
+      return { kind: 'needs-you', at: first.createdAt ?? baseAt, requestId: first.id, reason: 'mcp', ...(source && !/\s/.test(source) ? { text: source } : {}) }
+    }
     const text = midSentence(cleanText(first.title, root, 200))
     return {
       kind: 'needs-you',
@@ -205,9 +233,13 @@ export function deriveThreadActivity(
   const turnStatus = lastTurn?.status ?? thread.lastTurnStatus
 
   if (thread.status === 'interrupted' || turnStatus === 'interrupted') {
+    // A turn the app cut short when it closed is settled with what happened (thread-recovery.service.ts); one the
+    // person stopped is settled with nothing. The status line said "You stopped it" for both.
+    const settled = [...events].reverse().find((event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed')
     return {
       kind: 'paused',
-      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt
+      at: lastTurn?.completedAt ?? lastTurn?.startedAt ?? baseAt,
+      ...(settled?.status === 'interrupted' && settled.error ? { reason: 'app-closed' } : {})
     }
   }
 
@@ -229,19 +261,13 @@ export function deriveThreadActivity(
     }
   }
 
-  // A restore that was not confirmed yet keeps the undone turns in the history, for Redo. They are no longer where the
-  // conversation stands: their answer is not the last word, and when the files went back, neither are their changes.
-  const undoneFrom = thread.rewind ? events.findIndex(event => event.type === 'message' && event.role === 'user' && event.id === thread.rewind!.turnId) : -1
-  const standing = undoneFrom >= 0 ? events.slice(0, undoneFrom) : events
-  const filesWentBack = undoneFrom >= 0 && Boolean(thread.rewind?.redoCheckpointIds?.length)
-
   // Empty new conversation before any message or turn: keep header clean without "Done."
-  if (standing.length === 0) return null
+  if (events.length === 0) return null
 
   const changedFiles = new Set(
-    (filesWentBack ? standing : events).flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
+    events.flatMap(event => event.type === 'tool' && event.files ? event.files.map(file => file.path) : [])
   ).size
-  const lastAssistant = [...standing].reverse().find(
+  const lastAssistant = [...events].reverse().find(
     (event): event is Extract<ThreadEvent, { type: 'message' }> => event.type === 'message' && event.role === 'assistant' && Boolean(event.text.trim())
   )
   const summary = lastAssistant ? firstSentence(lastAssistant.text, root, 200) : ''

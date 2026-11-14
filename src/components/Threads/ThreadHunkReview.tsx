@@ -19,7 +19,9 @@ export function hunkComment(path: string, hunk: ThreadFileHunk, comment: string)
  * back to the agent with a comment. Undo is refused by the main process when
  * the block is no longer in the file, so a stale view never overwrites work.
  */
-export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disabled }: {
+export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disabled, firstOnly = false }: {
+  /** Opened by the conversation itself, not by the person: only the first block, with a way to the rest. */
+  firstOnly?: boolean
   path: string
   loadHunks: () => Promise<ThreadFileHunk[]>
   onUndoHunk: (hunkId: string) => Promise<void>
@@ -32,6 +34,7 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
   const [working, setWorking] = useState<string | null>(null)
   const [commenting, setCommenting] = useState<string | null>(null)
   const [comment, setComment] = useState('')
+  const [all, setAll] = useState(!firstOnly)
   const refresh = () => { void loadHunks().then(setHunks, cause => { setHunks([]); setError(humanizeError(cause, t('hunks.loadFailed'))) }) }
   // Loaded when the review opens and after each undo; the loader is an inline closure.
   useEffect(refresh, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -39,7 +42,7 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
   return <div className="thread-hunk-review" aria-label={t('hunks.label', { path })}>
     {error && <ErrorState compact title={error} />}
     {!hunks.length && !error && <EmptyState compact title={t('hunks.none')} />}
-    {hunks.map((hunk, index) => {
+    {(all ? hunks : hunks.slice(0, 1)).map((hunk, index) => {
       const shown = [...hunk.oldLines.map(line => ['-', line] as const), ...hunk.newLines.map(line => ['+', line] as const)]
       return <section key={hunk.id} className="thread-hunk" aria-label={t('hunks.block', { index: index + 1, total: hunks.length })}>
         <header><span>{hunk.newLines.length ? t('hunks.linesTitle', { from: hunk.newStart + 1, to: hunk.newStart + hunk.newLines.length }) : t('hunks.removedAfter', { line: hunk.newStart })}</span>
@@ -56,5 +59,6 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
         </form>}
       </section>
     })}
+    {!all && hunks.length > 1 && <button type="button" className="thread-change-more" aria-expanded={false} onClick={() => setAll(true)}>{t('hunks.showAll', { count: hunks.length - 1 })}</button>}
   </div>
 }

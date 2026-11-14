@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { launchApp, resizeWindow, type Appearance } from '../helpers/launch'
 import { expectSurface } from '../helpers/visual'
+import { openSettings } from '../helpers/settings'
 
 const THEMES: Appearance[] = ['light', 'dark']
 /**
@@ -16,7 +17,7 @@ for (const theme of THEMES) {
     const { app, page, consoleErrors } = await launchApp({ appearance: theme })
     try {
       await resizeWindow(app, 1280, 800)
-      await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+      await openSettings(page)
       const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
       await expect(settings).toBeVisible()
       for (const [id, label] of PAGES) {

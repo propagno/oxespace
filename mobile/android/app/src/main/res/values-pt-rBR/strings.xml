@@ -283,6 +283,7 @@
     <string name="terminal_size_large">Grande</string>
     <string name="terminal_size_medium">Médio</string>
     <string name="terminal_size_small">Pequeno</string>
+    <string name="terminal_size_taken_back">O computador retomou o tamanho dele para este terminal. Abra de novo para ajustar a este telefone.</string>
     <string name="terminal_text_size">Tamanho do texto</string>
     <string name="terminal_type_on_screen">Digite na visão Tela</string>
     <string name="terminal_input_not_shared">A digitação pelo celular está desligada neste terminal. No computador, ligue “Permitir digitar pelo celular” no menu ⋯ do terminal.</string>

@@ -41,11 +41,12 @@ interface UIState {
   isWorkspaceSettingsOpen: boolean
   slashOverlayPaneId: string | null
   isMcpPanelOpen: boolean
-  isScriptsPanelOpen: boolean
   isSearchPanelOpen: boolean
   isHttpCallsPanelOpen: boolean
   isAndroidPanelOpen: boolean
   isUsageOpen: boolean
+  /** The Schedules dialog (requests sent to an agent at a set time), opened from OxeChat's list. */
+  isSchedulesOpen: boolean
   /** F2 experimental: render the recursive split-tree layout instead of the grid. */
   splitLayoutEnabled: boolean
   /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
@@ -74,8 +75,6 @@ interface UIState {
   closeSlashOverlay: () => void
   openMcpPanel: () => void
   closeMcpPanel: () => void
-  openScriptsPanel: () => void
-  closeScriptsPanel: () => void
   openSearchPanel: () => void
   closeSearchPanel: () => void
   toggleHttpCallsPanel: () => void
@@ -83,6 +82,8 @@ interface UIState {
   toggleAndroidPanel: () => void
   closeAndroidPanel: () => void
   openUsage: () => void
+  openSchedules: () => void
+  closeSchedules: () => void
   closeUsage: () => void
   toggleSplitLayout: () => void
   openWebPreview: (workspaceId: string) => void
@@ -109,11 +110,11 @@ export const useUIStore = create<UIState>((set) => ({
   isWorkspaceSettingsOpen: false,
   slashOverlayPaneId: null,
   isMcpPanelOpen: false,
-  isScriptsPanelOpen: false,
   isSearchPanelOpen: false,
   isHttpCallsPanelOpen: false,
   isAndroidPanelOpen: false,
   isUsageOpen: false,
+  isSchedulesOpen: false,
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
@@ -134,8 +135,6 @@ export const useUIStore = create<UIState>((set) => ({
   closeSlashOverlay: () => set({ slashOverlayPaneId: null }),
   openMcpPanel: () => set({ isMcpPanelOpen: true }),
   closeMcpPanel: () => set({ isMcpPanelOpen: false }),
-  openScriptsPanel: () => set({ isScriptsPanelOpen: true }),
-  closeScriptsPanel: () => set({ isScriptsPanelOpen: false }),
   openSearchPanel: () => set({ isSearchPanelOpen: true }),
   closeSearchPanel: () => set({ isSearchPanelOpen: false }),
   toggleHttpCallsPanel: () => set((s) => ({ isHttpCallsPanelOpen: !s.isHttpCallsPanelOpen })),
@@ -143,6 +142,8 @@ export const useUIStore = create<UIState>((set) => ({
   toggleAndroidPanel: () => set((s) => ({ isAndroidPanelOpen: !s.isAndroidPanelOpen })),
   closeAndroidPanel: () => set({ isAndroidPanelOpen: false }),
   openUsage: () => set({ isUsageOpen: true }),
+  openSchedules: () => set({ isSchedulesOpen: true }),
+  closeSchedules: () => set({ isSchedulesOpen: false }),
   closeUsage: () => set({ isUsageOpen: false }),
   toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),
   openWebPreview: (workspaceId) => set((state) => ({

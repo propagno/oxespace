@@ -139,6 +139,7 @@ export interface MessageParams extends PlaceMessageParams {
   'bundle.file.incidents': Record<string, never>
   'bundle.file.logTail': Record<string, never>
   'bundle.file.runtime': Record<string, never>
+  'bundle.file.performance': Record<string, never>
   'bundle.file.versions': Record<string, never>
   'bundle.file.configuration': Record<string, never>
   // Main-process sentences the window used to receive ready-made in English (C3 sweep).
@@ -324,18 +325,6 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.queue.deliveryUnconfirmed': Record<string, never>
   /** F6 / T76: a queued message cannot steer now (no turn is running, or the provider cannot steer). */
   'thread.steer.unavailable': Record<string, never>
-  /** F8 A30: files changed outside the conversation since the checkpoint's post-image. */
-  'thread.restore.foreignChanges': { count: number; files: string[] }
-  /** F8 A30: branching from a checkpoint into a new worktree. */
-  'thread.branch.unsupported': Record<string, never>
-  'thread.branch.checkpointGone': Record<string, never>
-  'thread.branch.checkpointFailed': Record<string, never>
-  'thread.branch.exists': Record<string, never>
-  'thread.branch.pathExists': { path: string }
-  'thread.branch.baseGone': Record<string, never>
-  'thread.branch.notGit': Record<string, never>
-  'thread.branch.sessionGone': Record<string, never>
-  'thread.branch.failed': { step: 'restore' | 'register' | 'fork' | 'conversation' }
   'oxequery.edit.readOnly': Record<string, never>
   'oxequery.edit.notTable': Record<string, never>
   'oxequery.edit.noKey': Record<string, never>
@@ -657,6 +646,7 @@ export const MESSAGE_CODES = [
   'bundle.file.incidents',
   'bundle.file.logTail',
   'bundle.file.runtime',
+  'bundle.file.performance',
   'bundle.file.versions',
   'bundle.file.configuration',
   'linear.worktree.exists',
@@ -764,16 +754,6 @@ export const MESSAGE_CODES = [
   'thread.observe.changed',
   'thread.queue.deliveryUnconfirmed',
   'thread.steer.unavailable',
-  'thread.restore.foreignChanges',
-  'thread.branch.unsupported',
-  'thread.branch.checkpointGone',
-  'thread.branch.checkpointFailed',
-  'thread.branch.exists',
-  'thread.branch.pathExists',
-  'thread.branch.baseGone',
-  'thread.branch.notGit',
-  'thread.branch.sessionGone',
-  'thread.branch.failed',
   'oxequery.edit.readOnly',
   'oxequery.edit.notTable',
   'oxequery.edit.noKey',

@@ -435,11 +435,12 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
+    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
-    "nativePermissions": "Permissões nativas",
-    "workspaceAccess": "Acesso ao workspace",
+    "nativePermissions": "Pode editar",
+    "workspaceAccess": "Pode editar",
     "readOnly": "Somente leitura",
     "access": "Acesso",
     "readOnlyClaude": "Ler, buscar e responder perguntas. Shell, agentes e ferramentas MCP ficam desativados.",
@@ -495,12 +496,6 @@
       "confirm": "Excluir conversa",
       "description": "Excluir esta conversa do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos.",
       "descriptionNamed": "Excluir “{{name}}” do OXESpace? Um turno em andamento será interrompido. A sessão do provedor e os arquivos do projeto são mantidos."
-    },
-    "rewind": {
-      "title": "Retroceder o último turno?",
-      "confirm": "Retroceder um turno",
-      "description": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint.",
-      "descriptionNamed": "Remove o turno mais recente da conversa nativa. Os arquivos não são revertidos; se precisar, restaure-os de um checkpoint."
     }
   },
   "worktreeFinish": {
@@ -642,12 +637,6 @@
     "summary": "Plano, {{done}} de {{total}} concluídas",
     "summaryNow": "Plano, {{done}} de {{total}} concluídas. Agora: {{current}}",
     "title": "Plano {{done}}/{{total}}"
-  },
-  "dockRewind": {
-    "body_one": "{{count}} turno retrocedido. Ele sai da conversa quando você enviar a próxima mensagem.",
-    "body_many": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
-    "body_other": "{{count}} turnos retrocedidos. Eles saem da conversa quando você enviar a próxima mensagem.",
-    "redo": "Refazer"
   },
   "errors": {
     "action": "Não foi possível concluir a ação.",
@@ -808,12 +797,6 @@
     "closeTitle": "Fechar · Esc"
   },
   "fold": {
-    "label_one": "Concluiu {{count}} passo",
-    "label_many": "Concluiu {{count}} passos",
-    "label_other": "Concluiu {{count}} passos",
-    "labelTimed_one": "Concluiu {{count}} passo em {{duration}}",
-    "labelTimed_many": "Concluiu {{count}} passos em {{duration}}",
-    "labelTimed_other": "Concluiu {{count}} passos em {{duration}}",
     "hide": "Ocultar os passos deste turno",
     "show": "Mostrar todos os passos deste turno",
     "steps_one": "{{count}} passo",
@@ -888,6 +871,9 @@
     "body": "Recuperadas do histórico do provedor. Estas perguntas não podem ser respondidas aqui; nenhuma resposta foi deduzida."
   },
   "hunks": {
+    "showAll_one": "Mostrar mais {{count}} alteração neste arquivo",
+    "showAll_many": "Mostrar mais {{count}} alterações neste arquivo",
+    "showAll_other": "Mostrar mais {{count}} alterações neste arquivo",
     "comment": "Comentário de revisão em `{{path}}` ({{range}}):",
     "lines": "linhas {{from}}–{{to}}",
     "afterLine": "depois da linha {{line}}",
@@ -963,7 +949,10 @@
     "copyFailed": "Não foi possível copiar. Selecione o código para copiá-lo manualmente.",
     "table": "Tabela da mensagem",
     "image": "[Imagem]",
-    "imageAlt": "[Imagem: {{alt}}]"
+    "imageAlt": "[Imagem: {{alt}}]",
+    "diagram": "Diagrama",
+    "showCode": "Ver o código",
+    "showDiagram": "Ver o diagrama"
   },
   "mcpDiagnose": {
     "startsNow": "Inicia agora.",
@@ -1011,7 +1000,6 @@
     "bytesTruncated": "{{bytes}} bytes anexados (cortado)",
     "truncated": "cortado",
     "brief": "Resumo do projeto anexado",
-    "rewoundFilesFailed": "Conversa retrocedida. Os arquivos não foram totalmente restaurados: {{error}}",
     "suggested": "Respostas sugeridas",
     "suggestedHint": "Escolha uma resposta para revisar antes de enviar",
     "quote": "Citar na resposta",
@@ -1085,7 +1073,6 @@
     "git": "Commit e pull request",
     "files": "Arquivos",
     "search": "Buscar nos arquivos",
-    "scripts": "Scripts",
     "worktrees": "Worktrees",
     "background": "Atividade em segundo plano",
     "httpCalls": "Chamadas HTTP",
@@ -1140,7 +1127,7 @@
     "thisConversation": "Esta conversa",
     "wholeProject": "Projeto inteiro",
     "noDecisions": "Nenhuma decisão registrada ainda",
-    "noDecisionsHint": "Aprovações, mudanças de regras, desfazer e retroceder aparecem aqui por 180 dias."
+    "noDecisionsHint": "Aprovações, mudanças de regras e arquivos desfeitos aparecem aqui por 180 dias."
   },
   "plan": {
     "title": "Plano",
@@ -1271,23 +1258,6 @@
   "reviewHost": {
     "title": "Revisão da conversa",
     "resize": "Redimensionar o painel de revisão"
-  },
-  "rewind": {
-    "editTitle": "Retroceder para antes desta mensagem e editá-la",
-    "edit": "Editar",
-    "hereTitle": "Deixa esta mensagem e tudo depois dela de lado; a sua próxima mensagem confirma",
-    "here": "Retroceder até aqui",
-    "confirmEdit": "Confirmar edição",
-    "confirmRewind": "Confirmar retrocesso",
-    "editBody_one": "Para editar esta mensagem, ela e a resposta ficam de lado e o texto volta para o campo de mensagem. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "editBody_many": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "editBody_other": "Para editar esta mensagem, ela e {{count}} turnos ficam de lado e o texto volta para o campo de mensagem. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_one": "Retrocede para antes desta mensagem: ela e a resposta ficam de lado. Elas saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_many": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "rewindBody_other": "Retrocede para antes desta mensagem: ela e {{count}} turnos ficam de lado. Eles saem da conversa, e do histórico do provedor, quando você enviar a próxima mensagem; até lá, Refazer traz tudo de volta.",
-    "restoreFiles": "Restaurar também os arquivos alterados nesses turnos",
-    "rewindAndEdit": "Retroceder e editar",
-    "rewind": "Retroceder"
   },
   "sessionPanel": {
     "sections": {
@@ -1475,8 +1445,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
-    "asksYou": "Pede a você · {{text}}",
-    "asksYouShort": "Pede a você"
+    "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
     "notKept_one": "Não foi possível manter {{count}} seção. O resto da lista está como antes.",
@@ -1558,10 +1527,10 @@
     "byConversation": "Por conversa"
   },
   "status": {
-    "running": "Em execução",
+    "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Interrompida",
+    "interrupted": "Pausada",
     "background": "Em segundo plano",
     "completed": "Concluída",
     "ready": "Pronta"
@@ -1660,12 +1629,20 @@
     "backToBefore": "Este arquivo voltou a ser como era antes do turno.",
     "editedAfter": "Este arquivo foi editado depois do turno, então a alteração do turno não pode mais ser mostrada sozinha. Use Todas as alterações para ver o arquivo como ele está."
   },
+  "planOnly": {
+    "hint": "Em Somente leitura, {{agent}} planeja mas não executa o plano. Para executar, mude o acesso para Pode editar e peça para seguir.",
+    "changeAccess": "Mudar acesso"
+  },
+  "compactFeedback": {
+    "done": "Conversa compactada: o contexto foi de {{before}}% para {{after}}% da janela.",
+    "doneNoNumbers": "Conversa compactada."
+  },
   "turnTiming": {
     "completedBackground": "Turno concluído · {{count}} em segundo plano pendente",
     "completedWarnings": "Concluído com avisos",
     "completed": "Concluído",
     "failed": "Falhou",
-    "interrupted": "Interrompido",
+    "interrupted": "Pausado",
     "actions_one": "{{count}} ação",
     "actions_many": "{{count}} ações",
     "actions_other": "{{count}} ações",
@@ -1792,7 +1769,6 @@
     "loadingGit": "Carregando o Git…",
     "loadingFiles": "Carregando arquivos…",
     "loadingSearch": "Carregando a busca…",
-    "loadingScripts": "Carregando scripts…",
     "loadingBackground": "Carregando a atividade em segundo plano…",
     "loadingPreview": "Carregando a prévia web…",
     "loadingTerminal": "Carregando o terminal…",
@@ -1814,6 +1790,13 @@
     "requestsWaiting_one": "{{count}} pedido está esperando a sua decisão.",
     "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
     "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."
+  },
+  "contextMenu": {
+    "label": "Menu da conversa",
+    "copySelection": "Copiar",
+    "quoteSelection": "Citar na mensagem",
+    "copyMessage": "Copiar a mensagem",
+    "quoteMessage": "Citar a mensagem"
   },
   "side": {
     "title": "Chat lateral",
@@ -1990,6 +1973,7 @@
   "terminalTab": {
     "agent": "Do agente",
     "yours": "Seus",
+    "open": "Abrir no OxeCode",
     "empty": "Ainda não há terminais nos lugares desta conversa."
   },
   "threadTabs": {
@@ -2128,6 +2112,9 @@
   "nowLine": {
     "needsYou": "Precisa de você. {{agent}} pede para {{request}}.",
     "needsYouShort": "Precisa de você. {{agent}} aguarda aprovação.",
+    "needsYouPlan": "Precisa de você. {{agent}} pede que você revise o plano.",
+    "needsYouMcp": "Precisa de você. {{agent}} tem um pedido de {{source}}.",
+    "needsYouInput": "Precisa de você. {{agent}} aguarda a sua resposta.",
     "question_one": "Precisa de você. {{agent}} fez {{count}} pergunta.",
     "question_many": "Precisa de você. {{agent}} fez {{count}} perguntas.",
     "question_other": "Precisa de você. {{agent}} fez {{count}} perguntas.",
@@ -2136,6 +2123,7 @@
     "workingText": "Trabalhando. {{text}}.",
     "workingShort": "Trabalhando.",
     "paused": "Pausada. Você parou. Envie uma mensagem para continuar.",
+    "pausedByClose": "Pausada. O OXESpace fechou antes de este turno terminar. Envie uma mensagem para continuar.",
     "error": "Parou com erro. {{reason}}.",
     "errorShort": "Parou com erro.",
     "ready": "Pronta para revisão. {{summary}}.",
@@ -2202,86 +2190,18 @@
     "exitCode": "saída {{code}}",
     "unknownSince": "Estado desconhecido desde {{time}}",
     "showOutput": "Mostrar saída",
+    "hideOutput": "Ocultar saída",
+    "showEarlier": "Mostrar mais {{count}}",
+    "showFewer": "Mostrar menos",
     "stop": "Parar",
     "stopFromConversation": "Pare pela conversa"
-  },
-  "timeTravel": {
-    "button": "Histórico",
-    "region": "Histórico da conversa",
-    "counts": "{{checkpoints}} checkpoints · {{steps}} passos",
-    "legend": { "checkpoint": "Checkpoint", "step": "Passo", "viewing": "Visualizando", "transcriptOnly": "Só conversa" },
-    "compareWithNow": "Comparar com agora",
-    "backToNow": "Voltar para agora",
-    "sliderLabel": "Linha do tempo da conversa",
-    "close": "Fechar histórico",
-    "noCheckpoints": "Ainda não há checkpoints nesta conversa.",
-    "filesAt_one": "{{count}} arquivo às {{time}}",
-    "filesAt_many": "{{count}} arquivos às {{time}}",
-    "filesAt_other": "{{count}} arquivos às {{time}}",
-    "betweenCheckpoints": "Só a conversa entre checkpoints",
-    "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
-    "cantGoBackNone": "Nada irreversível até aqui (só esta conversa).",
-    "cantGoBackList": "Não dá para voltar, pelo menos: {{items}} (só esta conversa).",
-    "cantGoBackMore": "Não dá para voltar, pelo menos: {{items}} e mais (só esta conversa).",
-    "cantGoBackKind": {
-      "containers_one": "{{count}} contêiner removido",
-      "containers_many": "{{count}} contêineres removidos",
-      "containers_other": "{{count}} contêineres removidos",
-      "dbWrites_one": "{{count}} escrita em banco",
-      "dbWrites_many": "{{count}} escritas em banco",
-      "dbWrites_other": "{{count}} escritas em banco",
-      "pushes_one": "{{count}} push",
-      "pushes_many": "{{count}} pushes",
-      "pushes_other": "{{count}} pushes",
-      "commands_one": "{{count}} outro comando irreversível",
-      "commands_many": "{{count}} outros comandos irreversíveis",
-      "commands_other": "{{count}} outros comandos irreversíveis",
-      "httpWrites_one": "{{count}} escrita externa",
-      "httpWrites_many": "{{count}} escritas externas",
-      "httpWrites_other": "{{count}} escritas externas"
-    },
-    "setAside": "Deixados de lado se você restaurar aqui",
-    "restoreTo": "Restaurar para {{target}}",
-    "restoreDisabledLabel": "Restaurar para o checkpoint",
-    "branchButton": "Ramificar numa nova worktree",
-    "branchUnsupported": "Indisponível no {{agent}}",
-    "restoreConfirmTitle": "Restaurar este checkpoint",
-    "restoreConfirmBody": "Restaurar para {{time}}? As mensagens seguintes ficam de lado; Refazer funciona até a sua próxima mensagem.",
-    "alsoRestoreFiles": "Restaurar também os arquivos",
-    "cancel": "Cancelar",
-    "restoreAction": "Restaurar",
-    "foreignTitle": "Arquivos alterados desde {{time}}",
-    "foreignBody_one": "{{count}} arquivo mudou fora desta conversa. Restaurar sobrescreve esse arquivo; Refazer traz a sua versão de volta.",
-    "foreignBody_many": "{{count}} arquivos mudaram fora desta conversa. Restaurar sobrescreve esses arquivos; Refazer traz a sua versão de volta.",
-    "foreignBody_other": "{{count}} arquivos mudaram fora desta conversa. Restaurar sobrescreve esses arquivos; Refazer traz a sua versão de volta.",
-    "restoreOverThem": "Restaurar por cima deles",
-    "branchTitle": "Ramificar numa nova worktree",
-    "branchDescription": "{{agent}} continua a partir desse momento na nova worktree.",
-    "branchNameLabel": "Nome da branch",
-    "branchAction": "Ramificar",
-    "tryAgain": "Tentar de novo",
-    "refusal": {
-      "pathExists": "Já existe uma pasta em {{path}}. Escolha outro nome de branch.",
-      "exists": "Já existe uma branch com esse nome. Escolha outro nome de branch.",
-      "unsafeName": "Escolha um nome de branch válido no git.",
-      "baseGone": "O commit do qual este checkpoint partiu não existe mais, então não dá para ramificar.",
-      "notGit": "A pasta desta conversa não é um repositório git, então não dá para ramificar.",
-      "sessionGone": "A sessão de {{agent}} para esta conversa não existe mais, então a branch não pode continuá-la.",
-      "checkpointGone": "Este checkpoint não está mais disponível.",
-      "checkpointFailed": "Só a conversa: os arquivos deste checkpoint não foram salvos.",
-      "failedRestore": "Não foi possível copiar os arquivos do checkpoint para a nova worktree; nada foi mantido.",
-      "failedRegister": "Não foi possível adicionar a nova worktree como um workspace; nada foi mantido.",
-      "failedFork": "{{agent}} não conseguiu continuar a sessão a partir desse momento; nada foi mantido.",
-      "failedConversation": "Não foi possível abrir a nova conversa; nada foi mantido."
-    }
   },
   "toolPanels": {
     "addTool": "+ Ferramenta",
     "browser": "Navegador",
     "android": "Dispositivo Android",
     "files": "Arquivos",
-    "search": "Busca",
-    "scripts": "Scripts"
+    "search": "Busca"
   },
   "f7": {
     "card": {
@@ -2376,5 +2296,115 @@
         "redirect": "Sempre permitir não é oferecido para comandos que redirecionam a saída para arquivos."
       }
     }
+  },
+  "schedules": {
+    "title": "Agendamentos",
+    "description": "Pedidos que o OXESpace envia sozinho a um agente, na hora marcada, com o app aberto. Cada execução abre uma conversa nova.",
+    "new": "Novo agendamento",
+    "newTitle": "Novo agendamento",
+    "editTitle": "Alterar agendamento",
+    "formDescription": "O que pedir, a qual agente, em qual projeto e quando.",
+    "name": "Nome",
+    "namePlaceholder": "Revisão da manhã",
+    "project": "Projeto",
+    "chooseProject": "Escolha um projeto",
+    "folder": "Pasta",
+    "agent": "Agente",
+    "access": "Acesso",
+    "accessRead": "Só leitura",
+    "accessWrite": "Pode editar",
+    "accessReadHint": "Lê o projeto e responde. Não muda nada.",
+    "accessWriteHint": "Pode mudar arquivos do projeto, sem ninguém olhando. Comandos continuam pedindo.",
+    "prompt": "Pedido",
+    "promptPlaceholder": "Revise o que mudou desde ontem e liste o que precisa de atenção.",
+    "when": "Quando",
+    "kind": {
+      "daily": "Em dias, numa hora",
+      "hours": "A cada tantas horas",
+      "once": "Uma vez"
+    },
+    "time": "Hora",
+    "days": "Dias da semana",
+    "every": "A cada (horas)",
+    "everyHint": "De 1 a 24. No máximo 24 execuções por dia.",
+    "onceAt": "Data e hora",
+    "catchUp": "Rodar quando o OXESpace abrir, se ele estava fechado na hora",
+    "catchUpOn": "No máximo uma execução é recuperada, por mais que tenham vencido com o app fechado ou o computador suspenso.",
+    "catchUpOff": "Uma execução que venceu com o app fechado ou o computador suspenso não é feita. O histórico diz que foi perdida.",
+    "preview": "Primeira execução: {{when}} · {{agent}} · {{access}} · {{project}}",
+    "back": "Voltar",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "saved": "{{name}} salvo",
+    "confirmWriteTitle": "Deixar mudar arquivos sem ninguém olhando?",
+    "confirmWriteDetail": "\"{{name}}\" vai rodar o {{agent}} em {{project}} com permissão para editar arquivos, em horas em que você pode não estar no computador. As mudanças podem ser desfeitas na conversa que ele abre.",
+    "confirmWrite": "Salvar agendamento",
+    "confirmWriteAck": "Entendo que ele vai mudar arquivos deste projeto sem me perguntar antes.",
+    "pauseAll": "Pausar todos",
+    "pauseAllHint": "Nada roda enquanto isto estiver ligado.",
+    "pausedNotice": "Todos os agendamentos estão pausados. Nada roda até você desligar isto; o que vencer enquanto isso conta como perdido.",
+    "emptyTitle": "Nenhum agendamento ainda",
+    "emptyDetail": "Um agendamento pede a mesma coisa a um agente todo dia, a cada tantas horas ou uma vez, na hora que você escolher.",
+    "needProject": "Adicione antes um projeto ao OxeChat: um agendamento roda num projeto.",
+    "off": "Desligado",
+    "done": "Concluído",
+    "stoppedAfterFailures": "Parado pelo OXESpace",
+    "stoppedDetail_one": "Ele não conseguiu iniciar {{count}} vez seguida, e o OXESpace o desligou. Veja o motivo no histórico e ligue de novo.",
+    "stoppedDetail_many": "Ele não conseguiu iniciar {{count}} vezes seguidas, e o OXESpace o desligou. Veja o motivo no histórico e ligue de novo.",
+    "stoppedDetail_other": "Ele não conseguiu iniciar {{count}} vezes seguidas, e o OXESpace o desligou. Veja o motivo no histórico e ligue de novo.",
+    "enabledLabel": "Rodar {{name}} na hora marcada",
+    "runNow": "Rodar {{name}} agora",
+    "edit": "Alterar {{name}}",
+    "remove": "Apagar {{name}}",
+    "removeTitle": "Apagar \"{{name}}\"?",
+    "removeDetail": "O agendamento e o histórico dele são apagados. As conversas que as execuções abriram ficam.",
+    "removeConfirm": "Apagar agendamento",
+    "next": "Próxima: {{when}}",
+    "noNext": "Sem data marcada",
+    "last": "Última: {{when}}, {{outcome}}",
+    "openConversation": "Abrir a conversa",
+    "history": "Histórico",
+    "historyTitle": "Execuções de \"{{name}}\"",
+    "projectGone": "projeto removido",
+    "runFailed": "{{name}} não iniciou",
+    "rule": {
+      "once": "Uma vez, {{when}}",
+      "everyDay": "Todo dia às {{time}}",
+      "weekdays": "Dias úteis às {{time}}",
+      "days": "{{days}} às {{time}}",
+      "hours_one": "A cada hora",
+      "hours_many": "A cada {{count}} horas",
+      "hours_other": "A cada {{count}} horas"
+    },
+    "outcome": {
+      "started": "iniciou",
+      "failed": "não iniciou",
+      "failedWith": "não iniciou: {{reason}}",
+      "missed": "perdida, o OXESpace não estava aberto",
+      "skipped-busy": "pulada, a execução anterior ainda estava trabalhando",
+      "skipped-limit": "pulada, o limite do dia foi atingido"
+    },
+    "refusal": {
+      "name": "Dê um nome ao agendamento.",
+      "prompt": "Escreva o que pedir.",
+      "provider": "Escolha um agente.",
+      "project": "Escolha um projeto que o OxeChat ainda tenha.",
+      "access": "Escolha Só leitura ou Pode editar.",
+      "time": "Escolha uma hora.",
+      "days": "Escolha pelo menos um dia.",
+      "every": "Escolha um número inteiro de horas, de 1 a 24.",
+      "past": "Essa hora já passou.",
+      "unconfirmedWrite": "Confirme que ele pode mudar arquivos.",
+      "rule": "Escolha quando ele roda.",
+      "unknown": "Esse agendamento não existe mais.",
+      "tooMany": "Já há tantos agendamentos quanto o OXESpace guarda.",
+      "other": "Não foi possível salvar ({{code}})."
+    },
+    "notice": {
+      "started": "O agendamento \"{{name}}\" começou",
+      "failed": "O agendamento \"{{name}}\" não conseguiu iniciar",
+      "see": "Ver agendamentos"
+    },
+    "footnote": "Os agendamentos só rodam com o OXESpace aberto. Nunca rodam com acesso total nem sem aprovações, e um agente não consegue criar um."
   }
 }

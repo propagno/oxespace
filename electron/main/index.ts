@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
+import { APP_VERSION } from './services/app-info'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy } from './renderer-recovery'
@@ -73,6 +74,7 @@ import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { registerAndroidIpc } from './ipc/android.ipc'
+import { startSchedules } from './services/schedules'
 import { AndroidAgentAccess, AndroidDevices } from './services/android/android-devices'
 import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
 import { mainMessage } from '../../shared/messages'
@@ -197,7 +199,10 @@ async function registerIpcHandlers(): Promise<() => void> {
       }
     }
   })
-  registerAndroidIpc({ devices: androidDevices, access: androidAccess })
+  // The Android panel opens pairing through the gateway, which is registered further down.
+  const remotePairing: { start?: () => Promise<{ uri: string; expiresAt: number }> } = {}
+  registerAndroidIpc({ devices: androidDevices, access: androidAccess, startPairing: () => remotePairing.start ? remotePairing.start() : Promise.reject(new Error('Pairing is not ready yet')),
+    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } } })
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -310,6 +315,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
       }
     },
+    emitSizeLease: (event) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.sizeLeaseChanged, event) }, // a phone took or gave back a pane's size
     userDataPath: app.getPath('userData')
   })
   
@@ -359,8 +365,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerBackgroundIpc(backgroundManager)
   registerSessionIpc(db)
   // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
-  ;(await import('./services/oxepod/service')).setOxePodAppDatabase(db)
-  const oxePod = (await import('./services/oxepod/startup')).startOxePod()
+  const oxePod = (await import('./services/oxepod/startup')).startOxePod(db)
   oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
   const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
@@ -445,7 +450,9 @@ async function registerIpcHandlers(): Promise<() => void> {
     }
   })
   app.once('before-quit', disposePaneConversationIpc)
-  registerRemoteIpc(db, {
+  // Schedules: the person's requests sent at a set time, through the same calls "New conversation" makes.
+  app.once('before-quit', startSchedules(db, { service: () => threadManager.manager, context: (projectId, rootPath) => threadManager.projects.context(projectId, rootPath) }))
+  remotePairing.start = registerRemoteIpc(db, {
     threads: threadManager.manager, terminals: terminalManager, agentState, paneConversations,
     // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
     agents: {
@@ -461,10 +468,10 @@ async function registerIpcHandlers(): Promise<() => void> {
       },
       onChanged: onAgentsChanged, text: englishText
     }
-  }); app.once('before-quit', registerAppInfoIpc(db))
+  }).startPairing; app.once('before-quit', registerAppInfoIpc(db))
   registerCopilotIpc()
   const creditsService = registerAgentCreditsIpc()
-  const contextUsageService = registerContextUsageIpc()
+  const contextUsageService = registerContextUsageIpc(undefined, (paneId, provider) => { const own = paneAgentSessions.current(paneId); return own && own.agent === provider ? own.sessionId : null }) // A7: the pane's own session
   const oxeService = registerOxeIpc()
   const fileSystemService = registerFileSystemIpc(db)
   registerMcpToolsIpc(db, fileSystemService)
@@ -724,7 +731,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     void startRpcServer({
       db,
       gitHubService,
-      appVersion: app.getVersion(),
+      appVersion: APP_VERSION,
       userDataPath: app.getPath('userData'),
       onError: (error) => log.warn('[rpc] transport error:', error.message)
     })
@@ -946,7 +953,8 @@ const gotLock = singleInstanceDisabled({
 if (!gotLock) {
   app.quit()
 } else {
-  startRuntimeDiagnostics(join(app.getPath('userData'), 'diagnostics'), app.getVersion())
+  const diagnosticsDir = join(app.getPath('userData'), 'diagnostics')
+  startRuntimeDiagnostics(diagnosticsDir, APP_VERSION)
   app.on('child-process-gone', (_event, details) => {
     recordRuntime('child-gone', { kind: details.type, state: details.reason, exitCode: details.exitCode })
   })
@@ -957,11 +965,9 @@ if (!gotLock) {
     markAppReady()
     const deferredInit = await measureStartup('ipc-handlers', registerIpcHandlers)
     const mainWindow = trackWindowStartup(measureStartup('window-create', createMainWindow))
-    // Kick off the heavy, non-critical startup work once the window is painting.
-    // Idempotent + fallback: if ready-to-show never fires (renderer fails to load,
-    // render-process-gone, or a slow first paint), a 3s timer still runs the
-    // deferred init so the internal MCP server / config sync don't silently never
-    // start. setImmediate yields so the first frame lands before the heavy work.
+    // Kick off the heavy, non-critical startup work once the window is painting. Idempotent + fallback: if ready-to-show
+    // never fires (load failure, render-process-gone, slow first paint), a 3s timer still runs the deferred init so the
+    // internal MCP server / config sync always start. setImmediate yields so the first frame lands before the heavy work.
     let kicked = false
     const kick = (): void => {
       if (kicked) return

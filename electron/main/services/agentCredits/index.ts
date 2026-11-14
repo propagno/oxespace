@@ -1,14 +1,14 @@
 import type { AgentProvider } from '../../../../shared/types/agent'
 import { emptyAgentCredits, type AgentCreditsSnapshot } from '../../../../shared/types/agentCredits'
+import { AntigravityCreditsService } from './antigravityCredits.service'
 import { ClaudeCreditsService } from './claudeCredits.service'
 import { CodexCreditsService } from './codexCredits.service'
 import type { AgentCreditsProvider } from './types'
 
 /**
  * Dispatches per-provider quota lookups. Mirrors `CopilotCreditsService` but for
- * the agents whose credits the app now surfaces (Claude, Codex). Copilot keeps
- * its own dedicated service/channel. Antigravity has no machine-readable source
- * yet, so it's intentionally absent → callers get `available: false`.
+ * the agents whose credits the app now surfaces (Claude, Codex, Antigravity). Copilot keeps
+ * its own dedicated service/channel. A provider with no reader gets `available: false`.
  */
 export class AgentCreditsService {
   private readonly providers: Map<AgentProvider, AgentCreditsProvider>
@@ -18,7 +18,8 @@ export class AgentCreditsService {
   constructor(providers?: AgentCreditsProvider[]) {
     const defaults: AgentCreditsProvider[] = providers ?? [
       new ClaudeCreditsService(),
-      new CodexCreditsService()
+      new CodexCreditsService(),
+      new AntigravityCreditsService()
     ]
     this.providers = new Map(defaults.map((p) => [p.provider, p]))
   }

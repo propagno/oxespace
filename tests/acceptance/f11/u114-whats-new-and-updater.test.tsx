@@ -1,8 +1,9 @@
 // Frozen acceptance test for 1.5.0 A39 on screen (DESIGN U11.4, OXE program, phase F11, task FE-A39). Written by the
 // planner; the executor must not edit it. Spec: .claude/roadmap-1.4/team/plans/1.5.0-f11-design.md (U11.4).
 // Window only (BACKEND #724: What's new and the updater's hold are the window's). The renderer parts:
-// - WhatsNewDialog({ onClose(), onOpen(target: 'browser' | 'approvals' | 'httpCalls' | 'timeTravel') }) in
-//   src/components/Updates/WhatsNewDialog.tsx (U1 md, four rows, one Open each);
+// - WhatsNewDialog({ onClose(), onOpen(target: 'browser' | 'approvals' | 'httpCalls') }) in
+//   src/components/Updates/WhatsNewDialog.tsx (U1 md, three rows, one Open each). Changed on 2026-11-12 by the product
+//   owner's decision: time travel left 1.5.0, and its row ("Go back to any checkpoint, or branch from it.") with it;
 // - the Help menu item help.whats-new (MENU_ACTION_IDS, src/components/Navigation/appMenus.ts);
 // - useWhatsNew (zustand: { open, show(), close() }) and WhatsNewHost() in src/components/Updates/whatsNew.tsx: the dialog
 //   opens only when asked (Help, About, or the F2 band's dialog link "See what's new"), never by itself;
@@ -34,7 +35,7 @@ async function chip() {
 afterEach(async () => { cleanup(); await changeLanguage('en') })
 
 describe("U11.4 · What's new and the updater", () => {
-  test("What's new shows four rows, one per pillar, each with its line and an Open that lands on its screen", async () => {
+  test("What's new shows three rows, each with its line and an Open that lands on its screen", async () => {
     const { WhatsNewDialog } = await load<{ WhatsNewDialog: (props: Row) => JSX.Element }>('src/components/Updates/WhatsNewDialog')
     const onOpen = vi.fn()
     render(<WhatsNewDialog onClose={vi.fn()} onOpen={onOpen} />)
@@ -42,11 +43,11 @@ describe("U11.4 · What's new and the updater", () => {
     const lines = [
       ['browser', 'Watch the agent drive your app, on desktop or a phone size.'],
       ['approvals', 'Approve with the impact in front of you; irreversible steps hold.'],
-      ['httpCalls', 'Every HTTP call your agents made, with secrets masked.'],
-      ['timeTravel', 'Go back to any checkpoint, or branch from it.']
+      ['httpCalls', 'Every HTTP call your agents made, with secrets masked.']
     ]
     const opens = within(dialog).getAllByRole('button', { name: /^Open/ })
-    expect(opens).toHaveLength(4)
+    expect(opens).toHaveLength(3)
+    expect(within(dialog).queryByText(/checkpoint/i)).toBeNull()
     for (const [index, [target, line]] of lines.entries()) {
       expect(within(dialog).getByText(line)).toBeInTheDocument()
       await userEvent.click(opens[index])
@@ -85,7 +86,8 @@ describe("U11.4 · What's new and the updater", () => {
     const { WhatsNewDialog } = await load<{ WhatsNewDialog: (props: Row) => JSX.Element }>('src/components/Updates/WhatsNewDialog')
     render(<WhatsNewDialog onClose={vi.fn()} onOpen={vi.fn()} />)
     const dialog = await screen.findByRole('dialog', { name: 'Novidades da 1.5' })
-    expect(within(dialog).getByText('Volte a qualquer checkpoint ou ramifique a partir dele.')).toBeInTheDocument()
+    expect(within(dialog).getByText('Cada chamada HTTP feita pelos agentes, com segredos ocultos.')).toBeInTheDocument()
+    expect(within(dialog).queryByText(/checkpoint/i)).toBeNull()
     const view = await chip()
     expect(view(state({ status: 'downloaded' }), { criticalHold: false })).toEqual({ label: 'Reinicie para atualizar', actions: ['Reiniciar agora', 'Depois'] })
     expect(view(state({ status: 'downloading', progress: 7 }), { criticalHold: false })?.label).toBe('Baixando 1.5.0… 7%')

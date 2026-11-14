@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 102
+export const LATEST_DB_VERSION = 104
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -542,6 +542,8 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 100) db.transaction(() => db.exec(readMigration('100_container_starts.sql')))()
   if (startingVersion < 101) db.transaction(() => db.exec(readMigration('101_feature_usage.sql')))()
   if (startingVersion < 102) db.transaction(() => db.exec(readMigration('102_outgoing_hosts.sql')))()
+  if (startingVersion < 103) db.transaction(() => db.exec(readMigration('103_person_action_audit_android_actions.sql')))()
+  if (startingVersion < 104) db.transaction(() => db.exec(readMigration('104_schedules.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

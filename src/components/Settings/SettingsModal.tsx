@@ -1,4 +1,5 @@
 import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X } from 'lucide-react'
+import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessSettings'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
@@ -511,6 +512,7 @@ function ProvidersSettingsSection({
           {t('providers.newCustomAgent')}
         </Button>
 
+        <NewConversationAccessSetting />
         <IdleConversationsSetting />
       </div>
     </section>
@@ -749,6 +751,7 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             />
           </div>
 
+          <AgentsFullAccessSetting />
           {resumeBypass !== null && <div className="settings-toggle-row">
             <span>
               <strong>{t('terminal.resumeBypass')}</strong>

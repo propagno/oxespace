@@ -88,6 +88,23 @@ describe('attention derived from the activity store', () => {
     useTerminalStore.setState({ panes: { p: { status: 'error', error: 'boom' }, q: { status: 'running', agentState: 'working' } } as never })
     expect(useActivityStore.getState().live.code).toEqual({ p: 'failed', q: 'working' })
   })
+
+  it('counts agents as working, not a plain shell that is busy', () => {
+    useWorkspaceStore.setState({ workspaces: [{ id: 'ws', panes: [
+      { id: 'shell', type: 'terminal' },
+      { id: 'given', type: 'terminal', agentProfileId: 'claude' },
+      { id: 'named', type: 'terminal', agentName: 'Reviewer' },
+      { id: 'byHand', type: 'terminal' },
+    ] }] as never })
+    useTerminalStore.setState({ panes: {
+      shell: { status: 'running', isWorking: true },
+      given: { status: 'running', isWorking: true },
+      named: { status: 'running', isWorking: true },
+      byHand: { status: 'running', agentState: 'working' },
+    } as never })
+    expect(useActivityStore.getState().live.code).toEqual({ given: 'working', named: 'working', byHand: 'working' })
+    expect(summarizeAttention(useActivityStore.getState().live).code.working).toBe(3)
+  })
 })
 
 describe('activity producers', () => {

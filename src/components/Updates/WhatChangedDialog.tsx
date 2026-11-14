@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dialog } from '../../ui/Overlay'
+import { AlertTriangle, ArrowRight, FileArchive } from 'lucide-react'
 import { Button } from '../../ui/Button'
+import styles from './WhatChangedDialog.module.css'
 import { useWhatsNew } from './whatsNew'
 import type { DataExportState, RemovedFeatureId } from '../../../shared/types/ipc'
 
@@ -175,33 +177,23 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
     destination: t('updates.removedFeatures.skillsManager.dest')
   })
 
-  const basename = state?.file ? state.file.split(/[\\/]/).pop() ?? state.file : null
+  const basename = state?.file ? state.file.split(/[\/]/).pop() ?? state.file : null
   const handleSeeWhatsNew = (): void => { void handleClose(); useWhatsNew.getState().show() }
 
-  let footerContent: ReactNode
+  // Where the data went: one box under the table, then the buttons that act on it in the footer.
+  let saved: ReactNode
   if (state?.error) {
-    footerContent = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-        <p>
-          {`${t('updates.removedFeatures.errorPrefix')} ${state.error}. ${t('updates.removedFeatures.errorSuffix')}`}
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
-            {t('updates.removedFeatures.seeWhatsNew')}
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleTryNow}>
-            {t('updates.removedFeatures.tryNow')}
-          </Button>
-          <Button variant="primary" size="sm" onClick={handleClose}>
-            {t('updates.removedFeatures.close')}
-          </Button>
-        </div>
+    saved = (
+      <div className={styles.saved} data-intent="warning">
+        <AlertTriangle size={16} aria-hidden="true" className={styles.savedIcon} />
+        <p>{`${t('updates.removedFeatures.errorPrefix')} ${state.error}. ${t('updates.removedFeatures.errorSuffix')}`}</p>
       </div>
     )
   } else if (state?.file) {
     const hasAutomations = removedIds.has('automations')
-    footerContent = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+    saved = (
+      <div className={styles.saved}>
+        <FileArchive size={16} aria-hidden="true" className={styles.savedIcon} />
         <p>
           <span>{t('updates.removedFeatures.savedPrefix')} </span>
           <code title={state.file}>{basename}</code>
@@ -211,40 +203,42 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
               : t('updates.removedFeatures.savedMemoriesRequests')}
           </span>
         </p>
-        <p>
-          {t('updates.removedFeatures.secretsNote')}
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
-            {t('updates.removedFeatures.seeWhatsNew')}
-          </Button>
+        <p className={styles.note}>{t('updates.removedFeatures.secretsNote')}</p>
+      </div>
+    )
+  } else {
+    saved = (
+      <div className={styles.saved}>
+        <FileArchive size={16} aria-hidden="true" className={styles.savedIcon} />
+        <p>{t('updates.removedFeatures.nothingNeededSaving')}</p>
+      </div>
+    )
+  }
+
+  const footer = (
+    <>
+      <Button variant="ghost" size="sm" data-align="start" onClick={handleSeeWhatsNew}>
+        {t('updates.removedFeatures.seeWhatsNew')}
+      </Button>
+      {state?.error ? (
+        <Button variant="secondary" size="sm" onClick={handleTryNow}>
+          {t('updates.removedFeatures.tryNow')}
+        </Button>
+      ) : state?.file ? (
+        <>
           <Button variant="secondary" size="sm" onClick={handleOpen}>
             {t('updates.removedFeatures.open')}
           </Button>
           <Button variant="secondary" size="sm" onClick={handleReveal}>
             {t('updates.removedFeatures.showInFolder')}
           </Button>
-          <Button variant="primary" size="sm" onClick={handleClose}>
-            {t('updates.removedFeatures.close')}
-          </Button>
-        </div>
-      </div>
-    )
-  } else {
-    footerContent = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
-        <p>{t('updates.removedFeatures.nothingNeededSaving')}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" size="sm" onClick={handleSeeWhatsNew}>
-            {t('updates.removedFeatures.seeWhatsNew')}
-          </Button>
-          <Button variant="primary" size="sm" onClick={handleClose}>
-            {t('updates.removedFeatures.close')}
-          </Button>
-        </div>
-      </div>
-    )
-  }
+        </>
+      ) : null}
+      <Button variant="primary" size="sm" onClick={handleClose}>
+        {t('updates.removedFeatures.close')}
+      </Button>
+    </>
+  )
 
   return (
     <Dialog
@@ -253,17 +247,23 @@ export function WhatChangedDialog({ onClose, returnFocusTo, initialState }: What
       onClose={handleClose}
       returnFocusTo={returnFocusTo}
       closeLabel={t('updates.removedFeatures.close')}
-      footer={footerContent}
+      footer={footer}
     >
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <ul className={styles.table}>
+        <li className={styles.head} aria-hidden="true">
+          <span>{t('updates.removedFeatures.columnRemoved')}</span>
+          <span className={styles.arrow} />
+          <span>{t('updates.removedFeatures.columnNow')}</span>
+        </li>
         {rows.map(row => (
-          <li key={row.id} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>{row.feature}</span>
-            <span aria-hidden="true" style={{ opacity: 0.6 }}>→</span>
-            <span>{row.destination}</span>
+          <li key={row.id} className={styles.row}>
+            <span className={styles.feature}>{row.feature}</span>
+            <span className={styles.arrow} aria-hidden="true"><ArrowRight size={13} /></span>
+            <span className={styles.destination}>{row.destination}</span>
           </li>
         ))}
       </ul>
+      {saved}
     </Dialog>
   )
 }

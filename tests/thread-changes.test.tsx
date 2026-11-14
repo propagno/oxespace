@@ -49,7 +49,8 @@ describe('transparent file changes', () => {
     await user.click(screen.getByRole('button', { name: /^Select workbench panel: / }))
     expect(await screen.findByRole('menuitemradio', { name: 'Files' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Search' })).toBeVisible()
-    expect(screen.getByRole('menuitemradio', { name: 'Scripts' })).toBeVisible()
+    // The Scripts panel left 1.5.0 (product owner, 2026-11-12).
+    expect(screen.queryByRole('menuitemradio', { name: 'Scripts' })).toBeNull()
     expect(screen.getByRole('menuitemradio', { name: 'Android device' })).toBeVisible()
     expect(screen.getByRole('menuitemradio', { name: 'Browser' })).toBeVisible()
     for (const removed of ['Session changes', 'Project changes', 'Source control', 'Agents', 'Plan', 'Activity', 'Diagnostics']) expect(screen.queryByRole('menuitemradio', { name: removed })).toBeNull()

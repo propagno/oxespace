@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
+import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -183,26 +184,16 @@ async function timePanelToggle(
   const item = menu.getByRole('menuitemcheckbox', { name: label, exact: true })
   // Opening the menu is setup, not the measured interaction. Right after a workspace opens the rail can
   // still move while terminals mount, and the menu follows it; reopen it once if it went away.
-  let t0: number
   for (let attempt = 0; ; attempt++) {
     if (!await menu.isVisible().catch(() => false)) {
       await page.locator('[data-testid="btn-open-tools"]:visible').click()
       await menu.waitFor({ state: 'visible' })
     }
     await item.waitFor({ state: 'visible' })
-    t0 = await page.evaluate(() => performance.now())
+    await armInputTimer(page, `[data-testid="${panelTestId}"]`, wantVisible)
     try { await item.click({ timeout: 5_000 }); break } catch (error) { if (attempt === 1) throw error }
   }
-  await page.waitForFunction(
-    ({ panelTestId, wantVisible }) => {
-      const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement | null
-      // Resizable panels may be rendered beneath layout wrappers without an
-      // offset parent. Their DOM lifecycle is the reliable completion signal.
-      return wantVisible ? panel !== null : panel === null
-    },
-    { panelTestId, wantVisible }
-  )
-  return await page.evaluate((start) => performance.now() - start, t0)
+  return await readInputTimer(page)
 }
 
 async function timeDomToggle(
@@ -211,17 +202,15 @@ async function timeDomToggle(
   selector: string,
   wantPresent: boolean
 ): Promise<number> {
-  const t0 = await page.evaluate(() => performance.now())
+  await armInputTimer(page, selector, wantPresent)
   await action()
-  await page.waitForFunction(
-    ({ selector, wantPresent }) => (document.querySelector(selector) !== null) === wantPresent,
-    { selector, wantPresent }
-  )
-  return await page.evaluate((start) => performance.now() - start, t0)
+  return await readInputTimer(page)
 }
 
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
-  await page.locator('[data-testid="btn-open-tools"]:visible').focus()
+  // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
+  // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
+  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
   await page.keyboard.press(shortcut)
 }
 
@@ -314,25 +303,20 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
     await commandInput.fill('split')
     const splitCommand = page.locator('[cmdk-item][data-value="cmd-split-vertical"]')
     await splitCommand.waitFor({ state: 'visible' })
-    const splitStarted = await page.evaluate(() => performance.now())
+    await armInputTimerUntil(page, [{ selector: '[data-testid="pane-container"]', countAbove: paneCount }])
     await splitCommand.click()
-    const splitCreated = await page.waitForFunction(
-      (count) => document.querySelectorAll('[data-testid="pane-container"]').length > count,
-      paneCount,
-      { timeout: 5_000 }
-    ).then(() => true).catch(() => false)
-    if (!splitCreated) {
+    const splitCreate = await readInputTimer(page, 5_000).catch(() => null)
+    if (splitCreate === null) {
       const notices = await page.locator('.error-banner').allTextContents()
       throw new Error(`Split pane did not complete: ${notices.join(' | ') || 'no application error reported'}`)
     }
-    const splitCreate = await page.evaluate((start) => performance.now() - start, splitStarted)
     report('shell: create split pane', [splitCreate])
     await page.waitForFunction(
       (count) => [...document.querySelectorAll('[data-testid="terminal-status-label"]')]
         .filter((node) => node.textContent?.trim() === 'running').length > count,
       runningCount
     )
-    const splitRunning = await page.evaluate((start) => performance.now() - start, splitStarted)
+    const splitRunning = await sinceInput(page)
     report('terminal: split→PTY running', [splitRunning])
   } finally {
     await killApp(app, pid)
@@ -355,16 +339,9 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      const started = await page.evaluate(() => performance.now())
+      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
-      await page.waitForFunction(
-        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
-        label
-      )
-      await page.evaluate(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      }))
-      switchTimes.push(await page.evaluate((start) => performance.now() - start, started))
+      switchTimes.push(await readInputTimer(page))
     }
     report('workspace: native A↔B transition', switchTimes)
   } finally {
@@ -440,20 +417,14 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Bounce to the far end of the MRU, then back — 'alpha-repo' is evicted.
       const label = i % 2 === 0 ? 'alpha-repo' : 'delta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      const started = await page.evaluate(() => performance.now())
+      // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
+      // a failed fix.
+      await armInputTimerUntil(page, [
+        { selector: '.ws-group.active', text: label },
+        { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
+      ])
       await target.getByTestId('sidebar-workspace-select').click()
-      await page.waitForFunction(
-        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
-        label
-      )
-      // Wait for a live terminal, not merely a painted shell — a blank-but-fast
-      // terminal would be a failed fix.
-      await page.locator('.workspace-host:not(.workspace-host-hidden)')
-        .getByTestId('terminal-status-label').filter({ hasText: 'running' }).first().waitFor()
-      await page.evaluate(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      }))
-      returnTimes.push(await page.evaluate((start) => performance.now() - start, started))
+      returnTimes.push(await readInputTimer(page))
     }
     report('workspace: evicted A↔D transition', returnTimes)
     await expect.poll(
@@ -550,15 +521,17 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     const usageOpen: number[] = []
     const usageClose: number[] = []
     for (let i = 0; i < modalRepeats; i++) {
-      const started = await page.evaluate(() => performance.now())
-      // Settings restores terminal focus; move to navigation before an app shortcut.
+      // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
+      // the measured interaction is choosing it.
       await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
-      await page.locator('[cmdk-item][data-value="cmd-open-usage"]').click()
-      await page.locator('[data-testid="usage-modal"]').waitFor({ state: 'visible' })
-      usageOpen.push(await page.evaluate((start) => performance.now() - start, started))
+      const usageCommand = page.locator('[cmdk-item][data-value="cmd-open-usage"]')
+      await usageCommand.waitFor({ state: 'visible' })
+      await armInputTimer(page, '[data-testid="usage-modal"]', true)
+      await usageCommand.click()
+      usageOpen.push(await readInputTimer(page))
       usageClose.push(await timeDomToggle(page, () => page.getByTestId('usage-modal').getByRole('button', { name: 'Close' }).click(), '[data-testid="usage-modal"]', false))
     }
     report('modal open:  Usage & limits', usageOpen)
@@ -574,7 +547,6 @@ const PANELS: Array<{ label: string; testId: string; closeButtonName?: string }>
   { label: 'Files', testId: 'workspace-editor-panel' },
   { label: 'Changes', testId: 'workspace-review-panel' },
   { label: 'Worktrees', testId: 'workspace-worktree-panel' },
-  { label: 'Scripts', testId: 'workspace-scripts-panel' },
   { label: 'Find in files', testId: 'workspace-search-panel' },
   { label: 'Browser', testId: 'workspace-web-preview-panel' }
 ]
@@ -850,15 +822,26 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
  * allows it, so the heap is live data), so the budget catches a per-Thread leak or an eager load of history.
  * Budgets are 25% above the baseline measured on the CI platforms (MAIN_MEMORY_BUDGETS_MB); the gate is
  * OXESPACE_PERF_GATE, like the timings above.
+ *
+ * The growth is counted outside V8's young generation. That space grows with how much was allocated during the
+ * burst and stays resident after the collection with nothing live in it, so it measured how busy opening the Threads
+ * was, not what they keep. Measured on CI (run 43145038852, 12/11/2026), first ten Threads then ten more:
+ *   Linux    rss +12.3 then +9.4 MB · young generation +6.5 then +8.8 · outside it 5.8 then 0.6 · live heap 15.0 -> 16.1
+ *   Windows  rss  +9.9 then +16.3 MB · young generation +4.7 then +14.5 · outside it 5.2 then 1.8 · live heap 15.3 -> 16.2
+ * With the whole resident set under a 13 MB budget, Linux read 13.2, 13.6, 13.1, 13.5 and 12.3 MB on one code base.
  */
 const THREAD_COUNT = 10
-/** Baseline x 1.25, rounded up, per platform. RSS and heap are totals; growth is RSS gained while opening the Threads. */
+/**
+ * Per platform. RSS and heap are totals, baseline x 1.25 rounded up. `growth` is the resident set gained while opening
+ * the Threads, outside V8's young generation: baseline x 1.25 is 8 on Linux and 7 on Windows, held one above until
+ * more runs say how much the split itself moves. It was 13 for the whole resident set.
+ */
 const MAIN_MEMORY_BUDGETS_MB: Record<string, { rss: number; heap: number; growth: number }> = {
-  // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC), growth 3.7-9.7 MB.
-  win32: { rss: 211, heap: 22, growth: 13 },
-  // Linux CI runner (ubuntu-24.04), first run: rss 214.8 MB, heap 16.4 MB, growth 5.7 MB.
-  linux: { rss: 270, heap: 22, growth: 13 },
-  default: { rss: 211, heap: 22, growth: 13 }
+  // Windows, 4 runs: rss 162-168 MB, heap 17.0-17.2 MB (after GC). Growth outside the young generation: 5.2 MB.
+  win32: { rss: 211, heap: 22, growth: 8 },
+  // Linux CI runner (ubuntu-24.04), first run: rss 214.8 MB, heap 16.4 MB. Growth outside the young generation: 5.8 MB.
+  linux: { rss: 270, heap: 22, growth: 9 },
+  default: { rss: 211, heap: 22, growth: 8 }
 }
 
 test('memory: main process with 10 Threads open', async () => {
@@ -869,8 +852,13 @@ test('memory: main process with 10 Threads open', async () => {
     mkdirSync(repo, { recursive: true })
     await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible' })
 
-    // The main process after a forced GC (when available): resident set and live JS heap, in MB.
-    const sample = (): Promise<{ rss: number; heap: number; gc: boolean }> => app.evaluate(() => {
+    // The main process after a forced GC (when available): resident set and live JS heap, in MB. On Linux the
+    // resident set is also split into what the process allocated (anon) and what it maps from files (code, database).
+    // `detail` says where the memory is: what V8 holds resident per heap space (a young generation that grew during
+    // a burst of work stays resident with nothing live in it), what it allocated outside the heap, and Buffers.
+    // `young` is what V8's young generation holds resident (its semi-spaces and its large objects), in MB.
+    type Sample = { rss: number; heap: number; gc: boolean; anon: number | null; file: number | null; detail: string; young: number }
+    const sample = (): Promise<Sample> => app.evaluate(() => {
       let gc = false
       try {
         // evaluate() has no require; the builtin loader is on process.
@@ -879,14 +867,44 @@ test('memory: main process with 10 Threads open', async () => {
         collect(); collect(); gc = true
       } catch { /* the heap is then read as is */ }
       const usage = process.memoryUsage()
-      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc }
+      let anon: number | null = null, file: number | null = null
+      try {
+        const status = process.getBuiltinModule('node:fs').readFileSync('/proc/self/status', 'utf8')
+        // Lines read "RssAnon:     123456 kB".
+        const kb = (name: string): number | null => { const line = status.split('\n').find(value => value.startsWith(`${name}:`)); return line ? Number.parseInt(line.slice(name.length + 1), 10) / 1024 : null }
+        anon = kb('RssAnon'); file = kb('RssFile')
+      } catch { /* no /proc: Windows, macOS */ }
+      const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1)
+      const v8 = process.getBuiltinModule('node:v8')
+      const heap = v8.getHeapStatistics()
+      const all = v8.getHeapSpaceStatistics()
+      const spaces = all.filter(space => space.physical_space_size > 512 * 1024)
+        .map(space => `${space.space_name.replace(/_space$/, '')}=${mb(space.physical_space_size)}`).join(' ')
+      const young = all.filter(space => space.space_name === 'new_space' || space.space_name === 'new_large_object_space')
+        .reduce((sum, space) => sum + space.physical_space_size, 0) / 1024 / 1024
+      const detail = `v8 resident=${mb(heap.total_physical_size)} (${spaces}) malloced=${mb(heap.malloced_memory)} external=${mb(usage.external)} buffers=${mb(usage.arrayBuffers)}`
+      return { rss: usage.rss / 1024 / 1024, heap: usage.heapUsed / 1024 / 1024, gc, anon, file, detail, young }
     })
+    // The app's deferred start (index.ts "deferred-init": the internal MCP server, config sync, policy) is still
+    // allocating when the window shows. A fixed wait left part of it inside the measured growth, which is meant to be
+    // what opening the Threads costs. A sample is taken once the resident set stopped moving.
+    const settled = async (): Promise<Sample & { waits: number }> => {
+      let last = await sample()
+      for (let waits = 1; waits <= 16; waits++) {
+        await page.waitForTimeout(750)
+        const next = await sample()
+        if (Math.abs(next.rss - last.rss) < 0.25) return { ...next, waits }
+        last = next
+      }
+      return { ...last, waits: 17 }
+    }
+    const split = (value: Sample): string => value.anon === null || value.file === null ? '' : ` anon=${value.anon.toFixed(1)}MB file=${value.file.toFixed(1)}MB`
 
     const project = await page.evaluate(root => window.oxe.thread!.addProject(root), repo)
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
     await page.waitForTimeout(1_500)
-    const before = await sample()
+    const before = await settled()
 
     const ids = await page.evaluate(async ({ projectId, count }) => {
       const created: string[] = []
@@ -905,17 +923,40 @@ test('memory: main process with 10 Threads open', async () => {
     }
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)
-    const after = await sample()
-    const growth = after.rss - before.rss
+    const after = await settled()
+    const total = after.rss - before.rss
+    const youngGrowth = after.young - before.young
+    const growth = total - youngGrowth
     console.log(
-      `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB ` +
-      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB) rssGrowth=${growth.toFixed(1)}MB gc=${after.gc}`
+      `[RESULT] memory main process, ${THREAD_COUNT} Threads open   rss=${after.rss.toFixed(1)}MB heap=${after.heap.toFixed(1)}MB${split(after)} ` +
+      `(before: rss=${before.rss.toFixed(1)}MB heap=${before.heap.toFixed(1)}MB${split(before)}) rssGrowth=${total.toFixed(1)}MB (young generation ${youngGrowth.toFixed(1)}MB, outside it ${growth.toFixed(1)}MB) gc=${after.gc} ` +
+      `settled after ${before.waits}/${after.waits} waits`
     )
-    const budget = MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
+    console.log(`[RESULT] memory main process, where: before ${before.detail}`)
+    console.log(`[RESULT] memory main process, where: after  ${after.detail}`)
+    // Reported, not budgeted: ten more Threads, every one opened. A cost per Thread shows again in full here; what
+    // the first ten paid once (code compiled on first use, caches, a grown young generation) does not.
+    try {
+      await page.evaluate(async ({ projectId, count }) => {
+        for (let index = 0; index < count; index++) await window.oxe.thread!.create({ projectId, provider: 'claude' })
+      }, { projectId: project.projectId, count: THREAD_COUNT })
+      for (let index = 0; index < THREAD_COUNT * 2; index++) {
+        if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
+        await page.locator('.thread-navigation-item').nth(index).click()
+        await page.locator('.thread-timeline').waitFor()
+      }
+      await page.waitForTimeout(1_500)
+      const again = await settled()
+      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   rss=${again.rss.toFixed(1)}MB heap=${again.heap.toFixed(1)}MB${split(again)} rssGrowth=${(again.rss - after.rss).toFixed(1)}MB (young generation ${(again.young - after.young).toFixed(1)}MB, outside it ${(again.rss - after.rss - (again.young - after.young)).toFixed(1)}MB)`)
+      console.log(`[RESULT] memory main process, where: again  ${again.detail}`)
+    } catch (error) {
+      console.log(`[RESULT] memory main process, ${THREAD_COUNT} more Threads   not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    }
+    const budget =MAIN_MEMORY_BUDGETS_MB[process.platform] ?? MAIN_MEMORY_BUDGETS_MB.default
     if (ENFORCE_BUDGETS) {
       expect(after.rss, `main process RSS after ${THREAD_COUNT} Threads (budget ${budget.rss} MB)`).toBeLessThanOrEqual(budget.rss)
       expect(after.heap, `main process heap after ${THREAD_COUNT} Threads (budget ${budget.heap} MB)`).toBeLessThanOrEqual(budget.heap)
-      expect(growth, `main process RSS growth while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
+      expect(growth, `main process RSS growth outside V8's young generation while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
     }
   } finally {
     await killApp(app, pid)

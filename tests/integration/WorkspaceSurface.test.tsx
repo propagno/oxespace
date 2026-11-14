@@ -63,15 +63,6 @@ vi.mock('../../src/components/Workspace/WorkspaceBackgroundPanel', () => ({
   )
 }))
 
-vi.mock('../../src/components/Workspace/WorkspaceScriptsPanel', () => ({
-  WorkspaceScriptsPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
-    <section data-testid="workspace-scripts-panel">
-      <button type="button" onClick={onToggleExpanded}>Expand Scripts</button>
-      <button type="button" onClick={onCollapse}>Collapse Scripts</button>
-    </section>
-  )
-}))
-
 vi.mock('../../src/components/Workspace/WorkspaceWebPreviewPanel', () => ({
   WorkspaceWebPreviewPanel: ({ onCollapse, onToggleExpanded }: { onCollapse: () => void; onToggleExpanded: () => void }) => (
     <section data-testid="workspace-web-preview-panel">
@@ -110,11 +101,9 @@ describe('WorkspaceSurface', () => {
     const surfaceProps = {
       workspace,
       onToggleMaximize: () => undefined,
-      scriptsVisible: false,
       webPreviewVisible: false,
       integrationVisible: false,
       searchVisible: false,
-      onCloseScripts: () => undefined,
       onCloseWebPreview: () => undefined,
       onCloseIntegration: () => undefined,
       onCloseSearch: () => undefined,
@@ -189,20 +178,18 @@ describe('WorkspaceSurface', () => {
     expect(onUpdateEditorState).toHaveBeenCalledWith({ workspaceId: 'workspace-1', editorVisible: false, editorExpanded: false })
   })
 
-  test('renders Scripts and Web Preview as separate workspace regions', async () => {
+  test('renders Web Preview as a workspace region beside the grid', async () => {
     const user = userEvent.setup()
-    const onCloseScripts = vi.fn()
     const onCloseWebPreview = vi.fn()
-    renderSurface(createWorkspace(), { scriptsVisible: true, webPreviewVisible: true, onCloseScripts, onCloseWebPreview })
+    renderSurface(createWorkspace(), { webPreviewVisible: true, onCloseWebPreview })
 
     expect(screen.getByTestId('workspace-grid')).toBeInTheDocument()
-    expect(await screen.findByTestId('workspace-scripts-panel')).toBeInTheDocument()
     expect(await screen.findByTestId('workspace-web-preview-panel')).toBeInTheDocument()
+    // The Scripts panel left 1.5.0 (product owner, 2026-11-12).
+    expect(screen.queryByTestId('workspace-scripts-panel')).toBeNull()
 
-    await user.click(screen.getByText('Collapse Scripts'))
     await user.click(screen.getByText('Collapse Web Preview'))
 
-    expect(onCloseScripts).toHaveBeenCalled()
     expect(onCloseWebPreview).toHaveBeenCalled()
   })
 
@@ -228,11 +215,9 @@ function renderSurface(
       workspace={workspace}
       maximizedPaneId={null}
       onToggleMaximize={() => undefined}
-      scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
       searchVisible={false}
-      onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
       onCloseSearch={() => undefined}
@@ -258,11 +243,9 @@ function ControlledSurface(): ReactElement {
       workspace={workspace}
       maximizedPaneId={null}
       onToggleMaximize={() => undefined}
-      scriptsVisible={false}
       webPreviewVisible={false}
       integrationVisible={false}
       searchVisible={false}
-      onCloseScripts={() => undefined}
       onCloseWebPreview={() => undefined}
       onCloseIntegration={() => undefined}
       onCloseSearch={() => undefined}

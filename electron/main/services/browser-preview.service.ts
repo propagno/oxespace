@@ -2,6 +2,12 @@ import { app, BrowserWindow, clipboard, ClipboardItem, WebContentsView, type Web
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
+import { designSourceProbeScript, sanitizeDesignProbe } from '../../../shared/design-source'
+import { savePreviewCapture } from './browser-preview/preview-capture-store'
+import { previewVerifyNote } from '../../../shared/preview-problems'
+import { redactSecrets } from '../../../shared/secrets'
+import { maskPreviewUrl } from './browser-preview/preview-observe'
+import { setPreviewNoteSource } from './conversation/preview-note'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
 import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
@@ -24,6 +30,8 @@ interface BrowserTab {
   tabId: string
   allowExternal: boolean
   agentAccess: boolean
+  /** With agent access on: the agent is told to check this page after it edits (the Browser's "Auto-verify"). */
+  autoVerify: boolean
   visible: boolean
   lease: string
   defaultUserAgent?: string
@@ -132,7 +140,7 @@ export class BrowserPreviewService {
     if (!tab) {
       const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,...guestProbeWebPreferences()}})
       view.setBackgroundColor('#07080e')
-      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,visible:false,lease:randomUUID()}
+      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
       window.contentView.addChildView(view)
       view.setVisible(false)
@@ -182,6 +190,18 @@ export class BrowserPreviewService {
         }
       })
       view.webContents.on('did-navigate-in-page', (_event,next,isMainFrame) => { if (isMainFrame) inPage = true; emitNavigation(next); if (isMainFrame && isCurrent() && !view.webContents.isLoading()) this.emit(current,{type:'ready'}) })
+      // What the page writes to its console as an error (an uncaught exception, a request that failed): the Browser
+      // counts these since the last load, with or without an agent attached. Electron hands the level as a word in an
+      // event object (and, in older versions, as a number in the second argument).
+      view.webContents.on('console-message', (event: unknown, level?: unknown, message?: unknown, line?: unknown, sourceId?: unknown) => {
+        if (!isCurrent()) return
+        const details = (event && typeof event === 'object' ? event : {}) as { level?: unknown; message?: unknown; lineNumber?: unknown; sourceId?: unknown }
+        if (details.level !== 'error' && level !== 3) return
+        const text = redactSecrets(String(details.message ?? message ?? '')).slice(0, 500)
+        if (!text) return
+        const lineNumber = Number(details.lineNumber ?? line)
+        this.emit(current,{type:'page-error',row:{level:'error',message:text,source:maskPreviewUrl(String(details.sourceId ?? sourceId ?? '')),line:Number.isFinite(lineNumber) ? lineNumber : 0},at:Date.now()})
+      })
       view.webContents.on('page-title-updated', (_event,title) => { if (!isCurrent()) return; meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
       view.webContents.on('did-start-loading', () => { if (!isCurrent()) return; meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
       view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })
@@ -245,11 +265,12 @@ export class BrowserPreviewService {
    * the consent dialog; the window's re-sends on every tab change carry no grant, so they can keep access or lower it
    * but never give back what main revoked. Returns what applies.
    */
-  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean}): {agentAccess:boolean} {
+  setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean;autoVerify?:boolean}): {agentAccess:boolean} {
     if (!input || typeof input.ownerKey !== 'string' || typeof input.tabId !== 'string') throw new Error('Invalid browser access')
     const tab = this.tabs.get(this.key(window,input.ownerKey,input.tabId))
     if (!tab && input.grant !== true) this.find(window,input.ownerKey,input.tabId)
     if (tab) tab.allowExternal = input.allowExternal === true
+    if (tab && typeof input.autoVerify === 'boolean') tab.autoVerify = input.autoVerify
     return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true,tab?.workspaceId)}
   }
   /** Whether main lets agents drive this owner's preview in this window (T43). */
@@ -315,9 +336,9 @@ export class BrowserPreviewService {
       await broker.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: emulation.touch, maxTouchPoints: emulation.touch ? 5 : 0 }).catch(() => {})
     }
   }
-  designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean}): void {
+  designMode(window: BrowserWindow, input: {ownerKey:string;tabId:string;enabled:boolean;keep?:boolean}): void {
     const tab = this.find(window,input.ownerKey,input.tabId)
-    tab.view.webContents.send(DESIGN_MODE_CHANNELS.setEnabled,input.enabled === true)
+    tab.view.webContents.send(DESIGN_MODE_CHANNELS.setEnabled,input.enabled === true,input.enabled === true && input.keep === true)
   }
   setZoom(window: BrowserWindow, input: {ownerKey:string;tabId:string;zoom:number}): void {
     if (!Number.isFinite(input.zoom) || input.zoom < 50 || input.zoom > 150) throw new Error('Invalid browser zoom')
@@ -339,6 +360,17 @@ export class BrowserPreviewService {
     const {x,y,width,height} = input.rect
     if (![x,y,width,height].every(Number.isFinite) || width < 1 || height < 1 || width * height > 4_000_000) throw new Error('Invalid element capture bounds')
     return (await tab.view.webContents.capturePage({x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y)),width:Math.round(width),height:Math.round(height)})).toDataURL()
+  }
+  /** The element's capture for the confirmation sheet, also saved to the app's capture folder: an agent in a terminal is given the path. */
+  async captureElementFile(window: BrowserWindow, input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<{dataUrl:string;path:string|null} | null> {
+    const tab = this.find(window,input.ownerKey,input.tabId)
+    const {x,y,width,height} = input.rect
+    if (![x,y,width,height].every(Number.isFinite) || width < 1 || height < 1 || width * height > 4_000_000) throw new Error('Invalid element capture bounds')
+    const image = await tab.view.webContents.capturePage({x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y)),width:Math.round(width),height:Math.round(height)})
+    if (image.isEmpty()) return null
+    const owner = tab.threadId ?? tab.workspaceId
+    const saved = await savePreviewCapture(join(app.getPath('userData'),'web-preview-captures'), owner, `element-${Date.now().toString(36)}-${randomUUID().slice(0,8)}.png`, image.toPNG()).catch(() => null)
+    return {dataUrl:image.toDataURL(),path:saved?.path ?? null}
   }
   async captureClipboard(window: BrowserWindow, input: {ownerKey:string;tabId:string}): Promise<void> {
     const tab = this.find(window,input.ownerKey,input.tabId)
@@ -379,11 +411,37 @@ export class BrowserPreviewService {
     return {guest:tab.view.webContents,window:tab.window,external:tab.allowExternal,tabId:tab.tabId,sessionId:this.sessionId(ownerKey),ownerKey}
   }
 
+  /**
+   * What a conversation's agent is told with a message while it can see the conversation's preview and Auto-verify is
+   * on: the page's address and how to check a change. Null when there is no such page: no access, Auto-verify off, the
+   * Browser closed or covered, or a page that is not on this machine.
+   */
+  autoVerifyNote(threadId: string): string | null {
+    const ownerKey = `thread:${threadId}`
+    const tab = [...this.tabs.values()].find(item => item.ownerKey === ownerKey && item.threadId === threadId && item.agentAccess && item.autoVerify && item.visible && !item.view.webContents.isDestroyed() && this.hasAgentAccess(item.window, ownerKey))
+    if (!tab) return null
+    try { return previewVerifyNote(checkedUrl(tab.view.webContents.getURL(), false)) } catch { return null }
+  }
   handleDesignMessage(sender: WebContents, type: 'grab'|'cancel', payload?: DesignGrabPayload): void {
     const tab = [...this.tabs.values()].find(item => item.view.webContents === sender)
     if (!tab || !tab.visible) return
-    this.emit(tab,type === 'grab' ? {type,payload} : {type})
+    if (type !== 'grab' || !payload) { this.emit(tab,{type:'cancel'}); return }
+    // Where the element is written is asked in the page's own world (the guest preload cannot see what the frameworks
+    // hang on elements). The page is not trusted: only bounded strings and numbers come back, and the window keeps a
+    // file only when it exists in the project. A page that does not answer in time sends the grab without it.
+    const point = payload.point
+    const { probe: _fromGuest, ...grab } = payload
+    void _fromGuest
+    const asked = point && Number.isFinite(point.x) && Number.isFinite(point.y)
+      ? Promise.race([sender.executeJavaScript(designSourceProbeScript(point.x, point.y)).then(sanitizeDesignProbe, () => null), new Promise<null>(resolve => setTimeout(() => resolve(null), DESIGN_PROBE_TIMEOUT_MS))])
+      : Promise.resolve(null)
+    void asked.then(probe => { if (this.tabs.get(this.key(tab.window, tab.ownerKey, tab.tabId)) === tab && tab.visible) this.emit(tab,{type:'grab',payload:{...grab,probe}}) })
   }
 }
 
+/** How long the page has to say where an element is written before the grab goes without it. */
+const DESIGN_PROBE_TIMEOUT_MS = 800
+
 export const browserPreviewService = new BrowserPreviewService()
+// The conversation asks this once the Browser has been used; before that there is no page to check.
+setPreviewNoteSource(threadId => browserPreviewService.autoVerifyNote(threadId))

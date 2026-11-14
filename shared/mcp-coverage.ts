@@ -22,7 +22,7 @@ export type McpCapability =
   | Base & { forbidden: string }
 
 /** The user's standing rule: these never become MCP tools. Each must be a `forbidden` capability. */
-export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'thread.time_travel', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel', 'settings.feature_usage', 'settings.hosts_proxy'] as const
+export const FORBIDDEN_CAPABILITIES = ['thread.approvals', 'thread.access', 'accounts.sign_in', 'mcp_internal.token', 'oxequery.secrets', 'mcp.server_trust', 'delegation.authorize', 'web_preview.access', 'android.controls', 'git.repo_hook_approval', 'remote.gateway_admin', 'approvals.admin', 'mcp_internal.tool_groups_admin', 'app.open_external', 'mcp.tool_rules_admin', 'policy.accept_change', 'app.open_in', 'code.resume_bypass', 'containers.panel', 'settings.feature_usage', 'settings.hosts_proxy'] as const
 
 /** No tool name or domain action may look like one of these. */
 export const FORBIDDEN_NAME = /approv|permission|access|sign_?in|log_?in|log_?out|token|secret|credential|password|api_?key|trust|host_?key/i
@@ -73,7 +73,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.terminal_input': {
     label: 'Start, type into, resize or stop a terminal',
     excluded: 'Free key input into another terminal. Agents prompt agents with oxespace_agents_change prompt, which refuses one waiting for an approval.',
-    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach']
+    ipc: ['terminal.start', 'terminal.write', 'terminal.resize', 'terminal.stop', 'terminal.restart', 'terminal.attach', 'terminal.detach', 'terminal.sizeLease', 'terminal.sizeLeaseChanged']
   },
   'code.pane_branch': {
     label: 'A pane\'s branch and the branch it started on (switched from)',
@@ -152,7 +152,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
     tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
-      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.close', 'browserPreview.setDevice', 'mcpInternal.captureWebPreview']
+      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.close', 'browserPreview.setDevice', 'mcpInternal.captureWebPreview']
   },
   'web_preview.access': { label: 'Let the preview reach external sites or end an agent browser grant', forbidden: 'Raises or revokes person-controlled access.', ipc: ['browserPreview.setAccess', 'browserPreview.revokeGrant'] },
   'android.screenshot': {
@@ -164,7 +164,17 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
     ipc: ['android.*']
   },
-  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way', forbidden: 'Raises access: only the person turns it on.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass'] },
+  'schedules.admin': {
+    label: 'Create, change, pause, run or delete a schedule',
+    forbidden: 'A schedule sends a request to an agent with no one watching: only the person sets one up. An agent never schedules itself.',
+    ipc: ['schedules.*']
+  },
+  'android.device_actions': {
+    label: 'Install an APK, open a link or send the pairing link to an Android device from the panel',
+    forbidden: 'The person\'s own actions on their device: no MCP tool may install an app, start an activity or pair a phone.',
+    ipc: ['androidActions.*']
+  },
+  'code.resume_bypass': { label: 'Resume Claude sessions that skipped permissions that way; start agents in a terminal without permission prompts', forbidden: 'Raises access: only the person changes it.', ipc: ['terminal.resumeBypass', 'terminal.setResumeBypass', 'terminal.agentsFullAccess', 'terminal.setAgentsFullAccess'] },
 
   // ---- changes and Git ------------------------------------------------------------
   'git.read': {
@@ -245,9 +255,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
   },
   'thread.project_admin': {
-    label: 'Add, relink or hide Thread projects; idle suspension; shell check',
+    label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',
     excluded: 'The person\'s settings.',
-    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.shellCheck']
+    ipc: ['thread.addProject', 'thread.relinkProject', 'thread.setProjectHidden', 'thread.idleSuspendMinutes', 'thread.setIdleSuspendMinutes', 'thread.newConversationAccess', 'thread.setNewConversationAccess', 'thread.shellCheck']
   },
   'thread.sections': {
     label: 'Sections of the conversation list (F13)',
@@ -278,12 +288,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'thread.cockpit': {
     label: 'A conversation\'s tool tabs and background shells (F6)',
     excluded: 'The person\'s window: read models of what a conversation used and left running. Agents see their own tools and shells.',
-    ipc: ['thread.toolTabs', 'thread.toolTabsChanged', 'thread.background', 'thread.backgroundChanged', 'thread.timeline']
-  },
-  'thread.time_travel': {
-    label: 'Restore a conversation to a checkpoint, redo a restore, or branch from a checkpoint into a new worktree (F8)',
-    forbidden: 'Person-only (A30): Restore and Branch rewrite working-tree files or create a worktree and conversation for the person.',
-    ipc: ['thread.rewind', 'thread.redoRewind', 'thread.branchFromCheckpoint']
+    ipc: ['thread.toolTabs', 'thread.toolTabsChanged', 'thread.background', 'thread.backgroundChanged']
   },
   'thread.place_actions': {
     label: 'Answer a branch drift; undo, restore or discard a place\'s changes; read a file of a place (F4)',
@@ -410,7 +415,8 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Diagnostics snapshot, live measurements, problem bundles and reports',
     excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
     ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
-      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary']
+      'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary',
+      'diagnostics.reportPerf']
   },
   'diagnostics.read': {
     label: 'Summary of the incident journal and a snapshot of the app',

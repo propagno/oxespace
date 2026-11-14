@@ -78,7 +78,7 @@ export function registerThreadIpc(
   worktrees?: ThreadWorktreeHost,
   activity?: () => import('../services/agent-activity/read-model').AgentActivity | undefined,
   background?: ThreadBackgroundHost
-): { stop(): Promise<void>; manager: Promise<ThreadManager> } {
+): { stop(): Promise<void>; manager: Promise<ThreadManager>; projects: ThreadProjectService } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
     const ws = db.prepare('SELECT root_path FROM workspaces WHERE id = ?').get(workspaceId) as { root_path: string } | undefined
@@ -147,14 +147,6 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => sides().then(chats => chats.send(sideId, text)))
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
-  ipcMain.handle(IPC_CHANNELS.thread.rewind, (event, id: unknown, turnId: unknown, options: unknown) => {
-    const input = options && typeof options === 'object' && !Array.isArray(options) ? options as Record<string, unknown> : {}
-    if (input.confirmed !== undefined && typeof input.confirmed !== 'boolean') throw new MainRefusal('thread.invalidInput', {})
-    return manager.then(service => service.rewind(string(id), string(turnId), { restoreFiles: input.restoreFiles === true, confirmed: input.confirmed === true }))
-  })
-  ipcMain.handle(IPC_CHANNELS.thread.redoRewind, (event, id: unknown) => {
-    return manager.then(service => service.redoRewind(string(id)))
-  })
   ipcMain.handle(IPC_CHANNELS.thread.retryTurn, (event, id: unknown, turnId: unknown, options: unknown) => {
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
@@ -166,14 +158,6 @@ export function registerThreadIpc(
     return manager.then(service => service.readSinceForRenderer(string(id), { epoch, revision }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.history, (event, id: unknown, before: unknown, limit: unknown) => manager.then(service => service.historyPage(string(id), optionalInteger(before, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER), optionalInteger(limit, 1, 500))))
-  ipcMain.handle(IPC_CHANNELS.thread.timeline, (event, id: unknown) => manager.then(service => service.timeline(string(id))))
-  ipcMain.handle(IPC_CHANNELS.thread.branchFromCheckpoint, (event, id: unknown, checkpointId: unknown, value: unknown) => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new MainRefusal('thread.invalidInput', {})
-    const input = value as Record<string, unknown>
-    const branch = input.branch
-    if (typeof branch !== 'string' || branch.length > 200 || branch.includes('\0') || Object.keys(input).some(key => key !== 'branch')) throw new MainRefusal('thread.invalidInput', {})
-    return manager.then(service => service.branchFromCheckpoint(string(id), string(checkpointId), { branch }))
-  })
   ipcMain.handle(IPC_CHANNELS.thread.attach, (event, id: unknown, input: unknown) => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid attachment')
     const value = input as Record<string, unknown>
@@ -235,7 +219,10 @@ export function registerThreadIpc(
     if (value.provider !== 'codex' && value.provider !== 'claude' && value.provider !== 'antigravity') throw new Error('Invalid thread provider')
     const context = threadProjects.context(string(value.projectId), value.rootPath === undefined ? undefined : string(value.rootPath))
     const service = await manager
-    if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider })
+    // A conversation the person creates starts with the access chosen in Settings. Conversations made on their behalf
+    // (a delegation, a side conversation) set their own.
+    const access = service.newConversationAccess()
+    if (value.worktree === undefined) return service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: value.provider, access })
     // A new branch in its own worktree: registered as another directory of the same project, so the
     // conversation, its panels and its checkpoints all work there. Nothing is kept if any step fails.
     if (!worktrees) throw new Error('Worktrees are unavailable in this session.')
@@ -254,7 +241,7 @@ export function registerThreadIpc(
       threadProjects.addContext(context.projectId, created.rootPath)
       // What creating it reported goes with the conversation: the dialog closes as soon as it opens.
       const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now(), ...(created.notices ? { notices: created.notices.slice(0, 20) } : {}) }
-      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree })
+      return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree, access })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
       await discardThreadWorktree(context.rootPath, created.rootPath, created.branch)
@@ -278,6 +265,8 @@ export function registerThreadIpc(
     return manager.then(service => service.setAutoApproveReads(enabled))
   })
   ipcMain.handle(IPC_CHANNELS.thread.idleSuspendMinutes, event => manager.then(service => service.idleSuspendMinutes()))
+  ipcMain.handle(IPC_CHANNELS.thread.newConversationAccess, event => manager.then(service => service.newConversationAccess()))
+  ipcMain.handle(IPC_CHANNELS.thread.setNewConversationAccess, (event, access: unknown) => manager.then(service => service.setNewConversationAccess(access)))
   ipcMain.handle(IPC_CHANNELS.thread.setIdleSuspendMinutes, (event, minutes: unknown) => {
     if (typeof minutes !== 'number' || !Number.isInteger(minutes)) throw Error('Choose a number of minutes')
     return manager.then(service => service.setIdleSuspendMinutes(minutes))
@@ -390,7 +379,7 @@ export function registerThreadIpc(
   registerThreadPlacesIpc({ manager })
   forwardPlacesChanged({ manager })
   const cockpit = registerThreadCockpitIpc(manager, background)
-  return { manager, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
+  return { manager, projects: threadProjects, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }
 }
 
 /** F6 A19/A22: OXESpace's own background jobs and PR lookup for a conversation. */
@@ -406,7 +395,7 @@ export interface ThreadBackgroundHost {
  */
 function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: ThreadBackgroundHost): { stop(): void } {
   const toolTabs = async (service: ThreadManager, id: string): Promise<ThreadToolTabEntry[]> => {
-    const { thread, tools } = service.readToolSummary(id), seen = new Set<string>()
+    const { tools } = service.readToolSummary(id), seen = new Set<string>()
     const counts = { queries: 0, http: 0, containers: 0 }
     for (const tool of tools) {
       if (seen.has(tool.id)) continue
@@ -416,17 +405,13 @@ function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: 
       else if (kind === 'http') counts.http += 1
       else if (kind === 'container') counts.containers += 1
     }
-    const [places, panes] = await Promise.all([service.places(id).catch(() => null), service.panes(id).catch(() => null)])
-    const place = places?.places.find(entry => entry.current?.branch)
-    const branch = place?.current?.branch ?? thread.ownedWorktree?.branch ?? null
-    const pullRequest = branch && background?.pullRequest
-      ? await background.pullRequest({ rootPath: place?.path ?? thread.rootPath, branch }).catch(() => null)
-      : null
+    // 1.5.2: the Terminal and Pull request tabs left, so neither the panes nor the PR (a gh call) are read for the tabs.
+    const places = await service.places(id).catch(() => null)
     return threadToolTabs({
       summary: { databases: counts.queries, http: counts.http, containers: counts.containers },
       files: places ? places.places.reduce((sum, entry) => sum + entry.files.length, 0) : null,
-      panes: panes ? panes.length : null,
-      pullRequest
+      panes: null,
+      pullRequest: null
     })
   }
   const source = (service: ThreadManager, id: string): BackgroundShellsInput => {

@@ -71,12 +71,13 @@ describe('U6.4 · the background shell', () => {
 })
 
 describe('U6.5 · tools beside the conversation', () => {
-  test('"+ Tool" lists exactly the 5 OxeChat live companion panels (CHAT_TOOLS: Browser, Android device, Files, Search, Scripts), with no Linear, no search by meaning, and no retrospective tab duplicates', async () => {
+  // Changed on 2026-11-12 by the product owner's decision: the Scripts panel left 1.5.0, so the list has four panels.
+  test('"+ Tool" lists exactly the 4 OxeChat live companion panels (CHAT_TOOLS: Browser, Android device, Files, Search), with no Scripts, no Linear, no search by meaning, and no retrospective tab duplicates', async () => {
     const { THREAD_TOOL_PANELS } = await load<{ THREAD_TOOL_PANELS: ReadonlyArray<{ id: string; label: string }> }>('src/components/Threads/threadToolPanels')
     expect(THREAD_TOOL_PANELS.map(panel => panel.label)).toEqual([
-      'Browser', 'Android device', 'Files', 'Search', 'Scripts'
+      'Browser', 'Android device', 'Files', 'Search'
     ])
-    expect(THREAD_TOOL_PANELS.map(panel => panel.label).join(' ')).not.toMatch(/Linear|meaning|HTTP calls|Containers|Worktrees|Background/i)
+    expect(THREAD_TOOL_PANELS.map(panel => panel.label).join(' ')).not.toMatch(/Scripts|Linear|meaning|HTTP calls|Containers|Worktrees|Background/i)
   })
 
   test('the tool panel never goes under 320 px and always leaves the conversation its room', async () => {

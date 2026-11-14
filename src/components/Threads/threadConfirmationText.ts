@@ -1,8 +1,8 @@
 import { threadConfirmation, type ThreadConfirmation } from '../../../shared/threadConfirmations'
 import { i18n } from '../../i18n'
 
-type Action = 'archive' | 'delete' | 'rewind'
-const ACTION_BY_COMMAND: Record<string, Action> = { '/archive confirm': 'archive', '/delete confirm': 'delete', '/rewind 1': 'rewind' }
+type Action = 'archive' | 'delete'
+const ACTION_BY_COMMAND: Record<string, Action> = { '/archive confirm': 'archive', '/delete confirm': 'delete' }
 
 /**
  * A confirmation in the interface language. shared/threadConfirmations keeps the English wording the main process
@@ -16,7 +16,7 @@ export function localizeConfirmation(confirmation: ThreadConfirmation, conversat
     ...confirmation,
     title: t(`thread:confirm.${action}.title`),
     confirmLabel: t(`thread:confirm.${action}.confirm`),
-    description: conversation && action !== 'rewind' ? t(`thread:confirm.${action}.descriptionNamed`, { name: conversation }) : t(`thread:confirm.${action}.description`)
+    description: conversation ? t(`thread:confirm.${action}.descriptionNamed`, { name: conversation }) : t(`thread:confirm.${action}.description`)
   }
 }
 

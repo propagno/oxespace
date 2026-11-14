@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { launchApp } from './helpers/launch'
+import { openSettings } from './helpers/settings'
 
 // The other specs run in English (e2e/electron-main.cjs pins it); this one starts on a Brazilian Portuguese system.
 test('opens in Brazilian Portuguese on a Portuguese system and switches to English from Settings', async () => {
@@ -10,7 +11,7 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
     await expect(views.getByRole('button', { name: 'OxeCode', exact: true })).toHaveAttribute('title', /^OxeCode: terminais e agentes nos seus workspaces \(.+\)$/)
     await expect(views.getByRole('button', { name: 'OxeChat', exact: true })).toHaveAttribute('title', /^OxeChat: conversas com um agente \(.+\)$/)
 
-    await page.getByRole('button', { name: 'Abrir configurações', exact: true }).click()
+    await openSettings(page, 'Abrir configurações')
     await expect(page.getByRole('dialog', { name: 'Configurações', exact: true })).toBeVisible()
     // The dialog is renamed when the language changes, so it is found by role alone.
     const settings = page.getByRole('dialog')

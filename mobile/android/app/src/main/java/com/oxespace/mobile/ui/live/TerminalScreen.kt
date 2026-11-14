@@ -79,6 +79,12 @@ import com.oxespace.mobile.protocol.live.CommandResult
 import com.oxespace.mobile.protocol.live.TerminalBuffer
 import com.oxespace.mobile.protocol.live.PaneConversation
 import com.oxespace.mobile.protocol.live.showsConversationToggle
+import com.oxespace.mobile.protocol.live.SizeHold
+import com.oxespace.mobile.protocol.live.TerminalGrid
+import com.oxespace.mobile.protocol.live.TerminalSizeHold
+import com.oxespace.mobile.protocol.live.terminalGridFor
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.mutableIntStateOf
 import com.oxespace.mobile.protocol.live.VtLine
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -110,7 +116,7 @@ import kotlinx.coroutines.launch
 /** A pane's output, read-only, in the desktop's terminal colors; follows the newest line. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, onBack: () -> Unit) {
+fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands: CommandApi, presence: PresenceGate, conversation: PaneConversation? = null, computer: String? = null, sizing: TerminalSizeHold? = null, onBack: () -> Unit) {
     SecureScreen()
     val tick by watched.changes.collectAsStateWithLifecycle()
     // CR-34: the desktop hid this pane from the phone; nothing of it stays, the title and last frame included.
@@ -140,6 +146,28 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val offersConversation = conversation != null && showsConversationToggle(pane)
     var showingConversation by rememberSaveable(pane.id) { mutableStateOf(true) }
     val reading = offersConversation && showingConversation
+    // 1.5.0 · While the Screen view is on screen the CLI draws for this phone: the phone holds the pane's size, renews
+    // it, and lets go when the view closes, the conversation is shown instead, or the app leaves the foreground.
+    var grid by remember(pane.id) { mutableStateOf<TerminalGrid?>(null) }
+    val sizeHold = sizing?.state?.collectAsStateWithLifecycle()?.value ?: SizeHold.NONE
+    if (sizing != null) {
+        val onScreen = !hidden && !reading
+        var resumes by remember { mutableIntStateOf(0) }
+        LaunchedEffect(pane.id, grid, onScreen, resumes) {
+            val wanted = grid
+            if (onScreen && wanted != null) {
+                // The keyboard and a rotation change the view over a few frames; ask once it settles.
+                delay(SIZE_SETTLE_MS)
+                sizing.hold(pane.id, wanted)
+            } else {
+                sizing.release(pane.id)
+            }
+        }
+        LifecycleResumeEffect(pane.id) {
+            resumes++
+            onPauseOrDispose { sizing.release(pane.id) }
+        }
+    }
     // Each view keeps its own scroll while the terminal is open: both list states live here, not in the views.
     val conversationList = rememberLazyListState()
     LaunchedEffect(watched.loaded) {
@@ -235,9 +263,17 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
             } else if (lines.all { it.text.isEmpty() }) {
                 Text(stringResource(if (watched.loaded && !settling) R.string.terminal_empty else R.string.live_loading), color = colors.textSecondary, modifier = Modifier.padding(OxeSpace.space3))
             } else {
+                if (sizeHold == SizeHold.TAKEN_BACK) {
+                    Text(
+                        stringResource(R.string.terminal_size_taken_back),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.textMuted,
+                        modifier = Modifier.padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
+                    )
+                }
                 // The terminal is dark in light mode too, like the desktop's: its surface and its palette are the dark tokens.
                 Box(Modifier.fillMaxSize().background(DarkOxeColors.termBg)) {
-                    TerminalLines(lines, watched.store.cols, list, size.sp.sp, DarkOxeColors)
+                    TerminalLines(lines, watched.store.cols, list, size.sp.sp, DarkOxeColors, onGrid = { fits -> grid = fits })
                 }
             }
         }
@@ -245,6 +281,9 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
 }
 
 /** ANSI colors 0–15 from the desktop's terminal tokens, so the phone shows the palette the person knows. */
+/** How long the terminal's view must keep its size before the phone asks the desktop for that grid. */
+private const val SIZE_SETTLE_MS = 350L
+
 private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
     0 -> colors.ansiBlack
     1 -> colors.ansiRed
@@ -269,11 +308,12 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
  */
 @Composable
-private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors) {
+private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors, onGrid: ((TerminalGrid?) -> Unit)? = null) {
     val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.termFg)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val charWidth = remember(fontSize, density) { measurer.measure("0", base).size.width }
+    val lineHeight = remember(fontSize, density) { measurer.measure("0", base).size.height }
     // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
     // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
     val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
@@ -281,6 +321,12 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
     // CR-A45 (T-P3.1): nothing is clipped silently. A grid wider than the view says it pans, and offers to fit the width.
     var fit by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        // 1.5.0 · The grid that fits this view at this font, for the desktop to draw the CLI in.
+        if (onGrid != null) {
+            val inset = with(density) { (padding * 2).roundToPx() }
+            val fits = if (constraints.hasBoundedWidth && constraints.hasBoundedHeight) terminalGridFor(constraints.maxWidth - inset, constraints.maxHeight - inset, charWidth, lineHeight) else null
+            LaunchedEffect(fits) { onGrid(fits) }
+        }
         val view = maxWidth
         val grid = with(density) { (charWidth * longest).toDp() }
         val wider = grid + padding * 2 > view
@@ -331,8 +377,9 @@ internal fun colored(line: VtLine, colors: OxeColors): AnnotatedString = buildAn
 }
 
 /**
- * Typing into a pane the person allowed from the phone, at the desktop. The line goes with Enter, in pieces of at most
- * 4 KiB; a refusal (the desktop turned typing off meanwhile) says so and keeps the text.
+ * Typing into a pane the person allowed from the phone, at the desktop. The line goes in pieces of at most 4 KiB, then Enter
+ * as its own write a beat later (an empty field sends just Enter); a refusal (the desktop turned typing off meanwhile)
+ * says so and keeps the text.
  */
 @Composable
 private fun TerminalInput(paneId: String, commands: CommandApi, presence: PresenceGate) {
@@ -358,6 +405,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
             val gated = presence.run(PresenceReason.TYPE) {
                 var result: CommandResult = CommandResult.Done(null)
                 for (piece in pieces) {
+                    // T18-d: Enter is its own write, a beat after the text, so the CLI doesn't read the line as a paste.
+                    if (sent == pieces.lastIndex && sent > 0) delay(TERMINAL_ENTER_DELAY_MS)
                     result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
                     if (result !is CommandResult.Done) break
                     sent++
@@ -431,7 +480,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                         LineCheck.Clear -> sendLine()
                     }
                 },
-                enabled = !busy && text.isNotEmpty(),
+                // T18-c: Send with an empty field sends Enter alone.
+                enabled = !busy,
             )
         }
     }
@@ -465,11 +515,17 @@ private const val TERMINAL_PIECE = 1_000
 /** What the Enter key sends to a terminal. */
 private const val ENTER = "\r"
 
-/** A typed line as terminal.write pieces, Enter included. */
-internal fun terminalPieces(text: String): List<String> = (text + ENTER).chunked(TERMINAL_PIECE)
+/** A typed line as terminal.write pieces; Enter is always the last piece, on its own. An empty field is Enter alone. */
+internal fun terminalPieces(text: String): List<String> = text.chunked(TERMINAL_PIECE) + ENTER
+
+/**
+ * T18-d: how long Enter waits after the text, as the desktop's TerminalManager.submit does, so Claude Code and Codex
+ * submit the line instead of taking it as a paste.
+ */
+internal const val TERMINAL_ENTER_DELAY_MS = 80L
 
 /** What's left to type after [sent] pieces went through; empty when all did. Enter is the send button's, not the field's. */
-internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(sent).joinToString("").removeSuffix(ENTER)
+internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.take(pieces.size - 1).drop(sent).joinToString("")
 
 /** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
 @Composable

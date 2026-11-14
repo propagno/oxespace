@@ -10,7 +10,6 @@ import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { ThreadDeliveryNote } from './ThreadDeliveryNote'
-import { ThreadRewindControl } from './ThreadRewindControl'
 import { ThreadHistoricalQuestions } from './ThreadHistoricalQuestions'
 import { threadTurnPresentation } from './threadTurnPresentation'
 import './ThreadMessagesChrome.css'
@@ -71,17 +70,6 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label={t('message.context')}>{event.context.map(file => <li key={file.path} title={t(file.truncated ? 'message.bytesTruncated' : 'message.bytes', { bytes: formatNumber(file.bytes) })}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>{t('message.truncated')}</small>}</li>)}</ul> : null}
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>{t('message.brief')}</summary><pre>{event.brief}</pre></details> : null}
     {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
-    {event.role === 'user' && snapshot && !running && !snapshot.thread.rewind && api?.rewind && snapshot.thread.capabilities?.features.rewind?.enabled && (() => {
-      const turns = snapshot.turns ?? [], index = turns.findIndex(turn => turn.id === event.id)
-      const rewind = (options: { restoreFiles: boolean }, edit: boolean) => action(async () => {
-        const result = await api.rewind!(snapshot.thread.id, event.id, options)
-        useThreadStore.getState().updateSnapshot(result.snapshot)
-        // The removed message returns to the composer; a draft in progress is kept below it.
-        if (edit) { const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''; useThreadStore.getState().setDraft(snapshot.thread.id, current.trim() ? `${displayText}\n\n${current}` : displayText) }
-        if (result.fileError) throw Error(t('message.rewoundFilesFailed', { error: result.fileError }))
-      })
-      return index >= 0 && (turns[index].nativeId || snapshot.thread.provider === 'claude' && index > 0) ? <ThreadRewindControl laterTurns={turns.length - index} disabled={pending} onRewind={options => rewind(options, false)} onEdit={options => rewind(options, true)} /> : null
-    })()}
     {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
     {event.role === 'assistant' && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label={t('message.suggested')}><small>{t('message.suggestedHint')}</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => onQuickReply(option.value)}>{option.label}</button>)}</div></div>}
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
-import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadRewindResult, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage, ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
+import type { AgentConversationAdapter, ConversationThread, ThreadAgentInput, ThreadCommandCatalog, ThreadEvent, ThreadSnapshot, ThreadRequest, ThreadRequestResponse, ThreadQueuedInput, ThreadContextReport, ThreadAuditEntry, ThreadFileHunk, ThreadPermissionRule, ThreadUsageSummary, ThreadDebugPage, ThreadModelCatalog, ThreadConfiguration, ThreadCommandResult } from '../../../../shared/types/thread'
 import type { ThreadNativeCli } from './thread-cli'
 import { backgroundSummary } from '../../../../shared/threadBackground'
 import type { ThreadModelService } from './thread-models'
@@ -9,16 +9,18 @@ import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../sh
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
+import { newConversationAccess, setNewConversationAccess } from './thread-defaults'
+import type { ThreadAccess } from '../../../../shared/threadAccess'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
-import { applyPendingRewind, redoRewind, retryTurn, rewind, type RewindHost } from './thread-rewind-flow'
+import { retryTurn, settleLegacyRewinds, type RetryHost } from './thread-retry'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
-import { briefBlock, projectBrief } from './project-brief'
+import { briefBlock, previewNoteFor, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
 import { runThreadCommand, type CommandHost } from './kernel/command-router'
@@ -45,8 +47,7 @@ import { projectDiffAt } from './thread-place-heads'
 import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolution, ThreadPlace, ThreadPlaceActionResult, ThreadPlaceDiff, ThreadPlaceDriftAnswer, ThreadPlaceReadResult, ThreadPlaces, ThreadPlaceUndoInput, ThreadPlaceUndoResult } from '../../../../shared/types/thread-places'
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
-import { threadTimeline } from './thread-timeline'
-import { branchFromCheckpoint, type ThreadBranching } from './thread-branch'
+import { LaunchStops, settleCompletedHistoryTools } from './thread-launch'
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -60,23 +61,6 @@ const THREADS_NEEDING_RECOVERY = `SELECT id FROM conversation_threads t WHERE
     AND json_extract(e.data_json, '$.type') = 'subagent' AND json_extract(e.data_json, '$.state') = 'running')`
 /** How often idle conversations are checked for suspension. */
 const IDLE_SWEEP_MS = 60_000
-/** Repair older histories whose provider ended a turn without a matching tool result. */
-function settleCompletedHistoryTools(events: ThreadEvent[]): number {
-  let turnStart = 0, earliest = events.length
-  events.forEach((event, index) => {
-    if (event.type === 'message' && event.role === 'user') turnStart = index
-    if (event.type !== 'completed') return
-    for (let toolIndex = turnStart; toolIndex < index; toolIndex++) {
-      const tool = events[toolIndex]
-      if (tool.type !== 'tool' || tool.state !== 'running') continue
-      tool.state = 'unknown'
-      tool.files = tool.files?.map(file => ({ ...file, state: file.state === 'running' ? 'unknown' : file.state }))
-      earliest = Math.min(earliest, toolIndex)
-    }
-    turnStart = index + 1
-  })
-  return earliest
-}
 export class ThreadOrchestrator {
   private readonly changeListeners = new Map<string, Set<(id: string) => void>>()
   /** `id` '*' hears every conversation (the remote gateway's lists); thread ids are UUIDs, so it names none. */
@@ -125,6 +109,8 @@ export class ThreadOrchestrator {
   private readonly suspending = new Map<string, Promise<void>>()
   /** A send that is starting a turn and has not reserved the conversation as busy yet. */
   private readonly starting = new Set<string>()
+  /** Stops sent while a turn is still starting, kept until the turn can be stopped (CHAT-2). */
+  private readonly launches = new LaunchStops()
   /** Conversations whose running turn the user stopped to send a queued message: that stop does not pause the queue. */
   private readonly sendNowAfterStop = new Set<string>()
   /** Provider connections being opened, so two callers share one process instead of orphaning one. */
@@ -132,7 +118,6 @@ export class ThreadOrchestrator {
   private readonly idleSweep: ReturnType<typeof setInterval>
   /** Daily retention pass for an app left open for days. */
   private readonly retentionSweep: ReturnType<typeof setInterval>
-  private branching?: ThreadBranching
   constructor(private readonly db: AppDatabase,
     private readonly factory: (thread: ConversationThread, extraEnv?: Record<string, string>) => Promise<AgentConversationAdapter>,
     private readonly notifyChanged: (threadId: string) => void,
@@ -161,6 +146,12 @@ export class ThreadOrchestrator {
     // A persisted running state is not proof that its process survived a restart.
     // Only conversations whose saved state says something was still live are read in full; the rest stay on disk.
     this.checkpoints.failAllOpen('OXESpace restarted before this checkpoint could be finalized.')
+    settleLegacyRewinds({
+      ids: () => (db.prepare("SELECT id FROM conversation_threads WHERE json_extract(data_json, '$.rewind') IS NOT NULL").all() as { id: string }[]).map(row => row.id),
+      read: id => this.history.read(id),
+      save: snapshot => this.history.write(snapshot, { eventsFrom: snapshot.events.length }),
+      deleteCheckpoint: (id, checkpointId) => this.checkpoints.delete(id, checkpointId)
+    })
     for (const row of db.prepare(THREADS_NEEDING_RECOVERY).all() as { id: string }[]) {
       const snapshot = this.history.read(row.id)
       let recovered = false
@@ -205,6 +196,8 @@ export class ThreadOrchestrator {
   configurePlaces(options: { homeDir?: string }): void { this.placeStore.configure(options) }
   /** Minutes without activity before an idle conversation's agent process is closed; 0 keeps it open. */
   idleSuspendMinutes(): number { return idleSuspendMinutes(this.db) }
+  newConversationAccess(): ThreadAccess { return newConversationAccess(this.db) }
+  setNewConversationAccess(access: unknown): ThreadAccess { return setNewConversationAccess(this.db, access) }
   setIdleSuspendMinutes(minutes: number): number { return setIdleSuspendMinutes(this.db, minutes) }
   /** Closes the agent process of conversations idle longer than the setting (see thread-idle). */
   suspendIdle(now = Date.now()): Promise<string[]> {
@@ -241,7 +234,7 @@ export class ThreadOrchestrator {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree' | 'access'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: '', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
@@ -348,9 +341,6 @@ export class ThreadOrchestrator {
     return this.history.artifact(id, artifactId)
   }
 
-  async timeline(id: string): Promise<import('../../../../shared/types/thread').ThreadTimeline> { await Promise.allSettled([...this.finalizationTasks]); await this.placeStore.idle(id); return threadTimeline({ db: this.db, snapshot: this.read(id) }) }
-  configureBranching(branching: ThreadBranching): void { this.branching = branching }
-  branchFromCheckpoint(id: string, checkpointId: string, input: { branch: string }): Promise<import('../../../../shared/types/thread').ThreadBranchResult> { return branchFromCheckpoint({ db: this.db, checkpoints: this.checkpoints, branching: this.branching, settleFinalization: async () => { await Promise.allSettled([...this.finalizationTasks]) }, read: tid => this.read(tid), save: (s, o) => this.save(s, o), create: c => this.create(c), deleteThread: async tid => { this.db.prepare('DELETE FROM conversation_threads WHERE id = ?').run(tid); this.forget(tid); await this.attachmentStore?.removeThread(tid); this.changed(tid) }, assertNativeSessionAvailable: (tid, p, s) => this.assertNativeSessionAvailable(tid, p, s) }, id, checkpointId, input) }
 
   async historyPage(id: string, before?: number, limit?: number): Promise<import('../../../../shared/types/thread').ThreadHistoryPage> {
     this.flushDeltas(id)
@@ -503,9 +493,6 @@ export class ThreadOrchestrator {
     if (!queue) this.starting.add(id)
     let done = false
     try {
-      // A rewind waiting for confirmation is applied now, before the new turn: the later turns leave and the
-      // provider's history is rewound. A queued message rides on the running turn and waits.
-      if (!queue && this.readThread(id).rewind) await this.applyPendingRewind(id)
       await this.sendReserved(id, text, attachmentIds, queue)
       done = true
     } finally {
@@ -552,6 +539,7 @@ export class ThreadOrchestrator {
     let snapshot = this.read(id)
     this.assertNativeSessionAvailable(id, snapshot.thread.provider, snapshot.thread.nativeSessionId)
     this.busy.add(id) // reserve before any asynchronous launch
+    this.launches.begin(id)
     let input: ThreadAgentInput = { text }
     let mentioned: Awaited<ReturnType<typeof resolveMentionContext>> = { block: '', files: [] }
     let brief = ''
@@ -566,7 +554,7 @@ export class ThreadOrchestrator {
       // `@file` mentions become attached content; the stored message keeps the text as typed.
       if (!text.trim().startsWith('/')) {
         mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
-        if (mentioned.block) input = { ...input, text: input.text + mentioned.block }
+        input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
         // The first message of a conversation carries a short orientation to the project.
         if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
           brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
@@ -575,7 +563,7 @@ export class ThreadOrchestrator {
       }
       snapshot = this.read(id)
       if (this.stopping) throw new Error('Application is shutting down')
-    } catch (error) { this.busy.delete(id); throw error }
+    } catch (error) { this.busy.delete(id); this.launches.end(id); throw error }
     snapshot.thread.status = 'running'
     delete snapshot.thread.providerObservation
     delete snapshot.thread.queuePause
@@ -597,19 +585,26 @@ export class ThreadOrchestrator {
       // Both reads must finish before the agent can modify files, but they are independent.
       // In the checkout the conversation works in: a worktree it moved into, else its own root.
       await this.turns.begin(id, turnId, workingRootOf(snapshot.thread), text.trim().slice(0, 80))
+      this.launches.check(id)
       this.event(id, { type: 'activity', id: `activity:${turnId}:connecting`, phase: 'connecting', at: Date.now() })
       const adapter = await this.connectAdapter(id, snapshot.thread, false)
+      this.launches.check(id)
       this.history.transitionOperation(id, operation.id, 'sent')
       if (attachments.length) await adapter.send(input.text, input.skill, attachments)
       else await adapter.send(input.text, input.skill)
       this.history.transitionOperation(id, operation.id, 'acknowledged')
+      // A Stop the adapter could not act on while its process was starting: the turn is with the agent now.
+      if (this.launches.end(id) && this.busy.has(id)) await adapter.interrupt().catch(() => undefined)
     } catch (error) {
+      // The person stopped the turn while it was starting. That is a stopped turn, not a failure to run the agent.
+      const stopped = this.launches.end(id)
       const failure = error instanceof ThreadAgentError ? error.failure : threadFailure({ message: error instanceof Error ? error.message : '' })
       failure.usageUnavailable = true
-      if (this.busy.has(id)) this.event(id, { type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
+      if (this.busy.has(id)) this.event(id, stopped ? { type: 'completed', status: 'interrupted' } : { type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
       const adapter = this.adapters.get(id)
       this.adapters.delete(id)
       await adapter?.dispose().catch(() => {})
+      if (stopped) { this.history.transitionOperation(id, operation.id, 'cancelled', 'Stopped before the agent started'); return }
       this.history.transitionOperation(id, operation.id, 'failed', failure.message)
       // A folder that no longer exists is not a settings problem; name it.
       if (error instanceof ThreadFolderMissingError) throw new Error(error.message, { cause: error })
@@ -633,6 +628,8 @@ export class ThreadOrchestrator {
     recordRuntime('turn-interrupt', { thread: id })
     this.readThread(id)
     const adapter = this.adapters.get(id)
+    // A Stop for a turn that is still starting is kept, and the launch applies it; an agent already starting is told now.
+    if (this.launches.request(id)) { await adapter?.interrupt().catch(() => undefined); return }
     if (!adapter) throw new Error('Thread has no live execution')
     await adapter.interrupt()
   }
@@ -727,46 +724,22 @@ export class ThreadOrchestrator {
     return deleteQueued(this.queueHost(), id, itemId, preserveAttachments)
   }
 
-  /** Sends a finished turn's prompt again, optionally after undoing its file changes (see thread-rewind-flow). */
+  /** Sends a finished turn's prompt again, optionally after undoing its file changes (see thread-retry). */
   retryTurn(id: string, turnId: string, options: { restoreFiles?: boolean } = {}): Promise<{ restoredFiles: number }> {
-    return retryTurn(this.rewindHost(), id, turnId, options)
+    return retryTurn(this.retryHost(), id, turnId, options)
   }
 
-  /** Rewinds to just before a turn; the provider follows when the next message is sent (see thread-rewind-flow). */
-  rewind(id: string, turnId: string, options: { restoreFiles?: boolean; confirmed?: boolean } = {}): Promise<ThreadRewindResult> {
-    return rewind(this.rewindHost(), id, turnId, options)
-  }
-
-  /** Undoes a rewind that was not sent yet. */
-  redoRewind(id: string): Promise<ThreadSnapshot> {
-    return redoRewind(this.rewindHost(), id)
-  }
-
-  private applyPendingRewind(id: string): Promise<void> {
-    return applyPendingRewind(this.rewindHost(), id)
-  }
-
-  private rewindHost(): RewindHost {
+  private retryHost(): RetryHost {
     return {
-      db: this.db, checkpoints: this.checkpoints,
+      checkpoints: this.checkpoints,
       isStopping: () => this.stopping,
       isActive: id => this.busy.has(id) || this.starting.has(id) || this.finalizing.has(id) || this.configuring.has(id),
       isFinalizing: id => this.finalizing.has(id),
       settleFinalization: async () => { await Promise.allSettled([...this.finalizationTasks]) },
-      withConfiguring: async (id, run) => {
-        this.configuring.add(id)
-        try { return await run() } finally { this.configuring.delete(id) }
-      },
       read: id => this.read(id),
-      readForRenderer: id => this.readForRenderer(id),
-      save: (snapshot, options) => this.save(snapshot, options),
-      replace: snapshot => { this.history.write(snapshot, { eventsFrom: 0, turnsFrom: 0 }); this.snapshots.set(snapshot.thread.id, snapshot) },
-      cancelOperation: (id, operationId, reason) => this.history.transitionOperation(id, operationId, 'cancelled', reason),
       changed: id => this.changed(id),
       audit: (id, entry) => this.audit(id, entry),
-      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
-      connectAdapter: (id, thread) => this.connectAdapter(id, thread),
-      disposeAdapter: async id => { const adapter = this.adapters.get(id); this.adapters.delete(id); await adapter?.dispose() }
+      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds)
     }
   }
 
@@ -877,7 +850,6 @@ export class ThreadOrchestrator {
       create: context => this.create(context),
       configure: (id, input, revision) => this.configure(id, input, revision),
       interrupt: id => this.interrupt(id),
-      rewind: (id, turnId) => this.rewind(id, turnId),
       send: (id, text) => this.send(id, text),
       connectAdapter: (id, thread) => this.connectAdapter(id, thread),
       assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
@@ -1229,7 +1201,7 @@ export class ThreadOrchestrator {
       takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id), read: id => this.read(id), save: (s, o) => this.save(s, o),
       transitionOperation: (id, op, st, r) => { this.history.transitionOperation(id, op, st, r) },
       resolveAttachments: (id, a) => this.resolveAttachments(id, a), releaseAttachments: (id, a) => this.releaseAttachments(id, a),
-      applyPendingRewind: id => this.applyPendingRewind(id), send: (id, t, a) => this.send(id, t, a), interrupt: id => this.interrupt(id),
+      send: (id, t, a) => this.send(id, t, a), interrupt: id => this.interrupt(id),
       beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline)
     }
   }

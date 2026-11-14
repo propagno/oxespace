@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { TERMINAL_SELECT_ALL_EVENT } from '../Navigation/editTarget'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -6,6 +7,8 @@ import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
+import { attachTerminalContextMenu } from './terminalContextMenu'
+import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -107,6 +110,10 @@ function buildTerminalTheme(translucent: boolean): ITheme {
     cursor:              tok('--accent', '#f5a939'),
     cursorAccent:        tok('--term-bg', '#131714'),
     selectionBackground: darkMode ? tok('--fill-selected-strong', '#1e422c') : '#1e422c',
+    // xterm 6 draws its own scrollbar: a quiet slider, like the app's thin scrollbars.
+    scrollbarSliderBackground: 'rgba(160, 170, 165, 0.22)',
+    scrollbarSliderHoverBackground: 'rgba(160, 170, 165, 0.38)',
+    scrollbarSliderActiveBackground: 'rgba(160, 170, 165, 0.5)',
     black:               ansi('black'),
     red:                 ansi('red'),
     green:               ansi('green'),
@@ -156,6 +163,8 @@ interface TerminalViewProps {
   isRunning: boolean
   onInput: (data: string) => void
   onResize: (cols: number, rows: number) => void
+  /** 1.5.0 · A phone holds this pane's size: the view takes that grid; `onResize` keeps reporting the pane's own. */
+  fixedSize?: HeldGrid | null
   onExit?: (exitCode: number | null) => void
   /** Workspace theme — re-applies terminal colors live when it changes. */
   themeId: WorkspaceThemeId
@@ -163,7 +172,7 @@ interface TerminalViewProps {
   prefs: TerminalPrefs
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, workspaceId, themeId, prefs, transport }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize = null, paneId, workspaceId, themeId, prefs, transport }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
@@ -190,6 +199,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
   onExitRef.current = onExit
   onInputRef.current = onInput
   onResizeRef.current = onResize
+  const fixedSizeRef = useHeldGrid(fixedSize, hostRef, refitRef)
 
   useEffect(() => {
     if (!hostRef.current) return
@@ -219,6 +229,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(createTerminalLinksAddon())
     const pathLinksDisposable = attachTerminalPaths(terminal, hostRef.current, workspaceId) // F33: project paths
+    const contextMenuDisposable = attachTerminalContextMenu(hostRef.current, terminal) // CODE-8: Copy, Paste, Select all, Clear
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
@@ -558,6 +569,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
     }
     hostRef.current.addEventListener('paste', handlePaste, { capture: true })
     hostRef.current.addEventListener('copy', handleCopy, { capture: true })
+    // Edit > Select all, with the cursor in this terminal.
+    const handleSelectAll = (): void => terminal.selectAll()
+    hostRef.current.addEventListener(TERMINAL_SELECT_ALL_EVENT, handleSelectAll)
 
     const handleProgrammaticInsert = (event: Event): void => {
       const detail = (event as CustomEvent<{ paneId?: string; text?: string }>).detail
@@ -597,8 +611,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       }
     }
 
-    let lastNotifiedCols = 0
-    let lastNotifiedRows = 0
+    const notified: HeldGrid = { cols: 0, rows: 0 }
     const fitTerminal = (): void => {
       try {
         // Preserve absolute scroll position. A relative scroll after fit can jump
@@ -607,15 +620,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         const viewportY = buf.viewportY
         const wasAtBottom = viewportY >= buf.baseY
 
-        fitAddon.fit()
-        const dimensionsChanged =
-          terminal.cols !== lastNotifiedCols ||
-          terminal.rows !== lastNotifiedRows
-        if (dimensionsChanged) {
-          lastNotifiedCols = terminal.cols
-          lastNotifiedRows = terminal.rows
-          onResizeRef.current(terminal.cols, terminal.rows)
-        }
+        const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, (cols, rows) => onResizeRef.current(cols, rows))
 
         // Force the viewport scroll area to re-measure after large layout
         // changes (pane maximize/restore). Without a refresh, xterm can keep a
@@ -795,6 +800,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       }
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
+      hostRef.current?.removeEventListener(TERMINAL_SELECT_ALL_EVENT, handleSelectAll)
       if (usesHostWheelFallback) {
         hostRef.current?.removeEventListener('wheel', hostWheelFallback)
       }
@@ -803,6 +809,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
       refitRef.current = null
       lastSelectionRef.current = null
       pathLinksDisposable.dispose()
+      contextMenuDisposable.dispose()
       terminal.dispose()
       terminalRef.current = null
     }
@@ -938,6 +945,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, paneId, wor
         className={`terminal-view${isDragOver ? ' terminal-drop-active' : ''}`}
         data-testid="terminal-view"
         data-terminal-pane={paneId}
+        data-held={fixedSize ? 'true' : undefined}
         data-translucent={translucent ? 'true' : undefined}
         style={translucent ? { ['--term-bg-mix' as never]: `${Math.round(prefs.backgroundOpacity * 100)}%` } : undefined}
         onDragOver={handleDragOver}

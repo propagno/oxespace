@@ -6,7 +6,6 @@ export const KNOWN_COMMAND_IDS = [
   'steer',
   'stop',
   'new',
-  'history',
   'terminal',
   'theme'
 ] as const
@@ -35,9 +34,10 @@ export const COMMAND_CATALOG: readonly CommandCatalogEntry[] = [
   { id: 'deny', ipc: 'thread.respond', fixedArgs: { decision: 'decline' }, fallback: 'Deny on request card', shortcut: null },
   { id: 'steer', ipc: 'thread.steer', fallback: 'Steer in OxeChat', shortcut: null },
   { id: 'stop', ipc: 'thread.interrupt', confirm: true, fallback: 'Stop in OxeChat', shortcut: null },
-  { id: 'new', ipc: 'thread.create', fallback: 'New conversation', shortcut: 'Mod+N' },
-  { id: 'history', ipc: 'thread.timeline', fallback: 'History', shortcut: 'Mod+H' },
-  { id: 'terminal', ipc: 'workspace.createPane', fallback: 'New terminal', shortcut: 'Mod+Shift+T' },
+  { id: 'new', ipc: 'thread.create', fallback: 'New conversation', shortcut: 'Ctrl+Alt+N' },
+  // The shortcut is the one that does what "New terminal" does: Split pane right. Ctrl+Shift+T was shown here and
+  // is bound to nothing (it was the project team's, removed in 1.5, and the frozen f3/u34 keeps it free).
+  { id: 'terminal', ipc: 'workspace.createPane', fallback: 'New terminal', shortcut: 'Mod+Shift+\\' },
   { id: 'theme', ipc: 'app.setAppearance', fallback: 'Appearance', shortcut: null },
   { id: 'skill', ipc: 'skill.invoke', fallback: 'Skills', shortcut: null }
 ]
@@ -159,10 +159,6 @@ export function commandRequest(parsed: ParsedCommandLine, context: CommandContex
       case 'stop': {
         if (!context.threadId) return { ok: false, refusal: mainMessage('commandBar.skill.noAgent', {}) }
         return { ok: true, ipc: 'thread.interrupt', args: [context.threadId] }
-      }
-      case 'history': {
-        if (!context.threadId) return { ok: false, refusal: mainMessage('commandBar.skill.noAgent', {}) }
-        return { ok: true, ipc: 'thread.timeline', args: [context.threadId] }
       }
       case 'terminal':
         return { ok: true, ipc: 'workspace.createPane', args: [{ workspaceId: context.workspaceId }] }

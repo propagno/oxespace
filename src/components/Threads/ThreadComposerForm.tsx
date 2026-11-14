@@ -84,7 +84,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
       onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
-      onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running && !pending) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
+      onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); onSend() } else if (e.key === 'Escape' && running) { e.preventDefault(); e.stopPropagation(); onInterrupt() } }} />
     <footer><div className="thread-composer-group"><button type="button" className="thread-command-trigger" aria-label={t('composer.commands')} title={t('composer.commandsTitle')} aria-haspopup="listbox" aria-expanded={commands.open} disabled={blocked} onMouseDown={e => e.preventDefault()} onClick={commands.show}><Slash size={14} /></button>
       <Menu label={t('composer.add')} side="top" items={[
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
@@ -97,7 +97,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}
-      {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} disabled={pending} onClick={onInterrupt}><Square size={12} fill="currentColor" aria-hidden="true" /><span>{t('composer.stopShort')}</span></button>}
+      {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} onClick={onInterrupt}><Square size={12} fill="currentColor" aria-hidden="true" /><span>{t('composer.stopShort')}</span></button>}
       <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle') : t('composer.sendTitle')} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
     {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
   </form>

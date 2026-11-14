@@ -297,7 +297,10 @@ describe('A68 · SECURITY (TECH LEAD)', () => {
     expect((await tunnel(port, `127.0.0.1:${target}`, 'x', auth)).status).toMatch(/^HTTP\/1\.[01] 503/)
     held.forEach(socket => socket.destroy())
     await settle(200)
-    // A 64 MiB upload through plain HTTP streams: the process never holds the body.
+    // A 256 MiB upload through plain HTTP streams: the process never holds the body. The peak is read for the whole
+    // test process (client, proxy and sink), so it also counts garbage a collection has not reached yet; on Linux CI
+    // that reached 35 to 38 MiB with a 64 MiB body (2026-11-12/13). A body four times the ceiling keeps the claim: a
+    // proxy that held it would pass 256 MiB. Released by the product owner on 2026-11-13 for this measurement only.
     const sink = createHttpServer((request, response) => { let bytes = 0; request.on('data', chunk => { bytes += chunk.length }); request.on('end', () => response.end(String(bytes))) })
     cleanup.push(() => new Promise(resolve => sink.close(resolve)))
     const sinkPort = await listen(sink)
@@ -307,7 +310,7 @@ describe('A68 · SECURITY (TECH LEAD)', () => {
     const baseline = process.memoryUsage().heapUsed + process.memoryUsage().arrayBuffers
     let peak = 0
     const sampler = setInterval(() => { peak = Math.max(peak, process.memoryUsage().heapUsed + process.memoryUsage().arrayBuffers - baseline) }, 20)
-    const total = 64 * 1024 * 1024
+    const total = 256 * 1024 * 1024
     const received = await new Promise<string>((resolve, reject) => {
       const request = httpRequest({ host: '127.0.0.1', port: p.port, method: 'POST', path: `http://127.0.0.1:${sinkPort}/upload`, headers: { 'Proxy-Authorization': p.auth, 'Content-Length': total, Host: `127.0.0.1:${sinkPort}` } }, response => { let text = ''; response.on('data', chunk => { text += chunk }); response.on('end', () => resolve(text)) })
       request.on('error', reject)
@@ -318,7 +321,7 @@ describe('A68 · SECURITY (TECH LEAD)', () => {
     })
     clearInterval(sampler)
     expect(received).toBe(String(total))
-    expect(peak).toBeLessThan(32 * 1024 * 1024)
+    expect(peak).toBeLessThan(64 * 1024 * 1024)
   })
 
   test('A68 (S6): the list keeps 90 days and at most its row cap; turning it on or off and clearing are audited without content', async () => {

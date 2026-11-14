@@ -15,7 +15,7 @@ test('each change applies at once, and navigation keeps what was applied', async
   render(<WorkspaceSettingsModal workspace={workspace} shellProfiles={shells} onSave={onSave} onClose={onClose} />)
   fireEvent.click(screen.getByRole('radio', { name: /Compact/ }))
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ uiDensity: 'compact', workspaceId: 'ws' })))
-  fireEvent.click(screen.getByRole('button', { name: /Projects Worktrees/ }))
+  fireEvent.click(screen.getByRole('button', { name: /Projects Project instructions/ }))
   expect(screen.queryByRole('radiogroup', { name: 'Density' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: /General Project instructions/ }))
   expect(screen.getByRole('radio', { name: /Compact/ })).toHaveAttribute('aria-checked', 'true')

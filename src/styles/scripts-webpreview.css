@@ -584,6 +584,135 @@
     repeating-conic-gradient(var(--ov-1) 0% 25%, transparent 0% 50%) 50% / 12px 12px;
 }
 
+.design-grab-item + .design-grab-item {
+  margin-top: 12px;
+  border-top: 1px solid var(--bd-subtle);
+  padding-top: 12px;
+}
+
+.design-grab-item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0;
+  font-size: var(--fs-xs);
+}
+
+.design-grab-item-head > code {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-grab-remove {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  width: 24px;
+  height: 24px;
+  color: var(--tx-muted);
+}
+
+.design-grab-remove:hover {
+  background: var(--ov-1);
+  color: var(--tx-primary);
+}
+
+/* Where the element is written: the one line of the sheet a person acts on, so it reads before the box and the styles. */
+.design-grab-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--ov-1);
+  padding: 6px 8px;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+}
+
+.design-grab-source[data-state='locating'],
+.design-grab-source[data-state='none'] {
+  color: var(--tx-muted);
+}
+
+.design-grab-source-file {
+  min-width: 0;
+  color: var(--tx-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+button.design-grab-source-file {
+  text-decoration: underline;
+  text-decoration-color: var(--bd-strong, var(--bd-subtle));
+  text-underline-offset: 2px;
+}
+
+button.design-grab-source-file:hover {
+  color: var(--accent);
+}
+
+.design-grab-source-component {
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 5px;
+  color: var(--tx-secondary);
+  font-family: var(--font-mono);
+}
+
+.design-grab-source > small {
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+}
+
+.design-grab-source-others {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 6px;
+  color: var(--tx-muted);
+}
+
+.design-grab-source-others > select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  padding: 2px 4px;
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+}
+
+.design-grab-add {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+}
+
+.design-grab-add:hover,
+.design-grab-add[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--tx-primary);
+}
+
 .design-grab-facts {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -647,5 +776,78 @@
   padding: 5px 12px;
   color: var(--text-on-accent);
   font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* A dev server of the project is running: the menu button says so without opening. */
+.web-preview-dev-server[data-running='true'] {
+  color: var(--accent);
+}
+
+/* What broke in the page since it loaded: one line under the address bar, with the one action a person takes on it. */
+.web-preview-problems {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--intent-danger-bg);
+  padding: 4px 10px;
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+}
+
+.web-preview-problems > svg {
+  flex-shrink: 0;
+  color: var(--intent-danger-fg);
+}
+
+.web-preview-problems > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.web-preview-problems-send {
+  flex-shrink: 0;
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+}
+
+.web-preview-problems-send:hover {
+  border-color: var(--accent);
+}
+
+.web-preview-problems-dismiss {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  width: 24px;
+  height: 24px;
+  color: var(--tx-muted);
+}
+
+/* While more elements are picked the sheet steps aside (it would cover the page): the hint carries the way back to it. */
+.web-preview-design-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.web-preview-design-review {
+  flex-shrink: 0;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  padding: 2px 10px;
+  color: var(--tx-primary);
+  font-size: var(--fs-2xs);
   font-weight: 600;
 }

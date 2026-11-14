@@ -41,7 +41,9 @@ describe('pane display model', () => {
     expect(sanitizeTerminalPreview('\u001b[32mBuild completed successfully\u001b[39m')).toBe('Build completed successfully')
   })
 
-  test('prioritizes pane display name, then user intent, then clean output', () => {
+  test('an agent pane is named by display name, then user intent, then clean output', () => {
+    // An agent runs in this pane: its lifecycle reports a state.
+    const agent = { ...terminal, agentState: 'idle' as const }
     expect(derivePaneDisplayState({
       pane: { ...pane, displayName: 'Auth fix' },
       workspace,
@@ -53,7 +55,7 @@ describe('pane display model', () => {
     expect(derivePaneDisplayState({
       pane,
       workspace,
-      terminal: { ...terminal, lastIntent: 'please fix auth race', lastOutput: 'raw output' },
+      terminal: { ...agent, lastIntent: 'please fix auth race', lastOutput: 'raw output' },
       profile: null,
       paneIndex: 0
     }).title).toBe('please fix auth race')
@@ -61,10 +63,26 @@ describe('pane display model', () => {
     expect(derivePaneDisplayState({
       pane,
       workspace,
-      terminal: { ...terminal, lastOutput: 'Tests passed' },
+      terminal: { ...agent, lastOutput: 'Tests passed' },
       profile: null,
       paneIndex: 0
     }).title).toBe('Tests passed')
+  })
+
+  test('a plain shell keeps its name: the last command is a hint, and it is idle after the command ends', () => {
+    const shell = derivePaneDisplayState({
+      pane,
+      workspace,
+      terminal: { ...terminal, lastIntent: 'npm test', lastIntentAt: Date.now(), lastActivityAt: Date.now(), lastOutput: '2 tests passed' },
+      profile: null,
+      paneIndex: 0
+    })
+    expect(shell.title).toBe('Terminal 1')
+    expect(shell.lastCommand).toBe('npm test')
+    expect(shell.statusTone).toBe('idle')
+    expect(shell.originLabel).toBeNull()
+    // While output streams, a shell is running, not thinking.
+    expect(derivePaneDisplayState({ pane, workspace, terminal: { ...terminal, isWorking: true }, profile: null, paneIndex: 0 }).statusLabel).toBe('Running')
   })
 
   test('compacts paths and never exposes full windows paths in visible labels', () => {

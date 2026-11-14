@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import type { SizeLeases } from '../services/terminal/size-lease'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
   parseTerminalAttachInput,
@@ -22,8 +23,12 @@ export interface TerminalIpcController {
   hasSession?(paneId: string): boolean
   /** A18 (T73) · The pane's branch for its header; the window only (mcp-coverage: excluded). */
   branch?(paneId: string): Promise<TerminalPaneBranch | null> | TerminalPaneBranch | null
+  /** 1.5.0 · The size a phone holds for the pane, and the person taking it back; the window only (mcp-coverage: excluded). */
+  sizes?: Pick<SizeLeases, 'takeBack' | 'get'>
   resumeBypass?(): boolean
   setResumeBypass?(enabled: boolean): boolean
+  agentsFullAccess?(): boolean
+  setAgentsFullAccess?(enabled: boolean): boolean
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {
@@ -37,12 +42,20 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.branch, (_event, paneId: unknown) => controller.branch?.(String(paneId ?? '')) ?? null)
+  // Reads a pane's phone size hold; with takeBack, the person ends it first (the phone is refused until it reopens the terminal).
+  ipcMain.handle(IPC_CHANNELS.terminal.sizeLease, (_event, paneId: unknown, takeBack?: unknown) => { const id = String(paneId ?? ''); if (takeBack === true) controller.sizes?.takeBack(id); return controller.sizes?.get(id) ?? null })
   ipcMain.handle(IPC_CHANNELS.terminal.status, (_event, paneId: unknown) => controller.status(String(paneId ?? '')))
   // T54 · Only the window changes it; no agent hook or MCP tool reaches these (mcp-coverage: forbidden).
   ipcMain.handle(IPC_CHANNELS.terminal.resumeBypass, () => controller.resumeBypass?.() ?? false)
   ipcMain.handle(IPC_CHANNELS.terminal.setResumeBypass, (_event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw new Error('Invalid resume setting')
     return controller.setResumeBypass?.(enabled) ?? false
+  })
+  // Only the window changes it, like the setting above (mcp-coverage: forbidden).
+  ipcMain.handle(IPC_CHANNELS.terminal.agentsFullAccess, () => controller.agentsFullAccess?.() ?? false)
+  ipcMain.handle(IPC_CHANNELS.terminal.setAgentsFullAccess, (_event, enabled: unknown) => {
+    if (typeof enabled !== 'boolean') throw new Error('Invalid agent access setting')
+    return controller.setAgentsFullAccess?.(enabled) ?? false
   })
 }
 

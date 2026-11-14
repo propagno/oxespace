@@ -245,9 +245,9 @@
     "direct": "Conectar direto a este host (sem descobrir o replica set)",
     "limits": "Limites e agentes",
     "agentsHint": {
-      "off": "agentes desligados",
-      "read": "agentes: leitura",
-      "write": "agentes: leitura e escrita"
+      "off": "Agentes: desligados",
+      "read": "Agentes: só leitura",
+      "write": "Agentes: leitura e escrita"
     },
     "timeout": "Tempo limite de instrução (segundos)",
     "maxRows": "Limite padrão de linhas",
@@ -637,7 +637,7 @@
     "formatTitle": "Formatar o SQL (Shift+Alt+F)",
     "limit": "Limite",
     "limitTitle": "Linhas que uma consulta devolve. Limitado a {{formatted}} nesta conexão.",
-    "timeout": "{{seconds}} s",
+    "timeout": "Limite {{seconds}} s",
     "timeoutTitle": "O servidor interrompe uma instrução depois de {{seconds}} segundos nesta conexão.",
     "readOnlyPolicy": "somente leitura pela política",
     "readOnlyPolicyTitle": "A política da sua organização mantém esta conexão somente leitura. Não dá para desligar aqui.",

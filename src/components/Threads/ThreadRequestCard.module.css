@@ -117,6 +117,10 @@
   overflow-wrap: anywhere;
 }
 .amber pre { border-top-color: var(--intent-warning-border); }
+/* The plan to review, as prose on the card's own surface. */
+.plan { min-width: 0; padding: var(--space-1) var(--space-4); border-top: 1px solid var(--border-subtle); }
+.amber .plan { border-top-color: var(--intent-warning-border); }
+.plan:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 .root > footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-subtle); }
 .amber > footer { border-top-color: var(--intent-warning-border); }

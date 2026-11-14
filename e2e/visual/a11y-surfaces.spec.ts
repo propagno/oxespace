@@ -7,6 +7,7 @@ import { scanSurface, writeReport, type Violation } from '../helpers/a11y'
 import { launchApp, layoutAtWidth, openDemoWorkspace, resizeWindow, type Appearance } from '../helpers/launch'
 import { seedGitRepo } from '../helpers/seed'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState, THREAD_STATES, type ThreadStateName } from '../helpers/thread-fixtures'
+import { openSettings } from '../helpers/settings'
 
 /**
  * Accessibility scan (axe, WCAG 2.0/2.1 A and AA) over the surfaces the visual suite already
@@ -158,7 +159,7 @@ for (const theme of THEMES) {
         await page.getByRole('button', { name: /^Remove worktree / }).first().click()
       }, () => page.getByRole('dialog').filter({ hasText: /Remove/ }).first())
       await reach(`${theme}/settings`, found, page, async () => {
-        await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+        await openSettings(page)
         await expect(page.locator('.settings-center')).toBeVisible()
       })
       // Every page of the settings center, in each scope. Three things made the earlier loop time out on five

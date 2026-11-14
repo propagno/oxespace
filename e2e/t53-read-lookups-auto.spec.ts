@@ -97,7 +97,11 @@ test('T53: OXESpace read lookups are answered without the person; writes, other 
     })
     const root = realpathSync.native(profile.repo)
     const { projectId } = await oxe<{ projectId: string }>(page, 'thread.addProject', root)
-    const id = (await oxe<Snap>(page, 'thread.create', { projectId, rootPath: root, provider: 'claude' })).thread.id
+    // This spec is about what a conversation puts to the person. Since 1.5.0 a new install starts conversations with
+    // Full access, where the agent asks for nothing; here the conversation starts Read only, as every one did when T53
+    // was written, through the same setting the person has (Settings > Agents).
+    out.newConversationAccess = await oxe<string>(page, 'thread.setNewConversationAccess', 'read-only')
+    const id =(await oxe<Snap>(page, 'thread.create', { projectId, rootPath: root, provider: 'claude' })).thread.id
     out.autoApproveReadsAtStart = await oxe<boolean>(page, 'thread.autoApproveReads')
 
     /** One turn of the stand-in over `tools`: which the app answered by itself, which it put to the person (declined here). */

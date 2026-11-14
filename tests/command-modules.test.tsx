@@ -23,6 +23,19 @@ describe('command modules', () => {
     expect(commands.find(command => command.id === 'split-vertical')?.disabled).toBe(true)
   })
 
+  it('Toggle sidebar folds the sidebar of the view on screen (menu View and the palette, like the shortcut)', () => {
+    const collapsed = () => ({ ...useUIStore.getState().collapsedSidebars })
+    const start = collapsed()
+    buildCodeCommands({ ...codeContext, applicationView: 'thread' }).find(command => command.id === 'toggle-sidebar')!.run()
+    expect(collapsed()).toEqual({ ...start, thread: !start.thread })
+    buildCodeCommands(codeContext).find(command => command.id === 'toggle-sidebar')!.run()
+    expect(collapsed()).toEqual({ code: !start.code, thread: !start.thread })
+    // OxeQuery's sidebar follows the same switch as OxeCode's.
+    buildCodeCommands({ ...codeContext, applicationView: 'data' }).find(command => command.id === 'toggle-sidebar')!.run()
+    expect(collapsed()).toEqual({ code: start.code, thread: !start.thread })
+    useUIStore.getState().toggleSidebar('thread')
+  })
+
   it('Code panel commands run from Thread show Code and open the panel, never close one left open', () => {
     const workspace = { id: 'w1', panes: [] } as unknown as NonNullable<Parameters<typeof buildCodeCommands>[0]['activeWorkspace']>
     const showCode = vi.fn(), files = vi.fn(), mcp = vi.fn()

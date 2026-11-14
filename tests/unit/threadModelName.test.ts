@@ -29,6 +29,16 @@ describe('modelChipName', () => {
     expect(modelChipName({ chosen: 'default', catalog: claude })).toBeNull()
   })
 
+  it('names the model the alias stands for when the catalog says it, before any turn reported one', () => {
+    const named = { ...claude, models: [{ ...claude.models[0], description: 'Fable 5.2 · Best for everyday work' }, claude.models[1]] }
+    expect(modelChipName({ chosen: 'default', catalog: named })).toBe('Fable 5.2')
+    expect(modelChipName({ catalog: named })).toBe('Fable 5.2')
+    // What the session really ran wins over what the catalog promised.
+    expect(modelChipName({ catalog: named, reported: 'claude-opus-5-5' })).toBe('Opus 5.5')
+    // Settings may pick another model: the catalog's promise is not shown then.
+    expect(modelChipName({ catalog: { ...named, defaultKnown: false } })).toBeNull()
+  })
+
   it('shows a picked model by its catalog label', () => {
     expect(modelChipName({ chosen: 'sonnet', catalog: claude, reported: 'claude-opus-5-5' })).toBe('Sonnet')
   })

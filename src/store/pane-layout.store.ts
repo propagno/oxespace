@@ -7,6 +7,7 @@ import {
   balanceTree,
   collectPaneIds,
   moveLeaf,
+  placeSplit,
   normalize,
   removeLeaf,
   resizeSplit,
@@ -65,7 +66,8 @@ export const usePaneLayoutStore = create<PaneLayoutState>()(
         set((state) => {
           const tree = state.trees[workspaceId] ?? ({ kind: 'leaf', paneId: targetPaneId } as PaneNode)
           const next = collectPaneIds(tree).includes(newPaneId)
-            ? moveLeaf(tree, newPaneId, targetPaneId, direction)
+            // `sync` may have placed the new pane already; the two then share what the origin had (placeSplit).
+            ? placeSplit(tree, targetPaneId, newPaneId, direction)
             : normalize(splitLeaf(tree, targetPaneId, newPaneId, direction))
           return { trees: { ...state.trees, [workspaceId]: next } }
         }),

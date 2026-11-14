@@ -19,7 +19,10 @@ const budgets = [
   // 620 KiB since the main process is minified (B8.1, 2026-10-30): esbuild with keepNames took the entry from 914 to
   // 575 kB. Its source maps are written beside it but never referenced or packaged; see scripts/symbolicate-stack.mjs.
   { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 620 * 1024 },
-  { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 40 * 1024 },
+  // 42 KiB since 1.5.1 (2026-11-13): the preload is one line per channel, and 1.5.1 adds two (the phone's terminal size
+  // lease, #780, and the performance journal's report, #786), which took it to about 38.9 kB, past the 5% headroom of 40.
+  // Each method is a one-line invoke; nothing heavy lives here.
+  { label: 'preload entry', dir: 'out/preload', match: /^index\.cjs$/, max: 42 * 1024 },
   // 320 KiB since the renderer is minified (2026-10): the entry went from 474 kB readable to 246 kB.
   // 299 KiB since #534 (2026-11-03) took the entry to 275 kB: with the 5% headroom, anything past 284 kB fails, the
   // entry's target. The ceiling only ever goes down; new weight in the entry is lazy-loaded instead.

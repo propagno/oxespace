@@ -37,4 +37,22 @@ describe('MCP elicitation form', () => {
     expect(screen.getByText('Maximum is 5')).toBeVisible()
     expect(respond).not.toHaveBeenCalled()
   })
+
+  it('with nothing to fill in it is a yes or no, with the words of an approval (CHAT-15)', async () => {
+    // What Codex sends before it runs a tool of an MCP server: a question and no fields.
+    const respond = vi.fn(async () => {})
+    const ask: ThreadRequest = { id: 'm', nativeId: 'm', nativeMethod: 'mcpServer/elicitation/request', kind: 'elicitation', title: 'oxespace-delegation', detail: 'Allow the oxespace-delegation MCP server to run tool "oxespace_git"?', generation: 1, createdAt: 1, state: 'pending' }
+    render(<ThreadRequestCard request={ask} disabled={false} onRespond={respond} />)
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(respond).toHaveBeenCalledWith({ decision: 'accept', content: {} }))
+  })
+
+  it('a form keeps Continue and Decline', () => {
+    render(<ThreadRequestCard request={request({ type: 'object', properties: { env: { type: 'string', title: 'Environment' } } })} disabled={false} onRespond={vi.fn(async () => {})} />)
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeVisible()
+  })
 })

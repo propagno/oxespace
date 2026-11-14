@@ -104,8 +104,9 @@ describe('folding finished turns', () => {
     const folded = foldFinishedTurns(buildThreadTimeline(turn('ask', [draft, tool('a'), tool('b'), tool('c')], [answer, { type: 'completed', status: 'completed' }]), 'normal'), new Set())
     const fold = folded[0].rows.find(row => row.event.type === 'turn-fold')!.event as { steps: number }
     expect(fold.steps).toBe(4)
-    expect(turnFoldLabel(4, { id: 'ask', sequence: 1, status: 'completed', startedAt: 0, completedAt: 63_000, configuration: {} as never })).toBe('Completed 4 steps in 1m 3s')
-    expect(turnFoldLabel(1)).toBe('Completed 1 step')
+    // The fold names what it opens; the turn's closing line says how it ended and for how long.
+    expect(turnFoldLabel(4)).toBe('4 steps')
+    expect(turnFoldLabel(1)).toBe('1 step')
   })
 
   it('folds a thought away with the work but does not count it as a step', () => {
@@ -125,7 +126,7 @@ describe('folding finished turns', () => {
       { type: 'request-resolved', id: 'c', state: 'resolved', resolvedAt: 80_000 }
     ]
     expect(turnTimes(turn, events)).toEqual({ totalMs: 100_000, waitedMs: 50_000, workedMs: 50_000 })
-    expect(turnFoldLabel(3, turn, events)).toBe('Completed 3 steps in 50s')
+    expect(turnFoldLabel(3)).toBe('3 steps')
     // A request never answered is a wait until the turn ended.
     expect(turnTimes(turn, [request('d', 90_000)])?.waitedMs).toBe(10_000)
     expect(turnTimes({ ...turn, completedAt: undefined })).toBeUndefined()

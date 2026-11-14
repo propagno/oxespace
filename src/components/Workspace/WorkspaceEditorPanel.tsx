@@ -20,10 +20,7 @@ interface WorkspaceEditorPanelProps {
 
 export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded, scope, workspace }: WorkspaceEditorPanelProps): ReactElement {
   const openSourceControl = (): void => {
-    void (async () => {
-      await useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: false, editorExpanded: false })
-      await useWorkspaceStore.getState().updateGitHubState({ workspaceId: workspace.id, githubPanelVisible: true, githubPanelExpanded: false, githubPanelWidthPercent: workspace.editorWidthPercent ?? 48 })
-    })()
+    void useWorkspaceStore.getState().showRepositoryView(workspace.id, 'git')
   }
 
   return (

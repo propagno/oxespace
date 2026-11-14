@@ -1,5 +1,11 @@
 import { spawn } from 'node:child_process'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { isAbsolute, join } from 'node:path'
+import {
+  OXESPACE_PHONE_ACTIVITY, OXESPACE_PHONE_PACKAGE, PAIR_LINK_EXTRA, deviceLinkRefusal, installFailure, isPairLink, phoneAppBuild, quotedForDeviceShell, startFailure,
+  type PhoneAppBuild
+} from '../../../../shared/android-actions'
 
 export interface AdbResult {
   status: number | null
@@ -8,7 +14,7 @@ export interface AdbResult {
   missing?: boolean
 }
 
-export type AdbRunner = (args: string[], opts?: { shell?: boolean }) => Promise<AdbResult>
+export type AdbRunner = (args: string[], opts?: { shell?: boolean; timeoutMs?: number }) => Promise<AdbResult>
 export type EmulatorRunner = (args: string[], opts?: { detached?: boolean }) => Promise<AdbResult>
 
 export type AndroidDeviceKind = 'emulator' | 'usb' | 'wifi'
@@ -43,6 +49,18 @@ export interface AndroidAuditEntry {
   action: 'android-agents-can-see'
   target: string
   outcome: 'on' | 'off'
+}
+
+/** What the person had a device do from the panel: an APK installed, a web address opened, the pairing link sent. */
+export type AndroidPersonAction = 'android-install-apk' | 'android-open-link' | 'android-pair-link'
+/** How one of those ended: done, or the reason the device gave. */
+export type AndroidActionResult = { ok: true } | { ok: false; reason: string }
+/** An install takes as long as the file is large: far longer than a tap. */
+const INSTALL_TIMEOUT_MS = 180_000
+
+/** An APK on this computer as adb takes it: a full path to a `.apk`, nothing adb could read as an option. */
+export function isApkPath(path: unknown): path is string {
+  return typeof path === 'string' && path.length <= 1024 && !path.startsWith('-') && isAbsolute(path) && /\.apk$/i.test(path) && !/[\x00-\x1f\x7f]/.test(path)
 }
 
 export interface AndroidAuditSink {
@@ -107,14 +125,34 @@ function isAllowedAdbArgs(args: readonly string[]): boolean {
   ) {
     return true
   }
+  // The person's own actions from the panel, each in one fixed shape. Nothing else installs or starts anything.
+  if (args.length === 5 && args[2] === 'install' && args[3] === '-r' && isApkPath(args[4])) return true
+  if (args.length === 6 && args[2] === 'shell' && args[3] === 'dumpsys' && args[4] === 'package' && args[5] === OXESPACE_PHONE_PACKAGE) return true
+  // `am start` only in two shapes, each ending in one single-quoted word the device's shell reads literally.
+  const quoted = (word: string | undefined): string | null => word && word.length > 2 && word.startsWith("'") && word.endsWith("'") ? word.slice(1, -1) : null
+  if (args.length === 9 && args[2] === 'shell' && args[3] === 'am' && args[4] === 'start' && args[5] === '-a' && args[6] === 'android.intent.action.VIEW' && args[7] === '-d') {
+    return deviceLinkRefusal(quoted(args[8])) === null
+  }
+  if (args.length === 10 && args[2] === 'shell' && args[3] === 'am' && args[4] === 'start' && args[5] === '-n' && args[6] === OXESPACE_PHONE_ACTIVITY && args[7] === '--es' && args[8] === PAIR_LINK_EXTRA) {
+    return isPairLink(quoted(args[9]))
+  }
   return false
 }
 
+/** Where the SDK is: the folder the person named, else the one Android Studio installs to. */
+function sdkRoots(): string[] {
+  const named = [process.env.ANDROID_HOME, process.env.ANDROID_SDK_ROOT].map(value => value?.trim()).filter((value): value is string => Boolean(value))
+  const home = homedir()
+  const usual = process.platform === 'win32' ? (process.env.LOCALAPPDATA?.trim() ? join(process.env.LOCALAPPDATA.trim(), 'Android', 'Sdk') : join(home, 'AppData', 'Local', 'Android', 'Sdk'))
+    : process.platform === 'darwin' ? join(home, 'Library', 'Android', 'sdk')
+    : join(home, 'Android', 'Sdk')
+  return [...new Set([...named, usual])]
+}
+
+/** The tool inside an SDK that is on this computer: the first that exists, or null. Nothing is downloaded. */
 function sdkToolCandidate(folder: string, binary: string): string | null {
-  const sdkRoot = process.env.ANDROID_HOME?.trim() || process.env.ANDROID_SDK_ROOT?.trim()
-  if (!sdkRoot) return null
   const ext = process.platform === 'win32' ? '.exe' : ''
-  return join(sdkRoot, folder, `${binary}${ext}`)
+  return sdkRoots().map(root => join(root, folder, `${binary}${ext}`)).find(path => existsSync(path)) ?? null
 }
 
 function spawnBinary(binary: string, args: string[], timeoutMs = 15_000, detached = false): Promise<AdbResult> {
@@ -170,12 +208,12 @@ function spawnBinary(binary: string, args: string[], timeoutMs = 15_000, detache
   })
 }
 
-export const defaultAdbRunner: AdbRunner = async args => {
-  const primary = await spawnBinary('adb', args)
+export const defaultAdbRunner: AdbRunner = async (args, opts) => {
+  const primary = await spawnBinary('adb', args, opts?.timeoutMs)
   if (!primary.missing) return primary
   const fallback = sdkToolCandidate('platform-tools', 'adb')
   if (!fallback) return primary
-  return spawnBinary(fallback, args)
+  return spawnBinary(fallback, args, opts?.timeoutMs)
 }
 
 export const defaultEmulatorRunner: EmulatorRunner = async (args, opts) => {
@@ -219,11 +257,50 @@ export class AndroidDevices {
     this.runEmulator = options.runEmulator ?? defaultEmulatorRunner
   }
 
-  async adb(args: readonly string[]): Promise<AdbResult> {
+  async adb(args: readonly string[], timeoutMs?: number): Promise<AdbResult> {
     if (!isAllowedAdbArgs(args)) {
       throw new Error(`Refused adb command outside allowlist: ${args[0] ?? '<empty>'}`)
     }
-    return this.run([...args], { shell: false })
+    return this.run([...args], timeoutMs ? { shell: false, timeoutMs } : { shell: false })
+  }
+
+  /** Installs (or replaces) an app from an APK on this computer. The path is the one the person picked, never a guess. */
+  async installApk(serial: string, apkPath: string): Promise<AndroidActionResult> {
+    assertValidSerial(serial)
+    if (!isApkPath(apkPath)) throw new Error('Invalid APK path')
+    const res = await this.adb(['-s', serial, 'install', '-r', apkPath], INSTALL_TIMEOUT_MS)
+    if (res.missing) return { ok: false, reason: 'adb not found' }
+    const reason = installFailure(`${stdoutText(res.stdout)}\n${res.stderr}`)
+    return reason === null && res.status === 0 ? { ok: true } : { ok: false, reason: reason ?? `adb exited with ${res.status ?? 'no status'}` }
+  }
+
+  /** Opens a web address in the device's browser. The address is checked here, whoever called. */
+  async openLink(serial: string, url: string): Promise<AndroidActionResult> {
+    assertValidSerial(serial)
+    const refusal = deviceLinkRefusal(url)
+    if (refusal) throw new Error(`Refused link: ${refusal}`)
+    return this.started(await this.adb(['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', quotedForDeviceShell(url)]))
+  }
+
+  /** Hands the desktop's pairing link to the phone app, as the QR would. A debug build reads it; a release ignores it. */
+  async sendPairLink(serial: string, link: string): Promise<AndroidActionResult> {
+    assertValidSerial(serial)
+    if (!isPairLink(link)) throw new Error('Refused pairing link')
+    return this.started(await this.adb(['-s', serial, 'shell', 'am', 'start', '-n', OXESPACE_PHONE_ACTIVITY, '--es', PAIR_LINK_EXTRA, quotedForDeviceShell(link)]))
+  }
+
+  /** Whether the phone app is on the device, and which build: the pairing link is only offered to a debug one. */
+  async phoneApp(serial: string): Promise<PhoneAppBuild> {
+    assertValidSerial(serial)
+    const res = await this.adb(['-s', serial, 'shell', 'dumpsys', 'package', OXESPACE_PHONE_PACKAGE])
+    if (res.missing || res.status !== 0) return 'absent'
+    return phoneAppBuild(stdoutText(res.stdout))
+  }
+
+  private started(res: AdbResult): AndroidActionResult {
+    if (res.missing) return { ok: false, reason: 'adb not found' }
+    const reason = startFailure(`${stdoutText(res.stdout)}\n${res.stderr}`)
+    return reason === null && res.status === 0 ? { ok: true } : { ok: false, reason: reason ?? `adb exited with ${res.status ?? 'no status'}` }
   }
 
   async list(): Promise<AndroidListResult> {

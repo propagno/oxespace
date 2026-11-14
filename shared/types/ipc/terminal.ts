@@ -130,6 +130,17 @@ export interface SplitPaneInput {
   direction: 'vertical' | 'horizontal'
 }
 
+/** 1.5.0 · The grid a phone holds for a pane while it has the terminal open; the desktop's own size returns after. */
+export interface TerminalSizeLease {
+  cols: number
+  rows: number
+}
+
+export interface TerminalSizeLeaseEvent {
+  paneId: string
+  lease: TerminalSizeLease | null
+}
+
 export interface UpdatePaneTypeInput {
   paneId: string
   type: PaneType

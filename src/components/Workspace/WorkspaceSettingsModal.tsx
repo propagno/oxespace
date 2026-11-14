@@ -1,4 +1,4 @@
-import { Check, FolderTree, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
@@ -204,13 +204,6 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
               </div>
 
               <div id="ws-page-projects" hidden={page !== 'projects'}>
-                <section className="ws-settings-section">
-                  <header className="ws-settings-section-header">
-                    <FolderTree size={14} aria-hidden="true" />
-                    <h3>{selectedPage.label}</h3>
-                  </header>
-                  <p className="ws-settings-hint">{selectedPage.hint}</p>
-                </section>
                 <ProjectInstructionsRow workspaceId={workspace.id} rootPath={workspace.rootPath} />
               </div>
 

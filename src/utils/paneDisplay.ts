@@ -38,6 +38,8 @@ export interface PaneDisplayTerminalState {
 
 export interface PaneDisplayState {
   title: string
+  /** A plain shell's last command: a hint beside its name, never the name itself. Null for agents and renamed panes. */
+  lastCommand: string | null
   subtitle: string
   meta: string
   statusLabel: string
@@ -150,18 +152,24 @@ export function derivePaneDisplayState(input: {
 }): PaneDisplayState {
   const { pane, workspace, terminal, profile, paneIndex, shellProfileName } = input
   const identity = resolvePaneIdentity({ pane, profile, shellProfileName })
-  const statusTone = deriveStatusTone(terminal)
-  const statusLabel = formatPaneStatus(statusTone)
+  // An agent runs here when the pane is bound to one, or its lifecycle or hooks report one. A plain shell is not
+  // "awaiting" anyone after a command ends, and its last command is not what it is: both are guesses made for agents.
+  const agentPane = identity.key !== 'shell' || Boolean(terminal.hookState || (terminal.agentState && terminal.agentState !== 'unknown'))
+  const rawTone = deriveStatusTone(terminal)
+  const guessed = deriveStatusOrigin(terminal) === 'heuristic'
+  const statusTone: PaneDisplayTone = !agentPane && guessed && rawTone === 'awaiting' ? 'idle' : rawTone
+  const statusLabel = !agentPane && statusTone === 'thinking' ? tc('pane.status.running') : formatPaneStatus(statusTone)
   const branchLabel = extractBranchLabel(pane.rootPath ?? workspace.rootPath)
   const explicitTitle = pane.displayName?.trim() || null
   const intentTitle = terminal.lastIntent?.trim() ? compactPreview(terminal.lastIntent) : null
   const outputTitle = terminal.lastOutput?.trim() ? sanitizeTerminalPreview(terminal.lastOutput) : null
-  const fallbackTitle = fallbackForStatus(statusTone, pane, paneIndex)
-  const title = explicitTitle ?? intentTitle ?? outputTitle ?? fallbackTitle
+  const fallbackTitle = fallbackForStatus(agentPane ? statusTone : 'idle', pane, paneIndex)
+  const title = explicitTitle ?? (agentPane ? intentTitle ?? outputTitle : null) ?? fallbackTitle
   const rootLabel = compactPathLabel(pane.rootPath ?? workspace.rootPath)
   const subtitle = `${identity.label} · ${statusLabel}`
   const meta = `~/${rootLabel}${branchLabel ? ` · ${branchLabel}` : ''}`
-  const statusOrigin = deriveStatusOrigin(terminal)
+  // A shell guessed idle or running has no origin worth explaining.
+  const statusOrigin = !agentPane && guessed ? null : deriveStatusOrigin(terminal)
   const attentionReason = statusTone === 'needs-decision'
     ? tc('pane.attention.blocked')
     : terminal.status === 'running' && terminal.agentState === 'done'
@@ -176,6 +184,7 @@ export function derivePaneDisplayState(input: {
 
   return {
     title,
+    lastCommand: !agentPane && !explicitTitle ? intentTitle : null,
     subtitle,
     meta,
     statusLabel,

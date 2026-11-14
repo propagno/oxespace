@@ -14,6 +14,7 @@ import { ThreadFailureCard } from './ThreadFailureCard'
 import { ThreadFileActivity, ThreadTurnChanges } from './ThreadFileActivity'
 import { ThreadMessageRow } from './ThreadMessageRow'
 import { ThreadPlan } from './ThreadPlan'
+import { planOnlyTurn, ThreadPlanOnlyHint } from './ThreadPlanOnlyHint'
 import { ThreadReasoning } from './ThreadReasoning'
 import { ThreadRequestCard } from './ThreadRequestCard'
 import { useOpenRequest } from '../Approvals/openRequest'
@@ -53,7 +54,7 @@ async function undoTurnChanges(threadId: string, turnId: string): Promise<void> 
 }
 
 /** One virtual row of the conversation, plus the turn's changes and timing after its last row. */
-export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onPermissions, onToggleFold, superseded }: {
+export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending, pendingRequests, lastResult, lastMessageId, quickReplies, copiedMessageId, action, runCommand, onCopy, onQuickReply, onQuote, onDraft, onPermissions, onToggleFold }: {
   row: ThreadTimelineItem
   snapshot: ThreadSnapshot | null
   viewMode: ThreadViewMode
@@ -74,8 +75,6 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   onPermissions: () => void
   /** Opens or closes the folded work of a finished turn. */
   onToggleFold?: (turnId: string) => void
-  /** Set aside by a pending rewind. */
-  superseded?: boolean
 }) {
   const { t } = useTranslation('thread')
   const { event, key, turnId, turnEvents, firstInTurn, lastInTurn } = row
@@ -127,12 +126,12 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
     return null
   })()
   const finished = lastInTurn && turnEvents.some(value => value.type === 'completed')
-  // A turn set aside by a pending rewind stays readable, greyed and inert, until the next message confirms it.
-  return <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}${superseded ? ' is-superseded' : ''}`} data-turn-id={turnId} inert={superseded || undefined}>{body}
-    {finished && <ThreadTurnChanges events={turnEvents} workspaceId={snapshot?.thread.workspaceId} root={snapshot?.thread.rootPath ?? ''} roots={[snapshot?.thread.observedLocation?.checkoutRoot]} onOpen={openFile} onViewChanges={() => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', turnId }) }} onUndo={snapshot && !running && turnId ? () => undoTurnChanges(snapshot.thread.id, turnId) : undefined} loadFileStates={snapshot && turnId && api?.turnFiles ? () => api.turnFiles!(snapshot.thread.id, turnId) : undefined} onUndoFile={snapshot && !running && turnId && api?.undoTurnFile ? async path => { await api.undoTurnFile!(snapshot.thread.id, turnId, path); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
+  return <section className={`thread-turn thread-virtual-turn${firstInTurn ? ' is-turn-start' : ''}${lastInTurn ? ' is-turn-end' : ''}`} data-turn-id={turnId}>{body}
+    {finished && <ThreadTurnChanges openFirst={turnId === snapshot?.turns?.at(-1)?.id} events={turnEvents} workspaceId={snapshot?.thread.workspaceId} root={snapshot?.thread.rootPath ?? ''} roots={[snapshot?.thread.observedLocation?.checkoutRoot]} onOpen={openFile} onViewChanges={() => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', turnId }) }} onUndo={snapshot && !running && turnId ? () => undoTurnChanges(snapshot.thread.id, turnId) : undefined} loadFileStates={snapshot && turnId && api?.turnFiles ? () => api.turnFiles!(snapshot.thread.id, turnId) : undefined} onUndoFile={snapshot && !running && turnId && api?.undoTurnFile ? async path => { await api.undoTurnFile!(snapshot.thread.id, turnId, path); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
       loadHunks={snapshot && turnId && api?.turnFileHunks ? path => api.turnFileHunks!(snapshot.thread.id, turnId, path) : undefined}
       onUndoHunk={snapshot && !running && turnId && api?.undoTurnHunk ? async (path, hunkId) => { await api.undoTurnHunk!(snapshot.thread.id, turnId, path, hunkId); await useThreadStore.getState().refresh(snapshot.thread.id) } : undefined}
       onComment={onDraft} />}
     {finished && <ThreadTurnTiming turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} />}
+    {finished && !running && planOnlyTurn(snapshot, turnId) && <ThreadPlanOnlyHint agent={threadAgentName(snapshot!.thread.provider)} onChangeAccess={onPermissions} />}
   </section>
 }

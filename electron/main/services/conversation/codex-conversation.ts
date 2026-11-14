@@ -8,7 +8,6 @@ import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
 import { readCodexRequestTokens, type TurnCost } from './thread-cost'
-import { ThreadRewindError, readAllTurnIds, verifyRevert } from './thread-rewind'
 import { ReasoningStream } from './reasoning-stream'
 
 // Codex can send a completed command or compaction item as one JSON-RPC frame.
@@ -68,7 +67,7 @@ export class CodexForkUnsupportedError extends Error {}
 
 /** Codex stable App Server protocol. The transport owns process spawning/cleanup. */
 export class CodexConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true, rewind: true }
+  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: true, queue: true, steering: true, nativeSessions: true }
   readonly evidence: ConversationProtocolEvidence = { transport: 'codex-app-server-jsonrpc', verified: 'fixture' }
   private rpc: AgentRpcPeer | null = null
   private threadId = ''
@@ -254,31 +253,6 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       this.fail(failure)
       throw new ThreadAgentError(failure)
     }
-  }
-
-  private async turnIds(): Promise<string[]> {
-    return readAllTurnIds(async cursor => {
-      const result = record(await this.rpc!.request('thread/turns/list', { threadId: this.threadId, limit: 100, sortDirection: 'asc', itemsView: 'notLoaded', ...(cursor ? { cursor } : {}) }))
-      return { ids: (Array.isArray(result.data) ? result.data : []).map(value => text(record(value).id)).filter(Boolean), next: text(result.nextCursor) || null }
-    })
-  }
-
-  /**
-   * Replaces the provider's durable history with the turns before `beforeNativeTurnId`.
-   * Succeeds only after re-reading the provider's turns proves the exact prefix remains.
-   */
-  async rewind(beforeNativeTurnId: string): Promise<void> {
-    if (!this.rpc || !this.threadId || this.disposed) throw new ThreadRewindError('unavailable', 'The provider connection is closed.')
-    if (this.busy || this.approvals.size) throw new ThreadRewindError('unavailable', 'Finish the active turn before rewinding.')
-    const before = await this.turnIds()
-    if (!before.includes(beforeNativeTurnId)) throw new ThreadRewindError('unavailable', 'The provider no longer has that turn.')
-    try { await this.rpc.request('thread/revert', { threadId: this.threadId, beforeTurnId: beforeNativeTurnId }) }
-    catch (error) {
-      const message = error instanceof ThreadAgentError ? error.failure.detail ?? error.failure.message : error instanceof Error ? error.message : ''
-      if (/method not found|unknown (?:variant|method)|not supported|unsupported/i.test(message)) throw new ThreadRewindError('unsupported', 'This Codex version cannot rewind a conversation.')
-      throw new ThreadRewindError('provider-refused', message || 'The provider refused to rewind.')
-    }
-    verifyRevert(before, await this.turnIds(), beforeNativeTurnId)
   }
 
   /** Read-only observation. Never starts/resumes a session or retries an input. */
@@ -522,19 +496,17 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       hooks: ['hooks/list', { cwd: this.rootPath }], experimental: ['experimentalFeature/list', {}],
       'debug-config': ['config/read', { cwd: this.rootPath, includeLayers: true }],
       ps: ['thread/backgroundTerminals/list', { threadId: this.threadId }], memories: ['config/read', { cwd: this.rootPath, includeLayers: false }],
-      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.nativeSandbox, approvalPolicy: this.approvalPolicy }],
-      rewind: ['thread/rollback', { threadId: this.threadId, numTurns: Number(argument) || 1 }]
+      fork: ['thread/fork', { threadId: this.threadId, cwd: this.rootPath, sandbox: this.nativeSandbox, approvalPolicy: this.approvalPolicy }]
     }
     const operation = methods[name]
     if (!operation) throw Error(`/${name} is not supported by this adapter`)
-    if (['fork', 'rewind'].includes(name) && this.busy) throw Error('Finish the active turn first')
+    if (name === 'fork' && this.busy) throw Error('Finish the active turn first')
     if (name === 'usage') {
       const usage = await this.readUsage()
       return { kind: 'panel', title: 'Usage limits', usage, rows: usage.windows.map(window => ({ label: window.label, detail: `${window.usedPercent}% used${window.resetsAt ? ` · resets ${new Date(window.resetsAt).toLocaleString()}` : ' · reset not provided'}` })) }
     }
     const result = record(await this.rpc.request(operation[0], operation[1], ['mcp', 'plugins'].includes(name) ? 60_000 : undefined))
     if (name === 'fork') return { kind: 'navigate', threadId: text(record(result.thread).id) }
-    if (name === 'rewind') return { kind: 'applied', title: 'Conversation rewound' }
     // Render only explicitly selected public fields, never raw provider payloads/configuration.
     const rows: NonNullable<ThreadCommandResult['rows']> = []
     if (name === 'debug-config' || name === 'memories') {

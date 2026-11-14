@@ -9,13 +9,11 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { derivePaneDisplayState, resolvePaneIdentity } from '../../utils/paneDisplay'
 import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeMarker, StartFreshMenuItem, usePaneResume } from '../AgentSessions/PaneResume'
 import { PaneContent } from '../Panes/PaneContent'
-import { PaneConversationSwitch } from '../Panes/PaneConversationSwitch'
-import { usePaneConversationView } from '../../store/pane-conversation-view.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
 import { Button, Dialog } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
-import { paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
+import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -27,7 +25,6 @@ const detailRows = (items: string[][]): Array<{ label: string; detail: string }>
 const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
 const StatusExplainDialog = lazy(() => import('./StatusExplainDialog').then(module => ({ default: module.StatusExplainDialog })))
 const TerminalFocusMenuItems = lazy(() => import('./TerminalFocusMenuItems').then(module => ({ default: module.TerminalFocusMenuItems })))
-const PaneConversationView = lazy(() => import('../Panes/PaneConversationView').then(module => ({ default: module.PaneConversationView })))
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -42,6 +39,8 @@ interface PaneContainerProps {
   onSplitHorizontal?: (paneId: string) => void
   onActivate?: (paneId: string) => void
   onArrange?: (position: 'right' | 'bottom' | 'balance') => void
+  /** False on the first pane: the two "previous pane" moves have nowhere to go, and say so. */
+  hasPreviousPane?: boolean
 }
 
 const EMPTY_TERMINAL_STATE = {
@@ -61,7 +60,7 @@ function statusClass(status: WorkspacePane['status']): string {
   return ''
 }
 
-export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
+export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
   const terminalState = useTerminalStore((s) => s.panes[pane.id] ?? EMPTY_TERMINAL_STATE)
   const shellProfiles = useWorkspaceStore((s) => s.shellProfiles)
   const shellProfileName = useMemo(() => {
@@ -78,9 +77,6 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   })
   const updatePaneName = useWorkspaceStore((s) => s.updatePaneName)
   const isTerminalPane = pane.type === 'terminal'
-  const paneViewMode = usePaneConversationView((s) => s.views[pane.id] ?? 'terminal')
-  const setPaneViewMode = usePaneConversationView((s) => s.setMode)
-  const clearPaneViewMode = usePaneConversationView((s) => s.clear)
   // F32: what main did with this pane's earlier Claude/Codex session when the app reopened (B17).
   const identityKey = resolvePaneIdentity({ pane, profile: agentProfile, shellProfileName }).key
   const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
@@ -119,6 +115,22 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
   // Fixed placement so the menu is not clipped by the pane it belongs to, and kept above the status bar.
   const [menuPlacement, setMenuPlacement] = useState<PaneMenuPlacement>({ top: 0, right: 0, maxHeight: 320 })
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  // CODE-8: a right click (or Shift+F10, the context-menu key) on the header opens the ⋯ actions at the pointer.
+  // The rename field keeps its own menu (cut, copy, paste).
+  function openMenuFromContext(event: React.MouseEvent<HTMLElement>): void {
+    const target = event.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return
+    event.preventDefault()
+    event.stopPropagation()
+    const viewport = { width: window.innerWidth, height: window.innerHeight }
+    const fromKeyboard = event.clientX === 0 && event.clientY === 0
+    const button = menuButtonRef.current
+    if (fromKeyboard && button) setMenuPlacement(paneMenuPlacement(button.getBoundingClientRect(), viewport, statusBarFloor()))
+    else setMenuPlacement(paneMenuAtPointer({ x: event.clientX, y: event.clientY }, viewport, statusBarFloor()))
+    setMenuOpen(true)
+  }
 
   useEffect(() => {
     if (renaming) {
@@ -188,7 +200,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
 
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
-      <header className="pane-header" {...workspaceColorAttrs(workspace)}>
+      <header className="pane-header" {...workspaceColorAttrs(workspace)} onContextMenu={openMenuFromContext}>
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
@@ -233,7 +245,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
             <button
               type="button"
               className="pane-intent pane-intent-button"
-              title={tc('paneMenu.titleHint', { title: display.title })}
+              title={tc('paneMenu.titleHint', { title: display.lastCommand ? `${display.title} · ${display.lastCommand}` : display.title })}
               onDoubleClick={(e) => startRename(e)}
               onClick={(e) => e.stopPropagation()}
             >
@@ -243,7 +255,6 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           )}
         </div>
         <div className="pane-actions">
-          {isTerminalPane ? <PaneConversationSwitch paneId={pane.id} /> : null}
           {isTerminalPane ? (
             <button
               type="button"
@@ -274,6 +285,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
           <div className="pane-actions-menu" ref={menuRef}>
             <button
               type="button"
+              ref={menuButtonRef}
               className={`tile-btn${menuOpen ? ' active' : ''}`}
               aria-label={tc('paneMenu.more')}
               title={tc('paneMenu.more')}
@@ -289,7 +301,7 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
               <MoreHorizontal size={12} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right, left: 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
+              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right ?? 'auto', left: menuPlacement.left ?? 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? (
                   <>
                     <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>
@@ -358,8 +370,8 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                 </button>
                 {onArrange ? <>
                   <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
+                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
                   <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</button>
                 </> : null}
                 {onClose ? (
@@ -372,7 +384,6 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
                       onClick={(e) => {
                         e.stopPropagation()
                         runMenuAction(() => {
-                          clearPaneViewMode(pane.id)
                           onClose(pane.id)
                         })
                       }}
@@ -389,24 +400,9 @@ export function PaneContainer({ agentProfile, autoStart, isActive, isMaximized, 
       </header>
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
-      <div
-        hidden={isTerminalPane && paneViewMode === 'conversation'}
-        style={isTerminalPane && paneViewMode === 'conversation' ? { display: 'none' } : { display: 'contents' }}
-      >
+      <div style={{ display: 'contents' }}>
         <PaneContent pane={pane} workspaceId={workspace.id} workspaceRootPath={workspace.rootPath} autoStart={autoStart} />
       </div>
-      {isTerminalPane && paneViewMode === 'conversation' ? (
-        <Suspense fallback={null}><PaneConversationView
-          paneId={pane.id}
-          onShowScreen={() => setPaneViewMode(pane.id, 'terminal')}
-          onTypeInTerminal={() => {
-            setPaneViewMode(pane.id, 'terminal')
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('oxe:terminal-focus', { detail: { paneId: pane.id } }))
-            }, 0)
-          }}
-        /></Suspense>
-      ) : null}
       {detailsOpen && <Dialog size="md" title={tc('paneMenu.detailsTitle')} description={tc('paneMenu.detailsDescription')} onClose={() => setDetailsOpen(false)}>
         {/* F32: the native session main resumed or recorded; the note on finding it only when there is none. */}
         {sessionDetails?.agentSession && <AgentSessionDetails session={sessionDetails.agentSession} resume={sessionDetails.agentResume} />}

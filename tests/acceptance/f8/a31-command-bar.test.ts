@@ -23,8 +23,10 @@ describe('A31 · parsing', () => {
   })
 
   test('A31: the commands, open and help', () => {
-    for (const id of ['pending', 'deny', 'steer', 'stop', 'new', 'history', 'terminal', 'theme']) expect(parseCommandLine(`/${id}`), id).toMatchObject({ kind: 'command', id })
+    for (const id of ['pending', 'deny', 'steer', 'stop', 'new', 'terminal', 'theme']) expect(parseCommandLine(`/${id}`), id).toMatchObject({ kind: 'command', id })
     expect(parseCommandLine('/agora')).toMatchObject({ kind: 'unknown' })
+    // History (time travel) left 1.5.0 by the product owner's decision of 2026-11-12: /history is not a command.
+    expect(parseCommandLine('/history')).toMatchObject({ kind: 'unknown' })
     expect(parseCommandLine('/steer also update the README')).toEqual({ kind: 'command', id: 'steer', args: 'also update the README' })
     expect(parseCommandLine('open billing-staging')).toEqual({ kind: 'open', query: 'billing-staging' })
     expect(parseCommandLine('?')).toEqual({ kind: 'help' })
@@ -54,11 +56,12 @@ describe('A31 · the catalog', () => {
     for (const entry of COMMAND_CATALOG) expect(['thread.approve', 'approvals.alwaysAllow'].includes(entry.ipc), entry.id).toBe(false)
   })
 
-  test('A31: Stop asks first; the bar has no new power: /history only opens the timeline, and nothing in it branches', () => {
+  test('A31: Stop asks first; the bar has no new power: nothing in it restores a conversation or branches', () => {
     expect(COMMAND_CATALOG.find(entry => entry.id === 'stop')).toMatchObject({ confirm: true })
-    // /history opens time travel (read), and nothing in the bar branches: Branch stays a person's dialog.
-    expect(COMMAND_CATALOG.find(entry => entry.id === 'history')?.ipc).toBe('thread.timeline')
-    expect(COMMAND_CATALOG.some(entry => entry.ipc === 'thread.branchFromCheckpoint')).toBe(false)
+    // Changed on 2026-11-12 (product owner): time travel left 1.5.0, so the bar has no /history, and no entry reaches
+    // a restore, a timeline or a branch.
+    expect(COMMAND_CATALOG.some(entry => (entry.id as string) === 'history')).toBe(false)
+    expect(COMMAND_CATALOG.some(entry => /^thread\.(timeline|rewind|redoRewind|branchFromCheckpoint)$/.test(entry.ipc))).toBe(false)
   })
 })
 

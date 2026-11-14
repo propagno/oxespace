@@ -664,6 +664,48 @@ describe('thread persistence and ownership', () => {
     expect(new ThreadHistory(f.db).read(id).events.find(event => event.type === 'tool')).toMatchObject({ state: 'unknown' })
     await reopened.stop(); await f.manager.stop()
   })
+  it('a Stop that arrives while the turn is still starting stops it (CHAT-2)', async () => {
+    // Before the agent is connected: there is no execution to stop yet, and the turn already shows as working.
+    const f = fixture(), id = f.create()
+    let connect!: () => void
+    const original = f.factory.getMockImplementation()!
+    f.factory.mockImplementationOnce(async (...args: Parameters<typeof original>) => { await new Promise<void>(resolve => { connect = resolve }); return original(...args) })
+    const sent = f.manager.send(id, 'A long task')
+    await vi.waitFor(() => expect(connect).toBeTypeOf('function'))
+    expect(f.manager.read(id).thread.status).toBe('running')
+    await f.manager.interrupt(id)
+    connect()
+    await sent
+    const stopped = f.manager.read(id)
+    expect(stopped.thread.status).toBe('interrupted')
+    expect(stopped.turns?.at(-1)).toMatchObject({ status: 'interrupted' })
+    expect(stopped.events.filter(event => event.type === 'completed')).toEqual([expect.objectContaining({ status: 'interrupted' })])
+    // The message never reached the agent.
+    expect(f.adapters[0]?.send).not.toHaveBeenCalled()
+    // The conversation is free: the next message starts a turn.
+    await f.manager.send(id, 'Something else')
+    expect(f.adapters.at(-1)!.send).toHaveBeenCalledWith('Something else', undefined)
+    await f.manager.stop()
+  })
+  it('a Stop while the agent process is starting reaches it, and the send does not fail (CHAT-2)', async () => {
+    const f = fixture(), id = f.create()
+    await f.manager.send(id, 'Warm up')
+    f.callbacks[0]({ type: 'completed', status: 'completed' })
+    await vi.waitFor(() => expect(f.manager.read(id).thread.status).toBe('idle'))
+    // The second message is with the adapter, whose process takes long to start (a resumed session).
+    let fail!: (error: Error) => void
+    vi.mocked(f.adapters[0].send).mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { fail = reject }))
+    // Stopping an adapter that is starting ends its turn and makes its send fail, as the Claude adapter does.
+    vi.mocked(f.adapters[0].interrupt).mockImplementationOnce(async () => { f.callbacks[0]({ type: 'completed', status: 'interrupted' }); fail(Error('Agent initialization cancelled')) })
+    const sent = f.manager.send(id, 'A long task')
+    await vi.waitFor(() => expect(f.adapters[0].send).toHaveBeenCalledTimes(2))
+    await f.manager.interrupt(id)
+    await expect(sent).resolves.toBeUndefined()
+    const stopped = f.manager.read(id)
+    expect(stopped.thread.status).toBe('interrupted')
+    expect(stopped.events.filter(event => event.type === 'completed').map(event => event.type === 'completed' && event.status)).toEqual(['completed', 'interrupted'])
+    await f.manager.stop()
+  })
   it('settles active operations during graceful shutdown and does not duplicate recovery on restart', async () => {
     const f = fixture(), id = f.create()
     await f.manager.send(id, 'Keep shutdown history coherent')

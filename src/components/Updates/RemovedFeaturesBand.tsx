@@ -1,7 +1,9 @@
 import { lazy, Suspense, useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { AlertTriangle, Info, X } from 'lucide-react'
 import { Button } from '../../ui/Button'
+import { cx } from '../../ui/cx'
+import styles from './RemovedFeaturesBand.module.css'
 const WhatChangedDialog = lazy(() => import('./WhatChangedDialog').then(m => ({ default: m.WhatChangedDialog })))
 import type { DataExportState } from '../../../shared/types/ipc'
 
@@ -65,42 +67,36 @@ export function RemovedFeaturesBand(): ReactElement | null {
         role="status"
         aria-live="polite"
         data-intent={intent}
-        className="removed-features-band"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 16px',
-          gap: '12px',
-          fontSize: '13px',
-          background: intent === 'warning' ? 'var(--color-bg-warning, #fff3cd)' : 'var(--color-bg-info, #d1ecf1)',
-          color: intent === 'warning' ? 'var(--color-text-warning, #856404)' : 'var(--color-text-info, #0c5460)',
-          borderBottom: '1px solid var(--color-border-subtle, rgba(0,0,0,0.1))'
-        }}
+        className={cx('removed-features-band', styles.band)}
       >
-        <span>
+        {intent === 'warning'
+          ? <AlertTriangle size={16} aria-hidden="true" className={styles.icon} />
+          : <Info size={16} aria-hidden="true" className={styles.icon} />}
+        <p className={styles.text}>
           {state.error
             ? t('updates.removedFeatures.warning')
             : t('updates.removedFeatures.info')}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        </p>
+        <div className={styles.actions}>
+          <Button variant="primary" size="sm" onClick={() => setShowDialog(true)}>
+            {t('updates.removedFeatures.seeWhatChanged')}
+          </Button>
           {state.error && (
             <Button variant="secondary" size="sm" onClick={handleTryNow} disabled={loading}>
               {t('updates.removedFeatures.tryNow')}
             </Button>
           )}
-          <Button variant="secondary" size="sm" onClick={() => setShowDialog(true)}>
-            {t('updates.removedFeatures.seeWhatChanged')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={t('updates.removedFeatures.dismiss')}
-            onClick={handleDismiss}
-          >
-            <X size={14} aria-hidden="true" />
-          </Button>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          square
+          className={styles.close}
+          aria-label={t('updates.removedFeatures.dismiss')}
+          title={t('updates.removedFeatures.dismiss')}
+          onClick={handleDismiss}
+          icon={<X size={14} aria-hidden="true" />}
+        />
       </div>
       {showDialog && (
         <Suspense fallback={null}><WhatChangedDialog

@@ -22,16 +22,17 @@ export const useOxeQueryLayout = create<LayoutState>()(persist(set => ({
 }), { name: 'oxe.oxequery.layout', partialize: state => ({ treeWidth: state.treeWidth, editorHeight: state.editorHeight, mongoInputsHeight: state.mongoInputsHeight }) }))
 
 /** The element's current height, kept up to date as the window or the panels around it change. */
-export function useHeight(ref: RefObject<HTMLElement | null>): number {
+export function useHeight(ref: RefObject<HTMLElement | null>, box: 'content' | 'border' = 'content'): number {
   const [height, setHeight] = useState(0)
   useLayoutEffect(() => {
     const element = ref.current
     if (!element) return
     setHeight(element.getBoundingClientRect().height)
     if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height))
+    // 'border' is the box the layout gives the element (padding and border included): what a bar takes from its column.
+    const observer = new ResizeObserver(([entry]) => setHeight(box === 'border' ? element.getBoundingClientRect().height : entry.contentRect.height))
     observer.observe(element)
     return () => observer.disconnect()
-  }, [ref])
+  }, [ref, box])
   return height
 }

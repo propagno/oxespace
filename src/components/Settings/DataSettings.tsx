@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../ui/Button'
+import { toast } from '../../ui/Toast'
 import { SettingRow, SettingsSection } from '../../ui/Settings'
 import { UsageSettings } from './UsageSettings'
 import type { DataExportState } from '../../../shared/types/ipc'
@@ -26,8 +27,11 @@ export function DataSettings(): ReactElement {
   const handleExportAgain = async (): Promise<void> => {
     setLoading(true)
     try {
-      await window.oxe?.dataExport?.exportAgain?.()
+      const result = await window.oxe?.dataExport?.exportAgain?.()
       await loadState()
+      // A profile with nothing left from the removed features writes no file: say so, a button that does nothing
+      // looks broken (SET-1).
+      if (result && !result.file) toast({ title: t('data.nothingToExport') })
     } catch {
       // ignore
     } finally {
@@ -59,16 +63,6 @@ export function DataSettings(): ReactElement {
     <section className="settings-general" data-testid="data-settings">
       <h2>{t('center.pages.privacy.label')}</h2>
       <p>{t('data.description')}</p>
-      <SettingsSection title={t('data.historyTitle')}>
-        <SettingRow
-          label={t('data.conversationHistory')}
-          description={t('data.conversationHistoryHint')}
-        />
-        <SettingRow
-          label={t('data.activityRetention')}
-          description={t('data.activityRetentionHint')}
-        />
-      </SettingsSection>
       <UsageSettings />
       <SettingsSection title={t('data.removedSection')}>
         <SettingRow

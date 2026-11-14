@@ -202,6 +202,7 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
       {rootPath && <Button variant="ghost" size="sm" disabled={busy} onClick={reload}><RefreshCw size={14} aria-hidden="true" /> {t('tools.reload')}</Button>}
     </div>
     <div className={styles.providers} role="note" aria-label={t('tools.providers.title')}>
+      <p data-testid="tools-where-to-add">{t('tools.whereToAdd')}</p>
       <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
       <p data-testid="tools-codex-note"><strong>{CODEX}</strong> {t('tools.providers.codex')}</p>
     </div>

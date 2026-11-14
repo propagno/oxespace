@@ -40,6 +40,8 @@ export interface DiagnosticsApi {
   exportBundle?(): Promise<string | null>
   /** The Markdown "Ask for an analysis" attaches to a Thread: the same text `oxespace_diagnostics` returns. */
   analysisSummary?(): Promise<string>
+  /** The window's frame and input times since its last report, for the local performance journal. Nothing is sent anywhere. */
+  reportPerf?(batch: { stats: Record<string, { n: number; sum: number; max: number; b: number[] }> }): Promise<void>
 }
 
 export interface FirstAnswerInput {

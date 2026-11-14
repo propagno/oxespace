@@ -241,10 +241,11 @@ export function WorkspaceSplitGrid({
                   if (position === 'balance') usePaneLayoutStore.getState().balance(workspace.id)
                   else {
                     const index = rects.findIndex(rect => rect.paneId === pane.id)
-                    const target = rects[(index + rects.length - 1) % rects.length]
-                    onMovePane(pane.id, target.paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
+                    if (index < 1) return
+                    onMovePane(pane.id, rects[index - 1].paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
                   }
                 } : undefined}
+                hasPreviousPane={rects[0]?.paneId !== pane.id}
               />
             </ErrorBoundary>
             {!isMaximized && rects.length > 1 ? (

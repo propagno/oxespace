@@ -3,7 +3,7 @@ import type { AgentProvider } from './agent'
 /**
  * Types for the per-provider usage/quota counter shown in the terminal status
  * bar — the same "AI credits" concept as the Copilot chip, but for the other
- * agents the app drives (Claude, Codex; Antigravity is a stub for now).
+ * agents the app drives (Claude, Codex, Antigravity).
  *
  * Each provider has a different authoritative source for subscription quota
  * (distinct from the token/cost data the `usage/*Provider` files already track):
@@ -11,7 +11,9 @@ import type { AgentProvider } from './agent'
  *              `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (local, no auth).
  *   - Claude → undocumented `GET https://api.anthropic.com/api/oauth/usage`,
  *              authed with the OAuth token in `~/.claude/.credentials.json`.
- * Both expose two windows (a short 5h window + a weekly window); the chip shows
+ *   - Antigravity → the service its CLI calls (`retrieveUserQuotaSummary`), authed with the
+ *              CLI's sign-in from the system's credential store (Windows only for now).
+ * All expose two windows (a short 5h window + a weekly window); the chip shows
  * the weekly one, matching Copilot's periodically-renewing credits.
  */
 

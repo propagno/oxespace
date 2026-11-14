@@ -14,6 +14,9 @@ import type { ThreadProvider } from '../../../../shared/types/thread'
 import { instructionLabel, instructionSources } from './instruction-sources'
 import { runGit } from '../../utils/safe-git'
 
+// What goes with a message besides the brief: the note for an agent that can see the conversation's preview.
+export { previewNoteFor } from './preview-note'
+
 export const MAX_BRIEF_BYTES = 3 * 1024
 const PACKAGE_LIMIT = 256 * 1024
 const SCRIPT_KEYS = ['dev', 'build', 'test', 'lint', 'typecheck', 'check', 'format']

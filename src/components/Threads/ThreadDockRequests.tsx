@@ -15,16 +15,21 @@ const EXPANDED_KEY = 'oxe.thread.request-expanded'
 const readExpanded = (): boolean => { try { return localStorage.getItem(EXPANDED_KEY) === '1' } catch { return false } }
 
 /** The agent's pending requests above the composer, or a notice when the provider waits on one OXESpace cannot see. */
-export function ThreadDockRequests({ snapshot, pendingRequests, pending, action }: {
+export function ThreadDockRequests({ snapshot, pendingRequests, waiting, pending, action }: {
   snapshot: ThreadSnapshot
+  /** The pending requests shown here: those with no card of their own in the conversation. */
   pendingRequests: ThreadRequest[]
+  /** Every pending request, the ones with a card in the conversation included. */
+  waiting: number
   pending: boolean
   action: (run: () => Promise<unknown>) => Promise<void>
 }) {
   const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const id = snapshot.thread.id
-  const orphanedApproval = snapshot.thread.status === 'approval' && pendingRequests.length === 0
+  // Unavailable means no request at all. One that has its card in the conversation (a question, an MCP server's
+  // request) is not listed here and is still there to answer: the notice beside it said the opposite (CHAT-14).
+  const orphanedApproval = snapshot.thread.status === 'approval' && waiting === 0
     && !snapshot.events.some(event => event.type === 'approval' && !snapshot.events.some(other => other.type === 'approval-resolved' && other.id === event.id))
   // Hiding is per set of requests: a new request shows itself again.
   const requestKey = pendingRequests.map(request => `${request.id}:${request.generation}`).join(',')

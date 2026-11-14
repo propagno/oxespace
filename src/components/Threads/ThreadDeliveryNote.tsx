@@ -16,7 +16,7 @@ export function ThreadDeliveryNote({ delivery, disabled, onResend }: { delivery:
   const Icon = delivery.state === 'unconfirmed' ? HelpCircle : AlertCircle
   return <p className={`thread-delivery-note is-${delivery.state}`} role={delivery.state === 'sending' ? 'status' : 'alert'}>
     {delivery.state === 'sending' ? <Spinner size="sm" decorative /> : <Icon size={12} aria-hidden="true" />}
-    <span>{delivery.error ? t('delivery.withError', { label, error: delivery.error }) : label}</span>
+    <span className="thread-delivery-text">{delivery.error ? t('delivery.withError', { label, error: delivery.error }) : label}</span>
     {resend && <button type="button" disabled={disabled} onClick={onResend}>{resend}</button>}
   </p>
 }

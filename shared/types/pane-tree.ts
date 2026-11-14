@@ -186,6 +186,39 @@ export function moveLeaf(
   return normalize(splitLeaf(without, targetPaneId, paneId, direction, after))
 }
 
+/**
+ * A pane the person split from `targetPaneId` that the tree already holds: `sync` put it beside its origin, in a
+ * direction chosen by the pane's shape, before the split itself arrived. It goes where the person asked, and the two
+ * share the space the origin had. `moveLeaf` would not do: it removes the pane first and spreads its share over the
+ * whole row, so the origin kept a third of the row instead of its half and the neighbour grew.
+ */
+export function placeSplit(
+  node: PaneNode | null,
+  targetPaneId: string,
+  newPaneId: string,
+  direction: SplitDirection
+): PaneNode | null {
+  if (!node || targetPaneId === newPaneId) return node
+  const ids = collectPaneIds(node)
+  if (!ids.includes(targetPaneId) || !ids.includes(newPaneId)) return node
+  const without = returnShare(node, newPaneId, targetPaneId)
+  if (!without) return node
+  return normalize(splitLeaf(without, targetPaneId, newPaneId, direction))
+}
+
+/** Removes `paneId`; when `heirPaneId` sits beside it in the same split, the heir gets its share, otherwise the proportions are kept. */
+function returnShare(node: PaneNode | null, paneId: string, heirPaneId: string): PaneNode | null {
+  if (!node) return null
+  if (node.kind === 'leaf') return node.paneId === paneId ? null : node
+  if (!collectPaneIds(node).includes(paneId)) return node
+  const sizes = resolveSizes(node.sizes, node.children.length)
+  const at = node.children.findIndex(child => child.kind === 'leaf' && child.paneId === paneId)
+  const heir = node.children.findIndex(child => child.kind === 'leaf' && child.paneId === heirPaneId)
+  if (at >= 0 && heir >= 0) sizes[heir] += sizes[at]
+  const remaining = node.children.map((child, i) => ({ node: returnShare(child, paneId, heirPaneId), size: sizes[i] })).filter(child => child.node !== null)
+  return normalize({ kind: 'split', direction: node.direction, children: remaining.map(child => child.node!), sizes: remaining.map(child => child.size) })
+}
+
 /** Adjust the boundary between children `index`/`index+1` of the split at `path`
  *  by `deltaPct` (percent of that split's extent), clamped to MIN_SIZE_PCT. */
 export function resizeSplit(
@@ -212,6 +245,32 @@ export function resizeSplit(
     ...node,
     children: node.children.map((c, i) => (i === head ? (resizeSplit(c, rest, index, deltaPct) as PaneNode) : c))
   }
+}
+
+/**
+ * The rows and columns the panes form, when they form a full grid (every row crosses every column, whatever the sizes).
+ * Null for anything else: a pane split on its own, or panes spanning rows or columns.
+ */
+export function gridShape(node: PaneNode | null): { rows: number; columns: number } | null {
+  if (!node) return null
+  if (node.kind === 'leaf') return { rows: 1, columns: 1 }
+  const shape = (along: number, across: number): { rows: number; columns: number } =>
+    node.direction === 'horizontal' ? { rows: across, columns: along } : { rows: along, columns: across }
+  // Each child is one line of the grid: a single pane, or panes split the other way.
+  const lines = node.children.map(child => child.kind === 'leaf'
+    ? 1
+    : child.direction !== node.direction && child.children.every(isLeaf) ? child.children.length : null)
+  const [first] = lines
+  if (first !== null && lines.every(line => line === first)) return shape(node.children.length, first)
+  // Nested another way (a preset applied over splits leaves columns inside halves), the panes can still line up as a
+  // grid: every left edge crosses every top edge exactly once.
+  const { rects } = computeLayout(node)
+  const edge = (value: number): number => Math.round(value * 100) / 100
+  const lefts = new Set(rects.map(rect => edge(rect.left)))
+  const tops = new Set(rects.map(rect => edge(rect.top)))
+  if (lefts.size * tops.size !== rects.length) return null
+  const cells = new Set(rects.map(rect => `${edge(rect.left)}:${edge(rect.top)}`))
+  return cells.size === rects.length ? { rows: tops.size, columns: lefts.size } : null
 }
 
 /** Compute absolute rects (percent of container) for every leaf, plus the

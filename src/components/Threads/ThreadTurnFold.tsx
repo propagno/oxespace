@@ -34,11 +34,12 @@ export function turnTimes(turn: ThreadTurn | undefined, events: readonly ThreadE
   return { totalMs, waitedMs, workedMs: totalMs - waitedMs }
 }
 
-/** The label of a folded turn: "Completed 7 steps in 1m 3s", counting the agent's time, not the wait for you. */
-export function turnFoldLabel(steps: number, turn?: ThreadTurn, events?: readonly ThreadEvent[]): string {
-  const times = turnTimes(turn, events)
-  const seconds = times ? Math.round(times.workedMs / 1000) : undefined
-  return seconds !== undefined ? i18n.t('thread:fold.labelTimed', { count: steps, duration: formatTurnSeconds(seconds) }) : i18n.t('thread:fold.label', { count: steps })
+/**
+ * The label of a folded turn: "7 steps". How the turn ended and how long the agent worked is said once, by the line
+ * that closes the turn (ThreadTurnTiming), so the fold only names what it opens.
+ */
+export function turnFoldLabel(steps: number): string {
+  return i18n.t('thread:fold.steps', { count: steps })
 }
 
 /**
@@ -51,6 +52,6 @@ export function ThreadTurnFoldRow({ fold, turn, events, onToggle }: { fold: Thre
     title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold">
     <ChevronRight size={14} aria-hidden="true" className="thread-turn-fold-chevron" />
     <ListChecks size={14} aria-hidden="true" />
-    <span>{turnFoldLabel(fold.steps, turn, events)}</span>
+    <span>{turnFoldLabel(fold.steps)}</span>
   </button>
 }

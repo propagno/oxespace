@@ -239,9 +239,9 @@
     "direct": "Connect directly to this host (skip replica-set discovery)",
     "limits": "Limits and agents",
     "agentsHint": {
-      "off": "agents off",
-      "read": "agents: read",
-      "write": "agents: read and write"
+      "off": "Agents: off",
+      "read": "Agents: read only",
+      "write": "Agents: read and write"
     },
     "timeout": "Statement timeout (seconds)",
     "maxRows": "Default row limit",
@@ -612,7 +612,7 @@
     "formatTitle": "Format the SQL (Shift+Alt+F)",
     "limit": "Limit",
     "limitTitle": "Rows a query returns. Capped at {{formatted}} for this connection.",
-    "timeout": "{{seconds}} s",
+    "timeout": "Timeout {{seconds}} s",
     "timeoutTitle": "The server stops a statement after {{seconds}} seconds on this connection.",
     "readOnlyPolicy": "read-only by policy",
     "readOnlyPolicyTitle": "Your organization's policy keeps this connection read-only. It cannot be turned off here.",

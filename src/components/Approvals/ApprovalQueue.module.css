@@ -2,7 +2,9 @@
 .viewport {
   position: fixed;
   top: 36px;
-  bottom: var(--statusbar-height, 24px);
+  /* To the window's bottom: the status bar spans only the work area, so stopping above it left the sidebar's footer
+     showing under the queue's left column (1.5.0, user report 13/11). */
+  bottom: 0;
   left: 0;
   right: 0;
   z-index: var(--layer-modal);

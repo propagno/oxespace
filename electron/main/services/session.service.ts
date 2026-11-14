@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readFileSync, readSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
@@ -195,7 +195,16 @@ function readFirstMessagePreview(filePath: string): string | null {
     if (!existsSync(filePath)) return null
     // Read up to 64KB — Claude transcripts often start with a large system entry,
     // so we need more than just the first line to land on the first user message.
-    const buf = readFileSync(filePath, { encoding: 'utf8', flag: 'r' }).slice(0, 65536)
+    // Only the first 64 KB is read from disk: reading the whole file and then slicing it read hundreds of MB per
+    // session on /resume (1.5.2).
+    const fd = openSync(filePath, 'r')
+    let buf: string
+    try {
+      const head = Buffer.alloc(65536)
+      buf = head.toString('utf8', 0, readSync(fd, head, 0, head.length, 0))
+    } finally {
+      closeSync(fd)
+    }
     for (const line of buf.split('\n')) {
       if (!line.trim()) continue
       let entry: { type?: string; role?: string; message?: { role?: string; content?: unknown } }

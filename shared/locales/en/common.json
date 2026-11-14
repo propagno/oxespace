@@ -4,12 +4,12 @@
     "open": "Workspace color…",
     "auto": "Automatic color",
     "swatch": {
-      "1": "Caatinga",
-      "2": "Sertão",
+      "1": "Velho Chico",
+      "2": "Anil",
       "3": "Açude",
       "4": "Juazeiro",
       "5": "Xique-xique",
-      "6": "Barro",
+      "6": "Coroa-de-frade",
       "7": "Fim de tarde",
       "8": "Pedra"
     }
@@ -95,6 +95,10 @@
     "copy": "Copy",
     "paste": "Paste",
     "selectAll": "Select all",
+    "notInTerminal": "Not available in a terminal",
+    "readOnlyFile": "This view is read only",
+    "needsTextField": "Place the cursor in a text field first",
+    "needsWorkspace": "Open a workspace in OxeCode first",
     "view": "View",
     "appearance": "Appearance",
     "density": "Density",
@@ -157,6 +161,7 @@
       "code": {
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "files": "Files",
         "search": "Find in files",
         "splitLayout": "Toggle split layout"
@@ -187,10 +192,10 @@
         "terminal": "Terminal",
         "changes": "Changes",
         "browser": "Browser",
+        "designMode": "Select an element in the Browser",
         "permissions": "Permissions",
         "model": "Model",
         "effort": "Reasoning effort",
-        "history": "History",
         "sideChat": "Side chat"
       },
       "help": {
@@ -529,10 +534,6 @@
         "httpCalls": {
           "title": "HTTP calls",
           "body": "Every HTTP call your agents made, with secrets masked."
-        },
-        "timeTravel": {
-          "title": "Time travel",
-          "body": "Go back to any checkpoint, or branch from it."
         }
       }
     },
@@ -544,6 +545,8 @@
       "dismiss": "Dismiss",
       "tryNow": "Try now",
       "dialogTitle": "What changed in 1.5",
+      "columnRemoved": "Removed",
+      "columnNow": "Use instead",
       "nothingNeededSaving": "Nothing needed saving.",
       "savedPrefix": "Saved to",
       "savedMemoriesAutosRequests": ": memories, automations and the OxePost requests of your open workspaces.",
@@ -608,6 +611,12 @@
     "tagline": "Agents and terminals for your projects"
   },
   "commandBar": {
+    "hint": {
+      "steerEmpty": "Say what to tell the agent: /steer and your message.",
+      "noTurn": "No turn is running in the open conversation.",
+      "failed": "That did not run: {{reason}}",
+      "noWorkspace": "Open a workspace in OxeCode first: a terminal belongs to one."
+    },
     "sections": { "actions": "Actions", "goTo": "Go to", "openBeside": "Open beside" },
     "destinations": {
       "oxechat": "Conversations and delegated work",
@@ -653,7 +662,6 @@
       "steer": "Steer in OxeChat",
       "stop": "Stop in OxeChat",
       "new": "New conversation",
-      "history": "History",
       "terminal": "New terminal",
       "theme": "Appearance",
       "skill": "Skills"
@@ -664,7 +672,6 @@
       "steer": "Send a steering note in OxeChat",
       "stop": "Stop the active turn in OxeChat",
       "new": "Start a new conversation in OxeChat",
-      "history": "Open conversation history and checkpoints",
       "terminal": "Open a new terminal pane",
       "theme": "Switch light or dark appearance",
       "skill": "Run an enabled skill in the focused agent pane"
@@ -767,7 +774,6 @@
       "tool-integration": "Open multi-repo coordination",
       "tool-github": "Toggle commit & pull request panel",
       "tool-worktrees": "Toggle worktrees panel",
-      "tool-scripts": "Toggle scripts panel",
       "tool-search": "Find in files",
       "tool-web-preview": "Toggle browser panel",
       "tool-android": "Toggle Android panel",
@@ -844,7 +850,6 @@
       "tool-integration": "Multi-repo coordination",
       "tool-github": "Commit & pull request",
       "tool-worktrees": "Worktrees",
-      "tool-scripts": "Scripts",
       "tool-web-preview": "Browser",
       "tool-background": "Background activity",
       "tool-slash": "Terminal commands",
@@ -980,6 +985,15 @@
     "discardQuit": "Quit without saving",
     "saveClose": "Save all and close",
     "saveQuit": "Save all and quit",
+    "runningTitleClose": "Close while a turn is in progress?",
+    "runningTitleQuit": "Quit while a turn is in progress?",
+    "runningDescription_one": "{{count}} conversation is in the middle of a turn. Closing stops it; the conversation reopens paused and you can send again.",
+    "runningDescription_other": "{{count}} conversations are in the middle of a turn. Closing stops them; they reopen paused and you can send again.",
+    "runningListLabel": "Conversations with a turn in progress",
+    "runningClose": "Close anyway",
+    "runningQuit": "Quit anyway",
+    "runningAlso_one": "{{count}} conversation is also in the middle of a turn. Closing stops it; it reopens paused.",
+    "runningAlso_other": "{{count}} conversations are also in the middle of a turn. Closing stops them; they reopen paused.",
     "saveFailed_one": "{{count}} change could not be saved, so nothing was closed. Check it and try again.",
     "saveFailed_other": "{{count}} changes could not be saved, so nothing was closed. Check them and try again.",
     "inEditor": "OxeCode editor · {{folder}}"
@@ -1132,6 +1146,7 @@
     "menuUnavailable": "The menu couldn't load. Try again."
   },
   "statusBar": {
+    "agentsWorking_zero": "No agents working",
     "agentsWorking_one": "{{count}} agent working",
     "agentsWorking_other": "{{count}} agents working",
     "nothingSetUpYet": "Nothing set up yet"

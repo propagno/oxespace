@@ -45,6 +45,25 @@ describe('Thread per-file undo', () => {
     expect(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: root, encoding: 'utf8' })).toBe('')
   })
 
+  it('counts the lines each turn changed, not the file against the last commit (B-1)', async () => {
+    const { root, service } = fixture()
+    const counts = async (checkpoint: string) => Object.fromEntries((await service.fileStates('thread', checkpoint)).map(file => [file.path, [file.additions, file.deletions]]))
+    const first = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root })
+    writeFileSync(join(root, 'tracked.txt'), 'base\nline one\n')
+    writeFileSync(join(root, 'new.txt'), 'a\nb\n')
+    await service.finalize(first)
+    expect(await counts(first)).toEqual({ 'new.txt': [2, 0], 'tracked.txt': [1, 0] })
+
+    // The second turn adds one line to a file the first already changed: against the commit that is +2.
+    const second = await service.begin({ threadId: 'thread', turnId: 'turn-2', rootPath: root })
+    writeFileSync(join(root, 'tracked.txt'), 'base\nline one\nline two\n')
+    writeFileSync(join(root, 'dirty.txt'), 'rewritten\n')
+    await service.finalize(second)
+    expect(await counts(second)).toMatchObject({ 'dirty.txt': [1, 1], 'tracked.txt': [1, 0] })
+    // The first turn's file was edited since: its lines are no longer there to count.
+    expect((await counts(first))['tracked.txt']).toEqual([undefined, undefined])
+  })
+
   it('refuses to undo a file edited after the turn, and never touches files outside the turn', async () => {
     const { root, service } = fixture()
     const checkpoint = await service.begin({ threadId: 'thread', turnId: 'turn-1', rootPath: root })

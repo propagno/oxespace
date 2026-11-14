@@ -19,6 +19,8 @@ export function StartupInteractiveMark(): null {
         reported = true
         performance.mark('oxe:interactive')
         void window.oxe?.diagnostics?.reportInteractive?.().catch(() => undefined)
+        // The performance journal's window half, after the first screen: its observers read back the start's frames.
+        void import('./perfJournal').then(module => module.startPerfJournal()).catch(() => undefined)
       })
     })
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }

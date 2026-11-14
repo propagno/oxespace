@@ -111,7 +111,10 @@ describe('Sidebar', () => {
     )
 
     expect(screen.getByText('repo')).toBeInTheDocument()
-    expect(screen.getByTitle('OXESpace v0.1.2')).toBeInTheDocument()
+    // The version is kept on the panel for support, and not as a title: a title there opened a tooltip over the menu
+    // bar from any empty part of the sidebar.
+    expect(document.querySelector('.nav-panel')).toHaveAttribute('data-version', '0.1.2')
+    expect(document.querySelector('.nav-panel')).not.toHaveAttribute('title')
     // Path is not shown on the card (lives in the name tooltip only).
     expect(screen.queryByText('C:/projects/repo')).not.toBeInTheDocument()
     expect(screen.queryByText('projects/repo')).not.toBeInTheDocument()
