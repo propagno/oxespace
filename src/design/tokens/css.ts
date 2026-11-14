@@ -5,7 +5,7 @@
  */
 import { IDENTITY, LOGO, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
-import { CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TARGET_MIN, TEXT, WEIGHT } from './scales'
+import { CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, STRETCH, TARGET_MIN, TEXT, WEIGHT } from './scales'
 
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
   `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${name}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
@@ -29,7 +29,8 @@ export function moreContrastTokens(mode: Mode): Record<string, string> {
 
 function staticTokens(): Record<string, string | number> {
   const out: Record<string, string | number> = {
-    'font-display': FONT.display, 'font-ui': FONT.ui, 'font-mono': FONT.mono
+    'font-display': FONT.display, 'font-ui': FONT.ui, 'font-mono': FONT.mono,
+    'stretch-display': STRETCH.display, 'stretch-title': STRETCH.title
   }
   for (const [name, value] of Object.entries(SPACE)) out[`space-${name}`] = value
   for (const [name, value] of Object.entries(TEXT)) out[`text-${name}`] = `${value}px`

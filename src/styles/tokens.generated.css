@@ -4,6 +4,8 @@
   --font-display: 'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --font-ui: 'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace;
+  --stretch-display: 78%;
+  --stretch-title: 80%;
   --space-0: 0px;
   --space-1: 4px;
   --space-2: 8px;

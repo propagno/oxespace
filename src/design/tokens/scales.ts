@@ -6,6 +6,9 @@ export const FONT = {
   mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
 } as const
 
+/** Instrument Sans width for brand type: condensed for the 28px display step and the wordmark, a little less for page titles; 100% elsewhere. */
+export const STRETCH = { display: '78%', title: '80%' } as const
+
 /** Spacing in 4px steps. */
 export const SPACE = { 0: '0px', 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px', 10: '40px', 12: '48px' } as const
 

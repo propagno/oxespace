@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-// Mandacaru Noite typography, bundled so it loads offline: Instrument Sans (one variable
-// file, latin and latin-ext) for interface and display, IBM Plex Mono for code (docs/design/brand.md).
-import '@fontsource-variable/instrument-sans/wght.css'
+// Mandacaru Noite typography, bundled so it loads offline: Instrument Sans (one variable file per subset, latin and
+// latin-ext, with weight and width axes) for interface and display, IBM Plex Mono for code (docs/design/brand.md).
+import '@fontsource-variable/instrument-sans/wdth.css'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
 import { App } from './App'
