@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/oxequery-dialog-scale.test.tsx tests/oxequery-import-dialog.test.tsx tests/oxequery-sql-workbench.test.tsx tests/oxequery-mongo-workbench.test.tsx tests/a11y-static.test.ts tests/acceptance/f2/a57-monaco-read-only.test.tsx tests/design-lint.test.ts tests/design-lint-target-size.test.ts tests/i18n-catalog.test.ts --maxWorkers=2
