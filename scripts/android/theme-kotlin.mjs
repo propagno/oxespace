@@ -75,9 +75,11 @@ export function themeKotlin(tokens) {
     out.push(`val ${name} = OxeColors(`, ...roles.map(role => `    ${camelName(role)} = ${kotlinColor(values[role])},`), ')', '')
   }
 
-  out.push('/** Colors that mean the same in both modes: providers and avatars. */', 'object OxeIdentity {')
+  out.push('/** Colors that mean the same in both modes: providers, avatars and the app icon. */', 'object OxeIdentity {')
   for (const [name, value] of Object.entries(tokens.IDENTITY.provider)) out.push(`    val ${camelName(name, 'provider')} = ${kotlinColor(value)}`)
-  out.push(`    val avatars = listOf(${tokens.IDENTITY.avatar.map(kotlinColor).join(', ')})`, '}', '')
+  out.push(`    val avatars = listOf(${tokens.IDENTITY.avatar.map(kotlinColor).join(', ')})`)
+  for (const [name, value] of Object.entries(tokens.LOGO ?? {})) out.push(`    val ${camelName(name, 'logo')} = ${kotlinColor(value)}`)
+  out.push('}', '')
 
   out.push('/** Spacing in 4 dp steps. */', 'object OxeSpace {')
   for (const [name, value] of Object.entries(tokens.SPACE)) out.push(`    val space${name} = ${dp(value)}`)
