@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { effortLabel } from './effortLabel'
 import { ChevronDown, Check, Eye, Gauge, Pencil, RefreshCw, ShieldAlert, type LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
@@ -65,7 +66,7 @@ export function ThreadConfigurationBar({ thread, onConfigured, onError, openCont
       {catalog.models.length > 8 && <TextField aria-label={t('config.filterModels')} placeholder={t('config.searchModels')} value={query} onChange={event => setQuery(event.target.value)} />}
       {error ? <ErrorState compact title={error} onRetry={() => setRefresh(value => value + 1)} retryLabel={t('common.tryAgain')} /> : loading ? <LoadingState label={t('config.loadingModels')} /> : !catalog.models.length ? <EmptyState compact title={t('config.noModels')} /> :<div className="thread-config-options">{catalog.models.filter(value => `${value.label} ${value.id}`.toLowerCase().includes(query.toLowerCase())).map(value => <button type="button" key={value.id} aria-pressed={modelId === value.id} onClick={() => void apply({ model: value.id, ...(effort && value.efforts.includes(effort) ? { reasoningEffort: effort } : value.defaultEffort ? { reasoningEffort: value.defaultEffort } : {}) })}><span><strong>{value.label}</strong>{' '}<small>{value.description}</small></span>{modelId === value.id && <Check size={14} />}</button>)}</div>}
     </>)}
-    {selector('effort', t('config.selectEffort'), effort ? effort[0].toUpperCase() + effort.slice(1) : t('config.automatic'), <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{value[0].toUpperCase() + value.slice(1)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length, undefined, Gauge)}
+    {selector('effort', t('config.selectEffort'), effort ? effortLabel(t, effort) : t('config.automatic'), <div className="thread-config-options">{effortOptions.map(value => <button type="button" key={value} aria-pressed={effort === value} onClick={() => void apply({ ...(model ? { model: model.id } : {}), reasoningEffort: value })}><span>{effortLabel(t, value)}</span>{effort === value && <Check size={14} />}</button>)}</div>, !effortOptions.length, undefined, Gauge)}
     {selector('permissions', t('config.permissions'), desired.access === 'full-access' ? t('config.fullAccess') : desired.access === 'workspace-write' ? t('config.chip.canEdit') : t('config.readOnly'), <div className="thread-config-options">
       <p className="thread-access-directory" title={thread.rootPath}>{thread.rootPath}</p>
       <p className="thread-config-section-label">{t('config.access')}</p>

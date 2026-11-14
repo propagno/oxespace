@@ -1,6 +1,6 @@
 .identity { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 .identity p { margin: 0; }
-.name { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: var(--leading-tight); }
+.name { font-family: var(--font-display); font-stretch: var(--stretch-title); font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: var(--leading-tight); }
 .version { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--text-sm); }
 .tagline { margin-top: var(--space-1); color: var(--text-muted); font-size: var(--text-sm); }
 
