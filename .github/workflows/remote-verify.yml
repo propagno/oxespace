@@ -1,0 +1,123 @@
+# Remote verify (inserted by C:/Users/dudu-/Estudos/oxespace-152-deps/scripts/remote-verify.mjs into a snapshot commit;
+# never on main). Runs .remote-verify/command.sh from the pushed snapshot on a GitHub runner, so heavy checks leave
+# the low-memory machine. Setup mirrors ci.yml's unit job (Node) and android.yml's build job (Java/Gradle).
+name: Remote verify
+run-name: Remote verify · ${{ github.ref_name }}
+
+on:
+  push:
+    branches: ["ci/remote-verify/**"]
+
+# One run per scratch branch: a newer snapshot cancels the one still running.
+concurrency:
+  group: remote-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Remote verify
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Read the request
+        id: req
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .remote-verify/request.env >> "$GITHUB_OUTPUT"
+          cat .remote-verify/request.env
+          echo "--- command.sh"
+          cat .remote-verify/command.sh
+
+      # --- Node (ci.yml, unit job) ---
+      - name: Node.js 22
+        if: steps.req.outputs.node == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: steps.req.outputs.node == 'true'
+        shell: bash
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
+          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
+          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+              :
+            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
+              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
+            else
+              exit 1
+            fi
+          fi
+
+      - name: Install dependencies without lifecycle scripts
+        if: steps.req.outputs.node == 'true'
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        if: steps.req.outputs.node == 'true'
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Read from main's cache scope (no new cache unless main has none for this version).
+      - name: Cache the Electron download
+        if: steps.req.outputs.node == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime and native modules
+        if: steps.req.outputs.node == 'true'
+        run: |
+          npm rebuild electron
+          npm run rebuild:native:node
+
+      # --- Java / Gradle (android.yml, build job) ---
+      - name: Java 21
+        if: steps.req.outputs.java == 'true'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Android SDK
+        if: steps.req.outputs.java == 'true'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "16111833" # cmdline-tools 23.0
+          log-accepted-android-sdk-licenses: false
+          packages: platform-tools platforms;android-37.0
+
+      # Off the default branch this only reads main's Gradle cache.
+      - name: Gradle
+        if: steps.req.outputs.java == 'true'
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      # The markers let remote-verify.mjs cut the command's own output out of the job log and read its exit code.
+      - name: Run the command
+        shell: bash
+        run: |
+          set +e
+          echo "===REMOTE-VERIFY-BEGIN==="
+          if [ "${{ steps.req.outputs.xvfb }}" = "true" ]; then
+            xvfb-run -a bash .remote-verify/command.sh
+          else
+            bash .remote-verify/command.sh
+          fi
+          code=$?
+          echo "===REMOTE-VERIFY-EXIT=${code}==="
+          exit $code
