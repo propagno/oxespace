@@ -59,6 +59,22 @@ const ABSOLUTE = new RegExp([
 
 const TRAILING = /[.,;:!?)\]}]+$/
 
+/** One-segment tops of a file system that stay hidden even though they look like a slash command. */
+const FILE_SYSTEM_ROOTS = new Set([
+  'bin', 'boot', 'dev', 'etc', 'home', 'lib', 'lib32', 'lib64', 'media', 'mnt', 'opt', 'private', 'proc', 'root', 'run',
+  'sbin', 'snap', 'srv', 'sys', 'system', 'tmp', 'users', 'usr', 'var', 'volumes', 'cores', 'library', 'applications', 'nix'
+])
+
+/**
+ * OXE-20: `/resume`, `/compact`, `/skill:deploy`… are slash commands, not paths: `/` + a letter, then letters, digits,
+ * `:`, `_` or `-`, with no second `/` and no dot. A well-known file-system root of one segment (`/opt`, `/Users`) is
+ * still a path.
+ */
+function isSlashCommand(path: string): boolean {
+  if (!/^\/[A-Za-z][A-Za-z0-9:_-]*$/.test(path)) return false
+  return !FILE_SYSTEM_ROOTS.has(path.slice(1).toLowerCase())
+}
+
 /** The app's separator rule (`normalizeRootPath`), with doubled separators inside the path collapsed. */
 function normalized(path: string): string {
   const value = normalizeRootPath(path)
@@ -97,12 +113,14 @@ export function underRoot(path: string, roots: readonly string[], platform: stri
  * every other one becomes `…`, whatever its top-level directory, drive or server.
  */
 export function scrubPaths(text: string, roots: readonly string[], platform: string = process.platform): string {
+  // OXE-20: slash commands (isSlashCommand) are kept; registered roots are checked first, so `/work` still becomes `.`.
   return text.replace(ABSOLUTE, (token: string) => {
     const trailing = TRAILING.exec(token)?.[0] ?? ''
     const path = trailing ? token.slice(0, -trailing.length) : token
     if (!path) return token
     if (/^(?:file:|~)/i.test(path)) return PATH_PLACEHOLDER + trailing
     const inside = underRoot(path, roots, platform)
+    if (inside === undefined && isSlashCommand(path)) return token
     if (inside === undefined) return PATH_PLACEHOLDER + trailing
     return (inside === '.' ? '.' : `./${inside}`) + trailing
   })

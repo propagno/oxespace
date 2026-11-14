@@ -69,7 +69,7 @@ function TypeSection(): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Families</h2>
     <div className={styles.stack}>
-      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-display)', fontWeight: 700 }}>Bricolage Grotesque</span></div>
+      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-display)', fontWeight: 700 }}>Instrument Sans</span></div>
       <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontSize: 'var(--text-lg)' }}>IBM Plex Sans · The agent finished and changed 3 files.</span></div>
       <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
     </div>

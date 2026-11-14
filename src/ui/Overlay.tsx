@@ -133,9 +133,11 @@ export function Dialog({ title, description, onClose, children, footer, actions,
         onEscapeKeyDown={onEscapeKeyDown}
         onCloseAutoFocus={event => {
           event.preventDefault()
-          // Another dialog already took focus (the next approval replaced this one): leave it there, or a key typed
-          // into that dialog would land in the view behind it.
-          if (document.activeElement?.closest('[role="dialog"], [role="alertdialog"]')) return
+          // Focus already placed somewhere after the close (the next approval's dialog, or a field the person or a test
+          // moved to) stays there: Radix returns focus a tick later, and taking it back then sent a key typed into that
+          // field to the opener (OXE-103, thread-worktree.spec.ts). With focus in the closed dialog, it is <body> by now.
+          const active = document.activeElement
+          if (active && active !== document.body && active !== document.documentElement && active.isConnected) return
           const chosen = returnFocusTo?.() ?? previous.current
           // A trigger that disappeared or was disabled meanwhile hands focus to the view's main input.
           const target = chosen?.isConnected && !chosen.hasAttribute('disabled') ? chosen : [...document.querySelectorAll<HTMLElement>('[data-dialog-return]')].at(-1)

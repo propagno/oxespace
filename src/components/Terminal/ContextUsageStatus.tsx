@@ -16,17 +16,18 @@ const REFRESH_INTERVAL_MS = 30_000
  * meter turned around, so the user knows when to `/compact` or `/clear`. Rendered only in panes
  * whose provider exposes token data (Claude/Codex/Copilot; gated by the caller).
  *
- * The figure is what remains of the model's window after the current session's fill. It polls
+ * The figure is what remains of the model's window after the current session's fill. With a `paneId`
+ * (A7) it is that pane's own session, kept apart from the other panes of the same folder. It polls
  * every 30s (+ on focus) to track each agent turn. Passive (not a button); hides
  * when no data is available.
  */
-export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProvider; rootPath: string }): ReactElement | null {
-  const key = contextUsageKey({ provider, workspaceRootPath: rootPath })
+export function ContextUsageStatus({ provider, rootPath, paneId }: { provider: AgentProvider; rootPath: string; paneId?: string }): ReactElement | null {
+  const key = contextUsageKey({ provider, workspaceRootPath: rootPath, paneId })
   const chip = useContextUsageStore((s) => s.byKey[key])
   const refresh = useContextUsageStore((s) => s.refresh)
 
   useEffect(() => {
-    const input = { provider, workspaceRootPath: rootPath }
+    const input = { provider, workspaceRootPath: rootPath, ...(paneId ? { paneId } : {}) }
     void refresh(input)
     const onFocus = (): void => { void refresh(input) }
     window.addEventListener('focus', onFocus)
@@ -35,7 +36,7 @@ export function ContextUsageStatus({ provider, rootPath }: { provider: AgentProv
       window.removeEventListener('focus', onFocus)
       window.clearInterval(id)
     }
-  }, [refresh, provider, rootPath])
+  }, [refresh, provider, rootPath, paneId])
 
   if (!chip || !chip.available) return null
 

@@ -18,35 +18,35 @@
   height: 14px;
   border-radius: 2px;
   flex-shrink: 0;
-  background: var(--border-strong, var(--text-tertiary));
+  background: var(--border-strong);
 }
 
 .wrap[data-kind="read"] .bar {
-  background: var(--intent-info);
+  background: var(--intent-info-solid);
 }
 
 .wrap[data-kind="edit"] .bar {
-  background: var(--intent-warning);
+  background: var(--intent-warning-solid);
 }
 
 .wrap[data-kind="run"] .bar {
-  background: var(--intent-success);
+  background: var(--intent-success-solid);
 }
 
 .wrap[data-kind="query"] .bar {
-  background: var(--accent, var(--intent-info));
+  background: var(--accent);
 }
 
 .wrap[data-kind="http"] .bar {
-  background: var(--intent-info);
+  background: var(--intent-info-solid);
 }
 
 .wrap[data-kind="container"] .bar {
-  background: var(--intent-warning);
+  background: var(--intent-warning-solid);
 }
 
 .wrap[data-failed="true"] .bar {
-  background: var(--intent-danger);
+  background: var(--intent-danger-solid);
 }
 
 .kind {
@@ -73,7 +73,7 @@
   position: absolute;
   right: 8px;
   top: -24px;
-  z-index: var(--layer-popover);
+  z-index: var(--layer-dropdown);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background: var(--surface-overlay, var(--surface-raised));

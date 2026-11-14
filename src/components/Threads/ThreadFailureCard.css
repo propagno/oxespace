@@ -19,6 +19,7 @@
 .thread-usage-window { display: grid; gap: 5px; margin-top: 12px; }
 .thread-usage-window>div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .thread-usage-window strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.thread-usage-window small { color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.5; }
 .thread-usage-window progress { width: 100%; height: 4px; border: 0; border-radius: var(--radius-xs); overflow: hidden; background: var(--bg-hover); accent-color: var(--accent); }
 .thread-usage-window progress::-webkit-progress-bar { background: var(--bg-hover); }
 .thread-usage-window progress::-webkit-progress-value { background: var(--accent); border-radius: var(--radius-xs); }
