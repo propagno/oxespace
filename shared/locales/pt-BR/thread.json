@@ -1530,10 +1530,8 @@
     "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Pausada",
-    "background": "Em segundo plano",
-    "completed": "Concluída",
-    "ready": "Pronta"
+    "completed": "Concluído",
+    "idle": "Ocioso"
   },
   "undoTurn": {
     "nothing": "Nada para desfazer",

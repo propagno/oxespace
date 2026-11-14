@@ -1483,10 +1483,8 @@
     "running": "Working",
     "attention": "Needs you",
     "failed": "Failed",
-    "interrupted": "Paused",
-    "background": "Background",
     "completed": "Finished",
-    "ready": "Ready"
+    "idle": "Idle"
   },
   "undoTurn": {
     "nothing": "Nothing to undo",

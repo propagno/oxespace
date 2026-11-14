@@ -82,7 +82,7 @@ describe('pane display model', () => {
     expect(shell.statusTone).toBe('idle')
     expect(shell.originLabel).toBeNull()
     // While output streams, a shell is running, not thinking.
-    expect(derivePaneDisplayState({ pane, workspace, terminal: { ...terminal, isWorking: true }, profile: null, paneIndex: 0 }).statusLabel).toBe('Running')
+    expect(derivePaneDisplayState({ pane, workspace, terminal: { ...terminal, isWorking: true }, profile: null, paneIndex: 0 }).statusLabel).toBe('Working')
   })
 
   test('compacts paths and never exposes full windows paths in visible labels', () => {
