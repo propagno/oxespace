@@ -1,12 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CONTROL, SPACE, TARGET_MIN } from '../src/design/tokens/scales'
+import { BAR, CONTROL, ROW, SPACE, TARGET_MIN } from '../src/design/tokens/scales'
 
 /**
  * Design lint for WCAG 2.2 SC 2.5.8 (Target Size, Minimum; roadmap F22): every interactive primitive in src/ui is at
  * least 24×24 CSS px in both densities. The primitives' CSS Modules are read, the rules that make up each target are
- * cascaded in order, the tokens are resolved per density (`--control-*`, `--space-*`, `--target-min`) and the box is
+ * cascaded in order, the tokens are resolved per density (`--control-*`, `--bar-*`, `--row-*`, `--space-*`, `--target-min`) and the box is
  * computed from height/min-height/block-size, width/min-width/inline-size and, as a floor under border-box, the
  * padding. A glyph may stay smaller (the 16 px checkbox box, the 18 px swatch) when its target is larger: the label, or
  * an inset that grows the button around the drawing. e2e/target-size.spec.ts measures the same in the running app.
@@ -35,6 +35,8 @@ export function rules(css: string): Array<{ selector: string; declarations: Reco
 function tokens(density: Density): Record<string, string> {
   const out: Record<string, string> = { '--target-min': `${TARGET_MIN}px` }
   for (const [name, value] of Object.entries(CONTROL[density])) out[`--control-${name}`] = `${value}px`
+  for (const [name, value] of Object.entries(BAR[density])) out[`--bar-${name}`] = `${value}px`
+  for (const [name, value] of Object.entries(ROW[density])) out[`--row-${name}`] = `${value}px`
   for (const [name, value] of Object.entries(SPACE)) out[`--space-${name}`] = value
   return out
 }

@@ -6,8 +6,20 @@ export const FONT = {
   mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
 } as const
 
-/** Spacing in 4px steps. */
-export const SPACE = { 0: '0px', 1: '4px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px', 10: '40px', 12: '48px' } as const
+/**
+ * Spacing in 4px steps, plus the two half steps dense controls need (2 and 6). The 1.5.2 scale uses 2, 4, 6, 8, 12,
+ * 16, 24, 32 and 48; 20 and 40 stay only for layouts already built on them (docs/design/brand.md › Scale).
+ */
+export const SPACE = { 0: '0px', '0-5': '2px', 1: '4px', '1-5': '6px', 2: '8px', 3: '12px', 4: '16px', 5: '20px', 6: '24px', 8: '32px', 10: '40px', 12: '48px' } as const
+
+/**
+ * Bar heights (1.5.2): the status bar; pane, panel and tab bars; the title bar and the sidebar and view headers, which
+ * sit side by side and so match. Comfortable density adds 4px to the bars that hold controls.
+ */
+export const BAR = { compact: { sm: 24, md: 32, lg: 36 }, comfortable: { sm: 24, md: 36, lg: 40 } } as const
+
+/** List rows (1.5.2): every one-line row (sidebar, menu, tree, Settings nav), and a two-line row that carries state. */
+export const ROW = { compact: { 1: 28, 2: 44 }, comfortable: { 1: 32, 2: 48 } } as const
 
 /** Type sizes for compact density; comfortable adds one pixel to each step up to `lg`. */
 export const TEXT = { '2xs': 11, xs: 12, sm: 13, md: 14, lg: 16, xl: 20, display: 28 } as const
