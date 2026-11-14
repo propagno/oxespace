@@ -148,7 +148,8 @@ jobs:
             npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
             node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
             rm -rf dist
-            echo "EXE_$side=$exe" >> "$GITHUB_WORKSPACE/sides.env"
+            # Single-quoted: `source` would read the backslashes of a Windows path (D:\a\_temp) as escapes.
+            printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
             # The current harness over the ref's e2e/ (only test files; the app is the ref's own build above).
             for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
               mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
