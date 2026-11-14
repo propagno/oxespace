@@ -33,4 +33,6 @@ export interface ContextUsageInput {
   provider: AgentProvider
   workspaceRootPath: string
   sessionId?: string | null
+  /** A7: the terminal pane asking; main reads that pane's own agent session (nothing when it has none). */
+  paneId?: string
 }

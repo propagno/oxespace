@@ -72,6 +72,24 @@ and 20px, plus 28px display. 13px is the default in compact density.
 - **Motion:** 120ms for hover and press, 200ms for panels, standard easing.
   Nothing moves when the person prefers reduced motion.
 
+## Scale (1.5.2)
+
+Approved by the user on 13/11 (OXE-48), after a measured audit of 216 screens: buttons came in 11 heights and 4 sizes,
+text in 12 sizes down to 9.6px, gaps in 17 values. Each scale has few steps and each step one use. Values are for
+compact density; comfortable adds 4px to controls, bars that hold controls and rows, and 1px to text up to `md`.
+
+| Scale | Steps | Use |
+|---|---|---|
+| Type (`--text-*`) | 11 · 12 · 13 · 14 · 16 · 20 · 28 | 11 meta only (time, counts, kbd, badges, section labels): the floor. 12 controls. 13 lists and panels. 14 reading (conversation, composer). 16 view and dialog titles, the conversation title included. 20 page titles. 28 the first-run hero only. |
+| Controls (`--control-*`) | 24 · 28 · 32 | 24 in dense bars and row actions; 28 the default for every button, field, select, icon button and segmented control; 32 dialog footers and a page's one primary action. Text in controls is 12/500. |
+| Bars (`--bar-*`) | 24 · 32 · 36 | 24 the status bar; 32 pane, panel and tab bars (every tab bar: label 12/500, a 2px accent underline when selected); 36 the title bar and the sidebar and view headers, which sit side by side. |
+| Rows (`--row-*`) | 28 · 44 | 28 every one-line list row (sidebar, menu, tree, Settings nav); 44 a two-line row, only when the second line carries state. |
+| Spacing (`--space-*`) | 2 · 4 · 6 · 8 · 12 · 16 · 24 · 32 · 48 | Inside a control 2–6; between controls and inside sidebars, panels and menus 8; between groups 12, a view's inset 16; a dialog 24; a page 32; between large blocks 48. |
+| Radius (`--radius-*`) | 6 · 8 · 12 · 16 · full | 6 controls and rows, 8 chips and list cards, 12 cards and panels, 16 dialogs, full only for pills and badges. No 0 or 4 on a control. |
+
+`tests/design-lint.test.ts` keeps the pixel heights, pixel spacing and uppercase labels still in CSS from growing;
+each area's redesign (BRD-01..07) lowers those numbers.
+
 ## Voice
 
 Plain, direct English. Labels are verbs ("Allow", "Undo file"). Errors say what

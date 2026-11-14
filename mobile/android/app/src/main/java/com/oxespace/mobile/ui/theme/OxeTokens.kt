@@ -398,7 +398,7 @@ object OxeIdentity {
     val avatars = listOf(Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFFD97706), Color(0xFF059669), Color(0xFF0891B2))
 }
 
-/** Spacing in 4 dp steps. */
+/** Spacing in 4 dp steps, plus the half steps 2 and 6 (space0_5, space1_5). */
 object OxeSpace {
     val space0 = 0.dp
     val space1 = 4.dp
@@ -410,6 +410,8 @@ object OxeSpace {
     val space8 = 32.dp
     val space10 = 40.dp
     val space12 = 48.dp
+    val space0_5 = 2.dp
+    val space1_5 = 6.dp
 }
 
 object OxeRadius {

@@ -390,6 +390,13 @@
   },
   "terminal": {
     "bgNeedsCommand": "/bg precisa de um comando, ex.: /bg npm run build",
+    "menu": {
+      "label": "Terminal",
+      "copy": "Copiar",
+      "paste": "Colar",
+      "selectAll": "Selecionar tudo",
+      "clear": "Limpar"
+    },
     "agentNotFound": "Agente “{{name}}” não encontrado. Tente: {{options}}…",
     "search": {
       "placeholder": "Buscar no terminal…",
