@@ -1,0 +1,189 @@
+{
+  "brd": "BRD-04",
+  "card": null,
+  "title": "OxeChat tabs and buttons (VIS-01/02)",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-04.tabs.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=tabs]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.tab.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=tabs] [role=tab]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.tab.font-weight",
+      "scene": "chat-conversation",
+      "select": "[data-ui=tabs] [role=tab]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.tab.underline",
+      "scene": "chat-conversation",
+      "select": "[data-ui=tabs] [role=tab][data-state=active]::after",
+      "prop": "height",
+      "expect": {
+        "px": 2
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.button.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=button]",
+      "prop": "height",
+      "expect": {
+        "oneOf": [
+          "--control-sm",
+          "--control-md",
+          "--control-lg"
+        ]
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.button.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=button]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.button.font-weight",
+      "scene": "chat-conversation",
+      "select": "[data-ui=button]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.icon-button.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=icon-button]",
+      "prop": "height",
+      "expect": {
+        "oneOf": [
+          "--control-sm",
+          "--control-md",
+          "--control-lg"
+        ]
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.raw-button.count",
+      "scene": "chat-conversation",
+      "select": "button:not([data-ui]):not([role=tab])",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending",
+      "note": "every button of the surface is a Button or IconButton"
+    }
+  ]
+}
