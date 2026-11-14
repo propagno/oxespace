@@ -22,6 +22,11 @@ on:
         required: false
         default: main
         type: string
+      spec:
+        description: The e2e/release spec to run from spec_ref (default the HML pass)
+        required: false
+        default: e2e/release/hml-packaged-pass.spec.ts
+        type: string
       os:
         description: linux, windows or both
         required: false
@@ -52,6 +57,7 @@ jobs:
           OS: ${{ inputs.os || 'both' }}
           PRODUCT_REF: ${{ inputs.product_ref }}
           SPEC_REF: ${{ inputs.spec_ref }}
+          SPEC: ${{ inputs.spec }}
         run: |
           set -euo pipefail
           ref='^[A-Za-z0-9._/-]{1,200}$'
@@ -59,6 +65,7 @@ jobs:
             [[ -z "$v" ]] && continue
             if [[ ! "$v" =~ $ref || "$v" == *..* || "$v" == -* ]]; then echo "::error::bad ref $v"; exit 1; fi
           done
+          if [[ -n "$SPEC" && ! "$SPEC" =~ ^e2e/release/[A-Za-z0-9._-]+\.spec\.ts$ ]]; then echo "::error::bad spec $SPEC"; exit 1; fi
           linux='{"os":"ubuntu-22.04","label":"linux","flag":"--linux","slim":"linux"}'
           windows='{"os":"windows-2022","label":"windows","flag":"--win","slim":"win32"}'
           case "$OS" in linux) m="[$linux]";; windows) m="[$windows]";; *) m="[$linux,$windows]";; esac
@@ -88,13 +95,15 @@ jobs:
           path: .hml-spec-src
           persist-credentials: false
           sparse-checkout: |
-            e2e/release/hml-packaged-pass.spec.ts
+            ${{ inputs.spec || 'e2e/release/hml-packaged-pass.spec.ts' }}
           sparse-checkout-cone-mode: false
 
       - name: Overlay the spec
+        env:
+          SPEC: ${{ inputs.spec || 'e2e/release/hml-packaged-pass.spec.ts' }}
         run: |
           set -euo pipefail
-          src=.hml-spec-src/e2e/release/hml-packaged-pass.spec.ts
+          src=".hml-spec-src/$SPEC"
           test -f "$src" && test ! -L "$src" || { echo "::error::no spec in spec_ref"; exit 1; }
           mkdir -p e2e/release && cp "$src" e2e/release/ && rm -rf .hml-spec-src
 
@@ -157,12 +166,13 @@ jobs:
       - name: Run the pass
         env:
           OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.copy.outputs.exe }}
+          SPEC: ${{ inputs.spec || 'e2e/release/hml-packaged-pass.spec.ts' }}
         run: |
           set -euo pipefail
           if [[ "$RUNNER_OS" == Linux ]]; then
-            bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+            bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts "$SPEC"
           else
-            npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+            npx playwright test --config playwright.tools.config.ts "$SPEC"
           fi
 
       - name: Upload the pass
