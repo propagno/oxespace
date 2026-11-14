@@ -26,11 +26,12 @@
  * Build first: npx electron-vite build
  * Run: npx playwright test --config playwright.tools.config.ts perceived-perf.spec.ts --workers=1 --reporter=line
  */
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
+import { launchForPerf } from './helpers/perf-launch'
 
 const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
@@ -294,10 +295,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; repo: s
   const root = mkdtempSync(join(tmpdir(), 'oxespace-perceived-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
-  const app = await electron.launch({
-    args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: { ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') }
-  })
+  const app = await launchForPerf({ ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') })
   const page = await app.firstWindow()
   return { app, page, repo }
 }

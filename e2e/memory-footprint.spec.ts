@@ -12,11 +12,12 @@
  * Build first: npm run build. Run: npx playwright test e2e/memory-footprint.spec.ts
  */
 import { modeButton } from './helpers/modes'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { launchForPerf } from './helpers/perf-launch'
 
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
 const TERMINALS = Number(process.env.MF_TERMINALS ?? 4)
@@ -45,10 +46,7 @@ function ensureOutJunction(): void {
 
 async function launch(dbPath: string): Promise<{ app: ElectronApplication; page: Page; pid?: number }> {
   ensureOutJunction()
-  const app = await electron.launch({
-    args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: { ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_DB_PATH: dbPath }
-  })
+  const app = await launchForPerf({ ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_DB_PATH: dbPath })
   return { app, page: await app.firstWindow(), pid: app.process().pid }
 }
 
@@ -59,7 +57,7 @@ async function stop(app: ElectronApplication, pid?: number): Promise<void> {
   try { if (process.platform === 'win32') execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); else process.kill(pid, 'SIGKILL') } catch { /* gone */ }
 }
 
-interface Metrics { webglPanes: number; byType: Record<string, number>; totalMb: number; mainHeapMb: number; mainRssMb: number; rendererHeapMb: number; mainHeapTotalMb: number; mainExternalMb: number }
+interface Metrics { webglPanes: number; byType: Record<string, number>; workingSetByType: Record<string, number>; workingSetTotalMb: number; totalMb: number; mainHeapMb: number; mainRssMb: number; rendererHeapMb: number; mainHeapTotalMb: number; mainExternalMb: number }
 const mb = (kb: number): number => Math.round(kb / 1024 * 10) / 10
 
 async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
@@ -80,9 +78,13 @@ async function sample(app: ElectronApplication, page: Page): Promise<Metrics> {
   })
   const byType: Record<string, number> = {}
   for (const p of main.processes) byType[p.type] = (byType[p.type] ?? 0) + mb(p.privateKb)
+  // Private bytes exist on Windows only; the working set is read on every platform (the release gate's memory row).
+  const workingSetByType: Record<string, number> = {}
+  for (const p of main.processes) workingSetByType[p.type] = Math.round(((workingSetByType[p.type] ?? 0) + mb(p.workingSetKb)) * 10) / 10
+  const workingSetTotalMb = Math.round(Object.values(workingSetByType).reduce((a, b) => a + b, 0) * 10) / 10
   const total = Object.values(byType).reduce((a, b) => a + b, 0)
   const webglPanes = await page.evaluate(() => document.querySelectorAll('.xterm-screen canvas.xterm-webgl, .xterm-screen > canvas:not(.xterm-link-layer)').length)
-  return { webglPanes, byType, totalMb: Math.round(total * 10) / 10, mainHeapMb: Math.round(main.heap / 1048576 * 10) / 10, mainRssMb: Math.round(main.rss / 1048576 * 10) / 10, rendererHeapMb: Math.round(rendererHeap / 1048576 * 10) / 10,
+  return { webglPanes, byType, workingSetByType, workingSetTotalMb, totalMb: Math.round(total * 10) / 10, mainHeapMb: Math.round(main.heap / 1048576 * 10) / 10, mainRssMb: Math.round(main.rss / 1048576 * 10) / 10, rendererHeapMb: Math.round(rendererHeap / 1048576 * 10) / 10,
     mainHeapTotalMb: Math.round(main.heapTotal / 1048576 * 10) / 10, mainExternalMb: Math.round(main.external / 1048576 * 10) / 10 }
 }
 
@@ -91,7 +93,8 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
   const root = mkdtempSync(join(tmpdir(), 'oxe-memory-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
-  const dbPath = join(root, 'db.sqlite3')
+  // oxespace.sqlite3: a packaged launch (helpers/perf-launch.ts) keeps its database at <user-data-dir>/oxespace.sqlite3.
+  const dbPath = join(root, 'oxespace.sqlite3')
 
   // Phase 1: let the app create and migrate its own database and a workspace, then stop it.
   let workspaceId: string
