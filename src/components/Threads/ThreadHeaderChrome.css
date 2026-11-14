@@ -434,7 +434,7 @@
   text-align: left;
   cursor: pointer;
 }
-.thread-terminal-row:hover { border-color: var(--border-default); background: var(--surface-hover); }
+.thread-terminal-row:hover { border-color: var(--border-default); background: var(--fill-hover); }
 .thread-terminal-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .thread-terminal-row > svg { flex: none; color: var(--text-muted); }
 .thread-terminal-row-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-xs); }
@@ -636,7 +636,7 @@
 
 .thread-navigation .nav-rail-btn[aria-current='page'],
 .thread-navigation .nav-rail-btn[aria-current='true'] {
-  background: var(--nav-selected);
+  background: var(--fill-selected);
   border-color: var(--accent-border);
   color: var(--text-primary);
 }

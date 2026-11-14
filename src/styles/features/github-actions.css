@@ -13,7 +13,7 @@
   justify-content: space-between;
   padding: 8px 12px;
   border-bottom: 1px solid var(--bd-subtle);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 .github-actions-v2-title {
   display: inline-flex;
@@ -33,7 +33,7 @@
   background: transparent;
   color: var(--tx-muted);
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 .github-actions-v2-filter:hover { color: var(--tx-primary); }
@@ -48,7 +48,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px;
-  background: var(--bg-tile);
+  background: var(--surface-base);
   border-bottom: 1px solid var(--bd-subtle);
 }
 .github-actions-v2-runform-row {
@@ -61,7 +61,7 @@
 .github-actions-v2-runform textarea {
   padding: 6px 8px;
   font-size: var(--fs-sm);
-  background: var(--bg-input);
+  background: var(--surface-base);
   border: 1px solid var(--bd-input);
   color: var(--tx-primary);
   border-radius: var(--radius-sm);
@@ -81,7 +81,7 @@
 .github-actions-v2-tree {
   overflow-y: auto;
   border-right: 1px solid var(--bd-subtle);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   padding: 6px 0;
 }
 .github-actions-v2-detail {
@@ -106,7 +106,7 @@
   color: var(--tx-primary);
   text-align: left;
 }
-.github-actions-v2-workflow-row:hover { background: var(--bg-ws-hover); }
+.github-actions-v2-workflow-row:hover { background: var(--fill-hover); }
 .github-actions-v2-workflow-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .github-actions-v2-workflow-meta { font-size: var(--fs-2xs); color: var(--tx-muted); font-family: var(--font-mono); }
 
@@ -123,7 +123,7 @@
   color: var(--tx-secondary);
   text-align: left;
 }
-.github-actions-v2-run-row:hover { background: var(--bg-ws-hover); color: var(--tx-primary); }
+.github-actions-v2-run-row:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .github-actions-v2-run-row.selected {
   background: var(--fill-selected);
   color: var(--accent);
@@ -132,7 +132,7 @@
 .github-actions-v2-run-branch {
   font-family: var(--font-mono);
   padding: 1px 6px;
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   border-radius: var(--radius-xs);
   font-size: var(--fs-2xs);
   color: var(--tx-muted);
@@ -182,7 +182,7 @@
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 .github-actions-runtime-heading {
   display: flex;
@@ -226,7 +226,7 @@
   text-align: left;
   cursor: pointer;
 }
-.github-actions-job-row:hover { background: var(--bg-ws-hover); }
+.github-actions-job-row:hover { background: var(--fill-hover); }
 .github-actions-job-name,
 .github-actions-step-name {
   min-width: 0;
@@ -254,7 +254,7 @@
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
 }
-.github-actions-step-row:hover { background: var(--bg-elevated); }
+.github-actions-step-row:hover { background: var(--surface-raised); }
 .github-actions-v2-detail-hint {
   font-size: var(--fs-xs);
   color: var(--tx-muted);
@@ -268,7 +268,7 @@
   flex: 1 1 0;
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   overflow: hidden;
 }
 .github-actions-v2-logs-header {
@@ -278,7 +278,7 @@
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--bd-base);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   font-size: var(--fs-xs);
   color: var(--tx-muted);
   text-transform: uppercase;
@@ -291,7 +291,7 @@
 }
 .github-actions-v2-logs-truncated {
   padding: 2px 6px;
-  background: var(--bg-amber-soft, var(--bg-elevated));
+  background: var(--bg-amber-soft, var(--surface-raised));
   color: var(--dot-orange);
   border-radius: var(--radius-xs);
   text-transform: uppercase;
@@ -304,7 +304,7 @@
   font-size: var(--fs-xs);
   line-height: 1.45;
   color: var(--tx-primary);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   overflow: auto;
   white-space: pre;
   max-height: 480px;
@@ -314,7 +314,7 @@
   padding: 8px 10px;
   border: 1px solid var(--dot-red);
   border-radius: var(--radius-xs);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--dot-red);
   font-size: var(--fs-xs);
 }
@@ -322,7 +322,7 @@
   padding: 8px 10px;
   border: 1px dashed var(--bd-base);
   border-radius: var(--radius-xs);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--tx-muted);
   font-size: var(--fs-xs);
 }
