@@ -427,7 +427,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         )}
 
         <Suspense fallback={null}>
-          {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} /> : null}
+          {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} paneId={contextProvider === 'claude' || contextProvider === 'codex' ? pane.id : undefined} /> : null}
           {isCopilotPane ? <CopilotCreditsStatus /> : null}
           {/* The plan usage is in the status bar once, not in every pane (1.5.2). */}
         </Suspense>

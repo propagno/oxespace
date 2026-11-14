@@ -18,7 +18,7 @@ export function NoEditorNote({ onClose }: { onClose?: () => void }): ReactElemen
   })
 
   return (
-    <div className="editor-no-editor-note" role="note" style={{ padding: '8px 12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div className="editor-no-editor-note" role="note" style={{ padding: '8px 12px', background: 'var(--surface-raised)', borderBottom: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
       <span>{message}</span>
       <Button variant="secondary" size="sm" onClick={openSettings}>
         {buttonLabel}

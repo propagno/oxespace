@@ -16,6 +16,9 @@ const ROOT = join(__dirname, '..')
  * editor tabs, the focused pane's header and combined hover rules. This number may only go down.
  */
 const LIMIT_SELECTED = 22
+/** OXE-48: pixel heights and pixel spacing still written in CSS when the 1.5.2 scale landed. These may only go down. */
+const LIMIT_PX_HEIGHT = 560
+const LIMIT_PX_SPACING = 2013
 /** CR-15: the only background a [data-ws] selected rule may set besides --fill-selected, a tint of the workspace color (--ws). */
 const WORKSPACE_TINT = /^color-mix\(\s*in\s+srgb\s*,\s*var\(--ws\)\s+\d+%\s*,\s*transparent\s*\)$/
 
@@ -114,9 +117,22 @@ describe('design lint', () => {
     it('hand-made empty-state classes do not grow; use <EmptyState>', () => {
       expect(count(tsx, /className="[^"]*-empty\b[^"]*"/g)).toBeLessThanOrEqual(0)
     })
+    /**
+     * 1.5.2 scale (OXE-48, docs/design/brand.md › Scale): heights come from --control-*, --bar-* and --row-*, spacing
+     * from --space-*. These count the declarations that still hold a pixel value (comments ignored). Measured on main
+     * when the scale landed; each area's redesign (BRD-01..07) lowers them. Never raise them.
+     */
+    const declarations = (pattern: RegExp): number => css.reduce((sum, path) => sum + readFileSync(path, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).filter(text => pattern.test(text)).length, 0)
+    it('heights in pixels do not grow; use --control-*, --bar-* or --row-* (1.5.2 scale)', () => {
+      expect(declarations(/(^|[\s;{])(min-|max-)?(height|block-size):\s*[^;{}]*\b\d*\.?\d+px/)).toBeLessThanOrEqual(LIMIT_PX_HEIGHT)
+    })
+    it('spacing in pixels does not grow; use --space-* (1.5.2 scale)', () => {
+      expect(declarations(/(^|[\s;{])(padding|margin|gap|row-gap|column-gap)(-[a-z-]+)?:\s*[^;{}]*(^|[\s(,:])[1-9]\d*(\.\d+)?px/)).toBeLessThanOrEqual(LIMIT_PX_SPACING)
+    })
     it('labels are not uppercased by CSS; use <SectionLabel> (U3, X2). The rest go as each area is redesigned', () => {
-      // 63 before U3, which moved the audit's screens (D-03); lower it as areas move, never raise it.
-      expect(count(css, /text-transform:\s*uppercase/g)).toBeLessThanOrEqual(49)
+      // 63 before U3, which moved the audit's screens (D-03); 42 when the 1.5.2 scale landed. Lower it as areas move, never raise it.
+      expect(count(css, /text-transform:\s*uppercase/g)).toBeLessThanOrEqual(42)
     })
     it('dialogs restyled with className do not grow; the box is the primitive\'s, its size is `size` (U1)', () => {
       // Each <Dialog …> tag is read to its end, skipping what is inside braces, so an arrow in a prop does not end it.

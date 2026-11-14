@@ -19,6 +19,7 @@ import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
+import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -183,26 +184,16 @@ async function timePanelToggle(
   const item = menu.getByRole('menuitemcheckbox', { name: label, exact: true })
   // Opening the menu is setup, not the measured interaction. Right after a workspace opens the rail can
   // still move while terminals mount, and the menu follows it; reopen it once if it went away.
-  let t0: number
   for (let attempt = 0; ; attempt++) {
     if (!await menu.isVisible().catch(() => false)) {
       await page.locator('[data-testid="btn-open-tools"]:visible').click()
       await menu.waitFor({ state: 'visible' })
     }
     await item.waitFor({ state: 'visible' })
-    t0 = await page.evaluate(() => performance.now())
+    await armInputTimer(page, `[data-testid="${panelTestId}"]`, wantVisible)
     try { await item.click({ timeout: 5_000 }); break } catch (error) { if (attempt === 1) throw error }
   }
-  await page.waitForFunction(
-    ({ panelTestId, wantVisible }) => {
-      const panel = document.querySelector(`[data-testid="${panelTestId}"]`) as HTMLElement | null
-      // Resizable panels may be rendered beneath layout wrappers without an
-      // offset parent. Their DOM lifecycle is the reliable completion signal.
-      return wantVisible ? panel !== null : panel === null
-    },
-    { panelTestId, wantVisible }
-  )
-  return await page.evaluate((start) => performance.now() - start, t0)
+  return await readInputTimer(page)
 }
 
 async function timeDomToggle(
@@ -211,13 +202,9 @@ async function timeDomToggle(
   selector: string,
   wantPresent: boolean
 ): Promise<number> {
-  const t0 = await page.evaluate(() => performance.now())
+  await armInputTimer(page, selector, wantPresent)
   await action()
-  await page.waitForFunction(
-    ({ selector, wantPresent }) => (document.querySelector(selector) !== null) === wantPresent,
-    { selector, wantPresent }
-  )
-  return await page.evaluate((start) => performance.now() - start, t0)
+  return await readInputTimer(page)
 }
 
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
@@ -316,25 +303,20 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
     await commandInput.fill('split')
     const splitCommand = page.locator('[cmdk-item][data-value="cmd-split-vertical"]')
     await splitCommand.waitFor({ state: 'visible' })
-    const splitStarted = await page.evaluate(() => performance.now())
+    await armInputTimerUntil(page, [{ selector: '[data-testid="pane-container"]', countAbove: paneCount }])
     await splitCommand.click()
-    const splitCreated = await page.waitForFunction(
-      (count) => document.querySelectorAll('[data-testid="pane-container"]').length > count,
-      paneCount,
-      { timeout: 5_000 }
-    ).then(() => true).catch(() => false)
-    if (!splitCreated) {
+    const splitCreate = await readInputTimer(page, 5_000).catch(() => null)
+    if (splitCreate === null) {
       const notices = await page.locator('.error-banner').allTextContents()
       throw new Error(`Split pane did not complete: ${notices.join(' | ') || 'no application error reported'}`)
     }
-    const splitCreate = await page.evaluate((start) => performance.now() - start, splitStarted)
     report('shell: create split pane', [splitCreate])
     await page.waitForFunction(
       (count) => [...document.querySelectorAll('[data-testid="terminal-status-label"]')]
         .filter((node) => node.textContent?.trim() === 'running').length > count,
       runningCount
     )
-    const splitRunning = await page.evaluate((start) => performance.now() - start, splitStarted)
+    const splitRunning = await sinceInput(page)
     report('terminal: split→PTY running', [splitRunning])
   } finally {
     await killApp(app, pid)
@@ -357,16 +339,9 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      const started = await page.evaluate(() => performance.now())
+      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
-      await page.waitForFunction(
-        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
-        label
-      )
-      await page.evaluate(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      }))
-      switchTimes.push(await page.evaluate((start) => performance.now() - start, started))
+      switchTimes.push(await readInputTimer(page))
     }
     report('workspace: native A↔B transition', switchTimes)
   } finally {
@@ -442,20 +417,14 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Bounce to the far end of the MRU, then back — 'alpha-repo' is evicted.
       const label = i % 2 === 0 ? 'alpha-repo' : 'delta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      const started = await page.evaluate(() => performance.now())
+      // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
+      // a failed fix.
+      await armInputTimerUntil(page, [
+        { selector: '.ws-group.active', text: label },
+        { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
+      ])
       await target.getByTestId('sidebar-workspace-select').click()
-      await page.waitForFunction(
-        (name) => document.querySelector('.ws-group.active')?.textContent?.includes(name),
-        label
-      )
-      // Wait for a live terminal, not merely a painted shell — a blank-but-fast
-      // terminal would be a failed fix.
-      await page.locator('.workspace-host:not(.workspace-host-hidden)')
-        .getByTestId('terminal-status-label').filter({ hasText: 'running' }).first().waitFor()
-      await page.evaluate(() => new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      }))
-      returnTimes.push(await page.evaluate((start) => performance.now() - start, started))
+      returnTimes.push(await readInputTimer(page))
     }
     report('workspace: evicted A↔D transition', returnTimes)
     await expect.poll(
@@ -552,15 +521,17 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     const usageOpen: number[] = []
     const usageClose: number[] = []
     for (let i = 0; i < modalRepeats; i++) {
-      const started = await page.evaluate(() => performance.now())
-      // Settings restores terminal focus; move to navigation before an app shortcut.
+      // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
+      // the measured interaction is choosing it.
       await page.locator('.sidebar-section-header').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
-      await page.locator('[cmdk-item][data-value="cmd-open-usage"]').click()
-      await page.locator('[data-testid="usage-modal"]').waitFor({ state: 'visible' })
-      usageOpen.push(await page.evaluate((start) => performance.now() - start, started))
+      const usageCommand = page.locator('[cmdk-item][data-value="cmd-open-usage"]')
+      await usageCommand.waitFor({ state: 'visible' })
+      await armInputTimer(page, '[data-testid="usage-modal"]', true)
+      await usageCommand.click()
+      usageOpen.push(await readInputTimer(page))
       usageClose.push(await timeDomToggle(page, () => page.getByTestId('usage-modal').getByRole('button', { name: 'Close' }).click(), '[data-testid="usage-modal"]', false))
     }
     report('modal open:  Usage & limits', usageOpen)

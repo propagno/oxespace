@@ -2,7 +2,10 @@
 export interface PaneMenuPlacement {
   top?: number
   bottom?: number
-  right: number
+  /** Anchored to the ⋯ button's right edge. */
+  right?: number
+  /** Anchored at the pointer (a right click on the header, CODE-8). */
+  left?: number
   maxHeight: number
 }
 
@@ -22,6 +25,22 @@ export function paneMenuPlacement(trigger: Pick<DOMRect, 'top' | 'bottom' | 'rig
   const above = trigger.top - GAP - MARGIN
   if (below < COMFORTABLE && above > below) return { bottom: viewport.height - trigger.top + GAP, right, maxHeight: Math.max(0, above) }
   return { top: trigger.bottom + GAP, right, maxHeight: Math.max(0, below) }
+}
+
+/** About the menu's width (`min(260px, 75vw)`), so a menu opened at the pointer does not run off the window's right edge. */
+const MENU_WIDTH = 260
+
+/**
+ * The same menu opened at the pointer by a right click on the pane header (CODE-8): its top-left corner at the pointer,
+ * pulled back inside the window, and upward when the pointer is low and there is more room above, as for the button.
+ */
+export function paneMenuAtPointer(point: { x: number; y: number }, viewport: { width: number; height: number }, floor = viewport.height): PaneMenuPlacement {
+  const width = Math.min(MENU_WIDTH, viewport.width * 0.75)
+  const left = Math.max(MARGIN, Math.min(point.x, viewport.width - width - MARGIN))
+  const below = floor - point.y - MARGIN
+  const above = point.y - MARGIN
+  if (below < COMFORTABLE && above > below) return { bottom: viewport.height - point.y, left, maxHeight: Math.max(0, above) }
+  return { top: point.y, left, maxHeight: Math.max(0, below) }
 }
 
 /** The top of the app's status bar, where a menu has to stop; the window's height when no bar is shown. */
