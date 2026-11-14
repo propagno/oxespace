@@ -80,11 +80,11 @@ function box(file: string, selectors: string[], density: Density, dir = UI): { w
  */
 const TARGETS: Array<{ name: string; file: string; selectors: string[]; fillsWidth?: string }> = [
   { name: 'Button md', file: 'Button.module.css', selectors: ['.button'] },
-  { name: 'Button sm', file: 'Button.module.css', selectors: ['.button', '.sm'] },
-  { name: 'Button lg', file: 'Button.module.css', selectors: ['.button', '.lg'] },
-  { name: 'icon-only Button / IconButton md', file: 'Button.module.css', selectors: ['.button', '.icon'] },
-  { name: 'IconButton sm (Dialog and Toast close)', file: 'Button.module.css', selectors: ['.button', '.sm', '.icon'] },
-  { name: 'IconButton lg', file: 'Button.module.css', selectors: ['.button', '.lg', '.icon'] },
+  { name: 'Button sm', file: 'Button.module.css', selectors: ['.button', ".button:where([data-size='sm'])"] },
+  { name: 'Button lg', file: 'Button.module.css', selectors: ['.button', ".button:where([data-size='lg'])"] },
+  { name: 'icon-only Button / IconButton md', file: 'Button.module.css', selectors: ['.button', ".button:where([data-ui='icon-button'])"] },
+  { name: 'IconButton sm (Dialog and Toast close)', file: 'Button.module.css', selectors: ['.button', ".button:where([data-size='sm'])", ".button:where([data-ui='icon-button'])"] },
+  { name: 'IconButton lg', file: 'Button.module.css', selectors: ['.button', ".button:where([data-size='lg'])", ".button:where([data-ui='icon-button'])"] },
   { name: 'Checkbox (its label is the target)', file: 'Field.module.css', selectors: ['.check'], fillsWidth: 'the 16 px box, the gap and the label text make it wider than 24 px' },
   { name: 'Switch', file: 'Field.module.css', selectors: ['.switch'] },
   { name: 'SegmentedControl option (radio)', file: 'Field.module.css', selectors: ['.segment'] },
