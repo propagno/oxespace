@@ -1,4 +1,4 @@
-// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-130; v3, CR-F2-2).
+// Frozen acceptance test for 1.5.2 OxeChat F2 (OXE program oxespace-152-chat, phase F2, Jira OXE-130; v3, CR-F2-2; CR-F2-7).
 // Written by the planner; the executor must not edit it.
 // Today: an OxeChat conversation notifies "<name> — finished" / "<name> — needs approval" with a fixed body
 // (src/hooks/useThreadAttention.ts + src/utils/threadAttention.ts), an OxeCode pane "<agent> — waiting for you" /
@@ -32,11 +32,11 @@
 //   `timeoutType: 'never'`, no `toastXml`; Notification.isSupported() false shows nothing.
 // - Clicking a notification still activates that pane or conversation (existing; not re-tested here).
 // Runs the real hooks, stores, Settings page, i18n catalogs and the main IPC handler; electron and window.oxe are doubles.
+// The switch is clicked with fireEvent (CR-F2-7): user-event's click under vitest's fake timers left the next act() hanging.
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createElement } from 'react'
-import { act, cleanup, render, renderHook, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -224,7 +224,7 @@ describe('OXE-130 · a notification names the conversation and where it is, with
 
     // On: "finished" plays the sound.
     toggle = await soundSwitch()
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(toggle)
+    fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-checked', 'true')
     cleanup()
     await watchConversations([conversation('c', 'Checkout')])
@@ -232,7 +232,7 @@ describe('OXE-130 · a notification names the conversation and where it is, with
     expect(sent().map(({ title, silent }) => ({ title, silent }))).toEqual([{ title: 'Checkout', silent: false }])
     cleanup()
     toggle = await soundSwitch()
-    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(toggle)
+    fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-checked', 'false')
     cleanup()
 
