@@ -18,7 +18,6 @@ import {
   orderQueue,
   parseTrainState,
   renderComment,
-  retryableFailure,
   runTrain,
   SKIP_CI_NOTE,
   selectStaleRuns,
@@ -33,7 +32,7 @@ const OLD = 'b'.repeat(40)
 const minutes = (n: number) => n * 60_000
 const iso = (ms: number) => new Date(ms).toISOString()
 
-type Run = { name: string; path?: string; headSha: string; status: string; conclusion: string | null; htmlUrl?: string; createdAt?: string; id?: number; runAttempt?: number }
+type Run = { name: string; path?: string; headSha: string; status: string; conclusion: string | null; htmlUrl?: string; createdAt?: string }
 type Check = { name: string; headSha: string; status: string; conclusion: string | null; htmlUrl?: string; failedStep?: string | null }
 
 const pr = (over: Record<string, unknown> = {}) => ({
@@ -155,31 +154,6 @@ describe('merge train step', () => {
     expect(action.type).toBe('unlabel')
     expect(action.message).toContain('"Typecheck, test and build (Windows)" failure at step "Unit tests"')
     expect(action.message).toContain('https://github.com/o/r/runs/9')
-  })
-
-  it('re-runs the failed E2E jobs once when they are the only failures (OXE-141), restarting the wait', () => {
-    const checks = [...greenChecks().filter(c => c.name !== 'CI result'), check('CI result', { conclusion: 'failure' }), check('E2E and native tests (windows-x64, 2/3)', { conclusion: 'failure' })]
-    const action = step(input({ checks, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 1 })], trainState: { head: HEAD, since: iso(NOW - minutes(50)), labeledAt: pr().labeledAt } }))
-    expect(action.type).toBe('rerun')
-    expect((action as { runId?: number }).runId).toBe(41)
-    expect(action.message).toContain('E2E and native tests (windows-x64, 2/3)')
-    expect(action.state?.since).toBe(iso(NOW))
-  })
-
-  it('takes the PR out when the re-run failed again, and never re-runs a non-E2E failure', () => {
-    const e2e = [...greenChecks(), check('E2E and native tests (linux-x64, 3/3)', { conclusion: 'failure' })]
-    expect(step(input({ checks: e2e, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 2 })] })).type).toBe('unlabel')
-    const unit = [...greenChecks(), check('Unit and integration tests (linux-x64)', { conclusion: 'failure' }), check('E2E and native tests (linux-x64, 3/3)', { conclusion: 'failure' })]
-    expect(step(input({ checks: unit, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 1 })] })).type).toBe('unlabel')
-    // A run with no id (an older listing) is never re-run: the old behaviour.
-    expect(step(input({ checks: e2e, runs: [ciRun({ conclusion: 'failure' })] })).type).toBe('unlabel')
-  })
-
-  it('counts a failure as repeatable only when every failing check is an E2E shard or CI result, with one E2E at least', () => {
-    expect(retryableFailure([{ name: 'E2E and native tests (windows-x64, 1/3)' }, { name: 'CI result' }])).toBe(true)
-    expect(retryableFailure([{ name: 'CI result' }])).toBe(false)
-    expect(retryableFailure([{ name: 'E2E and native tests (linux-x64, 2/3)' }, { name: 'Quick checks (linux-x64)' }])).toBe(false)
-    expect(retryableFailure([])).toBe(false)
   })
 
   it('takes a PR out when a watched run failed without a failing check', () => {
