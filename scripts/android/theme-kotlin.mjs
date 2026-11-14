@@ -79,8 +79,9 @@ export function themeKotlin(tokens) {
   for (const [name, value] of Object.entries(tokens.IDENTITY.provider)) out.push(`    val ${camelName(name, 'provider')} = ${kotlinColor(value)}`)
   out.push(`    val avatars = listOf(${tokens.IDENTITY.avatar.map(kotlinColor).join(', ')})`, '}', '')
 
-  out.push('/** Spacing in 4 dp steps. */', 'object OxeSpace {')
-  for (const [name, value] of Object.entries(tokens.SPACE)) out.push(`    val space${name} = ${dp(value)}`)
+  out.push('/** Spacing in 4 dp steps, plus the half steps 2 and 6 (space0_5, space1_5). */', 'object OxeSpace {')
+  // CSS names a half step "0-5" (--space-0-5); a Kotlin identifier can't hold the hyphen.
+  for (const [name, value] of Object.entries(tokens.SPACE)) out.push(`    val space${name.replace('-', '_')} = ${dp(value)}`)
   out.push('}', '')
 
   out.push('object OxeRadius {')
