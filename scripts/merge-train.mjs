@@ -77,6 +77,18 @@ export const DEFAULT_TIMEOUT_MINUTES = 60
 /** How long a head may sit with no CI run at all before the train dispatches one itself. */
 export const DISPATCH_GRACE_MS = 3 * 60_000
 const IGNORED_CONCLUSIONS = new Set(['skipped', 'neutral'])
+
+/**
+ * OXE-141: the E2E shards are where flaky failures live (22% of CI runs failed on 14/11, nearly all E2E). A car or a
+ * batch whose only failures are E2E shards (plus "CI result", which fails with them) gets its failed jobs run once
+ * more before it leaves the queue or the batch breaks; a second failure takes it out as before. Unit, lint and the
+ * other jobs are never repeated: a failure there is an answer.
+ */
+export const RETRYABLE_CHECK = /^E2E and native tests \(/
+export function retryableFailure(failed) {
+  const names = (failed ?? []).map((check) => String(check?.name ?? ''))
+  return names.some((name) => RETRYABLE_CHECK.test(name)) && names.every((name) => RETRYABLE_CHECK.test(name) || name === 'CI result')
+}
 /** Run conclusions of runs that tested nothing: waiting for an approval that never came, or every job skipped. */
 const UNTESTED_RUN_CONCLUSIONS = new Set(['action_required', 'skipped'])
 /** Run states that still hold (or wait for) a runner. */
@@ -405,7 +417,18 @@ export function step(input) {
   const pending = considered.filter((c) => c.status !== 'completed')
   if (pending.length) return wait(`${pending.map((c) => cleanName(c.name)).join(', ')} still running on ${short(head)}`)
 
-  const failed = considered.find((c) => c.conclusion !== 'success' && (!IGNORED_CONCLUSIONS.has(c.conclusion) || required.includes(c.name)))
+  const failures = considered.filter((c) => c.conclusion !== 'success' && (!IGNORED_CONCLUSIONS.has(c.conclusion) || required.includes(c.name)))
+  const ciRun = runs.find((r) => r.name === CI_WORKFLOW)
+  if (failures.length && retryableFailure(failures) && ciRun?.id && (ciRun.runAttempt ?? 1) < 2) {
+    return {
+      type: 'rerun',
+      message: `waiting: re-running the failed E2E job(s) once on ${short(head)} (${failures.map((c) => cleanName(c.name)).join(', ')}); a second failure takes it out of the queue.`,
+      // The wait starts again with the new attempt, so the re-run does not eat the car's timeout.
+      state: { ...state, since: new Date(now).toISOString() },
+      runId: ciRun.id,
+    }
+  }
+  const failed = failures[0]
   if (failed) {
     const where = failed.failedStep ? ` at step "${cleanName(failed.failedStep)}"` : ''
     const url = cleanLink(failed.htmlUrl)
@@ -712,8 +735,15 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
     if (age > timeoutMinutes * 60_000) return giveUp(`${CI_WORKFLOW} ran more than ${timeoutMinutes} minutes${link}`, members, true)
     return record('batch-wait', `${branch}: ${CI_WORKFLOW} still running on ${short(batch.head)}${link}`)
   }
-  const result = latestByName((await api.listChecks(batch.head)).filter((c) => c.name === 'CI result'))[0]
+  const batchChecks = latestByName((await api.listChecks(batch.head)).filter((c) => c.headSha == null || c.headSha === batch.head))
+  const result = batchChecks.find((c) => c.name === 'CI result')
   if (run.conclusion !== 'success' || result?.status !== 'completed' || result?.conclusion !== 'success') {
+    // OXE-141: a batch broken only by E2E shards gets its failed jobs once more before it breaks into no-batch cars.
+    const failures = batchChecks.filter((c) => c.status === 'completed' && c.conclusion !== 'success' && !IGNORED_CONCLUSIONS.has(c.conclusion))
+    if (retryableFailure(failures) && run.id && (run.runAttempt ?? 1) < 2) {
+      await api.rerunFailed(run.id)
+      return record('batch-wait', `${branch}: re-running the failed E2E job(s) once on ${short(batch.head)} (${failures.map((c) => cleanName(c.name)).join(', ')})${link}`)
+    }
     return giveUp(`the batch's ${CI_WORKFLOW} ended ${cleanName(run.conclusion ?? 'without a result')}${result ? `, CI result ${cleanName(result.conclusion ?? 'pending')}` : ', no CI result'}${link}`, members, true)
   }
 
@@ -799,7 +829,7 @@ export async function runBatch(api, queue, { now, timeoutMinutes, log, actions, 
 }
 
 /** Writes the train would make, logged and not made: for a dry run with a real token. */
-export const WRITE_METHODS = ['createComment', 'updateComment', 'removeLabel', 'addLabel', 'updateBranch', 'cancelRun', 'merge', 'dispatchWorkflow', 'createRef', 'deleteRef', 'mergeInto', 'postStatus']
+export const WRITE_METHODS = ['createComment', 'updateComment', 'removeLabel', 'addLabel', 'updateBranch', 'cancelRun', 'rerunFailed', 'merge', 'dispatchWorkflow', 'createRef', 'deleteRef', 'mergeInto', 'postStatus']
 export function dryRunApi(api, log) {
   const fake = { createRef: null, mergeInto: { sha: '0'.repeat(40) }, merge: { sha: '0'.repeat(40) } }
   return new Proxy(api, {
@@ -1023,6 +1053,11 @@ export async function runTrain(
       await upsertComment(api, entry.number, renderComment(action.message, state))
       break
     }
+    if (action.type === 'rerun') {
+      await api.rerunFailed(action.runId)
+      await upsertComment(api, entry.number, renderComment(action.message, action.state))
+      break
+    }
     if (action.type === 'dispatch') {
       for (const file of action.dispatch) await api.dispatchWorkflow(file, input.pr.headRef)
       await upsertComment(api, entry.number, renderComment(action.message, action.state))
@@ -1225,7 +1260,13 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         conclusion: run.conclusion,
         htmlUrl: run.html_url,
         createdAt: run.created_at,
+        id: run.id,
+        runAttempt: run.run_attempt,
       }))
+    },
+    /** OXE-141: re-runs only the failed jobs of a run (and the jobs that depend on them), as a new attempt. */
+    async rerunFailed(id) {
+      await request('POST', `${r}/actions/runs/${Number(id)}/rerun-failed-jobs`)
     },
     async listChecks(sha) {
       const [checks, runs] = await Promise.all([

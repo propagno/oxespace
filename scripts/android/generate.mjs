@@ -33,7 +33,7 @@ write(PROTOCOL_KOTLIN_PATH, protocolKotlin(protocolSource, await load('protocol'
 
 const tokens = await load('tokens', [
   "export { colorRoles } from './src/design/tokens/semantic'",
-  "export { IDENTITY } from './src/design/tokens/palette'",
+  "export { IDENTITY, LOGO } from './src/design/tokens/palette'",
   "export { SPACE, RADIUS, TEXT, WEIGHT, LEADING, MOTION, REDUCED_MOTION } from './src/design/tokens/scales'"
 ].join('\n'))
 write(THEME_KOTLIN_PATH, themeKotlin(tokens))
