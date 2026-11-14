@@ -1,6 +1,6 @@
 # Brand targets
 
-The approved Mandacaru Noite target as data, one file per BRD (`brd-NN.json`), from the approved interface, identity and scale artifacts and the BRD batch of 13/11. `e2e/brand-conformance.spec.ts` measures the built app against these files; `tests/unit/brand-targets.test.ts` keeps them valid (OXE-149).
+The approved Mandacaru Noite target as data, next to the tokens it names, one file per BRD (`brd-NN.json`), from the approved interface, identity and scale artifacts and the BRD batch of 13/11. `e2e/brand-conformance.spec.ts` measures the built app against these files; `tests/unit/brand-targets.test.ts` keeps them valid (OXE-149).
 
 Each measure:
 
