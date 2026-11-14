@@ -1,0 +1,60 @@
+# Scratch-branch only (ci/remote-verify/flaky-151-win-*), never on main: OXE-151 repeats one unit file on Windows
+# under load. Setup mirrors ci.yml's unit-shard job on windows-2022.
+name: Remote verify (Windows, OXE-151)
+run-name: Remote verify Windows · ${{ github.ref_name }}
+
+on:
+  push:
+    branches: ["ci/remote-verify/flaky-151-win-**"]
+
+concurrency:
+  group: remote-verify-win-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Remote verify (windows-x64)
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/AppData/Local/electron/Cache
+          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime and native modules
+        run: |
+          npm rebuild electron
+          npm run rebuild:native:node
+
+      - name: Run the command
+        shell: bash
+        run: |
+          set +e
+          echo "===REMOTE-VERIFY-BEGIN==="
+          bash .remote-verify/command.sh
+          code=$?
+          echo "===REMOTE-VERIFY-EXIT=${code}==="
+          exit $code
