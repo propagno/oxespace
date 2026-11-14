@@ -53,7 +53,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.agents.AgentTapTarget
 import com.oxespace.mobile.agents.AgentsScreen
@@ -73,6 +72,7 @@ import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
+import com.oxespace.mobile.ui.theme.OxeType
 import com.oxespace.mobile.ui.components.EmptyState
 import com.oxespace.mobile.ui.components.ProviderAvatar
 import com.oxespace.mobile.ui.components.StatusGlyph
@@ -164,7 +164,7 @@ fun LiveHome(
                                 style = MaterialTheme.typography.labelMedium.copy(color = LocalContentColor.current),
                                 maxLines = 1,
                                 softWrap = false,
-                                autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize),
+                                autoSize = TextAutoSize.StepBased(minFontSize = OxeType.text2xs, maxFontSize = MaterialTheme.typography.labelMedium.fontSize),
                             )
                         },
                         icon = {

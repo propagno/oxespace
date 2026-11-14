@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test'
 import { createServer, type Server } from 'node:http'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -23,6 +23,20 @@ function startServer(): Promise<{ server: Server; port: number }> {
       const address = server.address()
       resolve({ server, port: typeof address === 'object' && address ? address.port : 0 })
     })
+  })
+}
+
+/**
+ * What the previewed page says about itself, read in its own guest: whether it has painted, and whether the picker
+ * is armed (the design-guest preload adds its highlight box to the page when it turns on). Null until it exists.
+ */
+async function guestState(electronApp: ElectronApplication): Promise<{ painted: boolean; armed: boolean } | null> {
+  return electronApp.evaluate(async ({ webContents }) => {
+    const guest = webContents.getAllWebContents().find((c) => c.getURL().startsWith('http://127.0.0.1'))
+    if (!guest) return null
+    return (await guest.executeJavaScript(
+      '({ painted: performance.getEntriesByType("paint").some((e) => e.name === "first-contentful-paint"), armed: Boolean(document.getElementById("__oxe_design_highlight__")) })'
+    )) as { painted: boolean; armed: boolean }
   })
 }
 
@@ -68,19 +82,15 @@ test('design mode: picking an element opens the grab sheet', async () => {
 
     const webview = page.getByTestId('browser-preview-native')
     await expect(webview).toBeVisible()
-    // Wait for the guest to actually paint before picking inside it.
-    await expect
-      .poll(
-        async () =>
-          electronApp.evaluate(({ webContents }) =>
-            webContents.getAllWebContents().some((contents) => contents.getURL().startsWith('http://127.0.0.1'))
-          ),
-        { timeout: 20_000 }
-      )
-      .toBe(true)
+    // Wait for the guest to actually paint before picking inside it: a committed URL is not a painted page, and on
+    // a slow Windows runner the click came before the first paint (OXE-144).
+    await expect.poll(async () => (await guestState(electronApp))?.painted ?? false, { timeout: 20_000 }).toBe(true)
 
     await page.getByTestId('design-mode-toggle').click()
     await expect(page.getByText('Design Mode — click an element', { exact: false })).toBeVisible()
+    // The hint shows as soon as the toggle is on; the picker turns on in the guest a moment later, over IPC. A person
+    // never clicks inside that moment, a test can: wait for the picker itself (OXE-144).
+    await expect.poll(async () => (await guestState(electronApp))?.armed ?? false).toBe(true)
 
     // Click the CTA inside the guest. Playwright's mouse targets the host
     // WebContents; the native guest is a separate one, so drive real Chromium
