@@ -39,7 +39,7 @@
 /* A long list scrolls by itself, so the rail's footer (settings, expand) stays in reach. */
 .items { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .item { width: 32px; height: 32px; flex: none; }
-.item[aria-current='page'] { background: var(--nav-selected); color: var(--text-primary); }
+.item[aria-current='page'] { background: var(--fill-selected); color: var(--text-primary); }
 .initial { font-size: var(--fs-xs); font-weight: var(--weight-semibold); line-height: 1; }
 
 /* Expanded sidebar: actions at the right of the title, and a footer row at the bottom. */
