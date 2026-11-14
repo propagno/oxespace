@@ -35,6 +35,15 @@ describe('the train re-runs flaky E2E jobs once (OXE-141)', () => {
     expect(step(input({ checks: e2e, runs: [ciRun({ conclusion: 'failure' })] })).type).toBe('unlabel')
   })
 
+  it('counts a job the runner cancelled or timed out as infrastructure, and the unit merge job that failed on it (car #816)', () => {
+    const shard = { name: 'Unit and integration tests (linux-x64, 1/3)', conclusion: 'cancelled' }
+    expect(retryableFailure([shard, { name: 'Unit and integration tests (linux-x64)', conclusion: 'failure' }, { name: 'Unit and integration tests (windows-x64)', conclusion: 'failure' }, { name: 'CI result', conclusion: 'failure' }])).toBe(true)
+    expect(retryableFailure([{ name: 'E2E and native tests (windows-x64, 2/3)', conclusion: 'timed_out' }])).toBe(true)
+    // A unit merge job that failed with no cancelled shard behind it is an answer, never repeated.
+    expect(retryableFailure([{ name: 'Unit and integration tests (linux-x64)', conclusion: 'failure' }, { name: 'CI result', conclusion: 'failure' }])).toBe(false)
+    expect(retryableFailure([shard, { name: 'Quick checks (linux-x64)', conclusion: 'failure' }])).toBe(false)
+  })
+
   it('counts a failure as repeatable only when every failing check is an E2E shard or CI result, with one E2E at least', () => {
     expect(retryableFailure([{ name: 'E2E and native tests (windows-x64, 1/3)' }, { name: 'CI result' }])).toBe(true)
     expect(retryableFailure([{ name: 'CI result' }])).toBe(false)
