@@ -113,7 +113,10 @@ export function App(): ReactElement {
   const rawSelectMode = viewSwitch.select
   const selectMode = useCallback((mode: AppView) => {
     if (mode === 'thread' && !hasOpenedThread) requestAnimationFrame(() => { setTimeout(warmThreadList, 0) })
-    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); return }
+    // Choosing the view on screen while another is still on its way cancels that switch: the latest choice wins. Returning
+    // early here dropped the click, and the pending switch then committed (OxeChat then OxeCode within ~300 ms landed in
+    // OxeChat; OXE-103, the e2e that kept failing on thread-view.spec.ts:310).
+    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode) }
     rawSelectMode(mode)
   }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
