@@ -27,9 +27,10 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Harness (this commit)
+      - name: Harness (the PR branch's head)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: oxe-105-perf-gate
           path: harness
           persist-credentials: false
       - name: B = v1.5.1
