@@ -16,7 +16,7 @@ export function SettingsSection({ title, description, actions, children, classNa
   className?: string
 }): ReactElement {
   const id = useId()
-  return <section className={cx(styles.section, className)} aria-labelledby={`${id}-title`}>
+  return <section data-ui="settings-section" className={cx(styles.section, className)} aria-labelledby={`${id}-title`}>
     <header className={styles.sectionHeader}>
       <div>
         <h3 id={`${id}-title`} className={styles.sectionTitle}>{title}</h3>
@@ -42,7 +42,7 @@ export function SettingRow({ label, description, control, htmlFor, wide = false,
   /** More of the row under the text and the control: a note, an error, a list the control edits. */
   children?: ReactNode
 }): ReactElement {
-  return <div className={cx(styles.row, wide && styles.wide)}>
+  return <div data-ui="setting-row" className={cx(styles.row, wide && styles.wide)}>
     <div className={styles.text}>
       {htmlFor ? <label htmlFor={htmlFor} className={styles.label}>{label}</label> : <span className={styles.label}>{label}</span>}
       {description ? <p className={styles.description}>{description}</p> : null}

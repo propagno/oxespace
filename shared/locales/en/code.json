@@ -375,6 +375,13 @@
   },
   "terminal": {
     "bgNeedsCommand": "/bg needs a command, e.g. /bg npm run build",
+    "menu": {
+      "label": "Terminal",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select all",
+      "clear": "Clear"
+    },
     "agentNotFound": "Agent “{{name}}” not found. Try: {{options}}…",
     "search": {
       "placeholder": "Search in terminal…",
