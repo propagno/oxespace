@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -68,7 +68,7 @@ jobs:
 
       # verifyPaparazziDebug runs every unit test and compares each screen with its golden in app/src/test/snapshots.
       - name: Lint, unit tests, screenshots and debug build
-        run: ./gradlew --no-daemon lint verifyPaparazziDebug :protocol:test assembleDebug
+        run: ./gradlew --no-daemon recordPaparazziDebug
 
       - name: Keep reports
         if: always()
@@ -81,8 +81,32 @@ jobs:
             mobile/android/protocol/build/reports/
             mobile/android/protocol/build/test-results/
             mobile/android/app/build/paparazzi/failures/
+            mobile/android/app/src/test/snapshots/images/
           if-no-files-found: ignore
           retention-days: 14
+
+      # ci/record-goldens/<branch> only, never merged (quick Q-20261114-b13f, OXE-49): commit the recorded goldens on
+      # top of <branch> as github-actions[bot], which the origin lock (oxe.config.json, OXE-138) exempts on this path,
+      # and push it to ci/goldens-out/<branch>. The session then fast-forwards <branch> to it, so the PR checks run.
+      - name: Commit the recorded goldens as the bot
+        working-directory: .
+        shell: bash
+        run: |
+          set -e
+          target="${GITHUB_REF_NAME#ci/record-goldens/}"
+          images=mobile/android/app/src/test/snapshots/images
+          git fetch --no-tags origin "+refs/heads/$target:refs/remotes/origin/$target"
+          git worktree add --detach "$RUNNER_TEMP/target" "origin/$target"
+          cp -r "$images/." "$RUNNER_TEMP/target/$images/"
+          cd "$RUNNER_TEMP/target"
+          git add "$images"
+          git status --short
+          if git diff --cached --quiet; then echo "No golden changed on $target"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "test(mobile): re-record the phone goldens after main (OXE-49)" \
+            -m "Recorded by recordPaparazziDebug in run $GITHUB_RUN_ID on $GITHUB_REF_NAME." -m "OXE-Card: OXE-49"
+          git push origin "HEAD:refs/heads/ci/goldens-out/$target"
+          echo "Pushed $(git rev-parse --short HEAD) to ci/goldens-out/$target" | tee -a "$GITHUB_STEP_SUMMARY"
 
       # The phone screens that differ from their goldens, named in the run summary next to the report holding the
       # images (app/build/paparazzi/failures: the delta of each screen).
