@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * OXE-105 performance baseline table. Reads the artifacts of .github/workflows/perf-baseline.yml, downloaded into one
+ * OXE-105 performance baseline table. Reads the artifacts of .github/workflows/perf-gate.yml, downloaded into one
  * folder (gh run download <run> -D <folder>: one subfolder per artifact, each with meta.json, build.log and
  * sample-<i>.log), and prints Markdown: every metric x (version, OS), median and p90 across samples, and n.
  *
@@ -48,9 +48,11 @@ const GATE = [
   ['Settings · Agents cold: first content', 'pp Settings · Agents cold: content'],
   ['OxeChat cold open: first content', 'pp OxeChat (Thread) cold: content'],
   ['OxeChat cold open: first feedback', 'pp OxeChat (Thread) cold: feedback'],
-  ['Memory, 4 panes: main process private MB', 'mf code only: main process private MB'],
-  ['Memory, 4 panes: window (renderer) private MB', 'mf code only: renderer private MB'],
-  ['Memory, 4 panes: all processes private MB', 'mf code only: total private MB'],
+  ['Memory, 4 panes: main process working set MB', 'mf code only: main process working set MB'],
+  ['Memory, 4 panes: window (renderer) working set MB', 'mf code only: renderer working set MB'],
+  ['Memory, 4 panes: all processes working set MB', 'mf code only: total working set MB'],
+  ['Memory, 4 panes: main process private MB (Windows only)', 'mf code only: main process private MB'],
+  ['Memory, 4 panes: window (renderer) private MB (Windows only)', 'mf code only: renderer private MB'],
   ['Memory, 4 panes: main process RSS MB', 'mf code only: main RSS MB'],
   ['Renderer entry size kB', 'bundle renderer entry kB'],
   ['Renderer boot (entry + preloaded chunks) kB', 'bundle renderer boot kB']
@@ -73,10 +75,14 @@ function parseSample(text) {
       let data
       try { data = JSON.parse(m[2]) } catch { continue }
       const by = data.byType ?? {}
-      put(`mf ${m[1]}: main process private MB`, by.Browser)
-      put(`mf ${m[1]}: renderer private MB`, by.Tab)
-      put(`mf ${m[1]}: GPU private MB`, by.GPU)
-      put(`mf ${m[1]}: total private MB`, data.totalMb)
+      put(`mf ${m[1]}: main process private MB`, by.Browser || NaN)
+      put(`mf ${m[1]}: renderer private MB`, by.Tab || NaN)
+      put(`mf ${m[1]}: GPU private MB`, by.GPU || NaN)
+      put(`mf ${m[1]}: total private MB`, data.totalMb || NaN)
+      const ws = data.workingSetByType ?? {}
+      put(`mf ${m[1]}: main process working set MB`, ws.Browser)
+      put(`mf ${m[1]}: renderer working set MB`, ws.Tab)
+      put(`mf ${m[1]}: total working set MB`, data.workingSetTotalMb)
       put(`mf ${m[1]}: main RSS MB`, data.mainRssMb)
       put(`mf ${m[1]}: main heap MB`, data.mainHeapMb)
       put(`mf ${m[1]}: renderer heap MB`, data.rendererHeapMb)

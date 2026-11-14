@@ -1,33 +1,49 @@
-name: Performance baseline
-run-name: Performance baseline · ${{ github.sha }}
+name: Performance gate
+run-name: Performance gate · ${{ inputs.refs || 'v1.5.0,v1.5.1,main' }} · ${{ github.ref_name }}
 
-# OXE-105, the 1.5.2 performance gate: one benchmark, the same for every version measured, so the columns compare.
-# For each ref in perf-baseline/versions.txt it checks out the APP SOURCE at that ref, overlays the benchmark from
-# this branch (perf-baseline/overlay/e2e: PR #788's in-renderer input timer and specs, plus a launcher that runs the
-# packaged binary), builds it and runs the three benchmark specs SAMPLES times, each a fresh Playwright run with
-# fresh app launches. Two modes per ref and OS:
+# OXE-105, the release performance gate (1.5.2 onwards): one benchmark, the same for every ref measured, so the
+# columns compare. For each ref it checks out the APP SOURCE at that ref, overlays the benchmark of the commit this
+# workflow runs from (perf-baseline/overlay/e2e: PR #788's in-renderer input timer and the three benchmark specs, plus
+# a launcher that runs the packaged binary), builds it and runs the specs `samples` times in a row on one runner, each
+# a fresh Playwright run with fresh app launches. Modes per ref and OS:
 #   packaged  the unpacked electron-builder output, launched from a copy outside the checkout (as ci.yml's packaged
 #             smoke and hml-packaged-pass do): real database, terminals and services;
 #   mock      the built app through e2e/electron-main.cjs, the CI performance gate's way (mock-native where a spec
 #             asks for it).
-# Artifacts: perf-baseline-<ref>-<os> (packaged) and perf-baseline-<ref>-<os>-mock. Table:
-#   node scripts/perf-baseline-table.mjs <folder with the downloaded artifacts>
-# For 1.5.2: put its tag (or a branch without slashes) in perf-baseline/versions.txt and push this branch.
+# Artifacts: perf-baseline-<ref>-<os> (packaged), perf-baseline-<ref>-<os>-mock, and perf-gate-table (the Markdown
+# table, also in the run's summary). Locally: node scripts/perf-baseline-table.mjs <folder with the artifacts>.
+# A release: dispatch with refs "<previous tag>,<new tag or release branch>".
 
 on:
   push:
     branches: [ci/perf-baseline]
   workflow_dispatch:
+    inputs:
+      refs:
+        description: Comma-separated tags or branches to measure, e.g. v1.5.1,v1.5.2
+        required: false
+        default: v1.5.0,v1.5.1,main
+        type: string
+      samples:
+        description: Fresh runs of the benchmark per ref and OS
+        required: false
+        default: "5"
+        type: string
+      modes:
+        description: packaged, mock, or packaged,mock
+        required: false
+        default: packaged,mock
+        type: string
 
 concurrency:
-  group: perf-baseline-${{ github.ref }}
-  cancel-in-progress: true
+  group: perf-gate-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 env:
-  SAMPLES: "5"
+  SAMPLES: ${{ inputs.samples || '5' }}
 
 jobs:
   plan:
@@ -36,23 +52,28 @@ jobs:
     outputs:
       matrix: ${{ steps.m.outputs.matrix }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: perf-baseline
       - id: m
         shell: bash
+        env:
+          REFS: ${{ inputs.refs || 'v1.5.0,v1.5.1,main' }}
+          MODES: ${{ inputs.modes || 'packaged,mock' }}
         run: |
           set -euo pipefail
           node - <<'EOF'
-          const { readFileSync, appendFileSync } = require('node:fs')
-          const refs = readFileSync('perf-baseline/versions.txt', 'utf8').split(/\r?\n/).map(s => s.trim()).filter(s => s && !s.startsWith('#'))
-          for (const ref of refs) if (!/^[A-Za-z0-9._-]{1,100}$/.test(ref)) { console.log(`::error::bad ref ${ref}`); process.exit(1) }
+          const { appendFileSync } = require('node:fs')
+          const list = value => value.split(',').map(s => s.trim()).filter(Boolean)
+          const refs = list(process.env.REFS)
+          const modes = list(process.env.MODES)
+          const samples = Number(process.env.SAMPLES)
+          if (!Number.isInteger(samples) || samples < 1 || samples > 20) { console.log(`::error::samples must be 1-20, got ${process.env.SAMPLES}`); process.exit(1) }
+          if (!refs.length) { console.log('::error::no refs'); process.exit(1) }
+          for (const ref of refs) if (!/^[A-Za-z0-9._/-]{1,100}$/.test(ref) || ref.includes('..') || ref.startsWith('-')) { console.log(`::error::bad ref ${ref}`); process.exit(1) }
+          for (const mode of modes) if (!['packaged', 'mock'].includes(mode)) { console.log(`::error::bad mode ${mode}`); process.exit(1) }
           const platforms = [
             { platform: 'windows', os: 'windows-2022', flag: '--win' },
             { platform: 'linux', os: 'ubuntu-22.04', flag: '--linux' }
           ]
-          const include = refs.flatMap(version => platforms.flatMap(p => ['packaged', 'mock'].map(mode => ({ version, mode, ...p }))))
+          const include = refs.flatMap(version => platforms.flatMap(p => modes.map(mode => ({ version, label: version.replace(/\//g, '-'), mode, ...p }))))
           console.log(JSON.stringify(include, null, 1))
           appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`)
           EOF
@@ -177,7 +198,45 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: perf-baseline-${{ matrix.version }}-${{ matrix.platform }}${{ matrix.mode == 'mock' && '-mock' || '' }}
+          name: perf-baseline-${{ matrix.label }}-${{ matrix.platform }}${{ matrix.mode == 'mock' && '-mock' || '' }}
           if-no-files-found: error
           retention-days: 30
           path: results/
+
+  table:
+    needs: bench
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/perf-baseline-table.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: perf-baseline-*
+          path: perf-results
+      - name: Table
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p perf-gate-table
+          {
+            echo "## Performance gate (OXE-105): ${SAMPLES} samples per ref and OS"
+            echo
+            echo "### Packaged app"
+            echo
+            node scripts/perf-baseline-table.mjs perf-results --mode packaged || echo "(no packaged results)"
+            echo
+            echo "### Built app, CI gate's way (mock-native where the spec asks)"
+            echo
+            node scripts/perf-baseline-table.mjs perf-results --mode mock || echo "(no mock results)"
+          } > perf-gate-table/perf-gate.md
+          cat perf-gate-table/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-gate-table
+          retention-days: 90
+          path: perf-gate-table/
