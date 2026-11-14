@@ -42,7 +42,9 @@ import { useAccountStore } from '../../../src/store/account.store'
 import { useDiffCommentsStore } from '../../../src/store/diff-comments.store'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
-import { changeLanguage } from '../../../src/i18n'
+import { changeLanguage, i18n } from '../../../src/i18n'
+import enThread from '../../../shared/locales/en/thread.json'
+import ptThread from '../../../shared/locales/pt-BR/thread.json'
 import type { Workspace } from '../../../shared/types/workspace'
 import type { ThreadApi, ThreadSnapshot } from '../../../shared/types/thread'
 import type { GitDiffFile } from '../../../shared/types/git'
@@ -105,9 +107,17 @@ const questionSnapshot: Partial<ThreadSnapshot> = {
   events: [{ type: 'request', id: 'q', request: { id: 'q', nativeId: 'native-q', nativeMethod: 'can_use_tool:AskUserQuestion', kind: 'question', title: 'Claude needs your input', state: 'pending', generation: 1, createdAt: 1, questions: [{ id: 'branch', question: 'Which branch name?' }] } }] as ThreadSnapshot['events']
 }
 
+/** The composer's accessible name in the interface language, from the catalogs (thread:composer.message). */
+const messageName = (): string => (i18n.language === 'pt-BR' ? ptThread : enThread).composer.message
+
+/** A conversation with one message: the composer is on screen, whatever the empty state looks like. */
+const withMessage: Partial<ThreadSnapshot> = { events: [{ type: 'message', id: 'm1', role: 'user', text: 'Hello' }] as ThreadSnapshot['events'] }
+
 /** Every word the composer shows or titles: its text and the title, placeholder and label attributes inside it. */
 function composerHint(): string {
-  const form = screen.getByRole('textbox', { name: 'Message' }).closest('form')!
+  const box = screen.queryByRole('textbox', { name: messageName() })
+  expect(box, `the composer ("${messageName()}") is on screen`).not.toBeNull()
+  const form = box!.closest('form')!
   const attributes = [...form.querySelectorAll('*')].flatMap(element => ['title', 'placeholder', 'aria-label', 'aria-description'].map(name => element.getAttribute(name) ?? ''))
   return [form.textContent ?? '', ...attributes].join(' \n ')
 }
@@ -208,16 +218,16 @@ describe('OXE-131 · Enter or Ctrl+Enter sends the message', () => {
 
   it('CA-5 · dica da tecla', async () => {
     await chooseSendKey('Enter')
-    fixture()
+    fixture(withMessage)
     expect(composerHint()).toMatch(/Enter/)
     expect(composerHint()).not.toMatch(/Ctrl\+Enter/)
     cleanup()
     await chooseSendKey('Ctrl+Enter')
-    fixture()
+    fixture(withMessage)
     expect(composerHint()).toMatch(/Ctrl\+Enter/)
     cleanup()
     await changeLanguage('pt-BR')
-    fixture()
+    fixture(withMessage)
     expect(composerHint()).toMatch(/Ctrl\+Enter/)
     cleanup()
     await changeLanguage('en')
