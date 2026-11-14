@@ -12,6 +12,8 @@ import {
   markerContent,
   markerPath,
   NETWORK_FAILURE,
+  ORIGIN_CONFIG,
+  oxeCcCommand,
   parseArgs,
   runIdOf,
   STATUS_CONTEXT,
@@ -56,6 +58,30 @@ describe('pr:ready steps', () => {
     expect(ci[2].args).toEqual(CI_UNIT_JOBS)
     const full: Step[] = buildSteps({ files: ['vitest.config.ts'], related: plan({ all: true }), full: true })
     expect(full[2]).toEqual({ name: expect.stringContaining('--full'), kind: 'vitest', args: [WORKERS] })
+  })
+})
+
+describe('the origin gate (OXE-138: only /oxe-quick or oxe-execute implement)', () => {
+  it('comes first, over base..HEAD, when the checkout has the versioned origin config', () => {
+    expect(ORIGIN_CONFIG).toBe('oxe.config.json')
+    const code: Step[] = buildSteps({ files: ['src/App.tsx'], related: plan(), base: 'origin/main', origin: true })
+    expect(code[0]).toEqual({ name: expect.stringContaining('check-origin origin/main..HEAD'), kind: 'origin', args: ['origin/main..HEAD'] })
+    expect(code.slice(1).map(s => s.kind)).toEqual(['npm', 'npm', 'vitest'])
+    // A change proven by CI alone (images, packages) still passes the gate first.
+    const images: Step[] = buildSteps({ files: ['e2e/visual/__screenshots__/linux/a.png'], related: plan(), origin: true })
+    expect(images.map(s => s.kind)).toEqual(['origin', 'visual'])
+  })
+
+  it('is not charged on a branch made before the gate (no oxe.config.json)', () => {
+    const steps: Step[] = buildSteps({ files: ['src/App.tsx'], related: plan() })
+    expect(steps.some(s => s.kind === 'origin')).toBe(false)
+  })
+
+  it('finds oxe-cc through OXE_CC: a script runs under this Node, a binary as itself, nothing means no CLI', () => {
+    expect(oxeCcCommand({ OXE_CC: 'C:/oxe-build/bin/oxe-cc.js' })).toEqual({ command: process.execPath, args: ['C:/oxe-build/bin/oxe-cc.js'] })
+    expect(oxeCcCommand({ OXE_CC: '/usr/local/bin/oxe-cc' })).toEqual({ command: '/usr/local/bin/oxe-cc', args: [] })
+    expect(oxeCcCommand({})).toBeNull()
+    expect(oxeCcCommand({ OXE_CC: '  ' })).toBeNull()
   })
 })
 
