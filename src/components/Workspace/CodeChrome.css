@@ -10,13 +10,6 @@
   background: var(--surface-base);
 }
 
-.workspace-topbar-mode {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
-}
-
 .workspace-topbar-wschip {
   display: inline-flex;
   align-items: center;
