@@ -880,12 +880,12 @@
     },
     "decisionAnnounce": "{{agent}} precisa da sua decisão: {{reason}}",
     "decisionNotice": {
-      "title": "{{agent}} — precisa da sua decisão",
+      "place": "Precisa de você · {{workspace}}",
       "body": "{{workspace}}: o agente parou e está esperando sua aprovação ou resposta."
     },
     "notice": {
       "agent": "Agente",
-      "finishedTitle": "{{agent}} — esperando por você",
+      "finished": "Terminou · {{workspace}}",
       "finishedBody": "{{workspace}}: o agente terminou e está esperando sua resposta.",
       "endedTitle": "{{agent}} — sessão encerrada",
       "endedBody": "{{workspace}}: o terminal do agente foi fechado.",

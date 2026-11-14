@@ -36,6 +36,9 @@ interface SettingsState {
   /** Fire native desktop notifications when a background agent needs you. */
   notificationsEnabled: boolean
   setNotificationsEnabled: (enabled: boolean) => void
+  /** Play the sound when an agent finishes (OXE-130); "needs you" always plays it. Off by factory default. */
+  finishSound: boolean
+  setFinishSound: (enabled: boolean) => void
   /**
    * How many workspaces stay mounted in the DOM (active + recent).
    * Higher = more memory / faster switch-back. Range 1–5.
@@ -69,6 +72,8 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       notificationsEnabled: true,
       setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
+      finishSound: false,
+      setFinishSound: (finishSound) => set({ finishSound: finishSound === true }),
       visitedWorkspacesCap: VISITED_WORKSPACES_CAP_DEFAULT,
       setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) }),
       appearance: 'system',
@@ -97,6 +102,7 @@ export const useSettingsStore = create<SettingsState>()(
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
+          finishSound: s.finishSound === true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
           language: isLanguagePreference(s.language) ? s.language : 'system',

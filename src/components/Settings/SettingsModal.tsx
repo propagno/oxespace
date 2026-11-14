@@ -3,6 +3,7 @@ import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessS
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
+import { FinishSoundSetting } from './NotificationSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
@@ -871,6 +872,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </Button>
 
         <AgentHooksSetting />
+
+        <FinishSoundSetting />
       </div>
     </section>
   )
