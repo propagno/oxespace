@@ -346,25 +346,29 @@ jobs:
           # OxeQuery worker that imported a devDependency and could not load on any installed build.
           node scripts/check-bundle-imports.mjs
 
-  # Stage 1, in parallel with quick: the unit and integration suite on both platforms, unchanged (serial, with
-  # coverage). It takes 8 to 14 minutes on Linux and 18 to 23 on Windows, which is why it is not inside quick, and why
-  # e2e does not wait for it: on the old single job it sat in front of every E2E run.
-  unit:
-    name: Unit and integration tests (${{ matrix.label }})
+  # Stage 1, in parallel with quick: the unit and integration suite on both platforms (serial inside each shard, with
+  # coverage). In one job it took 27-28 minutes and was the run's critical path (OXE-142, 14/11), so it runs in 3
+  # shards per platform; `unit` then merges the shards' blob reports, applies the coverage floor of vitest.config.ts
+  # and keeps the job names "Unit and integration tests (<platform>)" that pr:ready, the merge train and ci-result
+  # read. e2e does not wait for it.
+  unit-shard:
+    name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
     needs: [changes]
     if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
+        label: [windows-x64, linux-x64]
+        shard: [1, 2, 3]
         include:
-          - os: windows-2022
-            label: windows-x64
-          - os: ubuntu-22.04
-            label: linux-x64
+          - label: windows-x64
+            os: windows-2022
+          - label: linux-x64
+            os: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -413,7 +417,7 @@ jobs:
       - name: Install the pinned Electron runtime
         run: npm rebuild electron
 
-      - name: Unit and integration tests
+      - name: Unit and integration tests (shard ${{ matrix.shard }}/3)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -421,7 +425,74 @@ jobs:
           npm run rebuild:native:node
           # Git/worktree integration tests contend for process and filesystem
           # resources on Windows when Vitest runs files concurrently.
-          npm run test:coverage
+          # A shard covers part of the code: VITEST_COVERAGE_SHARD turns the floors of vitest.config.ts off here (a CLI 0
+          # does not reach the per-glob floors); `unit` applies them to the merged report.
+          $env:VITEST_COVERAGE_SHARD = '1'
+          npx vitest run --coverage --maxWorkers=1 --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob
+
+      - name: Upload the shard's blob report
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vitest-blob-${{ matrix.label }}-${{ matrix.shard }}
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: true
+          path: .vitest/blob/
+
+  unit:
+    name: Unit and integration tests (${{ matrix.label }})
+    needs: [changes, unit-shard]
+    # Always, under the same condition as the shards: a failed shard fails this job instead of skipping it.
+    if: ${{ always() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+          - os: ubuntu-22.04
+            label: linux-x64
+    steps:
+      - name: Every shard passed
+        shell: bash
+        run: |
+          if [ "${{ needs.unit-shard.result }}" != "success" ]; then
+            echo "::error::a unit shard did not pass (result: ${{ needs.unit-shard.result }}); see the 'Unit and integration tests (<platform>, n/3)' jobs"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Download the shards' blob reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: vitest-blob-${{ matrix.label }}-*
+          path: .vitest/blob
+          merge-multiple: true
+
+      - name: Merge the shards and apply the coverage floor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npx vitest --merge-reports .vitest/blob --coverage --reporter=default
 
       # The summary of this run: the source of the renderer's coverage floor and of what each PR moves it by.
       # It is kept when the tests fail too.
