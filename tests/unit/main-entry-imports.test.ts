@@ -33,6 +33,9 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
   { module: 'electron/main/services/copilotCredits.service.ts', loadedBy: 'ipc/copilot.ipc.ts, first credits request' },
   { module: 'electron/main/updater.ts', loadedBy: 'ipc/app-update.ipc.ts, first update request or after the first window' },
+  { module: 'electron/main/services/http-audit/store.ts', loadedBy: 'services/agent-hooks/hook-pipeline.ts, first hook event' },
+  { module: 'electron/main/services/http-audit/parse.ts', loadedBy: 'services/http-audit/store.ts, first hook event' },
+  { module: 'electron/main/services/mcp-import.service.ts', loadedBy: 'ipc/mcp.ipc.ts, first look for other apps\' servers' },
   { module: 'resources/agent-hooks/oxespace-status-hook.cjs', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
   { module: 'resources/mcp-bridge/oxespace-mcp.cjs', loadedBy: 'mcp-internal/bootstrap.ts, internal MCP start' }
 ]
