@@ -79,7 +79,8 @@ import { SchedulesHost } from './components/Schedules/SchedulesHost'
 import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
-import { useEditorStore } from './store/editor.store'
+// The editor's store is not in the entry (OXE-105): it arrives with the first editor, or right after first paint.
+const EDITOR_STORE_CHUNK = chunk(() => import('./store/editor.store'))
 import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
@@ -150,7 +151,7 @@ export function App(): ReactElement {
   const { activeWorkspaceId, bootstrap, closePane, closeWorkspace, createWorkspace, error, isLoading, loadShellProfiles, setActiveWorkspace, shellProfiles, splitPane, updateGitHubState, updateReviewState, updateEditorState, updateBackgroundState, updateWorktreeState, updateSettings, workspaces } = useWorkspaceStore(useShallow((state) => ({
     activeWorkspaceId: state.activeWorkspaceId, bootstrap: state.bootstrap, closePane: state.closePane, closeWorkspace: state.closeWorkspace, createWorkspace: state.createWorkspace, error: state.error, isLoading: state.isLoading, loadShellProfiles: state.loadShellProfiles, setActiveWorkspace: state.setActiveWorkspace, shellProfiles: state.shellProfiles, splitPane: state.splitPane, updateGitHubState: state.updateGitHubState, updateReviewState: state.updateReviewState, updateEditorState: state.updateEditorState, updateBackgroundState: state.updateBackgroundState, updateWorktreeState: state.updateWorktreeState, updateSettings: state.updateSettings, workspaces: state.workspaces
   })))
-  const clearEditor = useEditorStore((state) => state.clearEditor)
+  useEffect(() => { void EDITOR_STORE_CHUNK.load().catch(() => undefined) }, [])
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
@@ -454,7 +455,10 @@ export function App(): ReactElement {
   const handleCloseWorkspace = (workspaceId: string): void => {
     const workspace = workspaces.find((item) => item.id === workspaceId)
     for (const pane of workspace?.panes ?? []) removeTerminalPane(pane.id)
-    clearEditor(workspaceId)
+    // Its tabs are persisted, so they are cleared even when the store arrives only now.
+    const editor = EDITOR_STORE_CHUNK.get()
+    if (editor) editor.useEditorStore.getState().clearEditor(workspaceId)
+    else void EDITOR_STORE_CHUNK.load().then(module => module.useEditorStore.getState().clearEditor(workspaceId), () => undefined)
     closeWebPreview(workspaceId)
     useUIStore.getState().setPendingWebPreview(workspaceId, null)
     setVisitedWorkspaceIds((prev) => prev.filter((id) => id !== workspaceId))
