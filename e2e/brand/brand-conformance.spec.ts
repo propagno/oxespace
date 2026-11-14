@@ -31,6 +31,24 @@ const results: Result[] = []
 /** Where each scene's selectors are evaluated. Settings is a dialog; the other scenes are the whole window. */
 const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'settings-general': '[role=dialog]' }
 
+/**
+ * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
+ * Opening a panel never fails the run: if the Panels menu cannot open one, the scene is measured without it and the
+ * tab measures report "no element", which is the honest result for that build.
+ */
+async function openSidePanels(page: Page): Promise<void> {
+  for (const name of [/^Changes$/, /^Browser$/]) {
+    try {
+      await page.getByTestId('btn-open-tools').click({ timeout: 10_000 })
+      await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click({ timeout: 10_000 })
+    } catch (error) {
+      console.log(`[BRAND] could not open the ${name.source} panel: ${(error as Error).message.split('\n')[0]}`)
+      await page.keyboard.press('Escape').catch(() => {})
+    }
+  }
+  await page.getByTestId('changes-panel').waitFor({ timeout: 10_000 }).catch(() => {})
+}
+
 async function measureScene(page: Page, scene: string, density: Density, theme: 'light' | 'dark'): Promise<void> {
   const list = measures.filter(measure => measure.scene === scene && measure.densities.includes(density) && measure.themes.includes(theme))
   const found = await page.evaluate(({ list, rootSelector, tokenNames }) => {
@@ -128,6 +146,7 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
           await registerThreadProject(app, page, workspaceRoot)
+          await openSidePanels(page)
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await measureScene(page, 'code-workspace', density, theme)
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
