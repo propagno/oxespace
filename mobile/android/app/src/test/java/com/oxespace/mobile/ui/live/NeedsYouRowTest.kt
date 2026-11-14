@@ -26,8 +26,8 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Frozen acceptance test for 1.5.2 Celular A7 v2 (OXE program oxespace-152-mobile, phase F3, Jira OXE-134 inside BRD-24 /
- * OXE-102; CR-F3-1: the coordination's and MARCA's corrections of 14/11). Written by the planner; the executor must not
+ * Frozen acceptance test for 1.5.2 Celular A7 v3 (OXE program oxespace-152-mobile, phase F3, Jira OXE-134 inside BRD-24 /
+ * OXE-102; CR-F3-1 and CR-F3-5: the coordination's and MARCA's corrections of 14/11). Written by the planner; the executor must not
  * edit it.
  *
  * The "Pedidos" tab (the first tab) is the queue; its own header says "Precisa de você" (needs_you_title, a heading).
@@ -35,7 +35,10 @@ import org.junit.Test
  * kind in caps (needs_you_kind_command "Aprovar comando" for a command, the needs_you_kind_questions plural "N perguntas"
  * for questions) and the time on the right (labelSmall 11 sp, mono, tabular figures "tnum"). The body and its 1 dp
  * border are neutral (borderDefault): no attn border, no side strip, and no risk chip on the queue card. At critical risk
- * the header turns danger: an alert icon and "CRÍTICO · <kind>" on intentDangerBg / intentDangerFg.
+ * the header turns danger: an alert icon and "CRÍTICO · <the request's own short action in caps>" on intentDangerBg /
+ * intentDangerFg (A7 v3, CR-F3-5, MARCA 14/11): the action is the request's title (the phone protocol has no impact
+ * summary), e.g. "CRÍTICO · REMOVER UM VOLUME"; only a request with no action text says its kind ("CRÍTICO · APROVAR
+ * COMANDO").
  * Buttons by kind, each at least 48 x 48 dp:
  * - CA-1, a permission (kind approval, answerable, not critical): "Negar" (request_decision_decline, SECONDARY) and
  *   "Permitir uma vez" (request_decision_accept, PRIMARY). They answer through the existing protocol and the same
@@ -169,8 +172,17 @@ class NeedsYouRowTest {
         assertNotNull("a critical card has \"${screen.string("thread_review")}\"; buttons: ${screen.allButtons()}", review)
         screen.atLeast48(review!!)
         assertEquals("Revisar opens the Request screen", setOf("request:r-1"), opened.toSet())
+        // MARCA 14/11 (CR-F3-5): the request's own short action in caps (its title), not the kind.
+        val header = "${screen.string("request_risk_critical").uppercase()} · ${"Run the auth tests".uppercase()}"
+        assertTrue("the header turns danger with the request's action: \"$header\"; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", screen.leavesWithText(header).isNotEmpty())
+    }
+
+    @Test
+    fun aCriticalCardWithNoActionTextSaysItsKind() {
+        val screen = queue(F3Live.CRITICAL.replace("\"title\":\"Run the auth tests\"", "\"title\":\"\""))
         val header = "${screen.string("request_risk_critical").uppercase()} · ${screen.string("needs_you_kind_command").uppercase()}"
-        assertTrue("the header turns danger: \"$header\"; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", screen.leavesWithText(header).isNotEmpty())
+        assertTrue("with no action text the header says the kind: \"$header\"; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", screen.leavesWithText(header).isNotEmpty())
+        assertEquals("still only Revisar", emptyList<String>(), (screen.deny() + screen.allow()).map { screen.describe(it) })
     }
 
     @Test
