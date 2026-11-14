@@ -18,7 +18,8 @@ export function colorRoles(mode: Mode): ColorRoles {
   const light = mode === 'light'
   // The terminal reads the same in both modes (its own theme may override it).
   const terminal = palette('dark').neutral
-  const ink = (l: number) => oklchToHex({ l, c: SCALE_SPECS.neutral.chroma * 0.4, h: SCALE_SPECS.neutral.hue })
+  // Text keeps less of the night's violet than the surfaces do, so long reading stays neutral.
+  const ink = (l: number) => oklchToHex({ l, c: (light ? 0.04 : 0.09) * 0.4, h: SCALE_SPECS.neutral.hue })
   const intent = (name: 'success' | 'warning' | 'danger' | 'info') => ({
     [`intent-${name}-bg`]: s(p[name], 3),
     [`intent-${name}-bg-hover`]: s(p[name], 4),
@@ -29,7 +30,7 @@ export function colorRoles(mode: Mode): ColorRoles {
   return {
     // Surfaces, from the window background up to floating layers.
     'surface-canvas': light ? s(n, 2) : s(n, 1),
-    'surface-sunken': light ? s(n, 3) : '#0c110e',
+    'surface-sunken': light ? s(n, 3) : oklchToHex({ l: 0.145, c: 0.012, h: SCALE_SPECS.neutral.hue }),
     'surface-chrome': light ? s(n, 3) : s(n, 2),
     'surface-base': light ? s(n, 1) : s(n, 2),
     'surface-raised': light ? '#ffffff' : s(n, 3),
@@ -116,7 +117,7 @@ function kind(name: string, scale: Scale): ColorRoles {
 }
 
 /** The eight workspace colors (T85), in the order the person picks them. */
-export const WORKSPACE_SCALES = ['caatinga', 'sun', 'info', 'olive', 'violet', 'warning', 'rose', 'neutral'] as const
+export const WORKSPACE_SCALES = ['teal', 'indigo', 'info', 'olive', 'violet', 'plum', 'rose', 'neutral'] as const
 /** How much of a workspace's color tints its chip, per mode (color-mix over the surface). */
 export const WORKSPACE_TINT = { light: 0.12, dark: 0.16 } as const
 

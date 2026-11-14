@@ -36,14 +36,18 @@ light and dark mode.
 
 | Role | Light | Dark | Use |
 |---|---|---|---|
-| **Caatinga** (green, hue 158) | accent | brand mark only | Primary action, selection and focus in light mode |
-| **Sertão sun** (ochre, hue 72) | highlights | accent | Primary action, selection and focus in dark mode |
-| **Neutral** (green-tinted grey) | surfaces, text | surfaces, text | Everything else |
+| **Caatinga** (green, hue 158) | accent | accent | Primary action, selection and focus, in both modes |
+| **Sertão sun** (ochre, hue 72) | "needs you" | "needs you" | Only what waits for the person (`--attn`); never an accent |
+| **Night** (neutral, violet hue 285) | surfaces, text | surfaces, text | Everything else; a purple night in dark mode, a faint lilac grey in light |
 | Success · warning · danger · info | intents | intents | Status only; never decoration |
 
-- The accent changes between modes on purpose. Green reads calm on light clay,
-  and ochre reads like sunlight on the dark night.
-- Warning is an orange (hue 55), so it never looks like the dark-mode accent.
+- The dark neutral carries more chroma (0.13) than the light one (0.04): the night reads violet, like the Dracula
+  theme, while text keeps less of it so long reading stays neutral.
+- The terminal sits on the night in both modes.
+- Warning is an orange (hue 55), so it never looks like the sun.
+- The eight workspace colors are teal, indigo, blue, olive, violet, plum, rose and slate. They never take the
+  accent, the sun or warning, which mean action, "needs you" and risk. Colors are stored by slot, so a workspace
+  that had caatinga, sun or warning now shows teal, indigo or plum.
 - Provider colors (Claude, Codex…) identify the provider only and are never
   used as interface colors.
 - Every text and surface pair meets WCAG AA in both modes. A test enforces this.
