@@ -1,0 +1,1 @@
+npm run build && npm run fix:native && bash scripts/run-with-xvfb.sh npx playwright test e2e/split-capacity.spec.ts e2e/t53-read-lookups-auto.spec.ts e2e/target-size.spec.ts e2e/terminal-focus-exit.spec.ts --repeat-each=10 --workers=1
