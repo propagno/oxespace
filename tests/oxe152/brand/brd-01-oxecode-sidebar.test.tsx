@@ -10,7 +10,8 @@
 //   ("Files & commands") as src/ui IconButtons, collapse last; one SidebarFilter ([data-ui=sidebar-filter], 28 [32],
 //   no border, on --fill-hover) holding the "Filter workspaces" searchbox, which still filters; the section label
 //   "Workspaces" is a SidebarSection ([data-ui=sidebar-section], 24 in both densities, the brand's --bar-sm of 14/11);
-//   one SidebarFooter ([data-ui=sidebar-footer], 36 [40]) whose buttons are IconButtons. No title in the sidebar
+//   one SidebarFooter ([data-ui=sidebar-footer], 36 [40]) whose buttons are IconButtons, the Panels menu trigger keeping
+//   data-testid btn-open-tools and its name (the conformance scene opens its panels through it, #817 962c30ba2). No title in the sidebar
 //   names the version ("OXESpace v", VIS-05). Every control of the header, the filter, the sections and the footer is
 //   a src/ui primitive, and the raw-button cap of tests/design-lint.test.ts follows the code down (RT-2 of BRD-03).
 // - tree (T23): each workspace is a SidebarGroup ([data-ui=sidebar-group], min-height 28 [32], no border, no
@@ -18,9 +19,12 @@
 //   wrapper between a group and the list draws a card (border, fill, shadow) or fixes a height. Each terminal is a
 //   SidebarRow ([data-ui=sidebar-row], 28 [32], one line) that leads with a status signal and keeps its state words
 //   in its accessible name; one that needs a decision has the row's detail (--attn-fg) and is two lines, 44 [48]; the
-//   selected one is aria-current="true" on --fill-selected. The 1.4 structure stays: every row comes after its own
+//   selected one is aria-current="true" on --fill-selected; SidebarRow says its line count (data-lines="1"|"2"). One
+//   selection at a time (brand 14/11): the group of the selected terminal stays neutral (no aria-current, no fill); with
+//   no terminal focused, the active workspace's group is the selection (aria-current="true" on --fill-selected). The 1.4 structure stays: every row comes after its own
 //   workspace's group and before the next group. Every control of the tree is a primitive. The BRD-01 measures of
-//   src/design/targets/brd-01.json are enforced and in enforced.lock.json (OXE-149).
+//   src/design/targets/brd-01.json are enforced and in enforced.lock.json (OXE-149), the row height split by line count:
+//   [data-ui=sidebar-row][data-lines="1"] at --row-1 and [data-lines="2"] at --row-2 (brand 14/11).
 // - CA-7 (24x24 in both densities) follows from the primitives (tests/design-lint-target-size.test.ts); CA-8 (OXE-105)
 //   is the CI perf-gate's.
 // How it is read: the real Sidebar over the real stores; the rules that reach each element are read from src/**/*.css
@@ -290,6 +294,8 @@ describe('OXE-60 · BRD-01 · chrome: header, filter, sections and footer', () =
     const buttons = within(footer).getAllByRole('button')
     expect(buttons.length, 'the footer keeps its actions').toBeGreaterThan(0)
     expect(buttons.filter(button => button.getAttribute('data-ui') !== 'icon-button').map(nameOf), 'the footer holds IconButtons only').toEqual([])
+    // The conformance scene opens Changes and Browser through btn-open-tools › Panels (#817, 962c30ba2): the hook and its name stay.
+    expect(within(footer).getByTestId('btn-open-tools'), 'the Panels menu trigger keeps its e2e hook and name').toHaveAttribute('aria-label', tc('sidebar.openPanels'))
     expect(buttonReport(footer)).toEqual([])
   })
 
@@ -373,6 +379,18 @@ describe('OXE-60 · BRD-01 · tree: workspaces and terminals', () => {
     const idle = groupOf('Borealis')
     expect(idle).not.toHaveAttribute('aria-current')
     for (const prop of ['background', 'background-color']) expect(zero(cascaded(idle, prop)?.value), `a group that is not selected has no fill (${prop})`).toBe(true)
+    // One selection at a time (brand 14/11): while one of its terminals is selected, the workspace's group stays neutral.
+    const parent = groupOf('Atlas')
+    expect(parent, 'Atlas holds the selected terminal: its group is not selected too').not.toHaveAttribute('aria-current')
+    for (const prop of ['background', 'background-color']) expect(zero(cascaded(parent, prop)?.value), `the group of the selected terminal has no fill (${prop})`).toBe(true)
+    // With no terminal focused, the active workspace's group is the selection.
+    cleanup()
+    useUIStore.setState({ activePaneId: null })
+    renderSidebar()
+    const selected = groupOf('Atlas')
+    expect(selected, 'no terminal focused: the active workspace group is selected').toHaveAttribute('aria-current', 'true')
+    expect(tokenOf(cascaded(selected, 'background')?.value), 'the selected group fill').toBe('--fill-selected')
+    expect(all('[data-ui="sidebar-row"][aria-current]'), 'no terminal row is selected then').toEqual([])
   })
 
   it('CA-4 · terminal como sidebar-row', async () => {
@@ -385,6 +403,7 @@ describe('OXE-60 · BRD-01 · tree: workspaces and terminals', () => {
     expect(tokenOf(cascaded(selected, 'background')?.value), 'selected fill').toBe('--fill-selected')
     bothModes('--fill-selected')
     for (const [title, row] of [['API server', selected], ['Test runner', other]] as const) {
+      expect(row, `${title}: SidebarRow says it is one line`).toHaveAttribute('data-lines', '1')
       expect(row.querySelector(`.${SIDEBAR.detail}`), `${title}: one line, no detail`).toBeNull()
       expect(row.classList.contains(SIDEBAR.twoLine), `${title}: not a two-line row`).toBe(false)
       for (const density of ['compact', 'comfortable'] as const) expect(length(row, 'min-height', density), `${title} ${density}`).toBe(density === 'compact' ? 28 : 32)
@@ -393,6 +412,7 @@ describe('OXE-60 · BRD-01 · tree: workspaces and terminals', () => {
     expect(detail, 'the terminal that needs a decision has the SidebarRow detail').not.toBeNull()
     expect(detail!.textContent?.trim().length, 'the detail says what is asked').toBeGreaterThan(0)
     expect(blocked.classList.contains(SIDEBAR.twoLine)).toBe(true)
+    expect(blocked, 'SidebarRow says it is two lines').toHaveAttribute('data-lines', '2')
     for (const density of ['compact', 'comfortable'] as const) expect(length(blocked, 'min-height', density), `two-line row ${density}`).toBe(density === 'compact' ? 44 : 48)
     expect(tokenOf(cascaded(detail!, 'color')?.value), 'detail color').toBe('--attn-fg')
     bothModes('--attn-fg')
@@ -427,5 +447,17 @@ describe('OXE-60 · BRD-01 · tree: workspaces and terminals', () => {
 
   it('CA-1 · medidas do BRD-01 em enforced', () => {
     expect(notEnforced(id => id.startsWith('BRD-01.'))).toEqual([])
+    // Row height by line count (brand 14/11): [data-lines=1] at --row-1, [data-lines=2] at --row-2, no other row target.
+    type Measure = { id: string; select: unknown; prop: string; expect: { token?: string } }
+    const measures = (JSON.parse(readFileSync(join(ROOT, 'src/design/targets/brd-01.json'), 'utf8')) as { measures: Measure[] }).measures
+    const rows = measures.filter(measure => measure.prop === 'height' && typeof measure.select === 'string' && measure.select.includes('[data-ui=sidebar-row]'))
+    const bare = (select: unknown): string => String(select).replace(/["']/g, '')
+    const one = rows.find(measure => bare(measure.select) === '[data-ui=sidebar-row][data-lines=1]')
+    const two = rows.find(measure => bare(measure.select) === '[data-ui=sidebar-row][data-lines=2]')
+    for (const density of ['compact', 'comfortable'] as const) {
+      expect(px(one?.expect.token && `var(${one.expect.token})`, DENSITY[density]), `one-line rows ${density}`).toBe(density === 'compact' ? 28 : 32)
+      expect(px(two?.expect.token && `var(${two.expect.token})`, DENSITY[density]), `two-line rows ${density}`).toBe(density === 'compact' ? 44 : 48)
+    }
+    expect(rows.filter(measure => measure !== one && measure !== two).map(measure => measure.id), 'no other row height target').toEqual([])
   })
 })

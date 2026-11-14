@@ -10,16 +10,17 @@
 //   is at most 720 px wide and centred (its inline margins auto, or the region centres it); the auto-apply note sits in
 //   a column of the same rule. SOURCE-TEXT (marked): jsdom lays nothing out; the 1440x900 measure is CI's
 //   (e2e/brand/brand-conformance.spec.ts, BRD-06.content.width).
-// - CA-2: the page title (General, and any page drawn by SettingsContent, e.g. Appearance) is a heading of level 1 or 2
-//   at 20 px in both densities, weight 600, in --font-display with --stretch-title (the brand's page title of 14/11,
-//   the same as OxeChat's welcome title); SettingsCenter.css no longer reads --fs-2xl (22 px, off the scale).
+// - CA-2: the page title (General, and any page drawn by SettingsContent, e.g. Appearance) is the Settings page
+//   primitive's title, [data-ui=settings-page-title] (brand 14/11: never selected by heading level), at 20 px in both
+//   densities, weight 600, in --font-display with --stretch-title (80%); SettingsCenter.css no longer reads --fs-2xl.
 // - CA-3: every button of the "Settings categories" navigation is 28 [32] high (--row-1), as a fixed height.
 // - CA-4 (the touched page, General): every option is inside a src/ui SettingRow ([data-ui=setting-row]) and every
 //   row inside a SettingsSection ([data-ui=settings-section]) whose title is 14 [15] at weight 600; no control sits
 //   outside that mould; the hooks tests and e2e read stay (external-editor-setting, seen-sites-setting,
-//   seen-sites-count). Card or no card is BRD-23's (OXE-100 CA-7, one mould): not asserted here.
+//   seen-sites-count). General keeps the card: the default SettingsSection is the single mould (brand 14/11); not asserted.
 // - The BRD-06 measures of src/design/targets/brd-06.json are enforced and in enforced.lock.json (OXE-149); a selector
-//   that does not fit the new screen is fixed in the same change, ids unchanged.
+//   that does not fit the new screen is fixed in the same change, ids unchanged; the title measures select
+//   [data-ui=settings-page-title].
 // - CA-5 (24x24) is tests/design-lint-target-size.test.ts's; CA-6 (OXE-105) the CI perf-gate's.
 // How it is read: the real SettingsCenter (lazy pages awaited); rules matched as text with Element.matches()
 // (SOURCE-TEXT check, marked), CSS-module classes mapped, the src/styles.css layers honoured; tokens from tokensCss().
@@ -199,15 +200,18 @@ function rawButtonCap(): { total: number; cap: number } {
 
 const ts = (key: string): string => i18n.t(key, { ns: 'settings' }) as string
 const workspace = { id: 'ws', name: 'demo', rootPath: '/repo', themeId: 'midnight', uiDensity: 'compact', layoutPreset: 4, defaultShellProfileId: 'sh', panes: [] } as unknown as Workspace
-async function openPage(page: 'general' | 'appearance'): Promise<HTMLElement> {
+async function openPage(page: 'general' | 'appearance', withTitle = true): Promise<HTMLElement> {
   render(<SettingsCenter initialPage={page} workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
     agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
   const name = ts(page === 'general' ? 'general.title' : 'center.pages.appearance.label')
   // The pages are a lazy chunk; its first import, on a busy machine, can take longer than findBy's default second.
   const headings = await screen.findAllByRole('heading', { name }, { timeout: 10_000 })
-  const title = headings.find(heading => /^H[12]$/.test(heading.tagName))
-  expect(title, `the ${page} page title is a heading of level 1 or 2`).toBeTruthy()
-  return title!
+  if (!withTitle) return headings[0]
+  // The page title is the Settings page primitive's ([data-ui=settings-page-title], brand 14/11), whatever its level.
+  const titles = [...region().querySelectorAll<HTMLElement>('[data-ui="settings-page-title"]')]
+  expect(titles, `the ${page} page has one [data-ui=settings-page-title]`).toHaveLength(1)
+  expect(titles[0].textContent?.trim(), `the ${page} page title says "${name}"`).toBe(name)
+  return titles[0]
 }
 const region = (): HTMLElement => screen.getByRole('region', { name: ts('center.title') })
 afterEach(() => { cleanup(); localStorage.clear() })
@@ -255,7 +259,7 @@ describe('OXE-67 · BRD-06 · Settings', () => {
   })
 
   it('CA-3 · navegação em 28', async () => {
-    await openPage('general')
+    await openPage('general', false)
     const nav = screen.getByRole('navigation', { name: ts('center.categories') })
     const buttons = within(nav).getAllByRole('button')
     expect(buttons.length).toBeGreaterThan(10)
@@ -287,5 +291,10 @@ describe('OXE-67 · BRD-06 · Settings', () => {
 
   it('CA-1 · medidas do BRD-06 em enforced', () => {
     expect(notEnforced(id => id.startsWith('BRD-06.'))).toEqual([])
+    type Measure = { id: string; select: unknown }
+    const measures = (JSON.parse(readFileSync(join(ROOT, 'src/design/targets/brd-06.json'), 'utf8')) as { measures: Measure[] }).measures
+    const titles = measures.filter(measure => measure.id.startsWith('BRD-06.title.'))
+    expect(titles.length, 'the title measures').toBeGreaterThan(0)
+    expect(titles.filter(measure => String(measure.select).replace(/["']/g, '') !== '[data-ui=settings-page-title]').map(measure => `${measure.id}: ${String(measure.select)}`), 'the title is measured by data-ui, not by heading level').toEqual([])
   })
 })
