@@ -1,0 +1,115 @@
+# Boot A/B on one runner (OXE-49 quick Q-20261114-9cc6). Lives only on ci/perf-ab-* branches; never merged.
+# A = main, B = main + the branches in B_BRANCHES. Both are built on the same runner, then sampled interleaved
+# A B, B A, A B… (ABBA, so a runner that drifts during the job weighs on both sides alike), SAMPLES rounds per side.
+name: Perf A/B (boot)
+
+on:
+  push:
+    branches: ["ci/perf-ab-*"]
+
+permissions:
+  contents: read
+
+jobs:
+  ab:
+    name: Boot A/B (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            os: windows-2022
+          - label: linux-x64
+            os: ubuntu-22.04
+    env:
+      SAMPLES: "7"
+      AB_LAUNCHES: "4"
+      B_BRANCHES: "oxe-49-instrument-sans oxe-49-noite-tokens"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: harness
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: A
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: B
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
+          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends "${req[@]}" libnotify4
+          fi
+
+      - name: Merge the B branches into main
+        working-directory: B
+        run: |
+          git config user.name "perf-ab"
+          git config user.email "perf-ab@users.noreply.github.com"
+          refs=()
+          for b in $B_BRANCHES; do git fetch --no-tags origin "$b"; refs+=("origin/$b"); done
+          git merge --no-edit "${refs[@]}"
+          echo "A=$(git -C ../A rev-parse --short HEAD) B=$(git rev-parse --short HEAD) (main + $B_BRANCHES)" | tee ../heads.txt
+
+      - name: Install, build and prepare both sides
+        run: |
+          set -e
+          for side in A B; do
+            echo "::group::$side"
+            cd "$side"
+            npm ci --ignore-scripts
+            npm rebuild electron
+            npm run rebuild:native:node
+            if [ "$side" = B ]; then npm run tokens && git diff --stat --exit-code src/styles/tokens.generated.css; fi
+            npm run build
+            npm run fix:native
+            npm run verify:native
+            cp ../harness/ci-ab/ab-boot.spec.ts e2e/ab-boot.spec.ts
+            cd ..
+            echo "::endgroup::"
+          done
+
+      - name: Sample interleaved (ABBA)
+        run: |
+          : > ab.log
+          run_side() {
+            ( cd "$1" && export AB_SIDE="$1" AB_ROUND="$2"
+              if [ "$RUNNER_OS" = Linux ]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts ab-boot.spec.ts --reporter=line
+              else npx playwright test --config playwright.tools.config.ts ab-boot.spec.ts --reporter=line; fi ) 2>&1 | tee -a "$GITHUB_WORKSPACE/ab.log" | grep -a '\[AB\]' || echo "round $2 side $1: no sample"
+          }
+          for r in $(seq 1 "$SAMPLES"); do
+            if [ $((r % 2)) -eq 1 ]; then run_side A "$r"; run_side B "$r"; else run_side B "$r"; run_side A "$r"; fi
+          done
+
+      - name: Summarize
+        if: ${{ !cancelled() }}
+        run: |
+          { cat heads.txt; echo; node harness/ci-ab/summarize.mjs ab.log "${{ matrix.label }}"; } | tee summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p ab-out && cp ab.log summary.md heads.txt ab-out/
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-ab-${{ matrix.label }}
+          retention-days: 7
+          path: ab-out
