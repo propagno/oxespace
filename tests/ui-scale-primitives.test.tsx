@@ -76,7 +76,7 @@ describe('stable markers for frozen tests', () => {
     </>)
     const names = [...container.querySelectorAll('[data-ui]')].map(node => node.getAttribute('data-ui'))
     for (const name of ['sidebar-header', 'sidebar-filter', 'sidebar-section', 'sidebar-group', 'sidebar-row', 'pane-header', 'dock-panel', 'button', 'icon-button', 'tabs']) expect(names).toContain(name)
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('data-size', 'md')
+    expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('data-size')
   })
 })
 

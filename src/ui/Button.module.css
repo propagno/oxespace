@@ -28,7 +28,8 @@
 /*
  * Sizes, variants and the icon-only shape are styled by the attributes the Button already emits (data-size,
  * data-variant, data-ui), so the JS carries no class per variant (OXE-48, OXE-105). :where() keeps each rule at the
- * specificity of the class it replaced, so region rules that out-rank or yield to a variant still do. md has no rule.
+ * specificity of the class it replaced, so region rules that out-rank or yield to a variant still do. md is .button
+ * itself: the Button emits no data-size for it.
  */
 .button:where([data-size='sm']) { --button-h: var(--control-sm); padding: 0 var(--space-2); font-size: var(--text-xs); gap: var(--space-1); }
 .button:where([data-size='lg']) { --button-h: var(--control-lg); padding: 0 var(--space-4); font-size: var(--text-sm); }
