@@ -48,6 +48,8 @@ const OUTLINE_NONE_ALLOWED: Record<string, number> = {
   'src/styles/skills.css': 1,
   'src/ui/CommandPalette.module.css': 3,
   'src/ui/Overlay.module.css': 2,
+  // The sidebar filter's input: its box draws the focus ring with :focus-within (OXE-48).
+  'src/ui/Sidebar.module.css': 1,
   'src/ui/Splitter.module.css': 1,
   'src/ui/ToolPanel.module.css': 1
 }

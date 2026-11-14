@@ -59,7 +59,7 @@ export default function MonacoDiff({ original, modified, language, path, review,
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {targets.length > 0 && onOpenHunk && (
-        <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border-default)', display: 'flex', justifyContent: 'flex-end' }}>
           <HunkOpenMenu targets={targets} onOpen={onOpenHunk} />
         </div>
       )}
