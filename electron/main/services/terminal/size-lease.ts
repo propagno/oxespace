@@ -31,12 +31,18 @@ export class SizeLeases {
     return lease !== null
   }
 
+  /**
+   * One phone holds a pane's size at a time: while another holder's lease is live the request is not held and nothing
+   * is resized. It reads as `no-terminal` (no terminal for this phone to size), never `taken-back`, which the phone
+   * shows as the person taking the size back; the phone may hold once the other lets go.
+   */
   lease(paneId: string, holder: string, cols: number, rows: number): 'held' | 'no-terminal' | 'taken-back' {
     const size = this.host.size(paneId)
     if (!size) return 'no-terminal'
     if (this.takenBack.get(paneId) === holder) return 'taken-back'
     const current = this.live(paneId)
     const desktop = current?.desktop ?? size
+    if (current && current.holder !== holder) return 'no-terminal'
     if (current) clearTimeout(current.timer)
     // The timer ends a hold nobody renews even when nothing else reads the pane (the phone lost its network).
     const timer = setTimeout(() => { if (this.leases.get(paneId)?.timer === timer) this.release(paneId) }, SIZE_LEASE_MS)
