@@ -181,7 +181,7 @@ describe('CR-F4-D1 to D8 · DESIGN\'s pass on the F4 place UI, the Pull request 
       tab()
       const button = await screen.findByRole('button', { name: merge })
       expect(button).toBeDisabled()
-      expect(button.className).toMatch(/primary/)
+      expect(button).toHaveAttribute('data-variant', 'primary')
       expect(button.closest('[title]')).toHaveAttribute('title', tooltip)
       expect(screen.getByRole('button', { name: 'Address review comments' })).toBeInTheDocument()
       expect(screen.getByText(provider === 'github' ? 'GitHub' : 'Azure DevOps').className).toMatch(/badge/i)
