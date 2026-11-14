@@ -17,7 +17,7 @@ describe('idle preload', () => {
     expect((await preloadTargets('data', big)).targets).toEqual(['data', 'settings'])
     expect((await preloadTargets('thread', big)).targets).toEqual(['thread', 'settings'])
     expect(await preloadTargets('code', big)).toEqual({ targets: ['settings'], viewSkipped: 'no-recent-view' })
-    expect((await preloadTargets(null, big)).targets).toEqual(['settings'])
+    expect((await preloadTargets(null, big)).targets).toEqual(['thread', 'settings'])
     const { calls, loaders } = fakeLoaders()
     expect(await runIdlePreload(() => false, { recent: 'data', env: big, loaders })).toEqual(['data', 'settings'])
     expect(calls).toEqual(['data', 'settings'])
