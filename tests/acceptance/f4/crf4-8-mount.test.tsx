@@ -77,34 +77,24 @@ const tabNames = (): string[] => within(screen.getByRole('tablist', { name: 'Con
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('CR-F4-8 · the F4 tabs, chips and badge are mounted and reach main through the preload', () => {
-  test('CR-F4-8 · the conversation shows the tab strip, and Terminal appears once main reports a pane, without a reload', async () => {
+  // Changed on 2026-11-13 by the product owner's decision: the Terminal tab left the conversation (1.5.2). The strip still
+  // reads main again on a push; a pane main reports adds no tab.
+  test('CR-F4-8 · the conversation shows the tab strip, and a pane main reports adds no Terminal tab, after a push', async () => {
     let panes: ThreadPane[] = []
     const bridge = conversation({ 'thread.panes': () => panes })
     await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes']))
     panes = PANES
     await act(async () => { bridge.emit('thread.placesChanged', { threadId: 'thread' }); bridge.emit('thread.toolTabsChanged', { threadId: 'thread' }) })
-    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Terminal', 'Changes']))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(tabNames()).toEqual(['Conversation', 'Changes'])
   }, 30_000)
 
-  test("CR-F4-8 · the Terminal tab lists the conversation's panes under Agent's and Yours", async () => {
-    conversation({ 'thread.panes': () => PANES })
-    await userEvent.click(await screen.findByRole('tab', { name: /^Terminal/ }))
-    const panel = await screen.findByRole('tabpanel')
-    const agent = within(panel).getByRole('heading', { name: "Agent's" }).closest('section') as HTMLElement
-    const yours = within(panel).getByRole('heading', { name: 'Yours' }).closest('section') as HTMLElement
-    expect(within(agent).getByText('claude · fix')).toBeInTheDocument()
-    expect(within(yours).getByText('pwsh · tests')).toBeInTheDocument()
-  }, 30_000)
-
-  test("CR-F4-8 · the Pull request tab asks main with the conversation's root and branch, and opens the pull request", async () => {
-    const bridge = conversation({ 'pullRequest.state': () => PR })
-    await userEvent.click(await screen.findByRole('tab', { name: 'Pull request' }))
-    const panel = await screen.findByRole('tabpanel')
-    expect(await within(panel).findByText('#321')).toBeInTheDocument()
-    expect(within(panel).getByText('Fix the login')).toBeInTheDocument()
-    const asked = bridge.invoked.filter(([key]) => key === 'pullRequest.state').map(([, args]) => args[0])
-    expect(asked.length).toBeGreaterThan(0)
-    for (const input of asked) expect(input).toEqual({ rootPath: '/repo', branch: 'feat/thread' })
+  // Changed on 2026-11-13 by the product owner's decision: the Terminal and Pull request tabs left the conversation
+  // (1.5.2), so their two tests (the panes under Agent's and Yours, the PR asked with the root and branch) went with them.
+  test('CR-F4-8 · with panes and a pull request in main, the conversation shows neither a Terminal nor a Pull request tab', async () => {
+    conversation({ 'thread.panes': () => PANES, 'pullRequest.state': () => PR })
+    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes']))
+    expect(screen.queryByRole('tab', { name: /^Terminal|Pull request/ })).toBeNull()
   }, 30_000)
 
   test('CR-F4-8 · the collision chip sits in the conversation header and opens the other conversation', async () => {

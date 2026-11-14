@@ -2,6 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openSettings } from './helpers/settings'
 
 test('Settings stays usable in short windows and renders updater states', async () => {
   test.setTimeout(90000)
@@ -19,7 +20,7 @@ test('Settings stays usable in short windows and renders updater states', async 
       ipcMain.handle('agent:compatibility', () => ({ checkedAt: '2026-10-22T06:20:00Z', ok: true, providers: { claude: { ok: true, versions: { 'ubuntu-latest': '2.1.306' } } } }))
       ipcMain.handle('app:get-update-state', () => ({ status: 'disabled', currentVersion: '0.13.0', availableVersion: null, progress: null, error: null, lastCheckedAt: null, preferences: { mode: 'auto', pinnedVersion: null } }))
     })
-    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(settings).toBeVisible()
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
@@ -140,7 +141,7 @@ test('Settings shows the policy files that apply, their rules and a file set asi
         problems: ['/home/me/policy.json: not valid JSON']
       }))
     })
-    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Approvals and safety/ }).click()
     const policy = settings.getByTestId('policy-settings')

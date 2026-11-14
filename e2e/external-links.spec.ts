@@ -1,6 +1,7 @@
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
+import { openSettings } from './helpers/settings'
 
 /**
  * Every link that leaves the window goes through one confirmed path (src/lib/externalLinks.ts) and then main's
@@ -121,7 +122,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     await expect(page.getByTestId('external-link-dialog')).toHaveCount(0)
 
     // Settings › General › Privacy forgets both sites.
-    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General\b|^Application: General/ }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('2 sites remembered.')
