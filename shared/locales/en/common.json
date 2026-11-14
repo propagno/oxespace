@@ -1146,6 +1146,7 @@
     "menuUnavailable": "The menu couldn't load. Try again."
   },
   "statusBar": {
+    "agentsWorking_zero": "No agents working",
     "agentsWorking_one": "{{count}} agent working",
     "agentsWorking_other": "{{count}} agents working",
     "nothingSetUpYet": "Nothing set up yet"

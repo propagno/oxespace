@@ -59,8 +59,9 @@
 /* What needs a person in that view: amber for "needs you", red when only failures remain. */
 .badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  /* Starts after the name ends (the tab's own padding) and grows outwards, so "9+" never comes back over it. */
+  top: -4px;
+  left: calc(100% - var(--space-3) + 5px);
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -76,6 +77,8 @@
   line-height: 1;
   pointer-events: none;
 }
+/* Narrow tabs have less padding to lend: the tab with a count keeps a little room before the next one. */
+@media (max-width: 1080px) { .badge { left: calc(100% - var(--space-2) + 4px); } .item:has(.badge) { margin-right: 6px; } }
 .badgeFailed { border-color: var(--intent-danger-fg); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
 /* Agents are busy and nothing needs you: a small breathing dot. */

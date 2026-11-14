@@ -14,8 +14,9 @@
 /* Model, effort and permissions as chips that name their value (T57, T58 §4): 24 px, round, 12 px text. Only the
    permissions chip carries intent color, by risk. A change for the next message has a dashed border. */
 .thread-composer { container: thread-composer / inline-size; }
-.thread-composer .thread-config-trigger.thread-chip { flex: 0 1 auto; min-width: 0; min-height: 24px; height: 24px; gap: 4px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--fill-hover); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
-.thread-composer .thread-chip.is-model { color: var(--text-primary); }
+.thread-composer .thread-config-trigger.thread-chip { flex: none; min-width: 24px; min-height: var(--control-sm); height: var(--control-sm); gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-pill); background: var(--fill-hover); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+/* Only the model's name gives way, to an ellipsis and never below a few letters; the other chips keep their size. */
+.thread-composer .thread-chip.is-model { flex: 0 1 auto; min-width: 64px; color: var(--text-primary); }
 .thread-composer .thread-chip > svg { flex: none; }
 .thread-composer .thread-chip .thread-chip-text { max-width: 18ch; }
 .thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
@@ -28,10 +29,15 @@
 .thread-composer .thread-chip.is-permissions[data-access='full-access'] { background: var(--intent-danger-bg); color: var(--intent-danger-fg); border-color: var(--intent-danger-border); }
 .thread-composer .thread-chip[data-pending] { border-style: dashed; border-color: currentColor; }
 .thread-composer .thread-mode-toggle button[aria-pressed='true']:first-child { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
-/* Narrow (T58 §5): effort and permissions keep the icon and color, the text moves to the tooltip and the name; under
-   420 px the model keeps its dot and 10 characters. The permissions chip never hides. */
-@container thread-composer (max-width: 559px) { .thread-composer .thread-chip:is(.is-effort, .is-permissions) .thread-chip-text { display: none; } }
-@container thread-composer (max-width: 419px) { .thread-composer .thread-chip.is-model .thread-chip-text { max-width: 10ch; } }
+/* Narrow (T58 §5), one step at a time and always a whole chip: the effort keeps its icon, then the permissions keep
+   icon and color (the text is in the tooltip and the name), then the model keeps its dot; the number beside the ring
+   goes with the first step. Under 500 px the right side takes a line of its own when it no longer fits: with Stop on
+   screen the row needs about 475 px and nothing is left to give. The permissions chip never hides.
+   The steps are for the longest case: Portuguese, with Stop on screen. */
+@container thread-composer (max-width: 719px) { .thread-composer .thread-chip.is-effort .thread-chip-text, .thread-composer .thread-usage-ring-number { display: none; } }
+@container thread-composer (max-width: 679px) { .thread-composer .thread-chip.is-permissions .thread-chip-text { display: none; } }
+@container thread-composer (max-width: 539px) { .thread-composer .thread-chip.is-model { min-width: 24px; } .thread-composer .thread-chip.is-model .thread-chip-text { display: none; } }
+@container thread-composer (max-width: 499px) { .thread-composer footer { flex-wrap: wrap; row-gap: var(--space-2); } }
 .thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
 
 /* One line per option, as in a menu. The explanation stays for screen readers. */

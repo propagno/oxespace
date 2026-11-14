@@ -221,7 +221,10 @@
   justify-content: space-between;
   gap: 8px 12px;
   margin-top: 4px;
-  padding: 6px 10px;
+  /* The height of a line with a button (24 px), with or without one: what is below it does not move. */
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 3px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
