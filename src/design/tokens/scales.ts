@@ -1,8 +1,8 @@
 /** Non-color scales: one source for spacing, type, shape, layers and motion. */
 
 export const FONT = {
-  display: "'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif",
-  ui: "'IBM Plex Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
+  display: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif",
+  ui: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
   mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
 } as const
 

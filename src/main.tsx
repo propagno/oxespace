@@ -1,13 +1,10 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-// Mandacaru typography, bundled so it loads offline: IBM Plex for the
-// interface and code, Bricolage Grotesque for display (docs/design/brand.md).
-import '@fontsource/ibm-plex-sans/400.css'
-import '@fontsource/ibm-plex-sans/500.css'
-import '@fontsource/ibm-plex-sans/600.css'
+// Mandacaru Noite typography, bundled so it loads offline: Instrument Sans (one variable
+// file, latin and latin-ext) for interface and display, IBM Plex Mono for code (docs/design/brand.md).
+import '@fontsource-variable/instrument-sans/wght.css'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
-import '@fontsource-variable/bricolage-grotesque'
 import { App } from './App'
 import { ShortcutGuideHost } from './components/Keyboard/ShortcutGuideHost'
 import { TerminalFocusHost } from './components/Keyboard/TerminalFocusHost'
