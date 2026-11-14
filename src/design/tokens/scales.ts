@@ -1,10 +1,13 @@
 /** Non-color scales: one source for spacing, type, shape, layers and motion. */
 
 export const FONT = {
-  display: "'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif",
-  ui: "'IBM Plex Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
+  display: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif",
+  ui: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
   mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
 } as const
+
+/** Instrument Sans width for brand type: condensed for the 28px display step and the wordmark, a little less for page titles; 100% elsewhere. */
+export const STRETCH = { display: '78%', title: '80%' } as const
 
 /**
  * Spacing in 4px steps, plus the two half steps dense controls need (2 and 6). The 1.5.2 scale uses 2, 4, 6, 8, 12,
