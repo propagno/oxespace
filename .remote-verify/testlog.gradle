@@ -1,0 +1,6 @@
+// Prints each test's result ("Class > test PASSED/FAILED") so oxe-build can match acceptance 'proves' by test name.
+allprojects {
+    tasks.withType(Test).configureEach {
+        testLogging { events "passed", "failed", "skipped"; exceptionFormat "full" }
+    }
+}
