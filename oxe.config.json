@@ -1,0 +1,30 @@
+{
+  "origin": {
+    "since": "2026-11-14T12:14:31Z",
+    "require_card": true,
+    "commit_msg": "require",
+    "exempt": {
+      "merges": true,
+      "paths": [
+        ".oxe/",
+        "docs/releases/"
+      ],
+      "authored": [
+        {
+          "author": "github-actions[bot]",
+          "paths": [
+            "mobile/android/app/src/test/snapshots/images/",
+            "e2e/visual/__screenshots__/"
+          ]
+        }
+      ],
+      "commits": [
+        {
+          "sha": "dec83739e1fcf79c93f4fffc76d235efe8d88d99",
+          "reason": "teste congelado do CR-02 (OXE-52) commitado pelo planner antes de existir o carimbo OXE-Freeze (oxe-build G22); isenção única, decisão de coordenação de 14/11",
+          "by": "coordenação (oxecode-oxequery-mobile-1-5-0)"
+        }
+      ]
+    }
+  }
+}

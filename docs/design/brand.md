@@ -24,7 +24,7 @@ two arms 8 wide, each held to the trunk by a bridge; the right arm stands higher
 - Solid shapes hold where the old stroke disappeared: the minimum is 12px in one color, 16px in color.
 - The sun left the symbol. It only means "needs you" now (`--attn`).
 
-The wordmark is `oxespace` in lowercase, set in Bricolage Grotesque Bold.
+The wordmark is `oxespace` in lowercase, set in Instrument Sans Bold.
 
 The mark has one source: its geometry is in `src/design/brand.ts`, and the app icon's colors are the `--logo-tile` and
 `--logo-mark` tokens (`LOGO` in `src/design/tokens/palette.ts`), the same in both modes.
@@ -59,11 +59,13 @@ light and dark mode.
 
 | Role | Family | Use |
 |---|---|---|
-| Display | Bricolage Grotesque (variable) | Page titles, empty states, the wordmark. Never body text. |
-| Interface | IBM Plex Sans 400 · 500 · 600 | Everything people read and operate |
+| Display | Instrument Sans 700, condensed | Page titles (20px at `--stretch-title`, 80%), the 28px display step and the wordmark (`--stretch-display`, 78%). Never body text. |
+| Interface | Instrument Sans 400 · 500 · 600, normal width | Everything people read and operate |
 | Code | IBM Plex Mono 400 · 500 | Code, paths, commands, terminal, numbers in tables |
 
-All three ship with the app (OFL). The type scale is short: 11, 12, 13, 14, 16
+Instrument Sans is one variable file per subset (latin and latin-ext) with two axes, weight 400 to 700 and width
+75% to 100%: 76 kB of font where IBM Plex Sans and Bricolage Grotesque took 180 kB. It loads with `font-display: swap`, so it never holds the first
+paint. Both families ship with the app (OFL). The type scale is short: 11, 12, 13, 14, 16
 and 20px, plus 28px display. 13px is the default in compact density.
 
 ## Shape and depth
