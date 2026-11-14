@@ -49,6 +49,9 @@ const LOADERS: Record<PreloadTarget, () => Promise<unknown>> = {
 
 /** The most recent view, when it is one that loads lazily (Code is in the boot bundle). */
 export function lazyView(recent: string | null): Exclude<PreloadTarget, 'settings'> | null {
+  // A fresh profile (no view stored yet) warms OxeChat's Thread view, the one a first start most likely opens
+  // (OXE-58 T2'); the machine checks still apply to it.
+  if (recent === null) return 'thread'
   return recent === 'thread' || recent === 'data' ? recent : null
 }
 
