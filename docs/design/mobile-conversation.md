@@ -11,24 +11,24 @@
 **The problem:** the colours and sizes already come from the tokens (`OxeTypography`), but no role sets a
 `fontFamily`, so everything is Roboto. Without the families the brand disappears.
 
-- **Bundle the desktop's three families** in `app/src/main/res/font/`. All three are under the SIL OFL; ship their
+- **Bundle the desktop's families** in `app/src/main/res/font/`. Both are under the SIL OFL; ship their
   licence files with the app's notices.
-  - **IBM Plex Sans** (400, 500, 600, 700): the interface and every body text. Desktop `--font-ui`.
+  - **Instrument Sans** (variable: 400–700, normal width): the interface and every body text. Desktop `--font-ui`.
   - **IBM Plex Mono** (400, 500): commands, paths, code and the terminal. Desktop `--font-mono`.
-  - **Bricolage Grotesque** (600, 800): screen titles and the request title only. Desktop `--font-display`.
+  - **Instrument Sans condensed** (600 at 80%, 700 at 78%): screen titles and the request title only. Desktop `--font-display`.
 - **Map them onto Material's roles** (the sizes stay those of `OxeTypography`: phone body at `lg`, 16 sp):
 
 | Role | Family | Size / leading / weight | Used for |
 |---|---|---|---|
-| `headlineSmall` | Bricolage Grotesque | `xl` / tight / 600 | the request screen's title |
-| `titleLarge` | Bricolage Grotesque | `xl` / snug / 600 | empty-state titles |
-| `titleMedium` | Plex Sans | `lg` / snug / 600 | app bar title (the conversation name) |
-| `titleSmall` | Plex Sans | `md` / snug / 500 | section labels, the plan's title |
-| `bodyLarge` | Plex Sans | `lg` / normal / 400 | the person's prompt (600) and the agent's prose |
-| `bodyMedium` | Plex Sans | `md` / normal / 400 | tool step rows, the request facts |
-| `bodySmall` | Plex Sans | `sm` / normal / 400 | meta lines, "Último sinal do provedor há 2 s" |
-| `labelLarge` | Plex Sans | `md` / snug / 500 | buttons |
-| `labelMedium`, `labelSmall` | Plex Sans | `xs`, `2xs` / snug / 500 | badges, counts |
+| `headlineSmall` | Instrument Sans condensed | `xl` / tight / 600 | the request screen's title |
+| `titleLarge` | Instrument Sans condensed | `xl` / snug / 600 | empty-state titles |
+| `titleMedium` | Instrument Sans | `lg` / snug / 600 | app bar title (the conversation name) |
+| `titleSmall` | Instrument Sans | `md` / snug / 500 | section labels, the plan's title |
+| `bodyLarge` | Instrument Sans | `lg` / normal / 400 | the person's prompt (600) and the agent's prose |
+| `bodyMedium` | Instrument Sans | `md` / normal / 400 | tool step rows, the request facts |
+| `bodySmall` | Instrument Sans | `sm` / normal / 400 | meta lines, "Último sinal do provedor há 2 s" |
+| `labelLarge` | Instrument Sans | `md` / snug / 500 | buttons |
+| `labelMedium`, `labelSmall` | Instrument Sans | `xs`, `2xs` / snug / 500 | badges, counts |
 | *code* (new `OxeType.code`) | Plex Mono | `sm` / normal / 400 | inline code, code blocks, commands, paths |
 
 - **Scaling:** sizes stay in `sp`, so the system font size scales them. At 200 % nothing truncates that a person must
@@ -149,7 +149,7 @@ Orca's app is React Native, ours is Kotlin and Compose.
 
 ## 6. The request screen
 
-- **Title:** `headlineSmall` (Bricolage) with the C3 title. Below it, the risk badge and its one-liner, and below that
+- **Title:** `headlineSmall` (Instrument Sans condensed) with the C3 title. Below it, the risk badge and its one-liner, and below that
   the queue position when there are several ("Pedido 1 de 3").
 - **Facts** as label/value rows (`bodyMedium`, label muted), never as boxes that look like input fields:
   - **Pedido por:** agent · conversation;

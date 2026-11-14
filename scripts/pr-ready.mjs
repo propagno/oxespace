@@ -27,6 +27,12 @@
  * on this exact head, recorded as `tests: "ci:<linux job>,<windows job>"` (TECH LEAD, 08/11). A checkout that has node_modules always runs them locally, even
  * when they fail for a missing package or config.
  *
+ * The origin gate comes first (OXE-138; the user's rule of 14/11: nothing is implemented unless it comes from
+ * /oxe-quick or oxe-execute): with an oxe.config.json in the checkout, `oxe-cc ship check-origin <base>..HEAD` must
+ * pass, so every commit since the cut carries OXE-Quick/OXE-Card or OXE-Task/OXE-Run, or an exemption written in
+ * that file. The CLI comes from OXE_CC (the path of oxe-cc.js) until oxe-cc 1.21.2 is published; without it the step
+ * fails and says so. A branch made before the gate has no oxe.config.json and is not charged.
+ *
  * The marker vouches for HEAD, so the working tree must be clean: an uncommitted change would be checked but not
  * pushed. The live app's OXESPACE_* and AI_MEMORY_* variables are dropped from every check's environment.
  */
@@ -82,7 +88,26 @@ export function visualPlatforms(files) {
   return [...new Set(files.map(file => VISUAL_BASELINE.exec(file)?.[1]).filter(Boolean).map(dir => (dir === 'win32' ? 'windows' : dir)))].sort()
 }
 
-export function buildSteps({ files, related, base = 'origin/main', full = false, nodeModules = true }) {
+/** The versioned origin config (oxe-cc G19): its presence turns the origin gate on for the checkout. */
+export const ORIGIN_CONFIG = 'oxe.config.json'
+
+/**
+ * The command that runs oxe-cc, from OXE_CC: a .js/.cjs/.mjs path runs under this Node, anything else as a binary.
+ * Null when OXE_CC is not set; the origin step then fails and says how to set it.
+ */
+export function oxeCcCommand(env = process.env) {
+  const cli = env.OXE_CC?.trim()
+  if (!cli) return null
+  return /\.(c|m)?js$/i.test(cli) ? { command: process.execPath, args: [cli] } : { command: cli, args: [] }
+}
+
+/** The steps for a change, the origin gate first when the checkout has an oxe.config.json. */
+export function buildSteps({ origin = false, base = 'origin/main', ...rest }) {
+  const steps = changeSteps({ base, ...rest })
+  return origin ? [{ name: `origin of every commit since the cut (oxe-cc ship check-origin ${base}..HEAD)`, kind: 'origin', args: [`${base}..HEAD`] }, ...steps] : steps
+}
+
+function changeSteps({ files, related, base = 'origin/main', full = false, nodeModules = true }) {
   const kind = classifyChange(files)
   if (kind === 'images') {
     const platforms = visualPlatforms(files)
@@ -224,6 +249,10 @@ function runStep(step, env) {
     else [command, args] = [process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', ...step.args]]
   } else if (step.kind === 'vitest') {
     [command, args] = [process.execPath, [join(here, 'test-electron.mjs'), ...step.args]]
+  } else if (step.kind === 'origin') {
+    const cli = oxeCcCommand(env)
+    if (!cli) return { ok: false, detail: 'oxe-cc not found: set OXE_CC to the path of oxe-cc.js (oxe-build ≥ 1.21.2), the origin gate of OXE-138' }
+    ;[command, args] = [cli.command, [...cli.args, 'ship', 'check-origin', ...step.args]]
   } else {
     return { ok: false, detail: 'not a local step' }
   }
@@ -331,8 +360,10 @@ function main(argv) {
   const marker = markerPath(isAbsolute(commonDir) ? commonDir : resolve(commonDir), sha)
   const files = changedFiles(options.base)
   const related = planRelatedTests(files)
-  const nodeModules = npmInstalled(git(['rev-parse', '--show-toplevel']))
-  const steps = buildSteps({ files, related, base: options.base, full: options.full, nodeModules })
+  const top = git(['rev-parse', '--show-toplevel'])
+  const nodeModules = npmInstalled(top)
+  const origin = existsSync(join(top, ORIGIN_CONFIG))
+  const steps = buildSteps({ files, related, base: options.base, full: options.full, nodeModules, origin })
 
   console.log(`pr:ready for ${sha.slice(0, 8)} (${files.length} file(s) changed since ${options.base}):`)
   for (const step of steps) console.log(`  - ${step.name}${step.kind === 'vitest' ? `: ${step.args.join(' ')}` : ''}`)
