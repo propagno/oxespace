@@ -12,6 +12,8 @@ enum class TerminalKey(val label: String, val bytes: String) {
     TAB("Tab", "\t"),
     BACK_TAB("⇧Tab", "\u001b[Z"),
     CTRL_C("Ctrl+C", "\u0003"),
+    // T18-c: a bare Enter, to confirm a CLI menu choice or "press Enter".
+    ENTER("Enter", "\r"),
     UP("↑", "\u001b[A"),
     DOWN("↓", "\u001b[B"),
     LEFT("←", "\u001b[D"),

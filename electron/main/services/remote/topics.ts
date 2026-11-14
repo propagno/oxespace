@@ -6,7 +6,7 @@ import {
 } from '../../../../shared/remote/protocol'
 import type { ConversationThread, ThreadEvent, ThreadSyncCursor } from '../../../../shared/types/thread'
 import type { RemoteTopicFrame, RemoteTopicSource } from './connection'
-import type { RemoteDesktop } from './desktop'
+import type { RemoteDesktop, RemoteTerminalRead } from './desktop'
 import { toDelegation, toJob, toPendingRequest, toRemoteAgent, toThreadHeader, toThreadItem, toThreadSummary, toWorkspace } from './filters'
 import { fitItem, FRAME_BUDGET, pageList, splitText } from './frames'
 import { clean, TerminalWindow } from './text'
@@ -306,6 +306,17 @@ class TerminalTopic implements RemoteTopicSource {
     // the snapshot frame, so the phone never gets an event before the screen it applies to.
     let building = false
     let pushWaiting = false
+    /**
+     * OXE-18 T18-a: the pane size the phone's grid was last drawn at. A read at another size (a phone's
+     * `terminal.resize` took hold, or the size went back) gets a new screen at that size, so the phone redraws its grid
+     * instead of painting frames of one width into a grid of another.
+     */
+    let drawnAt: { cols?: number; rows?: number } | undefined
+    const resized = (now: RemoteTerminalRead): boolean => {
+      if (now.cols === undefined && now.rows === undefined) return false
+      if (!drawnAt) { drawnAt = { cols: now.cols, rows: now.rows }; return false }
+      return now.cols !== drawnAt.cols || now.rows !== drawnAt.rows
+    }
     const snapshot = (): void => {
       const now = desktop.terminal(paneId, 0)
       if (!now) return
@@ -325,6 +336,7 @@ class TerminalTopic implements RemoteTopicSource {
           const later = desktop.terminal(paneId, read)
           if (later && digest(later.session) === session && !later.truncated && later.seq !== read) { raw += later.data; read = later.seq; size = { cols: later.cols ?? size.cols, rows: later.rows ?? size.rows } }
         } catch { /* the pane went away: the snapshot is what was read */ }
+        drawnAt = { cols: size.cols, rows: size.rows }
         const out = window.takeAll(raw)
         void buildTerminalSnapshot(out.text, size.cols ?? 80, size.rows ?? 24, desktop.roots(), snapshotFits)
           .catch(() => null)
@@ -359,6 +371,10 @@ class TerminalTopic implements RemoteTopicSource {
       if (!now) return
       if (digest(now.session) !== session) return snapshot()
       if (now.seq === read) return
+      if (resized(now)) return snapshot()
+      // OXE-18 T18-g: a phone that reads only the screen and fell behind the saved output gets a new screen, not a
+      // cleared view with the ring's tail painted into it.
+      if (now.truncated && snapshotOnly) return snapshot()
       if (now.truncated) {
         // The phone's place fell off the ring: what was held goes first, then everything kept, marked so the view clears.
         if (window.heldLength) release(window.flush(), 'event', false)
