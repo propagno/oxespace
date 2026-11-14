@@ -731,7 +731,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const savedReadingTop = await timeline.evaluate(el => el.scrollTop)
     await page.getByRole('button', { name: /^History conversation 69/ }).click()
     await mainThreadButton.click()
-    await page.waitForTimeout(700)
     await expect.poll(() => timeline.evaluate((el, top) => Math.abs(el.scrollTop - top), savedReadingTop)).toBeLessThanOrEqual(64)
     const sessionActions = page.getByRole('button', { name: 'Actions for History conversation 69' })
     const actionBounds = await sessionActions.boundingBox()
