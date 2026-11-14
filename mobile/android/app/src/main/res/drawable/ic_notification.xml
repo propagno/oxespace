@@ -1,20 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The Mandacaru mark as a status-bar silhouette: white strokes, the system tints it. -->
+<!-- The Ramo mark as a status-bar silhouette: a white fill, the system tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="44"
-    android:viewportHeight="44">
+    android:viewportWidth="48"
+    android:viewportHeight="48">
     <group
-        android:scaleX="0.8"
-        android:scaleY="0.8"
-        android:translateX="4.4"
-        android:translateY="4.4">
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:translateX="6"
+        android:translateY="6">
         <path
-            android:pathData="M22,39V8M22,27h-6a4,4 0,0 1,-4 -4v-7M22,21h6a4,4 0,0 0,4 -4v-6"
-            android:strokeWidth="4"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round" />
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M24 5a4 4 0 0 1 4 4v30a4 4 0 0 1 -8 0v-30a4 4 0 0 1 4 -4zM12 15a4 4 0 0 1 4 4v10a4 4 0 0 1 -8 0v-10a4 4 0 0 1 4 -4zM12 25h8a4 4 0 0 1 0 8h-8a4 4 0 0 1 0 -8zM36 9a4 4 0 0 1 4 4v9a4 4 0 0 1 -8 0v-9a4 4 0 0 1 4 -4zM28 18h8a4 4 0 0 1 0 8h-8a4 4 0 0 1 0 -8z" />
     </group>
 </vector>

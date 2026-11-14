@@ -386,7 +386,7 @@ val DarkOxeColors = OxeColors(
     scrim = Color(0x8F000000),
 )
 
-/** Colors that mean the same in both modes: providers and avatars. */
+/** Colors that mean the same in both modes: providers, avatars and the app icon. */
 object OxeIdentity {
     val providerClaude = Color(0xFFC2643F)
     val providerCodex = Color(0xFF10A37F)
@@ -396,6 +396,8 @@ object OxeIdentity {
     val providerGrok = Color(0xFF6B6B6B)
     val providerCustom = Color(0xFF64748B)
     val avatars = listOf(Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFFD97706), Color(0xFF059669), Color(0xFF0891B2))
+    val logoTile = Color(0xFF1B1925)
+    val logoMark = Color(0xFF3FBF82)
 }
 
 /** Spacing in 4 dp steps. */

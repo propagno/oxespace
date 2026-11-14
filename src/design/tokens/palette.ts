@@ -69,10 +69,11 @@ export function palette(mode: Mode): Record<ScaleName, Scale> {
 
 /** Identity colors; they mark a provider or an avatar and never style the interface. */
 /**
- * The app icon's colors (docs/design/brand.md): white cactus on the caatinga tile with the sertão sun. They are the
+ * The app icon's colors (docs/design/brand.md): the caatinga Ramo on the night tile. The sun left the mark in 1.5.2
+ * and only means "needs you" now (--attn). They are the
  * same in both modes, because the icon is the same on every desktop; resources/icon.svg uses exactly these.
  */
-export const LOGO = { tile: '#1f6b4a', mark: '#ffffff', sun: '#e8a33d' } as const
+export const LOGO = { tile: '#1b1925', mark: '#3fbf82' } as const
 
 export const IDENTITY = {
   provider: { claude: '#c2643f', codex: '#10a37f', copilot: '#24b2d5', antigravity: '#1a73e8', cursor: '#6366f1', grok: '#6b6b6b', custom: '#64748b' },

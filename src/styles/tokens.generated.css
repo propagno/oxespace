@@ -59,9 +59,8 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
   --ease-linear: linear;
-  --logo-tile: #1f6b4a;
-  --logo-mark: #ffffff;
-  --logo-sun: #e8a33d;
+  --logo-tile: #1b1925;
+  --logo-mark: #3fbf82;
   --provider-claude: #c2643f;
   --provider-codex: #10a37f;
   --provider-copilot: #24b2d5;

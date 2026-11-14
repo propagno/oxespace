@@ -14,19 +14,22 @@ interface is a developer tool first.
 
 ## Symbol
 
-A mandacaru drawn as a branching stroke: a trunk with two arms, the right arm
-higher than the left, and a small sun beside it.
+**Ramo** (since 1.5.2): a mandacaru in five solid, round-ended shapes on a 48-unit grid. The trunk is 8 by 38;
+two arms 8 wide, each held to the trunk by a bridge; the right arm stands higher than the left.
 
-- Strokes have round caps and joins, at a weight of 1/11 of the symbol's size.
-- On the app icon the symbol is white on caatinga green, and the sun is ochre.
-- Inline, the symbol takes the current text color, and the sun keeps its ochre.
-- The minimum size is 14px. Below 20px the sun is dropped.
+- Every end is a half circle: the radius is half the column width (4).
+- On the app icon the symbol is caatinga (`--logo-mark`) on the night tile (`--logo-tile`), scaled to 75%: one
+  column of breathing room around it.
+- Inline, the symbol takes the current text color.
+- Solid shapes hold where the old stroke disappeared: the minimum is 12px in one color, 16px in color.
+- The sun left the symbol. It only means "needs you" now (`--attn`).
 
 The wordmark is `oxespace` in lowercase, set in Bricolage Grotesque Bold.
 
-The mark has one source: its geometry is in `src/design/brand.ts`, and the app icon's colors are the `--logo-tile`,
-`--logo-mark` and `--logo-sun` tokens (`LOGO` in `src/design/tokens/palette.ts`), the same in both modes.
-`npm run generate:icon` writes `resources/icon.svg` and every icon file from them. Nothing that draws the mark names a
+The mark has one source: its geometry is in `src/design/brand.ts`, and the app icon's colors are the `--logo-tile` and
+`--logo-mark` tokens (`LOGO` in `src/design/tokens/palette.ts`), the same in both modes.
+`npm run generate:icon` writes `resources/icon.svg` and every icon file from them; the phone's launcher and
+notification icons carry the same path (`MARK_PATH`). Nothing that draws the mark names a
 color; `tests/brand-touchpoints.test.ts` enforces it and fails when an icon file drifts from the source.
 
 ## Color
@@ -87,7 +90,7 @@ baselines under `e2e/visual/__screenshots__/<platform>/`, generated once per wav
 | | Touchpoint | Source | Capture |
 |---|---|---|---|
 | ✅ | App icon: taskbar, dock, installer, Start menu | `resources/icon.svg` → `icon.ico` (16–256), `icon.png` (512), `icons/` (16–1024) | the files are the capture; `tests/brand-touchpoints.test.ts` |
-| ✅ | README banner and badges (caatinga and sun) | `docs/assets/logo.png`, rendered with the icon | the file |
+| ✅ | README banner and badges (Ramo on the night tile) | `docs/assets/logo.png`, rendered with the icon | the file |
 | ✅ | Window favicon | `index.html` links `resources/icon.svg` | — (Electron shows it only in tools) |
 | ✅ | Boot splash: the icon on the window's background until React renders, arms sprouting | `index.html` + `src/styles/splash.css` | `brand-touchpoints.spec.ts/splash-light`, `splash-dark` |
 | ✅ | Title bar mark and wordmark | `OxeLogo` (`src/components/Brand`) | `anchor-surfaces.spec.ts/*` |
