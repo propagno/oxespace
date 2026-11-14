@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/unit/state-words.test.ts tests/unit/needs-decision.test.tsx tests/integration/paneDisplay.test.ts tests/thread-navigation-status.test.ts tests/thread-view.test.tsx tests/i18n-catalog.test.ts tests/unit/docs-links.test.ts --maxWorkers=2
