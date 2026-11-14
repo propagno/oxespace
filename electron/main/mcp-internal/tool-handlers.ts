@@ -17,13 +17,10 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
-import { activeHostDecision } from '../services/approvals/agent-permissions'
-import { isPreviewCaptureName, readPreviewCapture, savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { englishText } from '../agent-text'
-import { AndroidCaptureError, type AndroidCaptureFailure } from '../services/android/android-devices'
 
 /**
  * One handler per tool. Each is a thin shape-translation layer over an
@@ -307,6 +304,8 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
   // since an unknown host reads as allowed and cannot mean the person allowed this page.
   const workspace = execution.workspaceId.startsWith('thread:') ? undefined : ctx.workspaceServ.get(execution.workspaceId)
   const host = new URL(target.href).hostname
+  // Loaded here, on an agent's first external page, not at start: the permissions model lives in the approvals chunk.
+  const { activeHostDecision } = await import('../services/approvals/agent-permissions')
   if (activeHostDecision(workspace?.rootPath ?? execution.canonicalRoot, host) === 'deny') {
     return errorResult(`Agents may not open ${host} in this workspace. The person can change that in Settings › What agents can do.`)
   }
@@ -361,6 +360,8 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
   const input = asRecord(args)
   const fileName = input.fileName
   const owner = execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId
+  // The capture store loads with the first capture, not at start (main's entry budget).
+  const { isPreviewCaptureName, readPreviewCapture, savePreviewCapture } = await import('../services/browser-preview/preview-capture-store')
   if (input.element !== undefined) {
     if (!isPreviewCaptureName(input.element)) throw new Error('element must be a capture file name, for example element-mf3k2a-1a2b3c4d.png')
     if (fileName !== undefined) throw new Error('Pass either element or fileName, not both')
@@ -391,20 +392,6 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
 
 const PREVIEW_ACTIONS = ['inspect', 'status', 'console', 'network', 'tabs', 'newTab', 'selectTab', 'closeTab', 'click', 'fill', 'navigate', 'wait', 'scroll']
 
-/** The cause of a failed Android capture and what the person or agent can do next. */
-function captureAdvice(reason: AndroidCaptureFailure, serial: string): string {
-  switch (reason) {
-    case 'adb-missing':
-      return 'adb was not found on this computer. Install the Android SDK platform-tools and set ANDROID_HOME or ANDROID_SDK_ROOT, or add platform-tools to PATH, then try again.'
-    case 'no-device':
-      return `No Android device is connected (serial "${serial}"). Connect a device with USB debugging on, or start an emulator from the Android device panel, then try again.`
-    case 'server-down':
-      return 'The adb server is not running and could not be started. Run "adb start-server" or open the Android device panel, then try again.'
-    default:
-      return 'The Android screenshot failed. Check the device in the Android device panel (on, unlocked and authorized for debugging), then try again.'
-  }
-}
-
 async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return errorResult('Arguments must be an object.')
   const input = args as Record<string, unknown>
@@ -428,16 +415,11 @@ async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<Intern
   try {
     shot = await take()
   } catch (error) {
-    if (!(error instanceof AndroidCaptureError)) throw error
-    if (error.reason !== 'server-down') return errorResult(captureAdvice(error.reason, serial))
-    // The adb server is down: start only the server (never an emulator, never kill-server) and retry once.
-    if (!await access.startAdbServer()) return errorResult(captureAdvice('server-down', serial))
-    try {
-      shot = await take()
-    } catch (retryError) {
-      if (!(retryError instanceof AndroidCaptureError)) throw retryError
-      return errorResult(captureAdvice(retryError.reason, serial))
-    }
+    // A failed capture's handling loads only when a capture fails (main's entry budget).
+    const { recoverAndroidCapture } = await import('./android-capture-advice')
+    const recovered = await recoverAndroidCapture(error, serial, take, () => access.startAdbServer())
+    if (recovered.advice !== undefined) return errorResult(recovered.advice)
+    shot = recovered.shot
   }
   if (!shot.ok) {
     const notAllowed = shot.code === 'android.agents.notAllowed'
