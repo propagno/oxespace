@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 
 /**
- * The approved brand target as data (OXE-149): docs/design/targets/brd-NN.json holds, per BRD, each measure the built
+ * The approved brand target as data (OXE-149): src/design/targets/brd-NN.json holds, per BRD, each measure the built
  * app must match. e2e/brand-conformance.spec.ts reads the same files. A measure starts `pending` (reported, never
  * failing) and turns `enforced` in the PR that delivers its BRD, which also adds its id to enforced.lock.json; an
  * enforced measure never goes back (CA-3).
@@ -29,7 +29,7 @@ type Measure = {
 }
 type TargetFile = { brd: string; card: string | null; title: string; platform: 'desktop' | 'android'; source: string; measures: Measure[] }
 
-const dir = join(process.cwd(), 'docs/design/targets')
+const dir = join(process.cwd(), 'src/design/targets')
 const files = readdirSync(dir).filter(name => /^brd-\d{2}\.json$/.test(name)).sort()
 const targets = files.map(name => ({ name, doc: JSON.parse(readFileSync(join(dir, name), 'utf8')) as TargetFile }))
 const lock = JSON.parse(readFileSync(join(dir, 'enforced.lock.json'), 'utf8')) as { enforced: string[] }
