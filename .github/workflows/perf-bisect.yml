@@ -7,13 +7,14 @@ name: Perf bisect (temporary)
 
 on:
   push:
-    branches: ["ci/perf-bisect-oxe-105"]
+    branches: ["ci/perf-bisect-oxe-105", "ci/perf-bisect-oxe-105-win"]
 
 permissions:
   contents: read
 
 env:
-  BISECT_RANGE: v1.5.1..d4ccf91ed
+  # Round 3 (ci/perf-bisect-oxe-105-win): process → interactive only, the merges after the first bisect, plus d4ccf91ed (#799) as the in-run reference.
+  BISECT_RANGE: d4ccf91ed^1..3e25c98fa
 
 jobs:
   plan:
@@ -51,7 +52,8 @@ jobs:
       REF_B: v1.5.1
       REF_C: ${{ matrix.sha }}
       ROUNDS: "7"
-      GATE_LAUNCHES: "4"
+      # 1 warm-up + 5 measured boots per round: the metric is boot only, so each round can afford more launches.
+      GATE_LAUNCHES: "6"
     defaults:
       run:
         shell: bash
@@ -138,7 +140,7 @@ jobs:
             start=$(date +%s)
             ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}" GATE_SIDE="$side" GATE_ROUND="$round"
               npx playwright test --config playwright.tools.config.ts perf-gate-boot.spec.ts --reporter=line > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log" 2>&1
-              npx playwright test --config playwright.tools.config.ts memory-footprint.spec.ts perf-benchmark.spec.ts --grep 'memory footprint|panel: Files|modal surfaces' --reporter=line > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" 2>&1 )
+              : > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" )
             echo "round $round $side: $(grep -ac '\[GATE-BOOT\].*warmup=0' "results/rounds/$side-r$round-boot.log") boots, $(grep -ac '\[RESULT\]\|\[MEMORY\]' "results/rounds/$side-r$round-bench.log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
           }
           for r in $(seq 1 "$ROUNDS"); do
