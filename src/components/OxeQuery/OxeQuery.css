@@ -250,9 +250,11 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-import { width: min(680px, calc(100vw - 48px)); }
 .oq-import > header { display: flex; justify-content: space-between; align-items: center; }
 .oq-import > footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-.oq-import-map { width: 100%; border-collapse: collapse; font-size: 12px; }
+/* OXE-160: the import dialog's body reads the OxeQuery dialog scale; nothing in it falls through to the page's size. */
+.oq-import-body { font-size: var(--text-sm); }
+.oq-import-map { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
 .oq-import-map th, .oq-import-map td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border-default); }
-.oq-import-result ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; }
+.oq-import-result ul { margin: 6px 0 0; padding-left: 18px; font-size: var(--text-xs); }
 
 /* ---- Execution plan ------------------------------------------------------ */
 .oq-plan { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; overflow: auto; width: 100%; }
