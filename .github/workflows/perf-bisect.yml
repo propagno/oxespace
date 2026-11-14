@@ -106,7 +106,9 @@ jobs:
             npm run fix:native
             npm run verify:native
             node "$GITHUB_WORKSPACE/harness/perf-gate/entry-size.mjs" . > "$GITHUB_WORKSPACE/results/$side-entry.json"
-            cp "out/renderer/$(node -p "JSON.parse(require('fs').readFileSync('$GITHUB_WORKSPACE/results/$side-entry.json','utf8')).file.replace(/^\.?\//,'')")" "$GITHUB_WORKSPACE/results/entry/$side-entry.js"
+            # The path goes in as an argument: a Windows path inside a JS string literal loses its backslashes.
+            entry_file="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).file" "$GITHUB_WORKSPACE/results/$side-entry.json")"
+            cp "out/renderer/${entry_file#./}" "$GITHUB_WORKSPACE/results/entry/$side-entry.js"
             npx electron-builder --win --dir --config.npmRebuild=false --publish never
             src="$(ls -d dist/*-unpacked | head -1)"
             dest="$RUNNER_TEMP/oxespace-gate-$side"
