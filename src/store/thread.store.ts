@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
+import { writeThreadListCache } from './threadListCache'
 import { threadConfirmation } from '../../shared/threadConfirmations'
 import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
 import { optimistic } from './optimistic'
@@ -18,10 +19,14 @@ interface ThreadState {
   drafts: Record<string, string>; scrollPositions: Record<string, { top: number; following: boolean }>
   attachments: Record<string, ThreadAttachment[]>
   expanded: Record<string, boolean>; errors: Record<string, string>; loading: boolean
+  /** False until the first load() settles, ok or failed: until then the sidebar paints its cached copy or a skeleton. */
+  listLoaded: boolean
   hiddenProjects: string[]
   unreadIds: string[]
   markUnread: (id: string) => void
   markRead: (id: string) => void
+  /** A deleted conversation leaves the cached list at once, before the list reloads. */
+  dropFromListCache: (id: string) => void
   hideProject: (id: string) => Promise<void>
   restoreProject: (id: string) => Promise<void>
   /** Pin, rename and archive show at once and roll back with a toast when the change is not saved. */
@@ -51,6 +56,12 @@ function patchThread(state: ThreadState, id: string, change: Partial<Conversatio
   return { threads: state.threads.map(thread => thread.id === id ? { ...thread, ...change } : thread),
     ...(state.snapshot?.thread.id === id ? { snapshot: { ...state.snapshot, thread: { ...state.snapshot.thread, ...change } } } : {}) }
 }
+/** The paint-only list copy (OXE-58): what the sidebar would list, written after a live list; never read by the store. */
+function saveListCache(state: Pick<ThreadState, 'threads' | 'projects' | 'hiddenProjects'>, without?: string): void {
+  const hidden = new Set(state.hiddenProjects)
+  writeThreadListCache(state.threads.filter(thread => thread.id !== without && !hidden.has(thread.projectId)),
+    state.projects.map(project => hidden.has(project.projectId) && !project.hidden ? { ...project, hidden: true } : project))
+}
 /** Kill switch for incremental reads: localStorage `oxe.thread.delta` = 'off' falls back to full reads. */
 function deltaEnabled(): boolean {
   try { return window.localStorage.getItem('oxe.thread.delta') !== 'off' } catch { return true }
@@ -60,12 +71,17 @@ export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
 export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
+  dropFromListCache: id => { if (get().listLoaded) saveListCache(get(), id) },
   hideProject: async id => {
-    const saved = await optimistic(set, get, state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }), async () => { await window.oxe.thread!.setProjectHidden(id, true); return true },
+    const change = optimistic(set, get, state => ({ hiddenProjects: [...new Set([...state.hiddenProjects, id])] }), async () => { await window.oxe.thread!.setProjectHidden(id, true); return true },
       { rollbackMessage: i18n.t('thread:store.removeProjectFailed'), revert: state => ({ hiddenProjects: state.hiddenProjects.filter(value => value !== id) }) })
+    // The project's rows leave the cached list at once; a rollback puts them back.
+    if (get().listLoaded) saveListCache(get())
+    const saved = await change
+    if (!saved && get().listLoaded) saveListCache(get())
     if (saved && get().snapshot?.thread.projectId === id) await get().select(null)
   },
   restoreProject: async id => {
@@ -86,8 +102,12 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   },
   archiveThread: async id => {
     if (!window.oxe.thread?.command) return false
-    const saved = await optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => { await window.oxe.thread!.command!(id, threadConfirmation('archive').command); return true },
+    const change = optimistic(set, get, state => patchThread(state, id, { archived: true }), async () => { await window.oxe.thread!.command!(id, threadConfirmation('archive').command); return true },
       { rollbackMessage: i18n.t('thread:store.archiveFailed'), revert: state => patchThread(state, id, { archived: false }) })
+    // The archived row leaves the cached list at once; a rollback puts it back.
+    if (get().listLoaded) saveListCache(get())
+    const saved = await change
+    if (!saved && get().listLoaded) saveListCache(get())
     // The catalog reload moves the selection off the archived conversation.
     if (saved) await get().load()
     return saved === true
@@ -154,25 +174,28 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       const catalog = await window.oxe.thread.projects()
       if (version === projectGeneration) set(state => ({ projects: catalog.projects, unavailableProjects: catalog.unavailable, hiddenProjects: catalog.projects.filter(project => project.hidden).map(project => project.projectId), errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
         ...(catalog.unavailable.length ? { projects: i18n.t('thread:store.projectsUnavailable') } : {}) } }))
+      if (version === projectGeneration && get().listLoaded) saveListCache(get())
     } catch { if (version === projectGeneration) set(state => ({ errors: { ...state.errors, projects: i18n.t('thread:store.projectsFailed') } })) }
   },
   load: async () => {
     const version = ++catalogGeneration
     set({ loading: true })
-    let threads: ConversationThread[], errors: Record<string, string> = {}
+    let threads: ConversationThread[], errors: Record<string, string> = {}, failed = false
     const pendingList = prefetchedList; prefetchedList = null; try { threads = await (pendingList ?? window.oxe.thread!.list()) }
-    catch { errors = { catalog: i18n.t('thread:store.catalogFailed') }; threads = get().threads }
+    catch { failed = true; errors = { catalog: i18n.t('thread:store.catalogFailed') }; threads = get().threads }
     if (version !== catalogGeneration) return
     threads.sort((a, b) => b.updatedAt - a.updatedAt)
     const valid = new Set(threads.map(t => t.id))
     const cache = retainThreadSnapshots({ snapshots: get().snapshotCache, order: get().snapshotCacheOrder }, valid)
-    set({ threads, errors: { ...errors, ...(get().errors.projects ? { projects: get().errors.projects } : {}) }, loading: false,
+    set({ threads, errors: { ...errors, ...(get().errors.projects ? { projects: get().errors.projects } : {}) }, loading: false, listLoaded: true,
       unreadIds: get().unreadIds.filter(id => valid.has(id)),
       secondaryId: get().secondaryId && valid.has(get().secondaryId!) ? get().secondaryId : null,
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
       drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id))),
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
+    // A failed load keeps the copy it has; a fresh list replaces it.
+    if (!failed) saveListCache(get())
     const visible = threads.filter(t => !t.archived && !get().hiddenProjects.includes(t.projectId))
     const selected = visible.find(t => t.id === get().selectedId) ?? visible[0]
     if (selected?.id !== get().selectedId || !get().snapshot) await get().select(selected?.id ?? null, selected?.id !== get().selectedId)

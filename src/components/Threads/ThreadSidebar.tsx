@@ -3,12 +3,13 @@ import { threadProductName } from '../../../shared/threadProviders'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Spinner, Splitter, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { snippetParts, useThreadContentMatches } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, CalendarClock, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
-import type { ConversationThread } from '../../../shared/types/thread'
+import type { ConversationThread, ThreadProjectSummary } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
+import { readThreadListCache } from '../../store/threadListCache'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
@@ -51,9 +52,21 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
 }) {
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
-  const { threads, projects, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore(useShallow(state => ({
-    threads: state.threads, projects: state.projects, unavailableProjects: state.unavailableProjects, selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, errors: state.errors, loading: state.loading,
+  const { threads: liveThreads, projects: liveProjects, listLoaded, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore(useShallow(state => ({
+    threads: state.threads, projects: state.projects, unavailableProjects: state.unavailableProjects, selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, errors: state.errors, loading: state.loading, listLoaded: state.listLoaded,
     select: state.select, openSecondary: state.openSecondary, toggle: state.toggle, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds, markRead: state.markRead, markUnread: state.markUnread })))
+  // A cold start paints the last list it saw (OXE-58 CA-2), read once per mount and only until the live list is in;
+  // without one it shows a busy skeleton (CA-3), never the empty state.
+  const [cachedList] = useState(() => useThreadStore.getState().listLoaded ? null : readThreadListCache())
+  const fromCache = !listLoaded && !!cachedList && !liveThreads.length
+  const coldSkeleton = !listLoaded && !cachedList && !liveThreads.length
+  const listSource = listLoaded ? 'live' : fromCache ? 'cache' : undefined
+  const threads = useMemo(() => fromCache && cachedList
+    ? cachedList.threads.map(row => ({ ...row, workspaceId: '', rootPath: '', nativeSessionId: null }) as unknown as ConversationThread)
+    : liveThreads, [fromCache, cachedList, liveThreads])
+  const projects = useMemo<ThreadProjectSummary[]>(() => fromCache && cachedList
+    ? cachedList.projects.map(item => ({ projectId: item.projectId, displayName: item.displayName, identityLabel: '', hidden: false, contexts: [] }))
+    : liveProjects, [fromCache, cachedList, liveProjects])
   const sideBySideBlocked = (id: string): boolean => id === selectedId || id === secondaryId
   // A conversation that owns a worktree asks what to do with it before it is archived or deleted.
   const finishRequest = useThreadWorktreeFinishStore(state => state.request), askWorktreeFinish = useThreadWorktreeFinishStore(state => state.ask)
@@ -160,7 +173,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }
   ]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
-  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} aria-label={t('sidebar.region')}>
+  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} data-list-source={listSource} aria-busy={coldSkeleton ? true : undefined} aria-label={t('sidebar.region')}>
     {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
     {collapsed && <ThreadRail
       conversations={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
@@ -183,7 +196,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         <SearchField className="thread-nav-search" ref={search} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={query} onChange={setQuery} shortcut="/" />
       </div>
       <nav ref={attachList} onKeyDown={onListKeyDown} className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
-        {loading && !threads.length && <LoadingState label={t('sidebar.loading')} />}
+        {coldSkeleton
+          ? <div data-testid="thread-sidebar-skeleton"><Skeleton lines={5} label={t('sidebar.loading')} /></div>
+          : loading && !threads.length && <LoadingState label={t('sidebar.loading')} />}
         {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
         {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2>{t('sidebar.pinnedHeading')}</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).map(row)}</section>}
         {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>{t('sidebar.projects')}</h2><button type="button" aria-label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
@@ -225,7 +240,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         {/* Moves and deletes are said here, politely, as they happen. */}
         <p className="sr-only" role="status" aria-live="polite" data-testid="thread-sections-announcer">{sections.announcement}</p>
         {sections.error && <Notice intent="danger" actions={<Button size="sm" variant="ghost" onClick={sections.clearError}>{t('common.close')}</Button>}>{sections.error}</Notice>}
-        {!loading && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
+        {!loading && !coldSkeleton && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
         {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label={t('sidebar.removedProjects')}>
           <h2>{t('sidebar.removedProjects')}</h2>
           {hiddenProjects.map(id => {
@@ -275,6 +290,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           try {
             if (!window.oxe.thread?.command) throw Error(t('sidebar.restartToDelete'))
             await window.oxe.thread.command(confirmation.id, threadConfirmation('delete').command)
+            // Gone from the cached list at once, even if the reload below is slow.
+            useThreadStore.getState().dropFromListCache(confirmation.id)
             await useThreadStore.getState().load()
             setConfirmation(null)
           } catch (error) { setActionError(humanizeError(error, t('errors.action'))) }
