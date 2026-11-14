@@ -4,7 +4,8 @@
 # CURRENT benchmark harness of this commit onto each ref's e2e/ (old app code is never edited; a selector an old ref
 # lacks gives "n/a" for that metric), then samples ABC CBA ABC… for `rounds` rounds per ref. A round runs, per ref, the
 # boot probe (1 warm-up launch + 3 measured, round value = their median) and one pass of perf-benchmark,
-# memory-footprint and perceived-perf against the packaged binary.
+# memory-footprint, perceived-perf and perf-resume (/resume and the context indicator on a big transcript fixture)
+# against the packaged binary.
 # perf-gate/summarize.mjs prints per OS: metric, median per ref, Δ candidate − v1.5.1 with its 95% bootstrap CI, and
 # a verdict (REGRESSES only when the CI lies entirely above zero, improves when entirely below, else within noise).
 # The table is in the run summary and in the perf-gate-* artifacts. From the brand session's boot A/B harness
@@ -151,7 +152,7 @@ jobs:
             # Single-quoted: `source` would read the backslashes of a Windows path (D:\a\_temp) as escapes.
             printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
             # The current harness over the ref's e2e/ (only test files; the app is the ref's own build above).
-            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
               mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
             done
             cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts
@@ -183,7 +184,7 @@ jobs:
             start=$(date +%s)
             ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}" GATE_SIDE="$side" GATE_ROUND="$round"
               run perf-gate-boot.spec.ts > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log" 2>&1
-              run perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts --grep-invert "$skip" > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" 2>&1 )
+              run perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts perf-resume.spec.ts --grep-invert "$skip" > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" 2>&1 )
             echo "round $round $side: $(grep -ac '\[GATE-BOOT\].*warmup=0' "results/rounds/$side-r$round-boot.log") boots, $(grep -ac '\[RESULT\]' "results/rounds/$side-r$round-bench.log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
           }
           for r in $(seq 1 "$ROUNDS"); do

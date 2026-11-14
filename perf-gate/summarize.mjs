@@ -76,12 +76,22 @@ const METRICS = [
   { name: 'Settings, first open', unit: 'ms', read: bench('modal open:  Agent Settings', 'first') },
   { name: 'OxeChat cold open: first content', unit: 'ms', read: text => perceivedRow(text, 'OxeChat (Thread)', 'cold')?.content },
   { name: 'OxeChat cold open: sidebar blank', unit: 'ms', read: text => perceivedRow(text, 'OxeChat (Thread)', 'cold')?.sidebarBlank },
+  { name: '/resume: session list, cold (13 sessions, 320 MB)', unit: 'ms', read: bench('/resume: session list (cold)', 'first') },
+  { name: '/resume: session list, main-process stall', unit: 'ms', read: bench('/resume: session list (cold), main stall', 'first') },
+  { name: '/resume: import the 200 MB session', unit: 'ms', read: bench('/resume: import big session', 'first') },
+  { name: '/resume: import, main-process stall', unit: 'ms', read: bench('/resume: import big session, main stall', 'first') },
+  { name: '/resume: open the resumed conversation', unit: 'ms', read: bench('/resume: open resumed thread', 'first') },
+  { name: 'Context indicator: first read (200 MB)', unit: 'ms', read: bench('context indicator: first read', 'first') },
+  { name: 'Context indicator: update after a turn', unit: 'ms', read: bench('context indicator: update', 'first') },
+  { name: 'Context indicator: update, main-process stall', unit: 'ms', read: bench('context indicator: update, main stall', 'first') },
+  { name: 'Context indicator: resumed conversation', unit: 'ms', read: bench('context indicator: resumed conversation', 'first') },
   { name: 'Memory, 4 terminals (working set)', unit: 'MB', read: text => memoryLine(text, 'code only')?.workingSetTotalMb },
   { name: 'Memory, 4 terminals (private bytes)', unit: 'MB', read: text => { const v = memoryLine(text, 'code only')?.totalMb; return v > 0 ? v : undefined } },
   { name: 'Renderer entry chunk', unit: 'KB', entry: 'bytes' },
   { name: 'Renderer entry chunk (gzip)', unit: 'KB', entry: 'gzipBytes' }
 ]
-const UNCOVERED = ['/resume and the context indicator on a big transcript: no spec measures them yet']
+/** Rows printed under the table whatever their verdict (coordination, 14/11). */
+const WATCH = ['Boot: process → interactive']
 
 const roundsDir = join(dir, 'rounds')
 const files = existsSync(roundsDir) ? readdirSync(roundsDir) : []
@@ -137,7 +147,10 @@ const improve = rows.filter(r => r.verdict === 'improves').map(r => r.metric)
 const na = rows.filter(r => r.verdict.startsWith('n/a')).map(r => r.metric)
 out.push('', `**${regress.length} regress** ${regress.length ? `(${regress.join('; ')}) ` : ''}· ${improve.length} improve · ${rows.length - regress.length - improve.length - na.length} within noise · ${na.length} n/a${na.length ? ` (${na.join('; ')})` : ''}.`)
 out.push('', 'A metric regresses only if the 95% CI of (candidate − previous release) lies entirely above zero; it improves if entirely below. Medians are over the rounds; each round is one fresh run per ref (boot: the median of 3 launches after 1 warm-up; mode switch and keystrokes: the run\'s median; first open: the first open in a fresh launch).')
-out.push('', `Uncovered: ${UNCOVERED.join('; ')}.`)
+for (const name of WATCH) {
+  const row = rows.find(r => r.metric === name)
+  if (row) out.push('', `Watch: ${name} ${signed(row.delta, row.unit)} ${row.unit}${Number.isFinite(row.ci[0]) ? ` [${signed(row.ci[0], row.unit)}, ${signed(row.ci[1], row.unit)}]` : ''} → ${row.verdict}.`)
+}
 out.push('', '<details><summary>Per-round values</summary>', '')
 for (const row of rows) out.push(`- ${row.metric}: ${sides.map(side => `${side} ${rounds.map(r => fmt(row.rounds[side][r], row.unit)).join(' ')}`).join(' · ')}`)
 out.push('', '</details>')
