@@ -104,10 +104,11 @@ export function oxeCcCommand(env = process.env) {
 /**
  * The brand fidelity gate (OXE-148; the user's rule of 14/11: the release is faithful to the rebranding end to end,
  * and an interface PR enters only with the conformance test and MARCA green). A PR that touches the interface needs
- * these commit statuses green on its exact head: `marca/fidelidade`, posted by MARCA after the side-by-side check
- * against the approved target (OXE-149 adds `marca/conformidade`, its job's, with that job).
+ * these commit statuses green on its exact head: `marca/conformidade`, posted by CI's brand conformance job (the built
+ * app measured against src/design/targets; OXE-149), and `marca/fidelidade`, posted by MARCA after the side-by-side
+ * check against the approved target, for what the test does not measure.
  */
-export const BRAND_CONTEXTS = ['marca/fidelidade']
+export const BRAND_CONTEXTS = ['marca/conformidade', 'marca/fidelidade']
 const INTERFACE_PATHS = [
   /^src\/.+\.(tsx|css)$/,
   /^src\/(design|styles|ui)\//,
@@ -135,7 +136,7 @@ export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
  */
 export function buildSteps({ origin = false, base = 'origin/main', ...rest }) {
   const steps = changeSteps({ base, ...rest })
-  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
+  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (CI and MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
   return origin ? [{ name: `origin of every commit since the cut (oxe-cc ship check-origin ${base}..HEAD)`, kind: 'origin', args: [`${base}..HEAD`] }, ...steps] : steps
 }
 
