@@ -1,6 +1,7 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
+import { APP_VERSION } from './services/app-info'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy } from './renderer-recovery'
@@ -730,7 +731,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     void startRpcServer({
       db,
       gitHubService,
-      appVersion: app.getVersion(),
+      appVersion: APP_VERSION,
       userDataPath: app.getPath('userData'),
       onError: (error) => log.warn('[rpc] transport error:', error.message)
     })
@@ -952,7 +953,8 @@ const gotLock = singleInstanceDisabled({
 if (!gotLock) {
   app.quit()
 } else {
-  startRuntimeDiagnostics(join(app.getPath('userData'), 'diagnostics'), app.getVersion())
+  const diagnosticsDir = join(app.getPath('userData'), 'diagnostics')
+  startRuntimeDiagnostics(diagnosticsDir, APP_VERSION)
   app.on('child-process-gone', (_event, details) => {
     recordRuntime('child-gone', { kind: details.type, state: details.reason, exitCode: details.exitCode })
   })
@@ -963,11 +965,9 @@ if (!gotLock) {
     markAppReady()
     const deferredInit = await measureStartup('ipc-handlers', registerIpcHandlers)
     const mainWindow = trackWindowStartup(measureStartup('window-create', createMainWindow))
-    // Kick off the heavy, non-critical startup work once the window is painting.
-    // Idempotent + fallback: if ready-to-show never fires (renderer fails to load,
-    // render-process-gone, or a slow first paint), a 3s timer still runs the
-    // deferred init so the internal MCP server / config sync don't silently never
-    // start. setImmediate yields so the first frame lands before the heavy work.
+    // Kick off the heavy, non-critical startup work once the window is painting. Idempotent + fallback: if ready-to-show
+    // never fires (load failure, render-process-gone, slow first paint), a 3s timer still runs the deferred init so the
+    // internal MCP server / config sync always start. setImmediate yields so the first frame lands before the heavy work.
     let kicked = false
     const kick = (): void => {
       if (kicked) return
