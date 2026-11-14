@@ -69,9 +69,12 @@ class LiveTabBarTest(private val fontScale: Float, private val locale: String) {
     }
 
     /** A tab as TalkBack reads it, and the text drawn inside it with how it was laid out. */
-    private class Tab(val selected: Boolean, val text: String, val description: String, val state: String?, val layouts: List<TextLayoutResult>)
+    private class Tab(val selected: Boolean, val text: String, val description: String, val state: String?, val layouts: List<TextLayoutResult>, val innerRoles: List<Role>)
 
     private class Bar(val tabs: List<Tab>, val names: Map<LiveTab, String>, val waiting: String)
+
+    private fun innerRoles(node: SemanticsNode): List<Role> =
+        node.children.flatMap { child -> listOfNotNull(child.config.getOrNull(SemanticsProperties.Role)) + innerRoles(child) }
 
     private fun layouts(node: SemanticsNode): List<TextLayoutResult> {
         val own = mutableListOf<TextLayoutResult>()
@@ -101,6 +104,7 @@ class LiveTabBarTest(private val fontScale: Float, private val locale: String) {
                                 description = node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty().joinToString(" "),
                                 state = node.config.getOrNull(SemanticsProperties.StateDescription),
                                 layouts = layouts(unmerged),
+                                innerRoles = innerRoles(unmerged),
                             )
                         }
                     val names = labels.mapValues { resources.getString(it.value) }
@@ -155,6 +159,7 @@ class LiveTabBarTest(private val fontScale: Float, private val locale: String) {
                     assertEquals("\"$name\" is an icon only at font x$fontScale (open: $selected, $locale)", "", tab.text)
                     assertTrue("\"$name\" draws no label at font x$fontScale (open: $selected, $locale)", tab.labelLayouts(name).isEmpty())
                     assertEquals("\"$name\" keeps its name for TalkBack", name, tab.description)
+                    assertTrue("\"$name\" reads as a tab, not as an image inside it", Role.Image !in tab.innerRoles)
                 }
                 if (LiveTab.entries[i] == LiveTab.REQUESTS) assertEquals("Requests says how many wait", bar.waiting, tab.state)
             }

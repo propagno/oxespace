@@ -169,8 +169,12 @@ fun LiveHome(
                             onClick = { tab = item },
                             // TalkBack reads the count with the tab, not only the bare number of the badge. When the
                             // labels don't fit (BRD-07), the open tab is wider so its label is whole.
+                            // An icon-only tab keeps its name for TalkBack, on the tab itself so it reads as before.
                             modifier = Modifier.weight(if (fit.compact && selected) fit.openWeight else 1f)
-                                .semantics { if (waiting != null) stateDescription = waiting },
+                                .semantics {
+                                    if (!showLabel) contentDescription = label
+                                    if (waiting != null) stateDescription = waiting
+                                },
                             alwaysShowLabel = !fit.compact,
                             // One line that shrinks with large text, never under 11 sp and never cut in a word.
                             label = if (showLabel) {
@@ -188,14 +192,12 @@ fun LiveHome(
                                 null
                             },
                             icon = {
-                                // An icon-only tab keeps its name for TalkBack.
-                                val name = if (showLabel) null else label
                                 if (waiting != null) {
                                     BadgedBox(badge = { Badge(containerColor = Oxe.colors.attnBg, contentColor = Oxe.colors.attnFg, modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
-                                        Icon(item.icon, contentDescription = name)
+                                        Icon(item.icon, contentDescription = null)
                                     }
                                 } else {
-                                    Icon(item.icon, contentDescription = name)
+                                    Icon(item.icon, contentDescription = null)
                                 }
                             },
                         )
