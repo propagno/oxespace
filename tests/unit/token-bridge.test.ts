@@ -14,8 +14,9 @@
 //   name counts as that name's snapshot value). RETIRED_TOKEN_NAMES may also list a generated name the generator renamed
 //   (T18, the short canonical names): a token is then followed through it. A name a component sets from TS (App.tsx
 //   sets --sidebar-w inline) counts as declared. Whatever replaced --nav-row-h keeps 40px in the comfortable density.
-// - "a ponte acabou" (CA-6) is T18's and is asserted in tests/unit/token-generator.test.ts; here it stays a todo. The
-//   bridge is read only when it exists, so these cases still hold after T18 deletes it.
+// - "a ponte acabou" (CA-6) stays a todo after F4: the brand session keeps --fs-2xl (22px, outside the scale) in the
+//   bridge until the titles that read it move to the scale in their BRDs (BRD-05, BRD-06...). T18's ratchet (the bridge
+//   keeps only --fs-2xl) is tests/unit/token-generator.test.ts. The bridge is read only when it exists.
 // The CSS files are the product here, so reading them as text is the behaviour under test, not a source-text proxy
 // (allowed). Not covered here: CA-3 (+1 kB raw CSS per lot against main) is the CI [bundle] line; colors and sizes on
 // screen are the desktop visual goldens and the phone Paparazzi goldens, which stay unchanged (CA-4 end to end).
@@ -156,7 +157,7 @@ describe('token bridge', () => {
     }
   })
 
-  test.todo('a ponte acabou: the bridge file is gone and nothing in src/ reads a name only it declared (OXE-137 CA-6; asserted by T18 in tests/unit/token-generator.test.ts)')
+  test.todo('a ponte acabou: the bridge file is gone and nothing in src/ reads a name only it declared (OXE-137 CA-6; after --fs-2xl leaves with its BRDs)')
 
   test('a legacy color name still in the bridge follows a semantic token, not a literal', () => {
     for (const name of ['bg-app', 'bg-elevated', 'tx-primary', 'tx-muted', 'wb-border']) {

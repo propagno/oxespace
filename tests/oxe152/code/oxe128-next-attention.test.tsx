@@ -25,15 +25,22 @@
 // - src/keyboard/keybindings.ts gains { id: 'attention.next', chords: ['Mod+Shift+U'], scope: 'global',
 //   reservedInTerminal: true } (Cmd+Shift+U on macOS; it works from a focused terminal), with no collision; its label
 //   (keys.bindings.attention.next) is "Ir para o próximo que precisa de você" in pt-BR; the shortcut guide lists it in
-//   OxeCode and OxeChat, and the command bar has a command with shortcut 'attention.next' and that action text.
+//   OxeCode and OxeChat, and the command bar has a command with shortcut 'attention.next' and that action text. There is
+//   no second default chord for Linux: the command is in the palette and can be rebound in Settings › Keyboard; the HML
+//   checks IBus, which may take Ctrl+Shift+U.
 // Contract, T21 ("OXE-128 ring"):
 // - PaneContainer's header (<header class="pane-header">) carries data-attention="true" while the pane needs the
 //   person; the attribute goes when the pane leaves the state, or at the first key pressed in the pane (a keydown inside
 //   the pane container) until the pane leaves and enters the state again.
-// - The CSS draws it as a 2 px ring in var(--attn) by box-shadow on that attribute; no rule on data-attention sets a
-//   height, padding, margin, border or line-height (the header keeps its height: --bar-md, 32 px compact / 36 px
-//   comfortable, both themes). No such rule animates with !important or under a *spin* class, so the reduced-motion rule
-//   of src/styles/base.css stops any pulse (CA-7). The CSS is the product, so reading it as text is allowed here.
+// - The CSS draws it as an outline on that attribute, `outline: 2px solid var(--attn); outline-offset: -2px` (brand
+//   session and coordination, 14/11): the workspace color stripe stays the header's box-shadow
+//   (src/design/workspace-color.css, unchanged), so neither hides the other, and in forced colors the box-shadow goes
+//   while the outline stays. No rule on data-attention sets a box-shadow, a height, padding, margin, border or
+//   line-height: the ring does not change the header's height, whatever height the header has (measured below with the
+//   app's own rules before and after the attribute; the 32 px header comes later with BRD-14). No such rule animates
+//   with !important or under a *spin* class, so the reduced-motion rule of src/styles/base.css stops any pulse (CA-7).
+//   forced-colors.css takes no outline away from it. The CSS is the product, so reading it as text is allowed here.
+// - The brand session confirms the look on the PR (its pixels are e2e/HML).
 // Not here: focus landing in the terminal or the composer, and the ring's pixels, are e2e/HML; CA-8 (perf budget) is the
 // CI perf-gate and the bundle report.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -238,12 +245,40 @@ describe('OXE-128 ring · the waiting pane wears a ring', () => {
     expect(header).not.toHaveAttribute('data-attention', 'true')
   }, 30_000)
 
-  test('CA-5 · the ring is a 2 px box-shadow in --attn and changes no size', () => {
+  test('CA-5 · the ring is a 2 px outline in --attn with a negative offset; the workspace stripe stays a box-shadow', () => {
     const rules = attentionRules()
     expect(rules.length, 'no CSS rule on data-attention').toBeGreaterThan(0)
-    const shadows = rules.flatMap(rule => [...rule.body.matchAll(/box-shadow\s*:\s*([^;]+)/g)].map(found => found[1]))
-    expect(shadows.some(value => /\b2px\b/.test(value) && /var\(--attn\)/.test(value)), 'a 2px box-shadow in var(--attn)').toBe(true)
-    for (const rule of rules) expect(rule.body, `${rule.path}: ${rule.selector}`).not.toMatch(/(?:^|[;\s{])(?:height|min-height|max-height|padding(?:-[a-z]+)?|margin(?:-[a-z]+)?|border(?:-(?:top|bottom|left|right|block|inline))?(?:-width)?|line-height)\s*:/)
+    const body = rules.map(rule => rule.body).join(';')
+    expect(body, 'outline: 2px solid var(--attn)').toMatch(/(?:^|[;\s{])outline\s*:\s*2px\s+solid\s+var\(--attn\)/)
+    expect(body, 'a negative outline-offset').toMatch(/(?:^|[;\s{])outline-offset\s*:\s*-\d/)
+    for (const rule of rules) expect(rule.body, `${rule.path}: ${rule.selector}`).not.toMatch(/(?:^|[;\s{])(?:box-shadow|height|min-height|max-height|padding(?:-[a-z]+)?|margin(?:-[a-z]+)?|border(?:-(?:top|bottom|left|right|block|inline))?(?:-width)?|line-height)\s*:/)
+    const stripe = readFileSync(join(process.cwd(), 'src/design/workspace-color.css'), 'utf8')
+    expect(stripe).toContain('.pane-container > .pane-header[data-ws] { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--ws) 70%, transparent); }')
+    expect(stripe).toContain('.pane-container:focus-within > .pane-header[data-ws] { box-shadow: inset 0 2px 0 var(--ws); }')
+    const forced = readFileSync(join(process.cwd(), 'src/styles/forced-colors.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const found of forced.matchAll(/([^{}]*(?:data-attention|pane-header)[^{}]*)\{([^{}]*)\}/g)) expect(found[2], found[1].trim()).not.toMatch(/outline(?:-style)?\s*:\s*(?:none|0)/)
+  })
+
+  test('CA-5 · the ring does not change the header: the same box before and after data-attention, under the app rules (guard: holds today, must hold with the ring)', () => {
+    // The app's own rules for the pane header (wherever they live) and for data-attention, applied by jsdom's cascade.
+    const sheets = cssSources().filter(({ text }) => /\.pane-header|data-attention/.test(text))
+    const style = document.createElement('style')
+    style.textContent = sheets.map(sheet => sheet.text.replace(/@(?:container|layer)[^{;]*\{/g, '@media all {')).join(String.fromCharCode(10))
+    document.head.append(style)
+    const pane = document.createElement('div')
+    pane.className = 'pane-container active'
+    const header = document.createElement('header')
+    header.className = 'pane-header'
+    header.dataset.ws = '1'
+    pane.append(header)
+    document.body.append(pane)
+    const BOX = ['height', 'min-height', 'max-height', 'padding-top', 'padding-bottom', 'padding-left', 'padding-right', 'margin-top', 'margin-bottom',
+      'border-top-width', 'border-bottom-width', 'border-left-width', 'border-right-width', 'line-height', 'box-shadow']
+    const measure = () => Object.fromEntries(BOX.map(name => [name, getComputedStyle(header).getPropertyValue(name)]))
+    const before = measure()
+    header.setAttribute('data-attention', 'true')
+    expect(measure()).toEqual(before)
+    style.remove()
   })
 
   test('CA-7 · movimento reduzido: the ring never pulses past the reduced-motion rule', () => {

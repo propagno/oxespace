@@ -10,13 +10,15 @@
 //   Button (data-ui="button", data-variant="primary"), not a raw <button>.
 // - CA-2 (guard, holds today): Ctrl+Enter in the comment box saves the comment and sends nothing.
 // - CA-3 (OxeCode): the send pastes formatDiffComments(<the pending comments>) into the workspace's agent terminal as
-//   one bracketed paste, with no Enter (shared/types/diff-comments.ts, src/lib/sendToAgent.ts). The conversation
-//   destination is an open question of the plan and is not asserted here.
+//   one bracketed paste, with no Enter (shared/types/diff-comments.ts, src/lib/sendToAgent.ts). F4 covers OxeCode's
+//   ChangesPanel only (coordination 14/11); the conversation side is OXE-150 (1.5.3).
 // - CA-4 (guard, holds today): for 3 comments in 2 files the text carries, for each, the file, the side (old/new), the
 //   line number and the line's content.
 // - CA-5: a send that worked marks each sent comment `sentAt` (ms) in src/store/diff-comments.store.ts, keeps it (it is
 //   not cleared), and takes it out of the count; a send that failed leaves every comment pending, and the panel says so
-//   in a role="status" notice.
+//   in a role="status" notice whose text comes from both catalogs (en and pt-BR, never a raw key) and which carries the
+//   action "Tentar de novo" (en: "Try again", a src/ui Button): pressing it sends the pending comments again
+//   (coordination 14/11).
 // - CA-6: `sentAt` is persisted with the comments (the store's persist key, oxe-diff-comments-v1), so it survives a
 //   restart. In the diff, a sent comment's card says "Enviado" (en: "Sent") with the time (HH:MM), and it stays while its
 //   line still reads as it did when the comment was made (lineContent); once that line changes it is no longer shown.
@@ -152,7 +154,7 @@ describe('OXE-129 · send the diff line comments to the agent', () => {
     expect(text).toContain('File: src/b.ts\nLine: 4 (new side)\nCode: export const b = 2\nUser comment: add a test')
   })
 
-  test('CA-5 · enviado e erro: a send that worked marks the comments sent and takes them out of the count; one that failed keeps them all pending', async () => {
+  test('CA-5 · enviado e erro: a send that worked marks the comments sent and takes them out of the count; one that failed keeps them all pending and offers Tentar de novo', async () => {
     const before = Date.now()
     await renderCode()
     fireEvent.click(await sendButton('Enviar 3 comentários ao agente'))
@@ -164,10 +166,31 @@ describe('OXE-129 · send the diff line comments to the agent', () => {
     useDiffCommentsStore.setState({ comments: [SENT, ...PENDING, OTHER] })
     await renderCode([])
     fireEvent.click(await sendButton('Enviar 3 comentários ao agente'))
-    const notice = await screen.findByRole('status', {}, { timeout: 10_000 })
-    expect(notice.textContent?.trim()).not.toBe('')
+    const retry = await screen.findByRole('button', { name: 'Tentar de novo' }, { timeout: 10_000 })
+    const notice = retry.closest('[role="status"]') as HTMLElement
+    expect(notice, 'the "Tentar de novo" action sits in the role="status" failure notice').not.toBeNull()
+    expect(retry).toHaveAttribute('data-ui', 'button')
+    expect(notice.textContent?.replace('Tentar de novo', '').trim()).not.toBe('')
+    expect(notice.textContent).not.toMatch(/changes\.comments\.|agentPaste\./)
+    const textPt = notice.textContent
     expect(useDiffCommentsStore.getState().comments.filter(item => (item as { sentAt?: number }).sentAt !== undefined).map(item => item.id)).toEqual(['c0'])
     expect(await sendButton('Enviar 3 comentários ao agente')).toBeInTheDocument()
+    // The agent's terminal is back: "Tentar de novo" sends the pending comments again.
+    useWorkspaceStore.setState({ workspaces: [workspace([pane])] })
+    fireEvent.click(retry)
+    await waitFor(() => expect(useDiffCommentsStore.getState().comments.filter(item => (item as { sentAt?: number }).sentAt !== undefined).map(item => item.id).sort()).toEqual(['c0', 'c1', 'c2', 'c3']))
+    cleanup()
+
+    await changeLanguage('en')
+    useDiffCommentsStore.setState({ comments: [SENT, ...PENDING, OTHER] })
+    await renderCode([])
+    fireEvent.click(await sendButton(/^Send 3 comments to the agent$/i))
+    const retryEn = await screen.findByRole('button', { name: 'Try again' }, { timeout: 10_000 })
+    const noticeEn = retryEn.closest('[role="status"]') as HTMLElement
+    expect(noticeEn).not.toBeNull()
+    expect(noticeEn.textContent?.replace('Try again', '').trim()).not.toBe('')
+    expect(noticeEn.textContent).not.toMatch(/changes\.comments\.|agentPaste\./)
+    expect(noticeEn.textContent).not.toBe(textPt)
   }, 40_000)
 
   test('CA-6 · Enviado persiste até a linha mudar: sentAt survives a restart, and the sent card shows "Enviado" and the time until its line changes', async () => {
