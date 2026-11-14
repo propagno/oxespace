@@ -20,7 +20,7 @@ import { nativeSessionExists, type NativeSessionRoots } from './agent-state/nati
 import { PtyModeTracker } from './pty-mode-tracker'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
-import { SizeLeases } from './terminal/size-lease'
+import { SizeLeases } from './terminal/size-lease'; import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
 import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 import { assertProviderAllowed, inheritedEnvironment } from './policy'
@@ -478,10 +478,7 @@ export class TerminalManager {
         this.clearSession?.(input.paneId)
       }
       this.sessions.delete(input.paneId)
-      // A pane that exits while a phone holds it keeps the desktop's size for its next start, not the phone's.
-      const desktop = this.sizes.desktopSize(input.paneId)
-      if (session && desktop) { session.cols = desktop.cols; session.rows = desktop.rows }
-      this.sizes.forget(input.paneId)
+      keepDesktopSize(this.sizes, input.paneId, session); this.sizes.forget(input.paneId) // a held pane's next start is at the desktop's size
       session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
@@ -845,9 +842,7 @@ export class TerminalManager {
     // A pane whose process exited by itself restarts as it last started; a pane that was stopped stays stopped.
     const session = this.sessions.get(input.paneId) ?? (this.takeExited(input.paneId) ? this.lastStarts.get(input.paneId) : undefined)
     if (!session) return
-    const { workspaceId, agentCommand, resumeAgent } = session
-    // A phone's held size is never the desktop's: the new process starts at the desktop's own fit (T18-b).
-    const { cols, rows } = this.sizes.desktopSize(input.paneId) ?? session
+    const { workspaceId, agentCommand, resumeAgent } = session, { cols, rows } = desktopStartSize(this.sizes, input.paneId, session) // T18-b
     // B17 · `resume: false` starts fresh and forgets the session, so a later crash does not bring it back. A fresh
     // Claude then gets a new session id of main's, recorded as the pane's session.
     let fresh: PaneAgentResume | undefined
