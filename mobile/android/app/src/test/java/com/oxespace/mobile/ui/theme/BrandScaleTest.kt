@@ -15,7 +15,7 @@ import java.io.File
  * as the desktop run (e2e/brand/brand-conformance.spec.ts). A measure turns enforced in the PR that delivers BRD-07.
  */
 class BrandScaleTest {
-    private val repo: File = generateSequence(File(System.getProperty("user.dir")).absoluteFile) { it.parentFile }
+    private val repo: File = generateSequence(File(".").absoluteFile) { it.parentFile }
         .first { File(it, "src/design/targets/brd-07.json").isFile }
     private val main = File(repo, "mobile/android/app/src/main/java")
 
