@@ -50,11 +50,20 @@ private val markVector: ImageVector = ImageVector.Builder(
     fill = SolidColor(OxeIdentity.logoMark),
 ).build()
 
+/** The app icon's geometry, shared by every drawing of the mark. */
+object OxeMark {
+    /**
+     * The tile's corner as a share of its side: resources/icon.svg's rx 11 of 48 (src/design/brand.ts TILE_RADIUS), so
+     * the in-app mark keeps the launcher icon's shape at any size. The one corner not taken from OxeRadius (BRD-07).
+     */
+    const val TILE_RADIUS_RATIO = 0.23f
+}
+
 /** The app icon: the caatinga Ramo on the night tile, the same in both modes. Decorative (the screen's title names the app). */
 @Composable
 fun OxeMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
     Box(
-        modifier.size(size).background(OxeIdentity.logoTile, RoundedCornerShape(size * 0.23f)).clearAndSetSemantics {},
+        modifier.size(size).background(OxeIdentity.logoTile, RoundedCornerShape(size * OxeMark.TILE_RADIUS_RATIO)).clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         Icon(markVector, contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(size * 0.75f))
