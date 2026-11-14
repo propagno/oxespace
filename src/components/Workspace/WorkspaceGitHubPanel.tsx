@@ -24,10 +24,7 @@ interface WorkspaceGitHubPanelProps {
 export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabChange, onToggleExpanded, scope, workspace }: WorkspaceGitHubPanelProps): ReactElement {
   const [advancedGitHub, setAdvancedGitHub] = useState(false)
   const openFiles = (): void => {
-    void (async () => {
-      await useWorkspaceStore.getState().updateGitHubState({ workspaceId: workspace.id, githubPanelVisible: false, githubPanelExpanded: false })
-      await useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true, editorExpanded: false, editorWidthPercent: workspace.githubPanelWidthPercent ?? 48 })
-    })()
+    void useWorkspaceStore.getState().showRepositoryView(workspace.id, 'files')
   }
 
   return (

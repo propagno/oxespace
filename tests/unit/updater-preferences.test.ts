@@ -14,6 +14,9 @@ vi.mock('node:fs', async importOriginal => {
   return { ...actual, default: { ...actual, readFileSync, writeFileSync }, readFileSync, writeFileSync }
 })
 
+// The updater reads the app's own version (APP_VERSION), never Electron's; pin it so the release fixtures stay newer.
+vi.mock('../../electron/main/services/app-info', async importOriginal => ({ ...await importOriginal<typeof import('../../electron/main/services/app-info')>(), APP_VERSION: '1.3.1' }))
+
 const { normalizeUpdatePreferences, updatePolicy, setUpdatePreferences, checkForAppUpdates, defaultChannel } = await import('../../electron/main/updater')
 
 afterEach(() => vi.unstubAllGlobals())
