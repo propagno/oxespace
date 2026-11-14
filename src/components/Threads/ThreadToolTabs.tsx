@@ -3,11 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
 import { PlacesChanges } from './PlacesChanges'
 import { placesBridge } from './placesModel'
-import { PullRequestTab } from './PullRequestTab'
-import { ThreadTerminalTab } from './ThreadTerminalTab'
 
 const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
-const ThreadNetworkPanel = lazy(() => import('./ThreadNetworkPanel').then(module => ({ default: module.ThreadNetworkPanel })))
 const ActivityPanel = lazy(() => import('../OxeQuery/ActivityPanel').then(module => ({ default: module.ActivityPanel })))
 const ContainersPanel = lazy(() => import('../Containers/ContainersPanel').then(module => ({ default: module.ContainersPanel })))
 
@@ -24,12 +21,9 @@ const DEFAULT_TABS: ThreadToolTabEntry[] = [{ tab: 'conversation', count: null }
 
 const TAB_KEY = {
   conversation: 'threadTabs.conversation',
-  terminal: 'threadTabs.terminal',
   queries: 'threadTabs.queries',
-  network: 'threadTabs.network',
   containers: 'threadTabs.containers',
-  changes: 'threadTabs.changes',
-  pullRequest: 'threadTabs.pullRequest'
+  changes: 'threadTabs.changes'
 } as const satisfies Record<ThreadTabId, string>
 
 function bridge(): ToolTabsBridge | undefined {
@@ -59,7 +53,8 @@ export function ThreadToolTabs(props: {
     const load = (): void => {
       if (!api?.thread?.toolTabs) return
       void api.thread.toolTabs(threadId).then(
-        next => { if (alive && Array.isArray(next) && next.length > 0) setEntries(next) },
+        // A tab this window doesn't know (one that left, from a main that still lists it) is not drawn.
+        next => { if (alive && Array.isArray(next) && next.length > 0) setEntries(next.filter(entry => entry.tab in TAB_KEY)) },
         () => undefined
       )
     }
@@ -98,19 +93,13 @@ export function ThreadToolTabs(props: {
   const pBridge = placesBridge()
   const hasPlaces = Boolean(pBridge?.places && pBridge.placeDiff)
 
-  const content = current === 'terminal'
-    ? <ThreadTerminalTab threadId={threadId} />
-    : current === 'pullRequest' && rootPath && branch
-      ? <PullRequestTab threadId={threadId} rootPath={rootPath} branch={branch} onSendToConversation={onSendToConversation} />
-      : current === 'changes' && workspaceId && rootPath
+  const content = current === 'changes' && workspaceId && rootPath
         ? (hasPlaces
             ? <PlacesChanges threadId={threadId} workspaceId={workspaceId} onSend={onSendToConversation} />
             : <Suspense fallback={null}><ChangesPanel workspaceId={workspaceId} rootPath={rootPath} onSendComments={onSendToConversation ? text => { onSendToConversation(text); return true } : undefined} /></Suspense>)
         : current === 'queries' && workspaceId
           ? <Suspense fallback={null}><ActivityPanel active scope="database" /></Suspense>
-          : current === 'network' && workspaceId
-            ? <Suspense fallback={null}><ThreadNetworkPanel threadId={threadId} workspaceId={workspaceId} /></Suspense>
-            : current === 'containers' && workspaceId
+          : current === 'containers' && workspaceId
               ? <Suspense fallback={null}><ContainersPanel /></Suspense>
               : null
 
@@ -120,7 +109,7 @@ export function ThreadToolTabs(props: {
         <div role="tablist" className="thread-tabs" aria-label={t('threadTabs.label')}>
           {entries.map(entry => {
             const isSelected = entry.tab === current
-            const showCount = typeof entry.count === 'number' && entry.tab !== 'pullRequest'
+            const showCount = typeof entry.count === 'number'
             return (
               <button
                 key={entry.tab}

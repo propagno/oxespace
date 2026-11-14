@@ -3,10 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu } from '../../ui'
 import { modelChipState } from './composerModel'
-
-function capitalize(value: string): string {
-  return value ? value[0].toUpperCase() + value.slice(1) : value
-}
+import { effortLabel } from './effortLabel'
 
 export function ComposerChips(props: {
   mode: string
@@ -102,7 +99,7 @@ export function ComposerChips(props: {
             {
               type: 'radio',
               value: effort ?? efforts[0],
-              options: efforts.map(option => ({ value: option, label: capitalize(option) })),
+              options: efforts.map(option => ({ value: option, label: effortLabel(t, option) })),
               onValueChange: value => {
                 onChange({ effort: value })
                 requestAnimationFrame(() => effortRef.current?.focus())
@@ -111,7 +108,7 @@ export function ComposerChips(props: {
           ]}
           trigger={
             <Button ref={effortRef} size="sm" variant="ghost" className="thread-chip is-effort">
-              <span>{effort ? capitalize(effort) : t('config.automatic')}</span>
+              <span>{effort ? effortLabel(t, effort) : t('config.automatic')}</span>
               <ChevronDown size={12} aria-hidden="true" />
             </Button>
           }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from 'react-i18next'
 import { Pin, X } from 'lucide-react'
 import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, type CellRange, type CopyFormat } from './grid-format'
-import { EMPTY_FILTER, isFiltering, pinColumns, pinOffsets, viewOrder, type GridFilter } from './grid-model'
+import { EMPTY_FILTER, autoColumnWidth, isFiltering, pinColumns, pinOffsets, viewOrder, type GridFilter } from './grid-model'
 import { Select } from '../../ui/Field'
 
 // The formatters live in grid-format.ts; these stay importable from here.
@@ -74,9 +74,9 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
 
   const visible = useMemo(() => pinColumns(columns.map((_, index) => index).filter(index => !hidden.has(index)), pinned), [columns, hidden, pinned])
   const autoWidths = useMemo(() => columns.map((name, index) => {
-    const sample = rows.slice(0, 50).reduce((longest, row) => Math.max(longest, shown(row[index]).length), name.length)
-    return Math.max(80, Math.min(sample * 8 + 24, 420))
-  }), [columns, rows])
+    const sample = rows.slice(0, 50).reduce((longest, row) => Math.max(longest, shown(row[index]).length), 0)
+    return autoColumnWidth(name, types?.[index], sample)
+  }), [columns, rows, types])
   const baseWidth = useCallback((index: number): number => overrides[index] ?? autoWidths[index], [overrides, autoWidths])
   // A narrow result fills the pane: the last column takes what the others leave.
   const naturalTotal = visible.reduce((sum, index) => sum + baseWidth(index), 0) + INDEX_WIDTH

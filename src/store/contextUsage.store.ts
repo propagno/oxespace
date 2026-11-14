@@ -3,12 +3,12 @@ import { emptyContextUsage, type ContextUsageChip, type ContextUsageInput } from
 import { humanizeError } from '../utils/humanizeError'
 
 /**
- * Live context-window % per (provider + workspace root). Sourced via IPC
- * (`context-usage:get`) and polled ~every 5s by the chip so it tracks each
- * agent turn. Keyed so panes of different agents/roots don't clobber each other.
+ * Live context-window % per pane (provider + workspace root + pane). Sourced via IPC
+ * (`context-usage:get`) and polled by the chip so it tracks each agent turn. Keyed per
+ * pane (A7) so two sessions in the same folder never show each other's figure.
  */
 function keyOf(input: ContextUsageInput): string {
-  return `${input.provider}|${input.workspaceRootPath}`
+  return `${input.provider}|${input.workspaceRootPath}|${input.paneId ?? ''}`
 }
 
 interface ContextUsageState {

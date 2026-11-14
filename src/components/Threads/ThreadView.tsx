@@ -53,7 +53,6 @@ import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
 import { ThreadDockChanges } from './ThreadDockChanges'
-import { ThreadBackgroundShells } from './ThreadBackgroundShells'
 import { ThreadPromptNavigator } from './ThreadPromptNavigator'
 import { useThreadScrollAnchor } from './useThreadScrollAnchor'
 import { isAccountUnavailable, threadError } from './threadError'
@@ -69,6 +68,7 @@ import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish
 import './ThreadWorkbench.css'
 import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
+import { openExternalLink } from '../../lib/externalLinks'
 
 export function ThreadView({ workspace, threadId, active = true, cell, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; cell?: 'primary' | 'secondary'; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
   const { t } = useTranslation('thread')
@@ -96,11 +96,11 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const [openControl, setOpenControl] = useState<'model' | 'effort' | 'permissions' | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [delegationOpen, setDelegationOpen] = useState(false)
-  const [prThreadId, setPrThreadId] = useState<string | null>(null)
+  const [prOfThread, setPrOfThread] = useState<{ threadId: string; url: string | null } | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), actionInFlight = useRef(false)
   // T40: its own PR closed or merged, the conversation offers to archive itself (src/components/Threads/usePrArchiveOffer.ts).
   const onPrStatus = usePrArchiveOffer(snapshot?.thread)
-  const hasPullRequest = Boolean(snapshot && prThreadId === snapshot.thread.id)
+  const hasPullRequest = Boolean(snapshot && prOfThread?.threadId === snapshot.thread.id)
   const scroll = useThreadScrollAnchor(snapshot, shownId)
   const { timeline, scrollEnd } = scroll
   // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
@@ -379,9 +379,8 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       void action(() => sendApi(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))
       return
     }
-    if (act === 'open-pr') {
-      workbench.current?.querySelector<HTMLElement>('.thread-tabs [role="tab"]:last-of-type')?.click()
-    }
+    // The pull request opens on its provider's site, as the PR bar's own Open does (the Pull request tab left in 1.5.2).
+    if (act === 'open-pr' && hasPullRequest && prOfThread?.url) void openExternalLink(prOfThread.url, { source: 'github' })
   }
   const welcomeStarters = useMemo(() => threadStarters(), [t])
   const [activeToolTab, setActiveToolTab] = useState<ThreadTabId>('conversation')
@@ -444,11 +443,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {(error || !api) && <div className="thread-action-error"><ErrorState compact title={error || t('view.serviceUnavailable')} detail={errorDetail || undefined} actions={error && <>
         {errorDetail && onAccounts ? <Button size="sm" onClick={() => { setError(''); setErrorDetail(''); onAccounts() }}>{t('view.connectAgent')}</Button> : null}
         <Button size="sm" variant="ghost" onClick={() => { setError(''); setErrorDetail('') }}>{t('view.dismissError')}</Button></>} /></div>}
-      {snapshot && <ThreadBackgroundShells threadId={snapshot.thread.id} />}
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
       {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
-      {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrThreadId(pr ? snapshot.thread.id : null); onPrStatus(pr) }} />}
+      {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={stopTurn} />

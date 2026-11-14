@@ -4,12 +4,12 @@
     "open": "Cor do workspace…",
     "auto": "Cor automática",
     "swatch": {
-      "1": "Caatinga",
-      "2": "Sertão",
+      "1": "Velho Chico",
+      "2": "Anil",
       "3": "Açude",
       "4": "Juazeiro",
       "5": "Xique-xique",
-      "6": "Barro",
+      "6": "Coroa-de-frade",
       "7": "Fim de tarde",
       "8": "Pedra"
     }
@@ -1162,6 +1162,7 @@
     "menuUnavailable": "Não foi possível carregar o menu. Tente de novo."
   },
   "statusBar": {
+    "agentsWorking_zero": "Nenhum agente trabalhando",
     "agentsWorking_one": "{{count}} agente trabalhando",
     "agentsWorking_many": "{{count}} agentes trabalhando",
     "agentsWorking_other": "{{count}} agentes trabalhando",

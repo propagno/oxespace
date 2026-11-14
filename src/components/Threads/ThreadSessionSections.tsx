@@ -100,11 +100,13 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
         {context.reserved > 0 && row('reserved', t('sessionPanel.context.reserved'), context.reserved, 'reserved')}
       </tbody>
     </table>
+    <div className={styles.notes}>
     {!context.itemized && <p className={styles.note}>{t('sessionPanel.context.notItemized', { provider: threadProductName(thread.provider) })}</p>}
     {context.deferred > 0 && <p className={styles.note}>{t('sessionPanel.context.deferred', { tokens: compactTokens(context.deferred) })}</p>}
     {context.autoCompactAt !== undefined && <p className={styles.note}>{t('sessionPanel.context.autoCompact', { tokens: compactTokens(context.autoCompactAt) })}</p>}
     {cost && cost.turns > 0 && <p className={styles.note}>{t(cost.source === 'codex-token-usage' || cost.source === 'antigravity-usage' ? 'sessionPanel.context.cost' : 'sessionPanel.context.costReported', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
     <p className={styles.note}>{t('sessionPanel.context.capturedAt', { time: formatClock(context.capturedAt, { hour: '2-digit', minute: '2-digit' }) })}</p>
+    </div>
     {compactButton}
   </>
 }

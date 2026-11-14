@@ -11,6 +11,9 @@ vi.mock('electron-log/main.js', () => ({
   default: { info: () => undefined, warn: () => undefined }
 }))
 
+// The updater reads the app's own version (APP_VERSION), never Electron's; pin it so the release fixtures stay newer.
+vi.mock('../../electron/main/services/app-info', async importOriginal => ({ ...await importOriginal<typeof import('../../electron/main/services/app-info')>(), APP_VERSION: '0.14.2' }))
+
 const { updaterSupportsThisInstall, isNewerRelease, newestVersion, checkForAppUpdates } = await import('../../electron/main/updater')
 
 afterEach(() => vi.unstubAllGlobals())

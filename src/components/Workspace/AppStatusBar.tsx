@@ -1,7 +1,6 @@
 import { FolderGit2, GitBranch, Moon, WifiOff } from 'lucide-react'
 import { Suspense, useEffect, useMemo, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
-import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useAgentStore } from '../../store/agent.store'
 import { useGitBranch } from '../../hooks/useGitBranch'
@@ -94,16 +93,8 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
             <span className={styles.path}>{folderFallback}</span>
           </span>
         ) : null}
-        {workspace ? (
-          <span
-            className={cx(styles.item, styles.wsChip)}
-            {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
-            title={workspace.rootPath}
-          >
-            <span className={styles.wsDot} aria-hidden="true" />
-            <span className={styles.path}>{workspace.name}</span>
-          </span>
-        ) : path ? (
+        {/* The workspace's name is in OxeCode's workspace bar and the conversation's header: not repeated here (1.5.2). */}
+        {!workspace && path ? (
           <span className={cx(styles.item, styles.hideNarrow)} title={path}>
             <span className={styles.path}>{folderFallback}</span>
           </span>

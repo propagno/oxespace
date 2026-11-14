@@ -721,7 +721,7 @@ export interface AppUpdateApi {
 
 /** F6 (ccr-f6-conversation.md §A19, §A22): one conversation tab with its count; null when a count has no number. */
 export interface ThreadToolTabEntry {
-  tab: 'conversation' | 'terminal' | 'queries' | 'network' | 'containers' | 'changes' | 'pullRequest'
+  tab: 'conversation' | 'queries' | 'containers' | 'changes'
   count: number | null
 }
 /** F6 A22 (T77): a background shell of a conversation, the agent's or OXESpace's own. */

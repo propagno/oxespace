@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resizeWindow } from './helpers/launch'
+import { openSettings } from './helpers/settings'
 
 /**
  * Settings › Appearance: the interface scale zooms the whole window (the terminal
@@ -56,7 +57,7 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     expect(before.overflow).toBeLessThanOrEqual(1)
     expect(await page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
 
-    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Appearance/ }).click()
     await settings.getByRole('radio', { name: '125%', exact: true }).click()

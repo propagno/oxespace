@@ -2,6 +2,7 @@ import { _electron as electron, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { openSettings } from './helpers/settings'
 
 /**
  * Captures every Agent Settings tab for design review.
@@ -37,7 +38,7 @@ test('captures every Agent Settings tab', async () => {
   try {
     const page = await app.firstWindow()
     await page.waitForLoadState('domcontentloaded')
-    await page.getByRole('button', { name: 'Open settings' }).click()
+    await openSettings(page)
     await page.locator('.settings-center').waitFor()
 
     const tabs = ['Terminal', 'Notifications', 'About', 'Diagnostics']

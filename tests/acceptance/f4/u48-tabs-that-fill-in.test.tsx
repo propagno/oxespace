@@ -17,13 +17,15 @@ describe('U4.8 · tabs that fill in (folded into ThreadToolTabs in F6)', () => {
     expect(threadToolTabs({ ...EMPTY, files: 2 }).map(entry => entry.tab)).toEqual(['conversation', 'changes'])
   })
 
-  test('Terminal, Containers, Network and Pull request appear only when they have something', () => {
-    expect(threadToolTabs({ ...EMPTY, panes: 1 }).map(entry => entry.tab)).toEqual(['conversation', 'terminal'])
+  // Changed on 2026-11-13 by the product owner's decision: the Terminal, Network and Pull request tabs left the
+  // conversation (1.5.2). Containers still appears only when it has something; panes, HTTP calls and a PR add no tab.
+  test('Containers appears only when it has something; panes, HTTP calls and a pull request add no tab', () => {
+    expect(threadToolTabs({ ...EMPTY, panes: 1 }).map(entry => entry.tab)).toEqual(['conversation'])
     expect(threadToolTabs({ ...EMPTY, summary: { ...EMPTY.summary, containers: 1 } }).map(entry => entry.tab)).toEqual(['conversation', 'containers'])
-    expect(threadToolTabs({ ...EMPTY, summary: { ...EMPTY.summary, http: 3 } }).map(entry => entry.tab)).toEqual(['conversation', 'network'])
-    expect(threadToolTabs({ ...EMPTY, pullRequest: { number: 42 } }).map(entry => entry.tab)).toEqual(['conversation', 'pullRequest'])
+    expect(threadToolTabs({ ...EMPTY, summary: { ...EMPTY.summary, http: 3 } }).map(entry => entry.tab)).toEqual(['conversation'])
+    expect(threadToolTabs({ ...EMPTY, pullRequest: { number: 42 } }).map(entry => entry.tab)).toEqual(['conversation'])
     expect(threadToolTabs({ summary: { databases: 0, http: 1, containers: 1 }, files: 1, panes: 1, pullRequest: { number: 42 } }).map(entry => entry.tab))
-      .toEqual(['conversation', 'terminal', 'network', 'containers', 'changes', 'pullRequest'])
+      .toEqual(['conversation', 'containers', 'changes'])
   })
 
   test('Containers appears in ThreadToolTabs once main reports container activity, without a reload', async () => {

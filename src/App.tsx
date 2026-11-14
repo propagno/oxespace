@@ -1,4 +1,3 @@
-import { Settings } from 'lucide-react'
 import { useContributedCommands } from './utils/commandRegistry'
 import { sayAddProjectFirst } from './commands/thread.events'
 import type { CodeCommandContext } from './commands/code.commands'
@@ -49,7 +48,7 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
-const McpPanel = lazy(() => import('./components/MCP/McpPanel').then((m) => ({ default: m.McpPanel })))
+import { McpPanelHost, preloadMcpPanel } from './components/MCP/McpHost'
 const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -93,7 +92,7 @@ import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { startToolOutputCuts } from './store/tool-output-cut.store'
 import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
-import { setKeyboardView, useKeybindings, withShortcut, type AppView } from './keyboard/keybindings'
+import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { RemotePairingHost } from './components/Remote/RemotePairingHost'
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
@@ -114,7 +113,10 @@ export function App(): ReactElement {
   const rawSelectMode = viewSwitch.select
   const selectMode = useCallback((mode: AppView) => {
     if (mode === 'thread' && !hasOpenedThread) requestAnimationFrame(() => { setTimeout(warmThreadList, 0) })
-    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); return }
+    // Choosing the view on screen while another is still on its way cancels that switch: the latest choice wins. Returning
+    // early here dropped the click, and the pending switch then committed (OxeChat then OxeCode within ~300 ms landed in
+    // OxeChat; OXE-103, the e2e that kept failing on thread-view.spec.ts:310).
+    if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode) }
     rawSelectMode(mode)
   }, [applicationView, hasOpenedThread, rawSelectMode])
   useModeActions(selectMode)
@@ -310,6 +312,13 @@ export function App(): ReactElement {
     const timer = window.setTimeout(trim, 250)
     return () => window.clearTimeout(timer)
   }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
+
+  // The MCP servers dialog's chunk warms after first paint, so its first open renders at once (OXE-39).
+  useEffect(() => {
+    let second = 0
+    const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(preloadMcpPanel) })
+    return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second) }
+  }, [])
 
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
   useEffect(() => {
@@ -695,7 +704,7 @@ export function App(): ReactElement {
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} />{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
-        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} /><Button variant="ghost" size="sm" square aria-label={showFirstRun ? t('nav.openSettings') : withShortcut(t('nav.settings'), 'settings.open')} title={withShortcut(t('nav.settings'), 'settings.open')} data-testid="titlebar-settings" icon={<Settings size={14} aria-hidden="true" />} onClick={toggleSettings} /><UpdateChips /></div>
+        <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} />{/* No Settings button in the title bar (1.5.2, user): it is in every sidebar's footer, in the menu bar and on Ctrl+,. */}<UpdateChips /></div>
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
@@ -854,7 +863,7 @@ export function App(): ReactElement {
         />
       ) : null}
       {isMcpPanelOpen ? (
-        <McpPanel
+        <McpPanelHost
           workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
           conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
           onClose={closeMcpPanel}

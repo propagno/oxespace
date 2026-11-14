@@ -52,6 +52,14 @@ export function pinColumns(visible: number[], pinned: ReadonlySet<number>): numb
 }
 
 /** Left offset of each pinned column, after the row-number column of `indexWidth`. */
+/** The width a column starts with: room for its longest sampled value and for its header, name and type, between 80 and 420. */
+export function autoColumnWidth(name: string, type: string | undefined, longestValue: number): number {
+  const values = Math.max(longestValue, name.length) * 8 + 24
+  // Header: the name at 12px mono, the type at 11px after a 6px gap, the cell's padding, and the pin button's room.
+  const header = name.length * 7.3 + (type ? type.length * 6.7 + 6 : 0) + 16 + 18
+  return Math.round(Math.max(80, Math.min(Math.max(values, header), 420)))
+}
+
 export function pinOffsets(ordered: number[], pinned: ReadonlySet<number>, widthOf: (column: number) => number, indexWidth: number): Map<number, number> {
   const offsets = new Map<number, number>()
   let left = indexWidth
