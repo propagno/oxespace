@@ -62,6 +62,8 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" strokeLinecap="round" className="thread-usage-ring-value"
           strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, percent)) / 100)} transform="rotate(-90 9 9)" />
       </svg>
+      {/* The number the ring draws: an empty ring alone read as a radio button. The same figure the name says. */}
+      <span className="thread-usage-ring-number">{report ? report.percentage : Math.round(planPercent)}%</span>
     </button>}>
     <div className="thread-usage-popover">
       {report && <section aria-label={t('usage.context')}>
