@@ -7,6 +7,7 @@ import type { WebglAddon } from '@xterm/addon-webgl'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
+import { attachTerminalContextMenu } from './terminalContextMenu'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -228,6 +229,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(createTerminalLinksAddon())
     const pathLinksDisposable = attachTerminalPaths(terminal, hostRef.current, workspaceId) // F33: project paths
+    const contextMenuDisposable = attachTerminalContextMenu(hostRef.current, terminal) // CODE-8: Copy, Paste, Select all, Clear
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
@@ -807,6 +809,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       refitRef.current = null
       lastSelectionRef.current = null
       pathLinksDisposable.dispose()
+      contextMenuDisposable.dispose()
       terminal.dispose()
       terminalRef.current = null
     }

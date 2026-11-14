@@ -302,7 +302,7 @@
   position: fixed;
   right: var(--space-4);
   bottom: var(--space-4);
-  z-index: var(--layer-toast, var(--layer-popover));
+  z-index: var(--layer-toast);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
