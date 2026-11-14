@@ -685,6 +685,36 @@ jobs:
           retention-days: 7
           path: perf-gate
 
+      # OXE-120: the app with the real natives while 8 terminals print ~1 MiB/s each (e2e/perf-load.spec.ts). Report
+      # only until main's first five runs set its budgets: the [LOAD] lines go to the run summary and perf-load-<os>.
+      - name: Load test with real terminals (report-only, OXE-120)
+        id: perf_load
+        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p perf-load
+          run=(npx playwright test --config playwright.tools.config.ts perf-load.spec.ts --reporter=list)
+          if [ "$RUNNER_OS" = Linux ]; then run=(bash scripts/run-with-xvfb.sh "${run[@]}"); fi
+          status=0
+          "${run[@]}" 2>&1 | tee perf-load/run.log || status=$?
+          grep -a '\[LOAD\]' perf-load/run.log | sed 's/^ *//' > perf-load/results.txt || true
+          {
+            echo "### Load test with real terminals (${{ matrix.label }}, report-only): $([ "$status" = 0 ] && echo passed || echo FAILED)"
+            sed 's/^/    /' perf-load/results.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the load test record
+        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-load-${{ matrix.os_name }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: perf-load
+
       # Performance regression visibility. Informational for now (the CPU
       # micro-benchmarks are deterministic); promote to a hard gate once we
       # baseline thresholds. The full runtime-fluidity harness lives in
