@@ -71,4 +71,31 @@ describe('CSS custom properties', () => {
       expect(css, `${token} must stay defined`).toContain(`${token}:`)
     }
   })
+
+  test('across all of src (CSS modules, feature stylesheets and inline styles), a token read with no fallback exists (OXE-118)', () => {
+    // 18 reads like var(--surface-scrim), var(--layer-popover) and var(--intent-info) pointed at names that never
+    // existed: the browser drops the declaration, so an overlay had no scrim, a popover no layer, a tool row no color.
+    const SRC = join(process.cwd(), 'src')
+    const sources: { path: string; text: string }[] = []
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name)
+        if (entry.isDirectory()) walk(path)
+        else if (/\.(css|tsx?)$/.test(entry.name)) sources.push({ path, text: readFileSync(path, 'utf8') })
+      }
+    }
+    walk(SRC)
+    const defined = new Set<string>()
+    for (const { text } of sources) {
+      for (const match of text.matchAll(/(--[\w-]+)\s*:/g)) defined.add(match[1] as string)
+      // Set at runtime: style={{ '--x': … }}, setProperty('--x', …).
+      for (const match of text.matchAll(/['"`](--[\w-]+)['"`]/g)) defined.add(match[1] as string)
+    }
+    const missing = sources.flatMap(({ path, text }) => [...text.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)]
+      .map(match => match[1] as string)
+      // Radix publishes these on its popper wrappers at runtime.
+      .filter(token => !defined.has(token) && !token.startsWith('--radix-') && !token.startsWith('--tw-'))
+      .map(token => `${path.slice(SRC.length + 1).split('\\').join('/')}: ${token}`))
+    expect(missing, 'undefined tokens silently drop the whole declaration').toEqual([])
+  })
 })

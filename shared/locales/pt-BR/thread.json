@@ -435,6 +435,7 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
+    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",

@@ -6,7 +6,8 @@ import { describe, expect, test } from 'vitest'
 
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
-const PALETTE = ['Caatinga', 'Sertão', 'Açude', 'Juazeiro', 'Xique-xique', 'Barro', 'Fim de tarde', 'Pedra']
+// Changed on 2026-11-14 by the coordinator's decision (user's delegation of 14/11)
+const PALETTE = ['Velho Chico', 'Anil', 'Açude', 'Juazeiro', 'Xique-xique', 'Coroa-de-frade', 'Fim de tarde', 'Pedra']
 
 describe('CR-05 · the workspace color matches the approved playground', () => {
   test.each(['shared/locales/en/common.json', 'shared/locales/pt-BR/common.json'])('%s names the eight swatches by the palette', path => {

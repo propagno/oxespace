@@ -296,7 +296,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
 .oq-activity-table tbody tr { cursor: pointer; }
 .oq-activity-table tbody tr:hover { background: var(--surface-hover, rgba(127, 127, 127, 0.08)); }
-.oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring, var(--accent-solid)); outline-offset: -2px; }
+.oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
 .oq-activity-facts dt { font-size: 11px; opacity: 0.7; }
 .oq-activity-facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -579,7 +579,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-active-conn-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--text-primary); }
 .oq-active-conn-sub { padding-left: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-muted); }
 
-.oq-env-pill { display: inline-flex; align-items: center; flex: none; padding: 1px 7px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: var(--weight-medium); line-height: 16px; }
+.oq-env-pill { display: inline-flex; align-items: center; flex: none; padding: 1px 7px; border: 1px solid var(--border-subtle); border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); font-family: var(--font-ui); font-size: var(--text-2xs); font-weight: var(--weight-medium); line-height: 16px; }
 .oq-env-pill[data-env='local'] { border-color: var(--intent-success-border); background: var(--intent-success-bg); color: var(--intent-success-fg); }
 .oq-env-pill[data-env='dev'] { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .oq-env-pill[data-env='prod'] { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
