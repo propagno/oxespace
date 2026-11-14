@@ -124,16 +124,10 @@ test('resume and context indicator: big Claude transcripts', async () => {
     await page.getByTestId('wizard-launch-btn').click()
     await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { state: 'visible' })
 
-    // The project as the Thread side sees it: its root is the folder Claude Code would have encoded.
-    let context: { projectId: string; rootPath: string } | undefined
-    for (let attempt = 0; attempt < 60 && !context; attempt++) {
-      context = await page.evaluate(async () => {
-        const { projects } = await window.oxe.thread!.projects()
-        return projects.flatMap(project => project.contexts.map(c => ({ projectId: project.projectId, rootPath: c.rootPath })))[0]
-      })
-      if (!context) await page.waitForTimeout(500)
-    }
-    if (!context) throw Error('the workspace never became a Thread project')
+    // OxeChat keeps its own project registry (Code workspaces are never consulted): register the folder as the
+    // "Add project" button does. The stored root is the real path, the spelling Claude Code encodes.
+    const summary = await page.evaluate(async (rootPath) => window.oxe.thread!.addProject!(rootPath), repo)
+    const context = { projectId: summary.projectId, rootPath: summary.contexts[0]?.rootPath ?? repo }
     const workspaceId = await page.evaluate(async () => (await window.oxe.workspace.list())[0].id)
     const projectDir = join(claudeHome, 'projects', context.rootPath.replace(/[^a-zA-Z0-9]/g, '-'))
     mkdirSync(projectDir, { recursive: true })
