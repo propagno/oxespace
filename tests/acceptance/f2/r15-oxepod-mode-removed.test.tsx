@@ -29,7 +29,7 @@ describe('R15 · the OxePod mode leaves the mode switch', () => {
     expect([...APP_VIEWS]).toEqual(['code', 'thread', 'data'])
     const { ModeSwitch } = await import('../../../src/components/Navigation/ModeSwitch')
     render(<ModeSwitch mode="code" onSelect={() => undefined} />)
-    await screen.findByRole('button', { name: 'OxeCode' })
+    await screen.findByRole('tab', { name: 'OxeCode' })
     const modes = [...document.querySelectorAll('[data-app-mode]')].map(button => button.getAttribute('aria-label'))
     expect(modes).toEqual(['OxeCode', 'OxeChat', 'OxeQuery'])
   })

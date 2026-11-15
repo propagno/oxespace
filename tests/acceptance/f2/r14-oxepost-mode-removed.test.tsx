@@ -28,7 +28,7 @@ describe('R14 · the OxePost mode leaves', () => {
     expect(APP_VIEWS as readonly string[]).not.toContain('post')
     const { ModeSwitch } = await import('../../../src/components/Navigation/ModeSwitch')
     render(<ModeSwitch mode="code" onSelect={() => undefined} />)
-    expect(await screen.findByRole('button', { name: 'OxeCode' })).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: 'OxeCode' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'OxePost' })).toBeNull()
   })
 
