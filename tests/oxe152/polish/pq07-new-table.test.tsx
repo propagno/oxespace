@@ -3,8 +3,8 @@
 // Contract: New table opens clean: no "To fix" list and no structure.problem.tableName text until the name field is
 // left empty (blur) or a review is attempted; Review SQL stays disabled while the draft has problems; once shown the
 // problems sit in a box in --intent-warning-bg with a --intent-warning-border border; the footer is the src/ui Dialog
-// `actions` footer ([data-dialog-footer] with [data-dialog-cancel], secondary, and [data-dialog-primary]), both buttons
-// large (data-size="lg", var(--control-lg)); src/ui DialogActions may gain the size for that.
+// `actions` footer ([data-dialog-footer] with [data-dialog-cancel], secondary, and [data-dialog-primary]). Their size
+// (lg in every dialog footer) is app-wide and lives in OXE-274 (base components, MARCA 15/11).
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { StructureEditor } from '../../../src/components/OxeQuery/StructureEditor'
@@ -150,7 +150,7 @@ describe('PQ-07·13 · New table validates after interaction and uses the Dialog
     expect(css(boxed!, 'border') ?? css(boxed!, 'border-color') ?? '').toMatch(/var\(--intent-warning-border\)/)
   })
 
-  test('the footer is the Dialog actions footer: Cancel secondary and the primary, both large', async () => {
+  test('the footer is the Dialog actions footer: Cancel secondary and the primary', async () => {
     const dialog = await newTable()
     const footer = dialog.querySelector<HTMLElement>('[data-dialog-footer]')!
     const cancel = footer.querySelector<HTMLElement>('[data-dialog-cancel]')
@@ -159,7 +159,6 @@ describe('PQ-07·13 · New table validates after interaction and uses the Dialog
     expect(primary).not.toBeNull()
     expect(cancel).toHaveAttribute('data-variant', 'secondary')
     expect(primary).toHaveAttribute('data-variant', 'primary')
-    for (const button of [cancel!, primary!]) expect(button).toHaveAttribute('data-size', 'lg')
   })
 })
 
