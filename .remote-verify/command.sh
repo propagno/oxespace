@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/oxe152/mobile/oxe179-os-name.test.ts tests/oxe152/mobile/oxe179-pairing-details.native.test.ts --maxWorkers=1 --reporter=verbose; cd mobile/android && ./gradlew --no-daemon :app:testDebugUnitTest --tests '*SettingsSectionsTest*' --tests '*PairingStepsTest*' 2>&1 | grep -E 'Test > |tests completed|^e: |BUILD'
