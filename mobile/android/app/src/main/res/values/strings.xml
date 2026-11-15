@@ -125,9 +125,9 @@
     <string name="local_network_title">Local network access</string>
     <string name="needs_you_agent">The agent</string>
     <string name="needs_you_allowed">Allowed</string>
-    <string name="needs_you_asks_approval">%1$s asks for your OK</string>
-    <string name="needs_you_asks_question">%1$s asks</string>
-    <string name="needs_you_asks_run">%1$s asks to run</string>
+    <string name="needs_you_asks_approval">%1$s needs your approval</string>
+    <string name="needs_you_asks_question">%1$s needs your answer</string>
+    <string name="needs_you_asks_run">%1$s needs your approval</string>
     <string name="needs_you_denied">Denied</string>
     <string name="needs_you_kind_command">Approve command</string>
     <plurals name="needs_you_kind_questions">

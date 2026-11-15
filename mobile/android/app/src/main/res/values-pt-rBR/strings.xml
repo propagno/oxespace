@@ -127,9 +127,9 @@
     <string name="local_network_title">Acesso à rede local</string>
     <string name="needs_you_agent">O agente</string>
     <string name="needs_you_allowed">Permitido</string>
-    <string name="needs_you_asks_approval">%1$s pede sua permissão</string>
-    <string name="needs_you_asks_question">%1$s pergunta</string>
-    <string name="needs_you_asks_run">%1$s pede para executar</string>
+    <string name="needs_you_asks_approval">%1$s precisa da sua aprovação</string>
+    <string name="needs_you_asks_question">%1$s precisa da sua resposta</string>
+    <string name="needs_you_asks_run">%1$s precisa da sua aprovação</string>
     <string name="needs_you_denied">Negado</string>
     <string name="needs_you_kind_command">Aprovar comando</string>
     <plurals name="needs_you_kind_questions">
