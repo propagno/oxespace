@@ -1,0 +1,1 @@
+cd mobile/android && (./gradlew --no-daemon :app:lintDebug > /tmp/lint.log 2>&1; tail -5 /tmp/lint.log; cat app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt)
