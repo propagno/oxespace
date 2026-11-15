@@ -28,6 +28,12 @@ export interface AgentRequestSummary {
   /** False when it can't be answered from where it is read (a pane's own prompt is answered in the pane). */
   answerable: boolean
   since: number
+  /**
+   * A34 (OXE-73, BRD-10/OXE-176): the approval's exact command, verbatim and always untrusted (ApprovalAgentText's
+   * text/untrusted shape). The only place the agent's words appear; absent for questions, a pane's own prompt and an
+   * approval without a command.
+   */
+  command?: { text: string; untrusted: true }
 }
 
 export type ThreadActivityKind = 'needs-you' | 'question' | 'working' | 'paused' | 'error' | 'ready' | 'done'
