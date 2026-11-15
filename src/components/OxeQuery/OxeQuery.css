@@ -220,8 +220,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-preferences-ceiling { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .oq-preferences-ceiling > legend { margin-bottom: 8px; padding: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
 .oq-preferences-ceiling > small { font-size: var(--fs-xs); color: var(--tx-muted); }
-.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.oq-preferences-limits > legend { margin-bottom: 4px; padding: 0; font-size: var(--fs-xs); color: var(--tx-muted); }
+.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.oq-preferences-limits > legend { float: left; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0; font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-canvas); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
