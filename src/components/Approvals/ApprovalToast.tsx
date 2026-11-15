@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { Button } from '../../ui'
 import styles from './Approvals.module.css'
+import { focusIsEditable } from './typingFocus'
 
 const TOAST_MS = 12_000
 
@@ -53,6 +54,8 @@ export function ApprovalToast({
 
   useEffect(() => {
     if (modalOpen) return
+    // OXE-175: someone typing keeps their focus; the polite status announces the toast and Ctrl+Shift+A reaches it.
+    if (focusIsEditable()) return
     programmaticFocus.current = true
     denyRef.current?.focus()
     programmaticFocus.current = false

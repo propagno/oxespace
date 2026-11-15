@@ -11,20 +11,20 @@
   min-height: var(--control-md);
   height: auto;
   padding: 0 var(--space-3);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--bd-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
   line-height: 1.2;
 }
 .ghost-btn:hover:not(:disabled),
 .secondary-action:hover:not(:disabled),
 .settings-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--bd-strong);
   background: var(--fill-hover);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 /* Primary buttons: 28 px, accent. */
@@ -36,8 +36,8 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: var(--text-on-accent);
-  font-size: var(--text-sm);
+  color: var(--tx-on-accent);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
   line-height: 1.2;
 }
@@ -58,13 +58,13 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
 }
 .gh-icon-btn,
 .tile-btn { width: var(--control-sm); height: var(--control-sm); }
 .icon-button:hover:not(:disabled),
 .gh-icon-btn:hover:not(:disabled),
-.tile-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
+.tile-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 /* A larger invisible target around the dense variants, so a 24 px glyph box is still easy to hit. */
 .gh-icon-btn::after,
 .tile-btn::after { content: ""; position: absolute; inset: -2px; }
@@ -100,7 +100,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
   .thread-review-empty, .editor-empty, .editor-browser-empty, .worktree-menu-empty,
   .workspace-list-empty, .sidebar-empty-state
 ) {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
@@ -112,7 +112,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 input[type="range"] { min-height: var(--control-sm); }
 input[type="search"] { min-height: var(--control-md); }
 
-.empty-state .empty-state-alt { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); color: var(--text-muted); font-size: var(--fs-xs); }
+.empty-state .empty-state-alt { display: flex; align-items: center; gap: var(--space-1); margin-top: var(--space-2); color: var(--tx-muted); font-size: var(--fs-xs); }
 
 /* Side-panel headers: the workspace name shortens instead of wrapping onto two lines. */
 .workspace-editor-title { min-width: 0; }

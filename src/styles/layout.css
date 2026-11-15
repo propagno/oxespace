@@ -5,7 +5,7 @@
   height: 100%;
   min-height: 0;
   background: var(--surface-chrome);
-  border-right: 1px solid var(--bd-sidebar);
+  border-right: 1px solid var(--bd-default);
   overflow: hidden;
   box-shadow: var(--elevation-2);
   /* Subtle top-to-bottom gradient overlay for depth */
@@ -154,7 +154,7 @@
 
 .sidebar-search-input:focus {
   background: var(--fill-hover);
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
   box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.12);
 }
 
@@ -338,7 +338,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   overflow: hidden;
@@ -355,7 +355,7 @@
 
 .ws-group-branch-icon {
   flex-shrink: 0;
-  color: var(--text-muted);
+  color: var(--tx-muted);
 }
 
 /* Only rendered when two or more workspaces sit on the same folder, which
@@ -365,7 +365,7 @@
   flex-shrink: 0;
   padding: 0 4px;
   border-radius: var(--radius-xs);
-  background: var(--bd-base);
+  background: var(--bd-default);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -378,7 +378,7 @@
 }
 
 .ws-group-meta-action:hover {
-  color: var(--text-accent, var(--accent));
+  color: var(--tx-accent, var(--accent));
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
@@ -415,11 +415,11 @@
 }
 
 /* Collapsed-rail status pip — recolor the existing absolute dot by tone. */
-.sidebar-rail-pip.activity-thinking { background: var(--dot-green); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
+.sidebar-rail-pip.activity-thinking { background: var(--intent-success-solid); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
 .sidebar-rail-pip.activity-awaiting { background: var(--accent); }
 .sidebar-rail-pip.activity-needs-decision { background: var(--intent-warning-bg); border: 2px solid var(--intent-warning-solid); box-sizing: border-box; }
-.sidebar-rail-pip.activity-starting { background: var(--dot-yellow); }
-.sidebar-rail-pip.activity-error { background: var(--dot-red); }
+.sidebar-rail-pip.activity-starting { background: var(--intent-warning-solid); }
+.sidebar-rail-pip.activity-error { background: var(--intent-danger-solid); }
 
 /* `.ws-group-count` (pane count pill) removed — was eating horizontal
    space the user needs for long workspace names. The pane count is still
@@ -455,7 +455,7 @@
 .ws-group-integration-badge:hover,
 .ws-group.active > .ws-group-header .ws-group-integration-badge {
   color: var(--accent);
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
   background: var(--fill-hover);
 }
 
@@ -508,7 +508,7 @@
 }
 
 .ws-group-rename-input:focus {
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
   box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
 }
 
@@ -519,13 +519,13 @@
   z-index: var(--layer-tooltip);
   min-width: 200px;
   padding: 5px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
 }
 
-.ws-group-context-separator { height: 1px; margin: 4px 0; background: var(--border-default); }
+.ws-group-context-separator { height: 1px; margin: 4px 0; background: var(--bd-default); }
 .ws-group-context-menu button {
   width: 100%;
   display: inline-flex;
@@ -547,12 +547,12 @@
 }
 
 .ws-group-context-menu button:disabled {
-  color: var(--text-disabled);
+  color: var(--tx-disabled);
   cursor: default;
 }
 
 .ws-group-context-menu button.danger {
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .ws-group-context-menu button.danger:hover {
@@ -597,7 +597,7 @@
 }
 .pane-session-row.active {
   background: var(--fill-selected);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
   /* Left-edge brand accent replaces the previous hardcoded green
      (rgba(92,189,109,0.75)) that wasn't aligned with the OXESpace teal. */
   box-shadow: inset 2px 0 0 var(--accent);
@@ -790,7 +790,7 @@
 .pane-row-state-mark.activity-thinking {
   border-color: var(--intent-success-border);
   background: var(--intent-success-bg);
-  color: var(--dot-green);
+  color: var(--intent-success-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
@@ -806,7 +806,7 @@
 .pane-row-state-mark.activity-starting {
   border-color: var(--intent-warning-border);
   background: var(--intent-warning-bg);
-  color: var(--dot-yellow);
+  color: var(--intent-warning-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
@@ -822,7 +822,7 @@
 .pane-row-state-mark.activity-error {
   border-color: var(--intent-danger-border);
   background: var(--intent-danger-bg);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .pane-row-preview-empty {
@@ -832,7 +832,7 @@
 
 .pane-session-rename {
   background: var(--ov-2);
-  border: 1px solid var(--bd-pane-active);
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
   border-radius: var(--radius-xs);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
@@ -868,7 +868,7 @@
   z-index: var(--layer-tooltip);
   min-width: 150px;
   padding: 5px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
@@ -895,14 +895,14 @@
 }
 
 .pane-session-context-menu button.danger {
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 /* Recent timestamp (< 15 min) — green like Clideck */
 /* Recent activity timestamp — uses the brand teal at full strength so it
    reads as "fresh" without introducing a third green accent (the previous
    #5CBD6D didn't match either the brand or the dot-green status token). */
-.pane-row-time.recent { color: var(--text-secondary); }
+.pane-row-time.recent { color: var(--tx-secondary); }
 
 /* Status indicator slot (left of preview) */
 .pane-row-status-indicator {
@@ -919,7 +919,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-yellow, var(--intent-warning-solid));
+  background: var(--intent-warning-solid, var(--intent-warning-solid));
   --pulse-opacity: 0.3;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
@@ -930,7 +930,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--dot-red, var(--intent-danger-solid));
+  background: var(--intent-danger-solid, var(--intent-danger-solid));
 }
 
 /* Unread dot — solid brand teal, no halo. The previous blue (#3B82F6 with
@@ -955,7 +955,7 @@
   margin-left: auto;
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
@@ -981,22 +981,22 @@
 }
 
 .pane-status-dot.running {
-  background: var(--dot-blue);
+  background: var(--intent-info-solid);
   box-shadow: 0 0 4px rgba(96, 165, 250, 0.6);
 }
 
 .pane-status-dot.starting {
-  background: var(--dot-yellow);
+  background: var(--intent-warning-solid);
   --pulse-opacity: 0.3;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .pane-status-dot.error {
-  background: var(--dot-red);
+  background: var(--intent-danger-solid);
 }
 
 .pane-status-dot.idle {
-  background: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--tx-primary) 20%, transparent);
 }
 
 
@@ -1040,7 +1040,7 @@
 /* Sidebar Integration section — modeled on the workspace group row pattern
    so the two sections share the same scanning rhythm. */
 .sidebar-integration-list {
-  border-bottom: 1px solid var(--bd-divider);
+  border-bottom: 1px solid var(--bd-default);
   margin-bottom: 8px;
   padding: 0 0 6px;
 }
@@ -1061,7 +1061,7 @@
 }
 
 .sidebar-integration-row.open {
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .sidebar-integration-row-header {
@@ -1125,8 +1125,8 @@
   text-transform: uppercase;
 }
 
-.sidebar-integration-row-status.status-active { background: var(--intent-success-bg); color: var(--dot-green); }
-.sidebar-integration-row-status.status-paused { background: var(--intent-warning-bg); color: var(--dot-yellow); }
+.sidebar-integration-row-status.status-active { background: var(--intent-success-bg); color: var(--intent-success-solid); }
+.sidebar-integration-row-status.status-paused { background: var(--intent-warning-bg); color: var(--intent-warning-solid); }
 .sidebar-integration-row-status.status-done { background: var(--ov-1); color: var(--tx-muted); }
 
 .sidebar-integration-row-members {
@@ -1221,7 +1221,7 @@
   place-items: center;
   gap: 5px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--bd-divider);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .sidebar-rail-integration > span {
@@ -1247,7 +1247,7 @@
   height: 24px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 800;
@@ -1344,7 +1344,7 @@
   padding: 0 18px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-primary);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -1352,7 +1352,7 @@
 }
 .empty-state-cta:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
 }
 
 .error-banner {
@@ -1394,7 +1394,7 @@
   flex: 0 0 var(--chrome-h);
   min-width: 0;
   padding: 0 var(--chrome-inset);
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--bd-default);
   background: var(--surface-canvas);
   box-shadow: none;
   z-index: var(--layer-sticky);
@@ -1465,7 +1465,7 @@
   min-height: 28px;
   padding: 0 9px;
   margin-right: 8px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-secondary);
@@ -1476,7 +1476,7 @@
 /* MCP servers in quarantine: a count in the alert colour, read out by the button's own name. */
 .workspace-topbar-action { position: relative; }
 /* The MCP button's quarantine count, drawn like the activity bell's: on the button's corner, never hidden. */
-.workspace-topbar-alert { position: absolute; top: -5px; right: -5px; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--intent-danger-solid); color: var(--text-on-solid); font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 1; pointer-events: none; }
+.workspace-topbar-alert { position: absolute; top: -5px; right: -5px; min-width: 14px; height: 14px; padding: 0 3px; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--intent-danger-solid); color: var(--tx-on-solid); font-size: var(--fs-2xs); font-weight: var(--weight-semibold); line-height: 1; pointer-events: none; }
 .workspace-topbar-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 900px) { .workspace-topbar-action span:not(.workspace-topbar-alert) { display: none; } }
 
@@ -1507,9 +1507,9 @@
 
 .workspace-toolbar-button:hover,
 .workspace-toolbar-button.active {
-  border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--tx-primary) 20%, transparent);
   background: linear-gradient(180deg, var(--ov-3) 0%, var(--ov-1) 100%);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   transform: translateY(-1px);
   box-shadow: var(--elevation-2), inset 0 1px 0 var(--ov-3);
 }
@@ -1636,7 +1636,7 @@
 }
 
 .workspace-editor-resize {
-  background: var(--bd-divider);
+  background: var(--bd-default);
 }
 
 .workspace-editor-panel {
@@ -1648,7 +1648,7 @@
   min-height: 0;
   overflow: hidden;
   background: var(--surface-canvas);
-  border-left: 1px solid var(--border-default);
+  border-left: 1px solid var(--bd-default);
 }
 
 .workspace-editor-content {
@@ -1668,7 +1668,7 @@
   background: var(--surface-chrome);
   flex-shrink: 0;
   gap: var(--space-2);
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .workspace-editor-title {
@@ -1681,7 +1681,7 @@
   height: 30px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -1690,7 +1690,7 @@
 
 .workspace-editor-title:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
   color: var(--tx-primary);
 }
 
@@ -1701,15 +1701,15 @@
   height: 30px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   padding: 0 6px;
 }
 .workspace-panel-stack { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; overflow: hidden; background: var(--surface-canvas); }
-.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px 4px; min-width: 0; flex-wrap: wrap; min-height: 38px; padding: 4px 6px; border-bottom: 1px solid var(--bd-base); background: var(--surface-raised); }
+.workspace-panel-stack-tabs { display: flex; flex: none; gap: 2px 4px; min-width: 0; flex-wrap: wrap; min-height: 38px; padding: 4px 6px; border-bottom: 1px solid var(--bd-default); background: var(--surface-raised); }
 .workspace-panel-stack-tabs button { flex: 1 1 auto; text-align: center; min-height: 28px; padding: 3px 10px; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
 .workspace-panel-stack-tablist { display: contents; }
 .workspace-panel-stack-tabs button:hover { color: var(--tx-primary); background: var(--fill-hover); }
-.workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-base); background: var(--fill-selected); }
+.workspace-panel-stack-tabs button[aria-selected="true"] { color: var(--tx-primary); border-color: var(--bd-default); background: var(--fill-selected); }
 .workspace-panel-stack-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .workspace-panel-stack-content { flex: 1; width: 100%; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-panel-stack-content > * { height: 100%; }
@@ -1717,8 +1717,8 @@
 .workspace-panel-stack-tabs .workspace-panel-stack-more { display: inline-flex; flex: none; align-items: center; gap: 4px; margin-left: auto; }
 
 /* F33: the path menu's items at the end of the tab menu. */
-.ws-group-context-menu-separator { border: 0; border-top: 1px solid var(--border-subtle); margin: 4px 0; }
-.ws-group-context-menu-shortcut { margin-left: auto; padding-left: 12px; color: var(--text-muted); font-size: var(--fs-xs); }
+.ws-group-context-menu-separator { border: 0; border-top: 1px solid var(--bd-subtle); margin: 4px 0; }
+.ws-group-context-menu-shortcut { margin-left: auto; padding-left: 12px; color: var(--tx-muted); font-size: var(--fs-xs); }
 
 /* F33: inline code that names a project file, in the agent's text. Underline on hover and focus, never colour alone. */
 .path-link { display: inline; padding: 0; margin: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
