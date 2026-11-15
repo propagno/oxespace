@@ -1,6 +1,7 @@
-import type { CSSProperties, ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Sun } from 'lucide-react'
+import { IconButton } from '../../ui'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 
@@ -19,8 +20,7 @@ export interface CodeRailProps {
   onNewWorkspace: () => void
 }
 
-const RAIL_BUTTON_STYLE: CSSProperties = { width: 36, height: 36, minWidth: 36, minHeight: 36 }
-
+/** The collapsed OxeCode sidebar: src/ui IconButtons at lg, like its collapse button (BRD-03, OXE-63). */
 export function CodeRail({
   workspaces,
   activeWorkspaceId,
@@ -39,34 +39,33 @@ export function CodeRail({
           const label = attention ? t('sidebar.railNeedsDecision', { name: ws.name }) : ws.name
           const active = ws.id === activeWorkspaceId
           return (
-            <button
+            <IconButton
               key={ws.id}
-              type="button"
+              size="lg"
+              variant="ghost"
               className={`sidebar-rail-workspace-btn${active ? ' active' : ''}`}
               {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
-              style={{ ...RAIL_BUTTON_STYLE, ...(typeof ws.color === 'string' && ws.color ? { borderColor: ws.color } : undefined) }}
-              aria-label={label}
+              style={typeof ws.color === 'string' && ws.color ? { borderColor: ws.color } : undefined}
+              label={label}
               title={label}
               aria-current={active ? 'true' : undefined}
               onClick={() => onSelect(ws.id)}
-            >
-              <span aria-hidden="true">{ws.name.slice(0, 2).toUpperCase()}</span>
-              {attention ? <Sun size={11} className="sidebar-rail-attention" aria-hidden="true" /> : null}
-            </button>
+              icon={<>
+                <span aria-hidden="true">{ws.name.slice(0, 2).toUpperCase()}</span>
+                {attention ? <Sun size={11} className="sidebar-rail-attention" aria-hidden="true" /> : null}
+              </>}
+            />
           )
         })}
       </nav>
-      <button
-        type="button"
-        className="nav-rail-btn"
-        style={RAIL_BUTTON_STYLE}
-        aria-label={newWorkspaceLabel}
+      <IconButton
+        size="lg"
+        label={newWorkspaceLabel}
         title={newWorkspaceLabel}
         data-testid="btn-new-workspace"
         onClick={onNewWorkspace}
-      >
-        <Plus size={16} aria-hidden="true" />
-      </button>
+        icon={<Plus size={16} aria-hidden="true" />}
+      />
     </div>
   )
 }

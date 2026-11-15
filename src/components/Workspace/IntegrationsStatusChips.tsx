@@ -1,4 +1,5 @@
-import { Server, Activity, ChevronDown } from 'lucide-react'
+import { Server, Activity } from 'lucide-react'
+import { IconButton } from '../../ui'
 import { Github } from '../Brand/GithubIcon'
 import { useState, useEffect, useCallback, useRef, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -99,19 +100,21 @@ export function IntegrationsStatusChips({ workspace, isActive = true }: Integrat
 
   return (
     <div className="workspace-integrations" ref={menuRef}>
-      <button
-        type="button"
+      {/* A src/ui IconButton at md (BRD-03); the health dot sits on the icon's corner. */}
+      <IconButton
+        size="md"
         className={`workspace-integrations-trigger tone-${overallTone}`}
-        aria-label={tc('workspace.systems.triggerLabel', { count: countText })}
+        label={tc('workspace.systems.triggerLabel', { count: countText })}
+        title={tc('workspace.systems.triggerLabel', { count: countText })}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         data-testid="workspace-integrations-trigger"
-      >
-        <Server size={12} aria-hidden="true" />
-        <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
-        <ChevronDown size={12} className="workspace-integrations-chevron" aria-hidden="true" />
-      </button>
+        icon={<span className="workspace-integrations-icon" aria-hidden="true">
+          <Server size={14} aria-hidden="true" />
+          <span className={`workspace-integrations-health tone-${overallTone}`} aria-hidden="true" />
+        </span>}
+      />
 
       {open ? (
         <div className="workspace-integrations-menu" role="menu" aria-label={tc('workspace.systems.label')} data-testid="workspace-integrations-menu">

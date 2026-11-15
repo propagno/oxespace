@@ -22,23 +22,23 @@
 .sidebar-redesign .sidebar-search-wrap { margin: 0 12px 12px; }
 .sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
 .sidebar-redesign .sidebar-section-header > span, .thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
-.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 600; line-height: var(--target-min); }
-.sidebar-redesign .ws-group.active .ws-group-name { font-weight: 600; }
-.sidebar-redesign .ws-group.active > .ws-group-header { border-left-color: transparent; background: transparent; }
-.sidebar-redesign .sidebar-workspace-tree[data-ws].active .ws-group.active > .ws-group-header { background: color-mix(in srgb, var(--ws) 8%, transparent); }
-.sidebar-redesign .ws-group.active:not(.drop-before):not(.drop-after)::before { display: none; }
-.sidebar-redesign .sidebar-terminal-children .pane-session-row.active { box-shadow: none; }
-.sidebar-redesign .ws-group-branch-row { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.sidebar-redesign .sidebar-workspace-tree { border-radius: var(--radius-sm); margin-bottom: 6px; }
-.sidebar-redesign .sidebar-terminal-children .pane-session-row.active { background: var(--fill-selected); border-color: transparent; }
-.sidebar-redesign .sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }
-.sidebar-redesign .sidebar-terminal-children .pane-row-context { font-size: var(--fs-2xs); }
+
+
+
+
+
+
+
+
+
+
+
 .sidebar-redesign .ws-group-list { scrollbar-gutter: stable; scrollbar-width: thin; }
 
 .settings-center-nav { padding: 0 12px 12px; gap: 16px; }
 .settings-center-title { margin: 0 -12px; padding: 0 var(--chrome-inset); }
 .settings-center-nav > nav { gap: 4px; }
-.settings-center-nav > nav button, .settings-back { min-height: var(--nav-row-h); font-size: var(--fs-sm); border-radius: var(--radius-sm); }
+.settings-center-nav > nav button, .settings-back { font-size: var(--fs-sm); border-radius: var(--radius-sm); }
 .settings-center :is(.settings-btn, .settings-header-action) { height: var(--control-lg); min-height: var(--control-lg); padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
 .settings-center .settings-btn.primary, .settings-center .ws-settings-form-v2 .primary-action { color: var(--tx-on-accent); background: var(--accent); }
 .settings-center .ws-settings-form-v2 .modal-actions button { height: 36px; min-height: 36px; padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
@@ -60,14 +60,16 @@
 .nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .nav-rail-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--bd-subtle); border-bottom: 1px solid var(--bd-subtle); overflow-y: auto; scrollbar-width: none; }
-.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--bd-subtle); background: var(--surface-raised); color: var(--tx-secondary); font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.sidebar-rail-workspace-btn > span { font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); }
+/* The rail's workspace buttons are src/ui IconButtons (BRD-03): size, padding, radius and type are the primitive's. */
+.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; border: 1px solid var(--bd-subtle); background: var(--surface-raised); color: var(--tx-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
 .sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
 .sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }
 .sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--intent-warning-fg); padding: 1px; }
 
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
-.pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn, .ws-group-expand-btn { min-width: var(--control-md); min-height: var(--control-md); }
+.pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn { min-width: var(--control-md); min-height: var(--control-md); }
 .pane-row-time { font-size: var(--fs-2xs); }
 .pane-row-time.recent { color: var(--tx-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--control-md); display: inline-flex; align-items: center; }
@@ -77,6 +79,8 @@
 .nav-panel-title .sidebar-actions { margin-right: 0; }
 /* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
 .oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }
-/* The active workspace is a plain selected row, not a bordered box. */
-.sidebar-redesign .ws-group.active > .ws-group-header { border-color: transparent; }
-.sidebar-redesign .ws-group.active::before { display: none; }
+
+
+
+/* The sidebar header's actions as one landmark (BRD-01): laid out like the header's action row. */
+.sidebar-header-nav { display: flex; align-items: center; gap: var(--space-0-5); }

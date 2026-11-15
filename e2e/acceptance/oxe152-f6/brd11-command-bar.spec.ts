@@ -4,13 +4,13 @@
 // commands, every result a one-line [data-ui=command-row]; Esc closes it.
 // The other palette shortcut (Ctrl+Shift+P) opening the same bar is T30b's (coordination 15/11).
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 test('BRD-11 in the app: one command bar, a hints line, ">" for commands', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await page.locator('[data-testid="pane-container"]').first().click()
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')

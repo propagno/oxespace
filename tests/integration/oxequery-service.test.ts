@@ -206,3 +206,11 @@ describe('private keys', () => {
     expect(() => assertPem('hello', 'The SSH key')).toThrow(/not a PEM/)
   })
 })
+
+describe('audit page', () => {
+  it('refuses a malformed cursor and answers an empty page with no cursor', async () => {
+    const { service } = fixture()
+    await expect(service.call('audit.list', { cursor: 'nope' })).resolves.toMatchObject({ ok: false, error: { code: 'invalid' } })
+    await expect(service.call('audit.list', {})).resolves.toEqual({ ok: true, value: { entries: [], hasMore: false, cursor: null } })
+  })
+})
