@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pbReadFile } from 'node:fs'
 import { join as pbJoin } from 'node:path'
@@ -173,7 +173,7 @@ test('AG-09 in the app: the bell counts a request in a neutral count with its pl
   const agent = standIn('ag09')
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: agent.env })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     const root = gitRepo(workspaceRoot)
     await openDemoWorkspace(page, root)
     const project = await oxe<{ projectId: string; displayName: string }>(page, 'thread.addProject', root)
