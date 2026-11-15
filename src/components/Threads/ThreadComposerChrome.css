@@ -7,25 +7,25 @@
 
 /* Plan | Agent: a small segmented control; the active side is lifted, not tinted. */
 .thread-mode-toggle { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); }
-.thread-composer .thread-mode-toggle button { height: 24px; padding: 0 10px; border-radius: calc(var(--radius-md) - 2px); color: var(--text-muted); font-size: var(--fs-xs); font-weight: 500; }
-.thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-pressed); color: var(--text-primary); }
-.thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--text-primary); background: transparent; }
+.thread-composer .thread-mode-toggle button { height: 24px; padding: 0 10px; border-radius: calc(var(--radius-md) - 2px); color: var(--tx-muted); font-size: var(--fs-xs); font-weight: 500; }
+.thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-pressed); color: var(--tx-primary); }
+.thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--tx-primary); background: transparent; }
 
 /* Model, effort and permissions as chips that name their value (T57, T58 §4): 24 px, round, 12 px text. Only the
    permissions chip carries intent color, by risk. A change for the next message has a dashed border. */
 .thread-composer { container: thread-composer / inline-size; }
-.thread-composer .thread-config-trigger.thread-chip { flex: none; min-width: 24px; min-height: var(--control-sm); height: var(--control-sm); gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-full); background: var(--fill-hover); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.thread-composer .thread-config-trigger.thread-chip { flex: none; min-width: 24px; min-height: var(--control-sm); height: var(--control-sm); gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-full); background: var(--fill-hover); color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 /* Only the model's name gives way, to an ellipsis and never below a few letters; the other chips keep their size. */
-.thread-composer .thread-chip.is-model { flex: 0 1 auto; min-width: 64px; color: var(--text-primary); }
+.thread-composer .thread-chip.is-model { flex: 0 1 auto; min-width: 64px; color: var(--tx-primary); }
 .thread-composer .thread-chip > svg { flex: none; }
 .thread-composer .thread-chip .thread-chip-text { max-width: 18ch; }
-.thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tx-muted); }
 .thread-chip-dot[data-provider='claude'] { background: var(--provider-claude); }
 .thread-chip-dot[data-provider='codex'] { background: var(--provider-codex); }
 .thread-chip-dot[data-provider='antigravity'] { background: var(--provider-antigravity); }
 .thread-composer .thread-chip.is-permissions { flex-shrink: 0; }
 .thread-composer .thread-chip.is-permissions[data-access='read-only'] { background: var(--intent-info-bg); color: var(--intent-info-fg); }
-.thread-composer .thread-chip.is-permissions[data-access='workspace-write'] { background: var(--accent-soft); color: var(--text-accent); }
+.thread-composer .thread-chip.is-permissions[data-access='workspace-write'] { background: var(--accent-soft); color: var(--tx-accent); }
 .thread-composer .thread-chip.is-permissions[data-access='full-access'] { background: var(--intent-danger-bg); color: var(--intent-danger-fg); border-color: var(--intent-danger-border); }
 .thread-composer .thread-chip[data-pending] { border-style: dashed; border-color: currentColor; }
 .thread-composer .thread-mode-toggle button[aria-pressed='true']:first-child { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
@@ -50,4 +50,4 @@
 /* Stop while a turn runs (T57): a pill with its word, in the danger color, that never shrinks out of the footer. */
 .thread-composer footer .thread-stop { flex: none; width: auto; height: 28px; gap: 6px; padding: 0 12px; justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-full); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .thread-composer footer .thread-stop:hover:not(:disabled) { background: color-mix(in srgb, var(--intent-danger-fg) 14%, var(--intent-danger-bg)); color: var(--intent-danger-fg); }
-.thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--text-muted); opacity: 1; }
+.thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--tx-muted); opacity: 1; }
