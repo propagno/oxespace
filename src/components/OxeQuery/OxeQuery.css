@@ -266,13 +266,14 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-plan > header { display: flex; align-items: center; gap: 10px; }
 .oq-plan-tree, .oq-plan-tree ul { list-style: none; margin: 0; padding-left: 16px; }
 .oq-plan-tree { padding-left: 0; }
-.oq-plan-node { display: flex; gap: 4px; padding: 4px 6px; border-radius: var(--radius-sm); }
-.oq-plan-node[data-hot="true"] { background: rgba(229, 83, 75, 0.12); outline: 1px solid rgba(229, 83, 75, 0.45); }
-.oq-plan-spacer { width: 20px; flex: none; }
+.oq-plan-node { display: flex; align-items: flex-start; gap: 4px; padding: 4px 6px; border-radius: var(--radius-sm); }
+.oq-plan-node[data-hot="true"] { background: var(--intent-danger-bg); outline: 1px solid var(--intent-danger-border); }
+.oq-plan-spacer { width: var(--control-sm); flex: none; }
 .oq-plan-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-xs); }
 .oq-plan-title { display: flex; align-items: center; gap: 8px; }
 .oq-plan-share { width: 80px; height: 6px; border-radius: var(--radius-full); background: var(--bd-default); flex: none; overflow: hidden; }
 .oq-plan-share > span { display: block; height: 100%; background: var(--accent); }
+.oq-plan-node[data-hot="true"] .oq-plan-share > span { background: var(--intent-danger-solid); }
 .oq-plan-meta { display: flex; gap: 12px; opacity: 0.75; flex-wrap: wrap; }
 .oq-plan-detail { opacity: 0.7; font-size: var(--fs-2xs); overflow-wrap: anywhere; }
 .oq-plan-hints { margin: 0; padding: 6px 10px 6px 24px; border-left: 3px solid var(--intent-warning-solid); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
