@@ -74,8 +74,6 @@
 
 .workspace-editor-title {
   justify-content: flex-start;
-  height: auto;
-  min-height: 24px;
   padding: 0;
   border: 0;
   border-radius: 0;

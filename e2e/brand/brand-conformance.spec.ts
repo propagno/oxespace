@@ -40,13 +40,16 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
     const paneId = panes.at(-1)
     if (!paneId) throw new Error('no terminal pane')
     await app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), { paneId, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
-    await page.locator("[data-ui=sidebar-row][data-lines='2']").first().waitFor({ timeout: 10_000 })
+    const row = page.locator("[data-ui=sidebar-row][data-lines='2']").first()
+    await row.waitFor({ timeout: 10_000 })
+    // DIAG (#854, BRD-01.row-two-line.height): the row's box and each child's, to read a height over --row-2.
+    console.log(`[BRAND] two-line row: ${await row.evaluate(node => [node, ...node.children].map(child => `${child === node ? 'row' : (child.getAttribute('class') ?? child.tagName)}=${Math.round(child.getBoundingClientRect().height * 10) / 10}`).join(' '))}`)
   } catch (error) {
     console.log(`[BRAND] could not seed a terminal that needs a decision: ${(error as Error).message.split('\n')[0]}`)
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]', 'command-bar': '[data-ui=command-bar]' }
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.

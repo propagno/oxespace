@@ -23,7 +23,7 @@
 .settings-center-nav > nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; }
 .settings-nav-caption { padding: 2px 10px 6px; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; }
 .settings-nav-caption-sub { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bd-subtle); }
-.settings-center-nav > nav button { display: flex; align-items: center; gap: 10px; width: 100%; height: var(--row-1); padding: 0 12px; border: 0; border-radius: var(--radius-sm); text-align: left; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); cursor: pointer; }
+.settings-center-nav > nav button { display: flex; align-items: center; gap: 10px; width: 100%; height: var(--row-1); min-height: var(--row-1); flex-shrink: 0; padding: 0 12px; border: 0; border-radius: var(--radius-sm); text-align: left; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); cursor: pointer; }
 .settings-center-nav > nav button svg { color: var(--tx-muted); flex-shrink: 0; }
 .settings-center-nav > nav button:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); color: var(--tx-primary); }
 .settings-center-nav > nav button[aria-current="page"] { color: var(--tx-primary); background: var(--fill-selected); font-weight: 500; }
