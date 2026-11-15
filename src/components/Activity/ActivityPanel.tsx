@@ -44,7 +44,7 @@ export function ActivityPanel({ onClose, onSelectView }: { onClose: () => void; 
     </div>
     <div className={styles.body} data-testid="activity-center">
       {groups.length === 0
-        ? <EmptyState compact icon={<Bell size={16} />} title={t('activity.empty')}>{t('activity.emptyHint')}</EmptyState>
+        ? <EmptyState compact icon={<Bell size={16} />} title={t('activityCenter.nothingWaiting')}>{t('activity.emptyHint')}</EmptyState>
         : groups.map(group => <section key={group.group} className={styles.group} aria-label={t(`activity.group.${group.group}`)}>
           <h3 className={styles.groupTitle}>{t(`activity.group.${group.group}`)}</h3>
           <ul className={styles.list}>

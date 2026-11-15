@@ -225,7 +225,7 @@ test.describe.serial('the app under real terminal load (OXE-120)', () => {
         for (const label of ['beta-repo', 'alpha-repo']) {
           if (!loaded()) break
           await measure(page, 'workspace switch → grid', 'ms', async () => {
-            await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+            await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
             await page.getByTestId('sidebar-workspace-item').filter({ hasText: label }).getByTestId('sidebar-workspace-select').click({ timeout: 5_000 })
             return await readInputTimer(page, 5_000)
           })

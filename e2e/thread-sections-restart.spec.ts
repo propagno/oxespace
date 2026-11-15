@@ -22,7 +22,7 @@ const row = (id: string): string => `[data-thread-row="${id}"]`
 const sectionNames = (page: Page): Promise<string[]> => nav(page).locator('.thread-section').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label') ?? ''))
 
 async function openConversations(page: Page, project: string): Promise<void> {
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: /^(Thread|OxeChat)$/ }).click()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: /^(Thread|OxeChat)$/ }).click()
   await expect(nav(page).locator('.thread-project-group', { hasText: project })).toBeVisible()
 }
 

@@ -95,6 +95,8 @@ class ScreensSnapshotTest(private val night: Boolean, private val locale: String
     fun conversation() {
         shot("thread") { ThreadScreen("t-1", Samples.timeline(), commands, Samples.presence, connected = true, pending = listOf(Samples.request())) {} }
         shot("thread-working") { ThreadScreen("t-1", Samples.working(), commands, Samples.presence, connected = true) {} }
+        // A12 (OXE-19 CA-6): the reference conversation; its goldens come from ci/record-phone-goldens.
+        shot("thread-reference") { ThreadScreen("t-1", Samples.reference(), commands, Samples.presence, connected = true, pending = listOf(Samples.request())) {} }
         shot("thread-finished") { ThreadScreen("t-1", Samples.finished(), commands, Samples.presence, connected = true) {} }
         shot("thread-loading") { ThreadScreen("t-1", Samples.timeline(loaded = false), commands, Samples.presence, connected = true, knownTitle = "Fix the login redirect", skeletonAfterMs = 0) {} }
         // T100: a long conversation opens on its last message.

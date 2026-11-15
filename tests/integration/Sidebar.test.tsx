@@ -29,6 +29,8 @@ const workspace: Workspace = {
 describe('Sidebar', () => {
   beforeEach(() => {
     useNavigationPrefs.setState({ width: 280, expanded: {} })
+    // One selection at a time (BRD-01): with no terminal focused, the active workspace's row is the selection.
+    useUIStore.setState({ activePaneId: null })
     __resetGitBranchCacheForTests()
     useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
     Object.defineProperty(window, 'oxe', {
@@ -78,6 +80,8 @@ describe('Sidebar', () => {
     fireEvent.keyDown(rows[0], { key: 'j' })
     expect(rows[1]).toHaveFocus()
     fireEvent.keyDown(rows[1], { key: 'Enter' })
+    // activatePane sets the pane after setActiveWorkspace resolves.
+    await waitFor(() => expect(useUIStore.getState().activePaneId).toBe('pane-2'))
     expect(useUIStore.getState().activePaneId).toBe('pane-2')
     fireEvent.keyDown(rows[1], { key: 'Home' })
     expect(name).toHaveFocus()

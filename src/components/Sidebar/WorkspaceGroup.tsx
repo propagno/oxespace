@@ -1,9 +1,9 @@
-import { ArrowDown, ArrowUp, Check, ChevronDown, GripVertical, Network, Palette, Pencil, Settings, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Network, Palette, Pencil, Settings, Trash2 } from 'lucide-react'
 import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
-import { ConfirmDialog, Dialog, SwatchPicker } from '../../ui'
+import { ConfirmDialog, Dialog, IconButton, SidebarGroup, SwatchPicker } from '../../ui'
 import { WORKSPACE_COLORS, workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
@@ -21,6 +21,11 @@ export interface WorkspaceDuplicate {
 interface WorkspaceGroupProps {
   workspace: Workspace
   isActive: boolean
+  /**
+   * Whether this row is the sidebar's selection. One selection at a time (brand 14/11): the active workspace is the
+   * selection only while none of its terminals is. Defaults to isActive.
+   */
+  selected?: boolean
   /** Null when this workspace is the only one on its folder, which is the norm. */
   duplicate?: WorkspaceDuplicate | null
   onSelect: (id: string) => void
@@ -40,9 +45,15 @@ interface WorkspaceGroupProps {
   onDragEnd?: () => void
 }
 
+/**
+ * A workspace in the OxeCode sidebar (BRD-01, OXE-60): a src/ui SidebarGroup row, its color as the dot in the lead,
+ * no card, no strip and no tint. The wrapper only carries the drag-and-drop and the menu and dialogs the row opens;
+ * the terminal rows follow it in the list (the 1.4 structure).
+ */
 function WorkspaceGroupComponent({
   workspace,
   isActive,
+  selected = isActive,
   duplicate = null,
   onSelect,
   onClose,
@@ -84,7 +95,7 @@ function WorkspaceGroupComponent({
   // Close the floating context menu on any outside click / Escape.
   useEffect(() => {
     if (!menu) return
-    const onDown = (event: MouseEvent): void => setMenu(null)
+    const onDown = (): void => setMenu(null)
     const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape') setMenu(null) }
     window.addEventListener('mousedown', onDown)
     window.addEventListener('keydown', onKey)
@@ -94,11 +105,8 @@ function WorkspaceGroupComponent({
     }
   }, [menu])
 
-  function handleHeaderClick() {
+  function handleHeaderClick(): void {
     if (renaming) return
-    // Sidebar no longer expands to show pane rows — the workspace card is
-    // a pure activation target. Pane rename + per-pane actions moved to
-    // the terminal title bar where they belong contextually.
     onSelect(workspace.id)
   }
 
@@ -156,11 +164,12 @@ function WorkspaceGroupComponent({
     : dropPosition === 'after'
       ? ' drop-after'
       : ''
+  const fullName = `${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}`
 
   return (
     <div
-      className={`ws-group${isActive ? ' active' : ''}${isDragging ? ' dragging' : ''}${dropClass}`}
-      data-testid="sidebar-workspace-item" {...workspaceColorAttrs(workspace)}
+      className={`ws-group${isDragging ? ' dragging' : ''}${dropClass}`}
+      data-testid="sidebar-workspace-item" data-active={isActive ? '' : undefined} {...workspaceColorAttrs(workspace)}
       draggable={Boolean(onDragStart) && !renaming}
       onDragStart={(event) => {
         if (!onDragStart || renaming) return
@@ -189,110 +198,52 @@ function WorkspaceGroupComponent({
       }}
       onDragEnd={() => { if (onDragEnd) onDragEnd() }}
     >
-      <div
-        className="ws-group-header"
-        onClick={handleHeaderClick}
-        onContextMenu={handleContextMenu}
-        data-testid="sidebar-workspace-select"
-      >
-        {!renaming && (
-          <GripVertical
-            size={11}
-            className="ws-group-grip"
-            aria-hidden="true"
+      <SidebarGroup
+        lead={<span className="sidebar-ws-mark" {...workspaceColorAttrs(workspace)} title={activity.dominant ? activitySummary(activity) : undefined} aria-hidden="true" />}
+        title={renaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            autoFocus
+            className="ws-group-rename-input"
+            value={draftName}
+            onChange={(e) => setDraftName(e.currentTarget.value)}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') { e.preventDefault(); void commitRename() }
+              if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+            }}
+            onBlur={() => void commitRename()}
+            aria-label={t('sidebar.rename', { name: workspace.name })}
           />
-        )}
-        <span
-          className={`ws-group-dot pane-activity-dot ${activity.dominant ? `activity-${activity.dominant}` : 'activity-placeholder'}`}
-          title={activity.dominant ? activitySummary(activity) : undefined}
-          aria-hidden="true"
-        />
-        <div className="ws-group-title-block">
-          {renaming ? (
-            <input
-              ref={renameInputRef}
-              type="text"
-              autoFocus
-              className="ws-group-rename-input"
-              value={draftName}
-              onChange={(e) => setDraftName(e.currentTarget.value)}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                e.stopPropagation()
-                if (e.key === 'Enter') { e.preventDefault(); void commitRename() }
-                if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
-              }}
-              onBlur={() => void commitRename()}
-              aria-label={t('sidebar.rename', { name: workspace.name })}
-            />
-          ) : (
-            <>
-              <button
-                type="button"
-                className="ws-group-name"
-                data-list-item
-                aria-current={isActive ? 'true' : undefined}
-                onClick={(event) => { event.stopPropagation(); handleHeaderClick() }}
-                title={t('sidebar.rowTitle', { name: workspace.name, path: workspace.rootPath })}
-              >
-                {workspace.name}
-              </button>
-              {duplicate ? (
-                <div
-                  className="ws-group-branch-row"
-                  data-testid="ws-group-meta"
-                >
-                  {duplicate ? (
-                    <span
-                      className="ws-group-dup-index"
-                      title={t('sidebar.duplicate', { count: duplicate.count, path: workspace.rootPath })}
-                      data-testid="ws-group-dup-index"
-                    >
-                      #{duplicate.index}
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-        <div className="ws-group-trailing">
+        ) : <span title={t('sidebar.rowTitle', { name: workspace.name, path: workspace.rootPath })}>{workspace.name}</span>}
+        meta={duplicate ? (
+          <span className="ws-group-dup-index" title={t('sidebar.duplicate', { count: duplicate.count, path: workspace.rootPath })} data-testid="ws-group-dup-index">
+            #{duplicate.index}
+          </span>
+        ) : undefined}
+        actions={renaming ? undefined : <>
           {terminalCount > 0 && onToggleTerminals ? (
-            <button type="button" data-list-action className="ws-group-expand-btn" aria-label={t('sidebar.terminalsIn', { count: terminalCount, name: `${workspace.name}${duplicate ? ` #${duplicate.index}` : ''}` })} title={t('sidebar.terminals', { count: terminalCount })} aria-expanded={terminalsExpanded} onClick={(event) => { event.stopPropagation(); onToggleTerminals() }}>
-              <ChevronDown size={14} aria-hidden="true" />
-            </button>
+            <IconButton size="sm" data-list-action label={t('sidebar.terminalsIn', { count: terminalCount, name: fullName })} title={t('sidebar.terminals', { count: terminalCount })}
+              aria-expanded={terminalsExpanded} icon={terminalsExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+              onClick={(event) => { event.stopPropagation(); onToggleTerminals() }} />
           ) : null}
           {integrations.length > 0 ? (
-            <button
-              type="button"
-              className="ws-group-integration-badge"
-              data-list-action
-              title={t('sidebar.partOf', { names: integrations.map((g) => g.name).join(' · ') })}
-              aria-label={t('sidebar.partOfLabel', { count: integrations.length })}
-              onClick={handleIntegrationBadgeClick}
-              data-testid="ws-group-integration-badge"
-            >
-              <Network size={12} aria-hidden="true" />
-              {integrations.length > 1 ? <span className="ws-group-integration-count">{integrations.length}</span> : null}
-            </button>
+            <IconButton size="sm" data-list-action data-testid="ws-group-integration-badge" label={t('sidebar.partOfLabel', { count: integrations.length })}
+              title={t('sidebar.partOf', { names: integrations.map((g) => g.name).join(' · ') })} icon={<Network size={12} aria-hidden="true" />} onClick={handleIntegrationBadgeClick} />
           ) : null}
-          {!renaming && (
-            <button
-              type="button"
-              className="ws-group-settings-btn"
-              data-list-action
-              title={t('sidebar.options')}
-              aria-label={t('sidebar.optionsLabel')}
-              onClick={handleContextMenu}
-              ref={settingsButtonRef}
-              data-testid="ws-group-settings-btn"
-            >
-              <Settings size={14} aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
+          <IconButton ref={settingsButtonRef} size="sm" data-list-action data-testid="ws-group-settings-btn" label={t('sidebar.optionsLabel')} title={t('sidebar.options')}
+            icon={<Settings size={14} aria-hidden="true" />} onClick={handleContextMenu} />
+        </>}
+        selected={selected}
+        onSelect={handleHeaderClick}
+        onContextMenu={handleContextMenu}
+        aria-label={fullName}
+        data-list-item
+        data-testid="sidebar-workspace-select"
+      />
 
       {menu ? (
         <div
@@ -373,6 +324,7 @@ export const WorkspaceGroup = memo(
   (previous, next) =>
     previous.workspace === next.workspace &&
     previous.isActive === next.isActive &&
+    previous.selected === next.selected &&
     previous.duplicate?.index === next.duplicate?.index &&
     previous.duplicate?.count === next.duplicate?.count &&
     previous.terminalsExpanded === next.terminalsExpanded &&
