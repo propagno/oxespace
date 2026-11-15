@@ -689,6 +689,29 @@ jobs:
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
+      # OXE-149: the built app against the approved brand target (src/design/targets), once per platform. It reports
+      # every measure and fails only on an enforced one; this job does not fail on it. ci-result turns both platforms'
+      # results into the marca/conformidade status on the PR head, which pr:ready requires on interface paths.
+      - name: Brand conformance (OXE-149)
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        continue-on-error: true
+        shell: bash
+        env:
+          BRAND_OUT: brand-out/brand-conformance-${{ matrix.label }}.json
+        run: |
+          mkdir -p brand-out
+          if [ "$RUNNER_OS" = Linux ]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.brand.config.ts --reporter=list
+          else npx playwright test --config playwright.brand.config.ts --reporter=list; fi
+
+      - name: Upload brand conformance
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: brand-conformance-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: brand-out
+
       - name: Upload E2E traces (failures)
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -1541,6 +1564,54 @@ jobs:
           if [ "$OUTCOME" = "success" ]; then state=success; text="every job that had to run passed"; else state=failure; text="CI failed ($OUTCOME)"; fi
           gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context="CI result" -f description="$text" -f target_url="$RUN_URL" >/dev/null
           echo "status CI result=$state on $SHA"
+
+      # OXE-149: both platforms' brand conformance results (E2E shard 2) as the marca/conformidade status on the commit
+      # the PR shows (its head, not the merge commit a pull_request run tests). Failure on an enforced divergence or a
+      # missing platform; pending divergences are counted, not failed. pr:ready requires it on interface paths (OXE-148).
+      - name: Download the brand conformance results
+        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: brand-conformance-*
+          path: brand
+          merge-multiple: true
+
+      - name: Post the brand conformance status (OXE-149)
+        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
+        # The gate is the marca/conformidade status itself; a hiccup posting it never turns "CI result" red.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha || needs.changes.outputs.sha }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+        run: |
+          set -euo pipefail
+          node - <<'EOF'
+          const fs = require('fs'), path = require('path')
+          const dir = 'brand'
+          const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => name.endsWith('.json')) : []
+          let enforced = 0, pending = 0, checks = 0
+          const lines = []
+          for (const name of files) {
+            const { results } = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'))
+            for (const result of results) {
+              checks++
+              if (result.ok) continue
+              if (result.state === 'enforced') { enforced++; lines.push(`- ${name}: ${result.id} ${result.density}/${result.theme}: ${result.measured}${result.detail ? ` (${result.detail})` : ''}`) } else pending++
+            }
+          }
+          const state = files.length < 2 || enforced ? 'failure' : 'success'
+          const text = files.length < 2 ? `results from ${files.length} of 2 platforms` : `${enforced} enforced divergence(s), ${pending} pending reported, ${checks} checks`
+          const nl = String.fromCharCode(10)
+          // Read back below in this same step (GITHUB_ENV only reaches the next step).
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'brand-status'), [state, text, ''].join(nl))
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, ['### Brand conformance (OXE-149)', '', text, '', ...lines.slice(0, 40), ''].join(nl))
+          EOF
+          { read -r BRAND_STATE; read -r BRAND_TEXT; } < "$RUNNER_TEMP/brand-status"
+          gh api "repos/$REPO/statuses/$SHA" -f state="$BRAND_STATE" -f context="marca/conformidade" -f description="$BRAND_TEXT" -f target_url="$RUN_URL" >/dev/null
+          echo "status marca/conformidade=$BRAND_STATE on $SHA: $BRAND_TEXT"
 
   # The merge train's wake-up. A run the train dispatched (with GITHUB_TOKEN) fires no workflow_run when it
   # finishes, so without this the train only learns of the result at its next cron, 10 minutes or more later.

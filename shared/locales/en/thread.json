@@ -396,9 +396,9 @@
     "stopTitle": "Stop turn · Esc",
     "stopShort": "Stop",
     "queue": "Queue follow-up",
-    "queueTitle": "Queue follow-up · Enter",
+    "queueTitle": "Queue follow-up · {{key}}",
     "send": "Send",
-    "sendTitle": "Send · Enter",
+    "sendTitle": "Send · {{key}}",
     "tooLong": "This message has {{length}} characters; the limit is {{limit}}. Attach long text as a file instead.",
     "files": "Project files"
   },
