@@ -1,6 +1,6 @@
 import { GitBranch, Hand } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
-import { copyText, SidebarRow, StatusSignal, type SignalState } from '../../ui'
+import { AnchoredMenu, copyText, SidebarRow, StatusSignal, type MenuEntry, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -34,6 +34,8 @@ const SIGNAL: Record<string, SignalState> = {
 /**
  * A terminal in the OxeCode sidebar (BRD-01, OXE-60): a src/ui SidebarRow, one line, led by its status signal, its
  * state words in its accessible name. A terminal that needs a decision gets the row's second line, saying what is asked.
+ * Its right-click menu is the src/ui AnchoredMenu (BRD-16, OXE-85): Rename, Copy context, Stop terminal while there is
+ * one to stop, then Close terminal alone in the last group.
  */
 export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
   const { t } = useTranslation('code')
@@ -148,16 +150,19 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
     void copyText(context, t('sidebar.session.context'), t('sidebar.session.contextCopied'))
   }
 
-  useEffect(() => {
-    if (!menu) return
-    const close = (): void => setMenu(null)
-    window.addEventListener('click', close)
-    window.addEventListener('keydown', close)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('keydown', close)
-    }
-  }, [menu])
+  /** The row the menu belongs to: the keyboard goes back there when the menu closes. */
+  function rowElement(): HTMLElement | null {
+    return [...document.querySelectorAll<HTMLElement>('[data-testid="pane-session-row"]')].find(el => el.dataset.paneId === pane.id) ?? null
+  }
+
+  // BRD-16: nothing unavailable is shown (Stop only while there is a shell to stop); Close is danger, so the src/ui
+  // menu puts it last, alone, after a separator (orderMenuEntries).
+  const menuItems: MenuEntry[] = [
+    { label: t('sidebar.renameItem'), onSelect: startRename },
+    { label: t('sidebar.session.copy'), onSelect: copyContext },
+    ...(canStopTerminal ? [{ label: t('sidebar.session.stop'), onSelect: () => { void stopTerminal() } }] : []),
+    { label: t('sidebar.session.close'), danger: true, onSelect: () => { void closeTerminal() } }
+  ]
 
   const showUnreadDot = hasUnread && !isActive && isRunning
   const time = lastActivityAt && !editing ? <span className="pane-row-time">{formatActivityTime(lastActivityAt)}</span> : null
@@ -203,27 +208,9 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
         data-origin={display.statusOrigin ?? undefined}
       />
       {menu ? (
-        <div
-          className="pane-session-context-menu"
-          style={{ left: menu.x, top: menu.y }}
-          role="menu"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button type="button" role="menuitem" onClick={startRename}>
-            {t('sidebar.renameItem')}
-          </button>
-          <button type="button" role="menuitem" onClick={copyContext}>
-            {t('sidebar.session.copy')}
-          </button>
-          {canStopTerminal ? (
-            <button type="button" role="menuitem" onClick={() => void stopTerminal()}>
-              {t('sidebar.session.stop')}
-            </button>
-          ) : null}
-          <button type="button" role="menuitem" className="danger" onClick={() => void closeTerminal()}>
-            {t('sidebar.session.close')}
-          </button>
-        </div>
+        <span style={{ position: 'fixed', left: menu.x, top: menu.y, width: 0, height: 0 }}>
+          <AnchoredMenu open onOpenChange={open => { if (!open) setMenu(null) }} side="bottom" label={t('sidebar.session.menu')} returnFocus={rowElement} items={menuItems} />
+        </span>
       ) : null}
     </>
   )
