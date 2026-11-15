@@ -1,6 +1,7 @@
 import { i18n } from '../../i18n'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
 import { shortcutLabel, type AppView } from '../../keyboard/keybindings'
+import { formatChord } from '../../keyboard/chords'
 import { tCommand } from '../../commands/commandText'
 import { toast } from '../../ui/Toast'
 import type { EditCommand } from '../../../shared/types/ipc'
@@ -92,13 +93,13 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
     },
     {
       id: 'edit', label: t('menu.edit'), items: [
-        editItem('undo', 'undo', t('menu.undo'), 'Ctrl+Z'),
-        editItem('redo', 'redo', t('menu.redo'), 'Ctrl+Shift+Z'),
+        editItem('undo', 'undo', t('menu.undo'), formatChord('Mod+Z')),
+        editItem('redo', 'redo', t('menu.redo'), formatChord('Mod+Shift+Z')),
         sep('edit-1'),
-        editItem('cut', 'cut', t('menu.cut'), 'Ctrl+X'),
-        editItem('copy', 'copy', t('menu.copy'), 'Ctrl+C'),
-        editItem('paste', 'paste', t('menu.paste'), 'Ctrl+V'),
-        editItem('select-all', 'selectAll', t('menu.selectAll'), 'Ctrl+A')
+        editItem('cut', 'cut', t('menu.cut'), formatChord('Mod+X')),
+        editItem('copy', 'copy', t('menu.copy'), formatChord('Mod+C')),
+        editItem('paste', 'paste', t('menu.paste'), formatChord('Mod+V')),
+        editItem('select-all', 'selectAll', t('menu.selectAll'), formatChord('Mod+A'))
       ]
     },
     {
@@ -116,7 +117,8 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
         sep('view-2'),
         // Appearance applies to the whole app, so it works without a workspace.
         appearances.length ? { kind: 'submenu', id: 'appearance', label: t('menu.appearance'), children: appearances } : null,
-        densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), disabled: noWorkspace, children: densities } : null,
+        // Density too: with no workspace it sets the app-wide density.
+        densities.length ? { kind: 'submenu', id: 'densities', label: t('menu.density'), children: densities } : null,
         layouts.length ? { kind: 'submenu', id: 'layouts', label: t('menu.layout'), disabled: noWorkspace, children: layouts } : null,
         sep('view-3'),
         fromAction('split-vertical', shortcutLabel('pane.splitRight')),
