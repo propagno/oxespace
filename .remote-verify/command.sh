@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Navigation/NeedsYouPill.tsx tests/unit/brand-targets.test.ts tests/unit/needs-you-pill.test.tsx tests/unit/oxechat-visual-findings.test.tsx src/components/Navigation/NeedsYouQueue.tsx --maxWorkers=2
