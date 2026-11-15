@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/acceptance/f2 tests/oxe152/brand/brd09-titlebar.test.tsx tests/unit/needs-decision.test.tsx tests/integration/AppModeSwitch.test.tsx tests/view-switch.test.tsx tests/unit/oxechat-visual-findings.test.tsx --maxWorkers=2
