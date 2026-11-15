@@ -9,7 +9,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.snapshotFlow
@@ -29,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -64,9 +62,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import android.content.ClipData
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -79,7 +74,6 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -417,7 +411,7 @@ private fun PromptBlock(text: String, truncated: Boolean) {
  * block in both themes (the exported dark `surfaceSunken` is almost the canvas itself).
  */
 @Composable
-private fun promptFill(): Color = lerp(Oxe.colors.surfaceCanvas, Oxe.colors.textPrimary, PROMPT_TINT)
+internal fun promptFill(): Color = lerp(Oxe.colors.surfaceCanvas, Oxe.colors.textPrimary, PROMPT_TINT)
 
 /** 1.5.2 A9 v3 (CR-F3-6): each agent reply under its author line, the provider's 18 dp avatar and its name. */
 @Composable
@@ -445,60 +439,6 @@ private fun AnswerCard(text: String, truncated: Boolean) {
     ) {
         Text(stringResource(R.string.thread_answer_label), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textAccent)
         MarkdownText(displaySafeBlock(text, RemoteTextLimits.ITEM_TEXT), truncated = truncated)
-    }
-}
-
-/** The agent's Markdown (Markdown.kt): paragraphs, lists and code blocks. */
-@Composable
-private fun MarkdownText(text: String, truncated: Boolean) {
-    val blocks = remember(text) { parseMarkdown(text) }
-    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-        for (block in blocks) {
-            when (block) {
-                is MdBlock.Paragraph -> Text(spans(block.spans), style = MaterialTheme.typography.bodyLarge)
-                is MdBlock.Bullet -> Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-                    Text(block.marker, style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary)
-                    Text(spans(block.spans), style = MaterialTheme.typography.bodyLarge)
-                }
-                is MdBlock.Code -> CodeBlock(block.text)
-            }
-        }
-        if (truncated) Text(stringResource(R.string.thread_truncated), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
-    }
-}
-
-@Composable
-private fun spans(spans: List<MdSpan>): AnnotatedString {
-    val code = SpanStyle(fontFamily = OxeCodeStyle.fontFamily, fontSize = OxeCodeStyle.fontSize, background = Oxe.colors.surfaceSunken)
-    return buildAnnotatedString {
-        for (span in spans) {
-            when (span) {
-                is MdSpan.Plain -> append(span.text)
-                is MdSpan.Bold -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(span.text) }
-                is MdSpan.Code -> withStyle(code) { append(span.text) }
-            }
-        }
-    }
-}
-
-/** A code block: sunken, Plex Mono, scrolls sideways inside itself, with Copiar at the top right. */
-@Composable
-fun CodeBlock(text: String) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-    var copied by remember(text) { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied) { delay(COPIED_MS); copied = false } }
-    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).background(promptFill(), RoundedCornerShape(OxeRadius.md))) {
-        Text(
-            text,
-            style = OxeCodeStyle,
-            softWrap = false,
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 76.dp, top = 14.dp, bottom = 14.dp),
-        )
-        TextButton(
-            onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("code", text))) }; copied = true },
-            modifier = Modifier.align(Alignment.TopEnd).heightIn(min = 48.dp),
-        ) { Text(stringResource(if (copied) R.string.thread_copied else R.string.thread_copy), style = MaterialTheme.typography.labelMedium) }
     }
 }
 
@@ -885,7 +825,6 @@ private fun groupRes(kind: StepKind) = when (kind) {
 
 private const val TITLE_MAX = 200
 private const val TARGET_MAX = 160
-private const val COPIED_MS = 2_000L
 private const val SKELETON_DELAY_MS = 300L
 private const val PROMPT_TINT = 0.06f
 private const val PROVIDER_MAX = 40
