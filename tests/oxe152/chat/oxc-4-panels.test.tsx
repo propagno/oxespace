@@ -15,7 +15,8 @@
 // - The toggles open the existing DockPanels to the right, one at a time: the open one is aria-pressed="true", opening
 //   another closes the first, clicking the open one closes it.
 // - The Alterações toggle carries a badge with the number of FILES the conversation changed (what the Changes panel
-//   lists): no badge at 0, "99+" above 99; its accessible name is "Changes, N files" / "Alterações, N arquivos".
+//   lists): no badge at 0, "99+" above 99; its accessible name is "Changes, N files" / "Alterações, N arquivos", from the
+//   plural pair panels.changesCount_one/_other (pt-BR also _many) this card adds (brand 15/11).
 // - The panel width is remembered per conversation (thread-workbench store: a width set for one conversation does not
 //   move another's, and it is persisted).
 // - BRD-04 (PR #842): the card's measures are enforced and in enforced.lock.json, with the main area's raw-button count
@@ -137,6 +138,17 @@ describe('OXE-169 OXC-4 panels from the header (A14)', () => {
     render(<ThreadView workspace={many.workspace} />)
     await screen.findByRole('button', { name: 'Changes, 150 files' })
     expect(changes().textContent).toContain('99+')
+  })
+
+  it('adds the badge name as the plural pair panels.changesCount in en and pt-BR', () => {
+    const flat = (value: unknown, prefix = ''): Record<string, string> => Object.assign({}, ...Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+      typeof item === 'string' ? { [prefix + key]: item } : flat(item, `${prefix}${key}.`)))
+    const pair = (locale: string): Record<string, string | undefined> => {
+      const found = ['thread', 'code'].map(ns => flat(JSON.parse(readFileSync(join(ROOT, `shared/locales/${locale}/${ns}.json`), 'utf8')))).find(keys => 'panels.changesCount_one' in keys) ?? {}
+      return { one: found['panels.changesCount_one'], other: found['panels.changesCount_other'], many: found['panels.changesCount_many'] }
+    }
+    expect(pair('en')).toMatchObject({ one: 'Changes, {{count}} file', other: 'Changes, {{count}} files' })
+    expect(pair('pt-BR')).toEqual({ one: 'Alterações, {{count}} arquivo', other: 'Alterações, {{count}} arquivos', many: 'Alterações, {{count}} arquivos' })
   })
 
   it('remembers the panel width per conversation, persisted', () => {
