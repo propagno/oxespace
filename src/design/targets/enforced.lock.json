@@ -33,6 +33,10 @@
     "BRD-09.mode-tab.font-weight",
     "BRD-09.mode-tab.height",
     "BRD-09.statusbar.height",
-    "BRD-11.row.height"
+    "BRD-10.command.font-family",
+    "BRD-10.item-button.height",
+    "BRD-11.row.height",
+    "BRD-12.title.font-family",
+    "BRD-12.title.font-size"
   ]
 }
