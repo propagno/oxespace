@@ -16,7 +16,10 @@
 //   another closes the first, clicking the open one closes it.
 // - The Alterações toggle carries a badge with the number of FILES the conversation changed (what the Changes panel
 //   lists): no badge at 0, "99+" above 99; its accessible name is "Changes, N files" / "Alterações, N arquivos", from the
-//   plural pair panels.changesCount_one/_other (pt-BR also _many) this card adds (brand 15/11).
+//   plural pair panels.changesCount_one/_other (pt-BR also _many) this card adds (brand 15/11). The badge counts what
+//   its panel opens to (brand 15/11): in a shared folder, the files the conversation's turns changed; with the
+//   conversation's OWN worktree, that worktree's diff against its base (the place's placeDiff, what the Changes panel
+//   lists), and turns' files outside that diff do not change it. Never one number where the panel lists another.
 // - The panel width is remembered per conversation (thread-workbench store: a width set for one conversation does not
 //   move another's, and it is persisted).
 // - BRD-04 (PR #842): the card's measures are enforced and in enforced.lock.json, with the main area's raw-button count
@@ -163,5 +166,36 @@ describe('OXE-169 OXC-4 panels from the header (A14)', () => {
 
   it('turns its own BRD-04 measures to enforced', () => {
     expect(notEnforced(OXC4_MEASURES)).toEqual([])
+  })
+})
+
+describe('OXE-169 OXC-4 the badge of a conversation with its own worktree, brand 15/11 (A14)', () => {
+  it('counts the worktree\'s diff against its base, the list the panel shows, not the turns\' files outside it', async () => {
+    const worktree = '/repo-worktrees/fix-login'
+    const diffFiles = ['src/auth.ts', 'src/session.ts', 'src/routes.ts', 'README.md']
+    const events = [
+      { type: 'message', id: 'u1', role: 'user', text: 'Fix it on its branch' },
+      { type: 'tool', id: 't1', name: 'Edit', state: 'completed', detail: 'two files', files: [
+        { path: `${worktree}/src/auth.ts`, kind: 'update', source: 'native-patch', state: 'completed', additions: 2, deletions: 1 },
+        { path: '/elsewhere/notes.md', kind: 'add', source: 'native-patch', state: 'completed', additions: 5, deletions: 0 }] },
+      { type: 'completed', status: 'completed' }
+    ] as ThreadEvent[]
+    const snapshot: ThreadSnapshot = { thread: { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: worktree, provider: 'claude', title: 'Fix login', pinned: false, status: 'idle', nativeSessionId: 'native-1', createdAt: 1, updatedAt: 1,
+      ownedWorktree: { path: worktree, branch: 'fix/login', projectRoot: '/repo', baseSha: '0'.repeat(40), createdAt: 1 } }, events }
+    const place = { id: 'wt', kind: 'worktree', path: worktree, firstSeenAt: 1, base: { commit: '0'.repeat(40), branch: 'main', capturedAt: 1, turnId: null }, current: { branch: 'fix/login', commit: '1'.repeat(40) }, drift: null, writes: 1, files: ['src/auth.ts'] }
+    const placeDiff = vi.fn(async () => ({ place, groups: { task: { files: diffFiles.map(path => ({ path, additions: 1, deletions: 0, hunks: [], mtime: null })), base: 'main', includeUncommitted: true, compiledAt: 1 } } }))
+    const api = { commands: vi.fn(async () => ({ commands: [] })), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), list: vi.fn(async () => [snapshot.thread]), read: vi.fn(async () => snapshot),
+      models: vi.fn(async () => ({ defaultModel: 'native-model', models: [] })), configure: vi.fn(async () => snapshot), send: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), pin: vi.fn(async () => {}), onChanged: vi.fn(() => () => {}),
+      places: vi.fn(async () => ({ places: [place], capped: false, refused: 0 })), placeDiff, onPlacesChanged: vi.fn(() => () => {}), toolTabs: vi.fn(async () => []) } as unknown as ThreadApi
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard: { writeText: vi.fn(async () => true) }, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
+    const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
+    useAccountStore.setState({ scopes: {}, snapshots: {} })
+    useWorkspaceStore.setState({ workspaces: [workspace] })
+    useThreadStore.setState({ threads: [snapshot.thread], projects: [{ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] }], snapshot, selectedId: 'thread', secondaryId: null } as never)
+    useThreadWorkbenchStore.setState({ views: {}, maximizedId: null })
+    render(<ThreadView workspace={workspace} />)
+    await screen.findByRole('button', { name: 'Changes, 4 files' })
+    expect(changes().textContent).toContain('4')
+    expect(placeDiff, 'the count comes from the worktree diff the panel lists').toHaveBeenCalledWith('thread', 'wt')
   })
 })
