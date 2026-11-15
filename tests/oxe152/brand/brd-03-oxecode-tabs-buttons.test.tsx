@@ -341,7 +341,8 @@ describe('OXE-63 · BRD-03 · buttons', () => {
   })
 
   it('CA-2 · medidas dos botões do BRD-03 em enforced', () => {
-    expect(notEnforced(id => /^BRD-03\.(button|button-lg|icon-button)\./.test(id))).toEqual([])
+    // BRD-03.button-lg.font-size is pending until #858 (BRD-12) gives it lg primaries to measure (coordination 15/11).
+    expect(notEnforced(id => /^BRD-03\.(button|icon-button)\./.test(id))).toEqual([])
     type Measure = { id: string; select: unknown; prop: string; expect: { token?: string }; state: string }
     const measures = (JSON.parse(readFileSync(join(ROOT, 'src/design/targets/brd-03.json'), 'utf8')) as { measures: Measure[] }).measures
     const fonts = measures.filter(measure => measure.prop === 'font-size' && typeof measure.select === 'string' && /\[data-ui=button\]/.test(measure.select as string))
@@ -351,7 +352,7 @@ describe('OXE-63 · BRD-03 · buttons', () => {
     expect(px(plain?.expect.token && `var(${plain.expect.token})`, DENSITY.compact), 'sm and md text target').toBe(12)
     expect(px(large?.expect.token && `var(${large.expect.token})`, DENSITY.compact), 'lg text target').toBe(13)
     expect(fonts.filter(measure => measure !== plain && measure !== large).map(measure => measure.id), 'no other button font target').toEqual([])
-    expect([plain?.state, large?.state]).toEqual(['enforced', 'enforced'])
+    expect([plain?.state, large?.state]).toEqual(['enforced', 'pending'])
     const raw = measures.find(measure => measure.id === 'BRD-03.raw-button.count')
     expect(typeof raw?.select === 'string' && !/^button\b/.test(raw.select) && /button:not\(\[data-ui\]\)/.test(raw.select), `the raw-button count is scoped to the OxeCode surface: ${JSON.stringify(raw?.select)}`).toBe(true)
   })
