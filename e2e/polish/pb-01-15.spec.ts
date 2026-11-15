@@ -7,7 +7,7 @@
 // --bd-subtle line separates it from the footer (the footer's top border is that hairline, never two lines); scrolled
 // to the end, "end" and the line go. Red while the footers are 28 px (md) and the footer border is always drawn.
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 import { openSettings } from '../helpers/settings'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pbReadFile } from 'node:fs'
@@ -193,7 +193,7 @@ test('PB-01·15 in the app: dialog footers are 32 px and New table marks its bot
   await startPostgres(PG, 'CREATE TABLE users (id int PRIMARY KEY);')
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: REAL })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const large = Math.round(await tokenPx(page, '--control-lg'))
     expect(large).toBe(32)
@@ -239,7 +239,7 @@ test('PB-01·15 in the app: dialog footers are 32 px and New table marks its bot
     if (await body.evaluate(el => el.scrollHeight <= el.clientHeight + 1)) {
       expect((await linesAboveFooter(body, subtle)).count, 'the body fits: no line above the footer').toBe(0)
     }
-    await resizeWindow(app, 1100, 420)
+    await layoutAtWidth(app, page, 1100, 420)
     await expect.poll(() => body.evaluate(el => el.scrollHeight > el.clientHeight + 1), { message: 'the short window makes the body overflow', timeout: 10_000 }).toBe(true)
     await expect.poll(() => body.getAttribute('data-overflow'), { timeout: 5_000 }).toMatch(/\bend\b/)
     const below = await linesAboveFooter(body, subtle)

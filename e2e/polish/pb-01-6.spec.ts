@@ -6,7 +6,7 @@
 // keeps its own click (CA-2): the point of the control inside the band hits the control. Red while the edge grabs
 // only a 4 px strip inside the sidebar.
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 import { openSettings } from '../helpers/settings'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pbReadFile } from 'node:fs'
@@ -107,7 +107,7 @@ test('PB-01·6 in the app: the sidebar splitter grabs 10 px from its line, resiz
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: REAL })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await page.locator('[data-app-mode="code"]').first().click()
     const splitter = page.getByRole('separator', { name: cat('code', 'sidebar.width') }).first()
