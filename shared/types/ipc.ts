@@ -656,6 +656,8 @@ export interface AgentNotificationPayload {
   workspaceId: string
   /** What the notification is about; the main process picks the image. Without it, the app icon. */
   icon?: import('./app').NotificationIcon
+  /** No sound (a finished notice while Settings › Notifications has the finish sound off). Without it, the system sound. */
+  silent?: boolean
 }
 
 export interface AgentHooksApi {

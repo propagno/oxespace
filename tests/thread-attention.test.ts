@@ -30,8 +30,8 @@ describe('decideThreadAttention', () => {
   })
 
   it('words each kind and falls back for an untitled thread', () => {
-    expect(threadAttentionText('finished', 'Fix login').title).toBe('Fix login — finished')
-    expect(threadAttentionText('needs-approval', '  ').title).toMatch(/^Conversation — needs/)
+    expect(threadAttentionText('finished', 'Fix login', 'pix-api')).toEqual({ title: 'Fix login', body: 'Finished · pix-api' })
+    expect(threadAttentionText('needs-approval', '  ')).toEqual({ title: 'Conversation', body: 'Needs you' })
     expect(threadAttentionText('failed', 'x').body).toMatch(/error/)
   })
 })

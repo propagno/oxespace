@@ -6,6 +6,7 @@ import { useSettingsStore } from '../store/settings.store'
 import { useThreadStore } from '../store/thread.store'
 import { displayThreadTitle } from '../components/Threads/threadTitle'
 import { decideThreadAttention, threadAttentionText, type ThreadAttentionKind } from '../utils/threadAttention'
+import { sendAgentNotice, type AgentNoticeKind } from './agentNotify'
 
 import { THREAD_NOTIFICATION_PANE_PREFIX } from './notificationPrefixes'
 export { THREAD_NOTIFICATION_PANE_PREFIX }
@@ -54,15 +55,16 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
         const watching = view.current === 'thread' && focused && (thread.id === selectedId || thread.id === secondaryId)
         const decision = decideThreadAttention({ previous, current: thread, viewing: watching })
         if (!decision.kind) continue
-        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: threadAttentionText(decision.kind, displayThreadTitle(thread.title)).body, read: watching })
+        const text = threadAttentionText(decision.kind, displayThreadTitle(thread.title), threadPlace(thread))
+        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: text.body, read: watching })
         if (decision.unread) markUnread(thread.id)
         if (decision.notify && notificationsEnabled) {
-          const text = threadAttentionText(decision.kind, displayThreadTitle(thread.title))
-          void window.oxe?.notifications?.notify({
+          sendAgentNotice({
             ...text,
+            kind: NOTICE_KIND[decision.kind],
             paneId: `${THREAD_NOTIFICATION_PANE_PREFIX}${thread.id}`,
             workspaceId: thread.workspaceId
-          }).catch(() => undefined)
+          })
         }
       }
       seeded = true
@@ -84,6 +86,15 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
 }
 
 const ACTIVITY_KIND: Record<ThreadAttentionKind, ActivityKind> = { 'needs-approval': 'needs-you', failed: 'failed', finished: 'finished' }
+const NOTICE_KIND: Record<ThreadAttentionKind, AgentNoticeKind> = { 'needs-approval': 'needs-you', failed: 'other', finished: 'finished' }
+
+/** Where a conversation is: its project's name, else the folder it runs in. */
+function threadPlace(thread: Pick<ConversationThread, 'projectId' | 'rootPath'>): string {
+  const project = useThreadStore.getState().projects.find(candidate => candidate.projectId === thread.projectId)
+  const named = project?.displayName?.trim() || project?.contexts.find(context => context.rootPath === thread.rootPath)?.label?.trim()
+  if (named) return named
+  return (thread.rootPath ?? '').split(/[\\/]/).filter(Boolean).pop() ?? ''
+}
 
 function threadTarget(thread: Pick<ConversationThread, 'id' | 'workspaceId'>): { type: 'thread'; threadId: string; workspaceId?: string } {
   return { type: 'thread', threadId: thread.id, ...(thread.workspaceId ? { workspaceId: thread.workspaceId } : {}) }

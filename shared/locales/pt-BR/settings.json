@@ -375,7 +375,12 @@
     "notifyHint": "Alertas na área de trabalho quando um agente em segundo plano termina, encerra ou falha. Clicar leva ao terminal.",
     "onlyUnwatched": "Só para os terminais que você <strong>não está olhando</strong>.",
     "sendTest": "Enviar notificação de teste",
-    "testBody": "Notificação de teste"
+    "testBody": "Notificação de teste",
+    "sound": {
+      "title": "Som",
+      "label": "Tocar um som quando um agente terminar",
+      "hint": "Uma notificação de que um agente precisa de você sempre toca o som do sistema."
+    }
   },
   "updates": {
     "kicker": "Sistema",
