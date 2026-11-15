@@ -1,55 +1,55 @@
 // Frozen acceptance test for 1.5.2 OxeCode/Shell F6 "marca" (OXE program oxespace-152-code, phase F6, Jira OXE-73, BRD-10;
-// with bug OXE-176). Written by the planner; the executor must not edit it. Source: the card OXE-73 spec-v1 (CA-1 to CA-5,
-// RT-1 to RT-3), oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-10), M1-api-e-criterios.md, the brand's and the
-// coordination's inputs of 15/11 (AG-03 grouping Precisa de você, Falhou, Trabalhando; risk-gated inline actions: a
-// critical request offers only "Ver impacto"; OXE-176: one row per waiting terminal with "Ir ao terminal"; the pill's
-// number is the queue's pending rows), the coordination's binding (the card's task adds the data-ui its measures read and
-// turns ITS OWN measures to enforced) and the approval-safety rule: a risk label comes only from the catalog, from the
-// request's structure (its policy, threadApprovalRisk), never from the agent's text.
-// Today (main 66e0080d5) the pill dispatches OPEN_APPROVAL_QUEUE_EVENT and the Approvals center opens, which lists formal
-// requests only, while the pill also counts waiting OxeCode terminals (OXE-176: "1 needs you", then "All clear").
+// with bug OXE-176), the window part. Written by the planner; the executor must not edit it. Source: the card OXE-73
+// spec-v1 (CA-1 to CA-5, RT-1 to RT-3), oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-10), M1-api-e-criterios.md, the
+// brand's and the coordination's inputs of 15/11 (AG-03 grouping Precisa de você, Falhou, Trabalhando; risk-gated inline
+// actions: a critical request offers only "Ver impacto"; OXE-176: one row per waiting terminal with "Ir ao terminal"; the
+// pill's number is the queue's pending rows), the user's rule of 15/11 ("o backend deve acompanhar": the queue reads main's
+// aggregation, never a renderer guess), the coordination's binding (the card's task adds the data-ui its measures read and
+// turns ITS OWN measures to enforced) and the approval-safety rule: a risk label comes only from the catalog, over the risk
+// main computed, never from the agent's text.
+// Today (main 66e0080d5) the pill counts from the window's attention feed and dispatches OPEN_APPROVAL_QUEUE_EVENT; the
+// Approvals center lists formal requests only (OXE-176: "1 needs you", then "All clear").
 // Contract:
+// - Source: main's agents overview (window.oxe.agents.overview() and onChanged; electron/main/services/agents/
+//   agents-read-model.ts, with the command and the policy risk of A34). The pill's number is the queue's pending rows: every
+//   answerable request of a needs-you row plus every needs-you pane row; nothing waiting, no pill (A24).
 // - Clicking NeedsYouPill opens the queue in place: one [data-ui=needs-you-queue] with groups [data-ui=needs-you-group] in
 //   this order, each only when it has rows, data-state needs-you | failed | working, its heading the state word (pt-BR
 //   Precisa de você / Falhou / Trabalhando; en Needs you / Failed / Working). Failed and Working show at most 3 rows
-//   ([data-ui=needs-you-row]) and then a "+N" line for the rest (activity store live entries, code and thread). The
-//   Needs-you cap is the brand's open question: not frozen here (the fixtures keep that group at 3 rows or fewer).
-// - Needs you: one [data-ui=needs-you-item] per pending approval of the conversations the thread store holds (snapshot and
-//   snapshotCache, oldest first), then one per waiting OxeCode terminal (OXE-176: the panes the attention feed counts as
-//   needs-you, from the workspace and terminal stores); data-kind "request" | "pane".
-// - A request item shows the exact command in a <code> element (mono) whose text is request.command. Not critical: two
-//   Buttons "Deny" / "Allow once" (pt-BR "Negar" / "Permitir uma vez"), [data-ui=button] data-size="md" (28, 32
-//   comfortable); a decision is ThreadRequestCard's, window.oxe.thread.respond(threadId, requestId, { decision }) (RT-1).
-//   Critical (threadApprovalRisk 'critical', e.g. policy.risk): only "See impact" / "Ver impacto" (thread:f7.card.seeImpact),
-//   which opens the request's impact (useOpenRequest.open(requestId)); no Deny, no Allow, and A never allows it. A critical
-//   item carries a [data-ui=risk-label] whose text is the catalog's thread:request.highRisk (policy.risk) or
-//   thread:request.destructive (policy.level red); any other item has none, whatever its title says.
+//   ([data-ui=needs-you-row]) and then a "+N" line for the rest. The Needs-you cap is the brand's open question: not
+//   frozen here (the fixtures keep that group at 3 rows or fewer).
+// - Needs you: one [data-ui=needs-you-item] data-kind="request" per answerable request (oldest first), then one
+//   data-kind="pane" per waiting terminal (OXE-176).
+// - A request item shows the exact command (summary.command.text) in a <code> element (mono). Not critical: Buttons
+//   "Deny" / "Allow once" (pt-BR "Negar" / "Permitir uma vez"), [data-ui=button] data-size="md" (28, 32 comfortable); a
+//   decision is the conversation's (RT-1): window.oxe.thread.respond(threadId, requestId, { decision }). Critical
+//   (summary.risk 'critical'): only "See impact" / "Ver impacto" (thread:f7.card.seeImpact), which opens the request's
+//   impact (useOpenRequest.open(requestId)); no Deny, no Allow, and A never allows it. A critical item carries a
+//   [data-ui=risk-label] with the catalog's risk word (common:approvals.risk.critical); any other item has none, whatever
+//   its command says.
 // - A pane item (OXE-176): a StatusSignal needs-you ([data-ui=status-signal][data-state=needs-you]), "{workspace} ›
-//   {agent or pane name}", the text thread:f7.queue.paneWaiting ("Esperando você no terminal") and a Button sm named
-//   thread:f7.queue.goToPane ("Ir ao terminal") that goes to the pane through OXE-128's path (openActivityTarget: the
-//   terminal store's active pane becomes it); no Deny or Allow on it.
-// - The pill's number equals the queue's pending rows (the needs-you items); "All clear" (thread:f7.queue.allClearTitle)
-//   never shows while one is pending.
+//   {agent or pane name}" (workspace name from the workspace store, agent from the row), the text
+//   thread:f7.queue.paneWaiting ("Esperando você no terminal") and a Button sm named thread:f7.queue.goToPane ("Ir ao
+//   terminal") that goes to the pane through OXE-128's path (openActivityTarget: the terminal store's active pane becomes
+//   it); no Deny or Allow on it. "All clear" (thread:f7.queue.allClearTitle) never shows while a row is pending.
 // - On open, focus moves into the queue, on the first item; J and K move it to the next and previous item; D denies and A
 //   allows the focused request item (not critical). Esc closes the queue and focus goes back to the pill. With the queue
 //   closed, J K D A typed in a text box or a terminal are not prevented and decide nothing.
 // - src/design/targets/brd-10.json (new, card OXE-73): the measures below, enforced and locked, scene needs-you-queue,
-//   which e2e/brand/brand-conformance.spec.ts measures (a conversation waiting on an approval, the queue opened from the
-//   pill).
+//   which e2e/brand/brand-conformance.spec.ts measures.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NeedsYouPill } from '../../../src/components/Navigation/NeedsYouPill'
 import { useActivityStore } from '../../../src/store/activity.store'
 import { useApprovalsStore } from '../../../src/components/Approvals/approvals.store'
 import { useOpenRequest } from '../../../src/components/Approvals/openRequest'
-import { useThreadStore } from '../../../src/store/thread.store'
-import { useTerminalStore, type TerminalStateEntry } from '../../../src/store/terminal.store'
+import { useTerminalStore } from '../../../src/store/terminal.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
 import { changeLanguage, i18n } from '../../../src/i18n'
-import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
-import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
+import type { AgentRow } from '../../../shared/types/agents'
+import type { Workspace } from '../../../shared/types/workspace'
 
 const ROOT = process.cwd()
 const tt = (key: string): string => i18n.t(key, { ns: 'thread' }) as string
@@ -84,33 +84,31 @@ const QUEUE_MEASURES: readonly Pin[] = [
   { id: 'BRD-10.command.font-family', scene: 'needs-you-queue', prop: 'font-family', expect: { token: '--font-mono' } }
 ]
 
-function approval(id: string, command: string, createdAt: number, extra: Partial<ThreadRequest> = {}): ThreadRequest {
-  return { id, nativeId: `n-${id}`, nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Run a command', command, generation: 1, createdAt, state: 'pending', toolName: 'Bash', availableDecisions: ['accept', 'decline'], ...extra } as ThreadRequest
-}
-const R1 = approval('r1', 'npm test -- --run auth', 1, { policy: { decision: 'ask', reasons: ['npm'], level: 'green' }, title: 'Critical: this is a low risk read' })
-const R2 = approval('r2', 'git push --force origin main', 2, { policy: { decision: 'ask', reasons: ['push'], risk: 'high' } })
-const R3 = approval('r3', 'ls -la', 3, { policy: { decision: 'ask', reasons: ['ls'], level: 'green' } })
-const RUNNING = { status: 'running', error: null, lastActivityAt: null, lastOutput: null, lastIntent: null, lastIntentAt: null, isWorking: false, hasUnread: false, hookState: null, hookAt: null, agentState: null, agentSource: null, location: null, detached: false }
-const paneOf = (id: string, agentName: string | null): WorkspacePane => ({ id, workspaceId: 'ws-1', type: 'terminal', rowIndex: 0, columnIndex: 0, status: 'running', agentProfileId: null, agentName, displayName: null, shellProfileId: 'builtin-claude', rootPath: null, createdAt: null }) as unknown as WorkspacePane
+const COMMANDS = { r1: 'echo "Critical: this is a low risk read"', r2: 'git push --force origin main', r3: 'ls -la' } as const
+type Risk = 'low' | 'medium' | 'high' | 'critical'
+const request = (requestId: keyof typeof COMMANDS, since: number, risk: Risk) =>
+  ({ requestId, kind: 'approval', title: { code: 'agents.request.approval', params: {} }, risk, reversible: null, answerable: true, since, command: { text: COMMANDS[requestId], untrusted: true } })
+const threadRow = (requests: ReturnType<typeof request>[]): AgentRow => ({ kind: 'thread', id: 'thread-1', state: 'needs-you', provider: 'claude', mode: 'thread', title: 'Auth', workspaceId: 'ws-1', since: 1, seenAt: null,
+  session: null, worktree: null, cost: null, requests }) as unknown as AgentRow
+const paneRow = (id: string, state: string, title = 'Claude'): AgentRow => ({ kind: 'pane', id, state, provider: 'claude', mode: 'code', title, workspaceId: 'ws-1', since: 10, seenAt: null, session: null, worktree: null, cost: null,
+  requests: state === 'needs-you' ? [{ requestId: `pane:${id}:3`, kind: 'approval', title: { code: 'agents.request.pane', params: {} }, risk: null, reversible: null, answerable: false, since: 10 }] : [] }) as unknown as AgentRow
+const other = (id: string, state: string, mode: 'code' | 'thread'): AgentRow => mode === 'code' ? paneRow(id, state, `Agent ${id}`)
+  : ({ kind: 'thread', id, state, provider: 'codex', mode, title: `Conversation ${id}`, workspaceId: 'ws-1', since: 5, seenAt: null, session: null, worktree: null, cost: null, requests: [] }) as unknown as AgentRow
+const THREE = threadRow([request('r1', 1, 'low'), request('r2', 2, 'critical'), request('r3', 3, 'low')])
+
 let respond: ReturnType<typeof vi.fn>
-/** Requests in one conversation; `blocked` panes wait in the terminal (the attention feed counts them as needs-you). */
-function fixture(requests: ThreadRequest[], blocked: string[] = []): void {
+function fixture(agents: AgentRow[]): void {
   respond = vi.fn(async () => undefined)
-  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { respond } } })
-  const snapshot = { thread: { id: 'thread-1', workspaceId: 'ws', projectId: 'p', rootPath: '/repo', provider: 'claude', title: 'Auth', pinned: false, status: 'waiting', createdAt: 1, updatedAt: 1 },
-    events: requests.map(request => ({ type: 'request', request })) } as unknown as ThreadSnapshot
-  const panes = ['pane-1', 'pane-2'].map((id, index) => paneOf(id, index === 0 ? 'Claude' : null))
+  const sources = { panes: { ok: true }, threads: { ok: true }, delegations: { ok: true }, work: { ok: true } }
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { respond }, agents: { overview: vi.fn(async () => ({ agents, sources })), onChanged: vi.fn(() => () => undefined), markSeen: vi.fn(async () => undefined) } } })
   act(() => {
     useApprovalsStore.setState({ queue: [] } as never)
     useOpenRequest.setState({ requestId: null })
-    useThreadStore.setState({ snapshot, snapshotCache: {}, threads: [snapshot.thread] } as never)
-    useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'demo-repo', rootPath: '/repo', defaultShellProfileId: 'builtin-claude', panes } as unknown as Workspace] } as never)
-    useTerminalStore.setState({ activePaneId: null, panes: Object.fromEntries(panes.map(pane => [pane.id, { ...RUNNING, agentState: blocked.includes(pane.id) ? 'blocked' : null } as unknown as TerminalStateEntry])) } as never)
-    setLive({ code: Object.fromEntries(blocked.map(id => [id, 'needs-you'])), thread: requests.length ? { 'thread-1': 'needs-you' } : {} })
+    useActivityStore.setState({ live: { code: {}, thread: {} } } as never)
+    useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'demo-repo', rootPath: '/repo', defaultShellProfileId: 'builtin-claude',
+      panes: ['pane-1', 'pane-2'].map(id => ({ id, workspaceId: 'ws-1', type: 'terminal', rowIndex: 0, columnIndex: 0, status: 'running', agentProfileId: null, agentName: 'Claude', displayName: null, shellProfileId: 'builtin-claude', rootPath: null, createdAt: null })) } as unknown as Workspace] } as never)
+    useTerminalStore.setState({ activePaneId: null } as never)
   })
-}
-function setLive(live: { code: Record<string, string>; thread: Record<string, string> }): void {
-  useActivityStore.setState({ live } as never)
 }
 const queue = (): HTMLElement => {
   const found = document.querySelectorAll<HTMLElement>('[data-ui="needs-you-queue"]')
@@ -119,27 +117,29 @@ const queue = (): HTMLElement => {
 }
 const items = (): HTMLElement[] => [...queue().querySelectorAll<HTMLElement>('[data-ui="needs-you-item"]')]
 const focusedItem = (): number => items().findIndex(item => item.contains(document.activeElement))
-function open(): HTMLElement {
-  const pill = screen.getByTestId('needs-you-pill')
+async function open(count: number): Promise<HTMLElement> {
+  const pill = await screen.findByTestId('needs-you-pill')
+  await waitFor(() => expect(pill).toHaveTextContent(i18n.t('attention.needsYou', { count }) as string))
   pill.focus()
   fireEvent.click(pill)
+  await waitFor(() => expect(items().length).toBeGreaterThan(0))
   return pill
 }
 const key = (code: string): void => { fireEvent.keyDown(document.activeElement ?? document.body, { key: code }); fireEvent.keyUp(document.activeElement ?? document.body, { key: code }) }
 const decided = (id: string, decision: string): boolean => respond.mock.calls.some(call => call[1] === id && (call[2] as { decision?: string } | undefined)?.decision === decision)
 
-beforeEach(() => fixture([R1, R2, R3]))
+beforeEach(() => fixture([THREE]))
 afterEach(async () => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
   it.each([['en', 'Deny', 'Allow once', 'See impact'], ['pt-BR', 'Negar', 'Permitir uma vez', 'Ver impacto']])('the pill (%s) opens the queue: the exact command, Deny and Allow once, and only See impact on a critical request', async (locale, deny, allow, impact) => {
     await changeLanguage(locale)
     render(<NeedsYouPill />)
-    open()
+    await open(3)
     expect(items()).toHaveLength(3)
     items().forEach((item, index) => {
       expect(item).toHaveAttribute('data-kind', 'request')
-      expect(item.querySelector('code')?.textContent, `item ${index} shows its command`).toBe([R1, R2, R3][index].command)
+      expect(item.querySelector('code')?.textContent, `item ${index} shows its command`).toBe(Object.values(COMMANDS)[index])
     })
     for (const index of [0, 2]) {
       for (const name of [deny, allow]) {
@@ -159,9 +159,9 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     expect(decided('r2', 'accept') || decided('r2', 'decline')).toBe(false)
   })
 
-  it('J and K move the focus, D denies and A allows the focused item', () => {
+  it('J and K move the focus, D denies and A allows the focused item', async () => {
     render(<NeedsYouPill />)
-    open()
+    await open(3)
     expect(focusedItem()).toBe(0)
     key('j')
     expect(focusedItem()).toBe(1)
@@ -178,12 +178,12 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     expect(respond).toHaveBeenCalledWith('thread-1', 'r3', { decision: 'decline' })
   })
 
-  it('a critical item is never allowed from the queue, by a press or by holding', () => {
-    vi.useFakeTimers()
+  it('a critical item is never allowed from the queue, by a press or by holding', async () => {
     render(<NeedsYouPill />)
-    open()
+    await open(3)
     key('j')
     expect(focusedItem()).toBe(1)
+    vi.useFakeTimers()
     key('a')
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'a' })
     act(() => { vi.advanceTimersByTime(3_000) })
@@ -191,19 +191,21 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     expect(decided('r2', 'accept')).toBe(false)
   })
 
-  it('the risk label comes from the catalog and the request\'s policy, never from the agent\'s text', () => {
+  it('the risk label is the catalog\'s word for main\'s risk, never the agent\'s text', async () => {
     render(<NeedsYouPill />)
-    open()
+    await open(3)
     const labels = items().map(item => [...item.querySelectorAll('[data-ui="risk-label"]')].map(el => (el.textContent ?? '').trim()))
-    expect(labels).toEqual([[], [tt('request.highRisk')], []])
+    expect(labels[0]).toEqual([])
+    expect(labels[2]).toEqual([])
+    expect(labels[1]).toHaveLength(1)
+    expect(labels[1][0]).toContain(i18n.t('approvals.risk.critical') as string)
   })
 
   it.each(['en', 'pt-BR'])('OXE-176 (%s): a waiting terminal is a row after the requests, with Ir ao terminal and no decision; the pill counts the rows', async locale => {
     await changeLanguage(locale)
-    fixture([R1, R3], ['pane-1'])
+    fixture([threadRow([request('r1', 1, 'low'), request('r3', 3, 'low')]), paneRow('pane-1', 'needs-you')])
     render(<NeedsYouPill />)
-    expect(screen.getByTestId('needs-you-pill')).toHaveTextContent(i18n.t('attention.needsYou', { count: 3 }) as string)
-    open()
+    await open(3)
     expect(items().map(item => item.getAttribute('data-kind'))).toEqual(['request', 'request', 'pane'])
     const row = items()[2]
     expect(row.querySelectorAll('[data-ui="status-signal"][data-state="needs-you"]')).toHaveLength(1)
@@ -223,11 +225,10 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
 
   it.each([['pt-BR', ['Precisa de você', 'Falhou', 'Trabalhando']], ['en', ['Needs you', 'Failed', 'Working']]])('groups (%s): needs you, then failed, then working; at most 3 rows and "+N"', async (locale, words) => {
     await changeLanguage(locale)
-    fixture([R1])
-    const many = (prefix: string, count: number, state: string): Record<string, string> => Object.fromEntries(Array.from({ length: count }, (_, index) => [`${prefix}-${index}`, state]))
-    act(() => setLive({ code: { ...many('pane-f', 2, 'failed'), ...many('pane-w', 3, 'working') }, thread: { 'thread-1': 'needs-you', ...many('thread-f', 2, 'failed'), ...many('thread-w', 2, 'working') } }))
+    fixture([threadRow([request('r1', 1, 'low')]), other('f1', 'failed', 'code'), other('f2', 'failed', 'code'), other('f3', 'failed', 'thread'), other('f4', 'failed', 'thread'),
+      other('w1', 'working', 'code'), other('w2', 'working', 'code'), other('w3', 'working', 'code'), other('w4', 'working', 'thread'), other('w5', 'working', 'thread'), other('i1', 'idle', 'thread')])
     render(<NeedsYouPill />)
-    open()
+    await open(1)
     const groups = [...queue().querySelectorAll<HTMLElement>('[data-ui="needs-you-group"]')]
     expect(groups.map(group => group.getAttribute('data-state'))).toEqual(['needs-you', 'failed', 'working'])
     groups.forEach((group, index) => expect(group.textContent ?? '', `group ${index} names its state`).toContain(words[index]))
@@ -237,9 +238,9 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     expect(groups[2].textContent ?? '').toMatch(/\+2(\D|$)/)
   })
 
-  it('Esc closes the queue and gives the focus back; closed, J K D A type normally', () => {
+  it('Esc closes the queue and gives the focus back; closed, J K D A type normally', async () => {
     render(<><NeedsYouPill /><textarea aria-label="composer" /><div className="xterm" tabIndex={0} data-testid="terminal" /></>)
-    const pill = open()
+    const pill = await open(3)
     expect(items()).toHaveLength(3)
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
     expect(document.querySelectorAll('[data-ui="needs-you-queue"]')).toHaveLength(0)
