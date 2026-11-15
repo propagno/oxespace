@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/first-run.test.ts tests/perceived-loading.test.tsx tests/oxe152/brand/brd12-first-run.test.tsx tests/unit/component-reachability-guard.test.ts --maxWorkers=2
