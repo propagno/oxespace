@@ -50,6 +50,18 @@
       "themes": ["light", "dark"],
       "state": "enforced",
       "note": "the title bar's command field is the md control"
+    },
+    {
+      "id": "BRD-09.statusbar.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=status-bar]",
+      "prop": "height",
+      "expect": { "token": "--bar-sm" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the status bar is the small bar: the workspace, the branch, and Claude and Codex usage"
     }
   ]
 }
