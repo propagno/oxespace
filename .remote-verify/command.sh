@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Sidebar/PaneSessionRow.tsx src/components/Sidebar/Sidebar.tsx src/components/Sidebar/WorkspaceGroup.tsx src/ui/Sidebar.tsx tests/design-lint.test.ts tests/integration/Sidebar.test.tsx tests/unit/needs-decision.test.tsx --maxWorkers=2
