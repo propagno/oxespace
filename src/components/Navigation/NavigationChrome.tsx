@@ -77,7 +77,9 @@ function ActionIconButton({ action, returnFocus }: { action: RailAction; returnF
 
 /** The actions of a src/ui SidebarHeader (new workspace, delegated work, search…), as IconButtons. */
 export function SidebarHeaderActions({ actions }: { actions: RailAction[] }) {
-  return <>{actions.map((action, index) => <ActionIconButton key={action.id} action={action} returnFocus={index === 0} />)}</>
+  const { t } = useTranslation()
+  // The header's actions are the sidebar's primary navigation landmark, as SidebarActions was before BRD-01.
+  return <nav className="sidebar-header-nav" aria-label={t('nav.primary')}>{actions.map((action, index) => <ActionIconButton key={action.id} action={action} returnFocus={index === 0} />)}</nav>
 }
 
 /**

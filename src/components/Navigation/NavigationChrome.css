@@ -82,3 +82,5 @@
 
 
 
+/* The sidebar header's actions as one landmark (BRD-01): laid out like the header's action row. */
+.sidebar-header-nav { display: flex; align-items: center; gap: var(--space-0-5); }
