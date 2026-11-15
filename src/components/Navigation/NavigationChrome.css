@@ -22,17 +22,17 @@
 .sidebar-redesign .sidebar-search-wrap { margin: 0 12px 12px; }
 .sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
 .sidebar-redesign .sidebar-section-header > span, .thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
-.sidebar-redesign .ws-group-name { font-size: var(--fs-sm); font-weight: 600; line-height: var(--target-min); }
-.sidebar-redesign .ws-group.active .ws-group-name { font-weight: 600; }
-.sidebar-redesign .ws-group.active > .ws-group-header { border-left-color: transparent; background: transparent; }
-.sidebar-redesign .sidebar-workspace-tree[data-ws].active .ws-group.active > .ws-group-header { background: color-mix(in srgb, var(--ws) 8%, transparent); }
-.sidebar-redesign .ws-group.active:not(.drop-before):not(.drop-after)::before { display: none; }
-.sidebar-redesign .sidebar-terminal-children .pane-session-row.active { box-shadow: none; }
-.sidebar-redesign .ws-group-branch-row { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.sidebar-redesign .sidebar-workspace-tree { border-radius: var(--radius-sm); margin-bottom: 6px; }
-.sidebar-redesign .sidebar-terminal-children .pane-session-row.active { background: var(--fill-selected); border-color: transparent; }
-.sidebar-redesign .sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }
-.sidebar-redesign .sidebar-terminal-children .pane-row-context { font-size: var(--fs-2xs); }
+
+
+
+
+
+
+
+
+
+
+
 .sidebar-redesign .ws-group-list { scrollbar-gutter: stable; scrollbar-width: thin; }
 
 .settings-center-nav { padding: 0 12px 12px; gap: 16px; }
@@ -67,7 +67,7 @@
 .sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--intent-warning-fg); padding: 1px; }
 
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
-.pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn, .ws-group-expand-btn { min-width: var(--control-md); min-height: var(--control-md); }
+.pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn { min-width: var(--control-md); min-height: var(--control-md); }
 .pane-row-time { font-size: var(--fs-2xs); }
 .pane-row-time.recent { color: var(--text-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--control-md); display: inline-flex; align-items: center; }
@@ -77,6 +77,6 @@
 .nav-panel-title .sidebar-actions { margin-right: 0; }
 /* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
 .oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }
-/* The active workspace is a plain selected row, not a bordered box. */
-.sidebar-redesign .ws-group.active > .ws-group-header { border-color: transparent; }
-.sidebar-redesign .ws-group.active::before { display: none; }
+
+
+

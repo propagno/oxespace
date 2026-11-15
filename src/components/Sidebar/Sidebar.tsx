@@ -1,8 +1,7 @@
 import { ChevronDown, FolderOpen, PanelsTopLeft, Plus, Search, Waypoints } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
-import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -163,8 +162,7 @@ export function Sidebar({
     void reorderWorkspaces(next)
   }
 
-  // Clicking a workspace card in the sidebar activates it. Pane-level
-  // navigation lives in the grid; per-pane state reads from the status dot.
+  // Clicking a workspace row in the sidebar activates it.
   const handleSelectWorkspace = (workspaceId: string): void => {
     onSelectWorkspace(workspaceId)
   }
@@ -243,49 +241,53 @@ export function Sidebar({
             ? <EmptyState compact title={t('sidebar.noMatch')} />
             : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
-          filtered.map((ws) => (
-            <section
-              key={ws.id}
-              className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}
-              {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
-            >
-            <WorkspaceGroup
-              key={ws.id}
-              workspace={ws}
-              isActive={ws.id === activeWorkspaceId}
-              duplicate={duplicateRoots.get(ws.id) ?? null}
-              onSelect={handleSelectWorkspace}
-              onClose={onCloseWorkspace}
-              terminalsExpanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
-              terminalCount={ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length}
-              onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
-              isDragging={dragSourceId === ws.id}
-              dropPosition={dragOverId === ws.id ? dropPosition : null}
-              onDragStart={() => setDragSourceId(ws.id)}
-              onDragOver={(position) => {
-                setDragOverId(ws.id)
-                setDropPosition(position)
-              }}
-              onDragLeave={() => {
-                if (dragOverId === ws.id) {
-                  setDragOverId(null)
-                  setDropPosition(null)
-                }
-              }}
-              onDrop={() => handleDropOnWorkspace(ws.id)}
-              onDragEnd={() => {
-                setDragSourceId(null)
-                setDragOverId(null)
-                setDropPosition(null)
-              }}
-            />
-            {(searchQuery || (expanded[ws.id] ?? ws.id === activeWorkspaceId)) && <div className="sidebar-terminal-children">
-              {ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).map((pane, index) =>
-                <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
-                  isActive={ws.id === activeWorkspaceId && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
-            </div>}
-            </section>
-          ))
+          filtered.map((ws) => {
+            const terminals = ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0)
+            const open = Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)
+            const isActive = ws.id === activeWorkspaceId
+            // One selection at a time (brand 14/11): the workspace row is the selection only while none of its terminals
+            // is. The 1.4 structure stays: each workspace's terminal rows come right after its row.
+            const terminalSelected = isActive && open && terminals.some(p => p.id === activePaneId)
+            return (
+              <Fragment key={ws.id}>
+                <WorkspaceGroup
+                  workspace={ws}
+                  isActive={isActive}
+                  selected={isActive && !terminalSelected}
+                  duplicate={duplicateRoots.get(ws.id) ?? null}
+                  onSelect={handleSelectWorkspace}
+                  onClose={onCloseWorkspace}
+                  terminalsExpanded={open}
+                  terminalCount={terminals.length}
+                  onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
+                  isDragging={dragSourceId === ws.id}
+                  dropPosition={dragOverId === ws.id ? dropPosition : null}
+                  onDragStart={() => setDragSourceId(ws.id)}
+                  onDragOver={(position) => {
+                    setDragOverId(ws.id)
+                    setDropPosition(position)
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverId === ws.id) {
+                      setDragOverId(null)
+                      setDropPosition(null)
+                    }
+                  }}
+                  onDrop={() => handleDropOnWorkspace(ws.id)}
+                  onDragEnd={() => {
+                    setDragSourceId(null)
+                    setDragOverId(null)
+                    setDropPosition(null)
+                  }}
+                />
+                {open && terminals.length > 0 ? <div className="sidebar-terminal-children">
+                  {terminals.map((pane, index) =>
+                    <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
+                      isActive={isActive && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
+                </div> : null}
+              </Fragment>
+            )
+          })
         )}
       </nav>
       <SidebarFooterBar className="nav-rail-footer" context={railContext} onToggle={onToggleCollapse} />

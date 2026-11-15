@@ -1,12 +1,12 @@
-import { forwardRef, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
+import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
 import styles from './Sidebar.module.css'
 import { cx } from './cx'
 
 /**
  * The sidebar anatomy (1.5.2, OXE-22, docs/design/brand.md › Scale): one shape for the OxeCode and OxeChat sidebars,
  * and OxeQuery's later. A header bar, a filled filter, section labels, group rows (a workspace, a project) and item
- * rows (a pane, a conversation). Rows are 28px, one line; a second line only when the item needs the person.
- * The structure of each sidebar (what is grouped under what, how things are added) stays the caller's.
+ * rows (a pane, a conversation). Rows are --row-1 (28px), one line; a second line (--row-2, 44px) only when the item
+ * needs the person. The structure of each sidebar (what is grouped under what, how things are added) stays the caller's.
  */
 
 /** The sidebar's header bar (--bar-lg): its title, up to three quiet actions, and collapse last. */
@@ -34,7 +34,10 @@ export function SidebarSection({ label, action, id }: { label: ReactNode; action
   </div>
 }
 
-interface RowProps {
+/** What a caller may add to a row's element: data-* hooks (tests, the list keyboard), ids. The row's own props win. */
+type RowElementProps = Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'onSelect' | 'onClick' | 'onKeyDown' | 'onContextMenu' | 'className' | 'aria-label' | 'aria-current' | 'role' | 'tabIndex' | 'children'>
+
+interface RowProps extends RowElementProps {
   /** The leading mark: a status signal for an item, a color dot or chevron for a group. */
   lead?: ReactNode
   /** The row's name. */
@@ -61,8 +64,8 @@ function rowKeys(onSelect?: () => void) {
 }
 
 /** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
-export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: Omit<RowProps, 'detail'>): ReactElement {
-  return <div data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: Omit<RowProps, 'detail'>): ReactElement {
+  return <div {...rest} data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
@@ -71,9 +74,9 @@ export function SidebarGroup({ lead, title, meta, actions, selected = false, onS
   </div>
 }
 
-/** An item row (a pane, a conversation), indented under its group. Selected is a fill. */
-export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: RowProps): ReactElement {
-  return <div data-ui="sidebar-row" className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+/** An item row (a pane, a conversation), indented under its group. Selected is a fill. Says its line count (data-lines). */
+export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: RowProps): ReactElement {
+  return <div {...rest} data-ui="sidebar-row" data-lines={detail ? '2' : '1'} className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>

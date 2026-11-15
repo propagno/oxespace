@@ -22,7 +22,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-01.filter.height",
@@ -41,7 +41,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-01.section.height",
@@ -60,7 +60,7 @@
         "light",
         "dark"
       ],
-      "state": "pending",
+      "state": "enforced",
       "note": "the section label line"
     },
     {
@@ -80,7 +80,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-01.footer.height",
@@ -99,12 +99,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-01.row.height",
       "scene": "code-workspace",
-      "select": "[data-ui=sidebar-row]",
+      "select": "[data-ui=sidebar-row][data-lines='1']",
       "prop": "height",
       "expect": {
         "token": "--row-1"
@@ -118,8 +118,28 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "terminal rows are one line"
+      "state": "enforced",
+      "note": "a terminal row is one line"
+    },
+    {
+      "id": "BRD-01.row-two-line.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-row][data-lines='2']",
+      "prop": "height",
+      "expect": {
+        "token": "--row-2"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the second line only for a terminal that needs a decision (brand 14/11)"
     }
   ]
 }

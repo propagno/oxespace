@@ -162,7 +162,7 @@ test('audited surfaces have targets of at least 24×24 px in both densities', as
       await page.keyboard.press('Escape')
       await expect(settingsDialog(page)).toHaveCount(0)
 
-      await expectTarget(`${tag} workspace name in the Code sidebar`, page.locator('.sidebar-workspace-tree .ws-group-name').first())
+      await expectTarget(`${tag} workspace name in the Code sidebar`, page.locator('[data-ui="sidebar-group"]').first())
 
       await openView(page, 'data')
       await page.getByRole('button', { name: 'New connection' }).first().click()
