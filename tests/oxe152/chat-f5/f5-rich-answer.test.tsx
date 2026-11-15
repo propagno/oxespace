@@ -9,6 +9,8 @@
 // Contract ("[css]" cases read the stylesheets, rigor source-assertion):
 // - 3.1: paragraphs and lists of the answer read at most 72ch ([css] max-width 72ch on the prose); "- [x]" renders a
 //   checked, read-only checkbox; inline code "src/pix/refund.ts:42" with the conversation is a PathLink (a link).
+// - 3.2 (MARCA 15/11, answer 6): the language on the left, Copy on the right; Copy turns to Copied for 2 s, announced
+//   politely (role=status / aria-live polite).
 // - 3.2: a fence's bar shows only the language's name (TypeScript for ```ts) and Copy (markdown.copy → markdown.copied);
 //   a fence without a language shows only Copy (never "Code" / "Código" nor "Code block"); the block on
 //   --surface-raised; the token colours from --syn-* ([css]: the keyword, string, number, comment and function classes).
@@ -256,6 +258,9 @@ describe('A8 · code blocks (row 3.2)', () => {
     await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copy')}`))
     await userEvent.click(within(bar(block)).getByRole('button'))
     await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copied')}`))
+    const live = [...block.querySelectorAll<HTMLElement>('[role="status"], [aria-live="polite"]')]
+    expect(live.some(node => words(node).includes(tt('markdown.copied'))), 'Copied is announced politely').toBe(true)
+    await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copy')}`), { timeout: 3_500 })
     expect(writeText).toHaveBeenCalledWith('const key = header()')
   })
 

@@ -202,8 +202,10 @@ test('AG-11 5.1 in the app: a plan written in Plan mode runs from the card, thro
     await expect.poll(() => agent.log().filter(entry => entry.event === 'user').length, { timeout: 60_000 }).toBe(2)
     const [first, second] = agent.log().filter(entry => entry.event === 'user').map(entry => entry.text ?? '')
     expect(first).toContain('Plan the Pix refund endpoint')
-    expect(second, 'main\'s run instruction, not the person\'s prompt again').not.toContain('Plan the Pix refund endpoint')
-    expect(second.trim().length).toBeGreaterThan(10)
+    expect(second.trim(), 'exactly the text the card shows (MARCA 15/11), nothing hidden').toBe('Carry out the plan above, one step at a time.')
+    const sent = page.locator('[data-ui="prompt-card"]').filter({ hasText: 'Carry out the plan above, one step at a time.' })
+    await expect(sent, 'a normal prompt card').toHaveCount(1, { timeout: 30_000 })
+    await expect(sent, 'with the small Run plan line').toContainText('Run plan')
     await expect.poll(async () => (await oxe<{ thread: { mode?: string } }>(page, 'thread.read', chat.id)).thread.mode ?? 'default', { timeout: 30_000 }).toBe('default')
     await expect(page.getByRole('button', { name: 'Run plan' }), 'the plan ran: no second Run plan').toHaveCount(0, { timeout: 30_000 })
   } finally {

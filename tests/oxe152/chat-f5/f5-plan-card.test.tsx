@@ -15,6 +15,8 @@
 //   turnId) is available AND the window has thread.executePlan; a click calls thread.executePlan(threadId, turnId) once
 //   (and is disabled while it runs). A plan the agent wrote as prose (no plan event) gets the same one button at the end
 //   of the turn. Never on an older turn, never while a turn runs, never in Agent mode.
+// - MARCA 15/11 (answer 3): the prompt main sent (origin 'execute-plan', T1) is a normal prompt card showing exactly its
+//   text, with a small origin line "Run plan" / "Executar plano" under it.
 // - Read only (planExecution reason 'read-only'): no Run plan; the turn keeps the hint and its "Change access" button.
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -171,6 +173,16 @@ describe('A9 · the plan card (row 5.1)', () => {
     view(fixture(PLAN_EVENTS, { thread: { mode: 'plan', access: 'read-only' }, turns: [planTurn('u1', { configuration: { mode: 'plan', access: 'read-only' } })], api: { executePlan: vi.fn() } }))
     expect(runButtons(locale)).toHaveLength(0)
     expect(screen.getByRole('button', { name: tt('planOnly.changeAccess') })).toBeInTheDocument()
+  })
+
+  test.each(['en', 'pt-BR'] as const)('(%s) the prompt Run plan sent is a normal prompt card with its exact text and a small Run plan line', async locale => {
+    await changeLanguage(locale)
+    const text = locale === 'en' ? 'Carry out the plan above, one step at a time.' : 'Execute o plano acima, uma etapa por vez.'
+    view(fixture([...PLAN_EVENTS, { ...msg('u2', 'user', text), origin: 'execute-plan' }, msg('a2', 'assistant', 'On it.'), done()],
+      { turns: [planTurn('u1'), { id: 'u2', sequence: 2, status: 'completed', configuration: { mode: 'default' } }] }))
+    const card = [...document.querySelectorAll<HTMLElement>('[data-ui="prompt-card"]')].find(node => words(node).includes(text))
+    expect(card, 'a prompt card with exactly that text').toBeTruthy()
+    expect(words(card), 'the small origin line').toContain(RUN[locale])
   })
 
   test('adds Run plan / Executar plano to both catalogs', () => {

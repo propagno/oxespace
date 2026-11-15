@@ -16,7 +16,7 @@ describe('A14 · the brand run measures every BRD-25 target', () => {
     expect(existsSync(OUT), `the brand run wrote ${OUT}`).toBe(true)
     const results = (JSON.parse(readFileSync(OUT, 'utf8')) as { results: Result[] }).results.filter(result => result.id.startsWith('BRD-25.'))
     const ids = (JSON.parse(readFileSync(join(process.cwd(), 'src/design/targets/brd-25.json'), 'utf8')) as { measures: Array<{ id: string }> }).measures.map(measure => measure.id)
-    expect(ids).toHaveLength(19)
+    expect(ids).toHaveLength(20)
     for (const id of ids) {
       const mine = results.filter(result => result.id === id)
       expect(new Set(mine.map(result => `${result.density}/${result.theme}`)).size, `${id}: both densities and both themes`).toBe(4)

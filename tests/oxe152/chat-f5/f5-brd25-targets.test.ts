@@ -10,8 +10,11 @@
 // font-weight, font-family, border-radius and count, selects by a CSS selector or a whole-scene text, and has no
 // chat-anatomy scene; the thread fixtures have no 'anatomy' state.
 // Contract:
+// - MARCA 15/11 (answers 4 and 7): --measure-chat = 800px is a GENERATED token (src/design/tokens → npm run tokens →
+//   src/styles/tokens.generated.css, the same in both densities; the Android tokens regenerate), and the column measures
+//   it; the request's split ▾ is measured as one icon-button (BRD-25.request.split).
 // - src/design/targets/brd-25.json: { brd: 'BRD-25', card: 'OXE-167, OXE-172', platform: 'desktop', source, measures }
-//   with exactly the 19 measures below (id, scene, select, prop, expect, and when needed `of` / `attr`), tolerance 0.5,
+//   with exactly the 20 measures below (id, scene, select, prop, expect, and when needed `of` / `attr`), tolerance 0.5,
 //   both densities and both themes; each `pending` or `enforced` (an enforced one is in enforced.lock.json).
 // - The props the spec measures grow by: margin-block-start, border-left-width, border-left-color, background-color
 //   (colours compared with the token's computed value), inline-start-offset (the element's left edge minus the left
@@ -64,7 +67,7 @@ function notEnforced(ids: readonly string[]): string[] {
 }
 type Target = { id: string; scene: string; select: string | { text: string; within?: string }; prop: string; expect: Record<string, unknown>; of?: string; attr?: string; state: string; tolerance: number; densities: string[]; themes: string[] }
 const BRD25: Array<Omit<Target, 'state' | 'tolerance' | 'densities' | 'themes'>> = [
-  { id: 'BRD-25.column.width', scene: 'chat-conversation', select: '[data-ui=chat-column]', prop: 'width', expect: { px: 800 } },
+  { id: 'BRD-25.column.width', scene: 'chat-conversation', select: '[data-ui=chat-column]', prop: 'width', expect: { token: '--measure-chat' } },
   { id: 'BRD-25.prompt.align', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'inline-start-offset', of: '[data-ui=chat-column]', expect: { px: 0 } },
   { id: 'BRD-25.prompt.radius', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'border-radius', expect: { token: '--radius-lg' } },
   { id: 'BRD-25.turn-gap', scene: 'chat-anatomy', select: '[data-ui=turn] + [data-ui=turn]', prop: 'margin-block-start', expect: { token: '--space-6' } },
@@ -78,6 +81,7 @@ const BRD25: Array<Omit<Target, 'state' | 'tolerance' | 'densities' | 'themes'>>
   { id: 'BRD-25.alert.count', scene: 'chat-anatomy', select: '[data-ui=alert]', prop: 'count', expect: { eq: 4 } },
   { id: 'BRD-25.request.rule', scene: 'chat-approval', select: '[data-ui=request-card]', prop: 'border-left-color', expect: { token: '--attn' } },
   { id: 'BRD-25.request.buttons', scene: 'chat-approval', select: '[data-ui=request-card] [data-ui=button]', prop: 'count', expect: { eq: 2 } },
+  { id: 'BRD-25.request.split', scene: 'chat-approval', select: '[data-ui=request-card] [data-ui=icon-button][aria-haspopup=menu]', prop: 'count', expect: { eq: 1 } },
   { id: 'BRD-25.working-set.height', scene: 'chat-anatomy', select: '[data-ui=working-set]', prop: 'height', expect: { token: '--bar-sm' } },
   { id: 'BRD-25.composer.mode-first', scene: 'chat-conversation', select: '[data-ui=composer-toolbar] > :first-child', prop: 'attr', attr: 'data-ui', expect: { eq: 'mode-switch' } },
   { id: 'BRD-25.composer.controls', scene: 'chat-conversation', select: '[data-ui=composer-toolbar] [data-ui=button], [data-ui=composer-toolbar] [data-ui=icon-button]', prop: 'count', expect: { max: 6 } },
@@ -89,7 +93,16 @@ type Ev = Record<string, unknown> & { type: string }
 const anatomy = (): Ev[] => ((THREAD_STATES as unknown as Record<string, { events?: Ev[] } | undefined>).anatomy?.events ?? [])
 
 describe('A14 · the AG-10/11 brand targets (brd-25.json) and the chat-anatomy scene', () => {
-  test('brd-25.json holds exactly the 19 AG-10/11 measures, as the plan fixed them', () => {
+  test('the token generator emits --measure-chat: 800px, the same in both densities (MARCA 15/11, answer 4)', () => {
+    const css = pbRead('src/styles/tokens.generated.css')
+    const block = (selector: string): string => { const at = css.indexOf(`${selector} {`); return at < 0 ? '' : css.slice(at, css.indexOf('}', at)) }
+    expect(block(':root'), 'in the base :root block').toMatch(/--measure-chat:\s*800px;/)
+    const comfortable = block(":root[data-density='comfortable']")
+    expect(/--measure-chat:\s*(?!800px)/.test(comfortable), 'comfortable keeps 800px').toBe(false)
+    expect(pbRead('src/design/tokens/scales.ts'), 'from the token source, not hand-written (SOURCE-TEXT, marked)').toMatch(/measure-chat|measureChat/)
+  })
+
+  test('brd-25.json holds exactly the 20 AG-10/11 measures, as the plan fixed them', () => {
     const doc = file()
     expect([doc.brd, doc.platform]).toEqual(['BRD-25', 'desktop'])
     expect(doc.source).toBeTruthy()

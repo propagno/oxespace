@@ -32,6 +32,11 @@
 //   window has thread.editPrompt. Edit opens an editor in the card: a textbox with the text, Cancel (thread common.cancel)
 //   and Send (thread composer.send); when that turn changed files, a checkbox "Undo this turn's changes" / "Desfazer as
 //   alterações deste turno", unchecked by default. Send calls thread.editPrompt(threadId, turnId, text, { restoreFiles }).
+// - Edited (MARCA 15/11, answer 1): a prompt whose turn has editedInto (T2) stays, marked "Edited · resent below" /
+//   "Editado · reenviado abaixo", with no Edit; the new prompt card follows; nothing implies the old turn or its changes
+//   are gone (the old turn's "Desfazer turno" stays where it is).
+// - The column's width is the GENERATED token --measure-chat (800 px, T14; answer 4): [css] the column uses
+//   var(--measure-chat), and BRD-04.column.width measures that token, not a literal.
 // - Empty conversation (row 1.0): the Ramo symbol (an svg path whose d is src/design/brand.ts MARK_PATH), its title, the
 //   composer, and exactly the 4 approved starters; nothing else of the example kind.
 // - ⋯ menu (BRD-21 in F4, kept): today's items in four groups, destructive last; "Abrir no OxeCode" first in group 3, "Abrir a
@@ -280,7 +285,8 @@ const tt = (key: string, options: Record<string, unknown> = {}): string => i18n.
 const PAIRS = {
   copy: { en: 'Copy prompt', 'pt-BR': 'Copiar prompt' },
   edit: { en: 'Edit prompt', 'pt-BR': 'Editar prompt' },
-  undo: { en: 'Undo this turn\'s changes', 'pt-BR': 'Desfazer as alterações deste turno' }
+  undo: { en: 'Undo this turn\'s changes', 'pt-BR': 'Desfazer as alterações deste turno' },
+  edited: { en: 'Edited · resent below', 'pt-BR': 'Editado · reenviado abaixo' }
 } as const
 const MEASURES = ['BRD-04.chat-header.height', 'BRD-04.column.width', 'BRD-05.title.font-size', 'BRD-05.title.font-weight', 'BRD-05.title.font-family',
   'BRD-25.column.width', 'BRD-25.prompt.align', 'BRD-25.prompt.radius', 'BRD-25.turn-gap', 'BRD-25.header.meta'] as const
@@ -440,7 +446,28 @@ describe('A5 · one left axis and the prompt card (AG-10 §2.1)', () => {
     await waitFor(() => expect(editPrompt).toHaveBeenCalledWith('thread', 'u1', 'Fix the login redirect', { restoreFiles: true }))
   })
 
-  test('adds the three new pairs of words to both catalogs', () => {
+  test.each(['en', 'pt-BR'] as const)('(%s) an edited prompt stays, marked Edited · resent below, with no Edit; the new prompt follows', async locale => {
+    await changeLanguage(locale)
+    const turns = [{ ...TURNS[0], editedInto: 'u1' }, TURNS[1]]
+    view(fixture([msg('u0', 'user', 'Explain the login'), msg('a0', 'assistant', 'It posts.'), done(), ...TURN], { turns, api: { editPrompt: vi.fn(async () => undefined) } }))
+    const [old, next] = userCards()
+    expect(words(old)).toContain('Explain the login')
+    expect(words(old), 'marked as edited').toContain(PAIRS.edited[locale])
+    expect(within(old).queryByRole('button', { name: PAIRS.edit[locale] }), 'history: no Edit').toBeNull()
+    expect(words(next)).toContain('Fix the login redirect')
+    expect(words(next), 'the new prompt is a normal card').not.toContain(PAIRS.edited[locale])
+    expect(screen.getByText('It posts.'), 'the old turn stays in view').toBeInTheDocument()
+  })
+
+  test('[css] the column is the generated --measure-chat token, and BRD-04.column.width measures the token (SOURCE-TEXT of the target data, marked)', () => {
+    view(fixture(TURN))
+    const column = one('[data-ui="chat-column"]')
+    expect(usesTok(css(column, ['max-width', 'width', 'inline-size', 'max-inline-size']), 'measure-chat'), 'var(--measure-chat)').toBe(true)
+    const measure = (JSON.parse(pbRead('src/design/targets/brd-04.json')) as { measures: Array<{ id: string; expect: Record<string, unknown> }> }).measures.find(item => item.id === 'BRD-04.column.width')
+    expect(measure?.expect).toEqual({ token: '--measure-chat' })
+  })
+
+  test('adds the new pairs of words to both catalogs', () => {
     for (const [name, pair] of Object.entries(PAIRS)) expect(pairKey('thread', pair.en, pair['pt-BR']), `${name}: one key holds "${pair.en}" and "${pair['pt-BR']}"`).not.toBe('')
   })
 })

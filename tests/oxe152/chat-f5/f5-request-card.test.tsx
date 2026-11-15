@@ -32,6 +32,13 @@
 //   the left border), request.buttons (2 [data-ui=button] in the chat-approval scene's low reversible request: Negar and
 //   Permitir uma vez; the ▾ trigger and Copy are icon-buttons) and echo.needs-you (no "Needs you" text in the column)
 //   turn enforced.
+// - MARCA 15/11 (answers 5, 6, 7) and the coordinator: no kicker "{agent} needs your approval" on the card (the phone keeps
+//   its own); the card's one header line is the request's kind with the sun, from impact.kind: command → "Run a command in
+//   the terminal" / "Executar comando no terminal" (new keys per kind). WHO asks and WHERE stays on the card: one
+//   [data-ui=request-origin] line with the agent and the conversation's worktree branch (thread.ownedWorktree.branch) or
+//   else its folder name (ThreadTimelineEntry passes it; parallel chats and terminals make the origin necessary). Copy is
+//   an icon button on the command block's top-right corner (inside [data-ui=request-command]); it turns to Copied for 2 s,
+//   announced politely. The split's ▾ is one icon-button (BRD-25.request.split).
 // - Decided (5.2): one history line [data-ui=request-decided], no --attn: "Allowed once" / "Permitido uma vez" (with a
 //   StatusSignal done) or "Denied" / "Negado".
 // - Question (5.3): one-click options and ONE free field, placeholder "Other option…" / "Outra opção…", with no
@@ -42,6 +49,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ApprovalQueue } from '../../../src/components/Approvals/ApprovalQueue'
 import { useOpenRequest } from '../../../src/components/Approvals/openRequest'
 import { ThreadRequestCard } from '../../../src/components/Threads/ThreadRequestCard'
+import { ThreadView } from '../../../src/components/Threads/ThreadView'
+import { useAccountStore } from '../../../src/store/account.store'
+import { useThreadStore } from '../../../src/store/thread.store'
+import { useWorkspaceStore } from '../../../src/store/workspace.store'
+import type { Workspace } from '../../../shared/types/workspace'
 import { changeLanguage } from '../../../src/i18n'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { existsSync as pbExistsFile, readdirSync as pbReaddir, readFileSync as pbReadFile } from 'node:fs'
@@ -226,6 +238,49 @@ function px(value: string | undefined, density: 'compact' | 'comfortable' = 'com
   if (!/^[\d\s.+\-*/()]+$/.test(expr)) return NaN
   try { return Number(new Function(`return (${expr})`)()) } catch { return NaN }
 }
+// ---- the real ThreadView over seeded stores and a window.oxe.thread double (inlined so every task's PR stands alone) ----
+// The same fixture as OxeChat F4's frozen tests (oxc-2-conversation, oxc-2b-composer): the real conversation view, its
+// stores and its components; only the main process is a double, whose calls the cases read back.
+vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'feat/thread', detached: false, shortSha: null, error: null }) }))
+
+type FxStatus = 'idle' | 'running' | 'approval' | 'failed' | 'interrupted'
+interface FxOptions { status?: FxStatus; thread?: Record<string, unknown>; turns?: Array<Record<string, unknown>>; pendingRequests?: unknown[]; api?: Record<string, unknown> }
+/** One conversation "Auth investigation" in project "Repo" (/repo), selected, with these events; returns the double. */
+function fixture(events: unknown[], options: FxOptions = {}) {
+  const status = options.status ?? 'idle'
+  const thread = { id: 'thread', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Auth investigation', pinned: false, status,
+    nativeSessionId: 'native-1', createdAt: 1, updatedAt: 1, access: 'workspace-write', mode: 'default', ...options.thread }
+  const snapshot = { thread, events, ...(options.turns ? { turns: options.turns } : {}), ...(options.pendingRequests ? { pendingRequests: options.pendingRequests } : {}) }
+  const api = {
+    commands: vi.fn(async () => ({ commands: [] })), projects: vi.fn(async () => ({ projects: [], unavailable: [] })), list: vi.fn(async () => [snapshot.thread]),
+    create: vi.fn(async () => snapshot), read: vi.fn(async () => snapshot),
+    models: vi.fn(async () => ({ defaultModel: 'native-model', models: [{ id: 'native-model', label: 'Native model', description: '', efforts: ['low', 'high'], defaultEffort: 'low' }] })),
+    configure: vi.fn(async () => snapshot), send: vi.fn(async () => {}), steer: vi.fn(async () => {}), interrupt: vi.fn(async () => {}), approve: vi.fn(async () => {}),
+    respond: vi.fn(async () => {}), pin: vi.fn(async () => {}), onChanged: vi.fn(() => () => {}), command: vi.fn(async () => ({ kind: 'applied' })),
+    turnFiles: vi.fn(async () => []), places: vi.fn(async () => ({ places: [], capped: false, refused: 0 })), onPlacesChanged: vi.fn(() => () => {}), collisions: vi.fn(async () => []),
+    ...options.api
+  }
+  const clipboard = { writeText: vi.fn(async () => true) }
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
+  const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
+  useAccountStore.setState({ scopes: {}, snapshots: {} })
+  useWorkspaceStore.setState({ workspaces: [workspace] })
+  useThreadStore.setState({ threads: [snapshot.thread], projects: [{ projectId: 'project', displayName: 'Repo', identityLabel: '/repo', hidden: false, contexts: [{ rootPath: '/repo', label: 'Repo' }] }], snapshot, selectedId: 'thread', secondaryId: null, drafts: {}, attachments: {} } as never)
+  return { snapshot, api, clipboard, workspace }
+}
+/** Exactly one element for the selector (a clear failure while the hook is missing). */
+const one = (selector: string, root: ParentNode = document): HTMLElement => {
+  const found = [...root.querySelectorAll<HTMLElement>(selector)]
+  expect(found, `exactly one ${selector}`).toHaveLength(1)
+  return found[0]
+}
+/** The visible words of a node, spaces folded. */
+const words = (node: Element | null | undefined): string => (node?.textContent ?? '').replace(/\s+/g, ' ').trim()
+/** A control's name: its aria-label, else its text. */
+const nameOf = (el: Element): string => (el.getAttribute('aria-label') ?? el.textContent ?? '').replace(/\s+/g, ' ').trim()
+const msg = (id: string, role: 'user' | 'assistant', text: string) => ({ type: 'message', id, role, text })
+const tool = (id: string, name: string, over: Record<string, unknown> = {}) => ({ type: 'tool', id, name, state: 'completed', detail: '', startedAt: 1_000, completedAt: 1_300, ...over })
+const done = (status: 'completed' | 'failed' | 'interrupted' = 'completed', over: Record<string, unknown> = {}) => ({ type: 'completed', status, ...over })
 type Props = Record<string, unknown>
 type Level = 'low' | 'medium' | 'high' | 'critical'
 const ALLOW_MENU = { en: 'More ways to allow', 'pt-BR': 'Mais opções para permitir' } as const
@@ -241,6 +296,7 @@ const request = (id: string, imp: Props | undefined, over: Props = {}): Props =>
   id, nativeId: `n-${id}`, nativeMethod: 'can_use_tool:Bash', kind: 'approval', title: 'Run the tests', toolName: 'Bash', command: imp?.text ?? 'npm test',
   generation: 1, createdAt: 10, state: 'pending', availableDecisions: ['accept', 'decline'], ...(imp ? { impact: imp } : {}), ...over
 })
+const view10 = (f: ReturnType<typeof fixture>) => render(<ThreadView workspace={f.workspace} />)
 const OFFER = { offered: true, rule: { provider: 'claude', scope: 'project', text: 'Bash(npm test:*)', file: '.claude/settings.local.json' }, runsProjectCode: false }
 
 function renderCard(req: Props, extra: Props = {}) {
@@ -254,7 +310,6 @@ function card(): HTMLElement {
   expect(node, 'the card carries data-ui="request-card"').toBeTruthy()
   return node!
 }
-const nameOf = (button: HTMLElement): string => (button.getAttribute('aria-label') ?? button.textContent ?? '').replace(/\s+/g, ' ').trim()
 /** The card's action buttons in DOM order, without the copy button. */
 const actions = (copy = cat('thread', 'f7.card.copyExact')): string[] => within(card()).getAllByRole('button').map(nameOf).filter(name => name && name !== copy)
 const riskLabels = (): HTMLElement[] => [...card().querySelectorAll<HTMLElement>('[data-ui="risk-label"]')]
@@ -284,15 +339,44 @@ describe('A10 · the active request card (row 5.2)', () => {
     expect(three, `a 3 px rule in --attn (${rule} | ${pseudo})`).toBe(true)
   })
 
+  test.each(['en', 'pt-BR'] as const)('(%s) no kicker: the one header line is the request kind with the sun', async locale => {
+    await changeLanguage(locale)
+    renderCard(request('r1', impact('low', true)))
+    const kicker = cat('thread', 'f7.card.needsApproval', { agent: 'Claude' }, locale)
+    expect(card().textContent ?? '', 'no "{agent} needs your approval"').not.toContain(kicker)
+    const header = card().querySelector('header')!
+    expect(header.querySelector('svg'), 'the sun').toBeTruthy()
+    expect(words(header)).toContain(locale === 'en' ? 'Run a command in the terminal' : 'Executar comando no terminal')
+  })
+
+  test('who and where: a request from a parallel chat in a worktree names the agent and that worktree (coordinator 15/11)', async () => {
+    const req = request('wp', impact('low', true), { title: 'Run the tests' })
+    view10(fixture([msg('u1', 'user', 'Run the tests'), { type: 'request', id: 'wp', request: req }], { status: 'approval', pendingRequests: [req],
+      thread: { parentThreadId: 'main-chat', rootPath: '/repo-worktrees/pix-refund', ownedWorktree: { path: '/repo-worktrees/pix-refund', branch: 'oxe-pix-refund', projectRoot: '/repo', baseSha: '0'.repeat(40), createdAt: 1 } } }))
+    const origin = await waitFor(() => one('[data-ui="request-origin"]', card()))
+    expect(words(origin), 'who').toContain('Claude')
+    expect(words(origin), 'where').toContain('oxe-pix-refund')
+    cleanup()
+    const plain = request('wf', impact('low', true))
+    view10(fixture([msg('u1', 'user', 'Run the tests'), { type: 'request', id: 'wf', request: plain }], { status: 'approval', pendingRequests: [plain] }))
+    const folder = await waitFor(() => one('[data-ui="request-origin"]', card()))
+    expect(words(folder), 'without a worktree: the folder').toContain('repo')
+  })
+
   test('[css] the exact command in mono on the sunken surface; Copy copies exactly that text', async () => {
     const text = 'git  push\t--force-with-lease origin  release/1.5.2 '
     renderCard(request('r1', impact('medium', true, { text, why: 'Run: npm publish --tag latest' }), { title: 'Push the release', reason: 'echo safe' }))
     const command = one('[data-ui="request-command"]', card())
     expect(command.querySelector('code')?.textContent).toBe(text)
     expect(usesTok(css(command, ['background', 'background-color']) ?? css(command.querySelector('code')!, ['background', 'background-color']), 'surface-sunken')).toBe(true)
-    await userEvent.click(within(card()).getByRole('button', { name: cat('thread', 'f7.card.copyExact') }))
+    const copy = within(card()).getByRole('button', { name: cat('thread', 'f7.card.copyExact') })
+    expect(command.contains(copy), 'Copy sits on the command block\'s corner').toBe(true)
+    expect(copy.getAttribute('data-ui'), 'an icon button').toBe('icon-button')
+    await userEvent.click(copy)
     expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1)
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(text)
+    const live = [...card().querySelectorAll<HTMLElement>('[role="status"], [aria-live="polite"]')]
+    await waitFor(() => expect(live.concat([...card().querySelectorAll<HTMLElement>('[role="status"], [aria-live="polite"]')]).some(node => words(node).includes(cat('thread', 'markdown.copied'))), 'Copied, announced politely').toBe(true))
   })
 
   test.each(['en', 'pt-BR'] as const)('(%s) the risk badge reads the glossary words, one level at a time', async locale => {
@@ -320,7 +404,7 @@ describe('A10 · the active request card (row 5.2)', () => {
   })
 
   test('the ▾ menu holds Always allow in this project… only when it is offered, and See impact; Always allow opens the exact rule, with Cancel', async () => {
-    Object.assign(window, { oxe: { approvals: { alwaysAllow: vi.fn(async () => ({ ok: true, rule: OFFER.rule })) } } })
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { approvals: { alwaysAllow: vi.fn(async () => ({ ok: true, rule: OFFER.rule })) } } })
     const props = renderCard(request('r1', impact('low', true), { alwaysAllow: OFFER }))
     await userEvent.click(one('[data-ui="allow-menu"]', card()))
     const menu = await screen.findByRole('menu')
@@ -378,7 +462,7 @@ describe('A10 · approval safety, exactly as today (coordinator 15/11)', () => {
   test('safety 1: in the queue, A on a critical request is the 1.2 s hold; a short press approves nothing', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
     try {
-      Object.assign(window, { oxe: { approvals: { preview: vi.fn(async () => ({ status: 'ok', count: 1, sample: { cols: ['id'], rows: [[1]] } })) } } })
+      Object.defineProperty(window, 'oxe', { configurable: true, value: { approvals: { preview: vi.fn(async () => ({ status: 'ok', count: 1, sample: { cols: ['id'], rows: [[1]] } })) } } })
       const onRespond = vi.fn(async () => undefined)
       const Queue = ApprovalQueue as unknown as (p: Props) => JSX.Element
       render(<Queue items={[{ request: request('rc', impact('critical', false, { text: 'npm publish' }), { createdAt: 5 }), agent: 'Claude', conversation: 'Release' }]} decided={[]} onRespond={onRespond} initialSelectedId="rc" />)
@@ -508,17 +592,12 @@ describe('A10 · a decided request and a question (rows 5.2 decided and 5.3)', (
   })
 
   test('adds the new pairs to both catalogs', () => {
-    for (const [name, pair] of Object.entries({ ALLOW_MENU, ALWAYS, ALLOWED, DENIED, OTHER })) expect(pairKey('thread', pair.en, pair['pt-BR']), name).not.toBe('')
+    const KIND_COMMAND = { en: 'Run a command in the terminal', 'pt-BR': 'Executar comando no terminal' }
+    for (const [name, pair] of Object.entries({ ALLOW_MENU, ALWAYS, ALLOWED, DENIED, OTHER, KIND_COMMAND })) expect(pairKey('thread', pair.en, pair['pt-BR']), name).not.toBe('')
   })
 
   test('turns BRD-04.request.* and its BRD-25 measures to enforced (SOURCE-TEXT check of the target data, marked)', () => {
-    expect(notEnforced(['BRD-04.request.radius', 'BRD-04.request.button.height', 'BRD-25.request.rule', 'BRD-25.request.buttons', 'BRD-25.echo.needs-you'])).toEqual([])
+    expect(notEnforced(['BRD-04.request.radius', 'BRD-04.request.button.height', 'BRD-25.request.rule', 'BRD-25.request.buttons', 'BRD-25.request.split', 'BRD-25.echo.needs-you'])).toEqual([])
   })
 })
 
-// one() is the fixture part's in the other files; this file renders the card alone.
-function one(selector: string, root: ParentNode = document): HTMLElement {
-  const found = [...root.querySelectorAll<HTMLElement>(selector)]
-  expect(found, `exactly one ${selector}`).toHaveLength(1)
-  return found[0]
-}

@@ -6,7 +6,11 @@
 // Today (main 12b8e900b) nothing in main runs a plan the agent wrote in Plan mode: ThreadManager has no executePlan,
 // IPC_CHANNELS.thread has no executePlan, and shared/threadPlanExecution.ts does not exist.
 // Contract:
-// - shared/threadPlanExecution.ts exports THREAD_EXECUTE_PLAN_PROMPT (a fixed English instruction main sends the agent,
+// - MARCA 15/11 (answer 3): the text main sends is exactly what the card shows, no hidden instruction: en "Carry out the
+//   plan above, one step at a time.", pt-BR "Execute o plano acima, uma etapa por vez.", in main's language
+//   (electron/main/i18n.ts mainLanguage; shared/locales/*/main.json). It is a normal prompt of the conversation (the
+//   user message stores exactly that text) marked origin 'execute-plan' (the window adds a small "Executar plano" line).
+// - shared/threadPlanExecution.ts exports executePlanPrompt(language) (those two texts; English for any other language,
 //   never built from agent text) and planExecution(snapshot, turnId) → { available: true } | { available: false,
 //   reason: 'not-latest' | 'running' | 'not-plan' | 'no-plan' | 'read-only' }: available only for the LATEST turn, once
 //   it ended 'completed', while the conversation is idle and still in Plan (thread.mode === 'plan'), when that turn holds
@@ -14,7 +18,8 @@
 //   The window shows the button from this same function (T9); main refuses with it.
 // - ThreadManager (ThreadOrchestrator).executePlan(id, turnId): refuses (rejects) when planExecution is not available,
 //   changing nothing and sending nothing; otherwise moves the conversation from Plan to Agent (mode 'default', through
-//   the existing configure, access untouched) and then sends THREAD_EXECUTE_PLAN_PROMPT as the next turn.
+//   the existing configure, access untouched) and then sends executePlanPrompt(mainLanguage()) as the next turn, the
+//   stored user message with origin: 'execute-plan' (shared/types/thread.ts message event, optional field).
 // - IPC: IPC_CHANNELS.thread.executePlan = 'thread:execute-plan' (thread.ipc.ts handler, preload api.executePlan,
 //   ThreadApi.executePlan?(id, turnId)), declared in shared/mcp-coverage.ts as the person's window only (a capability
 //   with `excluded`, like thread.history_edit): an agent never runs a plan on the person's behalf.
@@ -30,6 +35,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { MCP_COVERAGE } from '../../../shared/mcp-coverage'
 import type { AgentConversationAdapter, ThreadEvent } from '../../../shared/types/thread'
 import { removeTempDir } from '../../helpers/removeTempDir'
+import { setMainLanguage } from '../../../electron/main/i18n'
 import { existsSync as pbExists } from 'node:fs'
 import { join as pbJoin } from 'node:path'
 import { pathToFileURL as pbFileUrl } from 'node:url'
@@ -113,13 +119,20 @@ async function turnReady(b: Backend): Promise<void> {
     return Boolean(turnId && b.read().turns!.at(-1)!.status === 'running' && (turns.checkpointIds.get(turnId)?.length ?? 0) >= 1 && (turns.baselines.get(b.id)?.length ?? 0) >= 1)
   }, 'the turn baseline')
 }
+// main's language comes from OXESPACE_LOCALE in tests (electron/main/i18n.ts systemLocale), never from the machine.
+process.env.OXESPACE_LOCALE = 'en'
+
 type PlanApi = { executePlan(id: string, turnId: string): Promise<void> }
 const executePlan = (b: Backend, turnId: string): Promise<void> => (b.manager as unknown as PlanApi).executePlan(b.id, turnId)
-type PlanModule = { planExecution(snapshot: unknown, turnId: string): { available: boolean; reason?: string }; THREAD_EXECUTE_PLAN_PROMPT: string }
+type PlanModule = { planExecution(snapshot: unknown, turnId: string): { available: boolean; reason?: string }; executePlanPrompt(language: string): string }
 let planModule: PlanModule
-beforeEach(async () => { planModule = await load<PlanModule>('shared/threadPlanExecution') })
+beforeEach(async () => { setMainLanguage('en'); planModule = await load<PlanModule>('shared/threadPlanExecution') })
+afterEach(() => { setMainLanguage('en') })
 const planExecution = (snapshot: unknown, turnId: string) => planModule.planExecution(snapshot, turnId)
-const PROMPT = (): string => planModule.THREAD_EXECUTE_PLAN_PROMPT
+const EN = 'Carry out the plan above, one step at a time.'
+const PT = 'Execute o plano acima, uma etapa por vez.'
+const PROMPT = (): string => planModule.executePlanPrompt('en')
+const lastPrompt = (b: Backend) => b.read().events.filter(event => event.type === 'message' && event.role === 'user').at(-1) as { text: string; origin?: string } | undefined
 const PLAN_STEPS: ThreadEvent = { type: 'plan', id: 'plan:1', steps: [{ label: 'Read the refund flow', status: 'pending' }, { label: 'Add the idempotency key', status: 'pending' }, { label: 'Run the tests', status: 'pending' }] } as ThreadEvent
 const PLAN_TEXT: ThreadEvent = { type: 'message', id: 'a-plan', role: 'assistant', text: '1. Read the refund flow\n2. Add the idempotency key\n3. Run the tests' } as ThreadEvent
 
@@ -129,10 +142,10 @@ async function inPlan(b: Backend, access: 'workspace-write' | 'read-only' = 'wor
 }
 
 describe('A1 · OxeChat F5 backend: run the plan the agent wrote in Plan mode (row 5.1)', { timeout: 30_000 }, () => {
-  test('the run instruction is a fixed English text of main, never empty', () => {
-    expect(typeof PROMPT()).toBe('string')
-    expect(PROMPT().trim().length).toBeGreaterThan(10)
-    expect(PROMPT(), 'no file mention: it is sent as written').not.toMatch(/@/)
+  test('the run text is exactly MARCA\'s, in English and in pt-BR (answer 3, 15/11)', () => {
+    expect(planModule.executePlanPrompt('en')).toBe(EN)
+    expect(planModule.executePlanPrompt('pt-BR')).toBe(PT)
+    expect(planModule.executePlanPrompt('fr'), 'English for any other language').toBe(EN)
   })
 
   test('executes the plan of the latest Plan turn: the conversation leaves Plan for Agent, keeps its access, and the agent receives the run instruction', async () => {
@@ -143,11 +156,25 @@ describe('A1 · OxeChat F5 backend: run the plan the agent wrote in Plan mode (r
     const before = b.sent().length
     await executePlan(b, turnId)
     await until(() => b.sent().length > before, 'the run instruction')
-    expect(b.sent().at(-1)).toContain(PROMPT())
+    expect(b.sent().at(-1), 'exactly the text the card shows, nothing hidden').toBe(EN)
+    expect(lastPrompt(b)?.text, 'stored as the prompt of the next turn').toBe(EN)
+    expect(lastPrompt(b)?.origin, 'marked as coming from Run plan').toBe('execute-plan')
     const thread = b.read().thread
     expect(thread.mode ?? 'default', 'Plan → Agent').toBe('default')
     expect(thread.access, 'the access is the person\'s, untouched').toBe('workspace-write')
     expect(b.read().turns!.at(-1)!.id, 'the plan runs as the next turn').not.toBe(turnId)
+  })
+
+  test('in pt-BR main sends the pt-BR text, exactly', async () => {
+    const b = backend(repository())
+    await inPlan(b)
+    const turnId = await turn(b, 'Planeje o estorno', [PLAN_STEPS, PLAN_TEXT])
+    setMainLanguage('pt-BR')
+    const before = b.sent().length
+    await executePlan(b, turnId)
+    await until(() => b.sent().length > before, 'the run text')
+    expect(b.sent().at(-1)).toBe(PT)
+    expect(lastPrompt(b)?.text).toBe(PT)
   })
 
   test('a plan the agent wrote as prose (no plan event) runs too', async () => {

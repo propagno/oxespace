@@ -214,6 +214,7 @@ test('AG-10 in the app: the prompt card on the one 800 px axis, a quiet header, 
     await expect.poll(() => agent.log().filter(entry => entry.event === 'user').map(entry => entry.text ?? ''), { timeout: 60_000 })
       .toEqual([expect.stringContaining('Add an idempotency key to refunds'), expect.stringContaining('read from the Idempotency-Key header')])
     await expect(column.locator('[data-ui="prompt-card"]'), 'the edited turn stays in the history').toHaveCount(2, { timeout: 30_000 })
+    await expect(column.locator('[data-ui="prompt-card"]').first(), 'marked as edited, resent below').toContainText('Edited · resent below')
     await expect.poll(() => threadStatus(page, chat.id), { timeout: 60_000 }).toBe('idle')
     await expect(column.locator('[data-ui="prompt-card"]').first().getByRole('button', { name: 'Edit prompt' }), 'the edited prompt is history: no Edit').toHaveCount(0)
   } finally {
