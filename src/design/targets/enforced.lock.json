@@ -1,0 +1,4 @@
+{
+  "$comment": "Ids of measures that are enforced. A measure becomes enforced in the PR that delivers its BRD, and that PR adds its id here. An id never leaves this list (OXE-149 CA-3).",
+  "enforced": []
+}

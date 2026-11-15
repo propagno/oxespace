@@ -1,0 +1,66 @@
+{
+  "brd": "BRD-05",
+  "card": null,
+  "title": "Conversation title (VIS-04)",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-05.title.font-size",
+      "scene": "chat-conversation",
+      "select": "main h1",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.title.font-weight",
+      "scene": "chat-conversation",
+      "select": "main h1",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-semibold"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.title.font-family",
+      "scene": "chat-conversation",
+      "select": "main h1",
+      "prop": "font-family",
+      "expect": {
+        "token": "--font-ui"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    }
+  ]
+}
