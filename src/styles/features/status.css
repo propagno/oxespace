@@ -221,7 +221,7 @@
   width: 24px;
   height: 24px;
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
 }
 

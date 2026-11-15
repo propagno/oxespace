@@ -151,7 +151,7 @@
   padding: 10px 11px;
   border: 1px dashed var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   line-height: 1.45;
@@ -191,7 +191,7 @@
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   text-align: left;
   cursor: pointer;
   transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
@@ -297,7 +297,7 @@
   padding: 12px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .worktree-menu-create-field { display: flex; flex-direction: column; gap: 4px; }
@@ -344,7 +344,7 @@
   padding: 0 10px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;

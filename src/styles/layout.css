@@ -955,7 +955,7 @@
   margin-left: auto;
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
@@ -1061,7 +1061,7 @@
 }
 
 .sidebar-integration-row.open {
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .sidebar-integration-row-header {
@@ -1247,7 +1247,7 @@
   height: 24px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 800;
@@ -1344,7 +1344,7 @@
   padding: 0 18px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-primary);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -1681,7 +1681,7 @@
   height: 30px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -1701,7 +1701,7 @@
   height: 30px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   padding: 0 6px;
 }
 .workspace-panel-stack { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; overflow: hidden; background: var(--surface-canvas); }

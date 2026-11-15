@@ -128,7 +128,7 @@
   align-items: start;
   gap: 6px;
   padding: 9px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   transition: background var(--transition-base), border-color var(--transition-base);

@@ -52,5 +52,6 @@ export const RETIRED_TOKEN_NAMES: Readonly<Record<string, string>> = {
   '--pane-border': '--border-default',
   '--pane-border-active': '--border-focus',
   '--pane-radius': '--radius-lg',
-  '--lh-base': '--leading-normal'
+  '--lh-base': '--leading-normal',
+  '--surface-quiet': '--ov-1'
 }
