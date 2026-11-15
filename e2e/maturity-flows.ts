@@ -130,24 +130,20 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const dirs = scratch('first-run')
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.locator('button[data-app-mode="code"]').click()
-      const card = page.getByRole('region', { name: 'Before you start' })
-      await expect(card).toBeVisible()
-      // The first launch checks the machine once; wait for that check to finish.
-      await expect(card).not.toContainText('Checking for agent CLIs', { timeout: 60_000 })
-      await expect(card).toContainText(/(is|are) ready|No agent CLI found|found but not ready|not checked yet/)
-      await expect(card).toContainText('gh auth login')
-      if (/No agent CLI found/.test(await card.innerText())) {
-        await expect(card.getByRole('button', { name: 'Install Claude Code' })).toBeVisible()
-        await expect(card.getByRole('button', { name: 'Check again' })).toBeVisible()
-      }
-      await card.getByRole('button', { name: 'Agent settings' }).click()
-      // The providers page of the settings center, not just any settings screen.
-      await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
+      // BRD-12 (OXE-77): a fresh profile opens on the first run; its agents step says, for each agent CLI, whether it
+      // is ready, missing (How to install) or needs a sign-in. The first launch checks the machine once.
+      const firstRun = page.getByTestId('first-run')
+      await expect(firstRun).toBeVisible()
+      await expect(firstRun.getByRole('heading', { name: 'Connect an agent' })).toBeVisible()
+      await expect(firstRun.getByText(/^(Ready|How to install|Sign in to (Claude Code|Codex))/).first()).toBeVisible({ timeout: 60_000 })
     } finally {
       await app.close()
     }
   })
+
+  // The "gh auth login" hint lives where OXE-211 puts it: the GitHub / Commit & PR panel while not connected, and the
+  // Integrations page. Kept here as a todo until OXE-211 lands, so the coverage is not lost.
+  test.fixme(`${label}: the gh auth login hint shows in the GitHub panel while not connected and on the Integrations page (OXE-211)`, async () => {})
 
   test(`${label}: the file tree is a keyboard-navigable ARIA tree`, async () => {
     test.setTimeout(120_000)

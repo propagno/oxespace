@@ -305,7 +305,8 @@
     "unpin": "Desafixar a coluna {{name}}",
     "pinTitle": "Fixar à esquerda",
     "hiddenTitle_many": "{{count}} ocultas — mostrar todas",
-    "showHidden_many": "Mostrar {{count}} colunas ocultas"
+    "showHidden_many": "Mostrar {{count}} colunas ocultas",
+    "columnMenu": "Ações da coluna {{name}}"
   },
   "library": {
     "saved": "Consulta salva",
@@ -1192,6 +1193,7 @@
     "pin": "Fixar no topo",
     "unpin": "Desafixar",
     "browse": "Navegar em {{name}}",
+    "actionsFor": "Ações de {{name}}",
     "newTable": "Nova tabela",
     "newTableIn": "Nova tabela em {{schema}}",
     "newTableTitle": "Criar uma tabela",
