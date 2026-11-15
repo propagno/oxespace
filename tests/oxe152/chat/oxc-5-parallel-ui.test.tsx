@@ -20,8 +20,10 @@
 //   (the child never owns it), the agent stays choosable; the info notice thread:parallel.notice; the first message calls
 //   window.oxe.thread.createChat(parentId, { provider }) and then sends the text to the new chat, never thread.create.
 // - New strings in en and pt-BR: sidebar.newParallel, parallel.title, parallel.notice, parallel.locked.
-// - BRD-02.row1.height (the one-line rows are this card's children; planner's assignment, asked of the coordination) is
-//   enforced and in enforced.lock.json.
+// - Brand 15/11: the chat-conversation scene seeds no child, so this card extends the e2e fixture: e2e/helpers/
+//   thread-fixtures.ts installs one child ConversationThread whose parentThreadId is the conversation openThreadWithState
+//   opens (one single-line child row in the brand scene and the visual baselines; SOURCE-TEXT check, marked), and then
+//   BRD-02.row1.height is enforced and in enforced.lock.json.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -173,6 +175,11 @@ describe('OXE-170 OXC-5 parallel chats in the sidebar and their screen (A15)', (
     expect([en['parallel.notice'], pt['parallel.notice']]).toEqual(['This conversation works in the same folder and starts from the session\'s changes. Both see the same files.',
       'Esta conversa trabalha na mesma pasta e parte das alterações da sessão. As duas veem os mesmos arquivos.'])
     expect([en['parallel.locked'], pt['parallel.locked']]).toEqual(['session worktree', 'worktree da sessão'])
+  })
+
+  it('seeds one child in the e2e conversation fixture, so the brand scene shows a one-line row (SOURCE-TEXT check, marked)', () => {
+    const fixture = readFileSync(join(ROOT, 'e2e/helpers/thread-fixtures.ts'), 'utf8')
+    expect(fixture, 'the e2e fixture installs a child conversation').toMatch(/parentThreadId\s*:/)
   })
 
   it('turns the one-line row measure to enforced', () => {
