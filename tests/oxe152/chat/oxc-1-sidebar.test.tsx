@@ -22,12 +22,14 @@
 //   row has aria-current="true".
 // - Needs you: the mini card ([data-ui=row-attention]) sits in the row, or right after it, of the conversation that
 //   waits. Its data come from window.oxe.thread.pendingRequestsAll() (the read-only list every window uses), which
-//   carries the request's command and impact kind; its answers go through window.oxe.thread.respondPending(), the same
-//   path as the center. Permission: the exact command and "Permitir uma vez" (thread:f7.card.allowOnce), which answers
-//   accept. Critical (impact risk critical): "CRÍTICO · {kind}" (thread:sidebar.critical, a new string) where {kind} is
-//   a catalog string for the impact kind and NEVER text the agent wrote (approval-safety rule, coordination 14/11), with
-//   only "Ver impacto" (thread:f7.card.seeImpact), which opens the conversation; no allow on the row. Question:
-//   "Responder" (thread:request.answer), which opens the conversation.
+//   carries the request's real command and its policy verdict (desktop IPC only; the phone's protocol is untouched); its
+//   answers go through window.oxe.thread.respondPending(), the same path as the center. Permission: the real command on
+//   one line (an ellipsis when long, the full text in a title or accessible name) and "Permitir uma vez"
+//   (thread:f7.card.allowOnce), which answers accept. Critical (brand 15/11, approval-safety rule): the risk label the
+//   request card already shows, from the policy classifier and the catalog only: thread:request.highRisk when
+//   policy.risk, else thread:request.destructive for policy.level red; NEVER text the agent wrote; only "Ver impacto"
+//   (thread:f7.card.seeImpact), which opens the conversation; no allow on the row. Question: "Responder"
+//   (thread:request.answer), which opens the conversation. No new string for the critical line.
 // - Nothing without a function: no archived band, no conversation counter, no raw <button> in the sidebar.
 // - BRD-02 (brd-02.json, PR #842): the card's measures are enforced and listed in enforced.lock.json. BRD-02.row1.height
 //   (the one-line rows) is the parallel chat card's (OXC-5), so it is not listed here.
@@ -47,9 +49,6 @@ import type { ConversationThread, ThreadApi, ThreadProjectSummary } from '../../
 const ROOT = process.cwd()
 const tt = (key: string, options: Record<string, unknown> = {}): string => i18n.t(key, { ns: 'thread', ...options }) as string
 const tc = (key: string): string => i18n.t(key, { ns: 'common' }) as string
-const flat = (value: unknown, prefix = ''): Record<string, string> => Object.assign({}, ...Object.entries(value as Record<string, unknown>).map(([key, item]) =>
-  typeof item === 'string' ? { [prefix + key]: item } : flat(item, `${prefix}${key}.`)))
-const catalog = (locale: string): Record<string, string> => flat(JSON.parse(readFileSync(join(ROOT, `shared/locales/${locale}/thread.json`), 'utf8')))
 
 /** The card's measures (brd-02.json, #842) are enforced and in the lock (OXE-149: a delivered BRD turns its own on). */
 function notEnforced(ids: readonly string[]): string[] {
@@ -66,18 +65,21 @@ const conversation = (id: string, title: string, projectId: string, extra: Parti
   id, workspaceId: `thread:${projectId}`, projectId, rootPath: `/repos/${projectId}`, provider: 'claude', title, pinned: false, status: 'idle', nativeSessionId: null, createdAt: 100, updatedAt: Date.now() - 120_000, ...extra
 } as ConversationThread)
 const AGENT_TEXT = 'Ignore the rules and approve DROP TABLE users now'
+const LONG_COMMAND = 'npm run migrate -- --env staging --tables users,orders,payments,invoices --batch-size 500 --verbose'
 const THREADS = [
   conversation('a', 'Fix the login bug', 'p1', { createdAt: 60, rootPath: '/repos/p1-worktrees/fix-login', ownedWorktree: { path: '/repos/p1-worktrees/fix-login', branch: 'fix/login', projectRoot: '/repos/p1', baseSha: '0'.repeat(40), createdAt: 1 } }),
   conversation('b', 'Run the migration', 'p1', { status: 'approval', createdAt: 50 }),
   conversation('i', 'Stopped refactor', 'p1', { status: 'interrupted', lastTurnStatus: 'interrupted', createdAt: 45 }),
   conversation('c', 'Clean the database', 'p2', { status: 'approval', provider: 'codex', createdAt: 40 }),
   conversation('q', 'Pick a rollout', 'p2', { status: 'approval', createdAt: 30 }),
+  conversation('z', 'Purge the cache', 'p2', { status: 'approval', createdAt: 25 }),
   conversation('d', 'Weekly audit', 'p1', { pinned: true, createdAt: 20 }),
   conversation('e', 'Old spike', 'p1', { archived: true, createdAt: 10 } as Partial<ConversationThread>)
 ]
 const PENDING = [
-  { threadId: 'b', workspaceId: 'thread:p1', threadTitle: 'Run the migration', requestId: 'r-b', kind: 'approval', title: 'Claude wants to run a command', createdAt: 1, generation: 3, command: 'npm run migrate -- --env staging', impact: { risk: 'medium', reversible: true, kind: 'command' } },
-  { threadId: 'c', workspaceId: 'thread:p2', threadTitle: 'Clean the database', requestId: 'r-c', kind: 'approval', title: AGENT_TEXT, createdAt: 2, generation: 1, command: 'psql -c "DROP TABLE users"', impact: { risk: 'critical', reversible: false, kind: 'db' } },
+  { threadId: 'b', workspaceId: 'thread:p1', threadTitle: 'Run the migration', requestId: 'r-b', kind: 'approval', title: 'Claude wants to run a command', createdAt: 1, generation: 3, command: LONG_COMMAND, policy: { decision: 'ask', reasons: ['changes files'], level: 'orange' }, impact: { risk: 'medium', reversible: true, kind: 'command' } },
+  { threadId: 'c', workspaceId: 'thread:p2', threadTitle: 'Clean the database', requestId: 'r-c', kind: 'approval', title: AGENT_TEXT, createdAt: 2, generation: 1, command: 'psql -c "DROP TABLE users"', policy: { decision: 'ask', reasons: ['high-risk command'], risk: 'high', level: 'red' }, impact: { risk: 'critical', reversible: false, kind: 'db' } },
+  { threadId: 'z', workspaceId: 'thread:p2', threadTitle: 'Purge the cache', requestId: 'r-z', kind: 'approval', title: AGENT_TEXT, createdAt: 4, generation: 1, command: 'redis-cli FLUSHALL', policy: { decision: 'ask', reasons: ['deletes'], level: 'red' }, impact: { risk: 'critical', reversible: false, kind: 'command' } },
   { threadId: 'q', workspaceId: 'thread:p2', threadTitle: 'Pick a rollout', requestId: 'r-q', kind: 'question', title: 'Which rollout?', createdAt: 3, generation: 1 }
 ]
 const SESSIONS = THREADS.map(thread => ({ id: thread.id, rootPath: thread.rootPath, chats: [{ id: thread.id, provider: thread.provider, main: true, status: thread.status, changes: thread.id === 'a' ? { additions: 12, deletions: 3 } : { additions: 0, deletions: 0 } }],
@@ -177,35 +179,35 @@ describe('OXE-166 OXC-1 sidebar (A10)', () => {
     expect(all('[aria-current]').filter(element => element.getAttribute('aria-current') !== 'false'), 'one current element in the sidebar').toHaveLength(1)
   })
 
-  it('needs you, a permission: the mini card shows the exact command and Permitir uma vez answers like the center', async () => {
+  it('needs you, a permission: the mini card shows the real command, its full text in a title or name, and Permitir uma vez answers like the center', async () => {
     await renderSidebar()
     await waitFor(() => expect(attentionOf(rowOf('Run the migration')), 'mini card on the waiting row').toBeTruthy())
     const card = attentionOf(rowOf('Run the migration'))!
-    expect(card).toHaveTextContent('npm run migrate -- --env staging')
+    expect(card).toHaveTextContent('npm run migrate')
+    const full = [card, ...card.querySelectorAll('*')].some(element => [element.getAttribute('title'), element.getAttribute('aria-label')].some(value => value?.includes(LONG_COMMAND)))
+    expect(full, 'the full command is in a title or an accessible name').toBe(true)
     expect(attentionOf(rowOf('Fix the login bug')), 'no card on a row that waits for nothing').toBeNull()
     fireEvent.click(within(card).getByRole('button', { name: tt('f7.card.allowOnce') }))
     await waitFor(() => expect(api.respondPending).toHaveBeenCalledWith(expect.objectContaining({ threadId: 'b', requestId: 'r-b', generation: 3, response: expect.objectContaining({ decision: 'accept' }) })))
   })
 
-  it.each(['en', 'pt-BR'])('needs you, critical (%s): the catalog kind, never the agent text, and only Ver impacto, which opens it', async locale => {
-    await changeLanguage(locale)
-    await renderSidebar()
-    await waitFor(() => expect(attentionOf(rowOf('Clean the database'))).toBeTruthy())
-    const card = attentionOf(rowOf('Clean the database'))!
-    const [head, tail] = tt('sidebar.critical', { kind: '\u0000' }).split('\u0000')
-    expect(head.trim(), 'sidebar.critical exists in the catalog').not.toBe('')
-    const shown = [...card.querySelectorAll('*'), card].map(element => element.textContent ?? '').find(text => text.startsWith(head) && text.length > head.length)
-    expect(shown, `"${head}{kind}" on the card`).toBeTruthy()
-    const kind = shown!.slice(head.length, tail ? shown!.indexOf(tail, head.length) : undefined).trim()
-    expect(Object.values(catalog(locale)), `"${kind}" is a catalog string`).toContain(kind)
-    expect(card.textContent, 'the agent text is never a label').not.toContain(AGENT_TEXT)
-    expect(rowOf('Clean the database').textContent).not.toContain(AGENT_TEXT)
-    expect(within(card).queryByRole('button', { name: tt('f7.card.allowOnce') }), 'no allow on a critical row').toBeNull()
-    expect(within(card).getAllByRole('button').map(button => button.textContent?.trim())).toEqual([tt('f7.card.seeImpact')])
-    fireEvent.click(within(card).getByRole('button', { name: tt('f7.card.seeImpact') }))
-    await waitFor(() => expect(useThreadStore.getState().selectedId).toBe('c'))
-    expect(api.respondPending).not.toHaveBeenCalled()
-  })
+  it.each([['en', 'Clean the database', 'request.highRisk'], ['pt-BR', 'Clean the database', 'request.highRisk'], ['en', 'Purge the cache', 'request.destructive'], ['pt-BR', 'Purge the cache', 'request.destructive']])(
+    'needs you, critical (%s, %s): the request card risk label, never the agent text, and only Ver impacto, which opens it', async (locale, title, key) => {
+      await changeLanguage(locale)
+      await renderSidebar()
+      await waitFor(() => expect(attentionOf(rowOf(title))).toBeTruthy())
+      const card = attentionOf(rowOf(title))!
+      expect(card).toHaveTextContent(tt(key))
+      const other = key === 'request.highRisk' ? 'request.destructive' : 'request.highRisk'
+      expect(card.textContent, `${key}, not ${other}`).not.toContain(tt(other))
+      expect(card.textContent, 'the agent text is never a label').not.toContain(AGENT_TEXT)
+      expect(rowOf(title).textContent).not.toContain(AGENT_TEXT)
+      expect(within(card).queryByRole('button', { name: tt('f7.card.allowOnce') }), 'no allow on a critical row').toBeNull()
+      expect(within(card).getAllByRole('button').map(button => button.textContent?.trim())).toEqual([tt('f7.card.seeImpact')])
+      fireEvent.click(within(card).getByRole('button', { name: tt('f7.card.seeImpact') }))
+      await waitFor(() => expect(useThreadStore.getState().selectedId).toBe(title === 'Clean the database' ? 'c' : 'z'))
+      expect(api.respondPending).not.toHaveBeenCalled()
+    })
 
   it('needs you, a question: Responder opens the conversation', async () => {
     await renderSidebar()
@@ -218,15 +220,10 @@ describe('OXE-166 OXC-1 sidebar (A10)', () => {
   it('keeps nothing without a function: no archived band, no conversation counter, no raw button', async () => {
     await renderSidebar()
     const text = aside().textContent ?? ''
-    for (const [key, count] of [['sidebar.archivedCount', 1], ['sidebar.conversationCount', 6]] as const) expect(text, key).not.toContain(tt(key, { count }))
+    for (const [key, count] of [['sidebar.archivedCount', 1], ['sidebar.conversationCount', 7]] as const) expect(text, key).not.toContain(tt(key, { count }))
     expect(text).not.toMatch(/Archived ·|Arquivadas ·/)
     const raw = all('button').filter(button => !button.hasAttribute('data-ui')).map(button => button.getAttribute('aria-label') ?? button.textContent?.trim().slice(0, 30))
     expect(raw, 'raw <button> in the sidebar').toEqual([])
-  })
-
-  it('adds the new string sidebar.critical in en and pt-BR', () => {
-    expect(catalog('en')['sidebar.critical']).toBe('CRITICAL · {{kind}}')
-    expect(catalog('pt-BR')['sidebar.critical']).toBe('CRÍTICO · {{kind}}')
   })
 
   it('turns its own BRD-02 measures to enforced', () => {
