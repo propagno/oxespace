@@ -528,7 +528,8 @@ test('the structure editor reviews the SQL of a new table and of an altered one 
     // New table: the SQL is shown before anything runs.
     await tree.getByRole('button', { name: 'New table in public' }).click()
     const dialog = page.getByRole('dialog', { name: 'New table in public' })
-    await expect(dialog.getByText('Give the table a name.')).toBeVisible()
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('Give the table a name.')).toHaveCount(0)
     await dialog.getByLabel('Table name').fill('orders')
     await dialog.getByRole('button', { name: 'Add column' }).click()
     await dialog.getByLabel('Name of new column').fill('total')

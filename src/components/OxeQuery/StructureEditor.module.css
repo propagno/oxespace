@@ -21,7 +21,7 @@
 .plan { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .sql { margin: 0; max-height: 28vh; overflow: auto; white-space: pre-wrap; color: var(--tx-primary); }
 .warnings { margin: 0; padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }
-.problems { margin: var(--space-3) 0 0; padding-left: var(--space-4); color: var(--intent-warning-fg); font-size: var(--fs-sm); }
+.problems { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-4); border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }
 .error { margin: var(--space-2) 0 0; color: var(--intent-danger-fg); font-size: var(--fs-sm); white-space: pre-wrap; }
 .ok { margin: var(--space-2) 0 0; color: var(--intent-success-fg); font-size: var(--fs-sm); }
 .note { color: var(--tx-muted); font-size: var(--fs-xs); }
