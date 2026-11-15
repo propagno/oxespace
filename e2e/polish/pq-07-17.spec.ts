@@ -98,6 +98,8 @@ test('PQ-07·17 in the app: a 500-character CSV cell is cut with an ellipsis and
     const dialog = page.getByRole('dialog').last()
     const sample = dialog.locator('.oq-import-map tbody tr').filter({ hasText: 'body' }).locator('td').nth(1)
     await expect(sample).toBeVisible({ timeout: 30_000 })
+    // liberação mecânica de teste congelado: coordenação 15/11, espera a entrada do overlay antes de medir, nenhuma asserção muda
+    await dialog.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished)))
     const cut = await sample.evaluate(el => { const text = (el.firstElementChild as HTMLElement | null) ?? el; const s = getComputedStyle(text); return { ellipsis: s.textOverflow, width: text.getBoundingClientRect().width, scroll: text.scrollWidth } })
     expect(cut.ellipsis).toBe('ellipsis')
     expect(cut.width).toBeLessThanOrEqual(200.5)
