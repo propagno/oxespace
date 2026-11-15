@@ -80,6 +80,7 @@ import { AgentHooksPromptHost } from './components/AgentSessions/AgentHooksPromp
 import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { SchedulesHost } from './components/Schedules/SchedulesHost'
+import { NextAttentionHost } from './components/Attention/NextAttentionHost'
 import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
@@ -861,6 +862,7 @@ export function App(): ReactElement {
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
       <SchedulesHost onOpenThread={openScheduledThread} />
+      <NextAttentionHost selectView={selectMode} />
       {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
         onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
       {slashPane ? (
