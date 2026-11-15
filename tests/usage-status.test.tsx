@@ -23,6 +23,37 @@ describe('usage in the status bar', () => {
     expect(formatResetIn(null, now)).toBeNull()
   })
 
+  it('a quota split by group of models (OXE-174): the bar reads the first group, named; the detail lists every group', () => {
+    const windows = [
+      { kind: 'weekly', usedPct: 57, resetsAtMs: null, group: 'claude-gpt' },
+      { kind: 'session', usedPct: 9, resetsAtMs: null, group: 'gemini' },
+      { kind: 'weekly', usedPct: 3, resetsAtMs: null, group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: null, group: 'claude-gpt' }
+    ] as AgentCreditsSnapshot['windows']
+    const text = usageText(snapshot({ provider: 'antigravity', planLabel: 'Google AI Ultra', display: { kind: 'weekly', usedPct: 3, resetsAtMs: null, group: 'gemini' }, windows }), now)
+    // Never the Claude and GPT 57% as "Antigravity" while the person works with Gemini.
+    expect(text.short).toBe('Gemini: 5h 9% · wk 3%')
+    expect(text.peak).toBe(9)
+    expect(text.detail.split('\n').slice(1, 5)).toEqual([
+      '5-hour window · Claude and GPT: 0% used',
+      'Weekly window · Claude and GPT: 57% used',
+      '5-hour window · Gemini: 9% used',
+      'Weekly window · Gemini: 3% used'
+    ])
+  })
+
+  it('a group the app does not know reads "Other models", numbered when there are two; never the service\'s own words', () => {
+    const windows = [
+      { kind: 'weekly', usedPct: 4, resetsAtMs: null, group: 'gemini' },
+      { kind: 'weekly', usedPct: 20, resetsAtMs: null, group: 'Image preview models' },
+      { kind: 'weekly', usedPct: 30, resetsAtMs: null, group: 'Audio models' }
+    ] as AgentCreditsSnapshot['windows']
+    const text = usageText(snapshot({ provider: 'antigravity', display: { kind: 'weekly', usedPct: 20, resetsAtMs: null, group: 'Image preview models' }, windows }), now)
+    expect(text.short).toBe('Other models: wk 20%')
+    expect(text.detail.split('\n').slice(1, 4)).toEqual(['Weekly window · Gemini: 4% used', 'Weekly window · Other models: 20% used', 'Weekly window · Other models 2: 30% used'])
+    expect(text.detail).not.toMatch(/Image preview|Audio models/)
+  })
+
   describe('polling', () => {
     const get = vi.fn(async () => snapshot())
     beforeEach(() => {
