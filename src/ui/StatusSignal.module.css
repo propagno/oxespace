@@ -1,5 +1,5 @@
 /* The seven state signals (StatusSignal.tsx). Strokes match the icons: 1.75, round. */
-.signal { flex: none; display: inline-block; vertical-align: middle; overflow: visible; color: var(--text-muted); }
+.signal { flex: none; display: inline-block; vertical-align: middle; overflow: visible; color: var(--tx-muted); }
 .ring { stroke: currentColor; stroke-width: 1.75; }
 .fill { fill: currentColor; }
 .mark { stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
@@ -9,9 +9,9 @@
 .needs-you { color: var(--attn); }
 .working { color: var(--accent); }
 .failed { color: var(--intent-danger-solid); }
-.failed .mark { stroke: var(--text-on-solid); }
+.failed .mark { stroke: var(--tx-on-solid); }
 .done { color: var(--accent); }
-.done .mark { stroke: var(--text-on-accent); }
+.done .mark { stroke: var(--tx-on-accent); }
 
 /* "spin" in the class name keeps it turning, slower, under reduced motion (base.css): a frozen arc reads as a hang. */
 .spin { animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite; }

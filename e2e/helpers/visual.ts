@@ -30,8 +30,11 @@ const HIDDEN_WHEN_LIVE = [
   '[data-testid="pane-session-row"] .pane-activity-dot',
   // The top bar's path names a temporary folder.
   '.workspace-topbar-path',
-  // The app version changes every release; it must not make every baseline stale.
+  // The app version changes every release; it must not make every baseline stale. The status
+  // bar prints it ("OXESpace 1.5.1") in its version span; hidden, it keeps its box, and the
+  // spacer before it means nothing else moves when the number changes.
   '[data-app-version]',
+  '.app-statusbar [class*="version"]',
   '.split-resize-handle'
 ]
 

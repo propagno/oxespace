@@ -2,10 +2,10 @@
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { UNREADABLE_GRACE_MS, describeLock, isStale, noteWaiting, readLock, release, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
+import { UNREADABLE_GRACE_MS, describeLock, isStale, noteWaiting, readLock, release, resolveCommand, tryTake, waitForMemory } from '../../scripts/heavy-lock.mjs'
 
 const folder = mkdtempSync(join(tmpdir(), 'oxe-heavy-lock-'))
 afterAll(() => rmSync(folder, { recursive: true, force: true }))
@@ -140,4 +140,23 @@ describe('machine-wide heavy lock', () => {
     expect(lines[2].replace('-start', '')).toBe(lines[3].replace('-end', ''))
     expect(existsSync(path)).toBe(false)
   }, 30_000)
+})
+
+describe('a relative .bat or .cmd (OXE-114)', () => {
+  it('.bat relativo resolvido', () => {
+    // Windows paths on every platform: the rule is Windows-only, and CI runs it on Linux too.
+    const { join: wjoin } = win32
+    const cwd = 'C:\\work\\oxespace-wt'
+    const none = () => false
+    // Given with a folder, it is resolved against the working folder and runs from its own folder (gradlew expects it).
+    expect(resolveCommand('mobile/android/gradlew.bat', cwd, 'win32', none)).toEqual({ command: wjoin(cwd, 'mobile', 'android', 'gradlew.bat'), cwd: wjoin(cwd, 'mobile', 'android') })
+    expect(resolveCommand('scripts\\build.cmd', cwd, 'win32', none)).toEqual({ command: wjoin(cwd, 'scripts', 'build.cmd'), cwd: wjoin(cwd, 'scripts') })
+    // A bare name that exists in the working folder is resolved too; one that does not is a name on PATH, left as is.
+    expect(resolveCommand('gradlew.bat', cwd, 'win32', () => true)).toEqual({ command: wjoin(cwd, 'gradlew.bat'), cwd })
+    expect(resolveCommand('npm.cmd', cwd, 'win32', none)).toEqual({ command: 'npm.cmd', cwd })
+    // Everything else runs as given: an absolute path, an executable, another platform.
+    expect(resolveCommand('npx', cwd, 'win32', none)).toEqual({ command: 'npx', cwd })
+    expect(resolveCommand(wjoin(cwd, 'x.bat'), cwd, 'win32', none)).toEqual({ command: wjoin(cwd, 'x.bat'), cwd })
+    expect(resolveCommand('mobile/android/gradlew.bat', cwd, 'linux', none)).toEqual({ command: 'mobile/android/gradlew.bat', cwd })
+  })
 })

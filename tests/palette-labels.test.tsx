@@ -21,10 +21,10 @@ import { useContributedCommands, type CommandPaletteAction, type ContributedComm
 /** Docs: docs/design/commands.md. Every action starts with one of these verbs, capitalized. */
 const VERBS: Record<'en' | 'pt-BR', string[]> = {
   en: ['Open', 'Show', 'Toggle', 'Create', 'Add', 'Find', 'Run', 'Search', 'Import', 'Export', 'Manage', 'Browse', 'Check', 'Mark', 'Report', 'Start',
-    'Switch', 'Resume', 'Rename', 'Undo', 'Clean', 'Balance', 'Use', 'Follow', 'Split', 'Maximize', 'Restart', 'Stop'],
+    'Switch', 'Resume', 'Rename', 'Undo', 'Clean', 'Balance', 'Use', 'Follow', 'Split', 'Maximize', 'Restart', 'Stop', 'Go'],
   'pt-BR': ['Abrir', 'Mostrar', 'Alternar', 'Criar', 'Adicionar', 'Encontrar', 'Executar', 'Buscar', 'Importar', 'Exportar', 'Gerenciar', 'Explorar',
     'Procurar', 'Marcar', 'Relatar', 'Iniciar', 'Mudar', 'Retomar', 'Renomear', 'Desfazer', 'Limpar', 'Equilibrar', 'Usar', 'Seguir', 'Dividir',
-    'Maximizar', 'Reiniciar', 'Parar', 'Ligar']
+    'Maximizar', 'Reiniciar', 'Parar', 'Ligar', 'Ir']
 }
 /** Commands whose action is not a verb, and why. Grows only in review. */
 const NOT_A_VERB: Record<string, string> = { 'help.about': 'conventional "About <product>" item' }

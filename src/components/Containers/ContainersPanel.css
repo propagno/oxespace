@@ -7,7 +7,7 @@
   min-height: 0;
   overflow: hidden;
   background: var(--surface-base);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-family: var(--font-ui);
 }
 
@@ -22,16 +22,16 @@
   gap: var(--space-2);
   min-height: 36px;
   padding: var(--space-1) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
   background: var(--surface-chrome);
   flex-shrink: 0;
 }
 
 .containers-panel-header h2 {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-semibold);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .containers-panel-notice {
@@ -66,9 +66,9 @@
 .containers-stack-group h4 {
   margin: 0;
   padding: 0 var(--space-1);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
   font-weight: var(--weight-semibold);
-  color: var(--text-muted);
+  color: var(--tx-muted);
   letter-spacing: 0.02em;
 }
 
@@ -112,9 +112,9 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-medium);
   text-align: left;
   cursor: pointer;
@@ -134,20 +134,20 @@
   align-items: center;
   gap: var(--space-1);
   padding: 2px var(--space-2);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
   background: var(--surface-raised);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-family: var(--font-ui);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 
 button.containers-row-origin:hover {
   background: var(--fill-hover);
-  border-color: var(--border-default);
-  color: var(--text-primary);
+  border-color: var(--bd-default);
+  color: var(--tx-primary);
 }
 
 .containers-row-origin span {
@@ -158,15 +158,15 @@ button.containers-row-origin:hover {
 
 .containers-panel-list .text-muted {
   flex-shrink: 0;
-  color: var(--text-muted);
-  font-size: var(--text-2xs);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
   white-space: nowrap;
 }
 
 .containers-panel-detail {
   flex: 1 1 54%;
   min-height: 160px;
-  border-top: 1px solid var(--border-default);
+  border-top: 1px solid var(--bd-default);
   background: var(--surface-canvas);
   display: flex;
   flex-direction: column;
@@ -180,19 +180,19 @@ button.containers-row-origin:hover {
   flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3) var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
 }
 
 .containers-panel-meta span:first-child {
   font-weight: var(--weight-semibold);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .containers-panel-meta span:last-child {
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  color: var(--tx-muted);
 }
 
 .containers-panel-actions {
@@ -201,7 +201,7 @@ button.containers-row-origin:hover {
   flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3) var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .containers-panel-logs {
@@ -213,7 +213,7 @@ button.containers-row-origin:hover {
   background: var(--term-bg);
   color: var(--term-fg);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
   line-height: var(--leading-snug);
   white-space: pre-wrap;
   word-break: break-word;
@@ -232,10 +232,10 @@ button.containers-row-origin:hover {
 .containers-confirm-box {
   width: min(400px, 100%);
   padding: var(--space-4);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-lg);
   background: var(--surface-overlay);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   box-shadow: var(--elevation-4);
   display: flex;
   flex-direction: column;
@@ -244,14 +244,14 @@ button.containers-row-origin:hover {
 
 .containers-confirm-box h3 {
   margin: 0;
-  font-size: var(--text-md);
+  font-size: var(--fs-md);
   font-weight: var(--weight-semibold);
 }
 
 .containers-confirm-box p {
   margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
   line-height: var(--leading-normal);
 }
 

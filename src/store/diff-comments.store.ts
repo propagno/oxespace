@@ -19,6 +19,8 @@ interface DiffCommentsState {
   /** Puts deleted comments back as they were (same ids, original order by creation); used by Undo. */
   restore: (comments: DiffComment[]) => void
   clear: (workspaceId: string) => void
+  /** Marks the comments as sent at `at` (ms); they are kept, no longer pending. */
+  markSent: (ids: string[], at: number) => void
 }
 
 export const useDiffCommentsStore = create<DiffCommentsState>()(
@@ -48,7 +50,13 @@ export const useDiffCommentsStore = create<DiffCommentsState>()(
         }),
 
       clear: (workspaceId) =>
-        set((state) => ({ comments: state.comments.filter((c) => c.workspaceId !== workspaceId) }))
+        set((state) => ({ comments: state.comments.filter((c) => c.workspaceId !== workspaceId) })),
+
+      markSent: (ids, at) =>
+        set((state) => {
+          const chosen = new Set(ids)
+          return { comments: state.comments.map((c) => (chosen.has(c.id) ? { ...c, sentAt: at } : c)) }
+        })
     }),
     { name: 'oxe-diff-comments-v1' }
   )

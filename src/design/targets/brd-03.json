@@ -30,7 +30,7 @@
       "select": "[data-ui=tabs] [role=tab]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xs"
+        "token": "--fs-xs"
       },
       "tolerance": 0.5,
       "densities": [
@@ -110,7 +110,7 @@
       "select": "[data-ui=button]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xs"
+        "token": "--fs-xs"
       },
       "tolerance": 0.5,
       "densities": [

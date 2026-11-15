@@ -144,7 +144,7 @@
       "select": "[data-ui=sidebar-row] [data-ui=row-title]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-sm"
+        "token": "--fs-sm"
       },
       "tolerance": 0.5,
       "densities": [
@@ -182,7 +182,7 @@
       "select": "[data-ui=sidebar-row] [data-ui=row-meta]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xs"
+        "token": "--fs-xs"
       },
       "tolerance": 0.5,
       "densities": [

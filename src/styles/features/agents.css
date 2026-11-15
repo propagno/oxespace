@@ -1,7 +1,7 @@
 /* Agent workflow, status pills and the shared feature basics. Split out of the former features.css; imported in order from styles.css. */
 
 .workspace-github-panel {
-  border-left-color: var(--border-default);
+  border-left-color: var(--bd-default);
 }
 
 .github-panel {
@@ -14,7 +14,7 @@
   color: var(--tx-primary);
   background: var(--surface-canvas);
   --gh-card-bg: var(--surface-raised);
-  --gh-card-border: var(--border-default);
+  --gh-card-border: var(--bd-default);
   --gh-card-hover: var(--fill-selected);
   --gh-row-bg: var(--surface-raised);
   --gh-muted: var(--tx-muted);
@@ -40,10 +40,10 @@
   gap: 4px;
   min-height: 42px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--bd-default);
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-default) transparent;
+  scrollbar-color: var(--bd-default) transparent;
   background: var(--surface-raised);
 }
 
@@ -67,7 +67,7 @@
 }
 
 .github-tab.active {
-  color: var(--text-accent, var(--text-accent));
+  color: var(--tx-accent, var(--tx-accent));
   background: var(--fill-selected);
   border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
@@ -140,15 +140,15 @@
   gap: 8px;
   margin: 8px 10px 0;
   padding: 8px 10px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   background: var(--intent-danger-bg);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-size: var(--fs-xs);
 }
 
 .github-message {
-  border-color: var(--border-default);
+  border-color: var(--bd-default);
   background: var(--intent-success-bg);
   color: var(--intent-success-fg);
 }
@@ -167,7 +167,7 @@
 .github-panel select {
   width: 100%;
   min-height: 36px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--tx-primary);
@@ -206,7 +206,7 @@
 
 .github-list-row:hover {
   background: var(--gh-card-hover);
-  border-color: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  border-color: color-mix(in srgb, var(--tx-primary) 9%, transparent);
 }
 
 .github-list-row-main {
@@ -253,9 +253,9 @@
   align-items: center;
   justify-content: center;
   min-height: 120px;
-  border: 1px dashed var(--border-default);
+  border: 1px dashed var(--bd-default);
   border-radius: var(--radius-md);
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-xs);
 }
 
@@ -263,7 +263,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-xs);
 }
 
@@ -280,21 +280,21 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   padding: 9px 10px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
 }
 
 .github-file-row span {
   overflow: hidden;
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-size: var(--fs-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .github-file-row small {
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
 }
 
@@ -321,7 +321,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-top: 1px solid var(--border-default);
+  border-top: 1px solid var(--bd-default);
   background: var(--surface-canvas);
 }
 
@@ -333,13 +333,13 @@
 }
 
 .github-confirm-bar strong {
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-size: var(--fs-xs);
 }
 
 .github-confirm-bar span {
   overflow: hidden;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -352,24 +352,24 @@
   justify-content: center;
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   background: var(--surface-canvas);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-weight: 700;
   gap: 6px;
 }
 
 .ghost-btn:hover {
-  border-color: var(--border-default);
+  border-color: var(--bd-default);
   background: var(--surface-base);
 }
 
 .primary-btn {
   border-color: var(--accent-border);
   background: var(--accent);
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
 }
 
 .primary-btn:hover {

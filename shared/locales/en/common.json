@@ -110,7 +110,10 @@
   "activityCenter": {
     "nothingToRead": "Nothing to mark as read",
     "nothingToReadText": "Every activity item is already read.",
-    "allRead": "All activity marked as read"
+    "allRead": "All activity marked as read",
+    "nothingWaiting": "Nothing waiting for you",
+    "arrived": "{{name}} needs you: {{request}}",
+    "threadRequest": "an approval is waiting"
   },
   "report": {
     "title": "Report a problem",
@@ -157,6 +160,9 @@
       },
       "approvals": {
         "queue": "Open approval queue"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "code": {
         "changes": "Changes",
@@ -633,11 +639,13 @@
     "trigger": "Ask, run or go to…",
     "dialogLabel": "Command bar",
     "inputLabel": "Ask, run or go to",
+    "hintsLine": "Type > for commands, ? for examples, @ to ask an agent, / to run a command",
     "groups": {
       "commands": "Commands",
       "skills": "Skills",
       "agents": "Agents",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Panes"
     },
     "hints": {
       "agent": "start or delegate",
@@ -710,6 +718,9 @@
       "activity": {
         "open": "Open activity center",
         "markAllRead": "Mark all as read"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts",

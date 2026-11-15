@@ -65,6 +65,9 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
+  // OXE-128: it activates the oldest pane or conversation waiting on you; the audit's workspace has none waiting
+  // (the E2E mock keeps no agent session), so it changes nothing and says so in a toast.
+  'attention.next': toast('Nothing waiting for you'),
   'new-workspace': dialog('Create new workspace'),
   'workspace-settings': both(view('code'), dialog('Settings'), async page => {
     await expect(page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General Project instructions/ })).toHaveAttribute('aria-current', 'page')
