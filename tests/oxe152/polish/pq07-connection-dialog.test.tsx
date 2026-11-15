@@ -5,7 +5,7 @@
 // var(--control-md)) or it has its own label above (a visible label reading form.color); the disclosures
 // (.oq-disclosure: Security (TLS), Limits and agents) are at least var(--control-sm) tall. The dialog body's overflow
 // hint is app-wide and lives in OXE-274 (base components, MARCA 15/11). The 1 px alignment is measured by pq-07-12.spec.ts.
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ConnectionDialog } from '../../../src/components/OxeQuery/ConnectionDialog'
 import { useOxeQueryStore } from '../../../src/components/OxeQuery/oxequery.store'
