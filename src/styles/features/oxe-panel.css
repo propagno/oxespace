@@ -99,7 +99,7 @@
   padding: 7px 10px;
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
   cursor: pointer;
@@ -124,7 +124,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--text-accent);
 }
 .oxe-onboarding strong { color: var(--tx-primary); font-size: var(--fs-sm); }
@@ -199,7 +199,7 @@
   height: 100%;
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 /* ErrorBoundary fallback — keeps a single component crash from blanking the app. */

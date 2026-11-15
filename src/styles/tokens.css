@@ -28,36 +28,7 @@
   --dot-red:            var(--intent-danger-solid);
 
   /* Pane active state */
-  --bg-pane-active-header: color-mix(in srgb, var(--accent) 6%, transparent);
   --bd-pane-active:        color-mix(in srgb, var(--accent) 36%, transparent);
-
-  /* Sizing */
-  --nav-row-h: 32px;
-  --chrome-h: 42px;
-  --chrome-inset: 14px;
-  --sidebar-w:        280px;
-  --sidebar-w-collapsed: var(--rail-w);
-
-  /* Window frame */
-  --frame-gap:        8px;
-  --rail-w:           48px;
-
-  /* Neutral overlays follow the mode: a tint of the text color. */
-  --ov-1: color-mix(in srgb, var(--text-primary) 4%, transparent);
-  --ov-2: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --ov-3: color-mix(in srgb, var(--text-primary) 11%, transparent);
-  --surface-quiet:    var(--ov-1);
-
-  /* Radii */
-  --radius-xs:        4px;
-
-  /* Motion */
-  --transition-fast:  var(--duration-fast) var(--ease-standard);
-  --transition-base:  var(--duration-base) var(--ease-standard);
-
-  /* Terminal workbench */
-  --pane-gap: var(--frame-gap);
-  --pane-shadow: none;
 
   /* Type scale */
   --fs-2xs:    var(--text-2xs);
@@ -86,8 +57,4 @@ select option,
 select optgroup {
   background-color: var(--surface-overlay);
   color: var(--text-primary);
-}
-
-:root[data-density='comfortable'] {
-  --nav-row-h: 40px;
 }

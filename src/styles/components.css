@@ -1474,7 +1474,7 @@
   width: 100%;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-primary);
   font-size: var(--fs-sm);
   padding: 0 12px;
@@ -1517,7 +1517,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-3);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
 }
 .readiness-version {
@@ -1662,7 +1662,7 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -1820,7 +1820,7 @@
   padding: 10px 12px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   font-size: var(--fs-sm);
   transition: border-color var(--transition-base), background var(--transition-base);
 }
@@ -1945,7 +1945,7 @@
 
 /* Reserve the row height while the snapshot loads so the panel does not jump. */
 .diagnostics-check.is-loading {
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border-style: dashed;
   opacity: 0.5;
 }

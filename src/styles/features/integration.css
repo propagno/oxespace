@@ -21,7 +21,7 @@
 .integration-create-card {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   padding: 10px;
 }
 
@@ -121,7 +121,7 @@
 .integration-group-tabs button {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   padding: 7px 10px;
   font-size: var(--fs-xs);
@@ -178,7 +178,7 @@
   border-top: none;
   border-bottom-left-radius: var(--radius-sm);
   border-bottom-right-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-member-editor-row {
@@ -269,7 +269,7 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
 }
@@ -310,7 +310,7 @@
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -390,7 +390,7 @@
 .integration-handoff-row {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -445,7 +445,7 @@
 .integration-handoff-status {
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -587,7 +587,7 @@
   padding: 0 12px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -615,7 +615,7 @@
   flex-direction: column;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-active-group > :first-child {
@@ -629,7 +629,7 @@
 }
 
 .integration-active-group .integration-member-rows {
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-active-header {
@@ -750,7 +750,7 @@
   display: flex;
   gap: 2px;
   padding: 2px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
 }
@@ -934,7 +934,7 @@
   border-left: 0;
   border-right: 0;
   border-radius: 0;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border-top: 1px solid var(--accent-border);
   border-bottom: 1px solid var(--bd-subtle);
   width: 100%;
@@ -988,7 +988,7 @@
   padding: 4px 12px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -1004,7 +1004,7 @@
 .integration-disclosure {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   overflow: hidden;
 }
 

@@ -36,7 +36,7 @@
 .mcp-panel-scope {
   padding: 2px 10px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -105,7 +105,7 @@
   align-items: stretch;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   overflow: hidden;
   transition: border-color var(--transition-base), background var(--transition-base);
   flex: 0 0 auto;
@@ -162,7 +162,7 @@
   padding: 5px 10px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -287,7 +287,7 @@
 .mcp-server-tag {
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -298,7 +298,7 @@
 /* Scope tags share the neutral palette — distinction is in the label text
    itself ("workspace" / "global") rather than competing accent colors. */
 .mcp-server-tag.scope-ws,
-.mcp-server-tag.scope-global { background: var(--surface-quiet); color: var(--tx-secondary); }
+.mcp-server-tag.scope-global { background: var(--ov-1); color: var(--tx-secondary); }
 
 /* Quarantined: changed after trust. Alert colour and an icon, so it does not read as one more neutral tag. */
 .mcp-server-tag.is-quarantined,
@@ -374,7 +374,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .mcp-server-trust-box,
@@ -455,7 +455,7 @@
   margin-bottom: 4px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .mcp-tool-card strong {
@@ -478,7 +478,7 @@
 .mcp-panel-footer {
   padding: 10px 16px;
   border-top: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   line-height: 1.5;
@@ -505,7 +505,7 @@
   overflow-y: auto;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   flex: 0 0 auto;
 }
 
@@ -582,7 +582,7 @@
   padding: 3px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   gap: 2px;
 }
 
