@@ -28,7 +28,7 @@ test('captures the OxeQuery surfaces', async () => {
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
     await page.waitForTimeout(600)
     const shot = async (name: string): Promise<void> => { for (const m of ['light', 'dark'] as const) { await mode(page, m); await page.screenshot({ path: join(OUT, `${name}-${m}.png`) }) } }
 

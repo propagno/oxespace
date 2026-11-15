@@ -157,7 +157,7 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     // Notes: Ctrl+4 → OxePod, Ctrl+5 → OxePost, Ctrl+Shift+A → activity center.
     await page.locator('body').click({ position: { x: 5, y: 300 } }).catch(() => undefined)
     await page.keyboard.press('Control+4'); await page.waitForTimeout(800)
-    out.ctrl4 = await page.locator('button[data-app-mode="pods"]').first().getAttribute('aria-pressed').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
+    out.ctrl4 = await page.locator('button[data-app-mode="pods"]').first().getAttribute('aria-selected').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
         await page.keyboard.press('Control+Shift+A'); await page.waitForTimeout(800)
     out.activity = await page.getByTestId('activity-center').isVisible().catch(() => false)
     await page.keyboard.press('Escape')

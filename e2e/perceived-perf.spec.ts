@@ -249,7 +249,7 @@ type View = 'OxeCode' | 'OxeChat' | 'OxeQuery'
 interface Surface { name: string; probe: Probe; /** Untimed setup, then tags the control to click. */ arm: (page: Page) => Promise<void>; /** Untimed teardown. */ leave?: (page: Page) => Promise<void> }
 
 const MODE_PROBE = { dialog: false, settleMs: 300, timeoutMs: 10_000 }
-const modeButton = (page: Page, name: View) => page.locator('nav[aria-label="Application view"]').getByRole('button', { name, exact: true })
+const modeButton = (page: Page, name: View) => page.locator('[role="tablist"][aria-label="Application view"]').getByRole('tab', { name, exact: true })
 const armMode = (name: View) => async (page: Page): Promise<void> => { await modeButton(page, name).evaluate(el => el.setAttribute('data-perf-trigger', '')) }
 const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surface => ({
   name,
@@ -258,7 +258,7 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
     await modeButton(p, 'OxeCode').click()
     // F7.2: a view switch commits after the selected button has painted, so let it land before tagging a control the
     // commit re-renders (untimed setup).
-    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-selected', 'true')
     await expect(modeButton(p, 'OxeCode')).not.toHaveAttribute('aria-busy', 'true')
     await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await p.evaluate(target => localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: target })), page)
