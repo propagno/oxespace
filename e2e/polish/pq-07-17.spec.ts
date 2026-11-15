@@ -30,7 +30,7 @@ const PQ_ENGINE = process.env.OXE_CONTAINER_ENGINE === 'podman' ? 'podman' : 'do
 const pqDocker = (...args: string[]): string => pqExec(PQ_ENGINE, args, { encoding: 'utf8', timeout: 240_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 /** Why this machine cannot run the spec, or null. */
 function noContainerEngine(): string | null {
-  try { pqDocker('info', '--format', '{{.ServerVersion}}'); return null } catch {
+  try { const os = pqDocker('info', '--format', '{{.OSType}}'); return os === 'linux' ? null : `the ${PQ_ENGINE} daemon here runs ${os} containers: this OxeQuery e2e needs a Linux PostgreSQL or MongoDB container` } catch {
     return `no ${PQ_ENGINE} daemon on this machine: this OxeQuery e2e needs a real PostgreSQL or MongoDB container (as tests/live/oxequery-live.test.ts)`
   }
 }
