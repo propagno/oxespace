@@ -137,7 +137,8 @@ describe('PQ-07·6 · ExplainView in danger tokens, a cost meter and 24 px butto
     expect(usesTok(background, 'intent-danger-bg')).toBe(true)
     expect(css(hot, 'outline')).toMatch(/^1px solid var\(--intent-danger-border\)$/)
     expect(pqRead('src/components/OxeQuery/OxeQuery.css')).not.toMatch(/rgba\(\s*229\s*,\s*83\s*,\s*75/)
-    const fill = (step: HTMLElement) => { const bar = step.querySelector('.oq-plan-share > *')!; return css(bar, 'background') ?? css(bar, 'background-color') }
+    // liberação de teste congelado: coordenação 15/11, só o seletor da barra no pq07-explain (firstElementChild em vez de '> *', defeito do seletor do jsdom), nenhuma asserção muda (OXE-219)
+    const fill = (step: HTMLElement) => { const bar = step.querySelector('.oq-plan-share')!.firstElementChild!; return css(bar, 'background') ?? css(bar, 'background-color') }
     expect(usesTok(fill(hot), 'intent-danger-solid')).toBe(true)
     expect(usesTok(fill(cool), 'accent')).toBe(true)
   })
