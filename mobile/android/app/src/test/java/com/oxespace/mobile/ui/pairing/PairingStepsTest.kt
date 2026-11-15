@@ -45,11 +45,13 @@ import org.junit.Test
  *   "Cancelar", at least 48 dp tall) below them that leaves pairing as Back does;
  * - the time left on the code (user rule of 15/11 ~05:00Z, OXE-179 CA-2; A16 brings the QR's expiry): the Waiting state
  *   carries `expiresAt: Long?` (`PairingState.Waiting(desktopName, verification, expiresAt: Long? = null)`, built here
- *   by name), PairingScreen reads the time from LocalClock (ui/live/Labels.kt) and says "The code expires in 1:48."
- *   (pairing_code_expires_in, %1$s = m:ss) under the waiting line; with no expiry (an older desktop) the waiting line is
- *   alone; once expired, the code boxes and the countdown go and the screen asks for a new code: the existing
- *   pairing_failed_code_expired text and the pairing_scan_again button, which calls onScanAgain (PairingFlow.scanAgain
- *   then leaves a Waiting whose code expired, and drops that attempt);
+ *   by name), PairingScreen reads the time from LocalClock (ui/live/Labels.kt) and says "O código expira em 4:59."
+ *   (pairing_code_expires_in, "O código expira em %1$s." / "The code expires in %1$s.", MARCA 15/11) under the waiting
+ *   line: the value ticks as m:ss in tabular digits (font feature "tnum"), never "5 min"; with no expiry (an older
+ *   desktop) the waiting line is alone; at 0 the code boxes and the countdown go and the EXISTING home_lapsed text takes
+ *   over ("Este pareamento expirou antes de o celular se conectar. Pareie de novo."; no second expiry string), with the
+ *   pairing_scan_again button, which calls onScanAgain (PairingFlow.scanAgain then leaves a Waiting whose code expired,
+ *   and drops that attempt);
  * - nothing under 11 sp (BRD-07): the guard PairingStepsGuardTest below, green on main.
  *
  * Red at F4 @ origin/main 4fabc30f5: no back button on any state, the title is a line of the scanning state only, below
@@ -90,11 +92,18 @@ class PairingStepsTest {
     @Test
     fun confirmingSaysTheTimeLeftOnTheCode() {
         host.now = 1_000_000L
-        val screen = pairing(waiting(expiresAt = 1_000_000L + 108_000))
-        val left = screen.string("pairing_code_expires_in", "1:48")
-        assertTrue("\"$left\" while the computer confirms; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", screen.leaves.any { screen.text(it).contains(left) })
+        val screen = pairing(waiting(expiresAt = 1_000_000L + 299_000))
+        val left = screen.leaves.firstOrNull { screen.text(it).contains("O código expira em") }
+        assertNotNull("\"O código expira em 4:59.\" while the computer confirms; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", left)
+        assertTrue("m:ss, never minutes in words: ${screen.text(left!!)}", screen.text(left).contains("O código expira em 4:59."))
+        assertTrue("never \"min\"", screen.leaves.none { Regex("""\d+\s*min\b""").containsMatchIn(screen.text(it)) })
+        assertTrue(
+            "the ticking value uses tabular digits (tnum): ${screen.style(left)?.fontFeatureSettings}",
+            screen.style(left)?.fontFeatureSettings.orEmpty().contains("tnum"),
+        )
         assertTrue("with the waiting line", screen.leaves.any { screen.text(it).contains(screen.string("pairing_waiting_computer")) })
         assertTrue("and the code", screen.merged.any { screen.label(it) == screen.string("pairing_verification_description", "2 8 T 5 C Y") })
+        assertEquals("O código expira em %1${'$'}s.", catalog("values-pt-rBR", "pairing_code_expires_in"))
         assertEquals("The code expires in %1${'$'}s.", catalog("values", "pairing_code_expires_in"))
     }
 
@@ -104,7 +113,11 @@ class PairingStepsTest {
         host.scans = 0
         var tapped = false
         val screen = pairing(waiting(expiresAt = 1_000_000L - 1)) { s -> if (!tapped) s.button(s.string("pairing_scan_again"))?.let { tapped = true; s.tap(it) } }
-        assertTrue("it says the code expired", screen.leaves.any { screen.text(it).contains(screen.string("pairing_failed_code_expired")) })
+        assertTrue(
+            "at 0 the existing home_lapsed text takes over: \"${screen.string("home_lapsed")}\"",
+            screen.leaves.any { screen.text(it).contains(screen.string("home_lapsed")) },
+        )
+        assertTrue("no second expiry string", screen.leaves.none { screen.text(it).contains(screen.string("pairing_failed_code_expired")) })
         val again = screen.button(screen.string("pairing_scan_again"))
         assertNotNull("a button to read a new code", again)
         assertTrue("${screen.describe(again!!)} is at least 48 dp tall", screen.heightDp(again) >= 47.5f)

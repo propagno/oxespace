@@ -45,8 +45,11 @@ import org.junit.Test
  * Aparência) and settings_theme_system (Same as the phone -> System / Igual ao do celular -> Sistema). The pages the
  * two rows open use only existing strings (Q-M1) and are not read here: one frame is laid out, a tap does not redraw.
  * The computer card (user rule of 15/11 ~05:00Z: the backend follows the design, OXE-179) shows the name, then one
- * line: the OS, "paired <date>" (settings_computer_paired, with %1$s) and the connection line, joined by " · ", from
- * `computerSubtitle(context: Context, os: String?, pairedAt: Long?, connection: String?): String` in
+ * line: the OS, "paired <date>" / "pareado em <date>" (settings_computer_paired, %1$s) and the connection line, joined
+ * by " · " (MARCA 15/11: "Windows 11 · pareado em 15 de nov."; en "paired Nov 15"). The date is the phone's localized
+ * short date, without the year in the current year (pt-BR "15 de nov.", en "Nov 15") and the medium date with the year
+ * otherwise (pt-BR "15 de nov. de 2026"), never ISO; asserted here with fixed locales and a fixed clock, from
+ * `computerSubtitle(context: Context, os: String?, pairedAt: Long?, connection: String?, now: Long): String` in
  * SettingsScreen.kt (read by name here), which MainActivity passes as SettingsScreen's `connection` with the
  * DesktopStatus.Connected's desktopOs / pairedAt (A16 brings them from the protocol); an older desktop's missing
  * details are left out. The real data path (the gateway to the phone's session) is A16's end-to-end test.
@@ -141,25 +144,32 @@ class SettingsSectionsTest {
     fun theComputerCardShowsTheOsAndThePairingDate() {
         val screen = settings()
         val method = try {
-            Class.forName("com.oxespace.mobile.ui.settings.SettingsScreenKt")
-                .getMethod("computerSubtitle", android.content.Context::class.java, String::class.java, Long::class.javaObjectType, String::class.java)
+            Class.forName("com.oxespace.mobile.ui.settings.SettingsScreenKt").getMethod(
+                "computerSubtitle",
+                android.content.Context::class.java, String::class.java, Long::class.javaObjectType, String::class.java, Long::class.javaPrimitiveType,
+            )
         } catch (missing: ReflectiveOperationException) {
-            throw AssertionError("computerSubtitle(context, os, pairedAt, connection) does not exist in SettingsScreen.kt: $missing")
+            throw AssertionError("computerSubtitle(context, os, pairedAt, connection, now) does not exist in SettingsScreen.kt: $missing")
         }
+        fun localized(tag: String): android.content.Context = screen.context.createConfigurationContext(
+            android.content.res.Configuration(screen.context.resources.configuration).apply { setLocale(java.util.Locale.forLanguageTag(tag)) },
+        )
         val connection = "Conectado · mesma Wi-Fi"
-        val pairedAt: Long = 1_793_707_200_000 // 3 Nov 2026, 10:00 UTC
-        val line = method.invoke(null, screen.context, "Windows 11", pairedAt, connection) as String
-        val parts = line.split(" · ")
-        assertEquals("the OS first: $line", "Windows 11", parts.first())
-        assertTrue("the connection line last: $line", line.endsWith(" · $connection"))
-        val paired = catalog("values-pt-rBR", "settings_computer_paired")
-        assertNotNull("settings_computer_paired in pt-BR", paired)
-        val (before, after) = paired!!.split("%1\$s").let { it.first() to it.getOrElse(1) { "" } }
-        val date = parts.getOrNull(1).orEmpty()
-        assertTrue("the second part is \"$paired\" with the date: $line", date.startsWith(before) && date.endsWith(after) && date.length > before.length + after.length)
-        assertTrue("the date is the 3rd: $date", date.removePrefix(before).removeSuffix(after).contains("3"))
-        assertEquals("an older desktop's missing details are left out", connection, method.invoke(null, screen.context, null, null, connection))
+        val pairedAt = 1_794_744_000_000L // 15 Nov 2026, 12:00 UTC
+        val now = 1_794_830_400_000L // 16 Nov 2026, 12:00 UTC: the same year
+        val nextYear = 1_826_366_400_000L // 16 Nov 2027, 12:00 UTC
+        fun line(tag: String, os: String?, at: Long?, connected: String?, clock: Long) = method.invoke(null, localized(tag), os, at, connected, clock) as String
+
+        assertEquals("pt-BR, this year: the OS, \"pareado em\" and the short date, the connection", "Windows 11 · pareado em 15 de nov. · $connection", line("pt-BR", "Windows 11", pairedAt, connection, now))
+        assertEquals("en, this year", "Windows 11 · paired Nov 15 · Connected · same Wi-Fi", line("en-US", "Windows 11", pairedAt, "Connected · same Wi-Fi", now))
+        val older = line("pt-BR", "Windows 11", pairedAt, connection, nextYear)
+        assertTrue("another year: the phone's medium date with its year: $older", older.contains("pareado em 15 de nov. de 2026"))
+        for (text in listOf(older, line("en-US", "macOS 15", pairedAt, "x", nextYear))) {
+            assertTrue("never ISO: $text", !Regex("""\d{4}-\d{2}-\d{2}""").containsMatchIn(text))
+        }
+        assertEquals("an older desktop's missing details are left out", connection, line("pt-BR", null, null, connection, now))
         assertEquals("paired %1\$s", catalog("values", "settings_computer_paired"))
+        assertEquals("pareado em %1\$s", catalog("values-pt-rBR", "settings_computer_paired"))
         // rigor: source-assertion. MainActivity needs an Android Activity; this module has no Robolectric.
         val activity = java.io.File("src/main/java/com/oxespace/mobile/MainActivity.kt").readText()
         assertTrue("MainActivity passes computerSubtitle(...) to Settings", Regex("""(?<![A-Za-z0-9_.])computerSubtitle\(""").containsMatchIn(activity))
