@@ -42,6 +42,18 @@
     "BRD-13.panel-button.width",
     "BRD-14.pane-header.height",
     "BRD-14.pane-title.font-size",
-    "BRD-14.pane-title.font-weight"
+    "BRD-14.pane-title.font-weight",
+    "BRD-02.header.height",
+    "BRD-02.filter.height",
+    "BRD-02.section.height",
+    "BRD-02.group.height",
+    "BRD-02.footer.height",
+    "BRD-02.row2.height",
+    "BRD-02.row-title.font-size",
+    "BRD-02.row-title.font-weight",
+    "BRD-02.row-meta.font-size",
+    "BRD-02.row.radius",
+    "BRD-02.archived-band.count",
+    "BRD-02.raw-button.count"
   ]
 }
