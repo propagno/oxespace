@@ -346,25 +346,29 @@ jobs:
           # OxeQuery worker that imported a devDependency and could not load on any installed build.
           node scripts/check-bundle-imports.mjs
 
-  # Stage 1, in parallel with quick: the unit and integration suite on both platforms, unchanged (serial, with
-  # coverage). It takes 8 to 14 minutes on Linux and 18 to 23 on Windows, which is why it is not inside quick, and why
-  # e2e does not wait for it: on the old single job it sat in front of every E2E run.
-  unit:
-    name: Unit and integration tests (${{ matrix.label }})
+  # Stage 1, in parallel with quick: the unit and integration suite on both platforms (serial inside each shard, with
+  # coverage). In one job it took 27-28 minutes and was the run's critical path (OXE-142, 14/11), so it runs in 3
+  # shards per platform; `unit` then merges the shards' blob reports, applies the coverage floor of vitest.config.ts
+  # and keeps the job names "Unit and integration tests (<platform>)" that pr:ready, the merge train and ci-result
+  # read. e2e does not wait for it.
+  unit-shard:
+    name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
     needs: [changes]
     if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
+        label: [windows-x64, linux-x64]
+        shard: [1, 2, 3]
         include:
-          - os: windows-2022
-            label: windows-x64
-          - os: ubuntu-22.04
-            label: linux-x64
+          - label: windows-x64
+            os: windows-2022
+          - label: linux-x64
+            os: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -386,7 +390,7 @@ jobs:
           req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
           apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
           if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
               :
             elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
               echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
@@ -413,7 +417,7 @@ jobs:
       - name: Install the pinned Electron runtime
         run: npm rebuild electron
 
-      - name: Unit and integration tests
+      - name: Unit and integration tests (shard ${{ matrix.shard }}/3)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -421,7 +425,74 @@ jobs:
           npm run rebuild:native:node
           # Git/worktree integration tests contend for process and filesystem
           # resources on Windows when Vitest runs files concurrently.
-          npm run test:coverage
+          # A shard covers part of the code: VITEST_COVERAGE_SHARD turns the floors of vitest.config.ts off here (a CLI 0
+          # does not reach the per-glob floors); `unit` applies them to the merged report.
+          $env:VITEST_COVERAGE_SHARD = '1'
+          npx vitest run --coverage --maxWorkers=1 --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob
+
+      - name: Upload the shard's blob report
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vitest-blob-${{ matrix.label }}-${{ matrix.shard }}
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: true
+          path: .vitest/blob/
+
+  unit:
+    name: Unit and integration tests (${{ matrix.label }})
+    needs: [changes, unit-shard]
+    # Always, under the same condition as the shards: a failed shard fails this job instead of skipping it.
+    if: ${{ always() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: windows-x64
+          - os: ubuntu-22.04
+            label: linux-x64
+    steps:
+      - name: Every shard passed
+        shell: bash
+        run: |
+          if [ "${{ needs.unit-shard.result }}" != "success" ]; then
+            echo "::error::a unit shard did not pass (result: ${{ needs.unit-shard.result }}); see the 'Unit and integration tests (<platform>, n/3)' jobs"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Download the shards' blob reports
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: vitest-blob-${{ matrix.label }}-*
+          path: .vitest/blob
+          merge-multiple: true
+
+      - name: Merge the shards and apply the coverage floor
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npx vitest --merge-reports .vitest/blob --coverage --reporter=default
 
       # The summary of this run: the source of the renderer's coverage floor and of what each PR moves it by.
       # It is kept when the tests fail too.
@@ -492,7 +563,7 @@ jobs:
           req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
           apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
           if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
               :
             elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
               echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
@@ -617,6 +688,29 @@ jobs:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
+
+      # OXE-149: the built app against the approved brand target (src/design/targets), once per platform. It reports
+      # every measure and fails only on an enforced one; this job does not fail on it. ci-result turns both platforms'
+      # results into the marca/conformidade status on the PR head, which pr:ready requires on interface paths.
+      - name: Brand conformance (OXE-149)
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        continue-on-error: true
+        shell: bash
+        env:
+          BRAND_OUT: brand-out/brand-conformance-${{ matrix.label }}.json
+        run: |
+          mkdir -p brand-out
+          if [ "$RUNNER_OS" = Linux ]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.brand.config.ts --reporter=list
+          else npx playwright test --config playwright.brand.config.ts --reporter=list; fi
+
+      - name: Upload brand conformance
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: brand-conformance-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: brand-out
 
       - name: Upload E2E traces (failures)
         if: failure()
@@ -761,7 +855,7 @@ jobs:
           req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
           apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
           if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
               :
             elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
               echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
@@ -873,7 +967,7 @@ jobs:
           req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
           apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
           if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
               :
             elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
               echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
@@ -978,7 +1072,7 @@ jobs:
           req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
           apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
           if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && sudo apt-get "${apt_opts[@]}" update && sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
+            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
               :
             elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
               echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
@@ -1470,6 +1564,54 @@ jobs:
           if [ "$OUTCOME" = "success" ]; then state=success; text="every job that had to run passed"; else state=failure; text="CI failed ($OUTCOME)"; fi
           gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context="CI result" -f description="$text" -f target_url="$RUN_URL" >/dev/null
           echo "status CI result=$state on $SHA"
+
+      # OXE-149: both platforms' brand conformance results (E2E shard 2) as the marca/conformidade status on the commit
+      # the PR shows (its head, not the merge commit a pull_request run tests). Failure on an enforced divergence or a
+      # missing platform; pending divergences are counted, not failed. pr:ready requires it on interface paths (OXE-148).
+      - name: Download the brand conformance results
+        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: brand-conformance-*
+          path: brand
+          merge-multiple: true
+
+      - name: Post the brand conformance status (OXE-149)
+        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
+        # The gate is the marca/conformidade status itself; a hiccup posting it never turns "CI result" red.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha || needs.changes.outputs.sha }}
+          RUN_URL: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+        run: |
+          set -euo pipefail
+          node - <<'EOF'
+          const fs = require('fs'), path = require('path')
+          const dir = 'brand'
+          const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(name => name.endsWith('.json')) : []
+          let enforced = 0, pending = 0, checks = 0
+          const lines = []
+          for (const name of files) {
+            const { results } = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'))
+            for (const result of results) {
+              checks++
+              if (result.ok) continue
+              if (result.state === 'enforced') { enforced++; lines.push(`- ${name}: ${result.id} ${result.density}/${result.theme}: ${result.measured}${result.detail ? ` (${result.detail})` : ''}`) } else pending++
+            }
+          }
+          const state = files.length < 2 || enforced ? 'failure' : 'success'
+          const text = files.length < 2 ? `results from ${files.length} of 2 platforms` : `${enforced} enforced divergence(s), ${pending} pending reported, ${checks} checks`
+          const nl = String.fromCharCode(10)
+          // Read back below in this same step (GITHUB_ENV only reaches the next step).
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'brand-status'), [state, text, ''].join(nl))
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, ['### Brand conformance (OXE-149)', '', text, '', ...lines.slice(0, 40), ''].join(nl))
+          EOF
+          { read -r BRAND_STATE; read -r BRAND_TEXT; } < "$RUNNER_TEMP/brand-status"
+          gh api "repos/$REPO/statuses/$SHA" -f state="$BRAND_STATE" -f context="marca/conformidade" -f description="$BRAND_TEXT" -f target_url="$RUN_URL" >/dev/null
+          echo "status marca/conformidade=$BRAND_STATE on $SHA: $BRAND_TEXT"
 
   # The merge train's wake-up. A run the train dispatched (with GITHUB_TOKEN) fires no workflow_run when it
   # finishes, so without this the train only learns of the result at its next cron, 10 minutes or more later.

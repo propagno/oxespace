@@ -37,6 +37,8 @@ export interface ActionRequest {
   notes?: MainMessage[]
   /** The risk the person sees; `medium` unless the tool says otherwise. */
   risk?: ApprovalRisk
+  /** For `confirm`: gets the approval center's record id as soon as the person can answer it (OXE-109). */
+  onAsked?: (approvalId: string) => void
 }
 
 export const ACTION_RATE_PER_MINUTE = 30
@@ -84,7 +86,7 @@ export class AgentActions {
           actor: actor.label, tool: `${request.tool}.${request.action}`, risk: 'action', text,
           kind: 'mcp-confirm', requester, level: request.risk ?? 'medium', title: mainMessage('approvals.title.agent', {}),
           summary: mainMessage('approvals.summary.mcpConfirm', { tool: request.tool, action: request.action, target }), target, notes: request.notes ?? []
-        })
+        }, undefined, request.onAsked)
         : { state: 'denied' as const }
       if (state.state === 'denied') {
         this.deps.audit?.record({ ...base, decision: 'denied', outcome: 'skipped', errorCode: 'denied' })

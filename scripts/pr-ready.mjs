@@ -101,9 +101,42 @@ export function oxeCcCommand(env = process.env) {
   return /\.(c|m)?js$/i.test(cli) ? { command: process.execPath, args: [cli] } : { command: cli, args: [] }
 }
 
-/** The steps for a change, the origin gate first when the checkout has an oxe.config.json. */
+/**
+ * The brand fidelity gate (OXE-148; the user's rule of 14/11: the release is faithful to the rebranding end to end,
+ * and an interface PR enters only with the conformance test and MARCA green). A PR that touches the interface needs
+ * these commit statuses green on its exact head: `marca/conformidade`, posted by CI's brand conformance job (the built
+ * app measured against src/design/targets; OXE-149), and `marca/fidelidade`, posted by MARCA after the side-by-side
+ * check against the approved target, for what the test does not measure.
+ */
+export const BRAND_CONTEXTS = ['marca/conformidade', 'marca/fidelidade']
+const INTERFACE_PATHS = [
+  /^src\/.+\.(tsx|css)$/,
+  /^src\/(design|styles|ui)\//,
+  /^mobile\/android\/app\/src\/main\/(java\/.+\/ui\/|res\/)/,
+  /^mobile\/android\/app\/src\/test\/snapshots\//,
+  /^e2e\/visual\/__screenshots__\//
+]
+/** Whether a change touches the interface, which then needs the brand statuses. */
+export const touchesInterface = files => files.some(file => INTERFACE_PATHS.some(pattern => pattern.test(file)))
+
+/** Each brand context green at its latest status on the head; `statuses` as GitHub lists them, newest first. */
+export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
+  const latest = new Map()
+  for (const status of statuses ?? []) if (!latest.has(status.context)) latest.set(status.context, status)
+  const missing = contexts.filter(context => latest.get(context)?.state !== 'success').map(context => {
+    const status = latest.get(context)
+    return status ? `${context} is ${status.state}${status.description ? ` (${status.description})` : ''}` : `${context} has not been posted`
+  })
+  return { ok: missing.length === 0, missing }
+}
+
+/**
+ * The steps for a change: the origin gate first when the checkout has an oxe.config.json, and the brand gate last
+ * (a GitHub step, read fresh) when the change touches the interface.
+ */
 export function buildSteps({ origin = false, base = 'origin/main', ...rest }) {
   const steps = changeSteps({ base, ...rest })
+  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (CI and MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
   return origin ? [{ name: `origin of every commit since the cut (oxe-cc ship check-origin ${base}..HEAD)`, kind: 'origin', args: [`${base}..HEAD`] }, ...steps] : steps
 }
 
@@ -334,6 +367,20 @@ function ciStep(step, sha) {
     : { ok: false, detail: `${evidence.missing.join('; ')}. Push, wait for CI, or run with --full` }
 }
 
+function brandStep(step, sha) {
+  let statuses
+  try {
+    const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
+    statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/statuses?per_page=100`])).flat()
+  } catch (error) {
+    return readFailed('the brand statuses', sha, error)
+  }
+  const evidence = brandEvidence(statuses, step.args)
+  return evidence.ok
+    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}` }
+    : { ok: false, detail: `${evidence.missing.join('; ')}. An interface change needs MARCA's side-by-side check against the target (oxespace-3d posts marca/fidelidade on the exact head)` }
+}
+
 function visualStep(step, sha) {
   let runs
   try {
@@ -376,7 +423,7 @@ function main(argv) {
   const results = []
   for (const step of steps) {
     console.log(`\n=== pr:ready: ${step.name}`)
-    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'ci-lint' ? ciLintStep(step, sha) : step.kind === 'ci-tests' ? ciTestsStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : runStep(step, env)
+    const result = step.kind === 'ci' ? ciStep(step, sha) : step.kind === 'ci-lint' ? ciLintStep(step, sha) : step.kind === 'ci-tests' ? ciTestsStep(step, sha) : step.kind === 'visual' ? visualStep(step, sha) : step.kind === 'brand' ? brandStep(step, sha) : runStep(step, env)
     results.push({ name: step.name, ...result })
     if (!result.ok) break
   }

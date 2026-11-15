@@ -27,6 +27,8 @@ export default defineConfig({
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
     '**/visual/**',
+    // The brand conformance run has its own config (playwright.brand.config.ts) and runs once per platform (OXE-149).
+    '**/brand/**',
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
     '**/packaged-linux.spec.ts',

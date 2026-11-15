@@ -8,15 +8,17 @@ import styles from './Settings.module.css'
  * One group of settings on a page (U2, X3): a card with a sentence-case title, an optional line under it, and its
  * rows. `actions` sits in the header (Send a test, Add) instead of floating in the page.
  */
-export function SettingsSection({ title, description, actions, children, className }: {
+export function SettingsSection({ title, description, actions, children, className, plain = false }: {
   title: ReactNode
   description?: ReactNode
   actions?: ReactNode
   children: ReactNode
   className?: string
+  /** No card: the title and the rows sit on the page itself (no border, no background). */
+  plain?: boolean
 }): ReactElement {
   const id = useId()
-  return <section data-ui="settings-section" className={cx(styles.section, className)} aria-labelledby={`${id}-title`}>
+  return <section data-ui="settings-section" data-variant={plain ? 'plain' : undefined} className={cx(styles.section, plain && styles.plain, className)} aria-labelledby={`${id}-title`}>
     <header className={styles.sectionHeader}>
       <div>
         <h3 id={`${id}-title`} className={styles.sectionTitle}>{title}</h3>
