@@ -212,7 +212,20 @@ fun LiveHome(
             LiveTab.REQUESTS -> {
                 // SECURITY #236: each row shows the request's command, the same thing the request screen keeps out of Recents.
                 SecureScreen()
-                ListOrEmpty(requests, stringResource(R.string.live_empty_requests), content) { RequestRow(it) { onOpenRequest(it) } }
+                // 1.5.2 A7 (OXE-134): the "Precisa de você" queue, answered on the card.
+                if (requests.isEmpty()) {
+                    EmptyState(title = stringResource(R.string.live_empty_title), text = stringResource(R.string.live_empty_requests), modifier = content)
+                } else {
+                    NeedsYouQueue(
+                        requests = requests,
+                        threads = threads,
+                        online = banner == null,
+                        commands = live.streams.commands,
+                        onOpenThread = onOpenThread,
+                        onOpenRequest = onOpenRequest,
+                        modifier = content,
+                    )
+                }
             }
             LiveTab.TERMINALS -> ListOrEmpty(workspaces.filter { it.panes.isNotEmpty() }, stringResource(R.string.live_empty_terminals), content) { WorkspacePanes(it, onOpenTerminal) }
             LiveTab.TASKS -> Tasks(jobs, delegations, content)
@@ -292,22 +305,6 @@ private fun ThreadRow(thread: RemoteThreadSummary, workspaces: List<RemoteWorksp
             if (workspace != null) WorkspaceChip(workspace.name, workspace.color?.toInt())
         }
         }
-    }
-}
-
-@Composable
-private fun RequestRow(request: RemotePendingRequest, onOpen: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = Row).clickable(role = Role.Button, onClick = onOpen).padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space3),
-    ) {
-    StatusGlyph(com.oxespace.mobile.agents.AgentState.NEEDS_YOU, Modifier.padding(top = OxeSpace.space1))
-    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-        Text(requestTitle(request), style = MaterialTheme.typography.titleMedium)
-        request.risk?.let { RiskLine(it) }
-        request.command?.let { Text(showHidden(it), fontFamily = OxeFonts.mono, style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        Text("${displaySafe(request.threadTitle, 200)} · ${ageLabel(request.createdAt)}", style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
-    }
     }
 }
 

@@ -130,6 +130,21 @@
     <string name="local_network_needed">O OXESpace fala com o seu computador direto pela Wi-Fi, então o Android pergunta se ele pode usar a rede local. Ele só se conecta ao computador que você parear, nunca a outros aparelhos.</string>
     <string name="local_network_open_settings">Abrir configurações do app</string>
     <string name="local_network_title">Acesso à rede local</string>
+    <string name="needs_you_agent">O agente</string>
+    <string name="needs_you_allowed">Permitido</string>
+    <string name="needs_you_asks_approval">%1$s pede sua permissão</string>
+    <string name="needs_you_asks_question">%1$s pergunta</string>
+    <string name="needs_you_asks_run">%1$s pede para executar</string>
+    <string name="needs_you_denied">Negado</string>
+    <string name="needs_you_kind_command">Aprovar comando</string>
+    <plurals name="needs_you_kind_questions">
+        <item quantity="one">%1$d pergunta</item>
+        <item quantity="other">%1$d perguntas</item>
+        <item quantity="many">%1$d perguntas</item>
+    </plurals>
+    <string name="needs_you_offline">Sem conexão com o computador. Responda quando ela voltar.</string>
+    <string name="needs_you_reply">Responder</string>
+    <string name="needs_you_title">Precisa de você</string>
     <string name="notify_channel_done">Concluído</string>
     <string name="notify_channel_failed">Falhou</string>
     <string name="notify_channel_needs_you">Precisa de você</string>
@@ -199,6 +214,7 @@
     <string name="request_from_agent">Escrito pelo agente</string>
     <string name="request_gone">Este pedido não está mais esperando.</string>
     <string name="request_hold">Risco crítico: Permitir fica disponível em 2 s.</string>
+    <string name="request_hold_to_allow">Segure para permitir</string>
     <string name="request_kind_agent">Pedido de um agente</string>
     <string name="request_kind_permissions">Pedido de permissão</string>
     <string name="request_kind_question">Pergunta do agente</string>

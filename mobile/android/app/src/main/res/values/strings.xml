@@ -127,6 +127,20 @@
     <string name="local_network_needed">OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.</string>
     <string name="local_network_open_settings">Open app settings</string>
     <string name="local_network_title">Local network access</string>
+    <string name="needs_you_agent">The agent</string>
+    <string name="needs_you_allowed">Allowed</string>
+    <string name="needs_you_asks_approval">%1$s asks for your OK</string>
+    <string name="needs_you_asks_question">%1$s asks</string>
+    <string name="needs_you_asks_run">%1$s asks to run</string>
+    <string name="needs_you_denied">Denied</string>
+    <string name="needs_you_kind_command">Approve command</string>
+    <plurals name="needs_you_kind_questions">
+        <item quantity="one">%1$d question</item>
+        <item quantity="other">%1$d questions</item>
+    </plurals>
+    <string name="needs_you_offline">Not connected to your computer. Answer once it is back.</string>
+    <string name="needs_you_reply">Reply</string>
+    <string name="needs_you_title">Needs you</string>
     <string name="notify_channel_done">Finished</string>
     <string name="notify_channel_failed">Failed</string>
     <string name="notify_channel_needs_you">Needs you</string>
@@ -196,6 +210,7 @@
     <string name="request_from_agent">Written by the agent</string>
     <string name="request_gone">This request is no longer waiting.</string>
     <string name="request_hold">Critical risk: Allow becomes available in 2 s.</string>
+    <string name="request_hold_to_allow">Press and hold to allow</string>
     <string name="request_kind_agent">Request from an agent</string>
     <string name="request_kind_permissions">Permission request</string>
     <string name="request_kind_question">The agent\'s question</string>

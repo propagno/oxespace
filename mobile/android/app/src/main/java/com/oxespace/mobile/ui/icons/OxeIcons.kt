@@ -127,6 +127,22 @@ object OxeIcons {
     /** CR-A42b-2: the Requests ("Needs you") tab: the bell, with the sun badge on top of it. */
     val Bell: ImageVector by lazy { strokeIcon("Bell", "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3 -2 3 -9", "M10 21h4") }
 
+    /** 1.5.2 A7: the sun, the header of a "Precisa de você" card (attn means needs you, only). */
+    val Sun: ImageVector by lazy {
+        strokeIcon(
+            "Sun",
+            "M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
+            "M12 2v2",
+            "M12 20v2",
+            "M4.93 4.93l1.41 1.41",
+            "M17.66 17.66l1.41 1.41",
+            "M2 12h2",
+            "M20 12h2",
+            "M6.34 17.66l-1.41 1.41",
+            "M19.07 4.93l-1.41 1.41",
+        )
+    }
+
     /** CR-A42b-2: the Tasks tab (background jobs and delegations): the clock. */
     val Clock: ImageVector by lazy { strokeIcon("Clock", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M12 7v5l3 2") }
 }
