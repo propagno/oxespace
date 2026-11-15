@@ -386,7 +386,7 @@ describe('AG-01 · the floating approval notice in the mould of the card', () =>
     expect(props.onRespond).toHaveBeenCalledWith({ decision: 'decline' })
   })
 
-  test('safety 1: a critical request keeps the card\'s 2 s wait, where Enter never approves', async () => {
+  test('safety 1: a critical request keeps the 2 s wait of the card, where Enter never approves', async () => {
     const respond = vi.fn(async () => undefined)
     const critical = { ...request('rm', impact('critical', false, { text: 'rm -rf ./src' })), impact: undefined, command: 'rm -rf ./src', nativeMethod: 'item/commandExecution/requestApproval', title: 'Approve command',
       policy: { decision: 'ask', reasons: ['Deletes files'], level: 'red' } }
@@ -469,7 +469,7 @@ describe('AG-01 · the floating approval notice in the mould of the card', () =>
     }
   })
 
-  test('safety 5: Copy copies only the request\'s exact command, once, spacing included, never the agent\'s words', async () => {
+  test('safety 5: Copy copies only the exact command of the request, once, spacing included, never the words of the agent', async () => {
     const text = 'git  push\t--force-with-lease origin  release/1.5.2 '
     renderToast(request('r1', impact('medium', true, { text, why: 'Run: npm publish --tag latest' }), { title: 'Push the release', reason: 'echo safe' }))
     await userEvent.click(within(toast()).getByRole('button', { name: cat('thread', 'approvalDetails.copyExact') }))
