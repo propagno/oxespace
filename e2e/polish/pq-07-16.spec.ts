@@ -89,11 +89,11 @@ const call = (name, args, id) => fetch('http://127.0.0.1:' + process.env.OXESPAC
 ;(async () => {
   for (const step of plan) {
     await new Promise(r => setTimeout(r, step.wait || 0))
-    for (let i = 0; i < (step.times || 1); i++) { results.push((await call(step.tool, step.args, results.length)).slice(0, 300)); if (i % 25 === 0 || i === (step.times || 1) - 1) fs.writeFileSync(out, JSON.stringify(results)) }
+    for (let i = 0; i < (step.times || 1); i++) { results.push((await call(step.tool, step.args, results.length)).slice(0, 300)); if (i % 25 === 0 || i === (step.times || 1) - 1) fs.writeFileSync(out, JSON.stringify(results)); if (step.pace) await new Promise(r => setTimeout(r, step.pace)) }
   }
 })()
 `
-interface PqStep { wait?: number; tool: string; args: Record<string, unknown>; times?: number }
+interface PqStep { wait?: number; tool: string; args: Record<string, unknown>; times?: number; pace?: number }
 /** Starts the steps in the first pane's terminal (the Code view must be showing); returns a reader of the answers. */
 async function agentInPane(page: Page, root: string, steps: PqStep[]): Promise<() => string[]> {
   const script = pqPath(root, 'agent.js'), plan = pqPath(root, 'plan.json'), out = pqPath(root, 'answers.json')
@@ -118,15 +118,22 @@ const PG = `pq0716-pg-${process.pid}`
 test('PQ-07·16 in the app: 250 agent requests show as 200 rows, and Load more brings the other 50', async () => {
   const reason = noContainerEngine()
   test.skip(reason !== null, reason ?? '')
-  test.setTimeout(600_000)
+  // liberação de teste congelado: coordenação 15/11, pq-07-16 aprova a leitura na central (permitir nesta sessão) e semeia as 250 leituras a ≤ 28/min dentro do limite por execução; espera e tempo do teste maiores; nenhuma asserção muda (OXE-229)
+  test.setTimeout(900_000)
   await startPostgres(PG, 'CREATE TABLE items (id int PRIMARY KEY); INSERT INTO items VALUES (1);')
   const { app, page, root, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
     await openDemoWorkspace(page, workspaceRoot)
     await connectContainer(page, PG)
     await agentAccess(page, PG, { agentAccess: 'read' })
-    const answers = await agentInPane(page, root, [{ wait: 1_000, tool: 'oxespace_db_query', args: { connection: PG, sql: 'SELECT id FROM items' }, times: 250 }])
-    await expect.poll(() => answers().length, { timeout: 300_000, message: 'the agent made its 250 reads' }).toBe(250)
+    // <= 28 calls a minute: the gateway allows 30 per execution and throws past that (agent-gateway.ts RATE_PER_MINUTE).
+    const answers = await agentInPane(page, root, [{ wait: 1_000, tool: 'oxespace_db_query', args: { connection: PG, sql: 'SELECT id FROM items' }, times: 250, pace: 2_200 }])
+    // agentAccess "read": a data read waits for a person's approval of the exact text; the person allows reads for this run.
+    const mainCatalog = JSON.parse(pqRead('shared/locales/en/main.json')) as { messages: { approvals: { title: { oxequery: string }; option: { allowSessionReads: string } } } }
+    const approval = page.getByRole('dialog', { name: mainCatalog.messages.approvals.title.oxequery })
+    await expect(approval).toBeVisible({ timeout: 60_000 })
+    await approval.getByRole('button', { name: mainCatalog.messages.approvals.option.allowSessionReads, exact: true }).click()
+    await expect.poll(() => answers().length, { timeout: 600_000, message: 'the agent made its 250 reads' }).toBe(250)
     await openOxeQuery(page)
     await page.getByRole('button', { name: cat('activity.label') }).first().click()
     const rows = page.locator('.oq-activity-table tbody tr')
