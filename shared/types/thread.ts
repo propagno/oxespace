@@ -729,6 +729,14 @@ export interface ThreadApi {
   sections?(workspaceId: string): Promise<import('./thread-sections').ThreadSections>
   /** F13: replaces the whole state; returns what was stored, or a C3 refusal that stored nothing. */
   saveSections?(workspaceId: string, state: import('./thread-sections').ThreadSections): Promise<import('./thread-sections').ThreadSectionsSaveResult>
+  /** OXE-170: every session (a main chat and its parallel chats), archived ones too. The person's window only. */
+  sessions?(): Promise<import('./thread-session').SessionView[]>
+  /** OXE-170: one session, by its main chat's id. */
+  session?(sessionId: string): Promise<import('./thread-session').SessionView>
+  /** OXE-170: a parallel chat in the session's folder or worktree, with any installed agent; the checkout never changes. */
+  createChat?(sessionId: string, input: { provider: ThreadProvider }): Promise<ThreadSnapshot>
+  /** OXE-170: records the chat the window shows; returns the session with it open. */
+  openChat?(sessionId: string, chatId: string): Promise<import('./thread-session').SessionView>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>
