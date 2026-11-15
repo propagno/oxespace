@@ -1,0 +1,45 @@
+{
+  "brd": "BRD-15",
+  "card": "OXE-84",
+  "title": "The nine OxeCode panels on the DockPanel primitive: a --bar-lg header with a 13/600 h2 title, close last",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-15), M1-api-e-criterios.md (DockPanel) and the card OXE-84 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-15.panel-header.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=dock-panel] > header",
+      "prop": "height",
+      "expect": { "token": "--bar-lg" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the panel header is the lg bar (36, 40 comfortable)"
+    },
+    {
+      "id": "BRD-15.panel-title.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=dock-panel] > header h2",
+      "prop": "font-size",
+      "expect": { "token": "--fs-sm" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the panel's title is 13 px"
+    },
+    {
+      "id": "BRD-15.panel-title.font-weight",
+      "scene": "code-workspace",
+      "select": "[data-ui=dock-panel] > header h2",
+      "prop": "font-weight",
+      "expect": { "token": "--weight-semibold" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the panel's title is semibold (600)"
+    }
+  ]
+}
