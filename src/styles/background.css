@@ -20,7 +20,7 @@
   justify-content: space-between;
   min-height: 36px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--bd-divider);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .bg-jobs-dock-count {
@@ -33,7 +33,7 @@
   display: flex;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--bd-divider);
+  border-bottom: 1px solid var(--bd-default);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -62,7 +62,7 @@
   /* Filter chip "active" is a UI state, not a brand statement — use neutral
      primary text on quiet surface. */
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
   background: var(--fill-pressed);
 }
 
@@ -128,7 +128,7 @@
   align-items: start;
   gap: 6px;
   padding: 9px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   transition: background var(--transition-base), border-color var(--transition-base);
@@ -136,7 +136,7 @@
 
 .bg-jobs-dock-card:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .bg-jobs-dock-card-main {
@@ -159,10 +159,10 @@
 
 /* Status edge — inset shadow keeps the card border consistent and only the
    left edge expresses the status colour. */
-.bg-jobs-dock-card.status-failed  { box-shadow: inset 3px 0 0 0 var(--dot-red); }
-.bg-jobs-dock-card.status-running { box-shadow: inset 3px 0 0 0 var(--dot-green); }
-.bg-jobs-dock-card.status-killed  { box-shadow: inset 3px 0 0 0 var(--dot-gray); }
-.bg-jobs-dock-card.status-exited  { box-shadow: inset 3px 0 0 0 var(--dot-blue); }
+.bg-jobs-dock-card.status-failed  { box-shadow: inset 3px 0 0 0 var(--intent-danger-solid); }
+.bg-jobs-dock-card.status-running { box-shadow: inset 3px 0 0 0 var(--intent-success-solid); }
+.bg-jobs-dock-card.status-killed  { box-shadow: inset 3px 0 0 0 var(--tx-disabled); }
+.bg-jobs-dock-card.status-exited  { box-shadow: inset 3px 0 0 0 var(--intent-info-solid); }
 
 .bg-jobs-dock-card-body {
   display: flex;
@@ -232,7 +232,7 @@
   font-size: var(--fs-2xs);
   cursor: pointer;
 }
-.bg-jobs-dock-stop:hover:not(:disabled) { border-color: var(--dot-red); color: var(--dot-red); }
+.bg-jobs-dock-stop:hover:not(:disabled) { border-color: var(--intent-danger-solid); color: var(--intent-danger-solid); }
 .bg-jobs-dock-stop:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .bg-jobs-dock-remove {
@@ -247,7 +247,7 @@
 }
 .bg-jobs-dock-remove:hover:not(:disabled) {
   border-color: var(--bd-subtle);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 .bg-jobs-dock-remove:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -291,7 +291,7 @@
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: 1.55;
@@ -323,10 +323,10 @@
 }
 
 /* Pulse animation for running jobs */
-.bg-jobs-pulse.status-running { animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; --pulse-opacity: 0.4; color: var(--dot-green); }
-.status-exited { color: var(--dot-blue); }
-.status-failed { color: var(--dot-red); }
-.status-killed { color: var(--dot-gray); }
+.bg-jobs-pulse.status-running { animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; --pulse-opacity: 0.4; color: var(--intent-success-solid); }
+.status-exited { color: var(--intent-info-solid); }
+.status-failed { color: var(--intent-danger-solid); }
+.status-killed { color: var(--tx-disabled); }
 
 .bg-jobs-source-tabs {
   display: flex;
@@ -345,7 +345,7 @@
   font-size: var(--fs-xs);
   cursor: pointer;
 }
-.bg-jobs-source-tabs button[aria-current="page"] { color: var(--tx-primary); background: var(--fill-selected); border-color: var(--bd-base); }
+.bg-jobs-source-tabs button[aria-current="page"] { color: var(--tx-primary); background: var(--fill-selected); border-color: var(--bd-default); }
 .bg-jobs-source-tabs button:hover { color: var(--tx-primary); background: var(--fill-hover); }
 .bg-jobs-delegated-card {
   padding: 12px;
@@ -355,7 +355,7 @@
 .bg-jobs-delegated-card > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .bg-jobs-delegated-card strong { color: var(--tx-primary); font-size: var(--fs-sm); }
 .bg-jobs-delegated-card span { color: var(--tx-secondary); font-size: var(--fs-xs); white-space: nowrap; }
-.bg-jobs-delegated-card span[data-state="running"], .bg-jobs-delegated-card span[data-state="executing"] { color: var(--dot-green); }
+.bg-jobs-delegated-card span[data-state="running"], .bg-jobs-delegated-card span[data-state="executing"] { color: var(--intent-success-solid); }
 .bg-jobs-delegated-card small { display: block; margin-top: 4px; color: var(--tx-muted); }
 .bg-jobs-delegated-card p { margin: 8px 0 0; color: var(--tx-secondary); font-size: var(--fs-xs); }
-.bg-jobs-delegated-card p[role="alert"] { color: var(--dot-red); }
+.bg-jobs-delegated-card p[role="alert"] { color: var(--intent-danger-solid); }
