@@ -39,6 +39,6 @@
 }
 
 .repository-view-actions .tile-btn.active {
-  color: var(--text-accent, var(--accent));
+  color: var(--tx-accent, var(--accent));
   background: color-mix(in srgb, var(--accent) 13%, transparent);
 }

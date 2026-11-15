@@ -8,7 +8,7 @@
   border: none;
   border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--accent, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   cursor: pointer;
   vertical-align: middle;
   transition: opacity var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
@@ -31,7 +31,7 @@
 }
 
 .diff-comment-icon {
-  color: var(--accent, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   margin-right: 6px;
   vertical-align: text-bottom;
 }
@@ -52,7 +52,7 @@
 }
 
 .diff-comment-delete:hover {
-  color: var(--dot-red, var(--intent-danger-fg));
+  color: var(--intent-danger-solid, var(--intent-danger-fg));
   background: var(--intent-danger-bg);
 }
 
@@ -93,7 +93,7 @@
 
 .diff-comment-save {
   background: var(--accent, var(--accent));
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
   font-weight: 600;
 }
 
@@ -115,7 +115,7 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--accent, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
