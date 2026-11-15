@@ -135,25 +135,6 @@ class LocalNetworkPromptTest {
 class LocalNetworkPromptTestAtStepTwo {
     private val uri = "oxespace://pair?v=1&host=192.168.0.12&port=7443&fp=${"b".repeat(64)}&code=AbCdEfGhIjKlMnOpQrSt_-&name=Studio"
 
-    private class Keys : DeviceKeys {
-        private val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
-        override fun publicKeySpki(): ByteArray = pair.public.encoded
-        override fun sign(data: ByteArray): ByteArray = error("not used while pairing")
-        override fun delete() = Unit
-    }
-
-    private class Store : PairedDesktopStore {
-        var saved: PairedDesktop? = null
-        override fun load() = saved
-        override fun save(desktop: PairedDesktop) {
-            saved = desktop
-        }
-
-        override fun clear() {
-            saved = null
-        }
-    }
-
     /** A flow whose computer accepts at once; [calls] records each time the phone talks to it, [keys] each key made. */
     private fun newFlow(scope: TestScope, granted: () -> Boolean, calls: MutableList<String>, keys: MutableList<String>): PairingFlow {
         val constructors = PairingFlow::class.java.constructors
@@ -287,3 +268,24 @@ private class PromptHost(private val paparazzi: Paparazzi) {
 
 /** The top (dp) of the first text leaf that says the string [name], or null when none does. */
 private fun Screen.top(name: String): Float? = leavesWithText(string(name)).minOfOrNull { boundsDp(it).top }
+
+/** Software keys with the Keystore's shape, for the flow tests. */
+private class Keys : DeviceKeys {
+    private val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+    override fun publicKeySpki(): ByteArray = pair.public.encoded
+    override fun sign(data: ByteArray): ByteArray = error("not used while pairing")
+    override fun delete() = Unit
+}
+
+/** A store kept in memory, for the flow tests. */
+private class Store : PairedDesktopStore {
+    var saved: PairedDesktop? = null
+    override fun load() = saved
+    override fun save(desktop: PairedDesktop) {
+        saved = desktop
+    }
+
+    override fun clear() {
+        saved = null
+    }
+}
