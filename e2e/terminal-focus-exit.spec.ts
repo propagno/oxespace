@@ -44,7 +44,7 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
     await expect(page.getByTestId('split-resize-handle').first()).toBeAttached()
 
     // From the sidebar filter, Tab walks into the first terminal.
-    await page.locator('.sidebar-search-input').focus()
+    await page.locator('[data-ui="sidebar-filter"] input').focus()
     let first: string | null = null
     for (let step = 0; step < 80 && !first; step++) {
       await page.keyboard.press('Tab')

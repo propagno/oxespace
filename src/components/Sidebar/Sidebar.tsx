@@ -7,13 +7,12 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
-import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { CodeRail } from './CodeRail'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
-import { Button, EmptyState, Splitter, type MenuEntry } from '../../ui'
+import { Button, EmptyState, IconButton, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
-import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 import { PaneSessionRow } from './PaneSessionRow'
@@ -206,16 +205,15 @@ export function Sidebar({
       {/* The version is in the status bar and in About. As a title on this whole panel it opened a tooltip over the menu
           bar whenever the pointer rested on any empty part of the sidebar. */}
       <div className="nav-panel" data-version={appVersion}>
-      <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="code" /></div>
-      <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
+      <SidebarHeader title={t('sidebar.workspaces')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="code" />} />
+      <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')}
+        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} autoComplete="off" spellCheck={false} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 
         {integrationGroups.length > 0 ? (
           <section className="sidebar-integration-list" aria-label={t('sidebar.integrationGroups')}>
-            <div className="sidebar-section-header">
-              <span>{t('sidebar.integrations')}</span>
-            </div>
+            <SidebarSection label={t('sidebar.integrations')} />
             {integrationGroups.map((group) => (
               <SidebarIntegrationRow
                 key={group.id}
@@ -233,14 +231,12 @@ export function Sidebar({
           </section>
         ) : null}
 
-        <div className="sidebar-section-header">
-          <span>{t('sidebar.workspaces')}</span>
-          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label={t('sidebar.toggleAll')} title={t('sidebar.toggleAll')} onClick={() => {
+        <SidebarSection label={t('sidebar.workspaces')} action={workspaces.length > 0 && !searchQuery
+          ? <IconButton size="sm" label={t('sidebar.toggleAll')} title={t('sidebar.toggleAll')} icon={<ChevronDown size={12} aria-hidden="true" />} onClick={() => {
             const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
             workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }}><ChevronDown size={12} aria-hidden="true" /></button>}
-
-        </div>
+          }} />
+          : undefined} />
 
         {filtered.length === 0 ? (
           searchQuery
@@ -292,7 +288,7 @@ export function Sidebar({
           ))
         )}
       </nav>
-      <SidebarFooter context={railContext} onToggle={onToggleCollapse} />
+      <SidebarFooterBar className="nav-rail-footer" context={railContext} onToggle={onToggleCollapse} />
       </div>
     </aside>
   )
