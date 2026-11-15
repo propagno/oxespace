@@ -647,11 +647,13 @@
     "trigger": "Perguntar, rodar ou ir para…",
     "dialogLabel": "Barra de comando",
     "inputLabel": "Perguntar, rodar ou ir para",
+    "hintsLine": "Digite > para comandos, ? para exemplos, @ para pedir a um agente, / para rodar um comando",
     "groups": {
       "commands": "Comandos",
       "skills": "Skills",
       "agents": "Agentes",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Painéis"
     },
     "hints": {
       "agent": "começar ou delegar",

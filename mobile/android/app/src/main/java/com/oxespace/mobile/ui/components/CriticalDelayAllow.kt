@@ -3,36 +3,63 @@ package com.oxespace.mobile.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.oxespace.mobile.approval.allowHoldMsFor
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeType
 import kotlin.math.ceil
-
-import com.oxespace.mobile.approval.allowHoldMsFor
+import kotlinx.coroutines.launch
 
 /*
  * 1.5.0 F10 A44: Allow on a critical request waits the desktop's hold. Test: CriticalDelayAllowTest.
+ * 1.5.2 A7 (OXE-134 CA-2): after the wait it is a press-and-hold of the desktop's IMPACT_HOLD_MS. Test: NeedsYouRowTest.
  */
+
+/** How long Allow on a critical request must be held once the wait is over (the desktop's HoldToApprove). */
+const val CRITICAL_ALLOW_PRESS_MS = 1_200L
+
+/** The hold's progress: 0 at 0 or less, linear up to [CRITICAL_ALLOW_PRESS_MS], 1 from then on. */
+fun criticalAllowPressProgress(pressedMs: Long): Float = when {
+    pressedMs <= 0L -> 0f
+    pressedMs >= CRITICAL_ALLOW_PRESS_MS -> 1f
+    else -> pressedMs.toFloat() / CRITICAL_ALLOW_PRESS_MS.toFloat()
+}
 
 /** What the CriticalDelayAllow button draws: enabled or not, and the ring's progress from 0 to 1. */
 data class CriticalAllowState(val enabled: Boolean, val progress: Float)
@@ -49,44 +76,80 @@ fun criticalAllowState(risk: String?, elapsedMs: Long): CriticalAllowState {
 }
 
 /**
- * CR-A42b-2 (M5, #627 HANDOFF-MOBILE "CriticalDelayAllow"): Allow at critical risk as a secondary button with a ring that
- * fills over the desktop's hold, then the biometric. A timer, not a press-and-hold (MOB-1-6). [enabled] is the truth
- * (requestActions); the ring only shows the wait. The label stays the decision's own word, so the countdown is a second
- * line: "in 2 s".
+ * Allow at critical risk: off for the desktop's wait (the ring fills, "in 2 s"), then a press-and-hold of
+ * [CRITICAL_ALLOW_PRESS_MS] with the ring in accent; releasing early cancels. It has no click action, so a tap never
+ * allows; its state description says it must be held. [enabled] is the truth (requestActions).
  */
 @Composable
-fun CriticalDelayAllow(label: String, countdown: @Composable (Int) -> String, holdMs: Long, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CriticalDelayAllow(
+    label: String,
+    countdown: @Composable (Int) -> String,
+    holdMs: Long,
+    enabled: Boolean,
+    holdHint: String,
+    onHeld: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = Oxe.colors
-    val progress = remember(holdMs) { Animatable(if (holdMs > 0L) 0f else 1f) }
+    val wait = remember(holdMs) { Animatable(if (holdMs > 0L) 0f else 1f) }
     LaunchedEffect(holdMs) {
-        if (holdMs > 0L) progress.animateTo(1f, tween(durationMillis = holdMs.toInt(), easing = LinearEasing))
+        if (holdMs > 0L) wait.animateTo(1f, tween(durationMillis = holdMs.toInt(), easing = LinearEasing))
     }
-    val left = ceil((1f - progress.value) * holdMs / 1000f).toInt()
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.heightIn(min = 48.dp),
-        shape = RoundedCornerShape(OxeRadius.lg),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = colors.surfaceRaised,
-            contentColor = colors.textPrimary,
-            disabledContainerColor = colors.surfaceSunken,
-            disabledContentColor = colors.textDisabled,
-        ),
-        border = BorderStroke(1.dp, if (enabled) colors.borderDefault else colors.borderSubtle),
-        contentPadding = PaddingValues(horizontal = OxeSpace.space4, vertical = OxeSpace.space2),
-    ) {
-        if (!enabled) {
-            val ring = colors.accent
-            val track = colors.borderDefault
-            Canvas(Modifier.size(18.dp)) {
-                val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
-                drawArc(track, 0f, 360f, useCenter = false, style = stroke)
-                drawArc(ring, -90f, 360f * progress.value, useCenter = false, style = stroke)
+    val left = ceil((1f - wait.value) * holdMs / 1000f).toInt()
+    var pressedMs by remember { mutableLongStateOf(0L) }
+    val held by rememberUpdatedState(onHeld)
+    val scope = rememberCoroutineScope()
+    val shape = RoundedCornerShape(OxeRadius.lg)
+    Row(
+        modifier
+            .heightIn(min = 48.dp)
+            .clip(shape)
+            .background(if (enabled) colors.surfaceRaised else colors.surfaceSunken)
+            .border(1.dp, if (enabled) colors.borderDefault else colors.borderSubtle, shape)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                stateDescription = holdHint
+                if (!enabled) disabled()
             }
-            Spacer(Modifier.width(OxeSpace.space2))
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                detectTapGestures(onPress = {
+                    var done = false
+                    val fill = scope.launch {
+                        val start = withFrameMillis { it }
+                        while (!done) {
+                            val now = withFrameMillis { it }
+                            pressedMs = now - start
+                            if (criticalAllowPressProgress(pressedMs) >= 1f) {
+                                done = true
+                                held()
+                            }
+                        }
+                    }
+                    tryAwaitRelease()
+                    if (!done) fill.cancel()
+                    pressedMs = 0L
+                })
+            }
+            .padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space2),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val ring = colors.accent
+        val track = colors.borderDefault
+        val progress = if (enabled) criticalAllowPressProgress(pressedMs) else wait.value
+        Canvas(Modifier.size(18.dp)) {
+            val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawArc(track, 0f, 360f, useCenter = false, style = stroke)
+            drawArc(ring, -90f, 360f * progress, useCenter = false, style = stroke)
         }
-        Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = OxeType.weightSemibold), maxLines = 1)
+        Spacer(Modifier.width(OxeSpace.space2))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = OxeType.weightSemibold),
+            color = if (enabled) colors.textPrimary else colors.textDisabled,
+            maxLines = 1,
+        )
         if (!enabled && left > 0) {
             Spacer(Modifier.width(OxeSpace.space1))
             Text(countdown(left), style = MaterialTheme.typography.labelLarge, color = colors.textMuted, maxLines = 1)

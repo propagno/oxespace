@@ -148,8 +148,7 @@ fun RequestScreen(
             }
             // What the person needs first: whether they can answer here at all.
             if (!request.answerable) DesktopOnlyNotice()
-            Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
-            // CR-A42b-2 (M5): the RiskChip in the header, then what the level means.
+            // CR-A42b-2 (M5), 1.5.2 A7: the RiskChip above the title, then what the level means.
             request.risk?.let { wire ->
                 val level = riskLevel(wire)
                 Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -157,6 +156,7 @@ fun RequestScreen(
                     Text(riskMeaning(level), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary)
                 }
             }
+            Text(requestTitle(request), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
             riskNote(request)?.let { NoUndoLine(it) }
             // The facts, as label/value rows: nothing read-only looks like an input (M10 §6).
             Facts(
@@ -300,7 +300,8 @@ fun RequestScreen(
                         countdown = { seconds -> stringResource(R.string.request_allow_in, seconds.toString()) },
                         holdMs = hold,
                         enabled = enabled,
-                        onClick = { answer(decision, null) },
+                        holdHint = stringResource(R.string.request_hold_to_allow),
+                        onHeld = { answer(decision, null) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
@@ -315,7 +316,13 @@ fun RequestScreen(
             }
             if ("accept" in decisions) {
                 Text(
-                    stringResource(if (held) R.string.request_hold else R.string.request_allow_biometric),
+                    stringResource(
+                        when {
+                            held -> R.string.request_hold
+                            hold > 0L -> R.string.request_hold_to_allow
+                            else -> R.string.request_allow_biometric
+                        },
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Oxe.colors.textMuted,
                     textAlign = TextAlign.Center,

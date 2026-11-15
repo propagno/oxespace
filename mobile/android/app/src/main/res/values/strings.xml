@@ -102,10 +102,6 @@
     <string name="live_menu">More options</string>
     <string name="live_menu_settings">Settings</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Needs you (%1$d)</item>
-        <item quantity="other">Needs you (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">You can type here</string>
     <string name="live_read_only">Read-only</string>
     <plurals name="live_requests_badge">
@@ -127,6 +123,20 @@
     <string name="local_network_needed">OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.</string>
     <string name="local_network_open_settings">Open app settings</string>
     <string name="local_network_title">Local network access</string>
+    <string name="needs_you_agent">The agent</string>
+    <string name="needs_you_allowed">Allowed</string>
+    <string name="needs_you_asks_approval">%1$s needs your approval</string>
+    <string name="needs_you_asks_question">%1$s needs your answer</string>
+    <string name="needs_you_asks_run">%1$s needs your approval</string>
+    <string name="needs_you_denied">Denied</string>
+    <string name="needs_you_kind_command">Approve command</string>
+    <plurals name="needs_you_kind_questions">
+        <item quantity="one">%1$d question</item>
+        <item quantity="other">%1$d questions</item>
+    </plurals>
+    <string name="needs_you_offline">Not connected to your computer. Answer once it is back.</string>
+    <string name="needs_you_reply">Reply</string>
+    <string name="needs_you_title">Needs you</string>
     <string name="notify_channel_done">Finished</string>
     <string name="notify_channel_failed">Failed</string>
     <string name="notify_channel_needs_you">Needs you</string>
@@ -196,6 +206,7 @@
     <string name="request_from_agent">Written by the agent</string>
     <string name="request_gone">This request is no longer waiting.</string>
     <string name="request_hold">Critical risk: Allow becomes available in 2 s.</string>
+    <string name="request_hold_to_allow">Press and hold to allow</string>
     <string name="request_kind_agent">Request from an agent</string>
     <string name="request_kind_permissions">Permission request</string>
     <string name="request_kind_question">The agent\'s question</string>
@@ -336,7 +347,6 @@
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>
     </plurals>
-    <string name="thread_now_needs_you">Needs you: %1$s</string>
     <string name="thread_plan_progress">Plan · %1$s of %2$s</string>
     <string name="thread_request_state_cancelled">cancelled</string>
     <string name="thread_request_state_expired">expired</string>
@@ -348,6 +358,8 @@
     <string name="thread_state_needs_you">Needs you</string>
     <string name="thread_state_stopped">Stopped</string>
     <string name="thread_state_working">Working</string>
+    <string name="thread_step_collapsed">Collapsed</string>
+    <string name="thread_step_expanded">Expanded</string>
     <plurals name="thread_steps">
         <item quantity="one">%1$d step</item>
         <item quantity="other">%1$d steps</item>

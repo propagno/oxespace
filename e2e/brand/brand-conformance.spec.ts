@@ -46,7 +46,7 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]' }
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]', 'command-bar': '[data-ui=command-bar]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -64,6 +64,18 @@ async function openSidePanels(page: Page): Promise<void> {
     }
   }
   await page.getByTestId('changes-panel').waitFor({ timeout: 10_000 }).catch(() => {})
+}
+
+/** BRD-11 (OXE-75): Ctrl+K in OxeCode, then ">" so the bar lists its command rows. A failure leaves the scene's measures as "no element". */
+async function openCommandBar(page: Page): Promise<void> {
+  try {
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+    await page.locator('[data-ui="command-bar"]').waitFor({ timeout: 10_000 })
+    await page.keyboard.type('>')
+    await page.locator('[data-ui="command-row"]').first().waitFor({ timeout: 10_000 })
+  } catch (error) {
+    console.log(`[BRAND] could not open the command bar: ${(error as Error).message.split('\n')[0]}`)
+  }
 }
 
 async function measureScene(page: Page, scene: string, density: Density, theme: 'light' | 'dark'): Promise<void> {
@@ -167,6 +179,10 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
+          await openCommandBar(page)
+          await measureScene(page, 'command-bar', density, theme)
+          await page.keyboard.press('Escape')
+          await page.locator('[data-ui="command-bar"]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
           await measureScene(page, 'chat-conversation', density, theme)
           // OxeChat's approved target (15/11): a request waiting in the conversation and on its sidebar row, and the
