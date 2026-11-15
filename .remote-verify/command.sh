@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Grid/PaneContainer.tsx src/components/Panes/PaneBranchBadge.tsx src/components/Panes/TerminalPane.tsx src/ui/PaneHeader.tsx tests/integration/PaneContent.test.tsx tests/integration/TerminalPane.test.tsx tests/unit/brand-targets.test.ts --maxWorkers=2
