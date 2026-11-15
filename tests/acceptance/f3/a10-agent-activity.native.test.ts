@@ -148,8 +148,9 @@ describe('R18 · the activity badge of a connection', () => {
 
 describe('A10 · surface', () => {
   test('A10: agent-activity list, detail and badge are IPC channels, excluded from MCP', () => {
-    expect(IPC_CHANNELS.agentActivity).toEqual({ list: 'agent-activity:list', detail: 'agent-activity:detail', badge: 'agent-activity:badge' })
-    for (const channel of ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']) {
+    // liberação de teste congelado: coordenação 15/11, a10 inclui o canal agentActivity.changed criado pela A1 (OXE-220); as demais asserções não mudam
+    expect(IPC_CHANNELS.agentActivity).toEqual({ list: 'agent-activity:list', detail: 'agent-activity:detail', badge: 'agent-activity:badge', changed: 'agentActivity:changed' })
+    for (const channel of ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge', 'agentActivity.changed']) {
       const claims = Object.values(MCP_COVERAGE).filter(capability => capability.ipc?.includes(channel) || capability.ipc?.includes('agentActivity.*'))
       expect(claims, channel).toHaveLength(1)
       expect(claims[0]).toHaveProperty('excluded')
