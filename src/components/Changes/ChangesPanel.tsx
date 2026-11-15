@@ -301,7 +301,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       </span>
       <span className="changes-toolbar-spacer" />
       {pendingComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
-        <span><b>{pendingComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: pendingComments.length })}</span></span>
+        {/* The send button already says the count; the separate count shows only when there is no send button. */}
+        {!onSendComments && <span><b>{pendingComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: pendingComments.length })}</span></span>}
         <button type="button" aria-label={t('changes.comments.discard')} title={t('changes.comments.discardTitle')} onClick={() => clearComments(workspaceId)}><X size={14} aria-hidden="true" /></button>
       </span>}
       {pendingComments.length > 0 && onSendComments && <Button variant="primary" size="sm" loading={sending} title={t('changes.comments.sendTitle')} onClick={() => void sendComments()}>{t('changes.comments.sendCount', { count: pendingComments.length })}</Button>}
