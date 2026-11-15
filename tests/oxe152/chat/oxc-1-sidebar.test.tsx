@@ -58,7 +58,8 @@ function notEnforced(ids: readonly string[]): string[] {
   return ids.flatMap(id => [...(!measures.has(id) ? [`${id} is not in src/design/targets`] : measures.get(id) === 'enforced' ? [] : [`${id} is ${measures.get(id)}`]), ...(lock.includes(id) ? [] : [`${id} is not in enforced.lock.json`])])
 }
 const OXC1_MEASURES = ['BRD-02.header.height', 'BRD-02.filter.height', 'BRD-02.section.height', 'BRD-02.group.height', 'BRD-02.footer.height', 'BRD-02.row2.height',
-  'BRD-02.row-title.font-size', 'BRD-02.row-title.font-weight', 'BRD-02.row-meta.font-size', 'BRD-02.row.radius', 'BRD-02.archived-band.count', 'BRD-02.raw-button.count', 'BRD-02.attention.radius'] as const
+  'BRD-02.row-title.font-size', 'BRD-02.row-title.font-weight', 'BRD-02.row-meta.font-size', 'BRD-02.row.radius', 'BRD-02.archived-band.count', 'BRD-02.raw-button.count'] as const
+// BRD-02.attention.radius is pending until OXE-290 (the chat-approval scene shows the row mini card), which puts it back.
 
 const project = (projectId: string, displayName: string): ThreadProjectSummary => ({ projectId, displayName, identityLabel: `/repos/${projectId}`, hidden: false, contexts: [{ rootPath: `/repos/${projectId}`, label: displayName }] })
 const conversation = (id: string, title: string, projectId: string, extra: Partial<ConversationThread> = {}): ConversationThread => ({
