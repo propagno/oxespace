@@ -15,6 +15,8 @@ import { ImpactFacts } from '../Approvals/ImpactFacts'
 import { ImpactPreview } from '../Approvals/ImpactPreview'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
+import { useThreadPrefs } from '../../store/thread-prefs.store'
+import { isSendKey, sendKeyEvent } from './sendKey'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 
@@ -50,6 +52,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   onSeeImpact?: () => void
 }) {
   const { t } = useTranslation('thread')
+  const sendKey = useThreadPrefs(state => state.sendKey)
   const draftKey = `${conversationId}:${request.generation}:${request.id}:${request.createdAt}`
   const [answers, setAnswers] = useState<Record<string, string[]>>(() => drafts.get(draftKey) ?? {})
   const [step, setStep] = useState(0)
@@ -98,6 +101,12 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     setError('')
     try { await onRespond(response); drafts.delete(draftKey) } catch (cause) { setError(humanizeError(cause, t('request.answerFailed'))) }
     finally { inFlight.current = false; setSending(false) }
+  }
+  // OXE-131: the free-text answer answers on the send key the person chose in Settings › Agents.
+  const answerOnKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!isSendKey(sendKeyEvent(event), sendKey)) return
+    event.preventDefault()
+    if (!disabled && questionsAnswered) void submit({ answers })
   }
   const policy = request.policy
   // B10 risk rules on the card too (P1-8): Approve is quiet above low risk; at critical risk it waits 2 s, Enter never
@@ -213,8 +222,8 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       {question.options?.length ? question.options.map(option => {
         const value = option.value ?? option.label, selected = answers[question.id]?.includes(value) ?? false
         return <label key={value} className={cx('thread-request-option', styles.option)}><input type={question.multiple ? 'checkbox' : 'radio'} name={question.id} checked={selected} onChange={() => setAnswers(current => ({ ...current, [question.id]: question.multiple ? selected ? (current[question.id] ?? []).filter(item => item !== value) : [...(current[question.id] ?? []), value] : [value] }))} /><span><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</span></label>
-      }) : <input type={question.secret ? 'password' : 'text'} aria-label={question.question} value={answers[question.id]?.[0] ?? ''} onChange={event => setAnswers(current => ({ ...current, [question.id]: [event.target.value] }))} />}
-      {!!question.options?.length && <label className={cx('thread-request-field', styles.field)}><span>{t('request.other')}</span><input type={question.secret ? 'password' : 'text'} aria-label={t('request.otherLabel', { question: question.question })} placeholder={t('request.otherPlaceholder')} value={(answers[question.id] ?? []).filter(value => !question.options!.some(option => (option.value ?? option.label) === value)).join(', ')} onChange={event => setAnswers(current => ({ ...current, [question.id]: [...(question.multiple ? (current[question.id] ?? []).filter(value => question.options!.some(option => (option.value ?? option.label) === value)) : []), ...(event.target.value ? [event.target.value] : [])] }))} /></label>}
+      }) : <input type={question.secret ? 'password' : 'text'} aria-label={question.question} onKeyDown={answerOnKey} value={answers[question.id]?.[0] ?? ''} onChange={event => setAnswers(current => ({ ...current, [question.id]: [event.target.value] }))} />}
+      {!!question.options?.length && <label className={cx('thread-request-field', styles.field)}><span>{t('request.other')}</span><input type={question.secret ? 'password' : 'text'} aria-label={t('request.otherLabel', { question: question.question })} placeholder={t('request.otherPlaceholder')} onKeyDown={answerOnKey} value={(answers[question.id] ?? []).filter(value => !question.options!.some(option => (option.value ?? option.label) === value)).join(', ')} onChange={event => setAnswers(current => ({ ...current, [question.id]: [...(question.multiple ? (current[question.id] ?? []).filter(value => question.options!.some(option => (option.value ?? option.label) === value)) : []), ...(event.target.value ? [event.target.value] : [])] }))} /></label>}
     </fieldset>)}</div> : null}
     {elicitation.map(field => {
       const value = form[field.name], problem = showProblems ? validateElicitationField(field, value) : null

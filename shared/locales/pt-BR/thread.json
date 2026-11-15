@@ -404,9 +404,9 @@
     "stopTitle": "Parar o turno · Esc",
     "stopShort": "Parar",
     "queue": "Pôr na fila",
-    "queueTitle": "Pôr na fila · Enter",
+    "queueTitle": "Pôr na fila · {{key}}",
     "send": "Enviar",
-    "sendTitle": "Enviar · Enter",
+    "sendTitle": "Enviar · {{key}}",
     "tooLong": "Esta mensagem tem {{length}} caracteres; o limite é {{limit}}. Anexe textos longos como arquivo.",
     "files": "Arquivos do projeto"
   },
