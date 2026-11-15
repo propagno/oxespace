@@ -30,21 +30,23 @@ import org.junit.Test
  *
  * The target is MARCA's approved phone playground in Mandacaru Noite (artefact JpDiD9nKrPrMXdcnkED4US, Celular; the
  * Pairing mock of oxespace-152-brand/.brand-audit/live/celular.html, "Fica: o código em seis caixas, 3 + 3, e os
- * quatro passos. Muda: a barra fina de passos vira círculos numerados; o passo 2 se chama Reach; há voltar, título"):
+ * quatro passos. Muda: a barra fina de passos vira círculos numerados; há voltar, título"), with MARCA's answers of
+ * 15/11 (Q-M5, via the coordination):
  * - a top bar on every pairing state: a back button (pairing_back, "Back" / "Voltar", at least 48 x 48 dp) at the left
  *   of the title "Pair with your computer" (pairing_title, a heading), both above the steps;
  * - Back does what the phone's Back does: it goes through the OnBackPressedDispatcher, so MainActivity's BackHandler
  *   leaves pairing (no new parameter on PairingScreen);
- * - the four steps are numbered circles (the done ones with a check), no longer the thin 4 dp bars; step 2 is called
- *   "Reach" (pairing_step_connect); the steps stay one stop for TalkBack ("3/4: Confirm");
- * - while the computer is asked to confirm, the six code boxes stay, and a Cancel button (pairing_cancel, "Cancel" /
- *   "Cancelar", at least 48 dp tall) below them leaves pairing as Back does;
+ * - the four steps are numbered circles (the done ones with a check), no longer the thin 4 dp bars, with the existing
+ *   words Ler · Conectar · Confirmar · Pronto (the mock's "Reach" is pairing_step_connect, "Conectar"); the steps stay
+ *   one stop for TalkBack ("3/4: Confirmar");
+ * - while the computer is asked to confirm, the six code boxes stay, then the line "Esperando o computador…"
+ *   (pairing_waiting_computer, en "Waiting for the computer…") alone, with no countdown, and a Cancel button
+ *   (pairing_cancel, "Cancel" / "Cancelar", at least 48 dp tall) below them that leaves pairing as Back does;
  * - nothing under 11 sp (BRD-07): the guard PairingStepsGuardTest below, green on main.
- * The time left on the code ("The code expires in 1:48") is not here: the phone does not know when the code expires
- * (PairingQr has no expiry). That part of MOB-7 is a divergence asked of MARCA.
+ * The time left on the code is a 1.5.3 divergence (Q-M5): the phone does not know when the code expires.
  *
  * Red at F4 @ origin/main 4fabc30f5: no back button on any state, the title is a line of the scanning state only, below
- * the steps; the steps are thin bars with "Connect"; the confirm state has no Cancel.
+ * the steps; the steps are thin bars; the confirm state has a progress bar, no waiting line and no Cancel.
  */
 class PairingStepsTest {
     @get:Rule
@@ -78,11 +80,12 @@ class PairingStepsTest {
     }
 
     @Test
-    fun theStepsAreNumberedCirclesAndStepTwoIsReach() {
-        assertEquals("Scan", catalog("values", "pairing_step_scan"))
-        assertEquals("Reach", catalog("values", "pairing_step_connect"))
-        assertEquals("Confirm", catalog("values", "pairing_step_confirm"))
-        assertEquals("Done", catalog("values", "pairing_step_done"))
+    fun theStepsAreNumberedCirclesWithTheExistingWords() {
+        assertEquals(
+            "Ler · Conectar · Confirmar · Pronto",
+            listOf("Ler", "Conectar", "Confirmar", "Pronto"),
+            listOf("pairing_step_scan", "pairing_step_connect", "pairing_step_confirm", "pairing_step_done").map { catalog("values-pt-rBR", it) },
+        )
         val screen = pairing(PairingState.Waiting("Studio", "28T5CY"))
         val confirm = screen.string("pairing_step_confirm")
         assertTrue("the steps say where the pairing stands: \"3/4: $confirm\"", screen.merged.any { screen.label(it) == "3/4: $confirm" })
@@ -107,12 +110,19 @@ class PairingStepsTest {
         val cancel = screen.button(screen.string("pairing_cancel"))
         assertNotNull("Cancel \"${screen.string("pairing_cancel")}\"; buttons: ${screen.buttons().map { screen.describe(it) }}", cancel)
         assertTrue("${screen.describe(cancel!!)} is at least 48 dp tall", screen.heightDp(cancel) >= 47.5f)
-        assertTrue("Cancel is below the code", screen.boundsDp(cancel).top >= screen.boundsDp(code!!).bottom - 1f)
+        val waiting = screen.leavesWithText(screen.string("pairing_waiting_computer")).firstOrNull()
+        assertNotNull("the line \"${screen.string("pairing_waiting_computer")}\" while the computer confirms", waiting)
+        assertTrue("the waiting line is below the code", screen.boundsDp(waiting!!).top >= screen.boundsDp(code!!).bottom - 1f)
+        assertTrue("Cancel is below the waiting line", screen.boundsDp(cancel).top >= screen.boundsDp(waiting).bottom - 1f)
+        val countdown = screen.leaves.map { screen.text(it) }.filter { Regex("""\d{1,2}:\d{2}""").containsMatchIn(it) }
+        assertEquals("no countdown (a 1.5.3 divergence: the phone does not know when the code expires)", emptyList<String>(), countdown)
         assertTrue("Cancel leaves pairing as Back does (OnBackPressedDispatcher)", host.backs > 0)
         assertEquals("Cancel", catalog("values", "pairing_cancel"))
         assertEquals("Cancelar", catalog("values-pt-rBR", "pairing_cancel"))
         assertEquals("Back", catalog("values", "pairing_back"))
         assertEquals("Voltar", catalog("values-pt-rBR", "pairing_back"))
+        assertEquals("Waiting for the computer…", catalog("values", "pairing_waiting_computer"))
+        assertEquals("Esperando o computador…", catalog("values-pt-rBR", "pairing_waiting_computer"))
     }
 }
 
