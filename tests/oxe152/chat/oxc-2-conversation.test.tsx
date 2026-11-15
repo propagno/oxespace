@@ -17,7 +17,8 @@
 // - BRD-19 folded into OXE-167 (coordination 15/11; canvas v2 board 7): ThreadFailureCard has one mould: the title
 //   (thread:failure.title.*), then the message, then the action buttons; a usage failure reads Tentar o turno de novo
 //   (thread:failure.retry) before Atualizar o uso (thread:failure.refresh); the provider's codes and raw detail sit only
-//   under the "Diagnóstico do provedor" disclosure (thread:failure.diagnostic), hidden until opened; usage limits stay
+//   under the "Detalhes técnicos" / "Technical details" disclosure (POLISH-06 #1, PDM-approved 15/11: it was
+//   "Diagnóstico do provedor"; thread:failure.diagnostic carries the new text), hidden until opened; usage limits stay
 //   compact: one line per window, "<window> · N% usados · Renova em …" (failure.window.* · failure.used · failure.resetsIn),
 //   no progress bars. Each kind keeps its existing action in that mould: context -> Compactar a conversa (failure.compact),
 //   configuration -> Mudar a configuração (failure.changeConfiguration), sandbox -> Revisar as permissões
@@ -143,12 +144,14 @@ describe('OXE-167 OXC-2 conversation header and column (A11)', () => {
 })
 
 const RESETS_AT = Date.now() + 2 * 3600_000
+/** POLISH-06 #1 (PDM-approved 15/11): the disclosure that holds the provider's codes. */
+const TECHNICAL_DETAILS = { en: 'Technical details', 'pt-BR': 'Detalhes técnicos' } as const
 const failed = (failure: Partial<ThreadFailure> & Pick<ThreadFailure, 'code'>): Extract<ThreadEvent, { type: 'completed' }> => ({
   type: 'completed', status: 'failed', failure: { id: `f-${failure.code}`, occurredAt: 1_790_000_000_000, message: 'The provider stopped the turn.', ...failure } as ThreadFailure })
 const buttonNames = (root: HTMLElement): string[] => within(root).queryAllByRole('button').map(button => (button.getAttribute('aria-label') ?? button.textContent ?? '').trim())
 
 describe('OXE-167 OXC-2 failure card mould, BRD-19 (A11)', () => {
-  it.each(['en', 'pt-BR'])('a usage failure (%s): title, message, Tentar before Atualizar, codes only under Diagnóstico do provedor, one compact line per window', async locale => {
+  it.each(['en', 'pt-BR'] as const)('a usage failure (%s): title, message, Tentar before Atualizar, codes only under Detalhes técnicos, one compact line per window', async locale => {
     await changeLanguage(locale)
     const { container } = render(<ThreadFailureCard latest onRetry={vi.fn()} refreshUsage={vi.fn(async () => ({ windows: [], checkedAt: 1 }))}
       event={failed({ code: 'usage', providerCode: 'usage_limit_reached', httpStatus: 429, detail: 'raw provider body 7f3a', usage: { checkedAt: 1_790_000_000_000, windows: [{ label: 'Session · 5 hours', usedPercent: 100, resetsAt: RESETS_AT }] } })} />)
@@ -157,7 +160,7 @@ describe('OXE-167 OXC-2 failure card mould, BRD-19 (A11)', () => {
     const retry = buttons.indexOf(tt('failure.retry')), refresh = buttons.indexOf(tt('failure.refresh'))
     expect([retry >= 0, refresh >= 0, retry < refresh], `buttons ${buttons.join(' | ')}`).toEqual([true, true, true])
     for (const code of ['usage_limit_reached', 'HTTP 429', 'raw provider body 7f3a']) expect(screen.getByText(code, { exact: false }), `${code} waits under the diagnostic`).not.toBeVisible()
-    const disclosure = screen.getByText(tt('failure.diagnostic'))
+    const disclosure = screen.getByText(TECHNICAL_DETAILS[locale])
     expect(Boolean(title.compareDocumentPosition(disclosure) & Node.DOCUMENT_POSITION_FOLLOWING), 'the diagnostic comes after the title').toBe(true)
     fireEvent.click(disclosure)
     for (const code of ['usage_limit_reached', 'raw provider body 7f3a']) expect(screen.getByText(code, { exact: false }), `${code} shows once opened`).toBeVisible()
