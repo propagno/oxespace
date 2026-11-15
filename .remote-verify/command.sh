@@ -1,0 +1,1 @@
+npm run typecheck && node scripts/test-electron.mjs tests/design-lint.test.ts tests/unit/token-bridge.test.ts tests/unit/token-generator.test.ts tests/oxe152/brand tests/integration/Sidebar.test.tsx tests/unit/needs-decision.test.tsx --maxWorkers=2
