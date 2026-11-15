@@ -411,11 +411,11 @@ input:where([type='button'], [type='reset'], [type='submit']),
 /* One scrollbar for the whole app, from the tokens, so it follows light and dark mode.
    The standard properties also make Chromium ignore ::-webkit-scrollbar styling. */
 @layer base {
-  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  * { scrollbar-width: thin; scrollbar-color: var(--bd-strong) transparent; }
 }
 
 /* Thin scrollbar for dense lists. */
-.scrollbar-sleek { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.scrollbar-sleek { scrollbar-width: thin; scrollbar-color: var(--bd-strong) transparent; }
 .scrollbar-sleek::-webkit-scrollbar { width: 8px; height: 8px; }
-.scrollbar-sleek::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-sm); }
+.scrollbar-sleek::-webkit-scrollbar-thumb { background: var(--bd-strong); border-radius: var(--radius-sm); }
 .scrollbar-sleek::-webkit-scrollbar-track { background: transparent; }

@@ -219,7 +219,7 @@
 .integration-member-editor-field input:focus,
 .integration-member-editor-field select:focus,
 .integration-member-editor-field textarea:focus {
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
 }
 
 .integration-member-editor-field textarea {
@@ -254,7 +254,7 @@
 .integration-member-remove-btn.confirming {
   border-color: var(--intent-danger-border);
   background: var(--intent-danger-bg);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .integration-member-remove-btn:disabled {
@@ -318,8 +318,8 @@
   text-transform: uppercase;
 }
 
-.integration-group-tab-status.status-active { color: var(--dot-green); background: var(--intent-success-bg); }
-.integration-group-tab-status.status-paused { color: var(--dot-yellow); background: var(--intent-warning-bg); }
+.integration-group-tab-status.status-active { color: var(--intent-success-solid); background: var(--intent-success-bg); }
+.integration-group-tab-status.status-paused { color: var(--intent-warning-solid); background: var(--intent-warning-bg); }
 .integration-group-tab-status.status-done { color: var(--tx-muted); background: var(--ov-1); }
 
 /* Handoff inbox layout. */
@@ -434,7 +434,7 @@
 
 .integration-handoff-pill:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-handoff-arrow {
@@ -598,7 +598,7 @@
 .integration-toolbar-action:hover {
   background: var(--fill-hover);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-toolbar-action.active {
@@ -704,13 +704,13 @@
 .integration-icon-btn:hover {
   background: var(--fill-hover);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-icon-btn.active {
   background: var(--fill-pressed);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-active-menu {
@@ -723,7 +723,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 6px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   background: var(--surface-canvas);
   box-shadow: var(--elevation-3);
@@ -776,12 +776,12 @@
 
 .integration-status-segment.active.status-active {
   background: var(--intent-success-bg);
-  color: var(--dot-green);
+  color: var(--intent-success-solid);
 }
 
 .integration-status-segment.active.status-paused {
   background: var(--intent-warning-bg);
-  color: var(--dot-yellow);
+  color: var(--intent-warning-solid);
 }
 
 .integration-status-segment.active.status-done {
@@ -816,7 +816,7 @@
 .integration-active-menu-item.danger:hover,
 .integration-active-menu-item.danger.confirming {
   background: var(--intent-danger-bg);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .integration-member-rows {
@@ -921,7 +921,7 @@
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   background: var(--intent-warning-bg);
-  color: var(--dot-yellow);
+  color: var(--intent-warning-solid);
   font-size: var(--fs-2xs);
   font-weight: 500;
   overflow: hidden;
@@ -973,7 +973,7 @@
 }
 
 .integration-add-select:focus {
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
 }
 
 .integration-add-select.compact {
@@ -998,7 +998,7 @@
 
 .integration-add-action:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-disclosure {

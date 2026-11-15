@@ -3,6 +3,20 @@
  * name maps to the custom property, or the CSS value, that replaced it, so tests/unit/token-bridge.test.ts can check
  * that no value changed. Written by the unbridge codemod; a name never comes back to the bridge.
  */
+
+/**
+ * T18: the generator emits the short canonical names (--fs, --tx, --bd) in place of the long ones. The long names are
+ * built here, not written out, so no file in src/ names them any more (tests/unit/token-generator.test.ts).
+ */
+const SHORT_NAMES: ReadonlyArray<readonly [long: string, short: string, suffixes: readonly string[]]> = [
+  ['text', 'fs', ['2xs', 'xs', 'sm', 'md', 'lg', 'xl', 'display']],
+  ['text', 'tx', ['primary', 'secondary', 'muted', 'disabled', 'on-accent', 'on-solid', 'on-identity', 'accent', 'link']],
+  ['border', 'bd', ['default', 'subtle', 'strong', 'focus']]
+]
+const GENERATOR_RENAMES: Record<string, string> = Object.fromEntries(
+  SHORT_NAMES.flatMap(([long, short, suffixes]) => suffixes.map(suffix => [`--${long}-${suffix}`, `--${short}-${suffix}`]))
+)
+
 export const RETIRED_TOKEN_NAMES: Readonly<Record<string, string>> = {
   '--bg-app': '--surface-canvas',
   '--bg-sidebar': '--surface-chrome',
@@ -21,10 +35,10 @@ export const RETIRED_TOKEN_NAMES: Readonly<Record<string, string>> = {
   '--wb-chrome': '--surface-chrome',
   '--wb-raised': '--surface-raised',
   '--wb-selection': '--fill-selected',
-  '--wb-border': '--border-default',
-  '--wb-focus': '--border-focus',
+  '--wb-border': '--bd-default',
+  '--wb-focus': '--bd-focus',
   '--brand': '--accent',
-  '--brand-light': '--text-accent',
+  '--brand-light': '--tx-accent',
   '--control-h': '--control-lg',
   '--nav-radius': '--radius-sm',
   '--surface-radius': '--radius-md',
@@ -49,9 +63,23 @@ export const RETIRED_TOKEN_NAMES: Readonly<Record<string, string>> = {
   '--workspace-canvas': '--surface-canvas',
   '--pane-surface': '--surface-base',
   '--pane-surface-raised': '--surface-raised',
-  '--pane-border': '--border-default',
-  '--pane-border-active': '--border-focus',
+  '--pane-border': '--bd-default',
+  '--pane-border-active': '--bd-focus',
   '--pane-radius': '--radius-lg',
   '--lh-base': '--leading-normal',
-  '--surface-quiet': '--ov-1'
+  '--surface-quiet': '--ov-1',
+  '--fs-base': '--fs-md',
+  '--bd-divider': '--bd-default',
+  '--bd-sidebar': '--bd-default',
+  '--bd-input': '--bd-default',
+  '--bd-base': '--bd-default',
+  '--bd-input-focus': '--bd-focus',
+  '--dot-green': '--intent-success-solid',
+  '--dot-orange': '--intent-warning-solid',
+  '--dot-yellow': '--intent-warning-solid',
+  '--dot-blue': '--intent-info-solid',
+  '--dot-red': '--intent-danger-solid',
+  '--dot-gray': '--tx-disabled',
+  '--bd-pane-active': 'color-mix(in srgb, var(--accent) 36%, transparent)',
+  ...GENERATOR_RENAMES
 }

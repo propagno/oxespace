@@ -3,48 +3,18 @@
    tokens.generated.css (light and dark mode). This file maps the names the
    existing CSS still uses onto those semantic roles, so every surface follows
    the active mode while it is migrated to src/ui. Do not add new names here;
-   use the semantic tokens (--surface-*, --text-*, --border-*, --intent-*).
+   use the semantic tokens (--surface-*, --tx-*, --bd-*, --intent-*).
    Declared on [data-mode] too, so a subtree that forces a mode re-resolves them. */
 :root, [data-mode] {
-  /* Borders */
-  --bd-divider:         var(--border-default);
-  --bd-sidebar:         var(--border-default);
-  --bd-input:           var(--border-default);
-  --bd-input-focus:     var(--border-focus);
-  --bd-subtle:          var(--border-subtle);
-  --bd-base:            var(--border-default);
-
-  /* Text */
-  --tx-primary:         var(--text-primary);
-  --tx-secondary:       var(--text-secondary);
-  --tx-muted:           var(--text-muted);
-
-  /* Status colors */
-  --dot-green:          var(--intent-success-solid);
-  --dot-orange:         var(--intent-warning-solid);
-  --dot-yellow:         var(--intent-warning-solid);
-  --dot-blue:           var(--intent-info-solid);
-  --dot-gray:           var(--text-disabled);
-  --dot-red:            var(--intent-danger-solid);
-
-  /* Pane active state */
-  --bd-pane-active:        color-mix(in srgb, var(--accent) 36%, transparent);
-
-  /* Type scale */
-  --fs-2xs:    var(--text-2xs);
-  --fs-xs:     var(--text-xs);
-  --fs-sm:     var(--text-sm);
-  --fs-base:   var(--text-md);
-  --fs-lg:     var(--text-lg);
-  --fs-xl:     var(--text-xl);
+  /* Outside the type scale: leaves when the titles that read it move to the scale (BRD-05, BRD-06). */
   --fs-2xl:    22px;
 }
 
 :root {
-  color: var(--text-primary);
+  color: var(--tx-primary);
   background: var(--surface-canvas);
   font-family: var(--font-ui);
-  font-size: var(--text-md);
+  font-size: var(--fs-md);
   line-height: var(--leading-normal);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -56,5 +26,5 @@
 select option,
 select optgroup {
   background-color: var(--surface-overlay);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }

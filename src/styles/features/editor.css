@@ -83,7 +83,7 @@
 }
 
 .editor-browser-file.active {
-  color: var(--text-accent);
+  color: var(--tx-accent);
   background: var(--fill-selected);
   border-left-color: var(--accent);
 }

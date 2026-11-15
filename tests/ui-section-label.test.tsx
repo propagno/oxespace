@@ -17,7 +17,7 @@ describe('SectionLabel', () => {
   it('is never uppercased by its styles', () => {
     const css = readFileSync(join(__dirname, '..', 'src', 'ui', 'SectionLabel.module.css'), 'utf8')
     expect(css).not.toMatch(/text-transform/)
-    expect(css).toMatch(/font-size: var\(--text-xs\)/)
-    expect(css).toMatch(/color: var\(--text-secondary\)/)
+    expect(css).toMatch(/font-size: var\(--fs-xs\)/)
+    expect(css).toMatch(/color: var\(--tx-secondary\)/)
   })
 })
