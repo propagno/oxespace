@@ -121,6 +121,20 @@ npm test -- auth   # 12 passed
             {"seq":6,"item":{"type":"completed","id":"c1","status":"completed"}}]}""")))
     }
 
+    /**
+     * A12 (OXE-19 CA-6): the reference conversation for the parity check with OxeChat: tool cards (an edit, a failed
+     * command with its output), the agent's Markdown with a heading, italics, a link, a table and a code block, and a
+     * request waiting on the person.
+     */
+    fun reference() = Watched(ThreadTimeline()).apply {
+        onSnapshot(listOf(json("""{"thread":$header,"hasMore":false,"items":[
+            {"seq":1,"item":{"type":"message","id":"u1","role":"user","text":"Why does the login redirect loop? Fix it and run the tests."}},
+            {"seq":2,"item":{"type":"tool","id":"x1","name":"Edit","state":"completed","detail":"src/auth/session.ts","filesChanged":1}},
+            {"seq":3,"item":{"type":"tool","id":"x2","name":"Bash","state":"failed","detail":"npm test -- auth","output":"Tests: 1 failed, 11 passed","exitCode":1}},
+            {"seq":4,"item":{"type":"message","id":"a1","role":"assistant","text":"## The cause\nThe middleware reads the *old cookie*, so `isExpired` is always true. See [the session notes](https://example.com/auth).\n\n| Check | Before | After |\n|---|---|---|\n| Unit | fails | passes |\n| Redirect | loops | once |\n\n```\nnpm test -- auth\n```"}},
+            {"seq":5,"item":{"type":"request","id":"q-1","requestId":"r-1","kind":"approval","title":"Delete the build output","state":"pending"}}]}""")))
+    }
+
     /** Every risk wire value the phone may meet: the four levels, the older shell colours and a level added later. */
     val riskWires = listOf("low", "medium", "high", "critical", "green", "orange", "red", "catastrophic")
 

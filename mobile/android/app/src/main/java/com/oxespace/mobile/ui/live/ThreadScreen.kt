@@ -33,7 +33,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
@@ -70,7 +68,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -116,7 +113,6 @@ import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
-import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import java.util.UUID
@@ -442,51 +438,6 @@ private fun AnswerCard(text: String, truncated: Boolean) {
     }
 }
 
-/** One step: status icon, verb, the target in Plex Mono, a muted count, and a chevron that opens its output. */
-@Composable
-private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
-    var open by rememberSaveable(tool.id) { mutableStateOf(false) }
-    val output = tool.output?.takeIf { it.isNotEmpty() }
-    // The diff opens with the output, behind the same tap, inside this screen that already blocks screenshots.
-    val diff = tool.diff?.takeIf { it.files.isNotEmpty() || !it.patch.isNullOrEmpty() }
-    val opens = output != null || diff != null
-    val kind = stepKind(tool.name)
-    val count = tool.filesChanged?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.thread_files_changed, it.toInt(), it.toInt()) }
-    Column {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 40.dp)
-                .then(if (opens) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
-                .padding(start = if (indent) 26.dp else 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-        ) {
-            StepIcon(tool.state)
-            Text(
-                buildAnnotatedString {
-                    append(stringResource(verbRes(kind)))
-                    append(' ')
-                    withStyle(SpanStyle(fontFamily = OxeCodeStyle.fontFamily, color = Oxe.colors.textPrimary)) {
-                        append(displaySafe(if (kind == StepKind.OTHER) "${tool.name} ${tool.detail}" else tool.detail, TARGET_MAX))
-                    }
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Oxe.colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-                modifier = Modifier.weight(1f),
-            )
-            count?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
-            if (opens) Chevron(open)
-        }
-        tool.redacted?.takeIf { it > 0 }?.let {
-            Text(pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.padding(start = 26.dp))
-        }
-        // What is shown is what Copiar copies: hidden characters written out, never obeyed.
-        if (open && output != null) Box(Modifier.padding(start = 26.dp)) { CodeBlock(showHidden(output)) }
-        if (open && diff != null) ToolDiffView(diff, Modifier.padding(start = 26.dp, top = OxeSpace.space2))
-    }
-}
-
 /** Consecutive steps in one row ("Leu 3 arquivos · executou 2 comandos"); opens to the individual rows. */
 @Composable
 private fun StepGroupRow(tools: List<RemoteThreadItem.Tool>) {
@@ -508,27 +459,7 @@ private fun StepGroupRow(tools: List<RemoteThreadItem.Tool>) {
     }
 }
 
-@Composable
-private fun StepIcon(state: String) {
-    Box(Modifier.width(18.dp), contentAlignment = Alignment.Center) {
-        when (state) {
-            "running" -> Spinner()
-            "failed" -> Text("✕", color = Oxe.colors.intentDangerFg, fontWeight = FontWeight.Bold)
-            "completed" -> Text("✓", color = Oxe.colors.intentSuccessFg, fontWeight = FontWeight.Bold)
-            else -> Text("·", color = Oxe.colors.textMuted)
-        }
-    }
-}
-
-@Composable
-private fun Spinner() {
-    CircularProgressIndicator(Modifier.size(14.dp).semantics { hideFromAccessibility() }, color = Oxe.colors.accent, trackColor = Oxe.colors.borderSubtle, strokeWidth = 2.dp)
-}
-
-@Composable
-private fun Chevron(open: Boolean) {
-    Icon(ImageVector.vectorResource(R.drawable.ic_chevron), contentDescription = null, tint = Oxe.colors.textMuted, modifier = Modifier.size(20.dp).rotate(if (open) 90f else 0f))
-}
+// StepRow, StepIcon, Spinner and Chevron live in ToolCard.kt (A12).
 
 /** The plan: one raised block, "Plano · 1 de 3", done steps muted and struck through, the current one at 600. */
 @Composable
@@ -585,9 +516,10 @@ private fun TurnBar(row: TimelineRow.TurnBar, onToggle: () -> Unit) {
         },
         steps,
     )
+    val state = stringResource(if (row.open) R.string.thread_step_expanded else R.string.thread_step_collapsed)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable(role = Role.Button, onClick = onToggle)
-            .semantics { stateDescription = if (row.open) "expanded" else "collapsed" },
+            .semantics { stateDescription = state },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.weight(1f))
@@ -797,15 +729,6 @@ private fun ConversationSkeleton(modifier: Modifier, afterMs: Long) {
 }
 
 // ---- words -----------------------------------------------------------------------------------------------------------
-
-private fun verbRes(kind: StepKind) = when (kind) {
-    StepKind.READ -> R.string.thread_verb_read
-    StepKind.RUN -> R.string.thread_verb_run
-    StepKind.EDIT -> R.string.thread_verb_edit
-    StepKind.CREATE -> R.string.thread_verb_create
-    StepKind.SEARCH -> R.string.thread_verb_search
-    StepKind.OTHER -> R.string.thread_verb_other
-}
 
 private fun doingRes(kind: StepKind) = when (kind) {
     StepKind.READ -> R.string.thread_doing_read

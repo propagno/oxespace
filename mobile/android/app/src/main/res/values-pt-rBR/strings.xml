@@ -376,6 +376,8 @@
     <string name="thread_state_needs_you">Precisa de você</string>
     <string name="thread_state_stopped">Interrompido</string>
     <string name="thread_state_working">Trabalhando</string>
+    <string name="thread_step_collapsed">Recolhido</string>
+    <string name="thread_step_expanded">Expandido</string>
     <plurals name="thread_steps">
         <item quantity="one">%1$d passo</item>
         <item quantity="other">%1$d passos</item>

@@ -363,6 +363,8 @@
     <string name="thread_state_needs_you">Needs you</string>
     <string name="thread_state_stopped">Stopped</string>
     <string name="thread_state_working">Working</string>
+    <string name="thread_step_collapsed">Collapsed</string>
+    <string name="thread_step_expanded">Expanded</string>
     <plurals name="thread_steps">
         <item quantity="one">%1$d step</item>
         <item quantity="other">%1$d steps</item>
