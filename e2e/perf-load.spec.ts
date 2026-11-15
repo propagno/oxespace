@@ -206,12 +206,20 @@ test.describe.serial('the app under real terminal load (OXE-120)', () => {
         await page.locator(`[data-testid="terminal-pane"][data-pane-id="${idle}"]`).click({ timeout: 5_000 })
         for (let i = 0; i < 5 && loaded(); i++) await measure(page, 'key echo (idle pane)', 'ms', () => keyEcho(page, idle))
         for (let i = 0; i < 3 && loaded(); i++) {
+          // The palette opens with an empty search and lists nothing until a letter is typed (1.5.2), so its first
+          // item is the first result: Ctrl K, then "a", until an option is painted. Closed again whatever happened,
+          // or it would cover the window for every later sample.
           await measure(page, 'Ctrl K → first item', 'ms', async () => {
-            await armInputTimerUntil(page, [{ selector: '[cmdk-item], [role="dialog"] [role="option"]' }])
-            await page.keyboard.press('Control+K')
-            const ms = await readInputTimer(page, 3_000)
-            await page.keyboard.press('Escape')
-            return ms
+            try {
+              await armInputTimerUntil(page, [{ selector: '[cmdk-item], [role="dialog"] [role="option"]' }])
+              await page.keyboard.press('Control+K')
+              await page.locator('[role="dialog"] [role="combobox"]').waitFor({ state: 'visible', timeout: 3_000 })
+              await page.keyboard.type('a')
+              return await readInputTimer(page, 3_000)
+            } finally {
+              await page.keyboard.press('Escape')
+              await page.locator('[role="dialog"] [role="combobox"]').waitFor({ state: 'hidden', timeout: 3_000 }).catch(() => page.keyboard.press('Escape'))
+            }
           })
         }
         for (const label of ['beta-repo', 'alpha-repo']) {
