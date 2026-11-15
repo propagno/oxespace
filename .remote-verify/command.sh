@@ -1,0 +1,1 @@
+npm run lint && node scripts/test-electron.mjs tests/oxe152/brand/brd-01-oxecode-sidebar.test.tsx tests/integration/Sidebar.test.tsx tests/design-lint.test.ts tests/unit/needs-decision.test.tsx --maxWorkers=2
