@@ -13,7 +13,8 @@
 // - While a turn runs, with text typed: Orientar o turno ativo (thread:composer.steer), Parar (thread:composer.stopShort)
 //   and Pôr na fila (thread:composer.queue) are in the toolbar, and Enviar is not.
 // - Board 11 (brand 15/11, Antigravity AG-06): the toolbar adapts to the width of the conversation column. The column is a
-//   size container (container-type: inline-size) with @container rules at 560 and 420 px (SOURCE-TEXT check, marked), and
+//   size container (container-type: inline-size) with @container rules at 560 and 420 px in the OxeChat stylesheets,
+//   src/components/Threads (SOURCE-TEXT check, marked; other surfaces already query 560 px), and
 //   the toolbar says which layout it is in as data-width, from its container's inline size (a ResizeObserver): "full" at
 //   560 px and above (boards 1 and 8: Modelo, Esforço and Acesso apart), "medium" from 420 to 559 (Modelo and Esforço in one
 //   chip with one popover; Acesso apart), "narrow" below 420 (Modelo, Esforço and Acesso in one "configuração do turno"
@@ -168,9 +169,9 @@ describe('OXE-172 OXC-2b composer toolbar by container width, board 11 (A12)', (
     expect(one('[data-ui="composer-toolbar"]')).toHaveAttribute('data-width', 'narrow')
   })
 
-  it('makes the conversation column a size container with breakpoints at 560 and 420 px (SOURCE-TEXT check, marked)', () => {
+  it('makes the conversation column a size container with breakpoints at 560 and 420 px in the OxeChat stylesheets (SOURCE-TEXT check, marked)', () => {
     const css = (dir: string): string[] => readdirSync(dir).flatMap(name => { const full = join(dir, name); return statSync(full).isDirectory() ? css(full) : name.endsWith('.css') ? [full] : [] })
-    const text = css(join(ROOT, 'src')).filter(file => !file.endsWith('tokens.generated.css')).map(file => readFileSync(file, 'utf8')).join('\n').replace(/\/\*[\s\S]*?\*\//g, '')
+    const text = css(join(ROOT, 'src/components/Threads')).map(file => readFileSync(file, 'utf8')).join('\n').replace(/\/\*[\s\S]*?\*\//g, '')
     expect(text, 'a container-type: inline-size rule').toMatch(/container-type\s*:\s*inline-size/)
     expect(text, 'an @container rule at 560 px').toMatch(/@container[^{]*\b(559|560)(\.\d+)?px/)
     expect(text, 'an @container rule at 420 px').toMatch(/@container[^{]*\b(419|420)(\.\d+)?px/)
