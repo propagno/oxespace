@@ -62,11 +62,36 @@ describe('Antigravity quota in the usage reading', () => {
       { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z'), group: 'claude-gpt' },
       { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z'), group: 'claude-gpt' }
     ])
-    expect([...unknown]).toEqual(['monthly'])
+    expect([...unknown]).toEqual(['window monthly'])
     expect(antigravityGroup('Gemini models')).toBe('gemini')
     expect(antigravityGroup('Claude and GPT models')).toBe('claude-gpt')
     expect(antigravityGroup('  Other models ')).toBe('Other models')
     expect(antigravityGroup('')).toBe('other')
+  })
+
+  // The agy CLI's own proto (google/internal/cloud/code/v1internal/quota_summary.proto, read from agy 1.5.x):
+  // RetrieveUserQuotaSummaryResponse { buckets, groups }, a bucket { bucketId, displayName, description, window,
+  // remainingFraction | remainingAmount, disabled, resetTime }. Buckets outside any group were never read.
+  test('the response\'s ungrouped buckets count, grouped by their own words; disabled and amount-only ones are skipped', () => {
+    const unknown = new Set<string>()
+    const response = {
+      groups: summary.groups,
+      buckets: [
+        { bucketId: '1p-weekly', displayName: 'Gemini models', window: 'WINDOW_WEEKLY', resetTime: '2026-11-22T03:00:00Z', remainingFraction: 0.9703 },
+        { bucketId: '1p-5h', displayName: 'Gemini models', window: 'FIVE_HOUR', remainingFraction: 0.9113 },
+        { bucketId: '1p-daily-images', displayName: 'Image generation', window: 'weekly', remainingAmount: '40' },
+        { bucketId: 'old', displayName: 'Gemini models', window: 'weekly', remainingFraction: 0, disabled: true }
+      ]
+    }
+    expect(antigravityWindows(response, unknown)).toEqual([
+      { kind: 'session', usedPct: 9, resetsAtMs: null, group: 'gemini' },
+      { kind: 'weekly', usedPct: 3, resetsAtMs: Date.parse('2026-11-22T03:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z'), group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z'), group: 'claude-gpt' }
+    ])
+    expect([...unknown]).toEqual(['amount-only 1p-daily-images'])
+    expect(antigravityGroup('3p-weekly')).toBe('claude-gpt')
+    expect(antigravityGroup('1p-5h')).toBe('gemini')
   })
 
   test('the bar reads the first group: with Gemini on the plan, the Gemini weekly window', async () => {
