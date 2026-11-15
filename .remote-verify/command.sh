@@ -1,0 +1,1 @@
+(node scripts/test-electron.mjs tests/oxe152/polish/pq07-contrast.test.tsx --maxWorkers=2 --reporter=verbose || touch .pq-window-red) ; npm run build && npx playwright test e2e/polish/pq-07-5.spec.ts --reporter=list && test ! -e .pq-window-red
