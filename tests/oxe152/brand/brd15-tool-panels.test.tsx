@@ -15,6 +15,10 @@
 //   last control, after the actions. No workspace-editor-header left in them. The data-testid of each wrapper stays.
 // - A panel on its way shows the src/ui Skeleton ([data-skeleton]), never the centred "Loading changes…"
 //   (code:changes.loading) nor any LoadingState line, in Changes at least.
+// - The Changes count (coordination 15/11, as in OXE-169): "Changes, N files" / "Alterações, N arquivos" through the plural
+//   pair panels.changesCount_one/_other (pt-BR also _many), in code.json or thread.json (whichever OxeChat F4's T13 used:
+//   one pair, never two), hidden at 0, "99+" above 99. Where OxeCode reads N (the Changes panel's file list) and which
+//   control carries it (the Changes toggle or the DockPanel count) is asked of the brand: only the pair is frozen here.
 // - src/design/targets/brd-15.json (new, card OXE-84): the measures below, enforced and locked, scene code-workspace (the
 //   scene opens Changes and Browser).
 import { existsSync, readFileSync } from 'node:fs'
@@ -127,6 +131,18 @@ describe('OXE-84 BRD-15 the nine panels on one mould (A31)', () => {
     expect(container.textContent ?? '').not.toContain(i18n.t('ui.loadingEllipsis') as string)
     expect(container.querySelectorAll('[data-skeleton]').length, 'a skeleton').toBeGreaterThan(0)
   }, 30_000)
+
+  it('the Changes count is the plural pair panels.changesCount, as in OXE-169', () => {
+    const flat = (value: unknown, prefix = ''): Record<string, string> => Object.assign({}, ...Object.entries(value as Record<string, unknown>).map(([name, item]) =>
+      typeof item === 'string' ? { [prefix + name]: item } : flat(item, `${prefix}${name}.`)))
+    const pair = (locale: string): Record<string, string | undefined> => {
+      const found = ['code', 'thread'].map(ns => flat(JSON.parse(readFileSync(join(ROOT, `shared/locales/${locale}/${ns}.json`), 'utf8')))).filter(keys => 'panels.changesCount_one' in keys)
+      expect(found.length, `${locale}: one pair, in one catalog`).toBe(1)
+      return { one: found[0]['panels.changesCount_one'], other: found[0]['panels.changesCount_other'], many: found[0]['panels.changesCount_many'] }
+    }
+    expect(pair('en')).toMatchObject({ one: 'Changes, {{count}} file', other: 'Changes, {{count}} files' })
+    expect(pair('pt-BR')).toEqual({ one: 'Alterações, {{count}} arquivo', other: 'Alterações, {{count}} arquivos', many: 'Alterações, {{count}} arquivos' })
+  })
 
   it('turns its own BRD-15 measures to enforced', () => {
     expect(measureProblems('BRD-15', 'OXE-84', PANEL_MEASURES)).toEqual([])
