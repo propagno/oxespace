@@ -67,22 +67,32 @@ export class ClaudeUsageProvider implements UsageProvider {
     const projectDir = join(this.projectsRoot, encodeClaudeProjectPath(workspaceRootPath))
     if (!existsSync(projectDir)) return []
 
-    return listSessionFiles(projectDir).map((f) => {
-      // Each transcript is read once, then only what was appended (readTranscript).
-      const snapshot = parseSession(f.fullPath, f.sessionId, f.mtimeMs, f.birthtimeMs)
-      return {
-        sessionId: snapshot.sessionId ?? f.sessionId,
-        lastUpdatedMs: snapshot.lastUpdatedMs ?? f.mtimeMs,
-        sessionStartedAtMs: snapshot.sessionStartedAtMs ?? f.birthtimeMs,
-        modelId: snapshot.modelId,
-        requestCount: snapshot.requestCount,
-        snapshot
-      }
-    })
+    // Each transcript is read once, then only what was appended (readTranscript).
+    return listSessionFiles(projectDir).map((f) => sessionMetadata(f, parseSession(f.fullPath, f.sessionId, f.mtimeMs, f.birthtimeMs)))
+  }
+
+  /**
+   * The same list without blocking the main process (OXE-157, /resume): files are read in small async chunks, so the
+   * event loop runs between them, and `onPartial` gets the sessions read so far after each file. Loaded on first use.
+   */
+  async listSessionsAsync(workspaceRootPath: string, onPartial?: (sessions: SessionMetadata[]) => void): Promise<SessionMetadata[]> {
+    const { listClaudeSessions } = await import('./claude-transcript-scan')
+    return listClaudeSessions(join(this.projectsRoot, encodeClaudeProjectPath(workspaceRootPath)), onPartial)
   }
 }
 
-interface SessionFileInfo {
+export function sessionMetadata(f: SessionFileInfo, snapshot: ContextUsageSnapshot): SessionMetadata {
+  return {
+    sessionId: snapshot.sessionId ?? f.sessionId,
+    lastUpdatedMs: snapshot.lastUpdatedMs ?? f.mtimeMs,
+    sessionStartedAtMs: snapshot.sessionStartedAtMs ?? f.birthtimeMs,
+    modelId: snapshot.modelId,
+    requestCount: snapshot.requestCount,
+    snapshot
+  }
+}
+
+export interface SessionFileInfo {
   fullPath: string
   sessionId: string
   mtimeMs: number
@@ -111,7 +121,7 @@ function listSessionFiles(projectDir: string): SessionFileInfo[] {
 }
 
 /** What one transcript adds up to so far. */
-interface Tally {
+export interface Tally {
   inputTokens: number
   cacheCreationTokens: number
   cacheReadTokens: number
@@ -125,9 +135,9 @@ interface Tally {
 }
 
 /** A transcript read up to `size` bytes; `carry` holds the bytes of a last line not ended yet. */
-interface TranscriptRead { size: number; carry: Buffer; tally: Tally }
+export interface TranscriptRead { size: number; carry: Buffer; tally: Tally }
 
-const emptyTally = (): Tally => ({
+export const emptyTally = (): Tally => ({
   inputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, outputTokens: 0, requestCount: 0, modelId: null,
   lastTurnInputTokens: 0, lastTurnCacheCreationTokens: 0, lastTurnCacheReadTokens: 0, lastTurnOutputTokens: 0
 })
@@ -169,6 +179,38 @@ function foldLine(tally: Tally, line: string): void {
   tally.lastTurnOutputTokens = entryOutput
 }
 
+const USAGE = Buffer.from('"usage"')
+
+/**
+ * Folds the complete lines of `bytes` before `end` (a newline) that mention usage, in order. Only those lines are
+ * decoded: the bytes are searched for `"usage"` (ASCII, so a byte match is a text match) and the rest, mostly tool
+ * output, never becomes a string. A newline byte never sits inside a multi-byte character, so every line stays whole.
+ */
+export function foldLines(tally: Tally, bytes: Buffer, end: number): void {
+  let at = bytes.indexOf(USAGE)
+  while (at >= 0 && at < end) {
+    const stop = bytes.indexOf(NEWLINE, at)
+    foldLine(tally, bytes.toString('utf8', bytes.lastIndexOf(NEWLINE, at) + 1, stop))
+    at = bytes.indexOf(USAGE, stop + 1)
+  }
+}
+
+/** What was read of a transcript so far, if anything (the async scan starts from it too). */
+export function readSoFar(filePath: string): TranscriptRead | undefined {
+  return transcripts.get(filePath)
+}
+
+/** Keeps what was read and returns the totals; an unterminated last line is counted when it parses (the writer may not have added its newline yet). */
+export function remember(filePath: string, read: TranscriptRead): Tally {
+  transcripts.delete(filePath)
+  transcripts.set(filePath, read)
+  if (transcripts.size > TRANSCRIPT_CACHE_MAX) transcripts.delete(transcripts.keys().next().value as string)
+  if (!read.carry.length) return read.tally
+  const tally = { ...read.tally }
+  foldLine(tally, read.carry.toString('utf8'))
+  return tally
+}
+
 /** Reads the bytes appended since the last call, in chunks, and folds every complete line into the tally. */
 export function readTranscript(filePath: string): Tally {
   const size = statSync(filePath).size
@@ -184,11 +226,10 @@ export function readTranscript(filePath: string): Tally {
         const count = readSync(fd, chunk, 0, Math.min(chunk.length, size - position), position)
         if (count <= 0) break
         position += count
-        // A newline byte never sits inside a multi-byte character, so splitting on it keeps every line whole.
         const bytes = carry.length ? Buffer.concat([carry, chunk.subarray(0, count)]) : chunk.subarray(0, count)
         const lastNewline = bytes.lastIndexOf(NEWLINE)
         if (lastNewline < 0) { carry = Buffer.from(bytes); continue }
-        for (const line of bytes.toString('utf8', 0, lastNewline).split('\n')) if (line) foldLine(read.tally, line)
+        foldLines(read.tally, bytes, lastNewline)
         carry = Buffer.from(bytes.subarray(lastNewline + 1))
       }
       read = { size: position, carry, tally: read.tally }
@@ -196,16 +237,7 @@ export function readTranscript(filePath: string): Tally {
       closeSync(fd)
     }
   }
-  transcripts.delete(filePath)
-  transcripts.set(filePath, read)
-  if (transcripts.size > TRANSCRIPT_CACHE_MAX) transcripts.delete(transcripts.keys().next().value as string)
-  // An unterminated last line is still counted when it parses: the writer may not have added its newline yet.
-  if (read.carry.length) {
-    const tally = { ...read.tally }
-    foldLine(tally, read.carry.toString('utf8'))
-    return tally
-  }
-  return read.tally
+  return remember(filePath, read)
 }
 
 /** Forgets what was read (tests). */
@@ -214,7 +246,10 @@ export function forgetTranscripts(): void {
 }
 
 function parseSession(filePath: string, sessionId: string, mtimeMs: number, birthtimeMs: number): ContextUsageSnapshot {
-  const tally = readTranscript(filePath)
+  return snapshotOf(readTranscript(filePath), sessionId, mtimeMs, birthtimeMs)
+}
+
+export function snapshotOf(tally: Tally, sessionId: string, mtimeMs: number, birthtimeMs: number): ContextUsageSnapshot {
   return {
     available: tally.requestCount > 0,
     sessionId,

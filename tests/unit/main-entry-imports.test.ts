@@ -16,6 +16,7 @@ const ENTRY = join(ROOT, 'electron', 'main', 'index.ts')
 const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'electron/main/services/open-in.ts', loadedBy: 'ipc/app-info.ipc.ts, first open-in request' },
   { module: 'electron/main/services/session-search/index.ts', loadedBy: 'ipc/session.ipc.ts, first session search' },
+  { module: 'electron/main/services/usage/claude-transcript-scan.ts', loadedBy: 'usage/claudeProvider.ts, first /resume list (OXE-157)' },
   { module: 'electron/main/services/oxe.service.ts', loadedBy: 'ipc/oxe.ipc.ts, first OXE request' },
   { module: 'electron/main/services/agent-hooks/installer.ts', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
   { module: 'electron/main/services/oxequery/agent-gateway.ts', loadedBy: 'services/oxequery/startup.ts, first OxeQuery request' },
@@ -33,6 +34,9 @@ const ON_DEMAND: Array<{ module: string; loadedBy: string }> = [
   { module: 'electron/main/e2e/mock-ipc.ts', loadedBy: 'index.ts, E2E mock launches only' },
   { module: 'electron/main/services/copilotCredits.service.ts', loadedBy: 'ipc/copilot.ipc.ts, first credits request' },
   { module: 'electron/main/updater.ts', loadedBy: 'ipc/app-update.ipc.ts, first update request or after the first window' },
+  { module: 'electron/main/services/http-audit/store.ts', loadedBy: 'services/agent-hooks/hook-pipeline.ts, first hook event' },
+  { module: 'electron/main/services/http-audit/parse.ts', loadedBy: 'services/http-audit/store.ts, first hook event' },
+  { module: 'electron/main/services/mcp-import.service.ts', loadedBy: 'ipc/mcp.ipc.ts, first look for other apps\' servers' },
   { module: 'resources/agent-hooks/oxespace-status-hook.cjs', loadedBy: 'ipc/agent-hooks.ipc.ts, Settings' },
   { module: 'resources/mcp-bridge/oxespace-mcp.cjs', loadedBy: 'mcp-internal/bootstrap.ts, internal MCP start' }
 ]

@@ -53,7 +53,7 @@ import { registerPolicyIpc } from './ipc/policy.ipc'
 import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
 import { registerAgentActivityIpc } from './ipc/agent-activity.ipc'
 import { AgentActivity } from './services/agent-activity/read-model'
-import { HttpAuditLog } from './services/http-audit/store'
+import { HttpAuditHistory } from './services/http-audit/history'
 import { productionHostsFor } from './services/http-audit/production-hosts'
 import { policyStore } from './services/policy'
 import { approvalCenter } from './services/approvals'
@@ -590,7 +590,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
-    androidAccess: () => androidAccess,
+    androidAccess: () => androidAccess, openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
     askAndroidScreenshot: async ({ serial, owner }) => {
       const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
       const outcome = await approvalCenter.ask(brokerDraft({
@@ -646,7 +646,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
   // Loads the policy and the accepted-config gate and answers policy:get; the HTTP audit below reads policyStore().
   await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
-  const httpAuditLog = new HttpAuditLog(db, undefined, {
+  const httpAuditLog = new HttpAuditHistory(db, undefined, {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
   })
   registerHttpAuditIpc(httpAuditLog)

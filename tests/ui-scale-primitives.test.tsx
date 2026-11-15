@@ -76,7 +76,7 @@ describe('stable markers for frozen tests', () => {
     </>)
     const names = [...container.querySelectorAll('[data-ui]')].map(node => node.getAttribute('data-ui'))
     for (const name of ['sidebar-header', 'sidebar-filter', 'sidebar-section', 'sidebar-group', 'sidebar-row', 'pane-header', 'dock-panel', 'button', 'icon-button', 'tabs']) expect(names).toContain(name)
-    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('data-size', 'md')
+    expect(screen.getByRole('button', { name: 'Save' })).not.toHaveAttribute('data-size')
   })
 })
 
@@ -86,7 +86,7 @@ describe('the primitives read the 1.5.2 scale', () => {
     expect(css('Display.module.css')).toMatch(/\.tab \{[^}]*height: var\(--bar-md\)[^}]*font-size: var\(--text-xs\)/)
     const button = css('Button.module.css')
     expect(button).toMatch(/\.button \{[^}]*font-size: var\(--text-xs\)/)
-    expect(button).toMatch(/\.lg \{[^}]*font-size: var\(--text-sm\)/)
+    expect(button).toMatch(/\.button:where\(\[data-size='lg'\]\) \{[^}]*font-size: var\(--text-sm\)/)
   })
   it('sidebar rows are --row-1 and its bars --bar-lg; the pane header is --bar-md', () => {
     const sidebar = css('Sidebar.module.css')

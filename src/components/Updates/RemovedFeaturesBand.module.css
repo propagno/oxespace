@@ -16,15 +16,15 @@
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elevation-3);
   font-size: var(--text-sm);
   line-height: 1.45;
 }
 
-.band[data-intent='warning'] { border-left-color: var(--warning); }
+.band[data-intent='warning'] { border-left-color: var(--intent-warning-solid); }
 
 .icon { grid-column: 1; grid-row: 1; margin-top: 2px; color: var(--accent); }
-.band[data-intent='warning'] .icon { color: var(--warning); }
+.band[data-intent='warning'] .icon { color: var(--intent-warning-solid); }
 
 .text { grid-column: 2; grid-row: 1; margin: 0; }
 
