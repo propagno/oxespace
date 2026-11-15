@@ -60,7 +60,9 @@
 .nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
 .nav-rail-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); overflow-y: auto; scrollbar-width: none; }
-.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-secondary); font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.sidebar-rail-workspace-btn > span { font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); }
+/* The rail's workspace buttons are src/ui IconButtons (BRD-03): size, padding, radius and type are the primitive's. */
+.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
 .sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
 .sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
 .sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }

@@ -52,24 +52,13 @@
   white-space: nowrap;
 }
 
-.workspace-topbar .workspace-topbar-add-btn {
-  height: 24px;
-  min-height: 24px;
-  padding: 0 var(--space-2);
-  font-size: var(--text-2xs);
-}
+/* The bar's actions are src/ui Button and IconButton (BRD-03): their size, type, padding and pressed fill are the
+   primitive's, never restyled here. The MCP button's quarantine count sits on the icon's corner. */
+.workspace-topbar .workspace-topbar-action { margin-right: 0; }
 
-.workspace-topbar .workspace-topbar-action {
-  width: 28px;
-  min-height: 28px;
-  padding: 0;
-  margin-right: 2px;
-  border-color: transparent;
-  color: var(--text-secondary);
-}
-/* Labels hide; the MCP button's quarantine count stays, on the icon's corner. */
-.workspace-topbar .workspace-topbar-action span:not(.workspace-topbar-alert) { display: none; }
-.workspace-topbar .workspace-topbar-action[aria-pressed='true'] { background: var(--fill-selected); color: var(--text-primary); }
+/* The systems trigger: the health dot on the server icon's corner. */
+.workspace-integrations-icon { position: relative; display: inline-grid; place-items: center; }
+.workspace-integrations-icon .workspace-integrations-health { position: absolute; top: -2px; right: -3px; }
 
 .pane-agent-chip, .pane-agent-chip[class*='provider-'] { padding: 0 4px; border-color: transparent; background: transparent; color: var(--text-primary); font-weight: var(--weight-semibold); }
 

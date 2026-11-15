@@ -1,7 +1,7 @@
 import { Suspense, lazy, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
-import { Button, Menu, Tabs } from '../../ui'
+import { Button, IconButton, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
@@ -616,16 +616,17 @@ function WorkspaceSurfaceComponent({
         ]}
       />
       <div className="workspace-topbar-spacer" />
-      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} className="workspace-topbar-action" />)}
+      {/* The bar's icon actions are src/ui IconButtons at md (BRD-03): the name is the accessible name and the tooltip. */}
+      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
-        trigger={<button type="button" className="workspace-topbar-action" aria-label={tc('panels.more')} title={tc('panels.more')}><PanelsTopLeft size={14} aria-hidden="true" /><span>{tc('panels.menu')}</span></button>} />}
-      <button type="button" className="workspace-topbar-action" aria-label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp">
-        <PlugZap size={14} aria-hidden="true" /><span>MCP</span>
-        {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined">{quarantinedMcp > 9 ? '9+' : quarantinedMcp}</span> : null}
-      </button>
-      <button type="button" className="workspace-topbar-action" aria-label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}>
-        <Activity size={14} aria-hidden="true" /><span>{tc('workspace.topbar.activityShort')}</span>
-      </button>
+        trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
+      <IconButton size="md" className="workspace-topbar-action" label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp"
+        icon={<>
+          <PlugZap size={14} aria-hidden="true" />
+          {quarantinedMcp > 0 ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid="workspace-topbar-mcp-quarantined">{quarantinedMcp > 9 ? '9+' : quarantinedMcp}</span> : null}
+        </>} />
+      <IconButton size="md" className="workspace-topbar-action" label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}
+        icon={<Activity size={14} aria-hidden="true" />} />
       <Suspense fallback={null}><IntegrationsStatusChips workspace={workspace} isActive={isActive} /></Suspense>
     </header>
   )

@@ -102,12 +102,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.button.font-size",
       "scene": "code-workspace",
-      "select": "[data-ui=button]",
+      "select": "[data-ui=button]:not([data-size=lg])",
       "prop": "font-size",
       "expect": {
         "token": "--text-xs"
@@ -121,7 +121,28 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced",
+      "note": "sm and md text; brand 14/11, the BRD-04 decision"
+    },
+    {
+      "id": "BRD-03.button-lg.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=button][data-size=lg]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "lg text (dialog footers, a page primary)"
     },
     {
       "id": "BRD-03.button.font-weight",
@@ -140,7 +161,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.icon-button.height",
@@ -163,12 +184,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.raw-button.count",
       "scene": "code-workspace",
-      "select": "button:not([data-ui]):not([role=tab])",
+      "select": "header button:not([data-ui]):not([role=tab]), aside button:not([data-ui]):not([role=tab])",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -183,7 +204,7 @@
         "dark"
       ],
       "state": "pending",
-      "note": "every button of the surface is a Button or IconButton"
+      "note": "every button of the workspace bar and the sidebar is a Button or IconButton (OxeCode surface)"
     }
   ]
 }
