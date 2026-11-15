@@ -121,6 +121,7 @@
     <string name="local_network_allow">Allow local network access</string>
     <string name="local_network_denied">Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app\'s settings (Permissions), then come back.</string>
     <string name="local_network_needed">OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.</string>
+    <string name="local_network_next">Android will show its own prompt next.</string>
     <string name="local_network_open_settings">Open app settings</string>
     <string name="local_network_title">Local network access</string>
     <string name="needs_you_agent">The agent</string>

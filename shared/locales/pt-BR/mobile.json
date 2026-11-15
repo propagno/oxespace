@@ -445,7 +445,8 @@
     "needed": "O OXESpace fala com o seu computador direto pela Wi-Fi, então o Android pergunta se ele pode usar a rede local. Ele só se conecta ao computador que você parear, nunca a outros aparelhos.",
     "allow": "Permitir acesso à rede local",
     "denied": "O acesso à rede local está desligado para o OXESpace, então o Android bloqueia toda conexão com o computador. Ligue \"Acesso à rede local\" para o OXESpace nas configurações do app (Permissões) e volte.",
-    "openSettings": "Abrir configurações do app"
+    "openSettings": "Abrir configurações do app",
+    "next": "O Android mostra o próprio aviso em seguida."
   },
   "settings": {
     "title": "Configurações",
