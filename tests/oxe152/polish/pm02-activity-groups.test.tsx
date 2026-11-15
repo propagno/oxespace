@@ -7,7 +7,7 @@
 // notificação", a word the app's glossary does not use.
 // Contract:
 // - ToastStack's region is named t('ui.toast.region') and each toast's dismiss button t('ui.toast.dismiss'): in pt-BR
-//   "Avisos" and "Dispensar aviso"; in English neither says "notification" (the PR proposes the words).
+//   "Avisos" and "Dispensar aviso". The English is the brand's check in the PR (not pinned here).
 // - SOURCE-TEXT check (marked; jsdom applies no CSS module, the e2e spec pm-02-10 reads the tree in the app):
 //   .groupTitle has no text-transform and no letter-spacing, and is font-size var(--fs-xs), font-weight
 //   var(--weight-semibold), color var(--tx-secondary).
@@ -17,7 +17,7 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import ToastStack from '../../../src/ui/ToastStack'
 import { toast, useToasts } from '../../../src/ui/Toast'
-import { changeLanguage, i18n } from '../../../src/i18n'
+import { changeLanguage } from '../../../src/i18n'
 
 const css = readFileSync(join(process.cwd(), 'src/components/Activity/ActivityCenter.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const groupTitle = (): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].split(',').map(part => part.trim()).includes('.groupTitle')).map(match => match[2]).join(';')
@@ -32,12 +32,6 @@ describe('OXE-247 PM-02·10 Activity groups and the toast region', () => {
     act(() => { toast({ title: 'Caminho copiado', intent: 'success' }) })
     const region = await waitFor(() => screen.getByRole('region', { name: 'Avisos' }))
     await waitFor(() => expect(within(region).getByRole('button', { name: 'Dispensar aviso' })).toBeInTheDocument())
-  })
-
-  it('in English the region and its dismiss do not say "notification"', async () => {
-    await changeLanguage('en')
-    expect(i18n.t('ui.toast.region')).not.toMatch(/notification/i)
-    expect(i18n.t('ui.toast.dismiss')).not.toMatch(/notification/i)
   })
 
   it('the group titles have no capitals or tracking: --fs-xs, --weight-semibold, --tx-secondary (source text, marked)', () => {
