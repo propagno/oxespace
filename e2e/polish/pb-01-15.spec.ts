@@ -2,9 +2,10 @@
 // app with real services (OXESPACE_E2E_MOCK_NATIVE=0) and a real PostgreSQL container. Written by the planner; the
 // executor must not edit it. Two dialogs: New table in OxeQuery and, in Settings › Phone and devices, the firewall
 // explanation that turning on phone access opens (Cancel closes it; nothing is turned on). Every button of each
-// footer is --control-lg (32 px) tall. In a short window the body of New table overflows: it says data-overflow "end"
-// and draws a 1 px line in the colour of --bd-subtle at its bottom; scrolled to the end, "end" and the bottom line go.
-// Red while the footers are 28 px (md) and the body has no overflow cue.
+// footer but a link is --control-lg (32 px) tall in 13 px type (--fs-sm). The footer has no line above it while the
+// body fits; in a short window the body of New table overflows, says data-overflow "end" and exactly one 1 px
+// --bd-subtle line separates it from the footer (the footer's top border is that hairline, never two lines); scrolled
+// to the end, "end" and the line go. Red while the footers are 28 px (md) and the footer border is always drawn.
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
 import { openSettings } from '../helpers/settings'
@@ -147,22 +148,41 @@ async function connectContainer(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('tab', { name, exact: true })).toBeVisible({ timeout: 60_000 })
 }
 const PG = `pb0115-pg-${process.pid}`
-/** Every visible src/ui Button of a dialog footer, with its height. */
-function footerHeights(dialog: Locator): Promise<Array<{ name: string; height: number }>> {
-  return dialog.locator('[data-dialog-footer] [data-ui="button"]').evaluateAll(nodes => nodes.filter(node => (node as HTMLElement).getClientRects().length > 0)
-    .map(node => ({ name: (node.textContent ?? '').trim(), height: Math.round(node.getBoundingClientRect().height) })))
+/** Every visible src/ui Button of a dialog footer but link-variant ones, with its height and type size. */
+function footerButtons(dialog: Locator): Promise<Array<{ name: string; height: number; font: number }>> {
+  return dialog.locator('[data-dialog-footer] [data-ui="button"]:not([data-variant="link"])').evaluateAll(nodes => nodes.filter(node => (node as HTMLElement).getClientRects().length > 0)
+    .map(node => ({ name: (node.textContent ?? '').trim(), height: Math.round(node.getBoundingClientRect().height), font: parseFloat(getComputedStyle(node).fontSize) })))
 }
-/** Whether the body draws a 1 px line of `color` at its bottom: a border, an inset shadow or a pseudo-element. */
-function bottomLine(body: Locator, color: string): Promise<boolean> {
+/** The px font size a token resolves to (e.g. --fs-sm). */
+function tokenFont(page: Page, token: string): Promise<number> {
+  return page.evaluate(name => {
+    const probe = document.createElement('span')
+    probe.style.fontSize = `var(${name})`
+    document.body.append(probe)
+    const value = parseFloat(getComputedStyle(probe).fontSize)
+    probe.remove()
+    return value
+  }, token)
+}
+/**
+ * How many lines sit between the body and the footer: the footer's visible top border, plus the body's own 1 px line
+ * at its bottom (a border, an inset shadow or a pseudo-element). `color` is --bd-subtle resolved; the footer border,
+ * when shown, must be that 1 px solid colour.
+ */
+function linesAboveFooter(body: Locator, color: string): Promise<{ count: number; footerOk: boolean }> {
   return body.evaluate((el, wanted) => {
+    const footer = el.parentElement!.querySelector('[data-dialog-footer]') as HTMLElement
+    const f = getComputedStyle(footer)
+    const footerLine = parseFloat(f.borderTopWidth) > 0 && f.borderTopStyle !== 'none' && f.borderTopStyle !== 'hidden' && !/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(f.borderTopColor)
+    const footerOk = !footerLine || (f.borderTopWidth === '1px' && f.borderTopStyle === 'solid' && f.borderTopColor === wanted)
     const s = getComputedStyle(el)
-    if (s.borderBottomWidth === '1px' && s.borderBottomStyle === 'solid' && s.borderBottomColor === wanted) return true
-    if (/inset/.test(s.boxShadow) && s.boxShadow.includes(wanted) && /-1px/.test(s.boxShadow)) return true
-    return ['::before', '::after'].some(pseudo => {
+    let bodyLine = (s.borderBottomWidth === '1px' && s.borderBottomStyle === 'solid' && s.borderBottomColor === wanted) || (/inset/.test(s.boxShadow) && s.boxShadow.includes(wanted) && /-1px/.test(s.boxShadow))
+    for (const pseudo of ['::before', '::after']) {
       const p = getComputedStyle(el, pseudo)
-      return p.content !== 'none' && p.display !== 'none' && (p.height === '1px' || p.borderBottomWidth === '1px' || p.borderTopWidth === '1px') &&
-        [p.backgroundColor, p.borderBottomColor, p.borderTopColor].includes(wanted)
-    })
+      if (p.content !== 'none' && p.display !== 'none' && (p.height === '1px' || p.borderBottomWidth === '1px' || p.borderTopWidth === '1px') &&
+        [p.backgroundColor, p.borderBottomColor, p.borderTopColor].includes(wanted)) bodyLine = true
+    }
+    return { count: Number(footerLine) + Number(bodyLine), footerOk }
   }, color)
 }
 
@@ -177,15 +197,20 @@ test('PB-01·15 in the app: dialog footers are 32 px and New table marks its bot
     await openDemoWorkspace(page, workspaceRoot)
     const large = Math.round(await tokenPx(page, '--control-lg'))
     expect(large).toBe(32)
+    const type = await tokenFont(page, '--fs-sm')
+    expect(type).toBe(13)
 
     // Settings › Phone and devices › the firewall explanation (a hand-built footer).
     await openSettingsPage(page, 'devices')
     await page.getByRole('switch', { name: cat('settings', 'devices.gateway.label') }).click()
     const firewall = page.getByRole('dialog', { name: cat('settings', 'devices.firewall.title') })
     await expect(firewall).toBeVisible()
-    const settingsButtons = await footerHeights(firewall)
+    const settingsButtons = await footerButtons(firewall)
     expect(settingsButtons.length).toBeGreaterThan(0)
-    for (const button of settingsButtons) expect(button.height, `Settings dialog: ${button.name}`).toBe(large)
+    for (const button of settingsButtons) {
+      expect(button.height, `Settings dialog: ${button.name} height`).toBe(large)
+      expect(button.font, `Settings dialog: ${button.name} type`).toBe(type)
+    }
     await page.keyboard.press('Escape')
     await expect(firewall).toBeHidden()
     await page.keyboard.press('Escape')
@@ -202,19 +227,27 @@ test('PB-01·15 in the app: dialog footers are 32 px and New table marks its bot
     await page.getByRole('button', { name: cat('oxequery', 'tree.newTableIn', { schema: 'public' }) }).click()
     const dialog = page.getByRole('dialog', { name: cat('oxequery', 'tree.newTableIn', { schema: 'public' }) })
     await expect(dialog).toBeVisible()
-    const tableButtons = await footerHeights(dialog)
+    const tableButtons = await footerButtons(dialog)
     expect(tableButtons.length).toBeGreaterThan(0)
-    for (const button of tableButtons) expect(button.height, `New table: ${button.name}`).toBe(large)
+    for (const button of tableButtons) {
+      expect(button.height, `New table: ${button.name} height`).toBe(large)
+      expect(button.font, `New table: ${button.name} type`).toBe(type)
+    }
 
     const body = dialog.locator('[data-dialog-body]')
     const subtle = await tokenColor(body, '--bd-subtle')
+    if (await body.evaluate(el => el.scrollHeight <= el.clientHeight + 1)) {
+      expect((await linesAboveFooter(body, subtle)).count, 'the body fits: no line above the footer').toBe(0)
+    }
     await resizeWindow(app, 1100, 420)
     await expect.poll(() => body.evaluate(el => el.scrollHeight > el.clientHeight + 1), { message: 'the short window makes the body overflow', timeout: 10_000 }).toBe(true)
     await expect.poll(() => body.getAttribute('data-overflow'), { timeout: 5_000 }).toMatch(/\bend\b/)
-    expect(await bottomLine(body, subtle), 'a 1 px --bd-subtle line at the bottom while there is more below').toBe(true)
+    const below = await linesAboveFooter(body, subtle)
+    expect(below.count, 'more below: exactly one line above the footer (the footer border is that hairline, never two)').toBe(1)
+    expect(below.footerOk, 'the footer line, when it is the one, is 1 px solid --bd-subtle').toBe(true)
     await body.evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect.poll(async () => (await body.getAttribute('data-overflow')) ?? '', { timeout: 5_000 }).not.toMatch(/\bend\b/)
-    expect(await bottomLine(body, subtle), 'no bottom line once at the end').toBe(false)
+    expect((await linesAboveFooter(body, subtle)).count, 'scrolled to the end: no line above the footer').toBe(0)
   } finally {
     await app.close()
     stopContainer(PG)

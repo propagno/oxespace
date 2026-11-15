@@ -4,9 +4,13 @@
 // Contract (src/ui/Overlay.tsx, src/ui/Overlay.module.css): the Dialog body ([data-dialog-body]) says which of its edges
 // hide content in data-overflow, a space-separated list: "end" while there is more below, "start" once scrolled down
 // from the top; checked on mount, on scroll and on resize (a missing ResizeObserver is tolerated). Without overflow
-// the attribute is absent or empty. The line is drawn by the body itself, on that edge: a 1 px solid var(--bd-subtle)
-// border, or an inset 1 px box-shadow in var(--bd-subtle), or a 1 px ::before/::after in var(--bd-subtle); nothing in
-// the body's rules uses a gradient, a transition or an animation. The built app is checked by pb-01-15.spec.ts.
+// the attribute is absent or empty. MARCA 15/11 (answer to the planner): the footer's top border shows ONLY while the
+// body overflows below, and that border IS the bottom hairline (never two lines): with "end", exactly one 1 px solid
+// var(--bd-subtle) line sits between body and footer (the footer's border-top, or the body's own bottom line); when the
+// body fits or is scrolled to the end, there is no line above the footer (today's permanent footer border goes). The
+// top hairline follows the same rule: one line between header and body only while "start". A line is a border, an
+// inset 1 px box-shadow or a 1 px ::before/::after in var(--bd-subtle); nothing on the body uses a gradient, a
+// transition or an animation. The built app is checked by pb-01-15.spec.ts.
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { Dialog } from '../../../src/ui/Overlay'
@@ -190,20 +194,48 @@ function openDialog(): HTMLElement {
 const edges = (body: HTMLElement): string[] => (body.getAttribute('data-overflow') ?? '').split(/\s+/).filter(Boolean)
 const scrollTo = (body: HTMLElement, top: number): void => { body.scrollTop = top; fireEvent.scroll(body) }
 
-/** A 1 px --bd-subtle line on that edge of the body, in one of the three allowed drawings. */
-function lineAt(body: HTMLElement, edge: 'top' | 'bottom'): boolean {
-  const border = css(body, [`border-${edge}`, 'border', `border-${edge}-color`]) ?? ''
-  if (/1px/.test(border) && /solid/.test(border) && usesTok(border, 'bd-subtle')) return true
+/** One side of a box's border as the cascade leaves it: the winner among the shorthands and that side's longhand. */
+function side(node: Element, edge: 'top' | 'bottom', pseudo = ''): { width: number; style: string; color: string } {
+  const part = (longhand: string, pick: (tokens: string[]) => string | undefined, initial: string): string => {
+    const win = cssWin(node, ['border', `border-${edge}`, longhand, `border-${longhand.split('-').pop()}`], { pseudo })
+    if (!win) return initial
+    if (win.prop === longhand || win.prop === `border-${longhand.split('-').pop()}`) return win.value.split(/\s+(?![^(]*\))/)[0]
+    return pick(win.value.split(/\s+(?![^(]*\))/)) ?? initial
+  }
+  const STYLES = /^(none|hidden|solid|dashed|dotted|double|groove|ridge|inset|outset)$/
+  const width = part(`border-${edge}-width`, t => t.find(x => /^(-?\d*\.?\d+px|0|thin|medium|thick)$/.test(x) || /^var\(--|^calc\(/.test(x) && !/--bd-|--tx-|--accent|--surface/.test(x)), 'medium')
+  const style = part(`border-${edge}-style`, t => t.find(x => STYLES.test(x)), 'none')
+  const color = part(`border-${edge}-color`, t => t.find(x => !STYLES.test(x) && !/^(-?\d*\.?\d+px|0|thin|medium|thick)$/.test(x)), 'currentColor')
+  return { width: width === 'medium' ? 3 : px(width), style, color }
+}
+/** A 1 px solid var(--bd-subtle) line. */
+const hairline = (line: { width: number; style: string; color: string }): boolean => line.width === 1 && line.style === 'solid' && usesTok(line.color, 'bd-subtle')
+/** No visible line: no width, no style, or a transparent colour. */
+const noLine = (line: { width: number; style: string; color: string }): boolean => !(line.width > 0) || /^(none|hidden)$/.test(line.style) || line.color === 'transparent'
+/** The body draws a 1 px --bd-subtle line on that edge itself: a border, an inset box-shadow or a 1 px ::before/::after. */
+function bodyLine(body: HTMLElement, edge: 'top' | 'bottom'): boolean {
+  if (hairline(side(body, edge))) return true
   const shadow = css(body, 'box-shadow') ?? ''
   const inset = edge === 'top' ? /inset\s+0\s+1px\s+0(\s+0)?\s+var\(\s*--bd-subtle/ : /inset\s+0\s+-1px\s+0(\s+0)?\s+var\(\s*--bd-subtle/
   if (inset.test(shadow)) return true
   for (const pseudo of ['::before', '::after']) {
-    const fill = css(body, ['background', 'background-color', 'border-top', 'border-bottom'], { pseudo }) ?? ''
+    const fill = css(body, ['background', 'background-color'], { pseudo }) ?? ''
     const height = css(body, ['height', 'block-size'], { pseudo }) ?? ''
-    if (usesTok(fill, 'bd-subtle') && (/^1px$/.test(height) || /1px/.test(fill)) && css(body, edge, { pseudo }) !== undefined) return true
+    if (css(body, edge, { pseudo }) !== undefined && ((usesTok(fill, 'bd-subtle') && /^1px$/.test(height)) || hairline(side(body, edge === 'top' ? 'top' : 'bottom', pseudo)))) return true
   }
   return false
 }
+/** The line between body and footer: the footer's top border, or the body's own bottom line. Exactly one, or none. */
+function linesAboveFooter(body: HTMLElement): number {
+  const footer = document.querySelector<HTMLElement>('[data-dialog-footer]')!
+  return Number(bodyLine(body, 'bottom')) + Number(!noLine(side(footer, 'top')))
+}
+/** The line between header and body: the header's bottom border, or the body's own top line. */
+function linesBelowHeader(body: HTMLElement): number {
+  const header = body.previousElementSibling as HTMLElement
+  return Number(bodyLine(body, 'top')) + Number(!noLine(side(header, 'bottom')))
+}
+const footerHairline = (): boolean => hairline(side(document.querySelector<HTMLElement>('[data-dialog-footer]')!, 'top'))
 
 describe('PB-01·15 · a hairline at the scrolled edge of the dialog body, only while it overflows', () => {
   test('a body with more below says "end", then "start" once scrolled down, and drops "end" at the bottom', async () => {
@@ -226,17 +258,32 @@ describe('PB-01·15 · a hairline at the scrolled edge of the dialog body, only 
     expect(edges(body)).toEqual([])
   })
 
-  test('[css] the line: 1 px --bd-subtle at the bottom while "end", at the top while "start", none without overflow', () => {
+  test('[css] one 1 px --bd-subtle line above the footer only while there is more below; it is the footer border or the body line, never both', () => {
     layout(400, 400)
     const body = openDialog()
-    expect(lineAt(body, 'bottom'), 'no line without overflow').toBe(false)
+    expect(linesAboveFooter(body), 'the body fits: no line above the footer').toBe(0)
     body.setAttribute('data-overflow', 'end')
-    expect(lineAt(body, 'bottom'), 'bottom line with more below').toBe(true)
+    expect(linesAboveFooter(body), 'more below: exactly one line above the footer').toBe(1)
+    expect(footerHairline() || bodyLine(body, 'bottom'), 'and it is a 1 px --bd-subtle hairline').toBe(true)
     body.setAttribute('data-overflow', 'start')
-    expect(lineAt(body, 'top'), 'top line once scrolled down').toBe(true)
+    expect(linesAboveFooter(body), 'scrolled to the end: no line above the footer').toBe(0)
+    body.setAttribute('data-overflow', 'start end')
+    expect(linesAboveFooter(body), 'more below, scrolled down too: still one line above the footer').toBe(1)
   })
 
-  test('[css] no gradient, no transition and no animation on the body', () => {
+  test('[css] one 1 px --bd-subtle line below the header only while scrolled down from the top', () => {
+    layout(400, 400)
+    const body = openDialog()
+    expect(linesBelowHeader(body), 'at the top: no line below the header').toBe(0)
+    body.setAttribute('data-overflow', 'end')
+    expect(linesBelowHeader(body), 'at the top with more below: no line below the header').toBe(0)
+    body.setAttribute('data-overflow', 'start')
+    expect(linesBelowHeader(body), 'scrolled down: exactly one line below the header').toBe(1)
+    body.setAttribute('data-overflow', 'start end')
+    expect(linesBelowHeader(body)).toBe(1)
+  })
+
+  test('[css] no gradient, no transition and no animation on the body, and the footer line does not animate', () => {
     layout(900, 400)
     const body = openDialog()
     for (const value of ['end', 'start', 'start end', '']) {
@@ -248,6 +295,11 @@ describe('PB-01·15 · a hairline at the scrolled edge of the dialog body, only 
           expect(motion === undefined || /^(none|0s)$/.test(motion), `${value} ${pseudo} ${prop}: ${motion}`).toBe(true)
         }
       }
+    }
+    const footer = document.querySelector<HTMLElement>('[data-dialog-footer]')!
+    for (const prop of ['transition', 'transition-property', 'animation', 'animation-name']) {
+      const motion = css(footer, prop)
+      expect(motion === undefined || /^(none|0s)$/.test(motion), `footer ${prop}: ${motion}`).toBe(true)
     }
   })
 })

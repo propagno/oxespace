@@ -1,15 +1,20 @@
 // Frozen acceptance test for 1.5.2 Polimento · Componentes base (Jira OXE-274, PB-01·15, CA-1). Written by the planner;
-// the executor must not edit it. MARCA 15/11 (vereditos on PQ-07·12/13): one footer size for every dialog, 32 px
-// (--control-lg), as brand.md's Controls row says; no dialog sets its own.
-// Contract (src/ui/Overlay.tsx DialogFooter and the Dialog footer, src/ui/Overlay.module.css): in a Dialog with the
-// `actions` slots, Cancel ([data-dialog-cancel], secondary) and the primary ([data-dialog-primary], primary or danger)
-// are Buttons with data-size="lg"; so is every button of `extra`. In a Dialog with a hand-built `footer`, every src/ui
-// Button in [data-dialog-footer] is large too: data-size="lg", or a --button-h of var(--control-lg) from the footer's
-// rule. ConfirmDialog (actions) is large as well. The built app is checked by pb-01-15.spec.ts.
+// the executor must not edit it. MARCA 15/11 (vereditos on PQ-07·12/13, and her answer of 15/11 to the planner): every
+// Button in a dialog footer row is lg (32 px, --control-lg), hand-built footers and `extra` included, done ONCE as a
+// src/ui rule on the footer, so a hand-built footer cannot forget; no dialog sets its own footer size.
+// Contract (src/ui/Overlay.module.css, with src/ui/Overlay.tsx and ConfirmDialog.tsx): a rule on the footer
+// ([data-dialog-footer] [data-ui=button], i.e. the footer's class or attribute with the Button's data-ui) gives every
+// src/ui Button in the footer lg's height (--button-h: var(--control-lg)) AND lg's 13 px type (font-size var(--fs-sm)):
+// Cancel and the primary of `actions`, every Button in `extra`, every Button of a hand-built `footer`, a danger primary,
+// ConfirmDialog's two. Exclusions keep their own size: a link-variant Button (no height: height stays auto, its type
+// stays the Button's 12 px --fs-xs) and a non-button in `extra` (a Checkbox: its box stays 16 px, its label gets no
+// button height). Migrating a hand-built footer to `actions` stays preferred whenever a task touches one. The built app
+// is checked by pb-01-15.spec.ts.
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, test } from 'vitest'
 import { Button } from '../../../src/ui/Button'
 import { ConfirmDialog } from '../../../src/ui/ConfirmDialog'
+import { Checkbox } from '../../../src/ui/Field'
 import { Dialog } from '../../../src/ui/Overlay'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pbReadFile } from 'node:fs'
@@ -171,32 +176,50 @@ function px(value: string | undefined, density: 'compact' | 'comfortable' = 'com
   try { return Number(new Function(`return (${expr})`)()) } catch { return NaN }
 }
 afterEach(() => cleanup())
-/** Large: data-size="lg", or the footer gives it the large height token. */
-const large = (button: HTMLElement): boolean => button.getAttribute('data-size') === 'lg' || usesTok(css(button, '--button-h'), 'control-lg')
 const footerOf = (): HTMLElement => document.querySelector<HTMLElement>('[data-dialog-footer]')!
+/** lg by the footer's own rule: lg's height and lg's 13 px type, whatever size the Button was given. */
+function footerLarge(button: HTMLElement): void {
+  const name = button.textContent ?? ''
+  expect(usesTok(css(button, '--button-h'), 'control-lg'), `${name}: --button-h var(--control-lg)`).toBe(true)
+  expect(usesTok(css(button, ['font-size', 'font']), 'fs-sm'), `${name}: font-size var(--fs-sm)`).toBe(true)
+}
 
-describe('PB-01·15 · every dialog footer at --control-lg', () => {
-  test('a Dialog with actions: Cancel, the primary and the extra actions are large (data-size lg)', () => {
+describe('PB-01·15 · every Button in a dialog footer at --control-lg, by one src/ui rule', () => {
+  test('[css] a Dialog with actions: Cancel, the primary and a Button in extra are lg by the footer rule', () => {
     render(<Dialog title="New table in public" size="md" onClose={() => {}} actions={{ primary: { label: 'Review SQL', onClick: () => {} }, extra: <Button>Preview</Button> }}><p>body</p></Dialog>)
     const footer = footerOf()
     const cancel = footer.querySelector<HTMLElement>('[data-dialog-cancel]')!
     const primary = footer.querySelector<HTMLElement>('[data-dialog-primary]')!
     expect(cancel).toHaveAttribute('data-variant', 'secondary')
     expect(primary).toHaveAttribute('data-variant', 'primary')
-    for (const button of [cancel, primary]) expect(button, button.textContent ?? '').toHaveAttribute('data-size', 'lg')
-    expect(large(within(footer).getByRole('button', { name: 'Preview' })), 'the extra action').toBe(true)
+    for (const button of [cancel, primary, within(footer).getByRole('button', { name: 'Preview' })]) footerLarge(button)
   })
 
-  test('a danger primary and a ConfirmDialog are large too', () => {
+  test('[css] a danger primary and both ConfirmDialog buttons are lg by the footer rule', () => {
     render(<ConfirmDialog danger title="Delete shop?" confirmLabel="Delete" onConfirm={() => {}} onCancel={() => {}} />)
     const footer = footerOf()
-    for (const button of within(footer).getAllByRole('button')) expect(button, button.textContent ?? '').toHaveAttribute('data-size', 'lg')
     expect(within(footer).getByRole('button', { name: 'Delete' })).toHaveAttribute('data-variant', 'danger')
+    for (const button of within(footer).getAllByRole('button')) footerLarge(button)
   })
 
-  test('[css] a Dialog with a hand-built footer: every Button in it is large, by attribute or by the footer rule', () => {
-    render(<Dialog title="Before phones can connect" size="sm" onClose={() => {}} footer={<><Button>Not now</Button><Button variant="primary">Allow</Button></>}><p>body</p></Dialog>)
+  test('[css] a hand-built footer cannot forget: every Button in it is lg, a small one included', () => {
+    render(<Dialog title="Before phones can connect" size="sm" onClose={() => {}}
+      footer={<><Button size="sm">Not now</Button><Button>Later</Button><Button variant="primary">Allow</Button></>}><p>body</p></Dialog>)
     const footer = footerOf()
-    for (const name of ['Not now', 'Allow']) expect(large(within(footer).getByRole('button', { name })), name).toBe(true)
+    for (const name of ['Not now', 'Later', 'Allow']) footerLarge(within(footer).getByRole('button', { name }))
+  })
+
+  test('[css] exclusions keep their own size: a link Button and a Checkbox in extra', () => {
+    render(<Dialog title="Export" size="md" onClose={() => {}} actions={{ primary: { label: 'Export', onClick: () => {} },
+      extra: <><Button variant="link">Open log</Button><Checkbox label="Include headers" /></> }}><p>body</p></Dialog>)
+    const footer = footerOf()
+    const link = within(footer).getByRole('button', { name: 'Open log' })
+    expect(css(link, ['height', 'block-size']), 'the link keeps height auto').toBe('auto')
+    expect(usesTok(css(link, ['font-size', 'font']), 'fs-xs'), 'the link keeps the Button type').toBe(true)
+    const box = within(footer).getByRole('checkbox', { name: 'Include headers' })
+    expect(px(css(box, ['height', 'block-size'])), 'the checkbox box stays 16 px').toBe(16)
+    const label = box.closest('label')!
+    expect(css(label, '--button-h'), 'the checkbox label gets no button height').toBeUndefined()
+    expect(css(label, ['height', 'block-size', 'min-height']) ?? '', 'nor a control height').not.toMatch(/control-lg/)
   })
 })
