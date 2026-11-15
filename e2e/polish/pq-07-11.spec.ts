@@ -93,10 +93,12 @@ test('PQ-07·11 in the app: a failed query in pt-BR says "Não foi possível…"
     await page.keyboard.press('Control+A')
     await page.keyboard.insertText('SELECT * FROM tabela_que_nao_existe')
     await page.getByRole('button', { name: new RegExp(`^${cat('common.run', {}, 'pt-BR')}`) }).first().click()
-    const error = page.getByRole('alert').filter({ hasText: 'tabela_que_nao_existe' }).first()
+    // The error frame (MARCA 15/11): the live region holds the plain sentence; the technical details sit beside it.
+    const box = page.locator('[data-ui="query-error"]').filter({ hasText: 'tabela_que_nao_existe' }).first()
+    const error = box.getByRole('alert')
     await expect(error).toBeVisible({ timeout: 30_000 })
     await expect(error).toContainText(/Não foi possível/)
-    await expect(error).toContainText('Detalhes técnicos')
+    await expect(box).toContainText('Detalhes técnicos')
     await expect(error).not.toContainText(/falhou/)
   } finally {
     await app.close()
