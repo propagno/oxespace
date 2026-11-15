@@ -209,7 +209,11 @@ test('AG-09 in the app: the bell counts a request in a neutral count with its pl
     await expect(count, 'answered in the card, the bell stops counting it').toHaveCount(0, { timeout: 15_000 })
     await expect(page.getByTestId('needs-you-pill').filter({ hasText: /\d/ }), 'the pill goes back to no number').toHaveCount(0, { timeout: 15_000 })
     await page.getByTestId('activity-bell').click()
-    await expect(page.getByTestId('activity-item').filter({ hasText: 'Release notes' }).first(), 'the answered request stays in the history').toBeVisible()
+    const answered = page.getByTestId('activity-item').filter({ hasText: 'Release notes' }).first()
+    await expect(answered, 'the answered request stays in the history').toBeVisible()
+    await expect(answered, 'with its outcome').toContainText('Denied')
+    await expect(answered.locator('[data-ui="status-signal"][data-state="needs-you"]'), 'no sun once answered').toHaveCount(0)
+    await expect(page.getByRole('region', { name: cat('common', 'activity.group.needs-you') }), 'it left Needs you').toHaveCount(0)
   } finally {
     await app.close()
   }

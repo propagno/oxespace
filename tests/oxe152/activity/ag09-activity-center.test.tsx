@@ -3,12 +3,15 @@
 // neutral; the "precisa de você" pill is the only amber signal of the top bar. Today an unread needs-you entry turns the
 // count to --intent-warning-solid (.urgent).
 // Contract (src/components/Activity/ActivityCenter.tsx and ActivityCenter.module.css): the count
-// ([data-testid=activity-count]) looks the same whatever kind is unread: no --attn* and no --intent-warning-* in any of
-// its rules, and no extra class when a needs-you entry is unread. The bell keeps its name, activity.title ("Activity",
+// ([data-testid=activity-count]) is the src/ui Badge with the neutral intent (MARCA 15/11, answer 3: the same object as
+// OxeCode's Changes badge count, OXE-185; not --intent-info-solid, not --accent-soft); it looks the same whatever kind
+// is unread: no --attn* and no --intent-warning-* in any of its rules, and no extra class when a needs-you entry is
+// unread. The bell keeps its name, activity.title ("Activity",
 // "Atividade"), with the unread count in its label (activity.unread).
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ActivityCenter } from '../../../src/components/Activity/ActivityCenter'
+import { Badge } from '../../../src/ui/Display'
 import { changeLanguage } from '../../../src/i18n'
 import { useActivityStore } from '../../../src/store/activity.store'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
@@ -189,6 +192,22 @@ describe('AG-09 · the bell count is neutral; the pill is the only amber of the 
     expect(count.textContent).toBe('2')
     for (const prop of ['background', 'background-color', 'color', 'border-color', 'border', 'box-shadow', 'outline']) {
       for (const value of cssAll(count, prop)) expect(AMBER.test(value), `${prop}: ${value}`).toBe(false)
+    }
+  })
+
+  test('[css] the count is the src/ui Badge with the neutral intent, not the info or accent fill', () => {
+    const reference = render(<Badge>1</Badge>).container.firstElementChild!
+    const base = [...reference.classList]
+    const intents = (['info', 'accent', 'warning', 'danger', 'success'] as const).map(intent => {
+      const node = render(<Badge intent={intent}>1</Badge>).container.firstElementChild!
+      return [...node.classList].filter(name => !base.includes(name))
+    }).flat()
+    cleanup()
+    const count = countWith(needsYou)
+    for (const name of base) expect(count.classList.contains(name), `the Badge class ${name}`).toBe(true)
+    for (const name of intents) expect(count.classList.contains(name), `no intent class ${name}`).toBe(false)
+    for (const value of cssAll(count, 'background').concat(cssAll(count, 'background-color'))) {
+      expect(/--intent-info-solid|--accent-soft/.test(value), `not ${value}`).toBe(false)
     }
   })
 

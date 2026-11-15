@@ -10,8 +10,14 @@
 //   class;
 // - failed entries are a section of their own, named activity.group.failed (en "Failed", pt-BR "Falhou", glossary §5),
 //   each row with <StatusSignal state="failed">, outside "Needs you" and outside "Finished";
-// - an entry with `place` (the backend task's field) shows [data-ui=activity-place] "{project} · {OxeChat|OxeCode|
-//   OxeQuery}" (the mode names never translate) in --tx-muted; an entry without place (an update, a quota) has none.
+// - an entry with `place` (the backend task's field) shows [data-ui=activity-place] "{project} · {OxeChat|OxeCode}"
+//   (the mode names never translate) in --tx-muted; an entry without place (an update, a quota) or with an empty
+//   project has none: never an empty "· OxeChat" line. OxeQuery stays out of the bell in this phase (MARCA 15/11,
+//   answer 4: it joins with PQ-07·7's live event; no placeholder);
+// - an answered entry (the backend's `outcome`: 'allowed' | 'denied' | 'answered') leaves "Needs you" at once (MARCA
+//   answer 1): it is history, outside the needs-you section, with its outcome word (en "Allowed" / "Denied", pt-BR
+//   "Permitido" / "Negado") and its time, under a NEUTRAL signal: no needs-you StatusSignal, nothing in --attn; the sun
+//   is only for what still waits.
 // The bell itself (count, name) is ag09-activity-center.test.tsx; the built app is e2e/polish/ag09-activity-bell.spec.ts.
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { Gauge, Hand } from 'lucide-react'
@@ -191,7 +197,9 @@ beforeEach(() => {
   record({ source: 'quota', id: 'claude', kind: 'quota', target: { type: 'quota', provider: 'claude' }, title: 'Claude quota at 90%', at: 1 })
   record({ source: 'background', id: 'job', kind: 'failed', target: { type: 'background', workspaceId: 'ws', jobId: 'job' }, title: 'Build the app', at: 2, place: { project: 'api', mode: 'code' } } as never)
   record({ source: 'code', id: 'p2', kind: 'finished', target: { type: 'pane', workspaceId: 'ws', paneId: 'p2' }, title: 'Codex', at: 3, place: { project: 'api', mode: 'code' } } as never)
-  record({ source: 'mcp', id: 'warehouse', kind: 'failed', target: { type: 'mcp', serverId: 'warehouse' }, title: 'Warehouse query', at: 4, place: { project: 'warehouse', mode: 'query' } } as never)
+  record({ source: 'mcp', id: 'warehouse', kind: 'failed', target: { type: 'mcp', serverId: 'warehouse' }, title: 'Warehouse server', at: 4 })
+  record({ source: 'thread', id: 't2', kind: 'needs-you', target: { type: 'thread', threadId: 't2' }, title: 'Ship the release', at: 6, read: true, outcome: 'allowed', place: { project: 'shop', mode: 'chat' } } as never)
+  record({ source: 'code', id: 'p3', kind: 'needs-you', target: { type: 'pane', workspaceId: 'ws', paneId: 'p3' }, title: 'Drop the cache', at: 7, read: true, outcome: 'denied', place: { project: '', mode: 'code' } } as never)
   record({ source: 'thread', id: 't1', kind: 'needs-you', target: { type: 'thread', threadId: 't1' }, title: 'Fix the login bug', detail: 'Run npm test', at: 5, place: { project: 'shop', mode: 'chat' } } as never)
 })
 afterEach(async () => { cleanup(); await changeLanguage('en') })
@@ -231,7 +239,7 @@ describe('AG-09 · the bell is the history, in the brand signals', () => {
     const failed = screen.getByRole('region', { name: cat('common', 'activity.group.failed') })
     expect(cat('common', 'activity.group.failed')).toBe('Failed')
     expect(failed.textContent).toContain('Build the app')
-    expect(failed.textContent).toContain('Warehouse query')
+    expect(failed.textContent).toContain('Warehouse server')
     for (const row of within(failed).getAllByRole('button')) expect(row.querySelector('[data-ui="status-signal"]')).toHaveAttribute('data-state', 'failed')
     expect(screen.getByRole('region', { name: cat('common', 'activity.group.needs-you') }).textContent).not.toContain('Build the app')
     const finished = screen.queryByRole('region', { name: cat('common', 'activity.group.finished') })
@@ -239,14 +247,32 @@ describe('AG-09 · the bell is the history, in the brand signals', () => {
     expect(finished?.textContent ?? '').toContain('Codex')
   })
 
-  test('[css] every entry with a place says "{project} · OxeChat / OxeCode / OxeQuery" in --tx-muted; app-wide ones say none', () => {
+  test('[css] every entry with a place says "{project} · OxeChat / OxeCode" in --tx-muted; app-wide ones and an empty project say none', () => {
     renderPanel()
     const placeOf = (title: string) => rowOf(title).querySelector<HTMLElement>('[data-ui="activity-place"]')
     expect(placeOf('Fix the login bug')?.textContent?.trim()).toBe('shop · OxeChat')
     expect(placeOf('Codex')?.textContent?.trim()).toBe('api · OxeCode')
-    expect(placeOf('Warehouse query')?.textContent?.trim()).toBe('warehouse · OxeQuery')
     expect(usesTok(css(placeOf('Fix the login bug')!, 'color'), 'tx-muted'), '[css] --tx-muted').toBe(true)
     expect(placeOf('Claude quota at 90%')).toBeNull()
+    expect(placeOf('Warehouse server')).toBeNull()
+    expect(placeOf('Drop the cache'), 'never an empty "· OxeCode" line').toBeNull()
+    expect(document.body.textContent, 'OxeQuery is not in the bell in this phase').not.toContain('OxeQuery')
+  })
+
+  test('[css] an answered request leaves Needs you at once: history with its outcome word and time, under a neutral signal', () => {
+    renderPanel()
+    const needsYou = screen.getByRole('region', { name: cat('common', 'activity.group.needs-you') })
+    expect(needsYou.textContent).toContain('Fix the login bug')
+    for (const [title, word] of [['Ship the release', /Allowed/], ['Drop the cache', /Denied/]] as Array<[string, RegExp]>) {
+      expect(needsYou.textContent, `${title} is not in Needs you`).not.toContain(title)
+      const row = rowOf(title)
+      expect(row.textContent, `${title} says its outcome`).toMatch(word)
+      expect(row.querySelector('time'), `${title} says when`).toBeTruthy()
+      expect(row.querySelector('[data-state="needs-you"]'), `${title}: no sun`).toBeNull()
+      for (const node of [row, ...row.querySelectorAll('*')]) {
+        expect(/--attn/.test(css(node, 'color') ?? '') || /--attn/.test(css(node, ['background', 'background-color']) ?? ''), `${title}: nothing in --attn`).toBe(false)
+      }
+    }
   })
 
   test('it reads in pt-BR: the Falhou section and the same place line', async () => {
@@ -255,5 +281,7 @@ describe('AG-09 · the bell is the history, in the brand signals', () => {
     expect(cat('common', 'activity.group.failed', {}, 'pt-BR')).toBe('Falhou')
     expect(screen.getByRole('region', { name: 'Falhou' }).textContent).toContain('Build the app')
     expect(rowOf('Fix the login bug').querySelector('[data-ui="activity-place"]')?.textContent?.trim()).toBe('shop · OxeChat')
+    expect(rowOf('Ship the release').textContent).toContain('Permitido')
+    expect(rowOf('Drop the cache').textContent).toContain('Negado')
   })
 })
