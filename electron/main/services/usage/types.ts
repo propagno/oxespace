@@ -10,6 +10,9 @@ export interface UsageProvider {
 
   /** Returns metadata for all known sessions in this workspace, newest first. */
   listSessions(workspaceRootPath: string): SessionMetadata[]
+
+  /** The same list read without blocking the main process; `onPartial` gets the sessions read so far (OXE-157). */
+  listSessionsAsync?(workspaceRootPath: string, onPartial?: (sessions: SessionMetadata[]) => void): Promise<SessionMetadata[]>
 }
 
 export interface SessionMetadata {
@@ -20,5 +23,7 @@ export interface SessionMetadata {
   requestCount: number
   snapshot?: ContextUsageSnapshot
   summary?: string | null
+  /** The first user message, short (Claude's async list reads it with the transcript). */
+  firstMessagePreview?: string | null
   workspaceRootPath?: string | null
 }
