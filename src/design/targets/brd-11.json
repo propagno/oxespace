@@ -1,0 +1,29 @@
+{
+  "brd": "BRD-11",
+  "card": "OXE-75",
+  "title": "One command bar",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-11) and the card OXE-75 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-11.row.height",
+      "scene": "command-bar",
+      "select": "[data-ui=command-row]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "every result is one line"
+    }
+  ]
+}

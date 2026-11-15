@@ -48,6 +48,7 @@ import type { ThreadCollision, ThreadPane, ThreadPaneSource, ThreadPathResolutio
 import type { MainMessage } from '../../../../shared/messages'
 import { explainMissingFolder, ThreadFolderMissingError } from './thread-worktree'
 import { LaunchStops, settleCompletedHistoryTools } from './thread-launch'
+import { sessionChatIds, type SessionHost } from './thread-sessions'
 /** The checkout a conversation works in: a worktree of its repository the provider moved into, else its root. */
 const workingRootOf = (thread: ConversationThread): string =>
   thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot ? thread.observedLocation.checkoutRoot : thread.rootPath
@@ -234,7 +235,7 @@ export class ThreadOrchestrator {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
   }
-  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree' | 'access'>): ThreadSnapshot {
+  create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree' | 'access' | 'parentThreadId' | 'childOrder'>): ThreadSnapshot {
     const now = Date.now()
     const snapshot: ThreadSnapshot = { thread: { ...context, id: randomUUID(), nativeSessionId: null,
       title: '', pinned: false, status: 'idle', createdAt: now, updatedAt: now, generation: 1, queue: [], capabilities: threadCapabilityManifest(context.provider), connection: { state: 'closed', attempt: 0, changedAt: now } }, events: [] }
@@ -854,6 +855,7 @@ export class ThreadOrchestrator {
       connectAdapter: (id, thread) => this.connectAdapter(id, thread),
       assertNativeSessionAvailable: (id, provider, nativeSessionId) => this.assertNativeSessionAvailable(id, provider, nativeSessionId),
       adapterCapabilities: id => this.adapters.get(id)?.capabilities,
+      sessionChats: id => sessionChatIds(this.sessionHost(), id),
       isBusy: id => this.busy.has(id),
       isConfiguring: id => this.configuring.has(id),
       withConfiguring: async (id, run) => {
@@ -870,6 +872,8 @@ export class ThreadOrchestrator {
     }
   }
 
+  /** OXE-170: what the session model (thread-sessions.ts) reads and writes through. */
+  protected sessionHost(): SessionHost { return { db: this.db, cached: id => this.snapshots.get(id), read: id => this.read(id), save: (snapshot, options) => this.save(snapshot, options), create: context => this.create(context) } }
   async stop(): Promise<void> {
     this.snapshots.close()
     for (const id of this.deltaBuffers.keys()) this.flushDeltas(id)

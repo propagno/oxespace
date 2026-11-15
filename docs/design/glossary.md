@@ -121,6 +121,8 @@ Colour tokens (desktop CSS / phone `OxeTokens`), so critical never looks like hi
 
 Colour never carries it alone. The badge says "Risco: Alto"; inside a sentence it's lowercase ("Risco: alto.").
 
+Texto de origem não confiável (o título escrito pelo agente) nunca é rótulo de risco: o rótulo de um pedido crítico vem do catálogo do app ou de texto calculado pelo desktop (coordenação 14/11).
+
 ## 7. Actions (verbs)
 
 | Action | en | pt-BR | Never (pt-BR) | Use for |

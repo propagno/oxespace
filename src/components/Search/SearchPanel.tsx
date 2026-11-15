@@ -12,6 +12,8 @@ import { usePathMenu } from '../PathMenu/usePathMenu'
 
 interface SearchPanelProps {
   workspace: Workspace
+  /** The folder to search and open matches in (OXE-191: the panels' scope); the workspace root when absent. */
+  rootPath?: string
   onOpenFile?: (relativePath: string) => void
 }
 
@@ -42,7 +44,8 @@ export function searchSummary(matches: number, files: number, truncated: boolean
   return truncated ? i18n.t('search.truncated', { ns: 'code', summary }) : summary
 }
 
-export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactElement {
+export function SearchPanel({ workspace, rootPath, onOpenFile }: SearchPanelProps): ReactElement {
+  const root = rootPath ?? workspace.rootPath
   const { t } = useTranslation('code')
   const query = useSearchStore((s) => s.query)
   const options = useSearchStore((s) => s.options)
@@ -58,16 +61,16 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
 
   // Debounced auto-search whenever the query or options change.
   useEffect(() => {
-    const handle = window.setTimeout(() => { void run(workspace.id, workspace.rootPath) }, 250)
+    const handle = window.setTimeout(() => { void run(workspace.id, root) }, 250)
     return () => window.clearTimeout(handle)
-  }, [query, options, run, workspace.id, workspace.rootPath])
+  }, [query, options, run, workspace.id, root])
 
   // A match opens its file at the matched line.
   const openMatch = useCallback((path: string, line?: number) => {
-    void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: path, line })
+    void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: root, relativePath: path, line })
     if (onOpenFile) onOpenFile(path)
     else void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
-  }, [onOpenFile, workspace.id, workspace.rootPath])
+  }, [onOpenFile, workspace.id, root])
 
   const files = results?.files ?? []
   const summary = results ? searchSummary(results.totalMatches, results.totalFiles, results.truncated) : null
@@ -135,7 +138,7 @@ export function SearchPanel({ workspace, onOpenFile }: SearchPanelProps): ReactE
 
       <div className="search-panel-results">
         {files.map((file) => (
-          <FileGroup key={file.path} file={file} onOpen={openMatch} workspaceId={workspace.id} rootPath={workspace.rootPath} />
+          <FileGroup key={file.path} file={file} onOpen={openMatch} workspaceId={workspace.id} rootPath={root} />
         ))}
       </div>
     </div>
