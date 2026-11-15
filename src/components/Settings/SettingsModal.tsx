@@ -15,7 +15,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
-import { UpdatePreferences } from './UpdatePreferences'
+import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
@@ -204,7 +204,7 @@ function SettingsContentHeader({
     <header className="settings-content-header">
       <div>
         <span className="settings-content-kicker">{kicker}</span>
-        <h2 id={titleId}>{title}</h2>
+        <SettingsPageTitle id={titleId}>{title}</SettingsPageTitle>
         {description && <p className="settings-content-description">{description}</p>}
       </div>
       <div className="settings-content-actions">

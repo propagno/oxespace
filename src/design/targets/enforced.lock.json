@@ -16,6 +16,11 @@
     "BRD-03.button.font-size",
     "BRD-03.button-lg.font-size",
     "BRD-03.button.font-weight",
-    "BRD-03.icon-button.height"
+    "BRD-03.icon-button.height",
+    "BRD-06.content.width",
+    "BRD-06.title.font-size",
+    "BRD-06.title.font-family",
+    "BRD-06.nav.height",
+    "BRD-06.option.count"
   ]
 }

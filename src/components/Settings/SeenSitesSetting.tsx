@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, toast } from '../../ui'
+import { Button, SettingRow, SettingsSection, toast } from '../../ui'
 import { clearSeenHosts, SEEN_HOSTS_EVENT, seenHosts } from '../../lib/externalLinks'
 
 /** Settings › General › Privacy: forget the sites links were opened to, so each one asks again. */
@@ -13,17 +13,13 @@ export function SeenSitesSetting(): ReactElement {
     window.addEventListener('storage', update)
     return () => { window.removeEventListener(SEEN_HOSTS_EVENT, update); window.removeEventListener('storage', update) }
   }, [])
-  return <>
-    <h3>{t('general.privacy')}</h3>
-    <div className="settings-general-card" data-testid="seen-sites-setting"><div>
-      <strong>{t('general.seenSites.label')}</strong>
-      <p>{t('general.seenSites.hint')}</p>
-      <p data-testid="seen-sites-count">{t('general.seenSites.count', { count })}</p></div>
-      <Button disabled={count === 0} onClick={() => {
+  return <SettingsSection title={t('general.privacy')}>
+    <SettingRow testId="seen-sites-setting" label={t('general.seenSites.label')}
+      description={<>{t('general.seenSites.hint')}<br /><span data-testid="seen-sites-count">{t('general.seenSites.count', { count })}</span></>}
+      control={<Button disabled={count === 0} onClick={() => {
         const cleared = clearSeenHosts()
         setCount(0)
         toast({ title: t('general.seenSites.cleared', { count: cleared }), intent: 'success', duration: 3000 })
-      }}>{t('general.seenSites.clear')}</Button>
-    </div>
-  </>
+      }}>{t('general.seenSites.clear')}</Button>} />
+  </SettingsSection>
 }
