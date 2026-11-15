@@ -16,9 +16,12 @@ data class VtLine(val text: String, val runs: List<VtRun>)
  * - cursor moves CUU CUD CUF CUB CNL CPL CHA VPA CUP HVP, and DECSC/DECRC or CSI s/u;
  * - erases EL ED ECH, and DCH ICH;
  * - CR, LF (taken as a new line, as the PTY's onlcr writes it), BS and TAB;
- * - SGR colors 0–15 and bold, as before.
+ * - SGR colors 0–15 and bold, as before;
+ * - (1.5.2 A5) the scroll region DECSTBM, IL/DL, SU/SD, IND/NEL and RI, as xterm: LF at the bottom of the region
+ *   scrolls only the region, RI at its top scrolls it down, and LF on the last row of the alternate screen (its height
+ *   known) scrolls instead of growing a line, so full-screen CLIs (Codex, vim, less, htop) keep their rows.
  *
- * Everything else is read and dropped: OSC titles and links, other modes (?25 included), charsets, scroll regions.
+ * Everything else is read and dropped: OSC titles and links, other modes (?25 included), charsets.
  *
  * The width (1.5.0 A45): with the desktop's columns known from its snapshot ([reset] with cols), the grid is exactly
  * that wide, as xterm's: a line wraps at the edge (autowrap, the wrap pending until the next printed character), CUP,
@@ -108,7 +111,8 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     /** A blank screen; the width stays what the last snapshot set (a RIS or a truncated ring doesn't change the pane). */
     fun reset() {
         main = mutableListOf(Line()); alt = null; top = 0; row = 0; col = 0; style = 0
-        savedMain = null; saved = null; chars = 1; pending.setLength(0); high = null; rows = 0; version++
+        savedMain = null; saved = null; chars = 1; pending.setLength(0); high = null; rows = 0
+        marginTop = 0; marginBottom = -1; version++
     }
 
     /** The lines to show: the alternate screen while a full-screen program has it, else the main screen with its scrollback. */
@@ -182,7 +186,63 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     private fun clampCol(value: Int): Int = if (cols > 0) minOf(value, cols - 1) else value
 
     private fun newLine() {
+        val rel = row - screenTop
+        val bottom = regionBottom()
+        val regionSet = marginTop > 0 || marginBottom >= 0
+        if (((alt != null && rows > 0) || regionSet) && rel == bottom) { scrollUp(marginTop, bottom, 1); return }
+        // Below the region on the alternate screen's last row: the cursor stays, as xterm's does.
+        if (alt != null && rows > 0 && rel >= rows - 1) return
         row++
+        ensureRow(row)
+    }
+
+    /** The top margin of the scroll region (DECSTBM), screen-relative. */
+    private var marginTop = 0
+    /** The bottom margin of the scroll region, screen-relative; -1 for the screen's last row. */
+    private var marginBottom = -1
+
+    /** The last row the scroll region covers, screen-relative. */
+    private fun regionBottom(): Int = when {
+        marginBottom >= 0 -> marginBottom
+        rows > 0 -> rows - 1
+        else -> maxOf(0, lines.size - 1 - screenTop)
+    }
+
+    /** Rows [from]..[until] (screen-relative) move up [count]: the top ones leave, blank rows come in at the bottom. */
+    private fun scrollUp(from: Int, until: Int, count: Int) {
+        if (from > until) return
+        ensureRow(screenTop + until)
+        repeat(minOf(count, until - from + 1)) {
+            val gone = lines.removeAt(screenTop + from)
+            lines.add(screenTop + until, Line())
+            if (alt == null) chars -= gone.length()
+        }
+    }
+
+    /** Rows [from]..[until] (screen-relative) move down [count]: the bottom ones leave, blank rows come in at the top. */
+    private fun scrollDown(from: Int, until: Int, count: Int) {
+        if (from > until) return
+        ensureRow(screenTop + until)
+        repeat(minOf(count, until - from + 1)) {
+            val gone = lines.removeAt(screenTop + until)
+            lines.add(screenTop + from, Line())
+            if (alt == null) chars -= gone.length()
+        }
+    }
+
+    /**
+     * DECSTBM: the region from row [first] to [last] (1-based); the cursor goes home. A region from the first row with
+     * no known height, or covering the whole known height, is the default (no region).
+     */
+    private fun setMargins(first: Int, last: Int?) {
+        val t = first - 1
+        val b = (last ?: if (rows > 0) rows else 0) - 1
+        val limit = if (rows > 0) rows - 1 else Int.MAX_VALUE
+        val bottom = minOf(b, limit)
+        if (b < 0 || (t == 0 && (rows == 0 || bottom == rows - 1))) { marginTop = 0; marginBottom = -1 }
+        else if (t < bottom) { marginTop = t; marginBottom = bottom }
+        else return
+        row = screenTop; col = 0
         ensureRow(row)
     }
 
@@ -241,7 +301,10 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
             '[' -> csi(s.substring(start + 2, end - 1), s[end - 1])
             '7' -> saved = Saved(row - screenTop, col, style)
             '8' -> restore(saved)
-            'M' -> if (row > screenTop) row-- // reverse index at the top would scroll; dropped
+            // RI at the region's top scrolls it down; IND and NEL move down, scrolling at the bottom.
+            'M' -> if (row - screenTop == marginTop) scrollDown(marginTop, regionBottom(), 1) else if (row > screenTop) row--
+            'D' -> newLine()
+            'E' -> { newLine(); col = 0 }
             'c' -> reset()
         }
     }
@@ -275,6 +338,12 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
                 if (cols > 0) l.truncate(cols)
                 if (alt == null) chars += l.length() - before
             }
+            'L' -> { val rel = row - screenTop; val b = regionBottom(); if (rel in marginTop..b) { scrollDown(rel, b, n()); col = 0 } }
+            'M' -> { val rel = row - screenTop; val b = regionBottom(); if (rel in marginTop..b) { scrollUp(rel, b, n()); col = 0 } }
+            'S' -> scrollUp(marginTop, regionBottom(), n())
+            // CSI T with five arguments is xterm's mouse highlight, not SD.
+            'T' -> if (numbers.size <= 1) scrollDown(marginTop, regionBottom(), n())
+            'r' -> setMargins(n(0), numbers.getOrNull(1)?.takeIf { it > 0 })
             's' -> saved = Saved(row - screenTop, col, style)
             'u' -> restore(saved)
         }

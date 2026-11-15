@@ -24,9 +24,13 @@ export default defineConfig({
     // fails (ci.yml perf-recheck); measured here too, a slow runner turned the smoke run red with no recheck.
     '**/perceived-perf.spec.ts',
     '**/browser-preview-performance.spec.ts',
+    // Real-PTY load (OXE-120): its own workflow (perf-load.yml), one job per OS; never in the smoke run.
+    '**/perf-load.spec.ts',
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
     '**/visual/**',
+    // The brand conformance run has its own config (playwright.brand.config.ts) and runs once per platform (OXE-149).
+    '**/brand/**',
     // Packaged-artifact smokes need a built installer and are driven by the
     // release leg of CI with OXESPACE_PACKAGED_EXECUTABLE set.
     '**/packaged-linux.spec.ts',

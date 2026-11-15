@@ -26,11 +26,12 @@
  * Build first: npx electron-vite build
  * Run: npx playwright test --config playwright.tools.config.ts perceived-perf.spec.ts --workers=1 --reporter=line
  */
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
+import { launchForPerf } from './helpers/perf-launch'
 
 const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
@@ -248,7 +249,7 @@ type View = 'OxeCode' | 'OxeChat' | 'OxeQuery'
 interface Surface { name: string; probe: Probe; /** Untimed setup, then tags the control to click. */ arm: (page: Page) => Promise<void>; /** Untimed teardown. */ leave?: (page: Page) => Promise<void> }
 
 const MODE_PROBE = { dialog: false, settleMs: 300, timeoutMs: 10_000 }
-const modeButton = (page: Page, name: View) => page.locator('nav[aria-label="Application view"]').getByRole('button', { name, exact: true })
+const modeButton = (page: Page, name: View) => page.locator('[role="tablist"][aria-label="Application view"]').getByRole('tab', { name, exact: true })
 const armMode = (name: View) => async (page: Page): Promise<void> => { await modeButton(page, name).evaluate(el => el.setAttribute('data-perf-trigger', '')) }
 const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surface => ({
   name,
@@ -257,7 +258,7 @@ const settingsSurface = (name: string, page: 'providers' | 'appearance'): Surfac
     await modeButton(p, 'OxeCode').click()
     // F7.2: a view switch commits after the selected button has painted, so let it land before tagging a control the
     // commit re-renders (untimed setup).
-    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(p, 'OxeCode')).toHaveAttribute('aria-selected', 'true')
     await expect(modeButton(p, 'OxeCode')).not.toHaveAttribute('aria-busy', 'true')
     await p.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await p.evaluate(target => localStorage.setItem('oxe.settings.destination', JSON.stringify({ scope: 'application', page: target })), page)
@@ -294,10 +295,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; repo: s
   const root = mkdtempSync(join(tmpdir(), 'oxespace-perceived-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
-  const app = await electron.launch({
-    args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: { ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') }
-  })
+  const app = await launchForPerf({ ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') })
   const page = await app.firstWindow()
   return { app, page, repo }
 }

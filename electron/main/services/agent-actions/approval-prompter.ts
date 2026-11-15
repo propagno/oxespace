@@ -7,9 +7,10 @@ import { PrompterRefusal, type ApprovalDecision, type ApprovalPrompter, type App
  */
 export function centerApprovalPrompter(center: Pick<ApprovalCenter, 'ask'> | (() => Promise<Pick<ApprovalCenter, 'ask'>>)): ApprovalPrompter {
   return {
-    async ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision> {
+    async ask(request: ApprovalRequest, signal: AbortSignal, onAsked?: (approvalId: string) => void): Promise<ApprovalDecision> {
       const [resolved, { brokerDraft }] = await Promise.all([typeof center === 'function' ? center() : center, import('../approvals/drafts')])
-      const outcome = await resolved.ask(brokerDraft(request), signal)
+      // The center's own record id, as soon as it waits for an answer (OXE-109).
+      const outcome = await resolved.ask(brokerDraft(request), signal, onAsked ? asked => onAsked(asked.id) : undefined)
       // Never shown (queue full, too long): the agent gets that reason, not the person's "declined".
       if (outcome.by === 'refused' && outcome.refusal) throw new PrompterRefusal(outcome.refusal)
       return outcome.intent === 'allow' ? 'allow-once' : outcome.intent === 'allow-session' ? 'allow-session' : 'deny'

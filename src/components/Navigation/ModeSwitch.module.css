@@ -1,86 +1,46 @@
-/* Mode tabs in the title bar: Playground segmented pill group (.modes) beside the menus. */
+/* Mode tabs in the title bar (BRD-09): the src/ui Tabs list; each tab is the primitive's .tab (--bar-md, 12/500). */
 .switch {
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  gap: 2px;
-  height: 30px;
-  padding: 2px;
+  gap: var(--space-0-5);
   margin-left: var(--space-1);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--bd-subtle);
-  background: var(--surface-sunken);
   -webkit-app-region: no-drag;
 }
 
-/* Holds a view's button and, beside it, its attention badge; the badge is placed against this box. */
-.item { position: relative; display: inline-flex; align-items: center; }
-
+/* The icon, the name and the count sit in one line, spaced by --space-1. */
 .option {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5, 6px);
-  height: 26px;
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--tx-secondary);
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  gap: var(--space-1);
+  -webkit-app-region: no-drag;
+  transition: color var(--duration-fast) var(--ease-standard);
 }
-.option:hover { color: var(--tx-primary); background: var(--fill-hover); }
-.option[aria-pressed='true'] {
-  background: var(--surface-raised);
-  color: var(--tx-primary);
-  font-weight: var(--weight-semibold);
-  box-shadow: var(--elevation-1);
-}
-:global([data-appearance='dark']) .option[aria-pressed='true'] {
-  background: var(--fill-selected);
-  color: var(--tx-accent);
-  box-shadow: none;
-}
-.option:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 .modeIcon { flex-shrink: 0; color: currentColor; opacity: 0.82; transition: color var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); }
-.option[aria-pressed='true'] .modeIcon { color: var(--accent); opacity: 1; }
+.option[data-state='active'] .modeIcon { color: var(--accent); opacity: 1; }
 
 @media (max-width: 1080px) {
-  .option { padding: 0 var(--space-2); }
+  .switch .option { padding: 0 var(--space-2); }
   .modeIcon { display: none; }
 }
 
-/* What needs a person in that view: amber for "needs you", red when only failures remain. */
+/* What needs you in that view, inline after the name, in the needs-you colours (--attn is only for "Precisa de você"). */
 .badge {
-  position: absolute;
-  /* Starts after the name ends (the tab's own padding) and grows outwards, so "9+" never comes back over it. */
-  top: -4px;
-  left: calc(100% - var(--space-3) + 5px);
+  display: inline-grid;
+  place-items: center;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  display: grid;
-  place-items: center;
   border-radius: var(--radius-full);
-  /* C-12: white on the warning solid was 3.56:1 at 11 px; warning fg on warning bg is 5.7:1 light, 9:1 dark. */
-  border: 1px solid var(--intent-warning-fg);
-  background: var(--intent-warning-bg);
-  color: var(--intent-warning-fg);
+  border: 1px solid var(--attn-border);
+  background: var(--attn-bg);
+  color: var(--attn-fg);
   font-size: var(--fs-2xs);
   font-weight: var(--weight-semibold);
   line-height: 1;
   pointer-events: none;
 }
-/* Narrow tabs have less padding to lend: the tab with a count keeps a little room before the next one. */
-@media (max-width: 1080px) { .badge { left: calc(100% - var(--space-2) + 4px); } .item:has(.badge) { margin-right: 6px; } }
-.badgeFailed { border-color: var(--intent-danger-fg); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 
-/* Agents are busy and nothing needs you: a small breathing dot. */
+/* Agents are busy and nothing needs you: a small breathing dot. A failure alone: the same dot, red and still. */
 .working { position: absolute; top: 3px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
 :global([data-motion='reduce']) .working { animation: none; }
+.failed { background: var(--intent-danger-fg); animation: none; }

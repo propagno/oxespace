@@ -15,9 +15,9 @@
  * OXESPACE_HEAVY_LOCK overrides the path (tests).
  */
 import { spawn } from 'node:child_process'
-import { closeSync, linkSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs'
+import { closeSync, existsSync, linkSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs'
 import { freemem, tmpdir } from 'node:os'
-import { isAbsolute, join } from 'node:path'
+import { basename, isAbsolute, join, resolve, win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const LOCK_PATH = process.env.OXESPACE_HEAVY_LOCK || join(tmpdir(), 'oxespace-heavy.lock')
@@ -147,6 +147,51 @@ export function release(path = LOCK_PATH) {
   if (lock && lock.pid === process.pid) { try { unlinkSync(path) } catch { /* already gone */ } }
 }
 
+/**
+ * Where a command runs from (OXE-114). On Windows a relative .bat or .cmd given with a folder, like
+ * `mobile/android/gradlew.bat`, reaches cmd.exe as typed, and cmd reads the forward slashes as switches: it fails.
+ * Such a command is resolved against the working folder and runs from its own folder, as a wrapper like gradlew
+ * expects. A bare name (npm.cmd, a .bat on PATH) and every other command run as given, from the working folder.
+ */
+export function resolveCommand(command, cwd = process.cwd(), platform = process.platform, exists = existsSync) {
+  if (platform !== 'win32' || win32.isAbsolute(command) || !/\.(bat|cmd)$/i.test(command)) return { command, cwd }
+  const local = win32.resolve(cwd, command)
+  if (!/[\\/]/.test(command) && !exists(local)) return { command, cwd }
+  return { command: local, cwd: win32.dirname(local) }
+}
+
+/** The local.properties line Gradle reads for the SDK, escaped the way Android Studio writes it. */
+export const sdkDirLine = sdk => `sdk.dir=${sdk.replace(/\\/g, '\\\\').replace(/:/g, '\\:')}`
+
+/**
+ * A new worktree has no local.properties (it is not versioned), so its Android build cannot find the SDK (OXE-114).
+ * Before a gradlew command, the Android folder gets one when it lacks it: the main checkout's file when there is
+ * one, else sdk.dir from ANDROID_HOME or ANDROID_SDK_ROOT. An existing file is never touched. Returns what it did.
+ */
+export function ensureLocalProperties(androidDir, mainAndroidDir, env = process.env, fs = { existsSync, readFileSync, writeFileSync }) {
+  const target = join(androidDir, 'local.properties')
+  if (fs.existsSync(target)) return 'kept'
+  if (!fs.existsSync(join(androidDir, 'settings.gradle')) && !fs.existsSync(join(androidDir, 'settings.gradle.kts'))) return 'not-android'
+  const main = mainAndroidDir ? join(mainAndroidDir, 'local.properties') : null
+  if (main && resolve(main) !== resolve(target) && fs.existsSync(main)) {
+    fs.writeFileSync(target, fs.readFileSync(main, 'utf8'))
+    return 'copied'
+  }
+  const sdk = env.ANDROID_HOME || env.ANDROID_SDK_ROOT
+  if (!sdk) return 'no-sdk'
+  fs.writeFileSync(target, `${sdkDirLine(sdk)}\n`)
+  return 'written'
+}
+
+/** The Android folder of the main checkout that holds this worktree, from git's common dir, or null. */
+function mainAndroidDir(cwd) {
+  try {
+    const top = readFileSync(join(cwd, '.git'), 'utf8').match(/^gitdir:\s*(.+)$/m)?.[1]?.trim()
+    // A worktree's .git file points at <main>/.git/worktrees/<name>; the main checkout is two folders above it.
+    return top ? join(resolve(cwd, top), '..', '..', '..', 'mobile', 'android') : null
+  } catch { return null }
+}
+
 async function main(argv) {
   if (argv[0] === '--status') {
     console.log(describeLock(readLock()))
@@ -181,10 +226,18 @@ async function main(argv) {
   }
   return await new Promise(resolve => {
     // npm and npx are .cmd files on Windows and need the shell; an executable given by its full path does not.
-    const shell = process.platform === 'win32' && !(isAbsolute(command) && /\.(exe|com)$/i.test(command))
+    const run = resolveCommand(command)
+    if (/^gradlew(\.bat)?$/i.test(basename(run.command))) {
+      const top = resolve(run.cwd, '..', '..')
+      const done = ensureLocalProperties(run.cwd, mainAndroidDir(top))
+      if (done === 'copied' || done === 'written') console.error(`[heavy-lock] wrote ${join(run.cwd, 'local.properties')} (${done}), which this worktree lacked`)
+      if (done === 'no-sdk') console.error('[heavy-lock] this worktree has no local.properties and ANDROID_HOME is not set: Gradle may not find the SDK')
+    }
+    const shell = process.platform === 'win32' && !(isAbsolute(run.command) && /\.(exe|com)$/i.test(run.command))
     // Through the shell, an argument with spaces or shell characters stays one argument only when quoted.
     const quoted = shell ? args.map(arg => /[\s"&|<>^()%!]/.test(arg) ? `"${arg.replace(/"/g, '\\"')}"` : arg) : args
-    const child = spawn(command, quoted, { stdio: 'inherit', shell })
+    const executable = shell && /\s/.test(run.command) ? `"${run.command}"` : run.command
+    const child = spawn(executable, quoted, { stdio: 'inherit', shell, cwd: run.cwd })
     child.on('error', error => { console.error(`[heavy-lock] ${error.message}`); resolve(1) })
     child.on('close', code => resolve(code ?? 1))
   })

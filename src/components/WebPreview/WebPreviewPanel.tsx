@@ -22,6 +22,7 @@ import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
 import { PREVIEW_DEVICES } from '../../../shared/preview-devices'
 import { DeviceMenu, fitDeviceFrame } from './DeviceMenu'
+import { PreviewApprovalInline } from './PreviewApprovalInline'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 import { useKeybindings } from '../../keyboard/keybindings'
@@ -274,17 +275,25 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   // agent opening one preview cannot overwrite another workspace's request.
   const pendingWebPreview = useUIStore((s) => s.pendingWebPreviewByWorkspace[previewKey] ?? null)
   const setPendingWebPreview = useUIStore((s) => s.setPendingWebPreview)
+  // Only pages main let through reach this slot: local ones, and external ones the person allowed on the approval
+  // record (OXE-109). An allowed external page turns External on, so it shows instead of "turn on External".
+  const loadingPending = useRef<string | null>(null)
   useEffect(() => {
-    if (!pendingWebPreview || !activeTabId) return
-    const nextUrl = normalizePreviewUrl(pendingWebPreview, allowExternal)
+    if (!pendingWebPreview || !activeTabId || loadingPending.current === pendingWebPreview) return
+    const nextUrl = normalizePreviewUrl(pendingWebPreview, true)
     if (!nextUrl) {
-      setCaptureNotice(tc('preview.agentExternal'))
+      setCaptureNotice(tc('preview.invalidUrl'))
+      setPendingWebPreview(previewKey, null)
       return
     }
+    const external = !normalizePreviewUrl(pendingWebPreview, false)
+    if (external && !allowExternal) setAllowExternal(true)
+    loadingPending.current = pendingWebPreview
     setCaptureNotice(null)
     updateTab(activeTabId, tab => ({ ...tab, draftUrl: pendingWebPreview }))
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open'))))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal:allowExternal || external}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open')))).finally(() => { loadingPending.current = null })
   }, [pendingWebPreview, previewKey, activeTabId, setPendingWebPreview, allowExternal, applySession])
+  const approvalOwner = useMemo(() => threadId ? { threadId, paneIds: [] } : { paneIds: (workspace.panes ?? []).map(pane => pane.id) }, [threadId, workspace.panes])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
   const openExternal = (): void => { if (url) void openExternalLink(url, { source: 'preview' }) }
@@ -383,6 +392,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         </button>
       </div>
 
+      <PreviewApprovalInline owner={approvalOwner} />
       {consentOpen && <ConfirmDialog title={t('preview.access.title')} confirmLabel={t('preview.access.allow')} onCancel={() => setConsentOpen(false)}
         onConfirm={() => {
           // The one grant main accepts (T43): the effect's re-sends below can keep or lower access, never raise it.

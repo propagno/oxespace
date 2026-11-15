@@ -12,7 +12,7 @@ import type { AppMode } from './helpers/modes'
 const AUDIT = `(() => {
   const transparent = (value) => value === 'transparent' || /rgba?\\([^)]*,\\s*0\\)$/.test(value) || /\\/\\s*0\\)$/.test(value)
   const out = []
-  for (const element of document.querySelectorAll('button[class*="_button_"][class*="_secondary_"]')) {
+  for (const element of document.querySelectorAll('button[data-ui$="button"][data-variant="secondary"]')) {
     const box = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     if (box.width === 0 || box.height === 0 || style.visibility === 'hidden' || style.display === 'none') continue
@@ -24,7 +24,7 @@ const AUDIT = `(() => {
   return out
 })()`
 
-const count = (page: Page) => page.evaluate(() => document.querySelectorAll('button[class*="_button_"][class*="_secondary_"]').length)
+const count = (page: Page) => page.evaluate(() => document.querySelectorAll('button[data-ui$="button"][data-variant="secondary"]').length)
 
 test('secondary Buttons keep their border and fill at rest in every view, light and dark', async () => {
   test.setTimeout(240_000)

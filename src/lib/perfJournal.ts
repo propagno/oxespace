@@ -6,7 +6,7 @@ import { getKeyboardView } from '../keyboard/keybindings'
  *  - long animation frames (over 50 ms): `frame:<view>` is the frame, `block:<view>` the part that held input back;
  *  - event timing: `input:<event>:<view>`, from a click or key press to the next painted frame, from 16 ms up.
  * Samples are counted into the journal's buckets here and reported every 30 seconds, and when the window hides.
- * Loaded after the first screen has painted (startupTiming.ts), so it costs the start nothing.
+ * Loaded once the window is idle after the first screen (idlePreload.ts), so it costs the start nothing.
  */
 const BUCKETS = [16, 33, 50, 100, 200, 500, 1000, 2000]
 const REPORT_MS = 30_000

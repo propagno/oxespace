@@ -78,7 +78,13 @@
 .menuShortcut { margin-left: auto; padding-left: var(--space-4); font-size: var(--fs-xs); color: var(--tx-muted); }
 .menuLabel { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-secondary); }
 .menuSeparator { height: 1px; margin: var(--space-1) 0; background: var(--bd-subtle); }
-.menuCheck { margin-left: auto; color: var(--accent); }
+/* A check item's left column: the slot reserves the check's width so checked and unchecked labels line up. */
+/* The check sits in the icon box of the sibling entries (icons are 14px), so the label stays on their column. */
+.menuCheckSlot { flex: none; display: inline-flex; align-items: center; justify-content: center; inline-size: 14px; }
+.menuCheck { display: inline-flex; color: var(--accent); }
+.menuItem .menuCheck svg { color: var(--accent); }
+/* A radio option keeps its indicator at the right edge. */
+.menuRadioCheck { margin-left: auto; color: var(--accent); }
 
 .tooltip {
   z-index: var(--layer-tooltip);

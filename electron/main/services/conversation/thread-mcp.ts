@@ -41,8 +41,10 @@ export const THREAD_TOOL_GROUPS = {
   data: ['oxespace_db_connections', 'oxespace_db_describe', 'oxespace_db_query', 'oxespace_mongo_find', 'oxespace_mongo_aggregate',
     'oxespace_db_execute', 'oxespace_mongo_write', 'oxespace_containers_list', 'oxespace_container_logs', 'oxespace_container_action',
     'oxespace_db_explain', 'oxespace_db_activity'],
-  /** Web previews: open, capture and drive the opted-in browser session. */
-  docs: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact', 'oxespace_device_screenshot'],
+  /** Documentation tools. Empty since the previews moved to `preview` (OXE-108); kept so saved configurations still read. */
+  docs: [],
+  /** Web Preview and Android devices: open, capture and drive a preview, take a device screenshot. On by default. */
+  preview: ['oxespace_open_web_preview', 'oxespace_capture_web_preview', 'oxespace_preview_interact', 'oxespace_device_screenshot'],
   /** The app itself: Git, GitHub, Threads, skills, MCP servers, search and usage.
    * Changes: each action is recorded; pushes, pull requests, releases and the like are approved by a person. */
   app: ['oxespace_git', 'oxespace_github', 'oxespace_threads', 'oxespace_skills',
@@ -74,7 +76,7 @@ export const CODE_ON_DEMAND_TOOLS: string[] = CODE_TOOL_GROUP.filter(tool => !(C
 /** Every group of OXESpace tools, the Code terminal's included (Settings › Tools lists these). */
 export const MCP_TOOL_GROUPS = { ...THREAD_TOOL_GROUPS, code: CODE_TOOL_GROUP } as const satisfies Record<string, readonly string[]>
 /** Groups a project can turn on in oxe.yaml; core is always on and roles are detected. */
-export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'app']
+export const OPTIONAL_THREAD_TOOL_GROUPS: ThreadToolGroup[] = ['orchestration', 'data', 'docs', 'preview', 'app']
 
 /** Every tool a Thread can be given. */
 export const THREAD_MCP_TOOLS: string[] = [...new Set(Object.values(THREAD_TOOL_GROUPS).flat())]

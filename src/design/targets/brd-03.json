@@ -1,0 +1,210 @@
+{
+  "brd": "BRD-03",
+  "card": null,
+  "title": "OxeCode tabs and buttons (VIS-01/02)",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-03.tabs.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.tab.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.tab.font-weight",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.tab.underline",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab][data-state=active]::after",
+      "prop": "height",
+      "expect": {
+        "px": 2
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.button.height",
+      "scene": "code-workspace",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
+      "prop": "height",
+      "expect": {
+        "oneOf": [
+          "--control-sm",
+          "--control-md",
+          "--control-lg"
+        ]
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.button.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=button]:not([data-size=lg])",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "sm and md text; brand 14/11, the BRD-04 decision"
+    },
+    {
+      "id": "BRD-03.button-lg.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=button][data-size=lg]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending",
+      "note": "lg text (dialog footers, a page primary); measured in the first-run scene once #858 (BRD-12) lands, which has lg primaries (MARCA + coordination 15/11)"
+    },
+    {
+      "id": "BRD-03.button.font-weight",
+      "scene": "code-workspace",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.icon-button.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=icon-button]",
+      "prop": "height",
+      "expect": {
+        "oneOf": [
+          "--control-sm",
+          "--control-md",
+          "--control-lg"
+        ]
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-03.raw-button.count",
+      "scene": "code-workspace",
+      "select": "header button:not([data-ui]):not([role=tab]), aside button:not([data-ui]):not([role=tab])",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending",
+      "note": "every button of the workspace bar and the sidebar is a Button or IconButton (OxeCode surface)"
+    }
+  ]
+}

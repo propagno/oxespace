@@ -1,14 +1,19 @@
 // @vitest-environment node
-import { join } from 'node:path'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ALWAYS_TESTS,
   ANDROID_GENERATED_TEST,
+  BRAND_CONTEXTS,
+  brandEvidence,
   buildSteps,
   checkEnv,
   classifyChange,
   CI_UNIT_JOBS,
   ciEvidence,
+  failedRunLine,
   markerContent,
   markerPath,
   NETWORK_FAILURE,
@@ -17,11 +22,13 @@ import {
   parseArgs,
   runIdOf,
   STATUS_CONTEXT,
+  touchesInterface,
   statusBody,
   visualEvidence,
   visualPlatforms,
   WORKERS,
   withNetworkRetry,
+  writeMarker,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/pr-ready.mjs'
 
@@ -66,10 +73,10 @@ describe('the origin gate (OXE-138: only /oxe-quick or oxe-execute implement)', 
     expect(ORIGIN_CONFIG).toBe('oxe.config.json')
     const code: Step[] = buildSteps({ files: ['src/App.tsx'], related: plan(), base: 'origin/main', origin: true })
     expect(code[0]).toEqual({ name: expect.stringContaining('check-origin origin/main..HEAD'), kind: 'origin', args: ['origin/main..HEAD'] })
-    expect(code.slice(1).map(s => s.kind)).toEqual(['npm', 'npm', 'vitest'])
+    expect(code.slice(1).map(s => s.kind)).toEqual(['npm', 'npm', 'vitest', 'brand'])
     // A change proven by CI alone (images, packages) still passes the gate first.
     const images: Step[] = buildSteps({ files: ['e2e/visual/__screenshots__/linux/a.png'], related: plan(), origin: true })
-    expect(images.map(s => s.kind)).toEqual(['origin', 'visual'])
+    expect(images.map(s => s.kind)).toEqual(['origin', 'visual', 'brand'])
   })
 
   it('is not charged on a branch made before the gate (no oxe.config.json)', () => {
@@ -82,6 +89,33 @@ describe('the origin gate (OXE-138: only /oxe-quick or oxe-execute implement)', 
     expect(oxeCcCommand({ OXE_CC: '/usr/local/bin/oxe-cc' })).toEqual({ command: '/usr/local/bin/oxe-cc', args: [] })
     expect(oxeCcCommand({})).toBeNull()
     expect(oxeCcCommand({ OXE_CC: '  ' })).toBeNull()
+  })
+})
+
+describe('the brand fidelity gate (OXE-148: Teste + MARCA barram)', () => {
+  it('asks for marca/conformidade (CI) and marca/fidelidade (MARCA), last, when the change touches the interface, and only then', () => {
+    expect(BRAND_CONTEXTS).toEqual(['marca/conformidade', 'marca/fidelidade'])
+    for (const file of ['src/components/Threads/ThreadView.css', 'src/App.tsx', 'src/design/tokens/palette.ts', 'src/styles/base.css', 'src/ui/Button.ts', 'mobile/android/app/src/main/java/com/oxespace/mobile/ui/HomeScreen.kt', 'mobile/android/app/src/main/res/values/strings.xml', 'mobile/android/app/src/test/snapshots/images/a.png', 'e2e/visual/__screenshots__/linux/a.png'])
+      expect(touchesInterface([file]), file).toBe(true)
+    for (const file of ['src/store/thread.store.ts', 'scripts/pr-ready.mjs', 'electron/main/index.ts', 'mobile/android/app/src/main/java/com/oxespace/mobile/session/Session.kt', 'docs/a.md'])
+      expect(touchesInterface([file]), file).toBe(false)
+    const ui: Step[] = buildSteps({ files: ['src/App.tsx'], related: plan(), origin: true })
+    expect(ui[0].kind).toBe('origin')
+    expect(ui.at(-1)).toEqual({ name: expect.stringContaining('marca/conformidade, marca/fidelidade'), kind: 'brand', args: ['marca/conformidade', 'marca/fidelidade'] })
+    const plain: Step[] = buildSteps({ files: ['src/store/thread.store.ts'], related: plan() })
+    expect(plain.some(s => s.kind === 'brand')).toBe(false)
+  })
+
+  it('needs each brand context green at its latest status: a newer failure wins, a missing one fails', () => {
+    expect(brandEvidence([{ context: 'marca/fidelidade', state: 'success' }, { context: 'marca/conformidade', state: 'success' }]).ok).toBe(true)
+    // MARCA's check alone is not enough: the conformance job's status has to be green too (Teste + MARCA barram).
+    expect(brandEvidence([{ context: 'marca/fidelidade', state: 'success' }]).missing).toEqual(['marca/conformidade has not been posted'])
+    expect(brandEvidence([{ context: 'marca/conformidade', state: 'failure', description: '1 enforced divergence(s)' }, { context: 'marca/fidelidade', state: 'success' }]).missing[0]).toContain('1 enforced divergence(s)')
+    const newer = brandEvidence([{ context: 'marca/fidelidade', state: 'failure', description: 'aba 30 px, alvo 32' }, { context: 'marca/fidelidade', state: 'success' }], ['marca/fidelidade'])
+    expect(newer.ok).toBe(false)
+    expect(newer.missing[0]).toContain('aba 30 px, alvo 32')
+    expect(brandEvidence([]).missing).toEqual(['marca/conformidade has not been posted', 'marca/fidelidade has not been posted'])
+    expect(brandEvidence([{ context: 'marca/conformidade', state: 'success' }], ['marca/fidelidade', 'marca/conformidade']).ok).toBe(false)
   })
 })
 
@@ -138,7 +172,9 @@ describe('changes that need no node_modules (TECH LEAD, 07/11)', () => {
   })
 
   it('proves images with visual-baselines.yml and packages with CI, with no local step', () => {
-    expect(buildSteps({ files: [win('a/x')], related: plan() })).toEqual([{ name: expect.stringContaining('(windows)'), kind: 'visual', args: ['windows'] }])
+    // Visual baselines are interface, so the brand gate (OXE-148) follows the visual-baselines evidence. An images-only
+    // PR is not docs-only, so CI's e2e runs and its brand conformance job posts marca/conformidade on it too.
+    expect(buildSteps({ files: [win('a/x')], related: plan() })).toEqual([{ name: expect.stringContaining('(windows)'), kind: 'visual', args: ['windows'] }, { name: expect.stringContaining('marca/fidelidade'), kind: 'brand', args: ['marca/conformidade', 'marca/fidelidade'] }])
     expect(buildSteps({ files: ['playground/package-lock.json'], related: plan({ all: true }) })).toEqual([{ name: expect.stringContaining('packages only'), kind: 'ci', args: CI_UNIT_JOBS }])
   })
 
@@ -213,5 +249,46 @@ describe('the marker and the environment', () => {
     expect(() => parseArgs(['--base'])).toThrow()
     expect(() => parseArgs(['--base', '--full'])).toThrow()
     expect(() => parseArgs(['--force'])).toThrow()
+  })
+})
+
+describe('the marker survives a failed run (OXE-115)', () => {
+  it('rodada que falha mantém o marcador do mesmo head', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'oxe-115-'))
+    try {
+      const marker = join(dir, 'pr-ready', `${SHA}.json`)
+      const passed = markerContent({ sha: SHA, at: 'earlier', base: 'origin/main', steps: ['ci'], evidence: 'ci', runs: [1] })
+      writeMarker(marker, passed)
+      // A later run on the same head fails: the marker of the passing run stays, and the output says this run failed.
+      expect(failedRunLine(SHA, marker)).toMatch(/this run failed; the marker of an earlier passing run on this head stands/)
+      expect(JSON.parse(await readFile(marker, 'utf8'))).toEqual(passed)
+      expect(failedRunLine(SHA, join(dir, 'pr-ready', `${'b'.repeat(40)}.json`))).toMatch(/no marker written/)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('troca atômica do marcador', async () => {
+    const calls: string[] = []
+    const marker = join('C:', 'repo', '.claude', 'pr-ready', `${SHA}.json`)
+    writeMarker(marker, { ok: true }, {
+      mkdirSync: (path: string) => calls.push(`mkdir ${path}`),
+      writeFileSync: (path: string) => calls.push(`write ${path}`),
+      renameSync: (from: string, to: string) => calls.push(`rename ${from} -> ${to}`)
+    })
+    const temporary = `${marker}.${process.pid}.tmp`
+    // The content lands in a temporary file next to the marker and replaces it in one rename, only at the end.
+    expect(calls).toEqual([`mkdir ${dirname(marker)}`, `write ${temporary}`, `rename ${temporary} -> ${marker}`])
+
+    const dir = await mkdtemp(join(tmpdir(), 'oxe-115-'))
+    try {
+      const real = join(dir, `${SHA}.json`)
+      writeMarker(real, { run: 1 })
+      writeMarker(real, { run: 2 })
+      expect(JSON.parse(await readFile(real, 'utf8'))).toEqual({ run: 2 })
+      expect((await readdir(dir)).filter(name => name.endsWith('.tmp'))).toEqual([])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

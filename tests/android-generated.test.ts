@@ -9,13 +9,13 @@ import { constantName, PROTOCOL_KOTLIN_PATH, protocolKotlin } from '../scripts/a
 import { resourceName, STRINGS_XML_PATHS, stringsXml } from '../scripts/android/strings-xml.mjs'
 // @ts-expect-error plain ESM script without types
 import { camelName, kotlinColor, THEME_KOTLIN_PATH, themeKotlin } from '../scripts/android/theme-kotlin.mjs'
-import { IDENTITY } from '../src/design/tokens/palette'
+import { IDENTITY, LOGO } from '../src/design/tokens/palette'
 import { LEADING, MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT, WEIGHT } from '../src/design/tokens/scales'
 import { colorRoles } from '../src/design/tokens/semantic'
 
 const root = join(__dirname, '..')
 const protocolSource = readFileSync(join(root, 'shared', 'remote', 'protocol.ts'), 'utf8')
-const tokens = { colorRoles, IDENTITY, SPACE, RADIUS, TEXT, WEIGHT, LEADING, MOTION, REDUCED_MOTION }
+const tokens = { colorRoles, IDENTITY, LOGO, SPACE, RADIUS, TEXT, WEIGHT, LEADING, MOTION, REDUCED_MOTION }
 const committed = (path: string): string => readFileSync(join(root, path), 'utf8').replace(/\r\n/g, '\n')
 const catalog = (language: string): Record<string, unknown> => JSON.parse(readFileSync(join(root, 'shared', 'locales', language, 'mobile.json'), 'utf8'))
 

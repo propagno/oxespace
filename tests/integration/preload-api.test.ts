@@ -64,6 +64,12 @@ describe('preload api', () => {
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.android.status)
     expect(ipc.invoke).toHaveBeenCalledWith(IPC_CHANNELS.android.setAgentsCanSee, { serial: 'emulator-5554', value: true })
   })
+  test('OXE-109: listens for main opening the Android device panel', () => {
+    const ipc = createFakeIpc(), api = createOxeApi(ipc)
+    const listener = vi.fn()
+    api.android!.onOpenPanel!(listener)
+    expect(ipc.on).toHaveBeenCalledWith(IPC_CHANNELS.android.openPanel, expect.any(Function))
+  })
   test('exposes portable Thread import and export only through validated IPC methods', async () => {
     const ipc = createFakeIpc(), api = createOxeApi(ipc)
     await api.thread!.exportPortable!('thread-A')

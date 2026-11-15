@@ -2,7 +2,6 @@ import { BrowserWindow, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { McpImportResult, McpServerHealthEvent } from '../../../shared/types/mcp'
 import type { McpManager } from '../services/mcp.service'
-import { discoverMcpServers, readDiscoveredServers } from '../services/mcp-import.service'
 
 export function registerMcpIpc(manager: McpManager): void {
   ipcMain.handle(IPC_CHANNELS.mcp.list, (_event, workspaceId: unknown) => {
@@ -10,15 +9,18 @@ export function registerMcpIpc(manager: McpManager): void {
     return manager.list(wid)
   })
 
-  ipcMain.handle(IPC_CHANNELS.mcp.discover, (_event, workspaceId: unknown) => {
+  // Finding and importing other apps' servers loads with the person's first look, not at start (main's entry budget).
+  ipcMain.handle(IPC_CHANNELS.mcp.discover, async (_event, workspaceId: unknown) => {
+    const { discoverMcpServers } = await import('../services/mcp-import.service')
     const wid = typeof workspaceId === 'string' && workspaceId ? workspaceId : null
     return discoverMcpServers(new Set(manager.list(wid).filter(server => server.workspaceId === wid).map(server => server.name)))
   })
 
-  ipcMain.handle(IPC_CHANNELS.mcp.importDiscovered, (_event, input: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.mcp.importDiscovered, async (_event, input: unknown) => {
     if (!input || typeof input !== 'object') throw new Error('Invalid import input')
     const { workspaceId, source, names } = input as Record<string, unknown>
     if (typeof source !== 'string' || !Array.isArray(names) || names.length === 0 || names.length > 100 || !names.every(name => typeof name === 'string')) throw new Error('Choose the servers to add.')
+    const { readDiscoveredServers } = await import('../services/mcp-import.service')
     const wid = typeof workspaceId === 'string' && workspaceId ? workspaceId : null
     const taken = new Set(manager.list(wid).filter(server => server.workspaceId === wid).map(server => server.name))
     // Imported servers stay untrusted until the person trusts them, like pasted JSON.

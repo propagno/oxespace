@@ -70,7 +70,7 @@
     <string name="live_agents_partial_text">O computador não conseguiu ler todas as fontes desta vez. A lista se completa quando puder.</string>
     <string name="live_agents_partial_title">Alguns agentes não estão na lista</string>
     <string name="live_agent_state_blocked">Precisa de você</string>
-    <string name="live_agent_state_done">Terminou</string>
+    <string name="live_agent_state_done">Concluído</string>
     <string name="live_agent_state_idle">Ocioso</string>
     <string name="live_agent_state_unknown">Não confirmado</string>
     <string name="live_agent_state_working">Trabalhando</string>
@@ -93,7 +93,7 @@
     <string name="live_empty_threads">Ainda não há conversas em %1$s.</string>
     <string name="live_empty_title">Nada por aqui ainda</string>
     <string name="live_exit_code">código de saída %1$s</string>
-    <string name="live_job_exited">Terminou</string>
+    <string name="live_job_exited">Concluída</string>
     <string name="live_job_failed">Falhou</string>
     <string name="live_job_killed">Parada</string>
     <string name="live_job_pending">Iniciando</string>
@@ -103,11 +103,6 @@
     <string name="live_menu">Mais opções</string>
     <string name="live_menu_settings">Configurações</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Precisa de você (%1$d)</item>
-        <item quantity="other">Precisa de você (%1$d)</item>
-        <item quantity="many">Precisa de você (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">Você pode digitar daqui</string>
     <string name="live_read_only">Só leitura</string>
     <plurals name="live_requests_badge">
@@ -130,6 +125,21 @@
     <string name="local_network_needed">O OXESpace fala com o seu computador direto pela Wi-Fi, então o Android pergunta se ele pode usar a rede local. Ele só se conecta ao computador que você parear, nunca a outros aparelhos.</string>
     <string name="local_network_open_settings">Abrir configurações do app</string>
     <string name="local_network_title">Acesso à rede local</string>
+    <string name="needs_you_agent">O agente</string>
+    <string name="needs_you_allowed">Permitido</string>
+    <string name="needs_you_asks_approval">%1$s precisa da sua aprovação</string>
+    <string name="needs_you_asks_question">%1$s precisa da sua resposta</string>
+    <string name="needs_you_asks_run">%1$s precisa da sua aprovação</string>
+    <string name="needs_you_denied">Negado</string>
+    <string name="needs_you_kind_command">Aprovar comando</string>
+    <plurals name="needs_you_kind_questions">
+        <item quantity="one">%1$d pergunta</item>
+        <item quantity="other">%1$d perguntas</item>
+        <item quantity="many">%1$d perguntas</item>
+    </plurals>
+    <string name="needs_you_offline">Sem conexão com o computador. Responda quando ela voltar.</string>
+    <string name="needs_you_reply">Responder</string>
+    <string name="needs_you_title">Precisa de você</string>
     <string name="notify_channel_done">Concluído</string>
     <string name="notify_channel_failed">Falhou</string>
     <string name="notify_channel_needs_you">Precisa de você</string>
@@ -199,6 +209,7 @@
     <string name="request_from_agent">Escrito pelo agente</string>
     <string name="request_gone">Este pedido não está mais esperando.</string>
     <string name="request_hold">Risco crítico: Permitir fica disponível em 2 s.</string>
+    <string name="request_hold_to_allow">Segure para permitir</string>
     <string name="request_kind_agent">Pedido de um agente</string>
     <string name="request_kind_permissions">Pedido de permissão</string>
     <string name="request_kind_question">Pergunta do agente</string>
@@ -348,7 +359,6 @@
         <item quantity="other">+%1$d outros</item>
         <item quantity="many">+%1$d outros</item>
     </plurals>
-    <string name="thread_now_needs_you">Precisa de você: %1$s</string>
     <string name="thread_plan_progress">Plano · %1$s de %2$s</string>
     <string name="thread_request_state_cancelled">cancelado</string>
     <string name="thread_request_state_expired">expirou</string>
@@ -360,6 +370,8 @@
     <string name="thread_state_needs_you">Precisa de você</string>
     <string name="thread_state_stopped">Interrompido</string>
     <string name="thread_state_working">Trabalhando</string>
+    <string name="thread_step_collapsed">Recolhido</string>
+    <string name="thread_step_expanded">Expandido</string>
     <plurals name="thread_steps">
         <item quantity="one">%1$d passo</item>
         <item quantity="other">%1$d passos</item>

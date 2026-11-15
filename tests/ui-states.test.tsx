@@ -81,9 +81,9 @@ describe('brand loader', () => {
   it('is a labelled status drawn from the mark, or hidden when decorative', () => {
     const { container, rerender } = render(<BrandLoader label="Loading OxePost" />)
     expect(screen.getByRole('status', { name: 'Loading OxePost' })).toBeInTheDocument()
-    // The trunk, two sprouting arms and the sun.
+    // The trunk and two sprouting arms; the sun left the mark in 1.5.2 (it only means "needs you").
     expect(container.querySelectorAll('path')).toHaveLength(3)
-    expect(container.querySelector('circle')).not.toBeNull()
+    expect(container.querySelector('circle')).toBeNull()
     rerender(<BrandLoader decorative />)
     expect(screen.queryByRole('status')).toBeNull()
   })

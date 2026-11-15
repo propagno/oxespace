@@ -11,7 +11,7 @@
  * Budgets: 1 frame @60fps = 16.7ms · 100ms = perceptible.
  */
 import { modeButton } from './helpers/modes'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,6 +20,7 @@ import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
+import { launchForPerf } from './helpers/perf-launch'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -78,9 +79,13 @@ function report(op: string, xs: number[]): void {
   const s = stats(xs)
   const warm = xs.length > 1 ? stats(xs.slice(1)) : null
   const flag = s.mean > 100 ? '🔴' : s.mean > 16.7 ? '🟡' : '🟢'
+  // median= and first= (the first sample of the launch, a surface's first open) are read by the release gate
+  // (.github/workflows/perf-gate.yml, perf-gate/summarize.mjs).
+  const sorted = [...xs].sort((a, b) => a - b)
+  const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
   console.log(
     `[RESULT] ${op.padEnd(40)} n=${xs.length} min=${f(s.min)} mean=${f(s.mean)} p95=${f(s.p95)} max=${f(s.max)} ms` +
-    `${warm ? ` · warm mean=${f(warm.mean)} p95=${f(warm.p95)}` : ''} ${flag}`
+    `${warm ? ` · warm mean=${f(warm.mean)} p95=${f(warm.p95)}` : ''} median=${f(median)} first=${f(xs[0])} ${flag}`
   )
   if (ENFORCE_BUDGETS) {
     // Shared runners occasionally pause a renderer for several seconds while
@@ -101,14 +106,11 @@ async function launchApp(options: { mockNative?: boolean } = {}): Promise<{ app:
   ensureOutJunction()
   const root = join(tmpdir(), `oxe-perf-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   const mockNative = options.mockNative ?? true
-  const app = await electron.launch({
-    args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: {
-      ...process.env,
-      OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
-      OXESPACE_E2E_MOCK_NATIVE: mockNative ? '1' : '0',
-      OXESPACE_DB_PATH: join(root, 'db.sqlite3')
-    }
+  const app = await launchForPerf({
+    ...process.env,
+    OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
+    OXESPACE_E2E_MOCK_NATIVE: mockNative ? '1' : '0',
+    OXESPACE_DB_PATH: join(root, 'db.sqlite3')
   })
   const pid = app.process().pid
   const page = await app.firstWindow()
@@ -210,7 +212,7 @@ async function timeDomToggle(
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
   // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
   // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab').first().focus()
   await page.keyboard.press(shortcut)
 }
 
@@ -252,7 +254,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
     await createWorkspace(page)
-    await page.locator('.sidebar-section-header').last().click()
+    await page.locator('[data-ui="sidebar-section"]').last().click()
     if (await page.locator('.sidebar.sidebar-collapsed').count()) {
       await pressShellShortcut(page, 'Control+b')
       await page.locator('.sidebar.sidebar-collapsed').waitFor({ state: 'detached' })
@@ -339,7 +341,7 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+      await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
       switchTimes.push(await readInputTimer(page))
     }
@@ -420,7 +422,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
       // a failed fix.
       await armInputTimerUntil(page, [
-        { selector: '.ws-group.active', text: label },
+        { selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label },
         { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
       ])
       await target.getByTestId('sidebar-workspace-select').click()
@@ -523,7 +525,7 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     for (let i = 0; i < modalRepeats; i++) {
       // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
       // the measured interaction is choosing it.
-      await page.locator('.sidebar-section-header').last().click()
+      await page.locator('[data-ui="sidebar-section"]').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
@@ -610,7 +612,7 @@ async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Pro
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
+    if (button.getAttribute('aria-selected') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
   }, mode)
 }
@@ -625,10 +627,10 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    const nav = page.getByRole('navigation', { name: 'Application view' })
+    const nav = page.getByRole('tablist', { name: 'Application view' })
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
+    await nav.getByRole('tab', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
     await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
@@ -807,6 +809,29 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
       }, `Streaming output ${i}. `.repeat(20)))
     }
     report('thread 5k: streaming append', appends)
+
+    // The same keystrokes while an agent streams (OXE-105): one event every 100 ms through the same thread:send path
+    // as the append above. Reported only; a build where the composer refuses input meanwhile says so instead of
+    // failing the test.
+    try {
+      await composer.focus()
+      await page.evaluate(() => {
+        const box = window as unknown as { __keySamples: number[]; __perfStream?: number }
+        box.__keySamples.length = 0
+        let tick = 0
+        box.__perfStream = window.setInterval(() => { void window.oxe.thread!.send('e2e-thread', `Streamed chunk ${tick++}. `.repeat(8)) }, 100)
+      })
+      await page.keyboard.type('Check the latest change for regressions', { delay: 40 })
+      await page.waitForTimeout(100)
+      const streamingKeys = await page.evaluate(() => {
+        const box = window as unknown as { __keySamples: number[]; __perfStream?: number }
+        window.clearInterval(box.__perfStream)
+        return [...box.__keySamples]
+      })
+      report('thread 5k: keystroke→paint while streaming', streamingKeys)
+    } catch (error) {
+      console.log(`[RESULT] thread 5k: keystroke→paint while streaming — not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    }
     const reads = await app.evaluate(() => (globalThis as Record<string, unknown>).perfReadCounts as { reads: number; deltas: number })
     expect(reads.deltas, 'streamed events arrive as deltas, not full rereads').toBeGreaterThanOrEqual(REPEATS)
   } finally {

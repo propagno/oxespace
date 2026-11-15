@@ -38,7 +38,7 @@ test('Thread main flow in Brazilian Portuguese', async () => {
     await page.locator('.thread-heading-actions').getByRole('button', { name: 'Mais ações', exact: true }).click()
     await expect(page.getByRole('menuitem', { name: 'Fixar', exact: true })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Texto maior', exact: true })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: 'Mostrar cada chamada de ferramenta', exact: true })).toBeVisible()
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Mostrar cada chamada de ferramenta', exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
 
     // Sidebar ⋯ → archive asks first, in Portuguese, and Cancel keeps the conversation.

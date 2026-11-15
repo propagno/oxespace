@@ -4,7 +4,6 @@
  */
 .oxe-splash { position: fixed; inset: 0; display: grid; place-items: center; background: var(--surface-canvas); }
 .oxe-splash-tile { fill: var(--logo-tile); }
-.oxe-splash g { stroke: var(--logo-mark); }
-.oxe-splash-sun { fill: var(--logo-sun); --pulse-opacity: 0.4; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
-.oxe-splash-arm { transform-box: view-box; transform-origin: 22px 27px; --pulse-scale: 0.2; --pulse-opacity: 0.35; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
-.oxe-splash-arm-late { transform-origin: 22px 21px; animation-delay: calc(var(--duration-pulse) / -2); }
+.oxe-splash g { fill: var(--logo-mark); }
+.oxe-splash-arm { transform-box: view-box; transform-origin: 24px 29px; --pulse-scale: 0.2; --pulse-opacity: 0.35; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
+.oxe-splash-arm-late { transform-origin: 24px 22px; animation-delay: calc(var(--duration-pulse) / -2); }

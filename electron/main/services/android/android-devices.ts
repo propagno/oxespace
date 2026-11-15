@@ -87,6 +87,8 @@ export function assertValidSerial(serial: string): void {
 
 function isAllowedAdbArgs(args: readonly string[]): boolean {
   if (args.length === 2 && args[0] === 'devices' && args[1] === '-l') return true
+  // Starts the local adb server only. Never kill-server, never an emulator.
+  if (args.length === 1 && args[0] === 'start-server') return true
   if (args.length < 5 || args[0] !== '-s') return false
   const serial = args[1]
   if (!serial || serial.startsWith('-') || !SERIAL_RE.test(serial)) return false
@@ -248,6 +250,28 @@ function toNonNegativeIntString(value: number, field: string): string {
   return String(rounded)
 }
 
+/** Why a capture failed, so the caller can say the cause and the next step. */
+export type AndroidCaptureFailure = 'adb-missing' | 'server-down' | 'no-device' | 'failed'
+
+export class AndroidCaptureError extends Error {
+  readonly reason: AndroidCaptureFailure
+  constructor(reason: AndroidCaptureFailure) {
+    super('Android screencap failed')
+    this.name = 'AndroidCaptureError'
+    this.reason = reason
+  }
+}
+
+export function screencapFailure(res: AdbResult): AndroidCaptureFailure {
+  if (res.missing) return 'adb-missing'
+  const text = `${res.stderr}\n${stdoutText(res.stdout)}`
+  if (/daemon not running|cannot connect to daemon|failed to start daemon/i.test(text)) return 'server-down'
+  if (/no devices|device .*not found|device offline/i.test(text)) return 'no-device'
+  return 'failed'
+}
+
+const START_SERVER_TIMEOUT_MS = 15_000
+
 export class AndroidDevices {
   private readonly run: AdbRunner
   private readonly runEmulator: EmulatorRunner
@@ -385,8 +409,14 @@ export class AndroidDevices {
   async screencap(serial: string): Promise<Buffer> {
     assertValidSerial(serial)
     const res = await this.adb(['-s', serial, 'exec-out', 'screencap', '-p'])
-    if (res.missing || res.status !== 0) throw new Error('Android screencap failed')
+    if (res.missing || res.status !== 0) throw new AndroidCaptureError(screencapFailure(res))
     return Buffer.isBuffer(res.stdout) ? res.stdout : Buffer.from(res.stdout, 'binary')
+  }
+
+  /** Runs `adb start-server` and nothing else. True when the server is up afterwards. */
+  async startServer(): Promise<boolean> {
+    const res = await this.adb(['start-server'], START_SERVER_TIMEOUT_MS)
+    return !res.missing && res.status === 0
   }
 
   async listAvds(): Promise<string[]> {
@@ -479,6 +509,11 @@ export class AndroidAgentAccess {
     for (const key of this.sessionGrants) {
       if (key.startsWith(prefix)) this.sessionGrants.delete(key)
     }
+  }
+
+  /** Starts the local adb server (only that), for a capture that found it stopped. */
+  async startAdbServer(): Promise<boolean> {
+    return this.devices.startServer()
   }
 
   async screenshot(input: {

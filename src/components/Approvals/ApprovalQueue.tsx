@@ -17,6 +17,7 @@ import { AlwaysAllowConfirm, clearAlwaysAllowToast, showAlwaysAllowToast } from 
 import { approvalsApi } from './approvalsApi'
 import { useApprovalsStore } from './approvals.store'
 import { formatMainMessage, requesterText } from './approvalText'
+import { mainAllowStyle } from './approvalsRules'
 import sharedStyles from './Approvals.module.css'
 import styles from './ApprovalQueue.module.css'
 import { ImpactFacts, titleIncludesWhere } from './ImpactFacts'
@@ -297,7 +298,9 @@ export function ApprovalQueue({
   const currentDbPreview = selectedDbId && dbPreview?.id === selectedDbId ? dbPreview.data : null
   const selectedImpact = selected?.request.impact
   const selectedOffer = selected?.request.alwaysAllow
-  const isCriticalIrreversible = Boolean(selectedImpact && !selectedImpact.reversible && selectedImpact.risk === 'critical')
+  // The main allow's weight, shared with the panels that answer the center's records inline (approvalButtons).
+  const approveStyle = mainAllowStyle(selectedImpact)
+  const isCriticalIrreversible = approveStyle === 'hold'
 
   const confirmAlwaysAllow = async (): Promise<void> => {
     if (!selected || !selectedImpact || savingRule) return
@@ -560,7 +563,7 @@ export function ApprovalQueue({
             ) : (
               <Button
                 ref={approveRef}
-                variant={selectedImpact && !selectedImpact.reversible ? 'danger' : 'primary'}
+                variant={approveStyle === 'danger' ? 'danger' : 'primary'}
                 onClick={() => void onRespond(selected.request.id, { decision: 'accept' })}
               >
                 {t('request.approve')}

@@ -3,7 +3,7 @@
  * process's whole-state channel (shared/types/thread-sections.ts; the adapter is sectionsApi.ts).
  */
 import { hasHiddenCharacters } from '../../../../shared/hidden-characters'
-import { THREAD_SECTIONS_LIMITS } from '../../../../shared/types/thread-sections'
+import { THREAD_SECTIONS_LIMITS, THREAD_SECTIONS_REFUSALS, type ThreadSectionsRefusal } from '../../../../shared/types/thread-sections'
 import type { ConversationThread } from '../../../../shared/types/thread'
 
 export interface ThreadSection {
@@ -72,4 +72,27 @@ export function sectionErrorCode(cause: unknown): SectionErrorCode | null {
   if (typeof code === 'string' && (SECTION_ERROR_CODES as readonly string[]).includes(code)) return code as SectionErrorCode
   const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
   return SECTION_ERROR_CODES.find(known => message.includes(known)) ?? null
+}
+
+const messageOf = (cause: unknown): string => {
+  const code = cause && typeof cause === 'object' ? (cause as { code?: unknown }).code : undefined
+  const message = cause instanceof Error ? cause.message : typeof cause === 'string' ? cause : ''
+  return typeof code === 'string' ? `${code} ${message}` : message
+}
+
+/**
+ * The refusal of main's `thread:sections` channels an error carries (`thread.sections.<refusal>`, C3), as a `{ code }`
+ * object or inside an IPC message (Electron delivers a thrown code as "Error invoking remote method …: Error: <code>").
+ */
+export function sectionsRefusalOf(cause: unknown): ThreadSectionsRefusal | null {
+  for (const match of messageOf(cause).matchAll(/thread\.sections\.([A-Za-z]+)/g)) {
+    const refusal = match[1] as ThreadSectionsRefusal
+    if ((THREAD_SECTIONS_REFUSALS as readonly string[]).includes(refusal)) return refusal
+  }
+  return null
+}
+
+/** True when an error carries a section code (`thread.section.*` or `thread.sections.*`), known or not. */
+export function hasSectionCode(cause: unknown): boolean {
+  return /thread\.sections?\./.test(messageOf(cause))
 }

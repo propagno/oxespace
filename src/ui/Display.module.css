@@ -106,6 +106,9 @@
 .noticeWarning .noticeIcon { color: var(--intent-warning-fg); }
 .noticeDanger { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); }
 .noticeDanger .noticeIcon { color: var(--intent-danger-fg); }
+/* Needs you: a neutral card, the sun ochre only in its header (icon and title); orange stays for warnings. */
+.noticeAttention { border-color: var(--attn-border); background: var(--surface-raised); }
+.noticeAttention .noticeIcon, .noticeAttention .noticeTitle { color: var(--attn-fg); }
 
 /* Skeleton */
 .skeleton { display: grid; gap: var(--space-2); padding: var(--space-2) 0; }

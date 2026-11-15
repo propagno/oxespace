@@ -7,9 +7,9 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
   const { app, page } = await launchApp({ locale: 'pt-BR' })
   try {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
-    const views = page.getByRole('navigation', { name: 'Visão do aplicativo' })
-    await expect(views.getByRole('button', { name: 'OxeCode', exact: true })).toHaveAttribute('title', /^OxeCode: terminais e agentes nos seus workspaces \(.+\)$/)
-    await expect(views.getByRole('button', { name: 'OxeChat', exact: true })).toHaveAttribute('title', /^OxeChat: conversas com um agente \(.+\)$/)
+    const views = page.getByRole('tablist', { name: 'Visão do aplicativo' })
+    await expect(views.getByRole('tab', { name: 'OxeCode', exact: true })).toHaveAttribute('title', /^OxeCode: terminais e agentes nos seus workspaces \(.+\)$/)
+    await expect(views.getByRole('tab', { name: 'OxeChat', exact: true })).toHaveAttribute('title', /^OxeChat: conversas com um agente \(.+\)$/)
 
     await openSettings(page, 'Abrir configurações')
     await expect(page.getByRole('dialog', { name: 'Configurações', exact: true })).toBeVisible()
@@ -37,12 +37,12 @@ test('opens in Brazilian Portuguese on a Portuguese system and switches to Engli
     await expect(settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^About/ })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(settings).toBeHidden()
-    await expect(page.getByRole('navigation', { name: 'Application view' })).toBeVisible()
+    await expect(page.getByRole('tablist', { name: 'Application view' })).toBeVisible()
 
     // The choice survives a restart of the window.
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(page.getByRole('navigation', { name: 'Application view' })).toBeVisible()
+    await expect(page.getByRole('tablist', { name: 'Application view' })).toBeVisible()
   } finally {
     await app.close()
   }

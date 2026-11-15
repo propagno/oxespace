@@ -309,8 +309,8 @@
     "close": "Fechar",
     "dismiss": "Dispensar",
     "toast": {
-      "region": "Notificações",
-      "dismiss": "Dispensar notificação",
+      "region": "Avisos",
+      "dismiss": "Dispensar aviso",
       "repeated_one": "Repetida {{count}} vez",
       "repeated_other": "Repetida {{count}} vezes",
       "repeated_many": "Repetida {{count}} vezes"
@@ -647,11 +647,13 @@
     "trigger": "Perguntar, rodar ou ir para…",
     "dialogLabel": "Barra de comando",
     "inputLabel": "Perguntar, rodar ou ir para",
+    "hintsLine": "Digite > para comandos, ? para exemplos, @ para pedir a um agente, / para rodar um comando",
     "groups": {
       "commands": "Comandos",
       "skills": "Skills",
       "agents": "Agentes",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Painéis"
     },
     "hints": {
       "agent": "começar ou delegar",

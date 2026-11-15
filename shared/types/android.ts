@@ -52,4 +52,9 @@ export interface AndroidApi {
   pair(input: { serial: string }): Promise<AndroidActionOutcome>
   onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
   onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
+  /** main asks the window to open the Android device panel: an agent asked for this device (OXE-109). */
+  onOpenPanel?(listener: (request: AndroidOpenPanelRequest) => void): () => void
 }
+
+/** Which workspace's agent asked for which device, when main opens the panel for the person. */
+export interface AndroidOpenPanelRequest { workspaceId: string; serial: string }

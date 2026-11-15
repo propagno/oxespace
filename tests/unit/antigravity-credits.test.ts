@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, AntigravityCreditsService, antigravityPlan, antigravityUserAgent, antigravityWindows, parseAntigravitySignIn } from '../../electron/main/services/agentCredits/antigravityCredits.service'
+import { ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, AntigravityCreditsService, antigravityGroup, antigravityPlan, antigravityUserAgent, antigravityWindows, parseAntigravitySignIn } from '../../electron/main/services/agentCredits/antigravityCredits.service'
 
 const NOW = Date.parse('2026-11-12T20:00:00Z')
 const stored = (expiry: string, accessToken = 'live-token') => JSON.stringify({ token: { access_token: accessToken, token_type: 'Bearer', refresh_token: 'refresh', expiry }, auth_method: 'consumer', id_token_email: 'someone@example.invalid' })
@@ -37,18 +37,69 @@ describe('Antigravity quota in the usage reading', () => {
     expect(antigravityUserAgent('1.5.7; rm', 'linux', 'x64')).toBe('antigravity/1.5.7 linux/amd64')
   })
 
-  test('each kind of limit reads as what was used; of several groups, the most used one', () => {
+  test('each kind of limit reads as what was used, labelled with its group of models', () => {
     expect(antigravityWindows(summary)).toEqual([
-      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z') },
-      { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z') }
-    ])
-    const two = { groups: [...summary.groups, { displayName: 'Gemini models', buckets: [{ window: 'weekly', resetTime: '2026-11-17T21:46:28Z', remainingFraction: 0.03 }, { window: '5h', remainingFraction: 0.5 }, { window: 'monthly', remainingFraction: 0 }, { window: 'weekly' }] }] }
-    expect(antigravityWindows(two)).toEqual([
-      { kind: 'session', usedPct: 50, resetsAtMs: null },
-      { kind: 'weekly', usedPct: 97, resetsAtMs: Date.parse('2026-11-17T21:46:28Z') }
+      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z'), group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z'), group: 'claude-gpt' }
     ])
     expect(antigravityWindows({})).toEqual([])
     expect(antigravityWindows(null)).toEqual([])
+  })
+
+  // OXE-174: the user's /usage (15/11) read Gemini 3% weekly and 9% five-hour, Claude and GPT 58% weekly; the bar
+  // showed "Antigravity 57%", the Claude and GPT quota, to a person working with Gemini.
+  test('groups keep apart: Gemini first, every group named; loose window names read, unknown ones collected', () => {
+    const gemini = { displayName: 'Gemini models', buckets: [
+      { window: 'WEEKLY', resetTime: '2026-11-22T03:00:00Z', remainingFraction: 0.9703 },
+      { window: 'five_hour', resetTime: '2026-11-15T09:00:00Z', remainingFraction: 0.9113 },
+      { window: 'monthly', remainingFraction: 0 },
+      { window: 'weekly' }
+    ] }
+    const unknown = new Set<string>()
+    expect(antigravityWindows({ groups: [...summary.groups, gemini] }, unknown)).toEqual([
+      { kind: 'session', usedPct: 9, resetsAtMs: Date.parse('2026-11-15T09:00:00Z'), group: 'gemini' },
+      { kind: 'weekly', usedPct: 3, resetsAtMs: Date.parse('2026-11-22T03:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z'), group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z'), group: 'claude-gpt' }
+    ])
+    expect([...unknown]).toEqual(['window monthly'])
+    expect(antigravityGroup('Gemini models')).toBe('gemini')
+    expect(antigravityGroup('Claude and GPT models')).toBe('claude-gpt')
+    expect(antigravityGroup('  Other models ')).toBe('Other models')
+    expect(antigravityGroup('')).toBe('other')
+  })
+
+  // The agy CLI's own proto (google/internal/cloud/code/v1internal/quota_summary.proto, read from agy 1.5.x):
+  // RetrieveUserQuotaSummaryResponse { buckets, groups }, a bucket { bucketId, displayName, description, window,
+  // remainingFraction | remainingAmount, disabled, resetTime }. Buckets outside any group were never read.
+  test('the response\'s ungrouped buckets count, grouped by their own words; disabled and amount-only ones are skipped', () => {
+    const unknown = new Set<string>()
+    const response = {
+      groups: summary.groups,
+      buckets: [
+        { bucketId: '1p-weekly', displayName: 'Gemini models', window: 'WINDOW_WEEKLY', resetTime: '2026-11-22T03:00:00Z', remainingFraction: 0.9703 },
+        { bucketId: '1p-5h', displayName: 'Gemini models', window: 'FIVE_HOUR', remainingFraction: 0.9113 },
+        { bucketId: '1p-daily-images', displayName: 'Image generation', window: 'weekly', remainingAmount: '40' },
+        { bucketId: 'old', displayName: 'Gemini models', window: 'weekly', remainingFraction: 0, disabled: true }
+      ]
+    }
+    expect(antigravityWindows(response, unknown)).toEqual([
+      { kind: 'session', usedPct: 9, resetsAtMs: null, group: 'gemini' },
+      { kind: 'weekly', usedPct: 3, resetsAtMs: Date.parse('2026-11-22T03:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:39:31Z'), group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 57, resetsAtMs: Date.parse('2026-11-18T01:15:21Z'), group: 'claude-gpt' }
+    ])
+    expect([...unknown]).toEqual(['amount-only 1p-daily-images'])
+    expect(antigravityGroup('3p-weekly')).toBe('claude-gpt')
+    expect(antigravityGroup('1p-5h')).toBe('gemini')
+  })
+
+  test('the bar reads the first group: with Gemini on the plan, the Gemini weekly window', async () => {
+    const gemini = { displayName: 'Gemini models', buckets: [{ window: 'weekly', remainingFraction: 0.97 }, { window: '5h', remainingFraction: 0.91 }] }
+    const { credits } = service({ store: [stored('2026-11-12T21:00:00Z')], quota: () => answer({ groups: [...summary.groups, gemini] }) })
+    const snapshot = await credits.getCredits()
+    expect(snapshot.display).toMatchObject({ kind: 'weekly', usedPct: 3, group: 'gemini' })
+    expect(snapshot.windows.map(window => `${window.group}:${window.kind}`)).toEqual(['gemini:session', 'gemini:weekly', 'claude-gpt:session', 'claude-gpt:weekly'])
   })
 
   test('the plan is the paid one when there is one', () => {
@@ -60,7 +111,7 @@ describe('Antigravity quota in the usage reading', () => {
   test('a live sign-in gives the weekly reading, asked as the CLI asks; the token goes nowhere else', async () => {
     const { credits, request } = service({ store: [stored('2026-11-12T21:00:00Z')] })
     const snapshot = await credits.getCredits()
-    expect(snapshot).toMatchObject({ provider: 'antigravity', available: true, installed: true, planLabel: 'Google AI Ultra', source: 'oauth', error: null, display: { kind: 'weekly', usedPct: 57 } })
+    expect(snapshot).toMatchObject({ provider: 'antigravity', available: true, installed: true, planLabel: 'Google AI Ultra', source: 'oauth', error: null, display: { kind: 'weekly', usedPct: 57, group: 'claude-gpt' } })
     expect(snapshot.windows).toHaveLength(2)
     const [url, init] = request.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe(ANTIGRAVITY_QUOTA_URL)

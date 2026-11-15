@@ -257,11 +257,12 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
     if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
       {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
         <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
-        <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+        <RadixMenu.ItemIndicator className={styles.menuRadioCheck}><Check size={14} /></RadixMenu.ItemIndicator>
       </RadixMenu.RadioItem>)}
     </RadixMenu.RadioGroup>
     if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+      {/* A check item has no icon: its left column is the check, drawn only while checked; the slot keeps labels aligned. */}
+      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.label}
     </RadixMenu.CheckboxItem>
     return <MenuActionItem key={index} item={item} />
   })
@@ -341,7 +342,10 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
     <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content ref={content} className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
-        onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); target.focus() } }}
+        // Radix hands focus back a moment after the close, later on a busy machine. By then a choice has already put it
+        // on the owner (withOwnerFocus), and F6, Tab or a dialog the item opened may have moved it on: it stays there.
+        // Only focus left on the page or in a menu goes back to the owner (OXE-135: F6 pulled back to the divider).
+        onCloseAutoFocus={event => { const target = returnFocus?.(); if (target) { event.preventDefault(); if (!focusMovedOn()) target.focus() } }}
         // Focus landing on the element a menu belongs to (its owner: a divider, a grip, a tree row, whichever element
         // `returnFocus` names) is not "outside". A menu reopened right after a close receives the earlier close's
         // focus hand-back a moment later; that must not dismiss it (a Windows CI race), and the keyboard goes back to

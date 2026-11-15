@@ -24,7 +24,8 @@ export interface ApprovalRequest extends ApprovalPresentation {
 
 /** Shows a request to the person and returns their decision. The app's is the approval center (approval-prompter.ts). */
 export interface ApprovalPrompter {
-  ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalDecision>
+  /** `onAsked` gets the id of the record the person sees, once it waits for an answer. */
+  ask(request: ApprovalRequest, signal: AbortSignal, onAsked?: (approvalId: string) => void): Promise<ApprovalDecision>
 }
 
 /**
@@ -50,7 +51,7 @@ export function textHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
-interface Pending { requestId: string; promise: Promise<ApprovalDecision | PrompterRefusal>; controller: AbortController; endedBy?: 'execution' }
+interface Pending { requestId: string; promise: Promise<ApprovalDecision | PrompterRefusal>; controller: AbortController; endedBy?: 'execution'; askedId?: string }
 
 /** Ended executions remembered, so a call authenticated just before its pane closed cannot raise a new ask. */
 const ENDED_MEMORY = 256
@@ -108,7 +109,9 @@ export class ApprovalBroker {
     executionKey: string,
     scope: string,
     request: Omit<ApprovalRequest, 'id' | 'hash' | 'expiresAt'>,
-    waitMs = this.defaultWaitMs
+    waitMs = this.defaultWaitMs,
+    /** Gets the id of the record the person sees as soon as it exists (a caller joining a waiting ask gets it too). */
+    onAsked?: (approvalId: string) => void
   ): Promise<ApprovalState> {
     const hash = textHash(request.text)
     const key = this.key(executionKey, scope, request.tool, hash)
@@ -136,7 +139,11 @@ export class ApprovalBroker {
       const timer = setTimeout(() => controller.abort(), APPROVAL_TTL_MS)
       const full: ApprovalRequest = { ...request, id: requestId, hash, expiresAt: now + APPROVAL_TTL_MS }
       const entry: Pending = { requestId, controller, promise: undefined as unknown as Pending['promise'] }
-      entry.promise = this.prompter.ask(full, controller.signal).catch((error: unknown): ApprovalDecision | PrompterRefusal => error instanceof PrompterRefusal ? error : 'deny').then(decision => {
+      const asked = (approvalId: string): void => {
+        entry.askedId = approvalId
+        try { onAsked?.(approvalId) } catch { /* the caller's bookkeeping never stops the request */ }
+      }
+      entry.promise = this.prompter.ask(full, controller.signal, asked).catch((error: unknown): ApprovalDecision | PrompterRefusal => error instanceof PrompterRefusal ? error : 'deny').then(decision => {
         clearTimeout(timer)
         // Only this ask's own entry: a newer ask with the same key is never dropped by an older one settling.
         if (this.pending.get(key) === entry) this.pending.delete(key)
@@ -153,6 +160,8 @@ export class ApprovalBroker {
       })
       pending = entry
       this.pending.set(key, pending)
+    } else if (pending.askedId && onAsked) {
+      try { onAsked(pending.askedId) } catch { /* the caller's bookkeeping never stops the request */ }
     }
     let waiting: ReturnType<typeof setTimeout> | undefined
     const settled = await Promise.race([pending.promise, new Promise<'wait'>(resolve => { waiting = setTimeout(() => resolve('wait'), waitMs) })])

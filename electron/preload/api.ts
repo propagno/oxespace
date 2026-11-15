@@ -102,6 +102,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       undoTurnHunk: (id, turnId, path, hunkId) => ipc.invoke(IPC_CHANNELS.thread.undoTurnHunk, id, turnId, path, hunkId) as Promise<void>,
       sections: workspaceId => ipc.invoke(IPC_CHANNELS.thread.sections, workspaceId) as Promise<import('../../shared/types/thread-sections').ThreadSections>,
       saveSections: (workspaceId, state) => ipc.invoke(IPC_CHANNELS.thread.saveSections, workspaceId, state) as Promise<import('../../shared/types/thread-sections').ThreadSectionsSaveResult>,
+      sessions: () => ipc.invoke(IPC_CHANNELS.thread.sessions) as Promise<import('../../shared/types/thread-session').SessionView[]>,
+      session: sessionId => ipc.invoke(IPC_CHANNELS.thread.session, sessionId) as Promise<import('../../shared/types/thread-session').SessionView>,
+      createChat: (sessionId, input) => ipc.invoke(IPC_CHANNELS.thread.createChat, sessionId, input) as Promise<import('../../shared/types/thread').ThreadSnapshot>,
+      openChat: (sessionId, chatId) => ipc.invoke(IPC_CHANNELS.thread.openChat, sessionId, chatId) as Promise<import('../../shared/types/thread-session').SessionView>,
       permissionRules: (id) => ipc.invoke(IPC_CHANNELS.thread.permissionRules, id) as Promise<import('../../shared/types/thread').ThreadPermissionRule[]>,
       addPermissionRule: (id, rule) => ipc.invoke(IPC_CHANNELS.thread.addPermissionRule, id, rule) as Promise<import('../../shared/types/thread').ThreadPermissionRule>,
       removePermissionRule: (id, ruleId) => ipc.invoke(IPC_CHANNELS.thread.removePermissionRule, id, ruleId) as Promise<void>,
@@ -588,7 +592,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
-      onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener)
+      onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
+      onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)
     },
     schedules: {
       state: () => ipc.invoke(IPC_CHANNELS.schedules.state) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['state']>,

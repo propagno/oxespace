@@ -1,7 +1,7 @@
 import type { AppDatabase } from '../../db/index'
 import type { AgentHookLocationEvent, AgentHookStatusEvent, SessionLocation } from '../../../../shared/types/agent-hooks'
 import type { AgentHookServerOptions } from './server'
-import { HttpAuditLog } from '../http-audit/store'
+import type { HttpAuditLog } from '../http-audit/store'
 import { summarizeEdits } from './edit-capture'
 
 export interface HookPipelineDeps {
@@ -14,7 +14,13 @@ export interface HookPipelineDeps {
 }
 
 export function hookServerOptionsFor(deps: HookPipelineDeps): AgentHookServerOptions {
-  const httpAuditLog = new HttpAuditLog(deps.db, deps.now)
+  // The HTTP audit's writer and its command parser load with the first hook event, not at start (main's entry budget).
+  // One log per pipeline, as before; events keep their order, since each one waits on the same load.
+  let httpAuditLog: Promise<HttpAuditLog | null> | null = null
+  const audit = (): Promise<HttpAuditLog | null> => (httpAuditLog ??= import('../http-audit/store').then(
+    module => new module.HttpAuditLog(deps.db, deps.now),
+    () => { httpAuditLog = null; return null }
+  ))
 
   return {
     authenticate: deps.authenticate,
@@ -24,18 +30,20 @@ export function hookServerOptionsFor(deps: HookPipelineDeps): AgentHookServerOpt
     now: deps.now,
     httpAudit: {
       ingest: (input) => {
-        try {
-          httpAuditLog.ingest({
-            paneId: input.paneId,
-            workspaceId: input.workspaceId,
-            agent: input.agent,
-            sessionId: input.sessionId,
-            at: input.at,
-            record: input.record
-          })
-        } catch {
-          /* fail-open */
-        }
+        void audit().then(log => {
+          try {
+            log?.ingest({
+              paneId: input.paneId,
+              workspaceId: input.workspaceId,
+              agent: input.agent,
+              sessionId: input.sessionId,
+              at: input.at,
+              record: input.record
+            })
+          } catch {
+            /* fail-open */
+          }
+        })
         try {
           const edits = summarizeEdits(input.record)
           if (edits.length > 0) {

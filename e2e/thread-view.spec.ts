@@ -291,8 +291,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('button', { name: /voice|dictation|microphone/i })).toHaveCount(0)
     await expect(codeInput).toBeFocused()
     const terminalCount = await page.locator('.xterm').count()
-    const nav = page.getByRole('navigation', { name: 'Application view' })
-    await expect(page.locator('.workbench-titlebar').getByRole('navigation', { name: 'Application view' })).toBeVisible()
+    const nav = page.getByRole('tablist', { name: 'Application view' })
+    await expect(page.locator('.workbench-titlebar').getByRole('tablist', { name: 'Application view' })).toBeVisible()
     await expect(nav).toHaveCount(1)
     const canvasTop = await page.locator('.workspace-host:not(.workspace-host-hidden)').evaluate(el => el.getBoundingClientRect().top)
     // The surface draws a 1px frame border, so its content box starts clientTop lower.
@@ -338,7 +338,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
-    expect(threadFooter).toEqual(codeFooter)
+    // OxeCode's footer is on the src/ui anatomy (BRD-01); OxeChat's follows in BRD-02. Both keep the same actions.
+    expect(threadFooter.length).toBe(codeFooter.length)
     await expect(page.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)
@@ -359,7 +360,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toBeVisible()
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toHaveCSS('background-color', await page.evaluate(() => { const el = document.createElement('span'); el.style.backgroundColor = 'var(--provider-codex)'; document.body.append(el); const color = getComputedStyle(el).backgroundColor; el.remove(); return color }))
     await expect(projectTree.locator('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
-    await expect(projectTree.locator('.thread-session-state')).toHaveText('Ready')
+    await expect(projectTree.locator('.thread-session-state')).toHaveText('Idle')
     await app.evaluate(({BrowserWindow}, url) => BrowserWindow.getAllWindows()[0].webContents.send('mcp-internal:on-web-preview', {
       workspaceId:(globalThis as Record<string, unknown>).e2eWorkspaceId, threadId:'e2e-thread', url, requestedAt:Date.now()
     }), previewUrl)
@@ -857,7 +858,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const inlineRows = page.locator('.thread-file-activity')
     expect(await inlineRows.count()).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'More actions' }).click()
-    await page.getByRole('menuitem', { name: 'Show every tool call' }).click()
+    await page.getByRole('menuitemcheckbox', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
     // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
     // under the answer. Opening the fold shows the one-line action summaries.

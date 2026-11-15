@@ -8,6 +8,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
+  /** md, the default, is `.button` itself and emits no data-size; sm and lg are styled by data-size. */
   size?: ButtonSize
   /** Shows a spinner and blocks clicks while an action runs. */
   loading?: boolean
@@ -17,10 +18,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** The one button. Primary is for the single main action of a view; most buttons are secondary or ghost. */
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = 'secondary', size = 'md', loading = false, icon, square = false, className, children, disabled, type = 'button', onClick, ...rest }, ref) {
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({ variant = 'secondary', size, loading = false, icon, square = false, className, children, disabled, type = 'button', onClick, ...rest }, ref) {
   // While loading the button keeps its focus (a disabled one would drop it mid-action): it says it is busy and
   // unavailable, and ignores clicks, a form submit included.
-  return <button ref={ref} type={type} data-ui={square ? "icon-button" : "button"} data-size={size} data-variant={variant} className={cx(styles.button, styles[variant], size !== 'md' && styles[size], square && styles.icon, className)}
+  return <button ref={ref} type={type} data-ui={square ? "icon-button" : "button"} data-size={size} data-variant={variant} className={cx(styles.button, className)}
     disabled={disabled} aria-disabled={loading || undefined} aria-busy={loading || undefined}
     onClick={loading ? event => event.preventDefault() : onClick} {...rest}>
     {loading ? <span className={styles.spinner} aria-hidden="true" /> : icon}
@@ -35,7 +36,7 @@ export interface IconButtonProps extends Omit<ButtonProps, 'children' | 'icon'> 
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton({ label, icon, variant = 'ghost', className, title, ...rest }, ref) {
-  const button = <Button ref={ref} variant={variant} aria-label={label} title={title} square className={cx(styles.icon, className)} icon={icon} {...rest} />
+  const button = <Button ref={ref} variant={variant} aria-label={label} title={title} square className={className} icon={icon} {...rest} />
   return title === undefined && !rest.disabled ? <Tooltip content={label}>{button}</Tooltip> : button
 })
 

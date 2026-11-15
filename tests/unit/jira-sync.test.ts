@@ -2,7 +2,7 @@
 // scripts/jira-sync.mjs: which Jira items a pull request names, and where they move.
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { isTested, keysOf, plan, shouldMove, STATES, targetOf, versionOfBranch, versionOfTag } from '../../scripts/jira-sync.mjs'
+import { declarationsOf, isTested, keysOf, mergeNotes, plan, shouldMove, STATES, targetOf, versionOfBranch, versionOfTag } from '../../scripts/jira-sync.mjs'
 
 const pr = (o: Record<string, unknown>) => ({ number: 1, title: '', branch: '', state: 'open', merged: false, labels: [], ...o })
 
@@ -51,7 +51,7 @@ describe('jira-sync', () => {
   })
 
   it('two PRs on one item: the furthest state wins', () => {
-    const wanted = plan([pr({ number: 1, title: 'a (OXE-5)' }), pr({ number: 2, title: 'b (OXE-5)', state: 'closed', merged: true })])
+    const wanted = plan([pr({ number: 1, title: 'a (OXE-5)' }), pr({ number: 2, title: 'b (OXE-5)', body: 'Fecha OXE-5', state: 'closed', merged: true })])
     expect(wanted.get('OXE-5')).toEqual({ target: 'Na main', pr: 2 })
   })
 
@@ -65,5 +65,34 @@ describe('jira-sync', () => {
     expect(versionOfTag('v1.5.2')).toBe('1.5.2')
     expect(versionOfTag('v1.5.2-beta.1')).toBeNull()
     expect(versionOfTag('1.5.2')).toBeNull()
+  })
+
+  describe('a merged PR moves only the cards it closes (OXE-277)', () => {
+    const merged = (o: Record<string, unknown>) => pr({ state: 'closed', merged: true, url: 'https://github.com/o/r/pull/9', number: 9, ...o })
+
+    it('"Fecha OXE-N" moves to Na main', () => {
+      expect(declarationsOf(merged({ body: 'Fecha OXE-60, OXE-63\nmore text' }))).toEqual({ closes: ['OXE-60', 'OXE-63'], parts: [] })
+      expect(plan([merged({ title: 'feat: sidebar (OXE-60)', body: 'Fecha OXE-60' })]).get('OXE-60')).toEqual({ target: 'Na main', pr: 9 })
+      expect(plan([merged({ title: 'chore', body: 'Closes OXE-7' })]).get('OXE-7')).toEqual({ target: 'Na main', pr: 9 })
+    })
+
+    it('"Parte de OXE-N" only comments, with the PR link', () => {
+      const piece = merged({ title: 'feat(mobile): pairing protocol (OXE-102)', body: 'Parte de OXE-102\nFecha OXE-179' })
+      expect(plan([piece]).has('OXE-102')).toBe(false)
+      expect(plan([piece]).get('OXE-179')).toEqual({ target: 'Na main', pr: 9 })
+      expect(mergeNotes([piece])).toEqual({ comments: [{ key: 'OXE-102', pr: 9, url: 'https://github.com/o/r/pull/9' }], warnings: [] })
+    })
+
+    it('a bare key does not move, and the run warns', () => {
+      const bare = merged({ title: 'fix: a thing (OXE-72)', branch: 'oxe-72-title-bar' })
+      expect(plan([bare]).has('OXE-72')).toBe(false)
+      expect(mergeNotes([bare])).toEqual({ comments: [], warnings: [{ key: 'OXE-72', pr: 9 }] })
+    })
+
+    it('opening and review moves stay as they are: an open PR moves every key it names', () => {
+      expect(plan([pr({ number: 3, title: 'feat (OXE-72)' })]).get('OXE-72')).toEqual({ target: 'Em revisão', pr: 3 })
+      expect(plan([pr({ number: 3, title: 'feat (OXE-72)', labels: ['na-fila'] })]).get('OXE-72')).toEqual({ target: 'Na fila', pr: 3 })
+      expect(mergeNotes([pr({ number: 3, title: 'feat (OXE-72)' })])).toEqual({ comments: [], warnings: [] })
+    })
   })
 })

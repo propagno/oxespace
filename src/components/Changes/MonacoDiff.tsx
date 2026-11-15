@@ -1,4 +1,5 @@
 import { DiffEditor, type DiffOnMount } from '@monaco-editor/react'
+import type { editor as MonacoEditor } from 'monaco-editor'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import type { DiffComment, DiffSide } from '../../../shared/types/diff-comments'
 import { attachLineComments } from './diffLineComments'
@@ -27,6 +28,24 @@ export interface MonacoDiffReview {
 }
 
 type DiffEditorInstance = Parameters<DiffOnMount>[0]
+
+/**
+ * One object for every render: @monaco-editor/react applies `options` again whenever their identity changes, and each
+ * pass made Monaco re-derive both sides' options (OXE-158: a re-render after mount took the old side's glyph lane away).
+ */
+const DIFF_OPTIONS: MonacoEditor.IDiffEditorConstructionOptions = {
+  readOnly: true,
+  originalEditable: false,
+  glyphMargin: true,
+  renderSideBySide: true,
+  automaticLayout: true,
+  renderOverviewRuler: false,
+  scrollBeyondLastLine: false,
+  minimap: { enabled: false },
+  fontSize: 12,
+  fontFamily: 'var(--font-mono)',
+  hideUnchangedRegions: { enabled: true, contextLineCount: 3, minimumLineCount: 3, revealLineCount: 20 }
+}
 
 /** Read-only, side-by-side diff that folds long unchanged runs, with per-line review comments. */
 export default function MonacoDiff({ original, modified, language, path, review, onOpenHunk }: {
@@ -131,21 +150,18 @@ export default function MonacoDiff({ original, modified, language, path, review,
               remove: id => latest.current?.onRemove(id)
             })
             sync.current = comments.sync
+            // OXE-158: in the inline view (a panel narrower than Monaco's 900 px breakpoint) Monaco turns the old side's glyph
+            // margin off each time it applies the diff's options again (a re-render, the width crossing the breakpoint).
+            // The comment "+" on a removed line lives in that lane, and losing it moved the whole diff 16 px (FL-15).
+            const oldSide = editor.getOriginalEditor()
+            const glyphMargin = monaco.editor.EditorOption.glyphMargin
+            const keepLane = oldSide.onDidChangeConfiguration(event => {
+              if (event.hasChanged(glyphMargin) && !oldSide.getOption(glyphMargin)) queueMicrotask(() => { if (measuring) oldSide.updateOptions({ glyphMargin: true }) })
+            })
+            cleanup.current.push(() => keepLane.dispose())
             cleanup.current.push(() => { sync.current = null; comments.dispose(); cancelAnimationFrame(frame); observer.disconnect() })
           }}
-          options={{
-            readOnly: true,
-            originalEditable: false,
-            glyphMargin: true,
-            renderSideBySide: true,
-            automaticLayout: true,
-            renderOverviewRuler: false,
-            scrollBeyondLastLine: false,
-            minimap: { enabled: false },
-            fontSize: 12,
-            fontFamily: 'var(--font-mono)',
-            hideUnchangedRegions: { enabled: true, contextLineCount: 3, minimumLineCount: 3, revealLineCount: 20 }
-          }}
+          options={DIFF_OPTIONS}
         />
       </div>
     </div>

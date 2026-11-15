@@ -12,7 +12,7 @@
 .filterInput::-webkit-search-cancel-button { display: none; }
 .filterHint { flex: none; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--tx-muted); }
 
-.section { display: flex; align-items: center; gap: var(--space-1); height: var(--control-sm); margin-top: var(--space-2); padding: 0 var(--space-1-5); }
+.section { display: flex; align-items: center; gap: var(--space-1); height: var(--bar-sm); margin-top: var(--space-2); padding: 0 var(--space-1-5); }
 .sectionLabel { flex: 1; min-width: 0; font-size: var(--fs-2xs); font-weight: var(--weight-medium); color: var(--tx-muted); }
 
 .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--space-2); min-height: var(--row-1); padding: 0 var(--space-1-5); border-radius: var(--radius-sm); color: var(--tx-secondary); font-size: var(--fs-sm); cursor: default; }
@@ -27,11 +27,22 @@
 .rowTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rowActions { display: flex; align-items: center; gap: var(--space-0-5); }
 .meta { font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: var(--weight-regular); color: var(--tx-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.twoLine { padding-top: var(--space-1); padding-bottom: var(--space-1); }
+.twoLine { height: var(--row-2); min-height: var(--row-2); row-gap: 0; align-content: center; padding-top: var(--space-1); padding-bottom: var(--space-1); }
+.twoLine .rowTitle { line-height: 20px; }
+.twoLine .detail { line-height: 16px; }
 .detail { grid-column: 2 / -1; font-size: var(--fs-2xs); font-weight: var(--weight-regular); color: var(--attn-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Actions appear on hover and keyboard focus, never take space from the title otherwise. */
 .reveal { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+/* A row with actions (RowWithActions): the actions sit beside the role=button, over its right edge, on no background of
+   their own. On hover and focus-within they replace the meta (kept in its box and in the accessible name, only made
+   transparent) and the title ellipsizes before them; the lead's signal and a second line never hide. */
+.rowWrap { position: relative; }
+.rowActionsAside { position: absolute; inset-block-start: 0; inset-inline-end: var(--space-1-5); height: var(--row-1); }
+:where(.rowWrap:hover > .row) { background: var(--fill-hover); }
+.rowWrap:hover > .row, .rowWrap:focus-within > .row { padding-inline-end: calc(var(--space-1-5) + var(--row-actions-w, 0px) + var(--space-1)); }
+.rowWrap:hover > .row .meta, .rowWrap:focus-within > .row .meta { opacity: 0; }
+.rowWrap:hover > .reveal, .rowWrap:focus-within > .reveal { opacity: 1; }
 .row:hover .reveal, .row:focus-within .reveal, .section:hover .reveal, .section:focus-within .reveal { opacity: 1; }
 
 .footer { display: flex; align-items: center; gap: var(--space-0-5); height: var(--bar-lg); min-height: var(--bar-lg); padding: 0 var(--space-2); border-top: 1px solid var(--bd-subtle); color: var(--tx-muted); }

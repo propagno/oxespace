@@ -91,8 +91,9 @@ export function formatDesignGrab(payload: DesignGrabPayload, note: string, conte
   if (others.length > 0) lines.push(`Other places it may be: ${others.map(formatSourceLocation).join(', ')}`)
   const components = context?.components ?? []
   if (components.length > 1) lines.push(`Component tree: ${components.join(' < ')}`)
-  if (context?.screenshotPath) lines.push(`Screenshot of the element: ${context.screenshotPath}`)
-  if (source || others.length > 0 || components.length > 1 || context?.screenshotPath) lines.push('')
+  const captureName = context?.screenshotPath ? context.screenshotPath.split(/[\\/]/).pop() ?? '' : ''
+  if (captureName) lines.push(`Screenshot of the element: ${captureName} (fetch it with oxespace_capture_web_preview { "element": "${captureName}" })`)
+  if (source || others.length > 0 || components.length > 1 || captureName) lines.push('')
   lines.push(`Page: ${payload.pageTitle || '(untitled)'} — ${payload.pageUrl}`)
   lines.push(`Selector: ${payload.selector}`)
   lines.push(

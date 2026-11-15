@@ -38,7 +38,7 @@ describe('Dialog footer slots', () => {
     render(<Dialog size="sm" title="Delete" onClose={noop} actions={{ primary: { label: 'Delete', danger: true, onClick: noop } }} />)
     const primary = screen.getByRole('button', { name: 'Delete' })
     expect(primary).toHaveAttribute('data-dialog-primary')
-    expect(primary.className).toMatch(/danger/)
+    expect(primary).toHaveAttribute('data-variant', 'danger')
   })
 })
 

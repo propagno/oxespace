@@ -7,10 +7,10 @@ const modesOf = (yaml: string) => projectToolModes(parseOxeYaml(yaml)?.thread)
 const defaults = projectToolModes(undefined)
 
 describe('project tool modes', () => {
-  it('puts every configurable group on demand by default', () => {
+  it('puts every configurable group on demand by default, except preview, which starts on (OXE-108)', () => {
     expect(defaults).toEqual({
       orchestration: { mode: 'on-demand', source: 'default' }, data: { mode: 'on-demand', source: 'default' },
-      docs: { mode: 'on-demand', source: 'default' }, app: { mode: 'on-demand', source: 'default' }
+      docs: { mode: 'on-demand', source: 'default' }, preview: { mode: 'always', source: 'default' }, app: { mode: 'on-demand', source: 'default' }
     })
   })
 
@@ -23,7 +23,8 @@ describe('project tool modes', () => {
     expect(modes.data).toEqual({ mode: 'off', source: 'project' })
     expect(modes.docs).toEqual({ mode: 'always', source: 'project' })
     expect(modes.app).toEqual({ mode: 'on-demand', source: 'default' })
-    expect(Object.keys(modes).sort()).toEqual(['app', 'data', 'docs', 'orchestration'])
+    expect(Object.keys(modes).sort()).toEqual(['app', 'data', 'docs', 'orchestration', 'preview'])
+    expect(modes.preview).toEqual({ mode: 'always', source: 'default' })
   })
 })
 
@@ -41,11 +42,13 @@ describe('session tool plan (B7.2)', () => {
   })
 
   it('without tool search, offers core and always groups, and lets the session turn on the on-demand ones', () => {
-    const modes = { ...defaults, docs: { mode: 'always' as const, source: 'project' as const }, app: { mode: 'off' as const, source: 'project' as const } }
+    const modes = { ...defaults, data: { mode: 'always' as const, source: 'project' as const }, app: { mode: 'off' as const, source: 'project' as const } }
     const plan = sessionToolPlan(false, {}, modes)
-    expect(plan.tools).toEqual([...new Set([...core, ...THREAD_TOOL_GROUPS.docs]), 'oxespace_tools_enable'])
-    expect(Object.keys(plan.enableable).sort()).toEqual(['data', 'orchestration'])
-    expect(plan.enableable.data).toEqual([...THREAD_TOOL_GROUPS.data])
+    expect(plan.tools).toEqual([...new Set([...core, ...THREAD_TOOL_GROUPS.data, ...THREAD_TOOL_GROUPS.preview]), 'oxespace_tools_enable'])
+    expect(Object.keys(plan.enableable).sort()).toEqual(['orchestration'])
+    expect(plan.enableable.orchestration).toEqual([...THREAD_TOOL_GROUPS.orchestration])
+    // A group with no tools is never something to turn on.
+    expect(plan.enableable).not.toHaveProperty('docs')
     expect(plan.enableable).not.toHaveProperty('app')
   })
 
@@ -59,7 +62,7 @@ describe('session tool plan (B7.2)', () => {
 
   it('starts a Code terminal with its panes, terminal, scripts and jobs; the rest of its tools wait or follow tool search', () => {
     const plan = sessionToolPlan(false, { code: true }, defaults)
-    expect(plan.tools).toEqual([...core, ...CODE_START_TOOLS, 'oxespace_tools_enable'])
+    expect(plan.tools).toEqual([...core, ...CODE_START_TOOLS, ...THREAD_TOOL_GROUPS.preview, 'oxespace_tools_enable'])
     expect(plan.enableable.code).toEqual(CODE_ON_DEMAND_TOOLS)
     expect(new Set([...CODE_START_TOOLS, ...CODE_ON_DEMAND_TOOLS])).toEqual(new Set(CODE_TOOL_GROUP))
     const searching = sessionToolPlan(true, { code: true }, defaults)
@@ -73,7 +76,7 @@ describe('session tool plan (B7.2)', () => {
   })
 
   it('adds only the enable tool to a plain conversation without tool search, and nothing when there is nothing to enable', () => {
-    expect(sessionToolPlan(false, {}, defaults).tools).toEqual([...core, 'oxespace_tools_enable'])
+    expect(sessionToolPlan(false, {}, defaults).tools).toEqual([...core, ...THREAD_TOOL_GROUPS.preview, 'oxespace_tools_enable'])
     const fixed = Object.fromEntries(Object.keys(defaults).map(group => [group, { mode: 'off', source: 'project' }])) as typeof defaults
     expect(sessionToolPlan(false, {}, fixed)).toEqual({ tools: core, enableable: {} })
     expect(sessionToolPlan(true, {}, fixed)).toEqual({ tools: core, enableable: {} })

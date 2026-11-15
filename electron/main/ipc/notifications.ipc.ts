@@ -9,16 +9,19 @@ import { parseRecord, parseText } from './ipc-guards'
  * Fired from the renderer's useAgentNotifications hook when a non-focused pane
  * finishes / needs input / errors. Clicking the notification restores + focuses
  * the window and tells the renderer which pane to activate.
+ *
+ * The payload's `silent` picks the sound (OXE-130); without it, the system sound. The system's do-not-disturb mode
+ * is never bypassed: no urgency, no timeout, no toast XML.
  */
 export function registerNotificationsIpc(): void {
   ipcMain.handle(IPC_CHANNELS.notifications.notify, (event, value: unknown) => {
     const input = parseRecord(value, 'Notification')
-    const payload: AgentNotificationPayload = { title: parseText(input.title, 'Title', 200), body: parseText(input.body, 'Body', 1000), paneId: parseText(input.paneId, 'Pane id', 200), workspaceId: parseText(input.workspaceId, 'Workspace id', 200) }
+    const payload: AgentNotificationPayload = { title: parseText(input.title, 'Title', 200), body: parseText(input.body, 'Body', 1000), paneId: parseText(input.paneId, 'Pane id', 200), workspaceId: parseText(input.workspaceId, 'Workspace id', 200), silent: input.silent === true }
     if (!Notification.isSupported()) return false
     const notification = new Notification({
       title: payload.title,
       body: payload.body,
-      silent: false
+      silent: payload.silent === true
     })
     notification.on('click', () => {
       const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed())

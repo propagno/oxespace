@@ -64,7 +64,8 @@ describe('lint and typecheck from CI, only with no local node_modules (TECH LEAD
 
   it('leaves the images and packages paths as they were', () => {
     const image = 'e2e/visual/__screenshots__/linux/a/x.png'
-    expect((buildSteps({ files: [image], related: plan(), nodeModules: false }) as Step[]).map(step => step.kind)).toEqual(['visual'])
+    // Visual baselines are interface: the brand gate (OXE-148) follows the visual-baselines evidence.
+    expect((buildSteps({ files: [image], related: plan(), nodeModules: false }) as Step[]).map(step => step.kind)).toEqual(['visual', 'brand'])
     expect((buildSteps({ files: ['package-lock.json'], related: plan({ all: true }), nodeModules: false }) as Step[]).map(step => step.kind)).toEqual(['ci'])
   })
 

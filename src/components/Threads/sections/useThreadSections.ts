@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { i18n } from '../../../i18n'
 import { humanizeError } from '../../../utils/humanizeError'
-import { SECTION_NAME_MAX, sectionErrorCode, type SectionedThread, type ThreadSection } from './sectionsContract'
+import { formatMainMessage } from '../../../i18n/mainMessage'
+import { threadSectionsRefusal } from '../../../../shared/thread-sections'
+import { hasSectionCode, SECTION_NAME_MAX, sectionErrorCode, sectionsRefusalOf, type SectionedThread, type ThreadSection } from './sectionsContract'
 import { projectAssignments, sectionIdOf, sectionsApi } from './sectionsApi'
 import { moveSectionIds } from './sectionsModel'
 
@@ -16,6 +18,12 @@ export function sectionErrorText(cause: unknown): string {
   if (code === 'thread.section.duplicateName') return t('thread:sections.errors.duplicateName')
   if (code === 'thread.section.notFound') return t('thread:sections.errors.notFound')
   if (code === 'thread.section.childFollowsParent') return t('thread:sections.errors.childFollowsParent')
+  // A refusal main threw as its bare code (OXE-136): main's words, never the code.
+  const refusal = sectionsRefusalOf(cause)
+  if (refusal === 'nameDuplicate') return t('thread:sections.errors.duplicateName')
+  if (refusal) return formatMainMessage(threadSectionsRefusal(refusal).message)
+  // A section code without words here shows the generic failure, not the code.
+  if (hasSectionCode(cause)) return t('thread:sections.errors.failed')
   return humanizeError(cause, t('thread:sections.errors.failed'))
 }
 

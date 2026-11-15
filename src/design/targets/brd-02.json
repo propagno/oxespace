@@ -1,0 +1,277 @@
+{
+  "brd": "BRD-02",
+  "card": "OXE-166",
+  "title": "OxeChat sidebar (OXC-1)",
+  "platform": "desktop",
+  "source": "OxeChat canvas approved by the user on 15/11 (artifact 796YHhr9AjmYNVkakawr9c, 14 boards) and its written target (OXE-166..170)",
+  "measures": [
+    {
+      "id": "BRD-02.header.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-header]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.filter.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-filter]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.section.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-section]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.group.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-group]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.footer.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-footer]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row2.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row][data-lines=\"2\"]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-2"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row1.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row][data-lines=\"1\"]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-title.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-title]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-title.font-weight",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-title]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-meta.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-meta]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row.radius",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.archived-band.count",
+      "scene": "chat-conversation",
+      "select": {
+        "text": "Archived ·"
+      },
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.raw-button.count",
+      "scene": "chat-conversation",
+      "select": "[aria-label=\"OxeChat sidebar\"] button:not([data-ui])",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.attention.radius",
+      "scene": "chat-approval",
+      "select": "[data-ui=row-attention]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    }
+  ]
+}

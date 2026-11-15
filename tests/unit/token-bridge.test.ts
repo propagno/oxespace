@@ -23,6 +23,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { RETIRED_TOKEN_NAMES } from '../../src/design/tokens/retired'
 import { LAYER } from '../../src/design/tokens/scales'
 import { tokensCss } from '../../src/design/tokens/css'
 
@@ -162,6 +163,8 @@ describe('token bridge', () => {
   test('a legacy color name still in the bridge follows a semantic token, not a literal', () => {
     for (const name of ['bg-app', 'bg-elevated', 'tx-primary', 'tx-muted', 'wb-border']) {
       const value = new RegExp(`--${name}:\\s*([^;]+);`).exec(bridge)?.[1]?.trim()
+      // OXE-137 retires a plain alias from the bridge: its readers now name the generated token, recorded in retired.ts.
+      if (value === undefined && RETIRED_TOKEN_NAMES[`--${name}`]) { expect(RETIRED_TOKEN_NAMES[`--${name}`], name).toMatch(/^--/); continue }
       if (value === undefined) continue
       expect(value, name).toMatch(/^var\(--/)
     }

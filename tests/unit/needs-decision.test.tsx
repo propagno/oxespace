@@ -37,10 +37,10 @@ describe('a decision is not a finished turn', () => {
     expect(deriveStatusTone({ ...running, agentState: 'done' })).toBe('awaiting')
     const blocked = display({ ...running, agentState: 'blocked', agentSource: 'hook' })
     const done = display({ ...running, agentState: 'done', agentSource: 'hook' })
-    expect(blocked.statusLabel).toBe('Needs your decision')
-    expect(blocked.subtitle).toBe('Claude · Needs your decision')
+    expect(blocked.statusLabel).toBe('Needs you')
+    expect(blocked.subtitle).toBe('Claude · Needs you')
     expect(blocked.attentionReason).toBe('Needs your approval or answer')
-    expect(done.statusLabel).toBe('Awaiting')
+    expect(done.statusLabel).toBe('Finished')
     expect(done.attentionReason).toBe('Finished, not seen yet')
   })
 
@@ -73,18 +73,20 @@ describe('the sidebar row and the pane header', () => {
       <PaneSessionRow pane={ws.panes[1]} paneIndex={1} workspace={ws} isActive={false} agentProfiles={[]} onClick={() => undefined} onActivatePane={() => undefined} />
     </>)
     const [blocked, done] = [...container.querySelectorAll('[data-testid="pane-session-row"]')] as HTMLElement[]
-    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Claude · Needs your decision')
-    expect(within(done).getByTestId('pane-row-status')).toHaveTextContent('Claude · Awaiting')
-    expect(blocked.querySelector('.activity-needs-decision')).not.toBeNull()
-    expect(done.querySelector('.activity-needs-decision')).toBeNull()
+    // BRD-01: only the row that needs a decision has a second line, and it says what is asked.
+    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Needs your approval or answer')
+    expect(within(done).queryByTestId('pane-row-status')).toBeNull()
+    expect(done).toHaveTextContent('finished')
+    expect(blocked.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
+    expect(done.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).toBeNull()
     // Not color alone, in the compact layout too: a mark beside the name.
     expect(within(blocked).getByTestId('pane-row-decision-mark')).toHaveAttribute('aria-hidden', 'true')
     expect(within(done).queryByTestId('pane-row-decision-mark')).toBeNull()
-    expect(blocked).toHaveTextContent("needs your decision, Reported by the agent's hooks")
+    expect(blocked).toHaveTextContent("needs you, Reported by the agent's hooks")
     expect(within(blocked).getByTestId('pane-row-status')).toHaveAttribute('title', "Needs your approval or answer · Reported by the agent's hooks")
   })
 
-  it('shows "Needs your decision" in the blocked header, announces it politely, and explains the status from the menu', async () => {
+  it('shows "Needs you" in the blocked header, announces it politely, and explains the status from the menu', async () => {
     const explain = vi.fn(async () => ({ state: { paneId: 'blocked', workspaceId: 'ws-1', agent: 'claude', state: 'blocked', source: 'hook', seen: false, since: 1_700_000_000_000, stateChangeSeq: 1, completionSeq: 0 }, hook: { state: 'blocked', at: 1_700_000_000_000 }, screen: null, pendingIdle: false }))
     ;(window as unknown as { oxe: unknown }).oxe = { agentState: { explain } }
     const { container } = render(<>
@@ -92,20 +94,20 @@ describe('the sidebar row and the pane header', () => {
       <PaneContainer pane={ws.panes[1]} workspace={ws} agentProfile={null} autoStart={false} isMaximized={false} onToggleMaximize={() => undefined} />
     </>)
     const [blocked, done] = [...container.querySelectorAll('[data-testid="pane-container"]')] as HTMLElement[]
-    expect(within(blocked).getByTestId('pane-decision-chip')).toHaveTextContent('Needs your decision')
+    expect(within(blocked).getByTestId('pane-decision-chip')).toHaveTextContent('Needs you')
     expect(within(done).queryByTestId('pane-decision-chip')).toBeNull()
     expect(within(blocked).getByRole('status')).toHaveTextContent('Claude needs your decision: Needs your approval or answer')
     expect(within(done).getByRole('status')).toBeEmptyDOMElement()
-    expect(within(blocked).getByTestId('pane-status-text')).toHaveTextContent("Needs your decision · Reported by the agent's hooks")
-    expect(within(done).getByTestId('pane-status-text')).toHaveTextContent("Awaiting · Reported by the agent's hooks")
+    expect(within(blocked).getByTestId('pane-status-text')).toHaveTextContent("Needs you · Reported by the agent's hooks")
+    expect(within(done).getByTestId('pane-status-text')).toHaveTextContent("Finished · Reported by the agent's hooks")
 
     fireEvent.click(within(blocked).getByRole('button', { name: 'More pane actions' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Why this status?' }))
     const dialog = await screen.findByTestId('status-explain-dialog')
     expect(explain).toHaveBeenCalledWith('blocked')
-    expect(await within(dialog).findByText('Waiting for a decision')).toBeInTheDocument()
+    // Shown and the lifecycle state say the same word.
+    expect(await within(dialog).findAllByText('Needs you')).toHaveLength(2)
     expect(within(dialog).getByText("Reported by the agent's hooks")).toBeInTheDocument()
-    expect(within(dialog).getByText('Needs your decision')).toBeInTheDocument()
   })
 
   it('says the screen rule and the fallback in words; their ids stay in the technical details', async () => {
@@ -114,7 +116,7 @@ describe('the sidebar row and the pane header', () => {
     const display = { statusLabel: 'Idle', originLabel: 'Read from the screen' }
     const details = (explain: never): string[] => explainRows(display, explain).map(row => row.detail)
     expect(details(explainOf(false, 'default_known_agent_idle_fallback'))).toContain('Nothing on the screen matched a known state of this agent, so it is shown as idle.')
-    expect(details(explainOf(true, null))).toContain('The screen shows a known state of this agent: Waiting for a decision')
+    expect(details(explainOf(true, null))).toContain('The screen shows a known state of this agent: Needs you')
     expect(details(explainOf(false, 'some_future_reason'))).toContain('Nothing on the screen matched a known state, so the status comes from other signals.')
     for (const explain of [explainOf(false, 'default_known_agent_idle_fallback'), explainOf(true, null), explainOf(false, 'some_future_reason')]) {
       expect(details(explain).join(' ')).not.toMatch(/default_known_agent_idle_fallback|claude_permission_prompt|some_future_reason/)
@@ -186,12 +188,12 @@ describe('notifications for a decision', () => {
     setState('done')
     tick(12_000)
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude — waiting for you', body: 'demo: the agent finished and is waiting for your reply.' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude', body: 'Finished · demo' })
 
     setState('blocked')
     tick()
     expect(notify).toHaveBeenCalledTimes(2)
-    expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude — needs your decision', paneId: 'p1', workspaceId: 'ws-1' })
+    expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude', body: 'Needs you · demo', paneId: 'p1', workspaceId: 'ws-1', silent: false })
     expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', title: 'Claude', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
 
     // Held, it does not ping again; answered, the request leaves the list.
@@ -209,7 +211,7 @@ describe('notifications for a decision', () => {
     setState('blocked')
     tick()
     expect(useActivityStore.getState().items[0]).toMatchObject({ title: 'Codex' })
-    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Codex — needs your decision' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Codex', body: 'Needs you · demo' })
   })
 
   it('a finished turn still waits for the stability gate and the cooldown', () => {

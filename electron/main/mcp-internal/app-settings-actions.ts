@@ -55,7 +55,7 @@ export const ACTIONS: Record<string, Run> = {
   async native_sessions(args, scope, ctx) {
     if (!ctx.db) throw new ActionRefused('Sessions are unavailable right now.', 'unavailable')
     const provider = str(args, 'provider', 10) === 'codex' ? 'codex' : 'claude'
-    const sessions = new SessionService(ctx.db).listSessions(scope.workspaceId ?? 'mcp', scope.rootPath, provider).sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)
+    const sessions = (await new SessionService(ctx.db).listSessions(scope.workspaceId ?? 'mcp', scope.rootPath, provider)).sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)
     const limit = int(args, 'limit', 30, 1, 100)
     return { items: sessions.slice(0, limit).map(({ filePath: _path, ...session }) => session), total: sessions.length, ...(sessions.length > limit ? { truncated: true } : {}) }
   },
@@ -76,13 +76,13 @@ export function deleteCheckpointApproval(args: Args, scope: ActionScope, ctx: To
 const fallbackActions = new AgentActions()
 
 /** The body of `gated` (domain-tool.ts): the policy door for a tool that predates domainTool. */
-export async function runGated(gate: Gate, raw: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
+export async function runGated(gate: Gate, raw: unknown, ctx: ToolContext, onAsked?: (approvalId: string) => void): Promise<InternalMcpToolCallResult> {
   const args = (raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) as Args
   try {
     const scope = await resolveScope(ctx)
     const approval = gate.level === 'confirm' ? await gate.confirm?.(args, scope) : undefined
     return await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes
+      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes, onAsked
     }, () => gate.handler(raw, ctx))
   } catch (error) {
     if (!(error instanceof ActionRefused)) throw error

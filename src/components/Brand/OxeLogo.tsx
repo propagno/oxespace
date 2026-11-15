@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { MARK_ARM_LEFT, MARK_ARM_RIGHT, MARK_ON_TILE, MARK_STROKE, MARK_SUN, MARK_TRUNK, MARK_VIEWBOX, TILE_RADIUS, TILE_SUN } from '../../design/brand'
+import { MARK_ON_TILE, MARK_PATH, MARK_VIEWBOX, TILE_RADIUS } from '../../design/brand'
 import styles from './OxeLogo.module.css'
 
 interface OxeLogoProps {
@@ -9,10 +9,10 @@ interface OxeLogoProps {
 }
 
 /**
- * The OXESpace mark: a mandacaru drawn as one branching stroke (a task that
- * splits into agents) with the sertão sun beside it.
+ * The OXESpace mark, Ramo: a mandacaru in five solid columns (a task that
+ * splits into agents).
  *
- * variant="full"     — white cactus on the caatinga tile (app icon, title bar)
+ * variant="full"     — caatinga cactus on the night tile (app icon, title bar)
  * variant="compact"  — cactus in the current text color, no tile
  * variant="wordmark" — compact mark + "oxespace"
  * variant="hero"     — tile + wordmark + tagline, for empty states
@@ -36,14 +36,9 @@ export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactEle
 }
 
 export function OxeMark({ size, tile }: { size: number; tile: boolean }): ReactElement {
-  // Drawn on a 44-unit grid; the stroke is 1/11 of the size. The sun drops below 20px.
-  return <svg className={styles.mark} width={size} height={size} viewBox={MARK_VIEWBOX} fill="none" aria-hidden="true">
-    {tile && <rect className={styles.tile} width="44" height="44" rx={TILE_RADIUS} />}
-    <g transform={tile ? MARK_ON_TILE : undefined} className={tile ? styles.onTile : styles.inline} strokeWidth={MARK_STROKE} strokeLinecap="round" strokeLinejoin="round">
-      <path d={MARK_TRUNK} />
-      <path d={MARK_ARM_LEFT} />
-      <path d={MARK_ARM_RIGHT} />
-    </g>
-    {size >= 20 && <circle {...(tile ? TILE_SUN : MARK_SUN)} className={styles.sun} />}
+  // Drawn on a 48-unit grid; solid columns hold down to 12px in one color.
+  return <svg className={styles.mark} width={size} height={size} viewBox={MARK_VIEWBOX} aria-hidden="true">
+    {tile && <rect className={styles.tile} width="48" height="48" rx={TILE_RADIUS} />}
+    <path transform={tile ? MARK_ON_TILE : undefined} className={tile ? styles.onTile : styles.inline} d={MARK_PATH} />
   </svg>
 }

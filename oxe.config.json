@@ -23,6 +23,11 @@
           "sha": "dec83739e1fcf79c93f4fffc76d235efe8d88d99",
           "reason": "teste congelado do CR-02 (OXE-52) commitado pelo planner antes de existir o carimbo OXE-Freeze (oxe-build G22); isenção única, decisão de coordenação de 14/11",
           "by": "coordenação (oxecode-oxequery-mobile-1-5-0)"
+        },
+        {
+          "sha": "fea431903dd086628d2e5c55caaa66357242e2d1",
+          "reason": "quick Q-20261114-6000 de 14/11 (congelar os testes da OxeCode F5, OXE-60), feito antes do .oxe do programa; registro local perdido, trailer OXE-Quick no commit; decisão de coordenação de 15/11",
+          "by": "coordenação (oxecode-oxequery-mobile-1-5-0)"
         }
       ]
     }

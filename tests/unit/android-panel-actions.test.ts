@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { AndroidDevices, isApkPath, type AdbResult } from '../../electron/main/services/android/android-devices'
+import { AndroidCaptureError, AndroidDevices, isApkPath, type AdbResult, type AndroidCaptureFailure } from '../../electron/main/services/android/android-devices'
 
 const APK = process.platform === 'win32' ? 'C:\\builds\\app-debug.apk' : '/builds/app-debug.apk'
 const LINK = 'oxespace://pair?v=3&host=192.168.0.10&port=47821&fp=AB:CD&code=7K2M9Q'
@@ -84,5 +84,31 @@ describe('the person\'s actions on a device, from the Android panel', () => {
     ]
     for (const args of refused) await expect(devices.adb(args), args.join(' ')).rejects.toThrow()
     expect(adb.calls).toEqual([])
+  })
+
+  test('the adb server may be started, and only started: kill-server and other forms stay refused', async () => {
+    const adb = fakeAdb()
+    const devices = new AndroidDevices({ run: adb.run })
+    expect(await devices.startServer()).toBe(true)
+    expect(adb.calls.map(call => call.args)).toEqual([['start-server']])
+    for (const args of [['kill-server'], ['start-server', '-a'], ['-s', 'emulator-5554', 'start-server'], ['reconnect'], ['emu', 'kill']]) await expect(devices.adb(args), args.join(' ')).rejects.toThrow()
+    expect(adb.calls).toHaveLength(1)
+    expect(await new AndroidDevices({ run: fakeAdb(() => ({ missing: true, status: null })).run }).startServer()).toBe(false)
+  })
+
+  test('a failed capture says why: adb missing, server down, no device or another failure', async () => {
+    const cases: Array<[Partial<AdbResult>, AndroidCaptureFailure]> = [
+      [{ missing: true, status: null }, 'adb-missing'],
+      [{ status: 1, stderr: '* daemon not running; starting now at tcp:5037\nadb: cannot connect to daemon at tcp:5037' }, 'server-down'],
+      [{ status: 1, stderr: "adb: device 'emulator-5554' not found" }, 'no-device'],
+      [{ status: 1, stderr: 'adb: no devices/emulators found' }, 'no-device'],
+      [{ status: 1, stderr: 'something else' }, 'failed']
+    ]
+    for (const [answer, reason] of cases) {
+      const devices = new AndroidDevices({ run: fakeAdb(() => answer).run })
+      const caught = await devices.screencap('emulator-5554').catch((error: unknown) => error)
+      expect(caught, reason).toBeInstanceOf(AndroidCaptureError)
+      expect((caught as InstanceType<typeof AndroidCaptureError>).reason).toBe(reason)
+    }
   })
 })

@@ -1,0 +1,145 @@
+{
+  "brd": "BRD-01",
+  "card": "OXE-22",
+  "title": "OxeCode sidebar",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-01.header.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-header]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-01.filter.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-filter]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-01.section.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-section]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the section label line"
+    },
+    {
+      "id": "BRD-01.group.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-group]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-01.footer.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-footer]",
+      "prop": "height",
+      "expect": {
+        "token": "--bar-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-01.row.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-row][data-lines='1']",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "a terminal row is one line"
+    },
+    {
+      "id": "BRD-01.row-two-line.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=sidebar-row][data-lines='2']",
+      "prop": "height",
+      "expect": {
+        "token": "--row-2"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the second line only for a terminal that needs a decision (brand 14/11)"
+    }
+  ]
+}

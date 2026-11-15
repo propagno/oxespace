@@ -98,13 +98,14 @@ describe('tool groups on demand: measured cost (T8)', () => {
 
   it('keeps a conversation without tool search (Claude with auto:N or false) that turns nothing on within today\'s budget', () => {
     const plain = sessionToolPlan(false, {}, defaults)
-    expect(plain.tools).toEqual([...THREAD_TOOL_GROUPS.core, 'oxespace_tools_enable'])
+    expect(plain.tools).toEqual([...THREAD_TOOL_GROUPS.core, ...THREAD_TOOL_GROUPS.preview, 'oxespace_tools_enable'])
     expect(definitionChars(plain.tools)).toBeLessThanOrEqual(9000)
   })
 
   // What a group's definitions cost once loaded (Codex as it needs them, Claude without tool search once turned on). A group may only grow past its line here on
   // purpose: raise the line in the same change and say why.
-  const CODEX_GROUP_BUDGET = { orchestration: 13_500, data: 6_700, docs: 4_400, app: 21_000, code: 11_500 } as const
+  // OXE-108 moved the preview tools from docs to preview, with docs' line; docs holds nothing now.
+  const CODEX_GROUP_BUDGET = { orchestration: 13_500, data: 6_700, preview: 4_400, app: 21_000, code: 11_500 } as const
 
   it('measures what each group costs Codex once it is on, against its own budget', () => {
     for (const [group, budget] of Object.entries(CODEX_GROUP_BUDGET)) {

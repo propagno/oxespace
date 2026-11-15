@@ -1,4 +1,4 @@
-import { CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolGroupMode } from '../../../../shared/types/mcp-tools'
+import { CONFIGURABLE_MCP_TOOL_GROUPS, MCP_TOOL_GROUP_DEFAULT_MODES, MCP_TOOL_GROUP_MODES, type ConfigurableMcpToolGroup, type McpToolGroupMode } from '../../../../shared/types/mcp-tools'
 import type { RepoConfig } from '../../../../shared/types/repo-config'
 import type { ThreadProvider } from '../../../../shared/types/thread'
 import { CODE_ON_DEMAND_TOOLS, CODE_START_TOOLS, MCP_TOOL_GROUPS, type ThreadToolRoles } from './thread-mcp'
@@ -11,10 +11,11 @@ const isMode = (mode: unknown): mode is McpToolGroupMode => (MCP_TOOL_GROUP_MODE
 
 /**
  * `thread.tools` in oxe.yaml, in either form: a list of groups (the 1.3 form: those are always on) or a map of group to
- * mode. Anything not named is on demand; unknown groups and modes are ignored.
+ * mode. Anything not named keeps its default (`MCP_TOOL_GROUP_DEFAULT_MODES`: `preview` always, the rest on demand);
+ * unknown groups and modes are ignored.
  */
 export function projectToolModes(thread: RepoConfig['thread'] | undefined): ProjectToolModes {
-  const modes = Object.fromEntries(CONFIGURABLE_MCP_TOOL_GROUPS.map(group => [group, { mode: 'on-demand', source: 'default' }])) as ProjectToolModes
+  const modes = Object.fromEntries(CONFIGURABLE_MCP_TOOL_GROUPS.map(group => [group, { mode: MCP_TOOL_GROUP_DEFAULT_MODES[group], source: 'default' }])) as ProjectToolModes
   for (const group of thread?.tools ?? []) if (isConfigurable(group)) modes[group] = { mode: 'always', source: 'project' }
   for (const [group, mode] of Object.entries(thread?.toolModes ?? {})) if (isConfigurable(group) && isMode(mode)) modes[group] = { mode, source: 'project' }
   return modes
@@ -45,6 +46,8 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
   const code: string[] = roles.code ? [...CODE_START_TOOLS, ...(toolSearch ? CODE_ON_DEMAND_TOOLS : [])] : []
   if (roles.code && !toolSearch) enableable.code = [...CODE_ON_DEMAND_TOOLS]
   for (const group of CONFIGURABLE_MCP_TOOL_GROUPS) {
+    // A group with no tools (docs since OXE-108) is neither offered nor something to turn on.
+    if (!MCP_TOOL_GROUPS[group].length) continue
     const { mode } = modes[group]
     if (mode === 'always' || (mode === 'on-demand' && toolSearch)) groups.push(group)
     else if (mode === 'on-demand') enableable[group] = [...MCP_TOOL_GROUPS[group]]

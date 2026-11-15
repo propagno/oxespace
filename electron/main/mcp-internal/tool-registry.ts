@@ -74,6 +74,8 @@ export interface ToolContext {
   worktreesPanel?: import('../services/github/worktree-guard').WorktreeRemoveGuard
   androidAccess?: () => import('../services/android/android-devices').AndroidAgentAccess | undefined
   askAndroidScreenshot?: (input: { serial: string; sessionKey: string; owner: { kind: 'pane' | 'thread'; id: string }; label: string }) => Promise<boolean>
+  /** OXE-109: opens the Android device panel in the window (IPC android:open-panel), when an agent asks for the device. */
+  openAndroidPanel?(request: { workspaceId: string; serial: string }): void
 }
 
 export interface ToolEntry {
@@ -88,7 +90,8 @@ export interface ToolEntry {
 const TOOL_GROUP_PURPOSES = {
   orchestration: 'start other agents and conversations, delegate and follow Work runs',
   data: 'databases and containers through OxeQuery; every data read and change is approved by a person',
-  docs: 'web previews and documentation captures',
+  docs: 'documentation tools (none today; the previews are in preview)',
+  preview: 'Web Preview and Android devices: open, capture and drive a preview, take a device screenshot; on from the start',
   app: 'Git, GitHub, conversations, skills, MCP servers, search, usage and settings'
 }
 
@@ -99,7 +102,7 @@ const TOOL_GROUP_PURPOSES = {
 const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
-    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, preview, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
     inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
     // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
@@ -143,8 +146,13 @@ export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
       const workspace = ctx.workspaceServ.get(execution.workspaceId)
       const pane = workspace?.panes.find(p => p.id === execution.paneId)
       if (execution.owner.kind === 'pane' && !pane) return reply('error', { code: 'PANE_UNAVAILABLE', message: 'The execution pane no longer exists.', retryable: false }, true)
+      // Each tool's group (OXE-108): the one that holds it, the first in MCP_TOOL_GROUPS for a tool in several, null for none.
+      // Loaded here, not at the top: the conversation services and the registry import each other.
+      const { MCP_TOOL_GROUPS } = name === 'oxespace_capabilities' ? await import('../services/conversation/thread-mcp') : { MCP_TOOL_GROUPS: {} }
+      const groupOf = (tool: string): string | null =>
+        Object.entries(MCP_TOOL_GROUPS as Record<string, readonly string[]>).find(([, tools]) => tools.includes(tool))?.[0] ?? null
       if (name === 'oxespace_capabilities') return reply('ok', {
-        tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace })),
+        tools: catalogue().map(t => ({ name: t.descriptor.name, requiresWorkspace: t.requiresWorkspace, group: groupOf(t.descriptor.name) })),
         workspaceId: execution.workspaceId,
         delegationServiceAvailable: Boolean(ctx.delegation),
         // Discovery must not wait for filesystem identity or Git on a busy host.
@@ -381,8 +389,8 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_capture_web_preview',
-      description: 'Capture the active opted-in Web Preview tab with private inputs redacted. Returns a PNG image; optional fileName also saves it under the OXESpace capture directory and returns the absolute path.',
-      inputSchema: { type: 'object', properties: { fileName: { type: 'string', description: 'Optional PNG name such as aba-1.png; letters, digits, underscore and hyphen only.' } }, additionalProperties: false }
+      description: 'Capture the active opted-in Web Preview tab with private inputs redacted. Returns a PNG image; optional fileName also saves it under the OXESpace capture directory and returns the absolute path. With element, returns that saved element capture instead (no live preview needed).',
+      inputSchema: { type: 'object', properties: { fileName: { type: 'string', description: 'Optional PNG name such as aba-1.png; letters, digits, underscore and hyphen only.' }, element: { type: 'string', description: 'File name of an element capture named in a Web Preview message, such as element-x-1a2b.png.' } }, additionalProperties: false }
     },
     requiresWorkspace: true,
     handler: handlers.captureWebPreview

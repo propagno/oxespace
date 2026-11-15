@@ -20,7 +20,9 @@ describe('F5 · contract', () => {
     expect(IPC_CHANNELS.android).toEqual({
       status: 'android:status', changed: 'android:changed', connect: 'android:connect', disconnect: 'android:disconnect', frame: 'android:frame',
       tap: 'android:tap', swipe: 'android:swipe', key: 'android:key', rotate: 'android:rotate', screenshot: 'android:screenshot',
-      setAgentsCanSee: 'android:set-agents-can-see', startEmulator: 'android:start-emulator'
+      setAgentsCanSee: 'android:set-agents-can-see', startEmulator: 'android:start-emulator',
+      // Changed on 2026-11-14 by the coordinator's decision (user's delegation of 14/11): openPanel added by OXE-109 / A12
+      openPanel: 'android:open-panel'
     })
   })
 

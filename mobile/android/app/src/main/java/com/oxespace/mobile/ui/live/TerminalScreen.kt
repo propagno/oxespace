@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -377,8 +379,9 @@ internal fun colored(line: VtLine, colors: OxeColors): AnnotatedString = buildAn
 }
 
 /**
- * Typing into a pane the person allowed from the phone, at the desktop. The line goes with Enter, in pieces of at most
- * 4 KiB; a refusal (the desktop turned typing off meanwhile) says so and keeps the text.
+ * Typing into a pane the person allowed from the phone, at the desktop. The line goes in pieces of at most 4 KiB, then Enter
+ * as its own write a beat later (an empty field sends just Enter); a refusal (the desktop turned typing off meanwhile)
+ * says so and keeps the text.
  */
 @Composable
 private fun TerminalInput(paneId: String, commands: CommandApi, presence: PresenceGate) {
@@ -404,6 +407,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
             val gated = presence.run(PresenceReason.TYPE) {
                 var result: CommandResult = CommandResult.Done(null)
                 for (piece in pieces) {
+                    // T18-d: Enter is its own write, a beat after the text, so the CLI doesn't read the line as a paste.
+                    if (sent == pieces.lastIndex && sent > 0) delay(TERMINAL_ENTER_DELAY_MS)
                     result = commands.terminalWrite(RemoteTerminalWriteArgs(paneId, piece))
                     if (result !is CommandResult.Done) break
                     sent++
@@ -457,7 +462,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 }
             },
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it; message = null },
@@ -477,6 +482,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                         LineCheck.Clear -> sendLine()
                     }
                 },
+                // OXE-102 CA-4: off with an empty field (the key row's Enter key covers a bare Enter); as tall as the field.
+                modifier = Modifier.fillMaxHeight(),
                 enabled = !busy && text.isNotEmpty(),
             )
         }
@@ -511,11 +518,17 @@ private const val TERMINAL_PIECE = 1_000
 /** What the Enter key sends to a terminal. */
 private const val ENTER = "\r"
 
-/** A typed line as terminal.write pieces, Enter included. */
-internal fun terminalPieces(text: String): List<String> = (text + ENTER).chunked(TERMINAL_PIECE)
+/** A typed line as terminal.write pieces; Enter is always the last piece, on its own. An empty field is Enter alone. */
+internal fun terminalPieces(text: String): List<String> = text.chunked(TERMINAL_PIECE) + ENTER
+
+/**
+ * T18-d: how long Enter waits after the text, as the desktop's TerminalManager.submit does, so Claude Code and Codex
+ * submit the line instead of taking it as a paste.
+ */
+internal const val TERMINAL_ENTER_DELAY_MS = 80L
 
 /** What's left to type after [sent] pieces went through; empty when all did. Enter is the send button's, not the field's. */
-internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.drop(sent).joinToString("").removeSuffix(ENTER)
+internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.take(pieces.size - 1).drop(sent).joinToString("")
 
 /** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
 @Composable

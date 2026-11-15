@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher background, the green of resources/icon.svg. In-app colors come from the generated theme. -->
-    <color name="brand_caatinga">#1F6B4A</color>
+    <!-- Launcher background, the night tile of resources/icon.svg (LOGO.tile). In-app colors come from the generated theme. -->
+    <color name="brand_night">#1B1925</color>
 </resources>

@@ -48,6 +48,48 @@ export function visibleOptions(request: ApprovalRequest): ApprovalOption[] {
 /** Allow options wait `allowDelayMs` after the request is shown (main's pacing: 2 s at critical, else 0). */
 export const holdsAllow = (request: Pick<ApprovalRequest, 'allowDelayMs'>): boolean => request.allowDelayMs > 0
 
+/** What the center weighs the main allow by: the request's risk, and whether its effect can be undone. */
+export interface ApprovalWeight { risk: ApprovalRisk; reversible: boolean }
+
+/**
+ * How the center draws its main allow (ApprovalQueue's footer): primary; danger when the effect cannot be undone; at
+ * critical and irreversible, danger behind hold-to-confirm, with no keyboard shortcut drawn on it.
+ */
+export type MainAllowStyle = 'primary' | 'danger' | 'hold'
+export function mainAllowStyle(weight: ApprovalWeight | undefined): MainAllowStyle {
+  if (!weight || weight.reversible) return 'primary'
+  return weight.risk === 'critical' ? 'hold' : 'danger'
+}
+
+/**
+ * The weight of a request of the approvals center. It carries no reversibility of its own, so a critical request is
+ * taken as one that cannot be undone (nothing says it can); below critical it is weighed as the center weighs a
+ * reversible change.
+ */
+export function requestWeight(request: Pick<ApprovalRequest, 'risk' | 'agentText'>): ApprovalWeight {
+  const risk = effectiveRisk(request)
+  return { risk, reversible: risk !== 'critical' }
+}
+
+export type ApprovalButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
+export interface ApprovalButton { option: ApprovalOption; variant: ApprovalButtonVariant; hold: boolean }
+
+/**
+ * A record's own options as the center's buttons, in their order: Deny first (secondary), the other ways to allow
+ * (ghost: "Always allow" is never the one in view), and the main action last, the first "allow" option (allow once),
+ * drawn by mainAllowStyle. One emphasised button at most.
+ */
+export function approvalButtons(options: readonly ApprovalOption[], weight?: ApprovalWeight): ApprovalButton[] {
+  const allows = options.filter(option => option.intent !== 'deny')
+  const main = allows.find(option => option.intent === 'allow') ?? allows[0]
+  const style = mainAllowStyle(weight)
+  return [
+    ...options.filter(option => option.intent === 'deny').map(option => ({ option, variant: 'secondary' as const, hold: false })),
+    ...allows.filter(option => option !== main).map(option => ({ option, variant: 'ghost' as const, hold: false })),
+    ...(main ? [{ option: main, variant: style === 'primary' ? 'primary' as const : 'danger' as const, hold: style === 'hold' }] : [])
+  ]
+}
+
 /**
  * A decision as the history shows it. A request that ended without the person's answer (main refused it: queue
  * full, text too long; it timed out; its source withdrew it) carries main's `reason`: the app's outcome, never the

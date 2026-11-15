@@ -114,6 +114,10 @@ export interface InternalMcpWebPreviewEvent {
   threadId?: string
   url: string
   requestedAt: number
+  /** 'ask': an external page waits for the person's OK on the approval center's record `approvalId`; nothing loads yet. */
+  permission?: 'ask'
+  /** The approval center's own record for this page (the one approvals:list returns). */
+  approvalId?: string
 }
 
 /**

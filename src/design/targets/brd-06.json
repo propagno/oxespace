@@ -1,0 +1,106 @@
+{
+  "brd": "BRD-06",
+  "card": "OXE-67",
+  "title": "Settings (VIS-24)",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-06.content.width",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-page]",
+      "prop": "width",
+      "expect": {
+        "px": 720
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "centred content column"
+    },
+    {
+      "id": "BRD-06.title.font-size",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-page-title]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-xl"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-06.title.font-family",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-page-title]",
+      "prop": "font-family",
+      "expect": {
+        "token": "--font-display"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-06.nav.height",
+      "scene": "settings-general",
+      "select": "nav [role=tab], nav [aria-current]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-06.option.count",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-section] > :not(header) > :not([data-ui=setting-row])",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "every option is a SettingRow: the section's rows hold nothing else"
+    }
+  ]
+}

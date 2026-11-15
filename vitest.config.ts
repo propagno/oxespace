@@ -20,7 +20,9 @@ export default defineConfig({
       reporter: ['text', 'json-summary'],
       include: ['src/**/*.{ts,tsx}', 'electron/main/**/*.{ts,tsx}', 'shared/**/*.ts'],
       exclude: ['electron/main/vendor/**', '**/*.d.ts'],
-      thresholds: {
+      // A CI shard (OXE-142) covers part of the code: its floors are off there; the job that merges the shards' blob
+      // reports applies them to the whole run.
+      thresholds: process.env.VITEST_COVERAGE_SHARD ? undefined : {
         lines: 35, functions: 35, statements: 35, branches: 25,
         // FE-M-16: the renderer's own floor, about a point under what CI measured on both platforms on 2026-10-31
         // (65.5 / 61.8 / 56.5 / 53.9 %, coverage-summary-<platform> from #293). A ratchet: raise it, never lower it.

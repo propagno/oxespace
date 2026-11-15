@@ -107,9 +107,6 @@
       "interrupted": "Interrompido",
       "failed": "Falhou"
     },
-    "pendingCount_one": "Precisa de você ({{count}})",
-    "pendingCount_other": "Precisa de você ({{count}})",
-    "pendingCount_many": "Precisa de você ({{count}})",
     "back": "Voltar",
     "menu": "Mais opções",
     "jobs": "Tarefas em segundo plano",
@@ -117,7 +114,7 @@
     "job": {
       "pending": "Iniciando",
       "running": "Rodando",
-      "exited": "Terminou",
+      "exited": "Concluída",
       "failed": "Falhou",
       "killed": "Parada"
     },
@@ -126,7 +123,7 @@
     "agentState": {
       "working": "Trabalhando",
       "blocked": "Precisa de você",
-      "done": "Terminou",
+      "done": "Concluído",
       "idle": "Ocioso",
       "unknown": "Não confirmado"
     },
@@ -280,8 +277,9 @@
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
     },
-    "nowNeedsYou": "Precisa de você: {{title}}",
-    "review": "Revisar"
+    "review": "Revisar",
+    "stepCollapsed": "Recolhido",
+    "stepExpanded": "Expandido"
   },
   "terminal": {
     "redacted_one": "{{count}} valor secreto escondido pelo seu computador.",
@@ -323,7 +321,6 @@
     "hiddenBack": "Voltar aos terminais",
     "panHint": "{{cols}} colunas · arraste para os lados",
     "fitWidth": "Ajustar à largura",
-
     "sizeTakenBack": "O computador retomou o tamanho dele para este terminal. Abra de novo para ajustar a este telefone.",
     "typeOnScreen": "Digite na visão Tela",
     "hiddenTitle": "Terminal"
@@ -388,7 +385,8 @@
       "permissions": "Pedido de permissão"
     },
     "noUndo": "Sem desfazer.",
-    "allowIn": "em {{seconds}} s"
+    "allowIn": "em {{seconds}} s",
+    "holdToAllow": "Segure para permitir"
   },
   "action": {
     "offline": "Sem conexão com o computador. Nada foi enviado.",
@@ -470,5 +468,20 @@
       "version": "Versão {{version}}",
       "sameWifi": "Funciona enquanto este celular e o seu computador estão na mesma Wi-Fi."
     }
+  },
+  "needsYou": {
+    "agent": "O agente",
+    "allowed": "Permitido",
+    "asksApproval": "{{agent}} precisa da sua aprovação",
+    "asksQuestion": "{{agent}} precisa da sua resposta",
+    "asksRun": "{{agent}} precisa da sua aprovação",
+    "denied": "Negado",
+    "kindCommand": "Aprovar comando",
+    "kindQuestions_one": "{{count}} pergunta",
+    "kindQuestions_other": "{{count}} perguntas",
+    "kindQuestions_many": "{{count}} perguntas",
+    "offline": "Sem conexão com o computador. Responda quando ela voltar.",
+    "reply": "Responder",
+    "title": "Precisa de você"
   }
 }

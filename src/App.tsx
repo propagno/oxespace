@@ -48,7 +48,6 @@ const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay')
 const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
 const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
 const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
-import { McpPanelHost, preloadMcpPanel } from './components/MCP/McpHost'
 const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
@@ -56,7 +55,7 @@ import { useSkillStore } from './store/skill.store'
 import { useSlashDispatcher } from './lib/useSlashDispatcher'
 import { useAccountStore } from './store/account.store'
 import { useThreadStore, warmThreadList } from './store/thread.store'
-import { useThreadWorkbenchStore } from './store/thread-workbench.store'
+import { openAgentPreview, type AgentPreviewApp } from './app/agentPreview'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
@@ -69,6 +68,11 @@ const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/Works
 const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
 const NO_WORKSPACE_START_CHUNK = chunk(() => import('./components/Onboarding/NoWorkspaceStart'))
 const NoWorkspaceStart = lazyFrom(NO_WORKSPACE_START_CHUNK, (m) => m.NoWorkspaceStart)
+// The MCP servers dialog's host is a chunk of its own, warmed after first paint together with the dialog's chunk, so
+// the entry carries only these two lines (OXE-56). Both render through lazyFrom: once warmed, the dialog opens in the
+// same commit (OXE-39).
+const MCP_HOST_CHUNK = chunk(() => import('./components/MCP/McpHost'))
+const McpPanelHost = lazyFrom(MCP_HOST_CHUNK, (m) => m.McpPanelHost)
 
 
 
@@ -80,7 +84,8 @@ import { NextAttentionHost } from './components/Attention/NextAttentionHost'
 import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
-import { useEditorStore } from './store/editor.store'
+// The editor's store is not in the entry (OXE-105): it arrives with the first editor, or right after first paint.
+const EDITOR_STORE_CHUNK = chunk(() => import('./store/editor.store'))
 import { useTerminalStore } from './store/terminal.store'
 import { useUIStore } from './store/ui.store'
 import { selectActiveWorkspace, useWorkspaceStore } from './store/workspace.store'
@@ -151,7 +156,7 @@ export function App(): ReactElement {
   const { activeWorkspaceId, bootstrap, closePane, closeWorkspace, createWorkspace, error, isLoading, loadShellProfiles, setActiveWorkspace, shellProfiles, splitPane, updateGitHubState, updateReviewState, updateEditorState, updateBackgroundState, updateWorktreeState, updateSettings, workspaces } = useWorkspaceStore(useShallow((state) => ({
     activeWorkspaceId: state.activeWorkspaceId, bootstrap: state.bootstrap, closePane: state.closePane, closeWorkspace: state.closeWorkspace, createWorkspace: state.createWorkspace, error: state.error, isLoading: state.isLoading, loadShellProfiles: state.loadShellProfiles, setActiveWorkspace: state.setActiveWorkspace, shellProfiles: state.shellProfiles, splitPane: state.splitPane, updateGitHubState: state.updateGitHubState, updateReviewState: state.updateReviewState, updateEditorState: state.updateEditorState, updateBackgroundState: state.updateBackgroundState, updateWorktreeState: state.updateWorktreeState, updateSettings: state.updateSettings, workspaces: state.workspaces
   })))
-  const clearEditor = useEditorStore((state) => state.clearEditor)
+  useEffect(() => { void EDITOR_STORE_CHUNK.load().catch(() => undefined) }, [])
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const setPendingCommand = useTerminalStore((state) => state.setPendingCommand)
   const setActiveTerminalPaneId = useTerminalStore((state) => state.setActivePaneId)
@@ -314,11 +319,10 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer)
   }, [activeWorkspaceId, markPaneDetached, visitedWorkspaceIds.length, visitedWorkspacesCap])
 
-  // The MCP servers dialog's chunk warms after first paint, so its first open renders at once (OXE-39).
+  // The MCP servers dialog (its host, then its own chunk) warms after first paint, so its first open renders at once
+  // (OXE-39). Loading is remembered (src/lib/chunk.ts): a second run of this effect only finds it there.
   useEffect(() => {
-    let second = 0
-    const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(preloadMcpPanel) })
-    return () => { window.cancelAnimationFrame(first); window.cancelAnimationFrame(second) }
+    requestAnimationFrame(() => requestAnimationFrame(() => { MCP_HOST_CHUNK.load().then(m => m.preloadMcpPanel(), () => undefined) }))
   }, [])
 
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
@@ -374,20 +378,23 @@ export function App(): ReactElement {
     return () => window.cancelAnimationFrame(frame)
   }, [activePane?.id, setActiveTerminalPaneId])
 
+  // What an agent asks for comes to the front (OXE-109): the listeners read the view and workspace on screen now.
+  const agentPanelApp = useRef<AgentPreviewApp>({ view: applicationView, activeWorkspaceId, showCode: () => selectMode('code'), activateWorkspace: id => { void setActiveWorkspace(id) } })
+  useEffect(() => { agentPanelApp.current = { view: applicationView, activeWorkspaceId, showCode: () => selectMode('code'), activateWorkspace: id => { void setActiveWorkspace(id) } } })
   useEffect(() => {
     const api = window.oxe?.mcpInternal
     if (!api) return
-    const unsubscribe = api.onWebPreview((event) => {
-      const ui = useUIStore.getState()
-      if (event.threadId) {
-        ui.setPendingWebPreview(`thread:${event.threadId}`, event.url)
-        useThreadWorkbenchStore.getState().setView(event.threadId, { panel: 'preview' })
-      } else {
-        ui.setPendingWebPreview(event.workspaceId, event.url)
-        ui.openWebPreview(event.workspaceId)
-      }
+    return api.onWebPreview((event) => openAgentPreview(event, agentPanelApp.current))
+  }, [])
+  useEffect(() => {
+    const android = window.oxe?.android
+    if (!android?.onOpenPanel) return
+    return android.onOpenPanel((request) => {
+      const app = agentPanelApp.current
+      if (app.view !== 'code') app.showCode()
+      if (request.workspaceId && app.activeWorkspaceId !== request.workspaceId) app.activateWorkspace(request.workspaceId)
+      useUIStore.getState().openAndroidPanel()
     })
-    return unsubscribe
   }, [])
 
   useEffect(() => {
@@ -455,7 +462,10 @@ export function App(): ReactElement {
   const handleCloseWorkspace = (workspaceId: string): void => {
     const workspace = workspaces.find((item) => item.id === workspaceId)
     for (const pane of workspace?.panes ?? []) removeTerminalPane(pane.id)
-    clearEditor(workspaceId)
+    // Its tabs are persisted, so they are cleared even when the store arrives only now.
+    const editor = EDITOR_STORE_CHUNK.get()
+    if (editor) editor.useEditorStore.getState().clearEditor(workspaceId)
+    else void EDITOR_STORE_CHUNK.load().then(module => module.useEditorStore.getState().clearEditor(workspaceId), () => undefined)
     closeWebPreview(workspaceId)
     useUIStore.getState().setPendingWebPreview(workspaceId, null)
     setVisitedWorkspaceIds((prev) => prev.filter((id) => id !== workspaceId))

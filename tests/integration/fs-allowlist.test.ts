@@ -36,6 +36,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/experimental-features.ts',
   // Reads the app's own translation catalogs (locales/<language>/main.json next to the bundle); fixed names only.
   'electron/main/i18n.ts',
+  // OXE-179: reads only /etc/os-release or /usr/lib/os-release (fixed system paths) for the OS family and version shown on
+  // the paired phone; never the hostname or the user, and never a path from the renderer or a workspace.
+  'electron/main/services/remote/os-name.ts',
   // The English catalog (locales/en/main.json), for the C3 refusals agents read (B10); a fixed name only.
   'electron/main/agent-text.ts',
   // Stat only: confirms that a project root sent by the renderer is an existing directory before a process
@@ -200,6 +203,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',
   'electron/main/services/usage/claudeProvider.ts',
+  // OXE-157: /resume's list reads the same Claude transcripts asynchronously, in chunks (never a path from the renderer).
+  'electron/main/services/usage/claude-transcript-scan.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
   // AI usage/credits chips: read account-wide quota from outside the

@@ -67,6 +67,7 @@ export interface InternalMcpDeps {
   fileSystem: FileSystemService
   androidAccess?: import('./tool-registry').ToolContext['androidAccess']
   askAndroidScreenshot?: import('./tool-registry').ToolContext['askAndroidScreenshot']
+  openAndroidPanel?: import('./tool-registry').ToolContext['openAndroidPanel']
 }
 
 export interface InternalMcpHandle {
@@ -113,7 +114,8 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     webPreview,
     worktree,
     androidAccess: deps.androidAccess,
-    askAndroidScreenshot: deps.askAndroidScreenshot
+    askAndroidScreenshot: deps.askAndroidScreenshot,
+    openAndroidPanel: deps.openAndroidPanel
   })
 
   let lastError: string | null = null

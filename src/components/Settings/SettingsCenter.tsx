@@ -3,7 +3,8 @@ import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { EmptyState, Skeleton, TextField } from '../../ui'
+import { EmptyState, SettingRow, SettingsSection as SettingsGroup, Skeleton, TextField } from '../../ui'
+import { SettingsPageTitle } from '../../ui/Settings'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -253,7 +254,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               useTerminalStore.getState().setActivePaneId(paneId)
               props.onClose()
             }} />
-            : <section className="settings-general"><h2>{t('center.workspaceClosed')}</h2><p>{t('center.workspaceClosedHint')}</p></section>
+            : <section className="settings-general" data-ui="settings-page"><SettingsPageTitle>{t('center.workspaceClosed')}</SettingsPageTitle><p>{t('center.workspaceClosedHint')}</p></section>
             : <>
               {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
               <footer className="settings-auto-apply-note" data-risky-count={RISKY_SETTING_ROWS.length}>{t('center.autoApplyNote')}</footer>
@@ -268,10 +269,12 @@ function GeneralSettings(): ReactElement {
   const cap = useSettingsStore(s => s.visitedWorkspacesCap)
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
   const { t } = useTranslation('settings')
-  return <section className="settings-general"><h2>{t('general.title')}</h2><p>{t('general.description')}</p>
-    <h3>{t('general.navigation')}</h3>
-    <div className="settings-general-card"><div><label htmlFor="workspace-cache-cap">{t('general.cacheLabel')}</label>
-      <p>{t('general.cacheHint')}</p></div>
-      <TextField id="workspace-cache-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />
-    </div><ExternalEditorSetting /><SeenSitesSetting /></section>
+  // BRD-06: every option is a SettingRow inside a SettingsSection (the single mould); no hand-made cards.
+  return <section className="settings-general" data-ui="settings-page"><SettingsPageTitle>{t('general.title')}</SettingsPageTitle><p>{t('general.description')}</p>
+    <SettingsGroup title={t('general.navigation')}>
+      <SettingRow htmlFor="workspace-cache-cap" label={t('general.cacheLabel')} description={t('general.cacheHint')}
+        control={<TextField id="workspace-cache-cap" className="settings-general-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />} />
+      <ExternalEditorSetting />
+    </SettingsGroup>
+    <SeenSitesSetting /></section>
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactElement } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
-import { Archive, Download, GitFork, History, Info, ListTree, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
+import { Archive, Download, GitFork, History, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
@@ -116,7 +116,8 @@ export function ThreadHeader({
       case 'delegate': return <Waypoints size={14} aria-hidden="true" />
       case 'mcp': return <Plug size={14} aria-hidden="true" />
       case 'larger-text': return <Type size={14} aria-hidden="true" />
-      case 'show-every-tool-call': return <ListTree size={14} aria-hidden="true" />
+      // A checkable entry has no icon: its left column is the check (OXE-13).
+      case 'show-every-tool-call': return undefined
       case 'details': return <Info size={14} aria-hidden="true" />
       case 'fork': return <GitFork size={14} aria-hidden="true" />
       case 'export': return <Download size={14} aria-hidden="true" />
@@ -154,8 +155,8 @@ export function ThreadHeader({
           }
         case 'show-every-tool-call':
           return {
+            type: 'check',
             label: entry.label,
-            icon: iconFor(id),
             checked: viewMode === 'verbose',
             onSelect: () => useThreadViewModeStore.getState().setMode(viewMode === 'verbose' ? 'normal' : 'verbose')
           }

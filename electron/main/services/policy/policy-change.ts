@@ -169,6 +169,10 @@ export function noteLines(subject: Pick<Subject, 'file'>, shownBase: AnyProjecti
       const from = before[group]?.mode ?? 'on-demand'
       const to = after[group]?.mode ?? 'on-demand'
       if (from === to) continue
+      // Neither side names the group: the move is the app's own default (`preview` starts on, OXE-108) against the
+      // floor's on-demand cap or a version saved before the group existed. The file grants nothing, so nothing is asked.
+      // A group the accepted version set (an `off` included) and the file dropped is still compared below.
+      if ((before[group]?.source ?? 'default') === 'default' && after[group]?.source === 'default') continue
       const widens = RANK[to] > RANK[from]
       lines.push({ widens, severity: widens ? 2 : 3, key: from === 'off' ? `off\0${group}` : undefined, message: mainMessage(widens ? 'approvals.note.policy.groupRaised' : 'approvals.note.policy.groupLowered', { group, from, to }) })
     }

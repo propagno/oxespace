@@ -9,7 +9,7 @@ import {
   type AgentActivitySource,
   type AgentActivitySummary
 } from '../../../../shared/types/agent-activity'
-import { resolveAuditActor } from '../http-audit/store'
+import { resolveAuditActor } from '../http-audit/history'
 
 export interface AgentActivityDeps {
   isProductionHost?: (workspaceId: string, host: string) => boolean

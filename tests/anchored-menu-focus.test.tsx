@@ -45,6 +45,33 @@ describe('AnchoredMenu and its owner', () => {
     await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Move the divider left' })).toHaveFocus())
   })
 
+  test('the late focus hand-back after a choice leaves focus where it moved since (OXE-135)', async () => {
+    // e2e/terminal-focus-exit.spec.ts on Linux CI: "Move the divider" put focus on the divider, F6 moved it to the
+    // status bar, and the menu's deferred close hand-back pulled it back to the divider (the pane grid).
+    render(<Owner onOpenChange={() => {}} />)
+    const item = await screen.findByRole('menuitem', { name: 'Move the divider left' })
+    await waitFor(() => expect(item).toHaveFocus())
+    act(() => {
+      item.click()
+      // Before the hand-back runs: the keyboard leaves the owner for another region.
+      screen.getByRole('button', { name: 'elsewhere' }).focus()
+    })
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    await act(() => new Promise(resolve => setTimeout(resolve, 50)))
+    expect(screen.getByRole('button', { name: 'elsewhere' })).toHaveFocus()
+  })
+
+  test('Escape still gives focus back to the owner', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default
+    const user = userEvent.setup()
+    render(<Owner onOpenChange={() => {}} />)
+    const item = await screen.findByRole('menuitem', { name: 'Move the divider left' })
+    await waitFor(() => expect(item).toHaveFocus())
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+    await waitFor(() => expect(screen.getByTestId('owner')).toHaveFocus())
+  })
+
   test('focus moving anywhere else still closes it', async () => {
     const onOpenChange = vi.fn()
     render(<Owner onOpenChange={onOpenChange} />)
