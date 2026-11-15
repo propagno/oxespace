@@ -85,9 +85,21 @@ const IGNORED_CONCLUSIONS = new Set(['skipped', 'neutral'])
  * other jobs are never repeated: a failure there is an answer.
  */
 export const RETRYABLE_CHECK = /^E2E and native tests \(/
+/**
+ * A job the runner cancelled or timed out is infrastructure, not an answer (car #816, 14/11: a linux unit shard sat
+ * 45 minutes in apt-get until the job timed out, and the unit merge job then failed on that shard's result). Such a
+ * failure is repeatable too, and so is the unit merge job that failed only because of it.
+ */
+const INFRA_CONCLUSIONS = new Set(['cancelled', 'timed_out'])
+const UNIT_MERGE_CHECK = /^Unit and integration tests \((linux|windows)-x64\)$/
 export function retryableFailure(failed) {
-  const names = (failed ?? []).map((check) => String(check?.name ?? ''))
-  return names.some((name) => RETRYABLE_CHECK.test(name)) && names.every((name) => RETRYABLE_CHECK.test(name) || name === 'CI result')
+  const list = failed ?? []
+  const name = (check) => String(check?.name ?? '')
+  const infra = (check) => INFRA_CONCLUSIONS.has(check?.conclusion)
+  const e2e = (check) => RETRYABLE_CHECK.test(name(check))
+  const anyInfra = list.some(infra)
+  return list.some((check) => e2e(check) || infra(check)) &&
+    list.every((check) => e2e(check) || infra(check) || name(check) === 'CI result' || (anyInfra && UNIT_MERGE_CHECK.test(name(check))))
 }
 /** Run conclusions of runs that tested nothing: waiting for an approval that never came, or every job skipped. */
 const UNTESTED_RUN_CONCLUSIONS = new Set(['action_required', 'skipped'])
