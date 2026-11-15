@@ -1,0 +1,1 @@
+npx vitest run tests/palette-labels.test.tsx tests/oxe152/polish/pm02-app-menus.test.tsx --maxWorkers=2 && npm run build && npx playwright test e2e/polish/pm-02-8.spec.ts e2e/offer-audit.spec.ts --reporter=list
