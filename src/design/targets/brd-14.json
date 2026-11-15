@@ -1,0 +1,45 @@
+{
+  "brd": "BRD-14",
+  "card": "OXE-82",
+  "title": "The terminal pane: the PaneHeader primitive at --bar-md, a 12/600 title, focus tint and a branch only when it differs",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-14), M1-api-e-criterios.md (PaneHeader) and the card OXE-82 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-14.pane-header.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=pane-header]",
+      "prop": "height",
+      "expect": { "token": "--bar-md" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the pane header is the md bar (32, 36 comfortable)"
+    },
+    {
+      "id": "BRD-14.pane-title.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=pane-header] [data-ui=pane-title]",
+      "prop": "font-size",
+      "expect": { "token": "--fs-xs" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the pane's name is 12 px"
+    },
+    {
+      "id": "BRD-14.pane-title.font-weight",
+      "scene": "code-workspace",
+      "select": "[data-ui=pane-header] [data-ui=pane-title]",
+      "prop": "font-weight",
+      "expect": { "token": "--weight-semibold" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the pane's name is semibold (600)"
+    }
+  ]
+}
