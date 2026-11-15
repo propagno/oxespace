@@ -4,14 +4,14 @@
   max-height: 88dvh;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-lg);
   background: var(--surface-overlay);
 }
 .workspace-settings-modal-v2 .modal-header { margin: 0; padding: 20px 24px; border-bottom: 1px solid var(--bd-subtle); flex-shrink: 0; }
 .workspace-settings-modal-v2 .ws-settings-title-group { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; }
 .workspace-settings-modal-v2 .ws-settings-title-group h2 { font-size: var(--fs-lg); }
-.workspace-settings-modal-v2 .ws-settings-subtitle { align-self: center; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); padding: 1px 7px; justify-self: start; max-width: 220px; }
+.workspace-settings-modal-v2 .ws-settings-subtitle { align-self: center; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); padding: 1px 7px; justify-self: start; max-width: 220px; }
 .ws-settings-root { grid-column: 1 / -1; color: var(--tx-muted); font-size: var(--fs-2xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-settings-modal-v2 .ws-settings-form-v2 { overflow: hidden; }
 .workspace-settings-modal-v2 .ws-settings-body { padding: 0; gap: 0; overflow: hidden; flex-direction: row; }
@@ -46,23 +46,23 @@
 .ws-settings-save-note { margin: 0; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.6; border-left: 2px solid var(--accent); padding: 8px 12px; background: color-mix(in srgb, var(--accent) 5%, transparent); }
 .workspace-settings-modal-v2 :is(button, input, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .workspace-settings-modal-v2 .memory-settings { font-size: var(--fs-sm); }
-.workspace-settings-modal-v2 .memory-settings label:has(input[type="checkbox"]) { padding: 13px 14px; margin: 10px 0; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--surface-raised); flex-wrap: nowrap; cursor: pointer; }
+.workspace-settings-modal-v2 .memory-settings label:has(input[type="checkbox"]) { padding: 13px 14px; margin: 10px 0; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); flex-wrap: nowrap; cursor: pointer; }
 .workspace-settings-modal-v2 .memory-settings label:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 38%, transparent); }
 .workspace-settings-modal-v2 .memory-settings label:has(input:disabled) { cursor: not-allowed; }
 .memory-runtime-heading { margin: 24px 0 12px; padding-top: 20px; border-top: 1px solid var(--bd-subtle); font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
-.workspace-settings-modal-v2 .memory-settings .memory-privacy { padding: 12px 14px; background: var(--surface-raised); border-left: 2px solid var(--bd-base); border-radius: var(--radius-xs); font-size: var(--fs-2xs); line-height: 1.8; }
+.workspace-settings-modal-v2 .memory-settings .memory-privacy { padding: 12px 14px; background: var(--surface-raised); border-left: 2px solid var(--bd-default); border-radius: var(--radius-xs); font-size: var(--fs-2xs); line-height: 1.8; }
 .workspace-settings-modal-v2 .memory-settings .memory-status-line { padding: 12px 14px; background: var(--surface-raised); border-radius: var(--radius-md); }
 .workspace-settings-modal-v2 .memory-settings article { margin-top: 14px; }
 .workspace-settings-modal-v2 .memory-badge { flex-shrink: 0; }
-.workspace-settings-modal-v2 .memory-badge:is([data-state="accepted"], [data-state="approved"]) { color: var(--dot-green); border-color: color-mix(in srgb, var(--dot-green) 35%, transparent); }
-.workspace-settings-modal-v2 .memory-badge:is([data-state="blocked"], [data-state="interrupted"]) { color: var(--dot-yellow); }
-.workspace-settings-modal-v2 .memory-badge[data-state="failed"] { color: var(--dot-red); }
+.workspace-settings-modal-v2 .memory-badge:is([data-state="accepted"], [data-state="approved"]) { color: var(--intent-success-solid); border-color: color-mix(in srgb, var(--intent-success-solid) 35%, transparent); }
+.workspace-settings-modal-v2 .memory-badge:is([data-state="blocked"], [data-state="interrupted"]) { color: var(--intent-warning-solid); }
+.workspace-settings-modal-v2 .memory-badge[data-state="failed"] { color: var(--intent-danger-solid); }
 .memory-task-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
 .default-shell-settings .shell-intro { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.7; }
 .shell-profile-group { margin-top: 18px; }
 .shell-profile-group .ws-settings-field-label { margin-bottom: 12px; }
 .shell-count { margin-left: 8px; padding: 1px 6px; border-radius: var(--radius-xs); background: var(--surface-raised); font-size: var(--fs-2xs); }
-.shell-choice { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--bd-base); border-radius: var(--radius-md); background: var(--surface-base); cursor: pointer; min-width: 0; }
+.shell-choice { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-base); cursor: pointer; min-width: 0; }
 .shell-choice:hover { border-color: var(--tx-muted); }
 .shell-choice.selected { border-color: var(--accent); background: var(--fill-selected); }
 .shell-choice:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
