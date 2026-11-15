@@ -14,7 +14,8 @@
 // - Each tab carries the "precisa de você" count of its own mode (activity store, live needs-you entries), as text inside
 //   the tab: OxeCode the code count, OxeChat the thread count; no number at all when its count is 0, and never on OxeQuery.
 // - NeedsYouPill renders nothing while nothing waits: no [data-testid=needs-you-pill] and no t('attention.nothingWaiting')
-//   text; with something waiting it is there and its text says t('attention.needsYou', { count }).
+//   text; with something waiting it is there and its text says t('attention.needsYou', { count }) (one waiting OxeCode
+//   terminal here, which counts the same before and after BRD-10's OXE-176 rule: the pill's number is the queue's rows).
 // - The title bar's command field (CommandBarTrigger) is the md control: a Button with data-size="md" (28, 32 comfortable,
 //   --control-md), still named from t('commandBar.trigger').
 // - src/design/targets/brd-09.json (new, card OXE-72, platform desktop) holds the measures below, state "enforced", ids in
@@ -28,6 +29,8 @@ import { NeedsYouPill } from '../../../src/components/Navigation/NeedsYouPill'
 import { CommandBarTrigger } from '../../../src/components/CommandBar/CommandBarTrigger'
 import { useActivityStore } from '../../../src/store/activity.store'
 import { useApprovalsStore } from '../../../src/components/Approvals/approvals.store'
+import { useTerminalStore } from '../../../src/store/terminal.store'
+import { useWorkspaceStore } from '../../../src/store/workspace.store'
 import { changeLanguage, i18n } from '../../../src/i18n'
 
 const ROOT = process.cwd()
@@ -79,6 +82,8 @@ const tabs = (): HTMLElement[] => within(tablist()).getAllByRole('tab')
 const digits = (el: Element): string => (el.textContent ?? '').replace(/[^0-9]/g, '')
 
 beforeEach(() => {
+  useWorkspaceStore.setState({ workspaces: [] } as never)
+  useTerminalStore.setState({ panes: {} } as never)
   useActivityStore.setState({ live: { code: {}, thread: {} } } as never)
   useApprovalsStore.setState({ queue: [] } as never)
 })
@@ -118,9 +123,14 @@ describe('OXE-72 BRD-09 title bar (A24)', () => {
     expect(screen.queryByText(t('attention.nothingWaiting'))).toBeNull()
     expect(document.body.textContent ?? '').not.toContain(t('attention.nothingWaiting'))
     first.unmount()
-    waiting(1, 2)
+    // One OxeCode terminal waits (a real pane of a workspace, blocked): the pill's count today and the queue's pending
+    // rows after BRD-10 / OXE-176 agree on it.
+    const running = { status: 'running', error: null, lastActivityAt: null, lastOutput: null, lastIntent: null, lastIntentAt: null, isWorking: false, hasUnread: false, hookState: null, hookAt: null, agentSource: null, location: null, detached: false }
+    useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'demo', rootPath: '/repo', defaultShellProfileId: 'builtin-claude', panes: [{ id: 'pane-0', workspaceId: 'ws-1', type: 'terminal', rowIndex: 0, columnIndex: 0, status: 'running', agentProfileId: null, agentName: 'Claude', displayName: null, shellProfileId: 'builtin-claude', rootPath: null, createdAt: null }] }] } as never)
+    useTerminalStore.setState({ panes: { 'pane-0': { ...running, agentState: 'blocked' } } } as never)
+    useActivityStore.setState({ live: { code: { 'pane-0': 'needs-you' }, thread: {} } } as never)
     render(<NeedsYouPill />)
-    expect(screen.getByTestId('needs-you-pill')).toHaveTextContent(t('attention.needsYou', { count: 3 }))
+    expect(screen.getByTestId('needs-you-pill')).toHaveTextContent(t('attention.needsYou', { count: 1 }))
   })
 
   it('the command field is the md control (28, 32 comfortable), named from the catalog', () => {
