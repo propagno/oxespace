@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/integration/fs-allowlist.test.ts tests/oxe152/mobile/oxe179-os-name.test.ts tests/oxe152/mobile/oxe179-pairing-details.native.test.ts --maxWorkers=2
