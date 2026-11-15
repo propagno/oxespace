@@ -171,6 +171,12 @@ object OxeIcons {
     /** 1.5.2 A13 (MOB-3): Settings' Appearance (the theme), a half-filled circle. */
     val Appearance: ImageVector by lazy { strokeIcon("Appearance", CIRCLE, "M12 2a10 10 0 0 1 0 20z") }
 
+    /** 1.5.2 A14 (MOB-7): the pairing top bar's Back. */
+    val ArrowLeft: ImageVector by lazy { strokeIcon("ArrowLeft", "M19 12H5", "M12 19l-7 -7l7 -7") }
+
+    /** 1.5.2 A14 (MOB-7): a pairing step that is done. */
+    val Check: ImageVector by lazy { strokeIcon("Check", "M20 6L9 17l-5 -5") }
+
     /** CR-A42b-2: the Tasks tab (background jobs and delegations): the clock. */
     val Clock: ImageVector by lazy { strokeIcon("Clock", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M12 7v5l3 2") }
 }

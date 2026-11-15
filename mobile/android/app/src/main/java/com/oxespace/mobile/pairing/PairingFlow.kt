@@ -15,6 +15,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,8 +47,11 @@ sealed interface PairingState {
      * can't be asking yet, so the phone shows no code and doesn't say "confirm on your computer".
      */
     data class Contacting(val desktopName: String?) : PairingState
-    /** The desktop has the request and asks the person, showing the same [verification]. */
-    data class Waiting(val desktopName: String?, val verification: String) : PairingState
+    /**
+     * The desktop has the request and asks the person, showing the same [verification]. [expiresAt] is the QR's `exp`
+     * (epoch ms, OXE-179), null from an older desktop: the phone counts down to it (A14).
+     */
+    data class Waiting(val desktopName: String?, val verification: String, val expiresAt: Long? = null) : PairingState
     data class Paired(val desktop: PairedDesktop) : PairingState
     data class Failed(val failure: PairingFailure) : PairingState
 }
@@ -78,9 +83,14 @@ class PairingFlow(
     private val onPaired: () -> Unit = {},
     /** P3: signs in once with the new identity before the pairing is saved. Tests answer it directly. */
     private val probe: PairingProbe = PairingProbe { _, _ -> ProbeResult.Ok },
+    /** The phone's clock, to tell whether the code shown has expired (A14). */
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val mutableState = MutableStateFlow<PairingState>(PairingState.Scanning)
     val state: StateFlow<PairingState> = mutableState.asStateFlow()
+
+    /** The attempt in flight, so one whose code expired can be dropped. */
+    private var attempt: Job? = null
 
     /** Every decoded frame of the camera arrives here; only a scan while looking can start a pairing. */
     fun onScanned(text: String) {
@@ -97,56 +107,71 @@ class PairingFlow(
         }
     }
 
-    /** Back to the camera after a failure or a bad code. */
+    /**
+     * Back to the camera after a failure or a bad code. A14: also once the code shown has expired; that attempt is
+     * dropped (its key deleted), since the desktop no longer accepts the code. An attempt still in time keeps going.
+     */
     fun scanAgain() {
         val current = mutableState.value
-        if (current !is PairingState.Waiting && current !is PairingState.Contacting) mutableState.value = PairingState.Scanning
+        if (current is PairingState.Waiting) {
+            val expiresAt = current.expiresAt ?: return
+            if (expiresAt > now()) return
+            attempt?.cancel()
+            attempt = null
+            mutableState.value = PairingState.Scanning
+            return
+        }
+        if (current !is PairingState.Contacting) mutableState.value = PairingState.Scanning
     }
 
     private fun start(qr: PairingQr) {
         val alias = newAlias()
         val keys = keysFor(alias)
         mutableState.value = PairingState.Contacting(qr.desktopName)
-        scope.launch {
-            val spki = withContext(io) { keys.publicKeySpki() }
-            val verification = PairingVerification.of(spki)
-            // The code shows only once the desktop has the request. Showing it earlier read as "the computer is asking"
-            // while a firewall dropped the connection and nothing ever appeared there (1.4.1, a real phone on Wi-Fi).
-            val outcome = withContext(io) {
-                pairer.pair(qr, deviceName, spki.base64Url()) {
-                    if (mutableState.value is PairingState.Contacting) mutableState.value = PairingState.Waiting(qr.desktopName, verification)
-                }
-            }
-            mutableState.value = when (outcome) {
-                is PairOutcome.Paired -> {
-                    val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
-                    // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
-                    // "Paired", so a phone that can't keep a session says why now, not later as "removed".
-                    mutableState.value = PairingState.Contacting(qr.desktopName)
-                    // Backed out mid-probe (the screen closed): the key is deleted before the cancellation goes on, so
-                    // it never stays behind unsaved.
-                    val probed = try {
-                        probe.probe(desktop, keys)
-                    } catch (cancelled: CancellationException) {
-                        withContext(NonCancellable + io) { keys.delete() }
-                        throw cancelled
-                    }
-                    when (probed) {
-                        ProbeResult.Ok -> {
-                            withContext(io) { store.save(desktop) }
-                            onPaired()
-                            PairingState.Paired(desktop)
-                        }
-                        else -> {
-                            withContext(io) { keys.delete() }
-                            PairingState.Failed(failureOfProbe(probed))
+        attempt = scope.launch {
+            // Set once the pairing is in the store: from then on the key belongs to it and is never deleted here.
+            var saved = false
+            try {
+                val spki = withContext(io) { keys.publicKeySpki() }
+                val verification = PairingVerification.of(spki)
+                // The code shows only once the desktop has the request. Showing it earlier read as "the computer is
+                // asking" while a firewall dropped the connection and nothing ever appeared there (1.4.1, a real phone).
+                val outcome = withContext(io) {
+                    pairer.pair(qr, deviceName, spki.base64Url()) {
+                        // A dropped attempt (its code expired) never shows its code over a newer one.
+                        if (isActive && mutableState.value is PairingState.Contacting) {
+                            mutableState.value = PairingState.Waiting(qr.desktopName, verification, qr.expiresAt)
                         }
                     }
                 }
-                else -> {
-                    withContext(io) { keys.delete() }
-                    PairingState.Failed(failureOf(outcome))
+                mutableState.value = when (outcome) {
+                    is PairOutcome.Paired -> {
+                        val desktop = PairedDesktop(outcome.response.deviceId, qr.host, qr.port, qr.fingerprint, qr.desktopName, alias)
+                        // P3: accepted is not reachable. Sign in once with the new identity before saving or saying
+                        // "Paired", so a phone that can't keep a session says why now, not later as "removed".
+                        mutableState.value = PairingState.Contacting(qr.desktopName)
+                        when (val probed = probe.probe(desktop, keys)) {
+                            ProbeResult.Ok -> {
+                                withContext(io) { store.save(desktop); saved = true }
+                                onPaired()
+                                PairingState.Paired(desktop)
+                            }
+                            else -> {
+                                withContext(io) { keys.delete() }
+                                PairingState.Failed(failureOfProbe(probed))
+                            }
+                        }
+                    }
+                    else -> {
+                        withContext(io) { keys.delete() }
+                        PairingState.Failed(failureOf(outcome))
+                    }
                 }
+            } catch (cancelled: CancellationException) {
+                // Backed out (the screen closed, mid-probe too) or dropped because the code expired: the key is deleted
+                // before the cancellation goes on, so it never stays behind unsaved.
+                if (!saved) withContext(NonCancellable + io) { keys.delete() }
+                throw cancelled
             }
         }
     }

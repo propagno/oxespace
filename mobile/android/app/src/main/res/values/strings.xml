@@ -150,6 +150,7 @@
     <string name="notify_session_reconnecting">Reconnecting to %1$s…</string>
     <string name="notify_session_stopped">Can\'t stay connected to %1$s. Open the app.</string>
     <string name="pairing_allow_camera">Allow camera</string>
+    <string name="pairing_back">Back</string>
     <string name="pairing_bad_code_malformed">This code can\'t be read. Show a new one on your computer and try again.</string>
     <string name="pairing_bad_code_not_pairing">That isn\'t an OXESpace pairing code. Point the camera at the code in Settings › Devices.</string>
     <string name="pairing_bad_code_public_host">This code points outside your local network. OXESpace only pairs on the same Wi-Fi.</string>
@@ -157,6 +158,8 @@
     <string name="pairing_camera_denied">Camera access is off for OXESpace. Turn it on in the phone\'s settings to scan the pairing code.</string>
     <string name="pairing_camera_description">Camera view for scanning the pairing code</string>
     <string name="pairing_camera_needed">The camera reads the pairing code on your computer\'s screen. Nothing it sees leaves the phone.</string>
+    <string name="pairing_cancel">Cancel</string>
+    <string name="pairing_code_expires_in">The code expires in %1$s.</string>
     <string name="pairing_contacting_body">Reaching your computer over the Wi-Fi. Once it has the request, it asks you to confirm and this phone shows the code to compare.</string>
     <string name="pairing_contacting_title">Contacting %1$s…</string>
     <string name="pairing_done">Done</string>
@@ -185,6 +188,7 @@
     <string name="pairing_title">Pair with your computer</string>
     <string name="pairing_verification_description">Verification code %1$s</string>
     <string name="pairing_waiting_body">%1$s is asking whether to pair with this phone. Accept only if it shows this code:</string>
+    <string name="pairing_waiting_computer">Waiting for the computer…</string>
     <string name="pairing_waiting_title">Confirm on your computer</string>
     <string name="presence_confirm">Confirm it’s you</string>
     <string name="presence_locked">Confirm it’s you before typing into this terminal.</string>
