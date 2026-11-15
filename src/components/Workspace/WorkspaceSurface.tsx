@@ -532,7 +532,7 @@ function WorkspaceSurfaceComponent({
   const layoutValue = Object.entries(PRESET_SHAPES).find(([, label]) => label === layoutLabel)?.[0] ?? ''
 
   const toolbar = (
-    <header className="workspace-topbar" aria-label={tc('workspace.topbar.label')}>
+    <header className="workspace-topbar" data-ui="workspace-bar" aria-label={tc('workspace.topbar.label')}>
       <span
         className="workspace-topbar-wschip"
         {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
@@ -701,7 +701,7 @@ function WorkspaceSurfaceComponent({
                 defaultSize={combinedSideSize}
                 onResize={persistSideWidth}
               >
-                <div className="workspace-panel-stack">
+                <div className="workspace-panel-stack" data-ui="panel-stack">
                   {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" aria-label={tc('workspace.topbar.panels')}>
                     {/* The src/ui Tabs list (BRD-03). The panels stay mounted below, so the list draws only the tabs and names the panel they show. */}
                     <Tabs className="workspace-panel-stack-tablist" label={tc('workspace.topbar.openPanels')} value={activeSideId ?? ''} onChange={next => setPreferredSideId(next)}

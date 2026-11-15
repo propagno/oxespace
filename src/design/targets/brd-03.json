@@ -84,7 +84,7 @@
     {
       "id": "BRD-03.button.height",
       "scene": "code-workspace",
-      "select": "aside [data-ui=button], .workspace-topbar [data-ui=button], .workspace-panel-stack [data-ui=button]",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
       "prop": "height",
       "expect": {
         "oneOf": [
@@ -147,7 +147,7 @@
     {
       "id": "BRD-03.button.font-weight",
       "scene": "code-workspace",
-      "select": "aside [data-ui=button], .workspace-topbar [data-ui=button], .workspace-panel-stack [data-ui=button]",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-medium"
