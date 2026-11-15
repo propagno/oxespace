@@ -8,7 +8,7 @@
     {
       "id": "BRD-06.content.width",
       "scene": "settings-general",
-      "select": "[data-ui=settings-section]",
+      "select": "[data-ui=settings-page]",
       "prop": "width",
       "expect": {
         "px": 720

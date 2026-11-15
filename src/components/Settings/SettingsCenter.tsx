@@ -254,7 +254,7 @@ export function SettingsCenter(props: SettingsModalProps & {
               useTerminalStore.getState().setActivePaneId(paneId)
               props.onClose()
             }} />
-            : <section className="settings-general"><SettingsPageTitle>{t('center.workspaceClosed')}</SettingsPageTitle><p>{t('center.workspaceClosedHint')}</p></section>
+            : <section className="settings-general" data-ui="settings-page"><SettingsPageTitle>{t('center.workspaceClosed')}</SettingsPageTitle><p>{t('center.workspaceClosedHint')}</p></section>
             : <>
               {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
               <footer className="settings-auto-apply-note" data-risky-count={RISKY_SETTING_ROWS.length}>{t('center.autoApplyNote')}</footer>
@@ -270,7 +270,7 @@ function GeneralSettings(): ReactElement {
   const setCap = useSettingsStore(s => s.setVisitedWorkspacesCap)
   const { t } = useTranslation('settings')
   // BRD-06: every option is a SettingRow inside a SettingsSection (the single mould); no hand-made cards.
-  return <section className="settings-general"><SettingsPageTitle>{t('general.title')}</SettingsPageTitle><p>{t('general.description')}</p>
+  return <section className="settings-general" data-ui="settings-page"><SettingsPageTitle>{t('general.title')}</SettingsPageTitle><p>{t('general.description')}</p>
     <SettingsGroup title={t('general.navigation')}>
       <SettingRow htmlFor="workspace-cache-cap" label={t('general.cacheLabel')} description={t('general.cacheHint')}
         control={<TextField id="workspace-cache-cap" className="settings-general-cap" type="number" min={VISITED_WORKSPACES_CAP_MIN} max={VISITED_WORKSPACES_CAP_MAX} value={cap} onChange={e => { const value = e.currentTarget.valueAsNumber; if (Number.isFinite(value)) setCap(value) }} />} />

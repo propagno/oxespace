@@ -38,7 +38,7 @@
 .settings-center-nav { padding: 0 12px 12px; gap: 16px; }
 .settings-center-title { margin: 0 -12px; padding: 0 var(--chrome-inset); }
 .settings-center-nav > nav { gap: 4px; }
-.settings-center-nav > nav button, .settings-back { min-height: var(--nav-row-h); font-size: var(--fs-sm); border-radius: var(--radius-sm); }
+.settings-center-nav > nav button, .settings-back { font-size: var(--fs-sm); border-radius: var(--radius-sm); }
 .settings-center :is(.settings-btn, .settings-header-action) { height: var(--control-lg); min-height: var(--control-lg); padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
 .settings-center .settings-btn.primary, .settings-center .ws-settings-form-v2 .primary-action { color: var(--tx-on-accent); background: var(--accent); }
 .settings-center .ws-settings-form-v2 .modal-actions button { height: 36px; min-height: 36px; padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
