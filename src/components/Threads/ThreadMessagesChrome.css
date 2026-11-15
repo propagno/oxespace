@@ -12,7 +12,7 @@
   background: var(--accent-soft);
 }
 .thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) {
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-weight: var(--weight-medium);
 }
 
@@ -31,8 +31,8 @@
 }
 
 .thread-agent-name {
-  color: var(--text-primary);
-  font-size: var(--text-xs);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-semibold);
 }
 
@@ -41,35 +41,35 @@
   padding: 1px 7px;
   border-radius: var(--radius-full);
   background: var(--accent-soft);
-  color: var(--text-accent);
-  font-size: var(--text-2xs);
+  color: var(--tx-accent);
+  font-size: var(--fs-2xs);
   font-weight: var(--weight-semibold);
 }
 
 .thread-message-assistant > .thread-markdown {
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .thread-virtual-turn.is-turn-start { border-top: 0; }
 
 /* Thread auxiliary surfaces, path links, collision chips & dialogs */
-.collision-chip-file { font-family: var(--font-mono); font-size: var(--text-2xs); }
-.collision-chips-more { font-size: var(--text-2xs); color: var(--text-muted); }
+.collision-chip-file { font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.collision-chips-more { font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-outside-file { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface-base); }
-.thread-outside-file-content { flex: 1; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; font-family: var(--font-mono); font-size: var(--text-xs); }
-.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--text-accent); font-family: var(--font-mono); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.thread-outside-file-content { flex: 1; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--tx-accent); font-family: var(--font-mono); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 /* The project path link (F33) is a button. In a conversation the generic button rule gave it a button's box: 34 px tall
    in an 18 px line, 10 px of padding on each side of a path in a sentence, and a smaller font than the code beside it.
    It is text in the line. */
 .thread-view button.path-link { display: inline; padding: 0; gap: 0; border-radius: 0; font: inherit; vertical-align: baseline; }
 .thread-view button.path-link:hover { background: none; }
-.thread-path-missing { color: var(--text-muted); font-family: var(--font-mono); }
-.thread-path-looked { color: var(--text-muted); font-size: var(--text-xs); }
+.thread-path-missing { color: var(--tx-muted); font-family: var(--font-mono); }
+.thread-path-looked { color: var(--tx-muted); font-size: var(--fs-xs); }
 .places-add { color: var(--intent-success-fg); font-variant-numeric: tabular-nums; }
 .places-del { color: var(--intent-danger-fg); font-variant-numeric: tabular-nums; }
-.place-hunk { display: flex; flex-direction: column; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; }
-.place-hunk-header { padding: var(--space-1) var(--space-2); background: var(--surface-sunken); color: var(--text-muted); font-family: var(--font-mono); font-size: var(--text-2xs); }
-.thread-tool-cut-note { color: var(--text-muted); font-size: var(--text-xs); }
+.place-hunk { display: flex; flex-direction: column; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); overflow: hidden; }
+.place-hunk-header { padding: var(--space-1) var(--space-2); background: var(--surface-sunken); color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.thread-tool-cut-note { color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-tool-diagnostic-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .thread-terminal-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--term-bg); color: var(--term-fg); }
 .thread-resume-native { display: flex; flex-direction: column; gap: var(--space-2); }

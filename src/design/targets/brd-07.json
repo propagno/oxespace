@@ -21,7 +21,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-07.titleMedium.weight",
@@ -39,7 +39,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-07.bodyMedium.size",
@@ -57,7 +57,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-07.labelMedium.size",
@@ -75,7 +75,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-07.labelSmall.size",
@@ -93,7 +93,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-07.min-text",
@@ -111,7 +111,7 @@
         "light",
         "dark"
       ],
-      "state": "pending",
+      "state": "enforced",
       "note": "no auto-size below 11 sp"
     },
     {
@@ -132,7 +132,7 @@
         "light",
         "dark"
       ],
-      "state": "pending",
+      "state": "enforced",
       "note": "radii only from OxeRadius"
     }
   ]

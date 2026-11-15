@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import './McpCatalog.css'
 
 export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; size?: number }): ReactElement {
-  const color = isDarkBrand(entry.brand.hex) ? 'var(--text-primary)' : `#${entry.brand.hex}`
+  const color = isDarkBrand(entry.brand.hex) ? 'var(--tx-primary)' : `#${entry.brand.hex}`
   return <span className="mcp-brand-tile" style={{ width: size, height: size }} aria-hidden="true">
     {entry.brand.icon
       ? <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55}><path d={entry.brand.icon.path} fill={color} /></svg>
