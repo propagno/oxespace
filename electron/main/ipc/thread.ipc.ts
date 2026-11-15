@@ -15,6 +15,7 @@ import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import { registerThreadPlacesIpc } from './thread-places.ipc'
+import { registerThreadSessionsIpc } from './thread-sessions.ipc'
 import { forwardPlacesChanged } from './thread-places-changed'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
@@ -377,6 +378,7 @@ export function registerThreadIpc(
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })
   registerThreadPlacesIpc({ manager })
+  registerThreadSessionsIpc({ manager })
   forwardPlacesChanged({ manager })
   const cockpit = registerThreadCockpitIpc(manager, background)
   return { manager, projects: threadProjects, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }

@@ -238,6 +238,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
+  'thread.sessions': {
+    label: 'Sessions and their parallel chats: list, read, create a chat, open a chat (OXE-170)',
+    excluded: 'The person\'s window, like the conversation list: which chats a session holds and which one is open. Agents create and drive Threads with oxespace_thread_create and send.',
+    ipc: ['thread.sessions', 'thread.session', 'thread.createChat', 'thread.openChat']
+  },
   'thread.side_chat': { label: 'A side chat about a conversation', excluded: 'The person\'s read-only scratch copy of a conversation; agents ask in their own.', ipc: ['thread.sideOpen', 'thread.sideSend', 'thread.sideClose'] },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
