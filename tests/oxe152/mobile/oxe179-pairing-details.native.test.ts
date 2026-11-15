@@ -42,7 +42,7 @@ function expectedOs(): RegExp | string | null {
   if (process.platform === 'win32') return /^Windows 1[01]$/
   if (process.platform === 'darwin') return /^macOS \d+$/
   if (process.platform !== 'linux') return null
-  let text = ''
+  let text: string
   try { text = readFileSync('/etc/os-release', 'utf8') } catch { return 'Linux' }
   const pretty = /^PRETTY_NAME=(.*)$/m.exec(text)?.[1]?.trim().replace(/^(["'])(.*)\1$/, '$2').trim()
   return pretty ? pretty.slice(0, 64) : 'Linux'
