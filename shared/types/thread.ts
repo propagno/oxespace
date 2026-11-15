@@ -476,10 +476,10 @@ export interface ConversationThread {
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
-  /** OXE-170: on a parallel chat, the id of its session's main chat; absent on a main chat (every older conversation). */
-  sessionId?: string
+  /** OXE-170: on a parallel chat, the id of its session's main chat; absent on a main chat (every older conversation). The sections list reads it too (a child follows its parent's section). */
+  parentThreadId?: string
   /** OXE-170: a parallel chat's place in its session, in the order of creation. */
-  sessionOrder?: number
+  childOrder?: number
   /** OXE-170: on a main chat, the chat of its session the window shows; absent means the main chat. */
   openChatId?: string
   generation?: number
