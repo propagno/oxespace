@@ -82,7 +82,11 @@
       "connect": "Conectar",
       "confirm": "Confirmar",
       "done": "Pronto"
-    }
+    },
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "codeExpiresIn": "O código expira em {{time}}.",
+    "waitingComputer": "Esperando o computador…"
   },
   "live": {
     "tabs": {
@@ -447,8 +451,8 @@
     "title": "Configurações",
     "back": "Voltar",
     "theme": {
-      "title": "Tema",
-      "system": "Igual ao do celular",
+      "title": "Aparência",
+      "system": "Sistema",
       "light": "Claro",
       "dark": "Escuro"
     },
@@ -460,13 +464,28 @@
     },
     "computer": {
       "title": "Computador",
-      "unpair": "Desparear este celular"
+      "unpair": "Desparear este celular",
+      "paired": "pareado em {{date}}"
     },
     "about": {
       "title": "Sobre",
       "app": "OXESpace para Android",
       "version": "Versão {{version}}",
       "sameWifi": "Funciona enquanto este celular e o seu computador estão na mesma Wi-Fi."
+    },
+    "answers": {
+      "title": "Respostas",
+      "presence": "Digital ou bloqueio de tela",
+      "presenceBody": "Pedido a cada resposta. Uma regra de segurança.",
+      "always": "Sempre",
+      "critical": "Pedidos críticos",
+      "criticalBody": "Permitir libera depois de {{seconds, number}} s."
+    },
+    "cantConnect": {
+      "title": "Não consegue conectar?"
+    },
+    "typing": {
+      "title": "Digitação nos terminais"
     }
   },
   "needsYou": {

@@ -153,6 +153,7 @@
     <string name="notify_session_reconnecting">Reconectando a %1$s…</string>
     <string name="notify_session_stopped">Não foi possível manter a conexão com %1$s. Abra o app.</string>
     <string name="pairing_allow_camera">Permitir câmera</string>
+    <string name="pairing_back">Voltar</string>
     <string name="pairing_bad_code_malformed">Não foi possível ler esse código. Mostre um novo no computador e tente de novo.</string>
     <string name="pairing_bad_code_not_pairing">Esse não é um código de pareamento do OXESpace. Aponte a câmera para o código em Configurações › Dispositivos.</string>
     <string name="pairing_bad_code_public_host">Esse código aponta para fora da sua rede local. O OXESpace só pareia na mesma Wi-Fi.</string>
@@ -160,6 +161,8 @@
     <string name="pairing_camera_denied">O acesso à câmera está desligado para o OXESpace. Ligue nas configurações do celular para ler o código de pareamento.</string>
     <string name="pairing_camera_description">Imagem da câmera para ler o código de pareamento</string>
     <string name="pairing_camera_needed">A câmera lê o código de pareamento na tela do computador. Nada do que ela vê sai do celular.</string>
+    <string name="pairing_cancel">Cancelar</string>
+    <string name="pairing_code_expires_in">O código expira em %1$s.</string>
     <string name="pairing_contacting_body">Falando com o computador pela Wi-Fi. Quando ele receber o pedido, vai pedir sua confirmação e este celular mostra o código para comparar.</string>
     <string name="pairing_contacting_title">Conectando a %1$s…</string>
     <string name="pairing_done">Concluir</string>
@@ -188,6 +191,7 @@
     <string name="pairing_title">Parear com o computador</string>
     <string name="pairing_verification_description">Código de verificação %1$s</string>
     <string name="pairing_waiting_body">%1$s está perguntando se pode parear com este celular. Aceite só se aparecer este código:</string>
+    <string name="pairing_waiting_computer">Esperando o computador…</string>
     <string name="pairing_waiting_title">Confirme no computador</string>
     <string name="presence_confirm">Confirmar que sou eu</string>
     <string name="presence_locked">Confirme que é você antes de digitar neste terminal.</string>
