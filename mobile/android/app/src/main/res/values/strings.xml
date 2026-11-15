@@ -102,10 +102,6 @@
     <string name="live_menu">More options</string>
     <string name="live_menu_settings">Settings</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Needs you (%1$d)</item>
-        <item quantity="other">Needs you (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">You can type here</string>
     <string name="live_read_only">Read-only</string>
     <plurals name="live_requests_badge">
@@ -351,7 +347,6 @@
         <item quantity="one">+%1$d more</item>
         <item quantity="other">+%1$d more</item>
     </plurals>
-    <string name="thread_now_needs_you">Needs you: %1$s</string>
     <string name="thread_plan_progress">Plan · %1$s of %2$s</string>
     <string name="thread_request_state_cancelled">cancelled</string>
     <string name="thread_request_state_expired">expired</string>

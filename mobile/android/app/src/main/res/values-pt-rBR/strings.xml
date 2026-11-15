@@ -103,11 +103,6 @@
     <string name="live_menu">Mais opções</string>
     <string name="live_menu_settings">Configurações</string>
     <string name="live_pane_agent">%1$s · %2$s</string>
-    <plurals name="live_pending_count">
-        <item quantity="one">Precisa de você (%1$d)</item>
-        <item quantity="other">Precisa de você (%1$d)</item>
-        <item quantity="many">Precisa de você (%1$d)</item>
-    </plurals>
     <string name="live_phone_write">Você pode digitar daqui</string>
     <string name="live_read_only">Só leitura</string>
     <plurals name="live_requests_badge">
@@ -364,7 +359,6 @@
         <item quantity="other">+%1$d outros</item>
         <item quantity="many">+%1$d outros</item>
     </plurals>
-    <string name="thread_now_needs_you">Precisa de você: %1$s</string>
     <string name="thread_plan_progress">Plano · %1$s de %2$s</string>
     <string name="thread_request_state_cancelled">cancelado</string>
     <string name="thread_request_state_expired">expirou</string>
