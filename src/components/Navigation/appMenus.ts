@@ -7,7 +7,6 @@ import { toast } from '../../ui/Toast'
 import type { EditCommand } from '../../../shared/types/ipc'
 import { editUnavailable, requestEdit } from './editTarget'
 import { confirmClose } from '../../lib/closeGuard'
-import { WORKSPACE_DENSITIES } from '../Workspace/workspaceOptions'
 
 export type AppMenuNode =
   /**
@@ -75,8 +74,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const group = (prefix: string): AppMenuNode[] => ctx.actions.filter(action => action.id.startsWith(prefix)).map(action => item(action))
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
   const appearances = group('appearance-')
-  // In View › Density each item is the density's own name (the palette keeps its action sentence).
-  const densities = group('density-').map(node => node.kind === 'item' ? { ...node, label: WORKSPACE_DENSITIES.find(density => node.id === `density-${density.id}`)?.label ?? node.label } : node)
+  const densities = group('density-')
   const layouts = group('layout-')
 
   return [
