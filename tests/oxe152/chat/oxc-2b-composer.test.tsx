@@ -12,13 +12,21 @@
 //   and Enviar (thread:composer.send); every control in it is a src/ui primitive ([data-ui=button|icon-button]).
 // - While a turn runs, with text typed: Orientar o turno ativo (thread:composer.steer), Parar (thread:composer.stopShort)
 //   and Pôr na fila (thread:composer.queue) are in the toolbar, and Enviar is not.
+// - Board 11 (brand 15/11, Antigravity AG-06): the toolbar adapts to the width of the conversation column. The column is a
+//   size container (container-type: inline-size) with @container rules at 560 and 420 px (SOURCE-TEXT check, marked), and
+//   the toolbar says which layout it is in as data-width, from its container's inline size (a ResizeObserver): "full" at
+//   560 px and above (boards 1 and 8: Modelo, Esforço and Acesso apart), "medium" from 420 to 559 (Modelo and Esforço in one
+//   chip with one popover; Acesso apart), "narrow" below 420 (Modelo, Esforço and Acesso in one "configuração do turno"
+//   popover). At every width "/" (thread:composer.commands) and Enviar (thread:composer.send) stay in the toolbar, and every
+//   control is a src/ui primitive (the 24 px floor of the target-size lint). jsdom has no layout: the width is fed through
+//   the observer and the test reads data-width and which controls exist.
 // - BRD-04 (PR #842): the card's measures are enforced and in enforced.lock.json (composer radius, toolbar height, the
 //   button scale of the main area). BRD-05.new-composer.radius is measured in the new-conversation scene, so it is
 //   OXC-3's (it lands after this card).
 // Queries use data-ui, ARIA roles and the active catalog's strings.
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAccountStore } from '../../../src/store/account.store'
 import { useThreadStore } from '../../../src/store/thread.store'
@@ -99,5 +107,72 @@ describe('OXE-172 OXC-2b composer (A12)', () => {
 
   it('turns its own BRD-04 measures to enforced', () => {
     expect(notEnforced(OXC2B_MEASURES)).toEqual([])
+  })
+})
+
+/** jsdom measures nothing: every ResizeObserver reports `width` for its targets, the way a container query would see it. */
+function observeWidth(width: number): { set(next: number): void } {
+  const observers: Array<{ callback: ResizeObserverCallback; targets: Element[]; self: ResizeObserver }> = []
+  const entry = (target: Element, size: number) => ({ target, contentRect: { width: size, height: 40, x: 0, y: 0, top: 0, left: 0, right: size, bottom: 40 },
+    contentBoxSize: [{ inlineSize: size, blockSize: 40 }], borderBoxSize: [{ inlineSize: size, blockSize: 40 }], devicePixelContentBoxSize: [{ inlineSize: size, blockSize: 40 }] })
+  let current = width
+  class FakeResizeObserver {
+    private readonly record: { callback: ResizeObserverCallback; targets: Element[]; self: ResizeObserver }
+    constructor(callback: ResizeObserverCallback) { this.record = { callback, targets: [], self: this as unknown as ResizeObserver }; observers.push(this.record) }
+    observe(target: Element): void { this.record.targets.push(target); this.record.callback([entry(target, current)] as unknown as ResizeObserverEntry[], this.record.self) }
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => current)
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(() => current)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: current, height: 40, x: 0, y: 0, top: 0, left: 0, right: current, bottom: 40, toJSON: () => ({}) }) as DOMRect)
+  return { set(next: number) { current = next; act(() => { for (const item of observers) item.callback(item.targets.map(target => entry(target, next)) as unknown as ResizeObserverEntry[], item.self) }) } }
+}
+const mentions = (list: HTMLElement[], words: string[]): HTMLElement[] => list.filter(el => words.some(word => said(el).includes(word)))
+
+describe('OXE-172 OXC-2b composer toolbar by container width, board 11 (A12)', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it.each([[600, 'full'], [500, 'medium'], [400, 'narrow']] as const)('at %i px the toolbar is %s, and "/" and Enviar stay', async (width, layout) => {
+    observeWidth(width)
+    const f = fixture('idle')
+    render(<ThreadView workspace={f.workspace} />)
+    const toolbar = one('[data-ui="composer-toolbar"]')
+    expect(toolbar).toHaveAttribute('data-width', layout)
+    const list = controls(toolbar)
+    for (const el of list) expect(['button', 'icon-button'], `toolbar control "${said(el).slice(0, 40)}"`).toContain(el.getAttribute('data-ui'))
+    expect(indexOf(list, tt('composer.commands')), '"/" stays').toBeGreaterThanOrEqual(0)
+    expect(indexOf(list, tt('composer.send')), 'Enviar stays').toBeGreaterThanOrEqual(0)
+    const model = tt('config.chip.model'), effort = tt('config.chip.effort'), access = tt('config.access')
+    const modelOrEffort = mentions(list, [model, effort]), anyConfig = mentions(list, [model, effort, access])
+    if (layout === 'full') {
+      expect([indexOf(list, model), indexOf(list, effort), indexOf(list, access)].every(index => index >= 0), 'Modelo, Esforço and Acesso apart').toBe(true)
+      expect(new Set(anyConfig).size, 'three separate controls').toBeGreaterThanOrEqual(3)
+    }
+    if (layout === 'medium') {
+      expect(modelOrEffort, 'Modelo and Esforço are one chip').toHaveLength(1)
+      expect(mentions(list, [access]).filter(el => !modelOrEffort.includes(el)), 'Acesso stays apart').toHaveLength(1)
+    }
+    if (layout === 'narrow') expect(anyConfig, 'Modelo, Esforço and Acesso are one popover trigger').toHaveLength(1)
+  })
+
+  it('follows the column as it narrows, without a remount', () => {
+    const width = observeWidth(620)
+    const f = fixture('idle')
+    render(<ThreadView workspace={f.workspace} />)
+    expect(one('[data-ui="composer-toolbar"]')).toHaveAttribute('data-width', 'full')
+    width.set(480)
+    expect(one('[data-ui="composer-toolbar"]')).toHaveAttribute('data-width', 'medium')
+    width.set(380)
+    expect(one('[data-ui="composer-toolbar"]')).toHaveAttribute('data-width', 'narrow')
+  })
+
+  it('makes the conversation column a size container with breakpoints at 560 and 420 px (SOURCE-TEXT check, marked)', () => {
+    const css = (dir: string): string[] => readdirSync(dir).flatMap(name => { const full = join(dir, name); return statSync(full).isDirectory() ? css(full) : name.endsWith('.css') ? [full] : [] })
+    const text = css(join(ROOT, 'src')).filter(file => !file.endsWith('tokens.generated.css')).map(file => readFileSync(file, 'utf8')).join('\n').replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(text, 'a container-type: inline-size rule').toMatch(/container-type\s*:\s*inline-size/)
+    expect(text, 'an @container rule at 560 px').toMatch(/@container[^{]*\b(559|560)(\.\d+)?px/)
+    expect(text, 'an @container rule at 420 px').toMatch(/@container[^{]*\b(419|420)(\.\d+)?px/)
   })
 })
