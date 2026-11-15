@@ -3,9 +3,8 @@
 // Contract: in New connection the Color + Favorite pair (.oq-form-pair, next to Group) lines up with the Group input:
 // either it sits at the end of its grid cell with the control's height (align-self: end; min-height
 // var(--control-md)) or it has its own label above (a visible label reading form.color); the disclosures
-// (.oq-disclosure: Security (TLS), Limits and agents) are at least var(--control-sm) tall; and a src/ui Dialog body
-// with more content below than it shows says so: [data-dialog-body] carries data-overflow="end" (drawn as a subtle
-// hint by Overlay.module.css) and drops it once scrolled to the bottom. The 1 px alignment is measured by pq-07-12.spec.ts.
+// (.oq-disclosure: Security (TLS), Limits and agents) are at least var(--control-sm) tall. The dialog body's overflow
+// hint is app-wide and lives in OXE-274 (base components, MARCA 15/11). The 1 px alignment is measured by pq-07-12.spec.ts.
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ConnectionDialog } from '../../../src/components/OxeQuery/ConnectionDialog'
@@ -156,13 +155,4 @@ describe('PQ-07·12 · New connection: Color and Favorite on the Group axis, dis
     for (const node of disclosures) expect(usesTok(css(node, 'min-height'), 'control-sm'), node.textContent ?? '').toBe(true)
   })
 
-  test('a dialog body with content below says so (data-overflow="end") and stops once scrolled to the bottom', async () => {
-    for (const [name, value] of Object.entries({ scrollHeight: 900, clientHeight: 400 })) Object.defineProperty(HTMLElement.prototype, name, { configurable: true, get() { return value } })
-    const dialog = await newConnection()
-    const body = dialog.querySelector<HTMLElement>('[data-dialog-body]')!
-    await waitFor(() => expect(body.getAttribute('data-overflow') ?? '').toMatch(/\bend\b/))
-    body.scrollTop = 500
-    fireEvent.scroll(body)
-    await waitFor(() => expect(body.getAttribute('data-overflow') ?? '').not.toMatch(/\bend\b/))
-  })
 })
