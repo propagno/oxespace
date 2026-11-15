@@ -50,15 +50,17 @@ export function ModeSwitch({ mode, allowReselect, onSelect }: { mode: Navigation
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
       const selected = shown === item.mode
       const ModeIcon = item.Icon
-      // The tab is named by the product name; its count describes it, so focus reads "OxeChat … 1 needs you". The count
-      // itself is aria-hidden, so the visible text matches the name (axe label-content-name-mismatch) and it is read once.
+      // The tab is named by the product name, plus its count when one shows ("OxeChat 1"), so the name holds the visible
+      // text (axe label-content-name-mismatch); the count's words describe it, so focus reads "OxeChat 1 … 1 needs you".
+      const shownCount = counts && counts.needsYou > 0 ? (counts.needsYou > 9 ? '9+' : String(counts.needsYou)) : null
       return <button key={item.mode} type="button" role="tab" className={cx(displayStyles.tab, styles.option)} data-state={selected ? 'active' : 'inactive'}
-        aria-selected={selected} tabIndex={selected ? 0 : -1} data-app-mode={item.mode} aria-busy={pending === item.mode}
+        aria-selected={selected} tabIndex={selected ? 0 : -1} aria-label={shownCount ? `${item.label} ${shownCount}` : item.label} data-app-mode={item.mode} aria-busy={pending === item.mode}
         title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
         onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
         onClick={() => { if (allowReselect || item.mode !== shown) onSelect(item.mode) }}>
         <ModeIcon size={13} className={styles.modeIcon} aria-hidden="true" />
         <span>{item.label}</span>
+        {shownCount ? ' ' : null}
         {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}
       </button>
     })}
