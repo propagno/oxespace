@@ -63,6 +63,7 @@ export function Sidebar({
   workspaces,
 }: SidebarProps): ReactElement {
   const { t } = useTranslation('code')
+  const { t: tc } = useTranslation('common')
   const [searchQuery, setSearchQuery] = useState('')
   const width = useNavigationPrefs(s => s.width)
   const expanded = useNavigationPrefs(s => s.expanded)
@@ -205,7 +206,7 @@ export function Sidebar({
       <div className="nav-panel" data-version={appVersion}>
       <SidebarHeader title={t('sidebar.workspaces')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="code" />} />
       <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')}
-        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={t('nav.clearSearch')} autoComplete="off" spellCheck={false} />
+        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={tc('nav.clearSearch')} autoComplete="off" spellCheck={false} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 
