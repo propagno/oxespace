@@ -1,7 +1,7 @@
 /* Agent workflow, status pills and the shared feature basics. Split out of the former features.css; imported in order from styles.css. */
 
 .workspace-github-panel {
-  border-left-color: var(--wb-border);
+  border-left-color: var(--border-default);
 }
 
 .github-panel {
@@ -12,14 +12,14 @@
   min-height: 0;
   overflow: hidden;
   color: var(--tx-primary);
-  background: var(--wb-canvas);
-  --gh-card-bg: var(--wb-raised);
-  --gh-card-border: var(--wb-border);
-  --gh-card-hover: var(--wb-selection);
-  --gh-row-bg: var(--wb-raised);
+  background: var(--surface-canvas);
+  --gh-card-bg: var(--surface-raised);
+  --gh-card-border: var(--border-default);
+  --gh-card-hover: var(--fill-selected);
+  --gh-row-bg: var(--surface-raised);
   --gh-muted: var(--tx-muted);
   --gh-text: var(--tx-primary);
-  --gh-radius: var(--surface-radius);
+  --gh-radius: var(--radius-md);
 }
 
 .github-panel * {
@@ -40,11 +40,11 @@
   gap: 4px;
   min-height: 42px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--wb-border);
+  border-bottom: 1px solid var(--border-default);
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--wb-border) transparent;
-  background: var(--wb-raised);
+  scrollbar-color: var(--border-default) transparent;
+  background: var(--surface-raised);
 }
 
 .github-tab {
@@ -52,7 +52,7 @@
   height: 28px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--gh-muted);
   font-size: var(--fs-2xs);
@@ -67,9 +67,9 @@
 }
 
 .github-tab.active {
-  color: var(--brand-light, var(--text-accent));
+  color: var(--text-accent, var(--text-accent));
   background: var(--fill-selected);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .github-refreshing {
@@ -167,9 +167,9 @@
 .github-panel select {
   width: 100%;
   min-height: 36px;
-  border: 1px solid var(--wb-border);
-  border-radius: var(--nav-radius);
-  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
   color: var(--tx-primary);
   font: inherit;
   padding: 8px 10px;
