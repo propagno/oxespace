@@ -108,11 +108,11 @@ export function registerOxeQueryMock(): void {
         // The first entry points at the PostgreSQL connection the spec made, so "Open in editor" can reach it (T63).
         const pg = connections.find(item => item.engine === 'postgres')
         const at = { connectionId: pg?.id ?? 'c1', connectionName: pg?.name ?? 'pg-dev', engine: 'postgres', environment: 'dev' }
-        return ok([
+        return ok({ entries: [
           { id: 1, ts: Date.now(), actor: 'thread:abc', ...at, tool: 'oxespace_db_query', textHash: 'h', text: "SELECT id, name, email FROM users WHERE email = '?' AND created_at > now() - interval '?' ORDER BY created_at DESC LIMIT 50", decision: 'approved', outcome: 'ok', rows: 3, durationMs: 5, errorCode: null },
           { id: 2, ts: Date.now() - 60_000, actor: 'pane:p1', ...at, tool: 'oxespace_db_execute', textHash: 'h2', text: "DELETE FROM users WHERE id = 7", decision: 'denied', outcome: 'skipped', rows: null, durationMs: null, errorCode: 'denied' },
           { id: 3, ts: Date.now() - 120_000, actor: 'thread:abc', ...at, tool: 'oxespace_db_query', textHash: 'h3', text: 'SELECT pg_sleep(?)', decision: 'auto', outcome: 'error', rows: null, durationMs: 60_000, errorCode: 'timeout' }
-        ])
+        ].map(entry => ({ ...entry, actorLabel: null })), hasMore: false, cursor: null })
       }
       case 'library.list': return ok({ saved: [{ id: 's1', connectionId: String(input.connectionId), name: 'Active users', sql: 'SELECT * FROM users', createdAt: 1, updatedAt: 1 }], history: [{ id: 1, sql: 'SELECT now()', ranAt: Date.now(), durationMs: 3, rows: 1, ok: true }] })
       case 'library.save': return ok({ id: 's2', connectionId: String(input.connectionId), name: String(input.name), sql: String(input.sql), createdAt: 1, updatedAt: 1 })

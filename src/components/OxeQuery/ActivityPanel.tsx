@@ -28,7 +28,7 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
   const detailRow = useRef<HTMLTableRowElement | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
-    try { setEntries(await oq('audit.list', { limit: 200 })); setError('') } catch (cause) { setError(errorMessage(cause)) }
+    try { setEntries((await oq('audit.list', { limit: 200 })).entries); setError('') } catch (cause) { setError(errorMessage(cause)) }
   }, [])
   useEffect(() => { if (active) void load() }, [active, load])
 
