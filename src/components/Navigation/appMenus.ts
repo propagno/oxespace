@@ -76,7 +76,7 @@ export function buildAppMenus(ctx: AppMenuContext): AppMenu[] {
   const compact = (nodes: Array<AppMenuNode | null>): AppMenuNode[] => nodes.filter((node): node is AppMenuNode => node !== null)
   const appearances = group('appearance-')
   // In View › Density each item is the density's own name (the palette keeps its action sentence).
-  const densities = group('density-').map(node => ({ ...node, label: WORKSPACE_DENSITIES.find(density => node.id === `density-${density.id}`)?.label ?? node.label }))
+  const densities = group('density-').map(node => node.kind === 'item' ? { ...node, label: WORKSPACE_DENSITIES.find(density => node.id === `density-${density.id}`)?.label ?? node.label } : node)
   const layouts = group('layout-')
 
   return [
