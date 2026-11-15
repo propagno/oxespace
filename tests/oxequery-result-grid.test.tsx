@@ -53,6 +53,20 @@ describe('ResultGrid', () => {
     expect(quoted?.className ?? '').not.toContain('is-null')
   })
 
+  it('marks a numeric column header so it aligns right, and a text header stays plain', () => {
+    grid()
+    const header = (name: string) => screen.getAllByRole('columnheader').find(node => node.textContent?.startsWith(name))!
+    expect(header('id').className).toContain('is-number')
+    expect(header('name').className).not.toContain('is-number')
+  })
+
+  it('keeps the last column at its own width in a wide pane', () => {
+    grid()
+    const natural = screen.getAllByRole('columnheader').map(node => node.style.width)
+    expect(natural.at(-1)).not.toBe('')
+    expect(screen.getAllByRole('columnheader').map(node => node.style.width)).toEqual(natural)
+  })
+
   it('lets the server order the rows when asked to, and sorts loaded rows otherwise', () => {
     const onSort = vi.fn()
     const { grid: element } = grid({ onSort })

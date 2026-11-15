@@ -16,6 +16,15 @@ const INDEX_WIDTH = 56
 
 interface Position { row: number; column: number }
 
+const NUMERIC_TYPE = /^(int[248]?|int32|int64|integer|tinyint|smallint|mediumint|bigint|serial[248]?|smallserial|bigserial|float[48]?|double|real|numeric|decimal|money|number|long|oid)\b/i
+
+/** A column is numeric by its type, or (without a known numeric type) when its first loaded value is a number. */
+function isNumericColumn(type: string | undefined, rows: unknown[][], index: number): boolean {
+  if (type && NUMERIC_TYPE.test(type)) return true
+  const sample = rows.slice(0, 50).map(row => row[index]).find(value => value !== null && value !== undefined)
+  return typeof sample === 'number'
+}
+
 /** A real NULL and the text "NULL" must not look alike. */
 function shown(value: unknown): string {
   if (value === null || value === undefined) return SQL_NULL
@@ -56,7 +65,6 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const scroller = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(360)
-  const [viewWidth, setViewWidth] = useState(0)
   const [localSort, setLocalSort] = useState<GridSort | null>(null)
   const sort = controlledSort !== undefined ? controlledSort : localSort
   const [overrides, setOverrides] = useState<Record<number, number>>({})
@@ -78,16 +86,15 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     return autoColumnWidth(name, types?.[index], sample)
   }), [columns, rows, types])
   const baseWidth = useCallback((index: number): number => overrides[index] ?? autoWidths[index], [overrides, autoWidths])
-  // A narrow result fills the pane: the last column takes what the others leave.
-  const naturalTotal = visible.reduce((sum, index) => sum + baseWidth(index), 0) + INDEX_WIDTH
-  const extra = Math.max(0, viewWidth - naturalTotal)
-  const lastVisible = visible[visible.length - 1]
-  const widthOf = useCallback((index: number): number => baseWidth(index) + (index === lastVisible ? extra : 0), [baseWidth, lastVisible, extra])
+  // Every column keeps its own width: the room a narrow result leaves is the header row's background, not the last column's.
+  const total = visible.reduce((sum, index) => sum + baseWidth(index), 0) + INDEX_WIDTH
+  const numeric = useMemo(() => columns.map((_, index) => isNumericColumn(types?.[index], rows, index)), [columns, rows, types])
+  const widthOf = baseWidth
   const order = useMemo(() => viewOrder(rows, filter, onSort ? null : sort), [rows, filter, sort, onSort])
   const count = order ? order.length : rows.length
   const pinLeft = useMemo(() => pinOffsets(visible, pinned, widthOf, INDEX_WIDTH), [visible, pinned, widthOf])
   const stickyStyle = (column: number, width: number): CSSProperties => (pinLeft.has(column) ? { width, position: 'sticky', left: pinLeft.get(column) } : { width })
-  const total = naturalTotal + extra
+
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
   const end = Math.min(count, Math.ceil((scrollTop + height) / ROW_HEIGHT) + OVERSCAN)
 
@@ -186,14 +193,14 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     </div>
     <div className="oq-grid" role="grid" aria-label={label} aria-rowcount={count + 1} aria-colcount={visible.length} aria-multiselectable="true" tabIndex={0}
     aria-activedescendant={focus ? `${label}-cell-${focus.row}-${focus.column}` : undefined} onKeyDown={onKeyDown}
-    ref={element => { scroller.current = element; if (element && element.clientHeight && element.clientHeight !== height) setHeight(element.clientHeight); if (element && element.clientWidth !== viewWidth) setViewWidth(element.clientWidth) }}
+    ref={element => { scroller.current = element; if (element && element.clientHeight && element.clientHeight !== height) setHeight(element.clientHeight) }}
     onScroll={event => setScrollTop(event.currentTarget.scrollTop)}>
     <div className="oq-grid-inner" style={{ width: total, height: (count + 1) * ROW_HEIGHT }}>
       <div className="oq-grid-header" role="row" style={{ width: total }}>
         <span className="oq-grid-index" role="columnheader">
           {hidden.size > 0 ? <button type="button" className="oq-grid-unhide" title={t('grid.hiddenTitle', { count: hidden.size })} aria-label={t('grid.showHidden', { count: hidden.size })} onClick={() => setHidden(new Set())}>+{hidden.size}</button> : '#'}
         </span>
-        {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" className={pinned.has(index) ? 'is-pinned' : undefined} style={stickyStyle(index, widthOf(index))}
+        {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" className={[pinned.has(index) ? 'is-pinned' : '', numeric[index] ? 'is-number' : ''].filter(Boolean).join(' ') || undefined} style={stickyStyle(index, widthOf(index))}
           title={t('grid.sortTitle', { column: types?.[index] ? `${columns[index]} · ${types[index]}` : columns[index] })}
           aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}>
           {columns[index]}{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
