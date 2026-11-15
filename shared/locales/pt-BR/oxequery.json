@@ -305,7 +305,8 @@
     "unpin": "Desafixar a coluna {{name}}",
     "pinTitle": "Fixar à esquerda",
     "hiddenTitle_many": "{{count}} ocultas — mostrar todas",
-    "showHidden_many": "Mostrar {{count}} colunas ocultas"
+    "showHidden_many": "Mostrar {{count}} colunas ocultas",
+    "columnMenu": "Ações da coluna {{name}}"
   },
   "library": {
     "saved": "Consulta salva",
