@@ -43,7 +43,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-view button { font: inherit; }
 .oq-view button:disabled { opacity: .45; cursor: default; }
 .oq-view button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.oq-primary { border-color: transparent !important; color: var(--surface-canvas) !important; background: var(--accent) !important; }
 .oq-danger { border-color: transparent !important; color: var(--tx-on-solid) !important; background: var(--intent-danger-solid) !important; }
 .oq-view textarea, .oq-form input { border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--fs-xs); }
 
