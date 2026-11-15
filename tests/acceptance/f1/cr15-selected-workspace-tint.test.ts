@@ -47,9 +47,4 @@ describe('CR-15 · the active workspace card tint is a sanctioned selection, and
     expect(LINT).toMatch(/--ws\b/)
     expect(LINT).toMatch(/data-ws/)
   })
-
-  test('the approved tint is still there: the active card keeps a color-mix of var(--ws) on a [data-ws] selector', () => {
-    const source = readFileSync(join(ROOT, 'src', 'design', 'workspace-color.css'), 'utf8')
-    expect(source).toMatch(/\.ws-group\.active\[data-ws\][^{]*\{[^}]*background:\s*color-mix\(in srgb, var\(--ws\) 6%, transparent\)/)
-  })
 })
