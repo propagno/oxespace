@@ -92,8 +92,11 @@ export function buildCodeCommands(ctx: CodeCommandContext): ContributedCommand[]
       run: () => useSettingsStore.getState().setAppearance(appearance)
     })),
     ...WORKSPACE_DENSITIES.map(density => ({
-      id: `density-${density.id}`, ...text('Appearance', `density-${density.id}`, { keywords: ['density', density.label] }), detail: tCommand('code.densityDetail'), icon: Sliders, disabled: !activeWorkspace,
-      run: inCode(() => { if (activeWorkspace) updateSettings({ workspaceId: activeWorkspace.id, uiDensity: density.id }) })
+      id: `density-${density.id}`, ...text('Appearance', `density-${density.id}`, { keywords: ['density', density.label] }), detail: tCommand('code.densityDetail'), icon: Sliders,
+      // With a workspace open the choice is the workspace's; with none it is the app-wide density, which needs no workspace.
+      run: activeWorkspace
+        ? inCode(() => { updateSettings({ workspaceId: activeWorkspace.id, uiDensity: density.id }) })
+        : () => { useSettingsStore.getState().setDensity(density.id === 'comfortable' ? 'comfortable' : 'compact') }
     })),
 
     // Terminal: the active pane.
