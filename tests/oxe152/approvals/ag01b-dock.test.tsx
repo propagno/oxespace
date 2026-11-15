@@ -5,7 +5,7 @@
 // calc(var(--statusbar-height) + var(--space-3))) and the toast stack above the notice (gap --space-2), the notice in
 // --attn-border / --attn-fg with --radius-sm.
 // Contract (src/components/Approvals/Approvals.module.css, src/ui/ToastStack.tsx and its rule in src/ui/Display.module.css):
-// the notice root ([data-ui=approval-toast], T2's hook) has bottom calc(var(--statusbar-height) + var(--space-3)), a
+// the notice root ([data-ui=approval-toast], the hook of the notice task, T3) has bottom calc(var(--statusbar-height) + var(--space-3)), a
 // border in var(--attn-border), border-radius var(--radius-sm) and no --intent-warning-* colour; the stack's position
 // rule moves it above the notice while one is shown (how is the task's choice: a shared dock container, or a variable
 // the notice sets), measured in the built app by e2e/polish/ag01b-dock.spec.ts; with no notice the stack stays where it
