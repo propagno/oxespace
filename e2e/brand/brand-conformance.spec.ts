@@ -205,6 +205,8 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           }
           await openSettings(page)
           await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
+          // With a workspace open Settings can open in that workspace's scope: open the app's General page, which BRD-06 measures.
+          await page.locator('.settings-center-nav').getByRole('button', { name: /^General/ }).first().click({ timeout: 10_000 }).catch(() => console.log('[BRAND] could not open General'))
           // General loads lazily: measure once its page column is there (a miss reports "no element", as before).
           await page.locator('[data-ui=settings-page]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] the General page did not render'))
           await measureScene(page, 'settings-general', density, theme)
