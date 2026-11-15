@@ -205,6 +205,9 @@ test('AG-10 §2.5 in the app: the composer bar, Ctrl+/ and the narrow bar', asyn
 
     await layoutAtWidth(app, page, 640, 900)
     await expect(toolbar).toHaveAttribute('data-width', 'narrow', { timeout: 15_000 })
+    const modeSwitch = toolbar.locator('[data-ui="mode-switch"]')
+    await expect(modeSwitch, 'the mode switch stays').toBeVisible()
+    expect(((await modeSwitch.boundingBox())!).height, 'the mode switch keeps 24 px').toBeGreaterThanOrEqual(24)
     for (const name of ['Context', cat('thread', 'composer.send')]) {
       const control = toolbar.getByRole('button', { name, exact: true })
       await expect(control, `${name} stays`).toBeVisible()

@@ -24,7 +24,7 @@
 //   Queue (composer.queue), no Send.
 // - Width: the toolbar's data-width is "full" from 420 px of its container up (a ResizeObserver), "narrow" below: then the
 //   model and the access are one trigger named "Turn settings" / "Configuração do turno" showing the current model,
-//   and Context, Send/Stop stay. The column is a size container with an @container rule at 420 px (SOURCE-TEXT, marked).
+//   and the mode switch [Agent | Plan], Context and Send/Stop stay visible at 24 px or more (MARCA 15/11, answer 2). The column is a size container with an @container rule at 420 px (SOURCE-TEXT, marked).
 // - Ctrl+/ in the message box opens the commands list (kept).
 // - Measures: BRD-04.composer.radius, composer-toolbar.height, button.height, button.font-weight, icon-button.height and
 //   BRD-25.composer.mode-first, composer.controls turn enforced.
@@ -222,6 +222,9 @@ describe('A12 · the bar by container width (board 11, kept from F4 with the eff
     expect(indexOf(list, CONTEXT.en), 'Context stays').toBeGreaterThanOrEqual(0)
     expect(list.some(el => nameOf(el) === tt('composer.send')), 'Send stays').toBe(true)
     const model = startsWith(list, tt('config.chip.model')), access = startsWith(list, tt('config.chip.permissions'))
+    const mode = toolbar.querySelector<HTMLElement>('[data-ui="mode-switch"]')
+    expect(mode, 'the mode switch stays at every width (MARCA 15/11)').toBeTruthy()
+    expect(controls(mode!).map(el => el.textContent?.trim())).toEqual([tt('config.agent'), tt('config.plan')])
     if (layout === 'full') expect([model.length, access.length], 'model and access apart').toEqual([1, 1])
     else {
       const triggers = list.filter(el => el.getAttribute('aria-label') === tt(pairKey('thread', TURN_SETTINGS.en, TURN_SETTINGS['pt-BR'])))
