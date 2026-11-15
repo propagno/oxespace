@@ -18,7 +18,7 @@ test('PM-02·8 in the app: View › Density works with no workspace', async () =
     await expect(density).toBeEnabled()
     await density.hover()
     await density.press('ArrowRight').catch(() => undefined)
-    await page.getByRole('menuitem', { name: /Comfortable/ }).click()
+    await page.getByRole('menuitem', { name: /comfortable/i }).click()
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('comfortable')
   } finally {
     await app.close()
