@@ -1,7 +1,7 @@
-import { Suspense, lazy, memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, lazy, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
-import { Button, Menu } from '../../ui'
+import { Button, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
@@ -233,6 +233,7 @@ function WorkspaceSurfaceComponent({
   const [preferredSideId, setPreferredSideId] = useState<string | null>(null)
   const previousSideIds = useRef<string[]>([])
   const sideTabsRef = useRef<HTMLElement>(null)
+  const sidePanelId = useId()
   useEffect(() => {
     const added = visibleSideIds.filter(id => !previousSideIds.current.includes(id))
     previousSideIds.current = visibleSideIds
@@ -704,20 +705,19 @@ function WorkspaceSurfaceComponent({
               >
                 <div className="workspace-panel-stack">
                   {sidePanels.length > 1 && <nav ref={sideTabsRef} className="workspace-panel-stack-tabs" aria-label={tc('workspace.topbar.panels')}>
-                    <div role="tablist" aria-label={tc('workspace.topbar.openPanels')} className="workspace-panel-stack-tablist">
-                      {inlineSidePanels.map(panel => {
+                    {/* The src/ui Tabs list (BRD-03). The panels stay mounted below, so the list draws only the tabs and names the panel they show. */}
+                    <Tabs className="workspace-panel-stack-tablist" label={tc('workspace.topbar.openPanels')} value={activeSideId ?? ''} onChange={next => setPreferredSideId(next)}
+                      tabs={inlineSidePanels.map(panel => {
                         const Icon = sideIcons[panel.id]
                         // The name stays in the tooltip and the accessible name when a narrow strip shows only icons.
-                        return <button type="button" role="tab" key={panel.id} aria-selected={panel.id === activeSideId} aria-label={sideLabels[panel.id]} title={sideLabels[panel.id]} onClick={() => setPreferredSideId(panel.id)}>
-                          {Icon && <Icon size={14} aria-hidden="true" />}<span className="workspace-panel-stack-tab-label">{sideLabels[panel.id]}</span>
-                        </button>
-                      })}
-                    </div>
+                        return { value: panel.id, ariaLabel: sideLabels[panel.id], title: sideLabels[panel.id], controls: sidePanelId,
+                          label: <>{Icon && <Icon size={14} aria-hidden="true" />}<span className="workspace-panel-stack-tab-label">{sideLabels[panel.id]}</span></> }
+                      })} />
                     {overflowSidePanels.length > 0 && <Menu label={tc('panels.more')} align="end"
-                      trigger={<button type="button" className="workspace-panel-stack-more" aria-label={tc('workspace.topbar.morePanels', { count: overflowSidePanels.length })}><MoreHorizontal size={14} aria-hidden="true" />{overflowSidePanels.length}</button>}
+                      trigger={<Button size="sm" variant="ghost" className="workspace-panel-stack-more" aria-label={tc('workspace.topbar.morePanels', { count: overflowSidePanels.length })} icon={<MoreHorizontal size={14} aria-hidden="true" />}>{overflowSidePanels.length}</Button>}
                       items={overflowSidePanels.map(panel => ({ label: sideLabels[panel.id] ?? panel.id, onSelect: () => setPreferredSideId(panel.id) }))} />}
                   </nav>}
-                  <div className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
+                  <div id={sidePanelId} className="workspace-panel-stack-content" role={sidePanels.length > 1 ? 'tabpanel' : undefined} aria-label={sidePanels.length > 1 && activeSideId ? sideLabels[activeSideId] : undefined}>
                     {sidePanels.map(panel => <div key={panel.id} hidden={panel.id !== activeSideId}>
                       <ErrorBoundary id="workspace-panel" label={tc('workspace.panel.this')}><Suspense fallback={<div className="workspace-editor-panel" data-testid="panel-loading" />}>{panel.content}</Suspense></ErrorBoundary>
                     </div>)}

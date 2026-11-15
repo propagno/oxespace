@@ -219,10 +219,25 @@ export function Separator({ orientation = 'horizontal' }: { orientation?: 'horiz
   return <span className={styles.separator} role="separator" aria-orientation={orientation} data-orientation={orientation} />
 }
 
+export interface TabItem<T extends string> {
+  value: T
+  label: ReactNode
+  /**
+   * The tab's panel. Leave it out when the caller keeps its panels mounted itself (the workspace panel stack keeps
+   * each tool's state while switching): the primitive then draws only the list, and `controls` names the panel.
+   */
+  content?: ReactNode
+  /** The accessible name, when the visible label can shrink to an icon. */
+  ariaLabel?: string
+  title?: string
+  /** The id of the panel this tab shows, for a list-only use. */
+  controls?: string
+}
+
 export interface TabsProps<T extends string> {
   value: T
   onChange: (value: T) => void
-  tabs: Array<{ value: T; label: ReactNode; content: ReactNode }>
+  tabs: Array<TabItem<T>>
   label: string
   className?: string
 }
@@ -231,9 +246,10 @@ export interface TabsProps<T extends string> {
 export function Tabs<T extends string>({ value, onChange, tabs, label, className }: TabsProps<T>): ReactElement {
   return <RadixTabs.Root value={value} onValueChange={next => onChange(next as T)} className={className}>
     <RadixTabs.List data-ui="tabs" className={styles.tabList} aria-label={label}>
-      {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className={styles.tab}>{tab.label}</RadixTabs.Trigger>)}
+      {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className={styles.tab} aria-label={tab.ariaLabel} title={tab.title}
+        {...(tab.controls ? { 'aria-controls': tab.controls } : {})}>{tab.label}</RadixTabs.Trigger>)}
     </RadixTabs.List>
-    {tabs.map(tab => <RadixTabs.Content key={tab.value} value={tab.value} className={styles.tabPanel}>{tab.content}</RadixTabs.Content>)}
+    {tabs.filter(tab => tab.content !== undefined).map(tab => <RadixTabs.Content key={tab.value} value={tab.value} className={styles.tabPanel}>{tab.content}</RadixTabs.Content>)}
   </RadixTabs.Root>
 }
 

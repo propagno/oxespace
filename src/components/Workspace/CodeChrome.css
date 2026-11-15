@@ -111,11 +111,29 @@
   gap: 2px;
 }
 
+/* The panel stack's row: the src/ui Tabs list (its tabs are the primitive's, never restyled here) and the More menu. */
 .workspace-panel-stack-tabs {
-  min-height: 36px;
-  padding: 3px var(--space-2);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0;
+  padding: 0 var(--space-2);
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.workspace-panel-stack-tablist {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The row draws the bottom line, so the list does not draw a second one. */
+.workspace-panel-stack-tablist > [data-ui='tabs'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
 }
 
 /* Pane Terminal / Conversation toggle switch (G8 / G14). */

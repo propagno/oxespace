@@ -7,6 +7,10 @@
     "BRD-01.group.height",
     "BRD-01.footer.height",
     "BRD-01.row.height",
-    "BRD-01.row-two-line.height"
+    "BRD-01.row-two-line.height",
+    "BRD-03.tabs.height",
+    "BRD-03.tab.font-size",
+    "BRD-03.tab.font-weight",
+    "BRD-03.tab.underline"
   ]
 }
