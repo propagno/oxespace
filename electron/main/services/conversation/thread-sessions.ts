@@ -1,9 +1,9 @@
 /**
  * OXE-170 (OXC-5): sessions and their parallel chats, in the main process.
  *
- * A session is identified by its main chat's id. Every conversation without `sessionId` is a main chat, so a
+ * A session is identified by its main chat's id. Every conversation without `parentThreadId` is a main chat, so a
  * conversation stored by an older build is a session with only its main chat, read as stored (no migration). A parallel
- * chat is a conversation of its own whose `sessionId` names its session's main chat and whose `sessionOrder` keeps the
+ * chat is a conversation of its own whose `parentThreadId` names its session's main chat and whose `childOrder` keeps the
  * order of creation. The main chat records the open chat in `openChatId`. Reading a session never writes a row.
  */
 import type { AppDatabase } from '../../db'
@@ -16,7 +16,7 @@ import { parseThreadRow } from './thread-title'
 const PROVIDERS: readonly ThreadProvider[] = ['claude', 'codex', 'antigravity']
 
 /** What creating a parallel chat passes to the orchestrator's create. */
-export type SessionChatContext = Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'access' | 'sessionId' | 'sessionOrder'>
+export type SessionChatContext = Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'access' | 'parentThreadId' | 'childOrder'>
 
 export interface SessionHost {
   readonly db: AppDatabase
@@ -54,11 +54,11 @@ function changesOf(host: SessionHost, row: ThreadRow): SessionChanges {
   return total
 }
 
-/** The parallel chats of a session, in the order they were created (sessionOrder, stable within one millisecond). */
+/** The parallel chats of a session, in the order they were created (childOrder, stable within one millisecond). */
 function chatsOf(host: SessionHost, sessionId: string): { row: ThreadRow; thread: ConversationThread }[] {
-  return (host.db.prepare(`${SELECT_ROWS} WHERE json_extract(data_json, '$.sessionId') = ?`).all(sessionId) as ThreadRow[])
+  return (host.db.prepare(`${SELECT_ROWS} WHERE json_extract(data_json, '$.parentThreadId') = ?`).all(sessionId) as ThreadRow[])
     .map(row => ({ row, thread: threadOf(host, row) }))
-    .sort((a, b) => (a.thread.sessionOrder ?? 0) - (b.thread.sessionOrder ?? 0) || a.thread.createdAt - b.thread.createdAt || a.thread.id.localeCompare(b.thread.id))
+    .sort((a, b) => (a.thread.childOrder ?? 0) - (b.thread.childOrder ?? 0) || a.thread.createdAt - b.thread.createdAt || a.thread.id.localeCompare(b.thread.id))
 }
 
 function chatView(host: SessionHost, row: ThreadRow, thread: ConversationThread, main: boolean): SessionChatView {
@@ -78,7 +78,7 @@ function sessionRow(host: SessionHost, sessionId: unknown): ThreadRow {
   if (typeof sessionId !== 'string' || !sessionId) throw new MainRefusal('thread.invalidInput', {})
   const row = host.db.prepare(`${SELECT_ROWS} WHERE id = ?`).get(sessionId) as ThreadRow | undefined
   if (!row) throw new MainRefusal('thread.notFound', {})
-  if (threadOf(host, row).sessionId) throw new MainRefusal('thread.invalidInput', {})
+  if (threadOf(host, row).parentThreadId) throw new MainRefusal('thread.invalidInput', {})
   return row
 }
 
@@ -86,7 +86,7 @@ export function readSession(host: SessionHost, sessionId: string): SessionView {
 
 /** Every session once, archived ones too; a parallel chat is never listed as a session. */
 export function listSessions(host: SessionHost): SessionView[] {
-  return (host.db.prepare(`${SELECT_ROWS} WHERE json_extract(data_json, '$.sessionId') IS NULL`).all() as ThreadRow[]).map(row => viewOf(host, row))
+  return (host.db.prepare(`${SELECT_ROWS} WHERE json_extract(data_json, '$.parentThreadId') IS NULL`).all() as ThreadRow[]).map(row => viewOf(host, row))
 }
 
 /** The ids of a session's parallel chats, in order; none for a parallel chat or an unknown id. */
@@ -100,10 +100,10 @@ export function createChat(host: SessionHost, sessionId: string, input: { provid
   const main = threadOf(host, sessionRow(host, sessionId))
   if (!input || !PROVIDERS.includes(input.provider)) throw new MainRefusal('thread.invalidInput', {})
   if (main.archived) throw new MainRefusal('thread.invalidInput', {})
-  const order = chatsOf(host, main.id).reduce((max, chat) => Math.max(max, chat.thread.sessionOrder ?? 0), 0) + 1
+  const order = chatsOf(host, main.id).reduce((max, chat) => Math.max(max, chat.thread.childOrder ?? 0), 0) + 1
   return host.create({ workspaceId: main.workspaceId, projectId: main.projectId, rootPath: main.rootPath, provider: input.provider,
     ...(main.access ? { access: main.access } : {}), ...(main.agentProfileId && input.provider === main.provider ? { agentProfileId: main.agentProfileId } : {}),
-    sessionId: main.id, sessionOrder: order })
+    parentThreadId: main.id, childOrder: order })
 }
 
 /** Records which chat the window shows; refuses a chat of another session or one that no longer exists. */
