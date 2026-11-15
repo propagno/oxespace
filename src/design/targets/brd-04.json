@@ -1,17 +1,17 @@
 {
   "brd": "BRD-04",
-  "card": null,
-  "title": "OxeChat tabs and buttons (VIS-01/02)",
+  "card": "OXE-167, OXE-169",
+  "title": "OxeChat conversation, panels and composer (OXC-2, OXC-4)",
   "platform": "desktop",
-  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "source": "OxeChat canvas approved by the user on 15/11 (artifact 796YHhr9AjmYNVkakawr9c, 14 boards) and its written target (OXE-166..170)",
   "measures": [
     {
-      "id": "BRD-04.tabs.height",
+      "id": "BRD-04.chat-header.height",
       "scene": "chat-conversation",
-      "select": "[data-ui=tabs]",
+      "select": "[data-ui=chat-header]",
       "prop": "height",
       "expect": {
-        "token": "--bar-md"
+        "token": "--bar-lg"
       },
       "tolerance": 0.5,
       "densities": [
@@ -25,9 +25,123 @@
       "state": "pending"
     },
     {
-      "id": "BRD-04.tab.font-size",
+      "id": "BRD-04.tabs.count",
       "scene": "chat-conversation",
-      "select": "[data-ui=tabs] [role=tab]",
+      "select": "main [data-ui=tabs]",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.panel-toggle.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=chat-header] [data-ui=panel-toggle]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.panel-toggle.count",
+      "scene": "chat-conversation",
+      "select": "[data-ui=chat-header] [data-ui=panel-toggle]",
+      "prop": "count",
+      "expect": {
+        "eq": 4
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.column.width",
+      "scene": "chat-conversation",
+      "select": "[data-ui=chat-column]",
+      "prop": "width",
+      "expect": {
+        "px": 800
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.user-message.radius",
+      "scene": "chat-conversation",
+      "select": "[data-ui=user-message]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.user-message.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=user-message]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.turn-line.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=turn-line]",
       "prop": "font-size",
       "expect": {
         "token": "--text-xs"
@@ -44,12 +158,12 @@
       "state": "pending"
     },
     {
-      "id": "BRD-04.tab.font-weight",
+      "id": "BRD-04.composer.radius",
       "scene": "chat-conversation",
-      "select": "[data-ui=tabs] [role=tab]",
-      "prop": "font-weight",
+      "select": "[data-ui=composer]",
+      "prop": "border-radius",
       "expect": {
-        "token": "--weight-medium"
+        "token": "--radius-lg"
       },
       "tolerance": 0.5,
       "densities": [
@@ -63,12 +177,12 @@
       "state": "pending"
     },
     {
-      "id": "BRD-04.tab.underline",
+      "id": "BRD-04.composer-toolbar.height",
       "scene": "chat-conversation",
-      "select": "[data-ui=tabs] [role=tab][data-state=active]::after",
+      "select": "[data-ui=composer-toolbar]",
       "prop": "height",
       "expect": {
-        "px": 2
+        "token": "--control-md"
       },
       "tolerance": 0.5,
       "densities": [
@@ -92,25 +206,6 @@
           "--control-md",
           "--control-lg"
         ]
-      },
-      "tolerance": 0.5,
-      "densities": [
-        "compact",
-        "comfortable"
-      ],
-      "themes": [
-        "light",
-        "dark"
-      ],
-      "state": "pending"
-    },
-    {
-      "id": "BRD-04.button.font-size",
-      "scene": "chat-conversation",
-      "select": "[data-ui=button]",
-      "prop": "font-size",
-      "expect": {
-        "token": "--text-xs"
       },
       "tolerance": 0.5,
       "densities": [
@@ -168,7 +263,7 @@
     {
       "id": "BRD-04.raw-button.count",
       "scene": "chat-conversation",
-      "select": "button:not([data-ui]):not([role=tab])",
+      "select": "main button:not([data-ui])",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -182,8 +277,45 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "every button of the surface is a Button or IconButton"
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.request.radius",
+      "scene": "chat-approval",
+      "select": "[data-ui=request-card]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-lg"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-04.request.button.height",
+      "scene": "chat-approval",
+      "select": "[data-ui=request-card] [data-ui=button]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
     }
   ]
 }

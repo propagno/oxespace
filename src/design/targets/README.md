@@ -31,3 +31,14 @@ Two things answer different questions, and neither stands in for the other (coor
 A state has one name everywhere, desktop, OxeChat and phone. The list is docs/design/glossary.md §5 (the S7 contract): Needs you · Failed · Working · Finished · Idle · Stopped · Not confirmed (pt-BR Precisa de você · Falhou · Trabalhando · Concluído · Ocioso · Interrompido · Não confirmado), plus Starting / Exited on a terminal only. An item's state, a badge, a screen's header and a notification say the state word. A place is named with a noun: the phone's first tab is "Requests" / "Pedidos" (the state word does not fit five tabs at the 11 sp floor, BRD-07), and that screen's header still says "Needs you" / "Precisa de você". A target or a measure that reads a label names which one it means; a tab label is never checked against a state word, nor a state against a tab name.
 
 The fidelity of a release is read from the conformance score on main (measures that match out of all checked, desktop and phone), taken after each BRD merges.
+
+## OxeChat (brd-02, brd-04, brd-05)
+
+These three files hold the OxeChat target the user approved on 15/11 (canvas of 14 boards; cards OXE-166 to OXE-170): it ships as designed. They are measured in three scenes: `chat-conversation`, `chat-approval` (a request waiting, in the conversation and on its sidebar row) and `chat-new-session` (the opening of a conversation with no messages yet). Each card puts on its elements the `data-ui` its measures read, and turns those measures to `enforced` in the PR that delivers them:
+
+| Card | `data-ui` it adds |
+|---|---|
+| OXE-166 sidebar | `row-title`, `row-meta` (on SidebarRow's slots; `data-lines` comes from the row), `row-attention` (the "precisa de você" card on a row) |
+| OXE-167 conversation | `chat-header`, `chat-title`, `chat-column`, `user-message`, `turn-line`, `composer`, `composer-toolbar`, `request-card` |
+| OXE-168 new conversation | `new-conversation-title`, `context-picker`, `starter` |
+| OXE-169 panels | `panel-toggle` (on WorkbenchPanelToggle) |
