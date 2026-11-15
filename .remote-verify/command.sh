@@ -1,0 +1,1 @@
+(node scripts/test-electron.mjs tests/oxe152/chat-f5/f5-working-set.test.tsx --maxWorkers=2 --reporter=verbose || touch .ap-window-red) ; npm run build && npx playwright test e2e/oxc-f5/working-set-real.spec.ts --reporter=list && test ! -e .ap-window-red
