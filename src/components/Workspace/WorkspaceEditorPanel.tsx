@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { i18n } from '../../i18n'
+import { DockPanel, IconButton } from '../../ui'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -22,39 +23,27 @@ export function WorkspaceEditorPanel({ isExpanded, onCollapse, onToggleExpanded,
   const openSourceControl = (): void => {
     void useWorkspaceStore.getState().showRepositoryView(workspace.id, 'git')
   }
+  const expandLabel = isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')
 
   return (
-    <section className="workspace-editor-panel" data-testid="workspace-editor-panel">
-      <header className="workspace-editor-header">
-        <div className="workspace-editor-title">
-          <Files size={14} aria-hidden="true" />
-          <span>{workspace.name}</span>
-          <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
-        </div>
-        <div className="workspace-editor-actions repository-view-actions" aria-label={tc('workspace.panel.repositoryViews')}>
-          <button type="button" className="tile-btn active" aria-label={tc('workspace.panel.files')} title={tc('workspace.panel.files')}>
-            <Files size={14} aria-hidden="true" />
-          </button>
-          <button type="button" className="tile-btn" aria-label={tc('panels.git')} title={tc('panels.git')} onClick={openSourceControl}>
-            <GitBranch size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            onClick={onToggleExpanded}
-          >
-            {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
-          </button>
-          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
-            <ChevronsRight size={14} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+    <DockPanel
+      testId="workspace-editor-panel"
+      className="workspace-editor-panel"
+      icon={<Files size={14} aria-hidden="true" />}
+      title={tc('panels.files')}
+      count={<PanelScopeBadge workspaceId={workspace.id} scope={scope} />}
+      actions={<>
+        <span className="repository-view-actions" role="group" aria-label={tc('workspace.panel.repositoryViews')}>
+          <IconButton label={tc('workspace.panel.files')} title={tc('workspace.panel.files')} aria-pressed icon={<Files size={14} aria-hidden="true" />} />
+          <IconButton label={tc('panels.git')} title={tc('panels.git')} icon={<GitBranch size={14} aria-hidden="true" />} onClick={openSourceControl} />
+        </span>
+        <IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />
+      </>}
+      close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
+    >
       <div className="workspace-editor-content">
         <EditorPane workspaceId={workspace.id} rootPath={scope.rootPath} />
       </div>
-    </section>
+    </DockPanel>
   )
 }

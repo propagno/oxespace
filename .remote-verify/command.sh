@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/oxe152/brand/brd-01-oxecode-sidebar.test.tsx tests/oxe152/brand/brd-03-oxecode-tabs-buttons.test.tsx tests/oxe152/brand/brd15-tool-panels.test.tsx --maxWorkers=2 --reporter=verbose
