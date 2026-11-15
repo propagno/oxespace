@@ -73,7 +73,7 @@ enum class LocalNetworkAsk { NOT_ASKED, DENIED }
  * because Android stops showing its own prompt after the second refusal.
  */
 @Composable
-fun LocalNetworkGate(onGranted: () -> Unit = {}, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun LocalNetworkGate(modifier: Modifier = Modifier, onGranted: () -> Unit = {}, content: @Composable () -> Unit) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(LocalNetworkAccess.granted(context)) }
     var ask by remember { mutableStateOf(LocalNetworkAsk.NOT_ASKED) }
