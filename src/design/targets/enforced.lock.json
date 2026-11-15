@@ -32,6 +32,18 @@
     "BRD-09.mode-tab.font-size",
     "BRD-09.mode-tab.font-weight",
     "BRD-09.mode-tab.height",
-    "BRD-11.row.height"
+    "BRD-11.row.height",
+    "BRD-02.header.height",
+    "BRD-02.filter.height",
+    "BRD-02.section.height",
+    "BRD-02.group.height",
+    "BRD-02.footer.height",
+    "BRD-02.row2.height",
+    "BRD-02.row-title.font-size",
+    "BRD-02.row-title.font-weight",
+    "BRD-02.row-meta.font-size",
+    "BRD-02.row.radius",
+    "BRD-02.archived-band.count",
+    "BRD-02.raw-button.count"
   ]
 }
