@@ -7,6 +7,8 @@
 // active scope (window.oxe.git.changedCount({ rootPath: scope.rootPath })) without opening the panel; with N > 0 its
 // accessible name is the plural pair panels.changesCount ("Changes, N files" / "Alterações, N arquivos"; the pair OXE-169
 // adds, or this card adds it in code.json: one pair) and it shows N, "99+" above 99; at 0 no badge and the plain name.
+// Its title says what it counts (coordination 15/11: two counts, each labelled): the files git reports changed in the
+// scope's folder, naming that folder ("repo" here); the copy is the brand's to review.
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -46,6 +48,7 @@ describe('OXE-185 AG-04d the OxeCode Changes button counts the files (A40)', () 
     await waitFor(() => expect(changes()).toHaveAccessibleName(name))
     expect(changes().textContent ?? '').toContain(shown)
     expect(changedCount).toHaveBeenCalledWith({ rootPath: '/repo' })
+    expect(changes().getAttribute('title') ?? '', 'the title says what it counts').toContain('repo')
   })
 
   it('pt-BR names it "Alterações, N arquivos"', async () => {

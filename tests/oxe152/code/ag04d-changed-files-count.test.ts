@@ -1,8 +1,8 @@
 // Frozen acceptance test for 1.5.2 OxeCode/Shell F6 (OXE program oxespace-152-code, phase F6, Jira OXE-185, AG-04d), the
-// backend part: one cheap, debounced source of the changed-files count of a scope, shared by OxeCode and OxeChat. Written
+// backend part: one cheap, debounced source of OxeCode's changed-files count of a scope (git status of its folder). Written
 // by the planner; the executor must not edit it. Source: the card OXE-185 (CA-2, CA-3, RN-1, RN-2, RT-2, RT-3), the
-// coordination's input of 15/11 ("design one source", shared with OXE-169) and the user's rule of 15/11 ("o backend deve
-// acompanhar").
+// coordination's decision of 15/11 (two counts, no shared source: OxeChat's OXC-4 keeps counting the files the conversation
+// changed) and the user's rule of 15/11 ("o backend deve acompanhar").
 // Today (main 66e0080d5) the count exists only inside the Changes panel (git.getStatus › GitControlStatus.files, read when
 // the panel opens); nothing gives a count without opening it.
 // Contract:
@@ -11,9 +11,9 @@
 //   resolves to the number of files (files, never lines). Calls for the same rootPath inside the debounce window share one
 //   read; another rootPath reads on its own; after the window a call reads again. A read that fails resolves to null.
 // - IPC git.changedCount (window.oxe.git.changedCount({ rootPath }) → number | null) serves it from the one counter.
-// - Window: src/hooks/useChangedFilesCount.ts exports useChangedFilesCount(rootPath) → number | null, the one hook both the
-//   OxeCode Changes button and OxeChat's Alterações badge read (OXE-169 moves to it through a CR on OxeChat F4, asked of the
-//   coordination); two components on the same rootPath show the same N from one IPC call; null rootPath asks nothing.
+// - Window: src/hooks/useChangedFilesCount.ts exports useChangedFilesCount(rootPath) → number | null, OxeCode's hook: every
+//   reader of the same rootPath (the Changes button, the panel's count) shows the same N from one IPC call; null rootPath
+//   asks nothing. OxeChat is not part of it.
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -52,15 +52,15 @@ describe('OXE-185 AG-04d one changed-files count per scope (A39)', () => {
     expect(await result).toBeNull()
   })
 
-  it('OxeCode and OxeChat read the same N for the same scope, from one call', async () => {
+  it('two OxeCode readers of the same scope show the same N, from one call', async () => {
     const changedCount = vi.fn(async () => 7)
     Object.defineProperty(window, 'oxe', { configurable: true, value: { git: { changedCount } } })
     const { useChangedFilesCount } = await hookModule()
     const Show = ({ id, root }: { id: string; root: string | null }) => createElement('span', { 'data-testid': id }, String(useChangedFilesCount(root)))
-    render(createElement('div', null, createElement(Show, { id: 'code', root: '/repo' }), createElement(Show, { id: 'chat', root: '/repo' }), createElement(Show, { id: 'none', root: null })))
+    render(createElement('div', null, createElement(Show, { id: 'code', root: '/repo' }), createElement(Show, { id: 'panel', root: '/repo' }), createElement(Show, { id: 'none', root: null })))
     await screen.findAllByText('7')
     expect(screen.getByTestId('code')).toHaveTextContent('7')
-    expect(screen.getByTestId('chat')).toHaveTextContent('7')
+    expect(screen.getByTestId('panel')).toHaveTextContent('7')
     expect(screen.getByTestId('none')).toHaveTextContent('null')
     expect(changedCount).toHaveBeenCalledTimes(1)
     expect(changedCount).toHaveBeenCalledWith({ rootPath: '/repo' })
