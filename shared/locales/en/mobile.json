@@ -81,7 +81,11 @@
       "connect": "Connect",
       "confirm": "Confirm",
       "done": "Done"
-    }
+    },
+    "back": "Back",
+    "cancel": "Cancel",
+    "codeExpiresIn": "The code expires in {{time}}.",
+    "waitingComputer": "Waiting for the computer…"
   },
   "live": {
     "tabs": {
@@ -434,8 +438,8 @@
     "title": "Settings",
     "back": "Back",
     "theme": {
-      "title": "Theme",
-      "system": "Same as the phone",
+      "title": "Appearance",
+      "system": "System",
       "light": "Light",
       "dark": "Dark"
     },
@@ -447,13 +451,28 @@
     },
     "computer": {
       "title": "Computer",
-      "unpair": "Unpair this phone"
+      "unpair": "Unpair this phone",
+      "paired": "paired {{date}}"
     },
     "about": {
       "title": "About",
       "app": "OXESpace for Android",
       "version": "Version {{version}}",
       "sameWifi": "Works while this phone and your computer are on the same Wi-Fi."
+    },
+    "answers": {
+      "title": "Answers",
+      "presence": "Fingerprint or screen lock",
+      "presenceBody": "Asked on every answer. A safety rule.",
+      "always": "Always",
+      "critical": "Critical requests",
+      "criticalBody": "Allow unlocks after {{seconds, number}} s."
+    },
+    "cantConnect": {
+      "title": "Can't connect?"
+    },
+    "typing": {
+      "title": "Typing in terminals"
     }
   },
   "needsYou": {
