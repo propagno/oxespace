@@ -27,7 +27,7 @@ interface OsName {
 
 async function osName(): Promise<OsName> {
   const file = path.resolve('electron/main/services/remote/os-name.ts')
-  let mod: Partial<OsName> | null = null
+  let mod: Partial<OsName> | null
   try { mod = await import(/* @vite-ignore */ file) as Partial<OsName> } catch (error) { mod = null; void error }
   expect(mod, 'electron/main/services/remote/os-name.ts exists').not.toBeNull()
   expect(typeof mod!.osDisplayName, 'it exports osDisplayName').toBe('function')
