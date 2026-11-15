@@ -20,7 +20,7 @@
 .oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }
 .oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-icon svg { flex: none; }
-.oq-prod { color: var(--intent-danger-solid); }
+.oq-prod { color: var(--intent-danger-fg); }
 .oq-muted { color: var(--tx-muted); font-size: var(--fs-xs); }
 .oq-ok { margin: 6px 0; color: var(--intent-success-solid, var(--tx-secondary)); font-size: var(--fs-xs); }
 
@@ -54,13 +54,13 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .oq-editor { flex: none; min-height: 80px; overflow: hidden; border-top: 1px solid var(--bd-default); }
-.oq-badge { padding: 1px 8px; border-radius: var(--radius-full, 999px); font-size: var(--fs-2xs); background: var(--ov-3); }
+.oq-badge { padding: 1px 8px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-full, 999px); font-size: var(--fs-2xs); background: var(--surface-sunken); }
 /* The shortcut beside Run: the one action people repeat, so its key is always in sight. */
 .oq-run-key { display: inline-flex; margin-left: 6px; opacity: .85; }
 .oq-run-key kbd { color: inherit; background: color-mix(in srgb, currentColor 14%, transparent); border-color: transparent; }
-.oq-badge[data-environment='prod'] { color: var(--tx-on-solid); background: var(--intent-danger-solid); }
-.oq-badge[data-readonly='false'] { color: var(--intent-warning-solid); }
-.oq-badge[data-policy='true'] { color: var(--intent-danger-solid); }
+.oq-badge[data-environment='prod'] { border-color: var(--intent-danger-border); color: var(--intent-danger-fg); background: var(--intent-danger-bg); }
+.oq-badge[data-readonly='false'] { color: var(--intent-warning-fg); }
+.oq-badge[data-policy='true'] { color: var(--intent-danger-fg); }
 .oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--intent-danger-solid); border-radius: var(--radius-md); background: color-mix(in srgb, var(--intent-danger-solid) 8%, transparent); font-size: var(--fs-xs); }
 .oq-confirm ul { margin: 6px 0; padding-left: 18px; }
 .oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
@@ -144,7 +144,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-switch { display: flex; align-items: flex-start; gap: 10px; font-size: var(--fs-xs); cursor: pointer; }
 .oq-switch span { display: grid; gap: 2px; }
 .oq-switch small { color: var(--tx-muted); }
-.oq-warning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--intent-warning-solid); background: color-mix(in srgb, var(--intent-warning-solid) 10%, transparent); font-size: var(--fs-xs); }
+.oq-warning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
 .oq-disclosure { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0; padding: 2px 0; border: 0; color: var(--tx-secondary); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-outcome { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); font-size: var(--fs-xs); }
 .oq-outcome-ok { color: var(--intent-success-solid); background: color-mix(in srgb, var(--intent-success-solid) 10%, transparent); }
@@ -153,7 +153,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 /* ── Sidebar details ─────────────────────────────────────────────────────── */
 .oq-engine-tag { padding: 0 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-full, 999px); color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 16px; }
-.oq-env { color: var(--intent-warning-solid); }
+.oq-env { color: var(--intent-warning-fg); }
 
 /* ── Result grid ─────────────────────────────────────────────────────────── */
 .oq-grid-header > span[role='columnheader'] { cursor: pointer; user-select: none; }
@@ -204,7 +204,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-filepick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .oq-filepick > span { min-width: 120px; }
 .oq-filepick button:not(.oq-link) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
-.oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: var(--radius-sm); background: var(--ov-3); }
+.oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .oq-filepick-error { flex-basis: 100%; }
 /* The changed-key warning: the explanation, then the trusted and the new fingerprints. */
 .oq-hostkey-notice { margin-top: 10px; }
