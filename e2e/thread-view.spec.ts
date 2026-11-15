@@ -368,7 +368,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button',{name:'Close workbench panel'}).click()
     const readyIcon = await projectTree.locator('.thread-session-indicator').evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
     expect(readyIcon.icon).toContain('circle')
-    expect(readyIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--dot-blue)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
+    expect(readyIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--intent-info-solid)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
     await expect(projectTree.locator('.thread-project-children')).toHaveCSS('border-left-style', 'solid')
     await page.screenshot({ path: 'test-results/thread-project-hierarchy.png' })
     // Color comes from light or dark mode; workspace palettes no longer apply.
@@ -657,7 +657,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await app.evaluate(() => (globalThis as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(false))
     const runningDot = page.locator('.thread-session-indicator[data-status="running"]').first()
     await expect(runningDot).toBeVisible()
-    const runningColors = await runningDot.evaluate(el => ({ label: getComputedStyle(el).color, dot: getComputedStyle(el, '::before').backgroundColor, green: (() => { const token = document.createElement('span'); token.style.color = 'var(--dot-green)'; document.body.append(token); const color = getComputedStyle(token).color; token.remove(); return color })() }))
+    const runningColors = await runningDot.evaluate(el => ({ label: getComputedStyle(el).color, dot: getComputedStyle(el, '::before').backgroundColor, green: (() => { const token = document.createElement('span'); token.style.color = 'var(--intent-success-solid)'; document.body.append(token); const color = getComputedStyle(token).color; token.remove(); return color })() }))
     expect(runningColors.label).toBe(runningColors.green)
     expect(runningColors.dot).toBe(runningColors.green)
     expect(runningColors.dot).not.toBe(readyIcon.color)
