@@ -71,7 +71,7 @@ async function connectContainer(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('tab', { name, exact: true })).toBeVisible({ timeout: 60_000 })
 }
 const MONGO = `pq079-mongo-${process.pid}`
-test('PQ-07·9 in the app: under the pointer a collection\'s Rename is a 24 px target', async () => {
+test('PQ-07·9 in the app: under the pointer the Rename of a collection is a 24 px target', async () => {
   const reason = noContainerEngine()
   test.skip(reason !== null, reason ?? '')
   test.setTimeout(300_000)
