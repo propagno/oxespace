@@ -5,13 +5,13 @@
 // Contract: in the compact density, with a new version available, the title bar's update trigger is 24px tall
 // (--control-sm) and has no border.
 import { expect, test } from '@playwright/test'
-import { launchApp, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth } from '../helpers/launch'
 
 test('PM-02·13 in the app: the update indicator is a 24px ghost button', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', density: 'compact', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await app.evaluate(({ BrowserWindow }) => {
       const state = { status: 'available', installMode: 'manual', currentVersion: '1.5.1', availableVersion: '9.9.9', progress: null, error: null, lastCheckedAt: Date.now() }
       for (const win of BrowserWindow.getAllWindows()) win.webContents.send('app:update-state', state)
