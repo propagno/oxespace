@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
+import { forwardRef, useRef, type HTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
 import styles from './Sidebar.module.css'
 import { cx } from './cx'
 
@@ -44,7 +44,7 @@ interface RowProps extends RowElementProps {
   title: ReactNode
   /** Short meta on the right (time, count, PR or CI state). */
   meta?: ReactNode
-  /** Actions shown on hover and focus, before the meta. */
+  /** Actions shown on hover and focus, in place of the meta. */
   actions?: ReactNode
   /** A second line, only for what needs the person ("Asks to run a migration"). */
   detail?: ReactNode
@@ -63,27 +63,44 @@ function rowKeys(onSelect?: () => void) {
   }
 }
 
+/**
+ * A row with actions: the actions are a sibling of the row's role=button, never inside it (axe nested-interactive), in a
+ * wrapper that shows them on hover and focus-within in place of the meta (MARCA 15/11). The meta keeps its box and stays
+ * in the row's accessible name; the title ellipsizes before the actions, whose width the wrapper measures as it shows them.
+ */
+function RowWithActions({ row, actions }: { row: ReactElement; actions: ReactNode }): ReactElement {
+  const wrap = useRef<HTMLDivElement>(null)
+  const aside = useRef<HTMLSpanElement>(null)
+  const measure = (): void => {
+    if (wrap.current && aside.current) wrap.current.style.setProperty('--row-actions-w', `${aside.current.offsetWidth}px`)
+  }
+  return <div ref={wrap} className={styles.rowWrap} onMouseEnter={measure} onFocus={measure}>
+    {row}
+    <span ref={aside} className={cx(styles.rowActions, styles.rowActionsAside, styles.reveal)}>{actions}</span>
+  </div>
+}
+
 /** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
 export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: Omit<RowProps, 'detail'>): ReactElement {
-  return <div {...rest} data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+  const row = <div {...rest} data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
-    {actions ? <span className={cx(styles.rowActions, styles.reveal)}>{actions}</span> : null}
     {meta ? <span className={styles.meta}>{meta}</span> : null}
   </div>
+  return actions ? <RowWithActions row={row} actions={actions} /> : row
 }
 
 /** An item row (a pane, a conversation), indented under its group. Selected is a fill. Says its line count (data-lines). */
 export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: RowProps): ReactElement {
-  return <div {...rest} data-ui="sidebar-row" data-lines={detail ? '2' : '1'} className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+  const row = <div {...rest} data-ui="sidebar-row" data-lines={detail ? '2' : '1'} className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
-    {actions ? <span className={cx(styles.rowActions, styles.reveal)}>{actions}</span> : null}
     {meta ? <span className={styles.meta}>{meta}</span> : null}
     {detail ? <span className={styles.detail}>{detail}</span> : null}
   </div>
+  return actions ? <RowWithActions row={row} actions={actions} /> : row
 }
 
 /** The footer bar (--bar-lg): quiet icon buttons only. */
