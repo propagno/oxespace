@@ -28,6 +28,7 @@ import { defaultRouteAddress, interfaceOf, networkCategories } from './network-p
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
 import { createTopics } from './topics'
+import { desktopOsName } from './os-name'
 import { paneConversationsFor, paneConversationTopic, type PaneConversationSource } from './pane-conversation'
 import { AccessTokens, readDevicePublicKey, sameSecret, verifyRefreshSignature } from './tokens'
 import { frameSocket, refuseUpgrade, upgradeRefusal, WS_CLOSE } from './websocket'
@@ -55,6 +56,14 @@ const PAIRING_FAILURES_SHOWN_PER_MINUTE = 20
  * never stays in Settings › Devices nor holds one of the device slots. It then hears `revoked`, like a removed phone.
  */
 export const UNUSED_PAIRING_TTL_MS = 2 * 60_000
+
+/**
+ * OXE-179: what a signed-in phone learns of this desktop beyond the token: the OS it runs on and when the phone paired.
+ * Only after sign-in; `hello` reaches anyone on the network and stays as it is.
+ */
+function signedInDetails(device: { pairedAt: number }): { desktopOs: string; pairedAt: number } {
+  return { desktopOs: desktopOsName(), pairedAt: device.pairedAt }
+}
 
 export interface RemoteGatewayDeps {
   db: AppDatabase
@@ -264,7 +273,8 @@ export class RemoteGateway implements ConnectionHost {
     // The profile can change while the gateway runs (another Wi-Fi); read it again, then tell the window.
     this.refreshNetwork()
     const host = running.addresses[0].address
-    return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host, port: running.port, fp: running.fingerprint, code, name: this.desktopName }), expiresAt }
+    // `exp` only tells the phone how long the code lasts; PairingDesk still decides whether it is valid.
+    return { uri: pairingUri({ v: REMOTE_PROTOCOL_VERSION, host, port: running.port, fp: running.fingerprint, code, name: this.desktopName, exp: expiresAt }), expiresAt }
   }
 
   cancelPairing(): void {
@@ -684,7 +694,7 @@ export class RemoteGateway implements ConnectionHost {
       if (this.lapsed(device.deviceId)) return { ok: false, code: 'revoked', deviceId: device.deviceId, reason: 'pairing-lapsed' }
       if (device.revoked) return this.revokedAnswer(device)
       // The same token back, with what is left of it: an access token never extends itself.
-      return { ok: true, deviceId: device.deviceId, expiresAt: token.expiresAt, result: { accessToken: frame.accessToken, expiresInMs: token.expiresAt - this.now() } }
+      return { ok: true, deviceId: device.deviceId, expiresAt: token.expiresAt, result: { accessToken: frame.accessToken, expiresInMs: token.expiresAt - this.now(), ...signedInDetails(device) } }
     }
     const refresh = frame.refresh!
     let deviceId: string
@@ -696,7 +706,7 @@ export class RemoteGateway implements ConnectionHost {
     if (!isHelloChallenge(refresh.nonce) || !sameSecret(refresh.nonce, challenge)) return { ok: false, code: 'unauthenticated', deviceId }
     if (!verifyRefreshSignature(device.publicKey, running.fingerprint, deviceId, refresh.nonce, refresh.signature)) return { ok: false, code: 'unauthenticated', deviceId }
     const result = running.tokens.issue(deviceId)
-    return { ok: true, deviceId, expiresAt: this.now() + result.expiresInMs, result }
+    return { ok: true, deviceId, expiresAt: this.now() + result.expiresInMs, result: { ...result, ...signedInDetails(device) } }
   }
 
   /**

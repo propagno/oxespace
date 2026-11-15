@@ -5,14 +5,14 @@
 import { expect, test } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 test('AG-04a in the app: a folder without git is named by its folder in the scope badge', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
     expect(existsSync(join(workspaceRoot, '.git')), 'the demo folder has no git').toBe(false)
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await page.getByTestId('btn-open-tools').click()
     await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name: /^Changes$/ }).click()
