@@ -48,14 +48,14 @@
   background: transparent;
   color: var(--tx-muted);
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 
 .bg-jobs-dock-filter:hover {
   color: var(--tx-secondary);
-  background: var(--surface-hover);
+  background: var(--fill-hover);
 }
 
 .bg-jobs-dock-filter.active {
@@ -63,15 +63,15 @@
      primary text on quiet surface. */
   color: var(--tx-primary);
   border-color: var(--bd-base);
-  background: var(--surface-active);
+  background: var(--fill-pressed);
 }
 
 .bg-jobs-dock-filter-count {
   font-size: var(--fs-2xs);
   font-weight: 600;
   padding: 1px 5px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-active);
+  border-radius: var(--radius-full);
+  background: var(--fill-pressed);
 }
 
 .bg-jobs-dock-list {
@@ -111,7 +111,7 @@
   padding: 1px 5px;
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  background: var(--bg-tile);
+  background: var(--surface-base);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-xs);
 }
@@ -135,7 +135,7 @@
 }
 
 .bg-jobs-dock-card:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   border-color: var(--bd-base);
 }
 
@@ -200,7 +200,7 @@
   font-size: var(--fs-2xs);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-secondary);
 }
 
@@ -225,7 +225,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-xs);
@@ -338,15 +338,15 @@
   min-height: 28px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: var(--nav-radius);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-secondary);
   font: inherit;
   font-size: var(--fs-xs);
   cursor: pointer;
 }
-.bg-jobs-source-tabs button[aria-current="page"] { color: var(--tx-primary); background: var(--nav-selected); border-color: var(--bd-base); }
-.bg-jobs-source-tabs button:hover { color: var(--tx-primary); background: var(--nav-hover); }
+.bg-jobs-source-tabs button[aria-current="page"] { color: var(--tx-primary); background: var(--fill-selected); border-color: var(--bd-base); }
+.bg-jobs-source-tabs button:hover { color: var(--tx-primary); background: var(--fill-hover); }
 .bg-jobs-delegated-card {
   padding: 12px;
   border-bottom: 1px solid var(--bd-subtle);

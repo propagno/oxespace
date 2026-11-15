@@ -11,7 +11,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Density } from '../helpers/launch'
-import { installThreadFixtures, openThreadWithState, registerThreadProject } from '../helpers/thread-fixtures'
+import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
 type Expect = { token?: string; oneOf?: string[]; px?: number; eq?: number }
@@ -29,7 +29,7 @@ const tokenNames = [...new Set([...readFileSync(join(process.cwd(), 'src/styles/
 const results: Result[] = []
 
 /** Where each scene's selectors are evaluated. Settings is a dialog; the other scenes are the whole window. */
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'settings-general': '[role=dialog]' }
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -151,6 +151,19 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await measureScene(page, 'code-workspace', density, theme)
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
           await measureScene(page, 'chat-conversation', density, theme)
+          // OxeChat's approved target (15/11): a request waiting in the conversation and on its sidebar row, and the
+          // opening of a conversation with no messages yet (the new-conversation screen).
+          // The same conversation, moved between states: a failure here reports its measures as "no element" and never
+          // ends the run (the status of every interface PR comes from this run).
+          for (const [state, scene] of [['approval', 'chat-approval'], ['empty', 'chat-new-session']] as const) {
+            try {
+              await setThreadState(app, workspaceRoot, state)
+              await page.waitForLoadState('domcontentloaded')
+            } catch (error) {
+              console.log(`[BRAND] could not set the ${state} state: ${(error as Error).message.split('\n')[0]}`)
+            }
+            await measureScene(page, scene, density, theme)
+          }
           await openSettings(page)
           await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
           await measureScene(page, 'settings-general', density, theme)

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { RETIRED_TOKEN_NAMES } from '../../src/design/tokens/retired'
 import { LAYER } from '../../src/design/tokens/scales'
 
 /**
@@ -23,6 +24,8 @@ describe('token bridge', () => {
     for (const name of ['bg-app', 'bg-elevated', 'tx-primary', 'tx-muted', 'wb-border', 'accent-hover']) {
       const value = new RegExp(`--${name}:\\s*([^;]+);`).exec(bridge)?.[1]?.trim()
       if (name === 'accent-hover') { expect(value).toBeUndefined(); continue }
+      // OXE-137 retires a plain alias from the bridge: its readers now name the generated token, recorded in retired.ts.
+      if (value === undefined && RETIRED_TOKEN_NAMES[`--${name}`]) { expect(RETIRED_TOKEN_NAMES[`--${name}`], name).toMatch(/^--/); continue }
       expect(value, name).toMatch(/^var\(--/)
     }
   })

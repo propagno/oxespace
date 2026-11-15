@@ -12,6 +12,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeColors
+import com.oxespace.mobile.ui.theme.OxeRadius
 
 /** The fill and the text of a workspace chip. */
 data class WorkspaceChipColors(val background: Color, val content: Color)
@@ -47,7 +48,7 @@ fun WorkspaceChip(name: String, slot: Int?, modifier: Modifier = Modifier) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
-            .background(background, RoundedCornerShape(6.dp))
+            .background(background, RoundedCornerShape(OxeRadius.sm))
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }

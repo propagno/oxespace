@@ -846,12 +846,12 @@
     },
     "decisionAnnounce": "{{agent}} needs your decision: {{reason}}",
     "decisionNotice": {
-      "title": "{{agent}} — needs your decision",
+      "place": "Needs you · {{workspace}}",
       "body": "{{workspace}}: the agent stopped and is waiting for your approval or answer."
     },
     "notice": {
       "agent": "Agent",
-      "finishedTitle": "{{agent}} — waiting for you",
+      "finished": "Finished · {{workspace}}",
       "finishedBody": "{{workspace}}: the agent finished and is waiting for your reply.",
       "endedTitle": "{{agent}} — session ended",
       "endedBody": "{{workspace}}: the agent terminal was closed.",
@@ -860,13 +860,13 @@
       "errorFallback": "the agent hit an error."
     },
     "status": {
-      "needs-decision": "Needs your decision",
-      "thinking": "Thinking",
-      "running": "Running",
-      "awaiting": "Awaiting",
+      "needs-decision": "Needs you",
+      "thinking": "Working",
+      "running": "Working",
+      "awaiting": "Finished",
       "starting": "Starting",
       "exited": "Exited",
-      "error": "Needs attention",
+      "error": "Failed",
       "idle": "Idle"
     },
     "fallback": {
@@ -949,11 +949,11 @@
       "delegated": "Delegated task",
       "unread": "Unread output",
       "tone": {
-        "needs-decision": "needs your decision",
-        "thinking": "thinking",
-        "awaiting": "awaiting",
+        "needs-decision": "needs you",
+        "thinking": "working",
+        "awaiting": "finished",
         "idle": "idle",
-        "error": "needs attention",
+        "error": "failed",
         "exited": "exited",
         "starting": "starting"
       },
@@ -1974,10 +1974,10 @@
       "yes": "Yes",
       "states": {
         "working": "Working",
-        "blocked": "Waiting for a decision",
-        "done": "Finished its turn",
+        "blocked": "Needs you",
+        "done": "Finished",
         "idle": "Idle",
-        "unknown": "Unknown"
+        "unknown": "Not confirmed"
       }
     },
     "detailsUnavailable": "Session details unavailable",

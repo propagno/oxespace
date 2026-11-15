@@ -880,12 +880,12 @@
     },
     "decisionAnnounce": "{{agent}} precisa da sua decisão: {{reason}}",
     "decisionNotice": {
-      "title": "{{agent}} — precisa da sua decisão",
+      "place": "Precisa de você · {{workspace}}",
       "body": "{{workspace}}: o agente parou e está esperando sua aprovação ou resposta."
     },
     "notice": {
       "agent": "Agente",
-      "finishedTitle": "{{agent}} — esperando por você",
+      "finished": "Concluído · {{workspace}}",
       "finishedBody": "{{workspace}}: o agente terminou e está esperando sua resposta.",
       "endedTitle": "{{agent}} — sessão encerrada",
       "endedBody": "{{workspace}}: o terminal do agente foi fechado.",
@@ -894,13 +894,13 @@
       "errorFallback": "o agente encontrou um erro."
     },
     "status": {
-      "needs-decision": "Precisa da sua decisão",
-      "thinking": "Pensando",
-      "running": "Rodando",
-      "awaiting": "Aguardando",
+      "needs-decision": "Precisa de você",
+      "thinking": "Trabalhando",
+      "running": "Trabalhando",
+      "awaiting": "Concluído",
       "starting": "Iniciando",
       "exited": "Encerrado",
-      "error": "Precisa de atenção",
+      "error": "Falhou",
       "idle": "Ocioso"
     },
     "fallback": {
@@ -995,11 +995,11 @@
       "delegated": "Tarefa delegada",
       "unread": "Saída não lida",
       "tone": {
-        "needs-decision": "precisa da sua decisão",
-        "thinking": "pensando",
-        "awaiting": "aguardando",
+        "needs-decision": "precisa de você",
+        "thinking": "trabalhando",
+        "awaiting": "concluído",
         "idle": "ocioso",
-        "error": "precisa de atenção",
+        "error": "falhou",
         "exited": "encerrado",
         "starting": "iniciando"
       },
@@ -2043,10 +2043,10 @@
       "yes": "Sim",
       "states": {
         "working": "Trabalhando",
-        "blocked": "Esperando uma decisão",
-        "done": "Terminou o turno",
+        "blocked": "Precisa de você",
+        "done": "Concluído",
         "idle": "Ocioso",
-        "unknown": "Desconhecido"
+        "unknown": "Não confirmado"
       }
     },
     "detailsUnavailable": "Detalhes da sessão indisponíveis",

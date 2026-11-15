@@ -175,7 +175,8 @@ describe('design lint', () => {
       expect(own.length).toBeLessThanOrEqual(LIMIT_SELECTED)
     })
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(513)
+      // OXE-149 (CA-5): 500 on main at 14/11; lower it as screens move to the primitives, never raise it.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(500)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
