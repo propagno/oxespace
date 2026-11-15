@@ -11,6 +11,7 @@ test('PM-02·10 in the app: the toasts are "Avisos", dismissed with "Dispensar a
   const { app, page } = await launchApp({ appearance: 'light', locale: 'pt-BR', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
     await resizeWindow(app, 1440, 900)
+    await page.locator('button[data-app-mode]').first().waitFor()
     await page.keyboard.press('Control+Shift+U')
     const region = page.getByRole('region', { name: 'Avisos', exact: true })
     await expect(region).toHaveCount(1)
