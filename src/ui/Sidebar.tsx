@@ -1,12 +1,14 @@
-import { forwardRef, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
+import { forwardRef, useRef, type HTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
+import { X } from 'lucide-react'
+import { IconButton } from './Button'
 import styles from './Sidebar.module.css'
 import { cx } from './cx'
 
 /**
  * The sidebar anatomy (1.5.2, OXE-22, docs/design/brand.md › Scale): one shape for the OxeCode and OxeChat sidebars,
  * and OxeQuery's later. A header bar, a filled filter, section labels, group rows (a workspace, a project) and item
- * rows (a pane, a conversation). Rows are 28px, one line; a second line only when the item needs the person.
- * The structure of each sidebar (what is grouped under what, how things are added) stays the caller's.
+ * rows (a pane, a conversation). Rows are --row-1 (28px), one line; a second line (--row-2, 44px) only when the item
+ * needs the person. The structure of each sidebar (what is grouped under what, how things are added) stays the caller's.
  */
 
 /** The sidebar's header bar (--bar-lg): its title, up to three quiet actions, and collapse last. */
@@ -17,12 +19,29 @@ export function SidebarHeader({ title, actions, collapse, className }: { title: 
   </div>
 }
 
-/** The filter: filled, no border, with its shortcut hint. Forwards everything to the input. */
-export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode; hint?: ReactNode }>(function SidebarFilter({ icon, hint, className, ...rest }, ref) {
+/**
+ * The filter: filled, no border, with its shortcut hint. Forwards everything to the input. With `onClear`, a field
+ * holding text shows a quiet clear IconButton where the hint was (MARCA 15/11); clearing by click, Enter on it or
+ * Escape in the field puts focus back in the field.
+ */
+export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode; hint?: ReactNode; onClear?: () => void; clearLabel?: string }>(function SidebarFilter({ icon, hint, onClear, clearLabel, className, onKeyDown, ...rest }, ref) {
+  const input = useRef<HTMLInputElement | null>(null)
+  const attach = (element: HTMLInputElement | null): void => {
+    input.current = element
+    if (typeof ref === 'function') ref(element)
+    else if (ref) ref.current = element
+  }
+  const hasText = rest.value !== undefined ? String(rest.value).length > 0 : false
+  const clear = (): void => { onClear?.(); input.current?.focus() }
   return <div data-ui="sidebar-filter" className={cx(styles.filter, className)}>
     {icon ? <span className={styles.filterIcon} aria-hidden="true">{icon}</span> : null}
-    <input ref={ref} type="search" className={styles.filterInput} {...rest} />
-    {hint ? <kbd className={styles.filterHint}>{hint}</kbd> : null}
+    <input ref={attach} type="search" className={styles.filterInput} {...rest} onKeyDown={event => {
+      onKeyDown?.(event)
+      if (!event.defaultPrevented && event.key === 'Escape' && onClear && hasText) { event.preventDefault(); event.stopPropagation(); clear() }
+    }} />
+    {onClear && hasText
+      ? <IconButton size="sm" variant="ghost" label={clearLabel ?? ''} icon={<X size={12} aria-hidden="true" />} onClick={clear} />
+      : hint ? <kbd className={styles.filterHint}>{hint}</kbd> : null}
   </div>
 })
 
@@ -34,14 +53,17 @@ export function SidebarSection({ label, action, id }: { label: ReactNode; action
   </div>
 }
 
-interface RowProps {
+/** What a caller may add to a row's element: data-* hooks (tests, the list keyboard), ids. The row's own props win. */
+type RowElementProps = Omit<HTMLAttributes<HTMLDivElement>, 'title' | 'onSelect' | 'onClick' | 'onKeyDown' | 'onContextMenu' | 'className' | 'aria-label' | 'aria-current' | 'role' | 'tabIndex' | 'children'>
+
+interface RowProps extends RowElementProps {
   /** The leading mark: a status signal for an item, a color dot or chevron for a group. */
   lead?: ReactNode
   /** The row's name. */
   title: ReactNode
   /** Short meta on the right (time, count, PR or CI state). */
   meta?: ReactNode
-  /** Actions shown on hover and focus, before the meta. */
+  /** Actions shown on hover and focus, in place of the meta. */
   actions?: ReactNode
   /** A second line, only for what needs the person ("Asks to run a migration"). */
   detail?: ReactNode
@@ -60,27 +82,44 @@ function rowKeys(onSelect?: () => void) {
   }
 }
 
-/** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
-export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: Omit<RowProps, 'detail'>): ReactElement {
-  return <div data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
-    {lead ? <span className={styles.lead}>{lead}</span> : null}
-    <span className={styles.rowTitle}>{title}</span>
-    {actions ? <span className={cx(styles.rowActions, styles.reveal)}>{actions}</span> : null}
-    {meta ? <span className={styles.meta}>{meta}</span> : null}
+/**
+ * A row with actions: the actions are a sibling of the row's role=button, never inside it (axe nested-interactive), in a
+ * wrapper that shows them on hover and focus-within in place of the meta (MARCA 15/11). The meta keeps its box and stays
+ * in the row's accessible name; the title ellipsizes before the actions, whose width the wrapper measures as it shows them.
+ */
+function RowWithActions({ row, actions }: { row: ReactElement; actions: ReactNode }): ReactElement {
+  const wrap = useRef<HTMLDivElement>(null)
+  const aside = useRef<HTMLSpanElement>(null)
+  const measure = (): void => {
+    if (wrap.current && aside.current) wrap.current.style.setProperty('--row-actions-w', `${aside.current.offsetWidth}px`)
+  }
+  return <div ref={wrap} className={styles.rowWrap} onMouseEnter={measure} onFocus={measure}>
+    {row}
+    <span ref={aside} className={cx(styles.rowActions, styles.rowActionsAside, styles.reveal)}>{actions}</span>
   </div>
 }
 
-/** An item row (a pane, a conversation), indented under its group. Selected is a fill. */
-export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label }: RowProps): ReactElement {
-  return <div data-ui="sidebar-row" className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+/** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
+export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: Omit<RowProps, 'detail'>): ReactElement {
+  const row = <div {...rest} data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
     aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
-    {actions ? <span className={cx(styles.rowActions, styles.reveal)}>{actions}</span> : null}
+    {meta ? <span className={styles.meta}>{meta}</span> : null}
+  </div>
+  return actions ? <RowWithActions row={row} actions={actions} /> : row
+}
+
+/** An item row (a pane, a conversation), indented under its group. Selected is a fill. Says its line count (data-lines). */
+export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: RowProps): ReactElement {
+  const row = <div {...rest} data-ui="sidebar-row" data-lines={detail ? '2' : '1'} className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
+    aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
+    {lead ? <span className={styles.lead}>{lead}</span> : null}
+    <span className={styles.rowTitle}>{title}</span>
     {meta ? <span className={styles.meta}>{meta}</span> : null}
     {detail ? <span className={styles.detail}>{detail}</span> : null}
   </div>
+  return actions ? <RowWithActions row={row} actions={actions} /> : row
 }
 
 /** The footer bar (--bar-lg): quiet icon buttons only. */

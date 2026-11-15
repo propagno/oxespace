@@ -50,14 +50,17 @@ export function ModeSwitch({ mode, allowReselect, onSelect }: { mode: Navigation
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
       const selected = shown === item.mode
       const ModeIcon = item.Icon
-      // The tab is named by the product name; its count describes it, so focus reads "OxeChat … 1 needs you".
+      // The tab is named by the product name, plus its count when one shows ("OxeChat 1"), so the name holds the visible
+      // text (axe label-content-name-mismatch); the count's words describe it, so focus reads "OxeChat 1 … 1 needs you".
+      const shownCount = counts && counts.needsYou > 0 ? (counts.needsYou > 9 ? '9+' : String(counts.needsYou)) : null
       return <button key={item.mode} type="button" role="tab" className={cx(displayStyles.tab, styles.option)} data-state={selected ? 'active' : 'inactive'}
-        aria-selected={selected} tabIndex={selected ? 0 : -1} aria-label={item.label} data-app-mode={item.mode} aria-busy={pending === item.mode}
+        aria-selected={selected} tabIndex={selected ? 0 : -1} aria-label={shownCount ? `${item.label} ${shownCount}` : item.label} data-app-mode={item.mode} aria-busy={pending === item.mode}
         title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
         onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
         onClick={() => { if (allowReselect || item.mode !== shown) onSelect(item.mode) }}>
-        <ModeIcon size={13} className={styles.modeIcon} />
+        <ModeIcon size={13} className={styles.modeIcon} aria-hidden="true" />
         <span>{item.label}</span>
+        {shownCount ? ' ' : null}
         {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}
       </button>
     })}
@@ -69,7 +72,7 @@ const withKey = (title: string, mode: NavigationMode): string => { const key = s
 /** The tab's number is what needs you there; a failure alone or busy agents are a dot, never a number. */
 function Attention({ id, counts, scope }: { id: string; counts: AttentionCounts; scope: 'code' | 'thread' }) {
   const label = describeAttention(counts, scope)
-  if (counts.needsYou > 0) return <span id={id} className={styles.badge} role="status" aria-label={label} data-testid="attention-badge">{counts.needsYou > 9 ? '9+' : counts.needsYou}</span>
-  if (counts.failed > 0) return <span id={id} className={cx(styles.working, styles.failed)} role="status" aria-label={label} data-testid="attention-failed" />
-  return <span id={id} className={styles.working} role="status" aria-label={label} data-testid="working-indicator" />
+  if (counts.needsYou > 0) return <span id={id} className={styles.badge} role="status" aria-label={label} aria-hidden="true" data-testid="attention-badge">{counts.needsYou > 9 ? '9+' : counts.needsYou}</span>
+  if (counts.failed > 0) return <span id={id} className={cx(styles.working, styles.failed)} role="status" aria-label={label} aria-hidden="true" data-testid="attention-failed" />
+  return <span id={id} className={styles.working} role="status" aria-label={label} aria-hidden="true" data-testid="working-indicator" />
 }

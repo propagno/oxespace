@@ -41,6 +41,7 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { changedFiles, planRelatedTests } from './related-tests.mjs'
+import { isTrainUpdate } from './merge-train.mjs'
 
 /** Gate tests every PR passes, whatever it changes. */
 export const ALWAYS_TESTS = ['tests/design-lint.test.ts', 'tests/design-lint-target-size.test.ts', 'tests/integration/fs-allowlist.test.ts']
@@ -128,6 +129,29 @@ export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
     return status ? `${context} is ${status.state}${status.description ? ` (${status.description})` : ''}` : `${context} has not been posted`
   })
   return { ok: missing.length === 0, missing }
+}
+
+/**
+ * The brand evidence across the train's own updates (OXE-276). When the merge train brings a car up to date it adds a
+ * merge of main on top of the head MARCA approved; a car that then leaves the queue (say, an infrastructure failure)
+ * comes back with that merge as its head and no marca/fidelidade on it. `chain` is the head first, then each parent
+ * reached through train updates only (`isTrainUpdate`), each `{ sha, statuses }`. For each context the newest commit
+ * that carries it decides: the CI's marca/conformidade of the merge head, MARCA's marca/fidelidade of the head it
+ * approved. Any other commit after the approved head (a change of the author's) ends the chain, so it fails.
+ */
+export function brandEvidenceAcross(chain, contexts = BRAND_CONTEXTS) {
+  const found = new Map()
+  for (const link of chain ?? []) {
+    const latest = new Map()
+    for (const status of link.statuses ?? []) if (!latest.has(status.context)) latest.set(status.context, status)
+    for (const context of contexts) if (!found.has(context) && latest.has(context)) found.set(context, { status: latest.get(context), sha: link.sha })
+  }
+  const missing = contexts.filter(context => found.get(context)?.status.state !== 'success').map(context => {
+    const entry = found.get(context)
+    return entry ? `${context} is ${entry.status.state}${entry.status.description ? ` (${entry.status.description})` : ''}` : `${context} has not been posted`
+  })
+  const via = contexts.map(context => found.get(context)?.sha).filter(Boolean)
+  return { ok: missing.length === 0, missing, from: [...new Set(via)] }
 }
 
 /**
@@ -390,16 +414,24 @@ function ciStep(step, sha) {
 }
 
 function brandStep(step, sha) {
-  let statuses
+  const chain = []
   try {
     const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
-    statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/statuses?per_page=100`])).flat()
+    let current = sha
+    // The head, then back through the train's own update merges only (OXE-276), at most 10 of them.
+    for (let hop = 0; hop <= 10 && current; hop++) {
+      const statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${current}/statuses?per_page=100`])).flat()
+      chain.push({ sha: current, statuses })
+      const commit = JSON.parse(gh(['api', `repos/${repo}/commits/${current}`, '--jq', '{message: .commit.message, parents: [.parents[].sha]}']))
+      current = isTrainUpdate(commit) ? commit.parents[0] : null
+    }
   } catch (error) {
     return readFailed('the brand statuses', sha, error)
   }
-  const evidence = brandEvidence(statuses, step.args)
+  const evidence = brandEvidenceAcross(chain, step.args)
+  const via = evidence.from.filter(from => from !== sha).map(from => from.slice(0, 8))
   return evidence.ok
-    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}` }
+    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}${via.length ? ` (approved on ${via.join(', ')}, before the train's merge of main)` : ''}` }
     : { ok: false, detail: `${evidence.missing.join('; ')}. An interface change needs MARCA's side-by-side check against the target (oxespace-3d posts marca/fidelidade on the exact head)` }
 }
 
