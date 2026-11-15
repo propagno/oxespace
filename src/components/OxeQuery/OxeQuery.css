@@ -84,10 +84,12 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .oq-tree-row small { flex: none; color: var(--tx-muted); }
 .oq-tree-spacer { display: inline-block; width: 13px; flex: none; }
-.oq-tree-actions { display: none; flex: none; gap: 2px; }
-.oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions, .oq-tree-row[aria-selected='true'] .oq-tree-actions { display: inline-flex; }
-.oq-tree-actions button, .oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
-.oq-tree-actions button:hover, .oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
+/* PQ-07·2: a table's actions take no room at rest (the selected row included), so the name keeps the row's width;
+   under the pointer or with focus in the row they sit over its right end. The keyboard reaches them via Shift+F10. */
+.oq-tree-actions { position: absolute; top: 0; right: var(--space-1); bottom: 0; display: none; align-items: center; gap: var(--space-0-5); padding-left: var(--space-1); background: var(--surface-base); }
+.oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions { display: inline-flex; }
+.oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
+.oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
 .oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
 .oq-results > .oq-results-bar { position: sticky; top: 0; z-index: var(--layer-sticky); background: var(--surface-canvas); }
 .oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
