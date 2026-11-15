@@ -1,4 +1,12 @@
 {
   "$comment": "Ids of measures that are enforced. A measure becomes enforced in the PR that delivers its BRD, and that PR adds its id here. An id never leaves this list (OXE-149 CA-3).",
-  "enforced": []
+  "enforced": [
+    "BRD-07.bodyMedium.size",
+    "BRD-07.labelMedium.size",
+    "BRD-07.labelSmall.size",
+    "BRD-07.min-text",
+    "BRD-07.radius.source",
+    "BRD-07.titleMedium.size",
+    "BRD-07.titleMedium.weight"
+  ]
 }
