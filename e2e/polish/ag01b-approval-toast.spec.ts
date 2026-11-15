@@ -184,12 +184,15 @@ test('AG-01 in the app: a request from another conversation names it, its branch
 
     const command = 'rm -rf ./build/release-ag01b'
     await askForCommand(page, agent.bin, asking.id, command)
-    // The harness reached the app's notice (today's polite status already names the agent).
-    await expect(page.locator('[role="status"][aria-live="polite"]').filter({ hasText: /Needs you: .* · Claude/ }).first()).toBeVisible({ timeout: 90_000 })
+    // The harness reached the app's notice: its polite announcement (visually hidden, so attached rather than visible).
+    await expect(page.locator('[role="status"][aria-live="polite"]').filter({ hasText: /Needs you: .* · Claude/ }).first()).toBeAttached({ timeout: 90_000 })
 
     const notice = page.locator('[data-ui="approval-toast"]')
     await expect(notice, 'the notice in the mould of the card').toBeVisible()
     await expect(notice).toContainText(cat('thread', 'f7.card.needsApproval', { agent: 'Claude' }))
+    // MARCA 15/11 (answer 6): the visible card is outside every live region; only the announcement is spoken.
+    expect(await notice.evaluate(node => !node.closest('[aria-live]') && node.querySelectorAll('[aria-live]').length === 1), 'one live region, the card outside it').toBe(true)
+    expect(await notice.getByText(cat('thread', 'f7.card.needsApproval', { agent: 'Claude' })).evaluate(node => node.closest('[aria-live]') === null)).toBe(true)
     await expect(notice.locator('[data-ui="approval-toast-conversation"]')).toHaveText(/Release notes/)
     const place = notice.locator('[data-ui="approval-toast-place"]')
     await expect(place).toHaveText(/ag01b\/release/)

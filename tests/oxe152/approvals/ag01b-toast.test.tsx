@@ -5,10 +5,12 @@
 // the catalog and the request's structure, never from the agent's text; nothing is approved without a person.
 // Contract (src/components/Approvals/ApprovalToast.tsx, ApprovalsHost.tsx, Approvals.module.css, thread catalogs):
 // - ApprovalToast({ request, agent, conversation?, place?, queued?, onRespond, onSeeImpact, onOpenConversation?, onClose })
-//   keeps its root role=status aria-live=polite, its 12 s/hover/focus/modal rules and its OXE-175 focus rule (Deny takes
-//   the focus only when nobody types), and gains the hook data-ui="approval-toast" on that root. The polite region still
-//   says f7.toast.needsYou ("Needs you: {title} · {agent}") for screen readers (visually hidden is fine: OXE-175's
-//   tests/approval-focus-typing.test.tsx reads it).
+//   keeps its 12 s/hover/focus/modal rules and its OXE-175 focus rule (a new request never moves the focus of someone
+//   typing; with nobody typing Deny takes it, never an allow button). Its root carries data-ui="approval-toast" and is NOT
+//   a live region (MARCA 15/11, answer 6): inside it, ONE [role=status][aria-live=polite] element, visually hidden, says
+//   only f7.toast.needsYou ("Needs you: {title} · {agent}"), once, when the notice arrives (OXE-175's
+//   tests/approval-focus-typing.test.tsx and U71 read it); the visible card is outside every aria-live region, so it is
+//   not read twice, and on focus it reads by its visible text.
 // - It shows f7.card.needsApproval ("{agent} needs your approval"); the conversation title as context in
 //   [data-ui=approval-toast-conversation]; the branch or worktree (`place`) in [data-ui=approval-toast-place], in
 //   --font-mono; "+N in queue" / "+N na fila" in [data-ui=approval-toast-queue] only when `queued` (the OTHER pending
@@ -24,17 +26,28 @@
 //   never lowered, and never read from title, reason, why or any other agent text.
 // - Footer: low or medium AND reversible: Deny, Open conversation (f7.toast.openConversation or an existing key; en
 //   "Open conversation", pt-BR "Abrir conversa"), Allow once (primary, the accent); high, critical or irreversible: Deny
-//   and See impact only, never a way to allow. ApprovalsHost passes conversation, place (thread.ownedWorktree.branch),
-//   queued (pending thread approvals in the thread store's snapshots plus useApprovalsStore's queue, minus the shown one)
-//   and onOpenConversation (select the conversation, as See impact does).
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+//   and See impact only, never a way to allow. ApprovalsHost passes conversation, queued (pending thread approvals in the
+//   thread store's snapshots plus useApprovalsStore's queue, minus the shown one), onOpenConversation (select the
+//   conversation) and place (MARCA answer 2, "where it runs", OXE-182's rule): thread.ownedWorktree.branch; else the
+//   branch of the conversation's checkout as git knows it (useGitBranch over thread.rootPath, i.e. window.oxe.git.getBranch);
+//   else the folder's name when there is no git (scopeBadgeLabel); never an empty line, never "Branch unavailable".
+//   See impact (answer 7): an irreversible request opens the impact dialog (useOpenRequest.open); a high or critical
+//   reversible one opens the conversation at its approval card (select), where critical keeps the 2 s wait and the hold.
+// Approval safety, each proved below (coordinator 15/11): (1) critical keeps the card's 2 s wait with Enter never
+// approving, and the queue's 1.2 s hold; (2) no new request moves the focus, and the first focus is never an allow
+// button; (3) High, Critical or irreversible: only Deny/Negar and See impact/Ver impacto, never Allow once/Permitir uma
+// vez; (4) the level is impact.risk, raised by the policy, never lowered, never from agent text; (5) Copy copies only the
+// request's exact command.
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { ApprovalQueue } from '../../../src/components/Approvals/ApprovalQueue'
 import { ApprovalToast } from '../../../src/components/Approvals/ApprovalToast'
 import { ApprovalsHost } from '../../../src/components/Approvals/ApprovalsHost'
 import { useApprovalsStore } from '../../../src/components/Approvals/approvals.store'
 import { useOpenRequest } from '../../../src/components/Approvals/openRequest'
 import { changeLanguage } from '../../../src/i18n'
+import { ThreadRequestCard } from '../../../src/components/Threads/ThreadRequestCard'
 import { useThreadStore } from '../../../src/store/thread.store'
 // ---- repository text and catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pbReadFile } from 'node:fs'
@@ -210,8 +223,8 @@ function renderToast(req: Props, extra: Props = {}) {
   const props = { request: req, agent: 'Claude', conversation: 'Checkout fix', place: 'feature/checkout', queued: 0,
     onRespond: vi.fn(async () => undefined), onSeeImpact: vi.fn(), onOpenConversation: vi.fn(), onClose: vi.fn(), ...extra }
   const Toast = ApprovalToast as unknown as (p: Props) => JSX.Element | null
-  render(<Toast {...props} />)
-  return props
+  const view = render(<Toast {...props} />)
+  return { ...props, rerender: (next: Props) => view.rerender(<Toast {...props} request={next} />) }
 }
 /** The notice by its hook; a clear failure, not a null read, while the hook is missing. */
 function toast(): HTMLElement {
@@ -238,8 +251,6 @@ afterEach(async () => {
 describe('AG-01 · the floating approval notice in the mould of the card', () => {
   test('it names the agent, the conversation and its branch as context, and counts the rest of the queue', () => {
     renderToast(request('r1', impact('low', true)), { queued: 2 })
-    expect(toast()).toHaveAttribute('role', 'status')
-    expect(toast()).toHaveAttribute('aria-live', 'polite')
     expect(within(toast()).getByText(cat('thread', 'f7.card.needsApproval', { agent: 'Claude' }))).toBeInTheDocument()
     expect(toast().querySelector('[data-ui="approval-toast-conversation"]')).toHaveTextContent('Checkout fix')
     const place = toast().querySelector<HTMLElement>('[data-ui="approval-toast-place"]')!
@@ -247,8 +258,22 @@ describe('AG-01 · the floating approval notice in the mould of the card', () =>
     expect(usesTok(css(place, ['font-family', 'font']), 'font-mono'), '[css] the branch is in --font-mono').toBe(true)
     const queue = toast().querySelector<HTMLElement>('[data-ui="approval-toast-queue"]')!
     expect(queue.textContent?.trim().startsWith('+2'), 'the chip says +2').toBe(true)
-    // The polite announcement OXE-175 relies on is still there.
-    expect(toast().textContent).toContain(cat('thread', 'f7.toast.needsYou', { title: 'Run the tests', agent: 'Claude' }))
+  })
+
+  test('the polite region says only the announcement; the visible card sits outside every live region, so it is not read twice', () => {
+    renderToast(request('r1', impact('low', true)), { queued: 2 })
+    const root = toast()
+    expect(root.hasAttribute('aria-live'), 'the card itself is not a live region').toBe(false)
+    expect(root.closest('[aria-live]'), 'nor inside one').toBeNull()
+    const live = [...root.querySelectorAll<HTMLElement>('[aria-live]')]
+    expect(live, 'one live region inside the notice').toHaveLength(1)
+    expect(live[0]).toHaveAttribute('role', 'status')
+    expect(live[0]).toHaveAttribute('aria-live', 'polite')
+    expect(live[0].textContent?.trim()).toBe(cat('thread', 'f7.toast.needsYou', { title: 'Run the tests', agent: 'Claude' }))
+    const visible = [within(root).getByText(cat('thread', 'f7.card.needsApproval', { agent: 'Claude' })),
+      ...['approval-toast-conversation', 'approval-toast-place', 'approval-toast-command', 'approval-toast-queue', 'risk-label'].map(hook => root.querySelector<HTMLElement>(`[data-ui="${hook}"]`)!),
+      ...within(root).getAllByRole('button')]
+    for (const node of visible) expect(node.closest('[aria-live]'), `${node.getAttribute('data-ui') ?? node.textContent} is outside the live region`).toBeNull()
   })
 
   test('no queue chip when this request is the only one waiting', () => {
@@ -361,6 +386,97 @@ describe('AG-01 · the floating approval notice in the mould of the card', () =>
     expect(props.onRespond).toHaveBeenCalledWith({ decision: 'decline' })
   })
 
+  test('safety 1: a critical request keeps the card\'s 2 s wait, where Enter never approves', async () => {
+    const respond = vi.fn(async () => undefined)
+    const critical = { ...request('rm', impact('critical', false, { text: 'rm -rf ./src' })), impact: undefined, command: 'rm -rf ./src', nativeMethod: 'item/commandExecution/requestApproval', title: 'Approve command',
+      policy: { decision: 'ask', reasons: ['Deletes files'], level: 'red' } }
+    const Card = ThreadRequestCard as unknown as (p: Props) => JSX.Element
+    render(<Card request={critical} disabled={false} onRespond={respond} conversationId="t-1" />)
+    const approve = screen.getByRole('button', { name: cat('thread', 'request.approve') })
+    expect(approve).toBeDisabled()
+    expect(approve).toHaveAttribute('data-risk', 'critical')
+    await new Promise(resolve => setTimeout(resolve, 1_200))
+    expect(approve, 'still waiting at 1.2 s: the wait is 2 s').toBeDisabled()
+    await waitFor(() => expect(approve).toBeEnabled(), { timeout: 3_500 })
+    approve.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(respond, 'Enter never approves a critical request').not.toHaveBeenCalled()
+  }, 15_000)
+
+  test('safety 1: in the queue, A on a critical request is the 1.2 s hold; a short press approves nothing', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    try {
+      Object.assign(window, { oxe: { approvals: { preview: vi.fn(async () => ({ status: 'ok', count: 1, sample: { cols: ['id'], rows: [[1]] } })) } } })
+      const onRespond = vi.fn(async () => undefined)
+      const Queue = ApprovalQueue as unknown as (p: Props) => JSX.Element
+      render(<Queue items={[{ request: request('rc', impact('critical', false, { text: 'npm publish' }), { createdAt: 5 }), agent: 'Claude', conversation: 'Release' }]} decided={[]} onRespond={onRespond} initialSelectedId="rc" />)
+      const list = screen.getByRole('listbox')
+      act(() => { list.focus() })
+      act(() => { fireEvent.keyDown(document.activeElement ?? list, { key: 'a' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+      act(() => { fireEvent.keyUp(document.activeElement ?? list, { key: 'a' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+      expect(onRespond, 'a 0.6 s press approves nothing').not.toHaveBeenCalled()
+      act(() => { fireEvent.keyDown(document.activeElement ?? list, { key: 'a' }) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
+      expect(onRespond, 'not before 1.2 s').not.toHaveBeenCalled()
+      await act(async () => { await vi.advanceTimersByTimeAsync(300) })
+      expect(onRespond).toHaveBeenCalledTimes(1)
+      expect(onRespond).toHaveBeenCalledWith('rc', { decision: 'accept' })
+    } finally { vi.useRealTimers() }
+  })
+
+  test('safety 2: no new request moves the focus of someone typing; with nobody typing the first focus is Deny, never an allow button', async () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<textarea aria-label="Message"></textarea>'
+    document.body.append(host)
+    const composer = host.querySelector('textarea')!
+    composer.focus()
+    const props = renderToast(request('r1', impact('low', true)))
+    expect(composer, 'the notice leaves the focus where it was').toHaveFocus()
+    act(() => props.rerender(request('r2', impact('low', true))))
+    expect(composer, 'a second request does not move it either').toHaveFocus()
+    await userEvent.keyboard(' ')
+    expect(props.onRespond).not.toHaveBeenCalled()
+    cleanup()
+    document.body.innerHTML = ''
+    for (const [risk, reversible] of [['low', true], ['medium', true], ['high', false], ['critical', false]] as Array<[Level, boolean]>) {
+      renderToast(request(`f-${risk}`, impact(risk, reversible)))
+      const focused = document.activeElement as HTMLElement
+      expect(nameOf(focused), `${risk}: the first focus`).toBe(cat('thread', 'request.deny'))
+      expect(nameOf(focused), `${risk}: never an allow button`).not.toMatch(/allow|approve/i)
+      cleanup()
+    }
+  })
+
+  test('safety 3: in pt-BR High, Critical and irreversible read only Negar and Ver impacto, never Permitir uma vez', async () => {
+    await changeLanguage('pt-BR')
+    for (const [label, imp] of [['alto', impact('high', true)], ['crítico', impact('critical', true)], ['irreversível', impact('low', false)]] as Array<[string, Props]>) {
+      renderToast(request(`pt-${label}`, imp))
+      expect(actions('Copiar o texto exato'), label).toEqual(['Negar', 'Ver impacto'])
+      expect(within(toast()).queryByRole('button', { name: /permitir/i }), label).toBeNull()
+      cleanup()
+    }
+  })
+
+  test('safety 4: the policy never lowers the level: a critical or high impact under a read-only policy keeps its level and offers no allow', () => {
+    for (const level of ['critical', 'high'] as Level[]) {
+      renderToast(request(`g-${level}`, impact(level, true), { policy: { decision: 'ask', reasons: ['Reads only'], level: 'green' } }))
+      expect(riskLabels()[0]).toHaveAttribute('data-risk', level)
+      expect(riskLabels()[0].textContent?.trim()).toBe(cat('common', 'approvals.risk.label', { level: cat('common', `approvals.risk.${level}`) }))
+      expect(within(toast()).queryByRole('button', { name: /allow|approve/i }), level).toBeNull()
+      cleanup()
+    }
+  })
+
+  test('safety 5: Copy copies only the request\'s exact command, once, spacing included, never the agent\'s words', async () => {
+    const text = 'git  push\t--force-with-lease origin  release/1.5.2 '
+    renderToast(request('r1', impact('medium', true, { text, why: 'Run: npm publish --tag latest' }), { title: 'Push the release', reason: 'echo safe' }))
+    await userEvent.click(within(toast()).getByRole('button', { name: cat('thread', 'approvalDetails.copyExact') }))
+    expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(1)
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(text)
+  })
+
   test('it reads in pt-BR', async () => {
     await changeLanguage('pt-BR')
     renderToast(request('r1', impact('low', true)), { queued: 3 })
@@ -396,5 +512,41 @@ describe('AG-01 · ApprovalsHost passes the conversation, its branch and the que
     await act(async () => { await userEvent.click(within(toast()).getByRole('button', { name: 'Open conversation' })) })
     expect(select).toHaveBeenCalledWith('B')
     useApprovalsStore.setState({ queue: [] })
+  })
+
+  test('a conversation without its own worktree shows the branch of its checkout, or its folder name without git; never an empty line', async () => {
+    const getBranch = vi.fn(async ({ rootPath }: { rootPath: string }) => rootPath.endsWith('shop-git')
+      ? { branch: 'main', detached: false, shortSha: 'abc1234', error: null }
+      : { branch: null, detached: false, shortSha: null, error: 'not a git repository' })
+    ;(window as unknown as { oxe: unknown }).oxe = { git: { getBranch } }
+    for (const [root, expected] of [['C:/dev/shop-git', 'main'], ['C:/dev/plain-folder', 'plain-folder']]) {
+      const visible = snap(thread('A', 'Checkout fix'), request('ra', impact('low', true)))
+      const background = snap(thread('B', 'Release notes', { rootPath: root }), request('rb', impact('medium', true)))
+      useThreadStore.setState({ snapshot: visible as never, snapshotCache: { A: visible, B: background } as never, selectedId: 'A', secondaryId: null } as never)
+      render(<ApprovalsHost />)
+      await waitFor(() => expect(toast().querySelector('[data-ui="approval-toast-place"]')?.textContent?.trim()).toBe(expected))
+      expect(toast().querySelector('[data-ui="approval-toast-place"]')?.textContent).not.toMatch(/unavailable|indisponível/i)
+      cleanup()
+    }
+  })
+
+  test('See impact goes where the request needs: an irreversible one opens the impact dialog, a high reversible one opens its conversation', async () => {
+    for (const [reversible, id] of [[false, 'irr'], [true, 'rev']] as Array<[boolean, string]>) {
+      const select = vi.fn(async () => undefined)
+      const visible = snap(thread('A', 'Checkout fix'), request('ra', impact('low', true)))
+      const background = snap(thread('B', 'Release notes'), request(id, impact('high', reversible)))
+      useThreadStore.setState({ snapshot: visible as never, snapshotCache: { A: visible, B: background } as never, selectedId: 'A', secondaryId: null, select } as never)
+      useOpenRequest.getState().close()
+      render(<ApprovalsHost />)
+      await waitFor(() => toast())
+      await act(async () => { await userEvent.click(within(toast()).getByRole('button', { name: cat('thread', 'f7.card.seeImpact') })) })
+      if (reversible) {
+        expect(select, 'the conversation at its card').toHaveBeenCalledWith('B')
+        expect(useOpenRequest.getState().requestId).toBeNull()
+      } else {
+        expect(useOpenRequest.getState().requestId, 'the impact dialog').toBe(id)
+      }
+      cleanup()
+    }
   })
 })
