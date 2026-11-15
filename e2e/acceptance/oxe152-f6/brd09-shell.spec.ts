@@ -1,6 +1,7 @@
 // Frozen end-to-end acceptance test for 1.5.2 OxeCode/Shell F6 (Jira OXE-72, BRD-09), in the built app with real
-// services: real terminals (OXESPACE_E2E_MOCK_NATIVE=0) and main's real AgentStateService (the e2e hook, as
-// e2e/needs-decision.spec.ts uses it). Written by the planner; the executor must not edit it. Red until T27 and T28 land.
+// services: main's real AgentStateService driven by its e2e hook (as e2e/needs-decision.spec.ts
+// uses it; the hook exists only with OXESPACE_E2E_MOCK_NATIVE=1, electron/main/e2e/agent-state-hook.ts, so this spec keeps
+// the native mocks: no paid agent can be made to wait otherwise). Written by the planner; the executor must not edit it. Red until T27 and T28 land.
 // Contract: the title bar's mode selector is one [data-ui=tabs] tablist with three tabs (data-app-mode code, thread,
 // data); no needs-you pill while nothing waits; a terminal that starts waiting puts its count in the OxeCode tab and shows
 // the pill; the status bar ([data-ui=status-bar]) names the workspace and shows neither "agents working" nor the version.
@@ -13,7 +14,7 @@ const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unkn
 
 test('BRD-09 in the app: mode tabs with the needs-you count, the pill only when something waits, the status bar', async () => {
   test.setTimeout(180_000)
-  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_E2E_AGENT_STATE: '1' } })
+  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
     await resizeWindow(app, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
