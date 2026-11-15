@@ -148,20 +148,30 @@ describe('OXE-128 next · go to the next one that needs you (Ctrl+Shift+U)', () 
     expect(visited).toEqual(['t1', 'p2', 'p1', 't1'])
     cleanup()
 
+    // CR-F4-6 (liberação de teste congelado: coordenação 15/11, só CA-2, role=status → aria-live polite): the notice is
+    // the src/ui toast(), shown by the app's one Toaster (mounted here beside the host, as App.tsx does; the host mounts
+    // none) and spoken by its aria-live="polite" region, which announces as role="status" does.
+    const { Toaster, useToasts } = await import('../../../src/ui/Toast')
+    const { ANNOUNCE_AFTER_MOUNT_MS } = await import('../../../src/ui/ToastStack')
     vi.useFakeTimers()
     useThreadStore.setState({ threads: [] })
     useTerminalStore.setState({ panes: {}, activePaneId: 'p1' })
     useWorkspaceStore.setState({ activeWorkspaceId: 'ws-1' })
     const idle = vi.fn()
-    render(createElement(NextAttentionHost as never, { selectView: idle }))
+    render(createElement('div', null, createElement(NextAttentionHost as never, { selectView: idle }), createElement(Toaster)))
     setActiveWorkspace.mockClear()
     await act(async () => { dispatchKeybinding(keyU()) })
     expect(idle).not.toHaveBeenCalled()
     expect(setActiveWorkspace).not.toHaveBeenCalled()
     expect(useTerminalStore.getState().activePaneId).toBe('p1')
+    // The stack is a lazy chunk; a toast raised before it mounted goes in a short beat after its region does.
+    await act(async () => { await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(ANNOUNCE_AFTER_MOUNT_MS) })
     const notice = screen.getByText('Nada esperando por você')
-    expect(notice.closest('[role="status"]')).not.toBeNull()
-    await act(async () => { vi.advanceTimersByTime(10_000) })
+    expect(notice.closest('[aria-live="polite"]')).not.toBeNull()
+    const shown = useToasts.getState().items.find(item => item.title === 'Nada esperando por você')
+    expect(shown?.timeout, 'it goes away by itself').toBeGreaterThan(0)
+    await act(async () => { vi.advanceTimersByTime(shown!.timeout) })
     expect(screen.queryByText('Nada esperando por você')).toBeNull()
   }, 20_000)
 
