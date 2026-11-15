@@ -1,12 +1,6 @@
-/* Code-specific project tree; shared chrome lives in NavigationChrome.css. */
+/* Code-specific project tree; shared chrome lives in NavigationChrome.css. Workspaces and terminals are the src/ui
+   SidebarGroup and SidebarRow (BRD-01, OXE-60): no card, no guide line, nothing here restyles the rows. */
 .sidebar-redesign { position: relative; }
-.sidebar-workspace-tree { border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); margin: 0 8px 6px; overflow: hidden; background: var(--surface-raised); }
-.sidebar-workspace-tree[data-ws] { box-shadow: inset 3px 0 0 var(--ws); }
-.sidebar-workspace-tree[data-ws].active { background: color-mix(in srgb, var(--ws) 6%, transparent); border-color: color-mix(in srgb, var(--ws) 35%, var(--bd-default)); }
-.sidebar-workspace-tree .ws-group { border: 0; background: transparent; margin: 0; }
-.sidebar-terminal-children { margin: 0 6px 8px 14px; padding-left: 8px; border-left: 1px solid var(--bd-default); }
-.sidebar-terminal-children .pane-session-row { margin: 3px 0; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); }
-.sidebar-terminal-children .pane-row-title { font-size: var(--fs-sm); }
-.sidebar-terminal-children .pane-row-context { font-size: var(--fs-2xs); }
-.sidebar-terminal-children .pane-row-bottom { display: none; }
+.sidebar-redesign .ws-group-list { padding-inline: var(--space-2); }
+.sidebar-redesign .ws-group { margin: 0; }
 .sidebar-redesign :is(button, [role="button"], [role="separator"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

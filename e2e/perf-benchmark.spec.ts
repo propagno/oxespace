@@ -254,7 +254,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
     await createWorkspace(page)
-    await page.locator('.sidebar-section-header').last().click()
+    await page.locator('[data-ui="sidebar-section"]').last().click()
     if (await page.locator('.sidebar.sidebar-collapsed').count()) {
       await pressShellShortcut(page, 'Control+b')
       await page.locator('.sidebar.sidebar-collapsed').waitFor({ state: 'detached' })
@@ -341,7 +341,7 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+      await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
       switchTimes.push(await readInputTimer(page))
     }
@@ -422,7 +422,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
       // a failed fix.
       await armInputTimerUntil(page, [
-        { selector: '.ws-group.active', text: label },
+        { selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label },
         { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
       ])
       await target.getByTestId('sidebar-workspace-select').click()
@@ -525,7 +525,7 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     for (let i = 0; i < modalRepeats; i++) {
       // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
       // the measured interaction is choosing it.
-      await page.locator('.sidebar-section-header').last().click()
+      await page.locator('[data-ui="sidebar-section"]').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')

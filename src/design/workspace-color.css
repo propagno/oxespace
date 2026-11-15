@@ -12,13 +12,10 @@
 [data-ws="7"] { --ws: var(--ws-7); --ws-fg: var(--ws-7-fg); }
 [data-ws="8"] { --ws: var(--ws-8); --ws-fg: var(--ws-8-fg); }
 
-/* OxeCode workspace card: the strip runs the whole card, terminals included. */
-.ws-group[data-ws] { box-shadow: inset 3px 0 0 var(--ws); border-radius: var(--radius-sm); }
-
-/* The active card: its name in --ws-fg on a 6% tint of the workspace color. */
-.ws-group.active[data-ws] > .ws-group-header,
-.ws-group.active[data-ws] > .ws-group-header:hover { background: color-mix(in srgb, var(--ws) 6%, transparent); border-color: transparent; }
-.ws-group.active[data-ws] > .ws-group-header .ws-group-name { color: var(--ws-fg); }
+/* OxeCode sidebar (BRD-01, MARCA-LATERAIS 13/11): a workspace is a src/ui SidebarGroup row and its color is this dot
+   in the row's lead. No card, no strip, no tint. */
+.sidebar-ws-mark { display: inline-block; flex: none; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); background: var(--tx-muted); }
+.sidebar-ws-mark[data-ws] { background: var(--ws); }
 
 /* Pane header: a 2 px top line, 70% while the pane is not focused, full when it is. */
 .pane-container > .pane-header[data-ws] { box-shadow: inset 0 2px 0 color-mix(in srgb, var(--ws) 70%, transparent); }
