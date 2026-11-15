@@ -98,7 +98,8 @@ describe('OXE-179 the paired computer and the pairing code, through the protocol
     }
   })
 
-  test('OXE-179 CA-4 the phone\'s protocol code pairs with the real gateway and sees both details', async () => {
+  // Gradle and the Android toolchain: opt-in (OXE_GRADLE_TESTS=1) where they are set up, the Android job or remote-verify --java.
+  test.skipIf(process.env.OXE_GRADLE_TESTS !== '1')('OXE-179 CA-4 the phone\'s protocol code pairs with the real gateway and sees both details (OXE_GRADLE_TESTS=1, Android toolchain)', async () => {
     const h = harness({ offerWatchMs: 3_600_000, promptTimeoutMs: 900_000 })
     await h.enable()
     const offer = h.gateway.startPairing()
