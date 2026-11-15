@@ -431,23 +431,22 @@
     "copy": "Copiar comando",
     "markDone": "Marcar como concluído",
     "v2": {
-      "folderStep": "Abra uma pasta de projeto",
+      "folderStep": "Pasta do projeto",
       "chooseFolder": "Escolher pasta",
-      "agentStep": "Conecte um agente",
+      "change": "Trocar",
+      "agentStep": "Conectar um agente",
       "howToInstall": "Como instalar",
       "signIn": "Entrar no {{provider}}",
       "waiting": "Aguardando o login no navegador…",
       "cancel": "Cancelar",
       "readyModel": "Pronto · {{model}}",
       "ready": "Pronto",
-      "conversationStep": "Comece sua primeira conversa",
+      "conversationStep": "Primeira conversa",
       "newConversation": "Nova conversa",
-      "connectFirst": "Conecte um agente primeiro",
-      "openModeAlone": "Ou abra um modo sozinho",
+      "waitsForAgent": "Abre quando um agente estiver conectado",
+      "openAlone": "Ou abra o <code>OxeCode</code> ou o <query>OxeQuery</query> sozinhos",
       "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
-      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa.",
-      "modeDescCode": "Terminais e agentes lado a lado",
-      "modeDescQuery": "Tabelas e consultas SQL com segurança"
+      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa."
     }
   },
   "usage": {

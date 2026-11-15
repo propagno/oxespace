@@ -51,7 +51,7 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]' }
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -177,6 +177,10 @@ test.describe.serial('brand conformance (OXE-149)', () => {
         try {
           // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
           await layoutAtWidth(app, page, 1440, 900)
+          // BRD-12 (OXE-77): a fresh profile opens on the first run, before any workspace exists.
+          await page.getByTestId('first-run').waitFor({ timeout: 15_000 }).catch(() => console.log('[BRAND] the first run did not show'))
+          await page.evaluate(() => document.fonts.ready.then(() => undefined))
+          await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)

@@ -228,7 +228,6 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             ...(error ? { errorMessage: error } : {}), tables: [`${target.database}.${target.collection}`]
           }} />
           <LibraryMenu connection={connection} currentSql={queryText} refreshKey={libraryTick} onPick={pick} describe={describeMongoQuery} />
-          <span className="oq-badge" data-environment={connection.environment}>{t(`environment.short.${connection.environment}`)}</span>
           <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{connection.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
           <label className="oq-inline">{t('workbench.limit')} <Select className="oq-select" aria-label={t('mongo.perPage')} value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></label>
           <button type="button" disabled={running || invalid} title={t('mongo.explainTitle')} onClick={() => void explainQuery()}>{t('workbench.explain')}</button>

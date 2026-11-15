@@ -41,6 +41,8 @@ interface ThreadState {
   load: () => Promise<void>
   refresh: (id: string) => Promise<void>
   loadProjects: () => Promise<void>
+  /** Whether the project catalog was read: the first run needs a catalog known to be empty (OXE-77). */
+  projectsState: 'pending' | 'loaded' | 'failed'
   setDraft: (id: string, text: string) => void
   addAttachment: (id: string, attachment: ThreadAttachment) => void
   removeAttachment: (id: string, attachmentId: string) => void
@@ -71,7 +73,7 @@ export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
 export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   dropFromListCache: id => { if (get().listLoaded) saveListCache(get(), id) },
@@ -169,13 +171,13 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   },
   loadProjects: async () => {
     const version = ++projectGeneration
-    if (!window.oxe?.thread?.projects) return
+    if (!window.oxe?.thread?.projects) { set({ projectsState: 'loaded' }); return }
     try {
       const catalog = await window.oxe.thread.projects()
-      if (version === projectGeneration) set(state => ({ projects: catalog.projects, unavailableProjects: catalog.unavailable, hiddenProjects: catalog.projects.filter(project => project.hidden).map(project => project.projectId), errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
+      if (version === projectGeneration) set(state => ({ projectsState: 'loaded', projects: catalog.projects, unavailableProjects: catalog.unavailable, hiddenProjects: catalog.projects.filter(project => project.hidden).map(project => project.projectId), errors: { ...Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'projects')),
         ...(catalog.unavailable.length ? { projects: i18n.t('thread:store.projectsUnavailable') } : {}) } }))
       if (version === projectGeneration && get().listLoaded) saveListCache(get())
-    } catch { if (version === projectGeneration) set(state => ({ errors: { ...state.errors, projects: i18n.t('thread:store.projectsFailed') } })) }
+    } catch { if (version === projectGeneration) set(state => ({ projectsState: state.projectsState === 'loaded' ? 'loaded' : 'failed', errors: { ...state.errors, projects: i18n.t('thread:store.projectsFailed') } })) }
   },
   load: async () => {
     const version = ++catalogGeneration
