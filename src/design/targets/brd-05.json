@@ -11,7 +11,7 @@
       "select": "h1",
       "prop": "font-size",
       "expect": {
-        "token": "--text-lg"
+        "token": "--fs-lg"
       },
       "tolerance": 0.5,
       "densities": [
