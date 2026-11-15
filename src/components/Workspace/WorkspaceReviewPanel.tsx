@@ -6,7 +6,7 @@ import { PanelScopeBadge } from './PanelScopeBadge'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { i18n } from '../../i18n'
-import { LoadingState } from '../../ui'
+import { Button, DockPanel, IconButton, Skeleton } from '../../ui'
 import { lazyFrom } from '../../lib/chunk'
 import { CHANGES_PANEL_CHUNK } from './panelChunks'
 
@@ -28,43 +28,32 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
   // "Changes" is the new branch diff; "Classic" keeps per-line review comments
   // until they are ported to the Monaco diff.
   const [view, setView] = useState<'changes' | 'classic'>('changes')
+  const expandLabel = isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')
   return (
-    <section className="workspace-editor-panel" data-testid="workspace-review-panel">
-      <header className="workspace-editor-header">
-        <div className="workspace-editor-title">
-          <span>{tc('panels.changes')}</span>
-          <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
-        </div>
-        <div className="workspace-editor-actions" aria-label={tc('workspace.panel.actions')}>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-pressed={view === 'classic'}
-            style={{ width: 'auto', padding: '0 8px', fontSize: 'var(--fs-xs)' }}
-            title={view === 'classic' ? tc('workspace.review.back') : tc('workspace.review.classic')}
-            onClick={() => setView(value => value === 'classic' ? 'changes' : 'classic')}
-          >
-            {view === 'classic' ? 'Changes' : 'Classic'}
-          </button>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            onClick={onToggleExpanded}
-          >
-            {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
-          </button>
-          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
-            <ChevronsRight size={14} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+    <DockPanel
+      testId="workspace-review-panel"
+      className="workspace-editor-panel"
+      title={tc('panels.changes')}
+      count={<PanelScopeBadge workspaceId={workspace.id} scope={scope} />}
+      actions={<>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={view === 'classic'}
+          title={view === 'classic' ? tc('workspace.review.back') : tc('workspace.review.classic')}
+          onClick={() => setView(value => value === 'classic' ? 'changes' : 'classic')}
+        >
+          {view === 'classic' ? 'Changes' : 'Classic'}
+        </Button>
+        <IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />
+      </>}
+      close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
+    >
       <div className="workspace-editor-content">
         {view === 'classic'
           ? <ReviewPane workspaceId={workspace.id} rootPath={scope.rootPath} />
-          : <Suspense fallback={<LoadingState label={tc('changes.loading')} />}><ChangesPanel workspaceId={workspace.id} rootPath={scope.rootPath} onSendComments={async text => (await pasteIntoAgentTerminal(workspace.id, text)).ok} /></Suspense>}
+          : <Suspense fallback={<Skeleton lines={6} />}><ChangesPanel workspaceId={workspace.id} rootPath={scope.rootPath} onSendComments={async text => (await pasteIntoAgentTerminal(workspace.id, text)).ok} /></Suspense>}
       </div>
-    </section>
+    </DockPanel>
   )
 }
