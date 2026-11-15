@@ -8,6 +8,10 @@
     "BRD-07.radius.source",
     "BRD-07.titleMedium.size",
     "BRD-07.titleMedium.weight",
+    "BRD-09.command-field.height",
+    "BRD-09.mode-tab.font-size",
+    "BRD-09.mode-tab.font-weight",
+    "BRD-09.mode-tab.height",
     "BRD-11.row.height"
   ]
 }

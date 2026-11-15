@@ -22,7 +22,7 @@ test('OxeQuery overlays take focus, trap Tab, close on Escape and return focus',
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
     await page.getByTestId('wizard-launch-btn').click()
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
 
     const insideOverlay = (): Promise<boolean> => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [aria-modal="true"]')))
     const focusedName = (): Promise<string> => page.evaluate(() => (document.activeElement as HTMLElement | null)?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim() ?? '')
