@@ -17,6 +17,9 @@
 //   (terminal.branch). Unknown: nothing, never "Branch unavailable" (code:paneMenu.noBranch); the same as the workspace's:
 //   no chip ([data-testid=pane-branch-badge] gone, the name not in the header); different: the chip with the pane's branch.
 // - A shell pane has no command-line footer: no .terminal-cmd-input, running or not; Ctrl+/ (terminal.slash) is the way in.
+// - CA-4 (coordination 15/11, final): an agent pane's header shows how long the agent has been in its state, from main's
+//   PaneAgentState.since (agentState.list / onChanged), in [data-ui=pane-running-time]; a plain shell renders NO such field
+//   (no empty slot, no dash, no placeholder). Shell command timing (OSC 633/133) is OXE-272, 1.5.3.
 // - src/design/targets/brd-14.json (new, card OXE-82): the measures below, enforced and locked, scene code-workspace.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -141,6 +144,22 @@ describe('OXE-82 BRD-14 the terminal pane (A30)', () => {
     const { container } = render(<TerminalPane pane={PANES[0]} workspaceId="ws-1" workspaceRootPath="/repo" autoStart={false} />)
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)) })
     expect(container.querySelectorAll('.terminal-cmd-input, input[aria-label="' + tc('terminalPane.commandPlaceholder') + '"]')).toHaveLength(0)
+  }, 30_000)
+
+  it('an agent pane shows its time in state from PaneAgentState.since; a plain shell has no running-time field', async () => {
+    const since = Date.now() - 65_000
+    preloadOxe({ 'terminal.branch': () => ({ branch: 'feat/pix-webhook', startedOn: 'feat/pix-webhook', switched: false }),
+      'agentState.list': () => [{ paneId: 'p2', workspaceId: 'ws-1', agent: 'claude', state: 'working', source: 'hook', seen: false, since, stateChangeSeq: 1, completionSeq: 0 }] })
+    const agentPane = { ...PANES[1], agentName: 'Claude', agentProfileId: 'claude-profile' } as unknown as WorkspacePane
+    const withAgent = { ...workspace, panes: [PANES[0], agentPane] } as unknown as Workspace
+    useWorkspaceStore.setState({ workspaces: [withAgent], shellProfiles: [] } as never)
+    const { PaneContainer } = await import('../../../src/components/Grid/PaneContainer')
+    const agent = render(<PaneContainer pane={agentPane} workspace={withAgent} agentProfile={null} autoStart={false} isMaximized={false} onToggleMaximize={() => undefined} />)
+    await waitFor(() => expect(agent.container.querySelectorAll('[data-ui="pane-running-time"]')).toHaveLength(1))
+    expect(agent.container.querySelector('[data-ui="pane-running-time"]')?.textContent ?? '').toMatch(/\d/)
+    cleanup()
+    const shell = await mount('p1')
+    expect(shell.querySelectorAll('[data-ui="pane-running-time"]'), 'no running-time field on a plain shell').toHaveLength(0)
   }, 30_000)
 
   it('turns its own BRD-14 measures to enforced', () => {
