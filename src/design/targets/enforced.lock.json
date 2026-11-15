@@ -37,6 +37,9 @@
     "BRD-10.item-button.height",
     "BRD-11.row.height",
     "BRD-12.title.font-family",
-    "BRD-12.title.font-size"
+    "BRD-12.title.font-size",
+    "BRD-13.branch.font-family",
+    "BRD-13.panel-button.height",
+    "BRD-13.panel-button.width"
   ]
 }

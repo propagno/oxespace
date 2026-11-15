@@ -45,11 +45,26 @@
   white-space: nowrap;
 }
 
-.workspace-topbar-panes {
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-variant-numeric: tabular-nums;
+/* The wrapper keeps the bar's data-ui (BRD-03 measures its buttons) without adding a layout box. */
+.workspace-topbar-host { display: contents; }
+
+/* The workspace's branch, in the mono face (BRD-13). */
+.workspace-topbar-branch {
+  min-width: 0;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+
+/* The panel group: square md IconButtons side by side; size and pressed fill are the primitive's (BRD-13). */
+.workspace-topbar-panel-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 /* The bar's actions are src/ui Button and IconButton (BRD-03): their size, type, padding and pressed fill are the
