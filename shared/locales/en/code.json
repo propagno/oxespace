@@ -1161,6 +1161,8 @@
       "weekly": "Weekly window",
       "groupGemini": "Gemini",
       "groupClaudeGpt": "Claude and GPT",
+      "groupOther": "Other models",
+      "groupOtherN": "Other models {{n}}",
       "line": "{{name}}: {{pct}}% used",
       "lineReset": "{{name}}: {{pct}}% used, resets in {{reset}}",
       "staleSeconds": "Last known reading, {{age}}s old (the provider is not answering now)",

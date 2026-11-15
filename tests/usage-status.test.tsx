@@ -42,6 +42,18 @@ describe('usage in the status bar', () => {
     ])
   })
 
+  it('a group the app does not know reads "Other models", numbered when there are two; never the service\'s own words', () => {
+    const windows = [
+      { kind: 'weekly', usedPct: 4, resetsAtMs: null, group: 'gemini' },
+      { kind: 'weekly', usedPct: 20, resetsAtMs: null, group: 'Image preview models' },
+      { kind: 'weekly', usedPct: 30, resetsAtMs: null, group: 'Audio models' }
+    ] as AgentCreditsSnapshot['windows']
+    const text = usageText(snapshot({ provider: 'antigravity', display: { kind: 'weekly', usedPct: 20, resetsAtMs: null, group: 'Image preview models' }, windows }), now)
+    expect(text.short).toBe('Other models: wk 20%')
+    expect(text.detail.split('\n').slice(1, 4)).toEqual(['Weekly window · Gemini: 4% used', 'Weekly window · Other models: 20% used', 'Weekly window · Other models 2: 30% used'])
+    expect(text.detail).not.toMatch(/Image preview|Audio models/)
+  })
+
   describe('polling', () => {
     const get = vi.fn(async () => snapshot())
     beforeEach(() => {

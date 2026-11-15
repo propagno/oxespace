@@ -1217,6 +1217,8 @@
       "weekly": "Janela semanal",
       "groupGemini": "Gemini",
       "groupClaudeGpt": "Claude e GPT",
+      "groupOther": "Outros modelos",
+      "groupOtherN": "Outros modelos {{n}}",
       "line": "{{name}}: {{pct}}% usado",
       "lineReset": "{{name}}: {{pct}}% usado, renova em {{reset}}",
       "staleSeconds": "Última leitura conhecida, de {{age}} s atrás (o provedor não está respondendo agora)",
