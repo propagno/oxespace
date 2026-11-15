@@ -33,6 +33,7 @@
     "rowsUnknown": "– rows",
     "notRun": "not run",
     "failedCode": "failed ({{code}})",
+    "loadMore": "Load more",
     "introContainers": "Every container request an AI agent made, and what you decided.",
     "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided.",
     "detail": {

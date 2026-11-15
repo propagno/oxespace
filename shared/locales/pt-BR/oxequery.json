@@ -34,6 +34,7 @@
     "rowsUnknown": "– linhas",
     "notRun": "não executado",
     "failedCode": "falhou ({{code}})",
+    "loadMore": "Carregar mais",
     "introContainers": "Cada pedido de contêiner que um agente de IA fez, e o que você decidiu.",
     "emptyContainers": "Os agentes só chegam a um contêiner quando você ativa o acesso de agentes numa conexão a ele no OxeQuery. Cada pedido que fizerem aparece aqui, com o que você decidiu.",
     "detail": {
