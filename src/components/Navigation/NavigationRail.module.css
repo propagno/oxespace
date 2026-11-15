@@ -10,11 +10,11 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--bd-subtle);
 }
 
 .group { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: 0; border: 0; }
-.separator { width: 20px; height: 1px; margin: var(--space-1) 0; background: var(--border-default); }
+.separator { width: 20px; height: 1px; margin: var(--space-1) 0; background: var(--bd-default); }
 .spacer { flex: 1; min-height: var(--space-2); }
 
 .button {
@@ -27,11 +27,11 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
-.button:hover { background: var(--fill-hover); color: var(--text-primary); }
+.button:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .button:disabled { opacity: 0.4; cursor: default; }
 .button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
@@ -39,7 +39,7 @@
 /* A long list scrolls by itself, so the rail's footer (settings, expand) stays in reach. */
 .items { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .item { width: 32px; height: 32px; flex: none; }
-.item[aria-current='page'] { background: var(--fill-selected); color: var(--text-primary); }
+.item[aria-current='page'] { background: var(--fill-selected); color: var(--tx-primary); }
 .initial { font-size: var(--fs-xs); font-weight: var(--weight-semibold); line-height: 1; }
 
 /* Expanded sidebar: actions at the right of the title, and a footer row at the bottom. */
@@ -51,5 +51,5 @@
   gap: 2px;
   flex: none;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--bd-subtle);
 }
