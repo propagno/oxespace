@@ -4,13 +4,13 @@
 // Contract: with nothing waiting, the bell's activity center says "Nada esperando por você" and Ctrl+Shift+U says the same
 // in a toast (the pill at zero is BRD-09's, brd09-shell.spec.ts).
 import { expect, test } from '@playwright/test'
-import { launchApp, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth } from '../helpers/launch'
 
 test('PU-03·10 in the app: one wording for nothing waiting, in the activity center and the shortcut', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', locale: 'pt-BR', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await page.getByTestId('activity-bell').click()
     await expect(page.getByText('Nada esperando por você', { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')

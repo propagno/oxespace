@@ -149,9 +149,9 @@ describe('keybinding registry', () => {
   it('leaves no shortcut text in the catalogs: labels come from the registry', () => {
     for (const file of ['src/components/Workspace/toolCatalog.ts', 'src/components/Workbench/panelCatalog.ts', 'src/components/Navigation/appMenus.ts']) {
       const source = readFileSync(join(process.cwd(), file), 'utf8')
-      // Native text-editing items (Undo, Copy…) are the only literal shortcuts left.
+      // Native text-editing items (Undo, Copy…) are the only literal shortcuts left, as Ctrl+ or Mod+ (formatChord, PM-02·8).
       const literal = [...source.matchAll(/'(?:Ctrl|Mod)\+[^']*'/g)].map(match => match[0])
-        .filter(text => !/^'Ctrl\+(?:Z|Shift\+Z|X|C|V|A)'$/.test(text))
+        .filter(text => !/^'(?:Ctrl|Mod)\+(?:Z|Shift\+Z|X|C|V|A)'$/.test(text))
       expect(literal, file).toEqual([])
     }
   })
