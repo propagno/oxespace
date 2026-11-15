@@ -13,6 +13,7 @@ import { AlwaysAllowConfirm, AlwaysAllowReason, clearAlwaysAllowToast, showAlway
 import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
 import { ImpactFacts } from '../Approvals/ImpactFacts'
 import { ImpactPreview } from '../Approvals/ImpactPreview'
+import { focusIsEditable } from '../Approvals/typingFocus'
 import { i18n } from '../../i18n'
 import styles from './ThreadRequestCard.module.css'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
@@ -129,8 +130,10 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     await submit({ decision: 'accept' })
   }
   const isImpactApproval = request.kind === 'approval' && request.state === 'pending' && Boolean(request.impact)
+  // OXE-175: Deny takes the focus only when the person is not typing (in this conversation's composer or anywhere else).
+  const [typingAtMount] = useState(focusIsEditable)
   useEffect(() => {
-    if (isImpactApproval) denyButtonRef.current?.focus()
+    if (isImpactApproval && !focusIsEditable()) denyButtonRef.current?.focus()
   }, [isImpactApproval, request.id])
   if (request.state !== 'pending') return <details className={cx(`thread-request-history is-${request.state}`, styles.history)}>
     <summary className={cx('thread-request is-resolved', styles.resolved)}>
@@ -255,7 +258,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       }}>{t(elicitation.length ? 'request.continue' : 'request.approve')}</button>}
       {request.kind === 'permissions' && <><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>{t('request.allowTurn')}</button><button type="button" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>{t('request.allowSession')}</button></>}
       {preview ? <>
-        <Button variant="secondary" autoFocus className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><X size={14} />{t('request.deny')}</Button>
+        <Button variant="secondary" autoFocus={!typingAtMount} className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><X size={14} />{t('request.deny')}</Button>
         <Button variant="primary" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')}</Button>
       </> : <>
       {request.kind === 'approval' && critical && <small role="status" data-testid="approval-hold">{holdLeft > 0 ? t('request.holdWaiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('request.holdReady')}</small>}

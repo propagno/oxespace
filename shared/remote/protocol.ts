@@ -134,6 +134,13 @@ export interface RemoteAuthFrame extends FrameBase<'auth'> {
 export interface RemoteAuthResult {
   accessToken: string
   expiresInMs: number
+  /**
+   * 1.5.2 (OXE-179): the OS this desktop runs on ("Windows 11", "macOS 15", "Ubuntu 24.04", "Linux"), at most 64
+   * characters, never a "·", never the host name or the user. Only after sign-in; `hello` never carries it.
+   */
+  desktopOs?: string
+  /** 1.5.2 (OXE-179): when this phone paired, epoch ms on the desktop's clock (the device record's `pairedAt`). */
+  pairedAt?: number
 }
 
 export interface RemoteSubscribeFrame extends FrameBase<'subscribe'> {
@@ -295,6 +302,11 @@ export interface RemotePairingQr {
   code: string
   /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
   name?: string
+  /**
+   * 1.5.2 (OXE-179): when the one-time code expires, epoch ms on the desktop's clock, a non-negative integer. It only
+   * tells the phone; the desktop alone decides whether a code is still valid. An older desktop's QR has none.
+   */
+  exp?: number
 }
 
 export interface RemotePairRequest {
@@ -341,12 +353,15 @@ const isPort = (value: unknown): value is number => typeof value === 'number' &&
 /** Control characters, C0, DEL and C1, the set Kotlin's `isISOControl` refuses. */
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 const isDisplayName = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0 && value.length <= REMOTE_LIMITS.maxDeviceNameLength && !CONTROL.test(value)
-const PAIRING_KEYS = ['v', 'host', 'port', 'fp', 'code', 'name'] as const
+const PAIRING_KEYS = ['v', 'host', 'port', 'fp', 'code', 'name', 'exp'] as const
+/** `exp`: a non-negative integer in plain decimal digits, within Number's safe range. */
+const EXP_TEXT = /^[0-9]{1,15}$/
 
-/** `oxespace://pair?v=…&host=…&port=…&fp=…&code=…[&name=…]` */
+/** `oxespace://pair?v=…&host=…&port=…&fp=…&code=…[&name=…][&exp=…]` */
 export function pairingUri(qr: RemotePairingQr): string {
   const query = new URLSearchParams({ v: String(qr.v), host: qr.host, port: String(qr.port), fp: qr.fp, code: qr.code })
   if (qr.name !== undefined) query.set('name', qr.name)
+  if (qr.exp !== undefined) query.set('exp', String(Math.trunc(qr.exp)))
   return `${REMOTE_PAIRING_SCHEME}://pair?${query.toString()}`
 }
 
@@ -360,9 +375,14 @@ export function readPairingUri(uri: string): { ok: true; qr: RemotePairingQr } |
   if (typeof uri !== 'string' || !uri.startsWith(prefix) || uri.length > 1024) return { ok: false }
   const query = new URLSearchParams(uri.slice(prefix.length))
   if (PAIRING_KEYS.some(key => query.getAll(key).length > 1)) return { ok: false }
-  const portText = query.get('port') ?? '', name = query.get('name') ?? undefined
+  const portText = query.get('port') ?? '', name = query.get('name') ?? undefined, expText = query.get('exp')
   if (query.get('v') !== String(REMOTE_PROTOCOL_VERSION) || !/^[0-9]{1,5}$/.test(portText)) return { ok: false }
-  const qr: RemotePairingQr = { v: REMOTE_PROTOCOL_VERSION, host: query.get('host') ?? '', port: Number(portText), fp: query.get('fp') ?? '', code: query.get('code') ?? '', ...(name !== undefined ? { name } : {}) }
+  // A QR without exp (an older desktop) still reads; a malformed one is refused, as the phone does.
+  if (expText !== null && !EXP_TEXT.test(expText)) return { ok: false }
+  const qr: RemotePairingQr = {
+    v: REMOTE_PROTOCOL_VERSION, host: query.get('host') ?? '', port: Number(portText), fp: query.get('fp') ?? '', code: query.get('code') ?? '',
+    ...(name !== undefined ? { name } : {}), ...(expText !== null ? { exp: Number(expText) } : {})
+  }
   const valid = isHost(qr.host) && isPort(qr.port) && isCertificateFingerprint(qr.fp) && isPairingCode(qr.code) && (name === undefined || isDisplayName(name))
   return valid ? { ok: true, qr } : { ok: false }
 }

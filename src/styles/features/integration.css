@@ -2,7 +2,7 @@
 
 /* Integration Command Center */
 .workspace-integration-panel {
-  background: var(--bg-app);
+  background: var(--surface-canvas);
 }
 
 .integration-panel {
@@ -21,7 +21,7 @@
 .integration-create-card {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   padding: 10px;
 }
 
@@ -29,7 +29,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-3);
 }
 
 .integration-create-intro strong {
@@ -41,7 +41,7 @@
 .integration-member-editor-help {
   color: var(--tx-muted);
   font-size: var(--fs-xs);
-  line-height: var(--lh-base);
+  line-height: var(--leading-normal);
 }
 
 .integration-field {
@@ -78,7 +78,7 @@
   width: 100%;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   padding: 8px 10px;
   font: inherit;
@@ -121,7 +121,7 @@
 .integration-group-tabs button {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   padding: 7px 10px;
   font-size: var(--fs-xs);
@@ -158,7 +158,7 @@
 }
 
 .integration-member-edit-btn:hover {
-  background: var(--surface-active);
+  background: var(--fill-pressed);
   color: var(--tx-primary);
 }
 
@@ -172,19 +172,19 @@
 .integration-member-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--accent-border);
   border-top: none;
   border-bottom-left-radius: var(--radius-sm);
   border-bottom-right-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-member-editor-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 130px;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-member-editor-field {
@@ -209,7 +209,7 @@
   padding: 6px 9px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: inherit;
@@ -219,7 +219,7 @@
 .integration-member-editor-field input:focus,
 .integration-member-editor-field select:focus,
 .integration-member-editor-field textarea:focus {
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
 }
 
 .integration-member-editor-field textarea {
@@ -232,7 +232,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-xs);
+  gap: var(--space-1);
 }
 
 .integration-member-remove-btn {
@@ -254,7 +254,7 @@
 .integration-member-remove-btn.confirming {
   border-color: var(--intent-danger-border);
   background: var(--intent-danger-bg);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .integration-member-remove-btn:disabled {
@@ -269,9 +269,9 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
 }
 
 .integration-status-filter-chip {
@@ -280,7 +280,7 @@
   gap: 5px;
   padding: 3px 10px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -294,7 +294,7 @@
 }
 
 .integration-status-filter-chip.active {
-  background: var(--surface-active);
+  background: var(--fill-pressed);
   color: var(--tx-primary);
 }
 
@@ -309,8 +309,8 @@
 .integration-group-tab-status {
   margin-left: 6px;
   padding: 1px 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-quiet);
+  border-radius: var(--radius-full);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -318,22 +318,22 @@
   text-transform: uppercase;
 }
 
-.integration-group-tab-status.status-active { color: var(--dot-green); background: var(--intent-success-bg); }
-.integration-group-tab-status.status-paused { color: var(--dot-yellow); background: var(--intent-warning-bg); }
+.integration-group-tab-status.status-active { color: var(--intent-success-solid); background: var(--intent-success-bg); }
+.integration-group-tab-status.status-paused { color: var(--intent-warning-solid); background: var(--intent-warning-bg); }
 .integration-group-tab-status.status-done { color: var(--tx-muted); background: var(--ov-1); }
 
 /* Handoff inbox layout. */
 .integration-handoff-block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-handoff-composer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
+  gap: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
@@ -351,13 +351,13 @@
   margin: 2px 0 0;
   color: var(--tx-muted);
   font-size: var(--fs-xs);
-  line-height: var(--lh-base);
+  line-height: var(--leading-normal);
 }
 
 .integration-handoff-composer-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-handoff-composer textarea {
@@ -372,26 +372,26 @@
 .integration-handoff-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-handoff-history {
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
   border-top: 1px dashed var(--bd-subtle);
   opacity: 0.85;
 }
 
 .integration-handoff-toggle {
   align-self: flex-start;
-  margin-top: var(--space-sm);
+  margin-top: var(--space-2);
 }
 
 .integration-handoff-row {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  padding: var(--space-md);
+  background: var(--ov-1);
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -408,7 +408,7 @@
 
 .integration-handoff-row.for-you {
   /* Brand left edge for "this is yours to act on". */
-  box-shadow: inset 3px 0 0 var(--brand);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .integration-handoff-header {
@@ -421,8 +421,8 @@
 
 .integration-handoff-pill {
   padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-active);
+  border-radius: var(--radius-full);
+  background: var(--fill-pressed);
   border: 1px solid transparent;
   color: var(--tx-primary);
   font-size: var(--fs-2xs);
@@ -433,8 +433,8 @@
 }
 
 .integration-handoff-pill:hover {
-  background: var(--surface-hover);
-  border-color: var(--bd-base);
+  background: var(--fill-hover);
+  border-color: var(--bd-default);
 }
 
 .integration-handoff-arrow {
@@ -444,8 +444,8 @@
 
 .integration-handoff-status {
   padding: 1px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-quiet);
+  border-radius: var(--radius-full);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -473,9 +473,9 @@
 
 .integration-handoff-body {
   margin: 0;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   line-height: 1.5;
@@ -488,7 +488,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-handoff-hint {
@@ -522,7 +522,7 @@
   overflow: auto;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-secondary);
   padding: 10px;
   resize: vertical;
@@ -565,14 +565,14 @@
 .integration-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-3);
 }
 
 .integration-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 .integration-toolbar-spacer {
@@ -586,8 +586,8 @@
   height: 28px;
   padding: 0 12px;
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
-  background: var(--surface-quiet);
+  border-radius: var(--radius-full);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -596,9 +596,9 @@
 }
 
 .integration-toolbar-action:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-toolbar-action.active {
@@ -615,7 +615,7 @@
   flex-direction: column;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-active-group > :first-child {
@@ -629,14 +629,14 @@
 }
 
 .integration-active-group .integration-member-rows {
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .integration-active-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-2);
   padding: 10px 12px;
   border-bottom: 1px solid var(--bd-subtle);
 }
@@ -666,7 +666,7 @@
 }
 
 .integration-active-icon {
-  color: var(--brand);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -702,15 +702,15 @@
 }
 
 .integration-icon-btn:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-icon-btn.active {
-  background: var(--surface-active);
+  background: var(--fill-pressed);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 
 .integration-active-menu {
@@ -723,9 +723,9 @@
   flex-direction: column;
   gap: 2px;
   padding: 6px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   box-shadow: var(--elevation-3);
 }
 
@@ -750,16 +750,16 @@
   display: flex;
   gap: 2px;
   padding: 2px;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
 }
 
 .integration-status-segment {
   flex: 1;
   padding: 3px 0;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -776,16 +776,16 @@
 
 .integration-status-segment.active.status-active {
   background: var(--intent-success-bg);
-  color: var(--dot-green);
+  color: var(--intent-success-solid);
 }
 
 .integration-status-segment.active.status-paused {
   background: var(--intent-warning-bg);
-  color: var(--dot-yellow);
+  color: var(--intent-warning-solid);
 }
 
 .integration-status-segment.active.status-done {
-  background: var(--surface-active);
+  background: var(--fill-pressed);
   color: var(--tx-primary);
 }
 
@@ -805,7 +805,7 @@
 }
 
 .integration-active-menu-item:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
 }
 
@@ -816,7 +816,7 @@
 .integration-active-menu-item.danger:hover,
 .integration-active-menu-item.danger.confirming {
   background: var(--intent-danger-bg);
-  color: var(--dot-red);
+  color: var(--intent-danger-solid);
 }
 
 .integration-member-rows {
@@ -840,12 +840,12 @@
 }
 
 .integration-member-row:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
 }
 
 .integration-member-row.current {
   background: var(--accent-soft);
-  box-shadow: inset 3px 0 0 var(--brand);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .integration-member-row.editing {
@@ -874,7 +874,7 @@
 .integration-member-role {
   min-width: 38px;
   padding: 2px 7px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-2xs);
@@ -921,7 +921,7 @@
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   background: var(--intent-warning-bg);
-  color: var(--dot-yellow);
+  color: var(--intent-warning-solid);
   font-size: var(--fs-2xs);
   font-weight: 500;
   overflow: hidden;
@@ -934,7 +934,7 @@
   border-left: 0;
   border-right: 0;
   border-radius: 0;
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   border-top: 1px solid var(--accent-border);
   border-bottom: 1px solid var(--bd-subtle);
   width: 100%;
@@ -963,7 +963,7 @@
   padding: 4px 8px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
   line-height: 20px;
@@ -973,7 +973,7 @@
 }
 
 .integration-add-select:focus {
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
 }
 
 .integration-add-select.compact {
@@ -988,7 +988,7 @@
   padding: 4px 12px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -997,14 +997,14 @@
 }
 
 .integration-add-action:hover {
-  background: var(--surface-hover);
-  border-color: var(--bd-base);
+  background: var(--fill-hover);
+  border-color: var(--bd-default);
 }
 
 .integration-disclosure {
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   overflow: hidden;
 }
 
@@ -1025,7 +1025,7 @@
 }
 
 .integration-disclosure-header:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
 }
 
@@ -1036,7 +1036,7 @@
 .integration-disclosure-badge {
   margin-left: auto;
   padding: 1px 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--accent-soft);
   color: var(--accent-hover);
   font-size: var(--fs-2xs);
@@ -1047,7 +1047,7 @@
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-2);
 }
 
 @media (max-width: 720px) {

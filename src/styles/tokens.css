@@ -3,138 +3,18 @@
    tokens.generated.css (light and dark mode). This file maps the names the
    existing CSS still uses onto those semantic roles, so every surface follows
    the active mode while it is migrated to src/ui. Do not add new names here;
-   use the semantic tokens (--surface-*, --text-*, --border-*, --intent-*).
+   use the semantic tokens (--surface-*, --tx-*, --bd-*, --intent-*).
    Declared on [data-mode] too, so a subtree that forces a mode re-resolves them. */
 :root, [data-mode] {
-  /* Backgrounds */
-  --bg-app:             var(--surface-canvas);
-  --bg-sidebar:         var(--surface-chrome);
-  --bg-elevated:        var(--surface-raised);
-  --bg-tile:            var(--surface-base);
-  --bg-tile-header:     var(--surface-chrome);
-  --bg-tile-content:    var(--surface-base);
-  --bg-ws-hover:        var(--fill-hover);
-  --bg-modal:           var(--surface-overlay);
-  --bg-input:           var(--surface-base);
-  --bg-segment:         var(--surface-sunken);
-  --bg-hover:           var(--fill-hover);
-  --bg-subtle:          var(--surface-raised);
-  --warning:            var(--intent-warning-solid);
-
-  /* Workbench roles */
-  --wb-canvas:          var(--surface-canvas);
-  --wb-chrome:          var(--surface-chrome);
-  --wb-raised:          var(--surface-raised);
-  --wb-selection:       var(--fill-selected);
-  --wb-border:          var(--border-default);
-  --wb-focus:           var(--border-focus);
-
-  /* Borders */
-  --bd-divider:         var(--border-default);
-  --bd-sidebar:         var(--border-default);
-  --bd-input:           var(--border-default);
-  --bd-input-focus:     var(--border-focus);
-  --bd-subtle:          var(--border-subtle);
-  --bd-base:            var(--border-default);
-
-  /* Text */
-  --tx-primary:         var(--text-primary);
-  --tx-secondary:       var(--text-secondary);
-  --tx-muted:           var(--text-muted);
-
-  /* Status colors */
-  --dot-green:          var(--intent-success-solid);
-  --dot-orange:         var(--intent-warning-solid);
-  --dot-yellow:         var(--intent-warning-solid);
-  --dot-blue:           var(--intent-info-solid);
-  --dot-gray:           var(--text-disabled);
-  --dot-red:            var(--intent-danger-solid);
-
-  /* Brand (the accent of the active mode) */
-  --brand:              var(--accent);
-  --brand-light:        var(--text-accent);
-
-  /* Pane active state */
-  --bg-pane-active-header: color-mix(in srgb, var(--accent) 6%, transparent);
-  --bd-pane-active:        color-mix(in srgb, var(--accent) 36%, transparent);
-
-  /* Sizing */
-  --nav-row-h: 32px;
-  --control-h: var(--control-lg);
-  --chrome-h: 42px;
-  --chrome-inset: 14px;
-  --nav-radius: var(--radius-sm);
-  --surface-radius: var(--radius-md);
-  /* Selection is neutral; the accent is kept for focus, the brand and the main action. */
-  /* U4 (X7): a selected row, tab, list item or tree node reads the one selection role. */
-  --nav-selected: var(--fill-selected);
-  --nav-hover: var(--fill-hover);
-  --sidebar-w:        280px;
-  --sidebar-w-collapsed: var(--rail-w);
-
-  /* Window frame */
-  --frame-gap:        8px;
-  --frame-radius:     var(--radius-lg);
-  --panel-radius:     var(--radius-lg);
-  --rail-w:           48px;
-  --hit-min:          var(--control-md);
-
-  /* Neutral overlays follow the mode: a tint of the text color. */
-  --ov-1: color-mix(in srgb, var(--text-primary) 4%, transparent);
-  --ov-2: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  --ov-3: color-mix(in srgb, var(--text-primary) 11%, transparent);
-  --surface-quiet:    var(--ov-1);
-  --surface-hover:    var(--fill-hover);
-  --surface-active:   var(--fill-pressed);
-
-  /* Radii */
-  --radius-xs:        4px;
-  --radius-pill:      var(--radius-full);
-
-  /* Spacing */
-  --space-xs:         var(--space-1);
-  --space-sm:         var(--space-2);
-  --space-md:         var(--space-3);
-  --space-lg:         var(--space-4);
-  --space-xl:         var(--space-6);
-  --space-2xl:        var(--space-8);
-
-  /* Shadows */
-  --shadow-sm:        var(--elevation-1);
-  --shadow-md:        var(--elevation-2);
-  --shadow-lg:        var(--elevation-3);
-  --shadow-modal:     var(--elevation-4);
-
-  /* Motion */
-  --transition-fast:  var(--duration-fast) var(--ease-standard);
-  --transition-base:  var(--duration-base) var(--ease-standard);
-
-  /* Terminal workbench */
-  --workspace-canvas: var(--surface-canvas);
-  --pane-surface: var(--surface-base);
-  --pane-surface-raised: var(--surface-raised);
-  --pane-border: var(--border-default);
-  --pane-border-active: var(--border-focus);
-  --pane-radius: var(--panel-radius);
-  --pane-gap: var(--frame-gap);
-  --pane-shadow: none;
-
-  /* Type scale */
-  --fs-2xs:    var(--text-2xs);
-  --fs-xs:     var(--text-xs);
-  --fs-sm:     var(--text-sm);
-  --fs-base:   var(--text-md);
-  --fs-lg:     var(--text-lg);
-  --fs-xl:     var(--text-xl);
+  /* Outside the type scale: leaves when the titles that read it move to the scale (BRD-05, BRD-06). */
   --fs-2xl:    22px;
-  --lh-base:   var(--leading-normal);
 }
 
 :root {
-  color: var(--text-primary);
+  color: var(--tx-primary);
   background: var(--surface-canvas);
   font-family: var(--font-ui);
-  font-size: var(--text-md);
+  font-size: var(--fs-md);
   line-height: var(--leading-normal);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -146,9 +26,5 @@
 select option,
 select optgroup {
   background-color: var(--surface-overlay);
-  color: var(--text-primary);
-}
-
-:root[data-density='comfortable'] {
-  --nav-row-h: 40px;
+  color: var(--tx-primary);
 }

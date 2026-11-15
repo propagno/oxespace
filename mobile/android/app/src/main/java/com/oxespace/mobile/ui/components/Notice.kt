@@ -19,12 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
-import com.oxespace.mobile.ui.theme.OxeType
 
 /*
  * 1.5.0 F10 CR-A42. Test: ComponentsSnapshotTest.
@@ -91,7 +89,7 @@ fun Notice(
                 Text(
                     text = title,
                     color = colors.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = OxeType.weightBold),
+                    style = MaterialTheme.typography.titleMedium,
                 )
                 if (text != null) {
                     Text(text = text, color = Oxe.colors.textPrimary, style = MaterialTheme.typography.bodyMedium)

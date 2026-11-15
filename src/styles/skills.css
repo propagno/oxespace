@@ -6,9 +6,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   box-shadow: var(--elevation-4);
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
@@ -18,7 +18,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 13px 16px;
-  border-bottom: 1px solid var(--bd-base);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .skills-browser-title {
@@ -28,11 +28,11 @@
   color: var(--accent);
 }
 
-.skills-browser-title strong { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 700; }
+.skills-browser-title strong { color: var(--tx-primary); font-size: var(--fs-md); font-weight: 700; }
 
 .skills-browser-count {
   padding: 2px 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-size: var(--fs-2xs);
@@ -44,15 +44,15 @@
 
 .skills-browser-search {
   padding: 10px 16px 6px;
-  border-bottom: 1px solid var(--bd-base);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .skills-browser-search input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
-  background: var(--bg-input);
+  background: var(--surface-base);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   outline: none;
@@ -66,7 +66,7 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--tx-primary);
   font-size: var(--fs-2xs);
-  border-bottom: 1px solid var(--bd-base);
+  border-bottom: 1px solid var(--bd-default);
 }
 
 .skills-create-form {
@@ -76,7 +76,7 @@
   margin: 10px 14px;
   padding: 14px 16px;
   border: 1px solid var(--ov-2);
-  border-radius: var(--panel-radius);
+  border-radius: var(--radius-lg);
   background: var(--ov-1);
 }
 
@@ -146,9 +146,9 @@
 
 .skills-create-template-note {
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--bd-base));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--bd-default));
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-raised));
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   line-height: 1.4;
@@ -199,7 +199,7 @@
 
 .skills-section-label {
   padding: 8px 6px 4px;
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.6px;
@@ -217,7 +217,7 @@
   transition: border-color var(--duration-fast), background var(--duration-fast);
 }
 
-.skill-row:hover { background: var(--bg-hover); border-color: var(--bd-base); }
+.skill-row:hover { background: var(--fill-hover); border-color: var(--bd-default); }
 
 .skill-row.source-workspace {
   border-color: var(--intent-warning-border);
@@ -241,7 +241,7 @@
   padding: 1px 7px;
   border-radius: var(--radius-xs);
   background: var(--ov-1);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -320,7 +320,7 @@
 .skill-row-buttons .primary-btn {
   border: 0;
   background: var(--accent);
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
 }
 
 .skill-row-buttons .ghost-btn {
@@ -358,9 +358,9 @@
 .skills-browser-example {
   margin-top: 12px;
   padding: 12px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
-  background: var(--bg-input);
+  background: var(--surface-base);
   color: var(--tx-secondary);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
@@ -372,8 +372,8 @@
 
 .skills-browser-footer {
   padding: 9px 16px;
-  border-top: 1px solid var(--bd-base);
-  background: var(--bg-elevated);
+  border-top: 1px solid var(--bd-default);
+  background: var(--surface-raised);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
 }
@@ -419,11 +419,11 @@
   color: var(--intent-warning-fg);
 }
 
-.bg-jobs-panel-title strong { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 700; }
+.bg-jobs-panel-title strong { color: var(--tx-primary); font-size: var(--fs-md); font-weight: 700; }
 
 .bg-jobs-panel-count {
   padding: 2px 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--intent-warning-bg);
   color: var(--intent-warning-fg);
   font-size: var(--fs-2xs);
@@ -467,7 +467,7 @@
   padding: 0 5px;
   border-radius: var(--radius-xs);
   background: var(--ov-2);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
   font-family: var(--font-mono);
@@ -606,7 +606,7 @@
   padding: 9px 16px;
   border-top: 1px solid var(--ov-1);
   background: color-mix(in srgb, var(--surface-sunken) 20%, transparent);
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
   line-height: 1.5;
 }

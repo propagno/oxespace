@@ -1530,10 +1530,9 @@
     "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Pausada",
-    "background": "Em segundo plano",
-    "completed": "Concluída",
-    "ready": "Pronta"
+    "completed": "Concluído",
+    "idle": "Ocioso",
+    "interrupted": "Interrompido"
   },
   "undoTurn": {
     "nothing": "Nada para desfazer",
@@ -1642,7 +1641,7 @@
     "completedWarnings": "Concluído com avisos",
     "completed": "Concluído",
     "failed": "Falhou",
-    "interrupted": "Pausado",
+    "interrupted": "Interrompido",
     "actions_one": "{{count}} ação",
     "actions_many": "{{count}} ações",
     "actions_other": "{{count}} ações",
@@ -1781,12 +1780,16 @@
   },
   "notify": {
     "untitled": "Conversa",
-    "approval": "{{name}} — precisa de aprovação",
-    "approvalBody": "O agente está esperando a sua decisão para continuar.",
+    "needsYou": "Precisa de você · {{place}}",
+    "needsYouShort": "Precisa de você",
     "failed": "{{name}} — falhou",
     "failedBody": "O turno terminou com um erro. Abra a conversa para ver o motivo.",
-    "finished": "{{name}} — concluída",
-    "finishedBody": "O agente concluiu o turno.",
+    "finishedAt": "Concluído · {{place}}",
+    "finishedShort": "Concluído",
+    "agentsFinished_one": "{{count}} agente terminou",
+    "agentsFinished_many": "{{count}} agentes terminaram",
+    "agentsFinished_other": "{{count}} agentes terminaram",
+    "agentsFinishedBody": "Abra a lista de atividade para vê-los.",
     "requestsWaiting_one": "{{count}} pedido está esperando a sua decisão.",
     "requestsWaiting_other": "{{count}} pedidos estão esperando a sua decisão.",
     "requestsWaiting_many": "{{count}} pedidos estão esperando a sua decisão."

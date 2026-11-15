@@ -37,10 +37,11 @@
  * pushed. The live app's OXESPACE_* and AI_MEMORY_* variables are dropped from every check's environment.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { changedFiles, planRelatedTests } from './related-tests.mjs'
+import { isTrainUpdate } from './merge-train.mjs'
 
 /** Gate tests every PR passes, whatever it changes. */
 export const ALWAYS_TESTS = ['tests/design-lint.test.ts', 'tests/design-lint-target-size.test.ts', 'tests/integration/fs-allowlist.test.ts']
@@ -128,6 +129,29 @@ export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
     return status ? `${context} is ${status.state}${status.description ? ` (${status.description})` : ''}` : `${context} has not been posted`
   })
   return { ok: missing.length === 0, missing }
+}
+
+/**
+ * The brand evidence across the train's own updates (OXE-276). When the merge train brings a car up to date it adds a
+ * merge of main on top of the head MARCA approved; a car that then leaves the queue (say, an infrastructure failure)
+ * comes back with that merge as its head and no marca/fidelidade on it. `chain` is the head first, then each parent
+ * reached through train updates only (`isTrainUpdate`), each `{ sha, statuses }`. For each context the newest commit
+ * that carries it decides: the CI's marca/conformidade of the merge head, MARCA's marca/fidelidade of the head it
+ * approved. Any other commit after the approved head (a change of the author's) ends the chain, so it fails.
+ */
+export function brandEvidenceAcross(chain, contexts = BRAND_CONTEXTS) {
+  const found = new Map()
+  for (const link of chain ?? []) {
+    const latest = new Map()
+    for (const status of link.statuses ?? []) if (!latest.has(status.context)) latest.set(status.context, status)
+    for (const context of contexts) if (!found.has(context) && latest.has(context)) found.set(context, { status: latest.get(context), sha: link.sha })
+  }
+  const missing = contexts.filter(context => found.get(context)?.status.state !== 'success').map(context => {
+    const entry = found.get(context)
+    return entry ? `${context} is ${entry.status.state}${entry.status.description ? ` (${entry.status.description})` : ''}` : `${context} has not been posted`
+  })
+  const via = contexts.map(context => found.get(context)?.sha).filter(Boolean)
+  return { ok: missing.length === 0, missing, from: [...new Set(via)] }
 }
 
 /**
@@ -242,6 +266,28 @@ export function markerEvidence(results) {
   if (proof) return { evidence: proof.evidence, runs: proof.runs ?? [] }
   const fromCi = results.length > 0 && results.every(result => result.ciRuns)
   return fromCi ? { evidence: 'ci', runs: [...new Set(results.flatMap(result => result.ciRuns))] } : { evidence: 'local', runs: [] }
+}
+
+/**
+ * Writes the marker atomically (OXE-115): the content goes to a temporary file next to it, renamed over the marker
+ * only once it is complete, so a reader never sees a half-written marker and an earlier one stays until the swap.
+ */
+export function writeMarker(marker, content, fs = { mkdirSync, writeFileSync, renameSync }) {
+  fs.mkdirSync(dirname(marker), { recursive: true })
+  const temporary = `${marker}.${process.pid}.tmp`
+  fs.writeFileSync(temporary, `${JSON.stringify(content, null, 2)}\n`)
+  fs.renameSync(temporary, marker)
+}
+
+/**
+ * The line a failed run ends with (OXE-115). A run that fails leaves the marker of an earlier passing run on the same
+ * head in place: that run proved this exact commit, and a failure here (often the network or a status not posted yet)
+ * does not undo it.
+ */
+export function failedRunLine(sha, marker, exists = existsSync) {
+  return exists(marker)
+    ? `pr:ready FAILED for ${sha.slice(0, 8)}: this run failed; the marker of an earlier passing run on this head stands (${marker}).`
+    : `pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -368,16 +414,24 @@ function ciStep(step, sha) {
 }
 
 function brandStep(step, sha) {
-  let statuses
+  const chain = []
   try {
     const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
-    statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/statuses?per_page=100`])).flat()
+    let current = sha
+    // The head, then back through the train's own update merges only (OXE-276), at most 10 of them.
+    for (let hop = 0; hop <= 10 && current; hop++) {
+      const statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${current}/statuses?per_page=100`])).flat()
+      chain.push({ sha: current, statuses })
+      const commit = JSON.parse(gh(['api', `repos/${repo}/commits/${current}`, '--jq', '{message: .commit.message, parents: [.parents[].sha]}']))
+      current = isTrainUpdate(commit) ? commit.parents[0] : null
+    }
   } catch (error) {
     return readFailed('the brand statuses', sha, error)
   }
-  const evidence = brandEvidence(statuses, step.args)
+  const evidence = brandEvidenceAcross(chain, step.args)
+  const via = evidence.from.filter(from => from !== sha).map(from => from.slice(0, 8))
   return evidence.ok
-    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}` }
+    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}${via.length ? ` (approved on ${via.join(', ')}, before the train's merge of main)` : ''}` }
     : { ok: false, detail: `${evidence.missing.join('; ')}. An interface change needs MARCA's side-by-side check against the target (oxespace-3d posts marca/fidelidade on the exact head)` }
 }
 
@@ -417,8 +471,6 @@ function main(argv) {
   for (const reason of related.reasons ?? []) console.log(`    (${reason})`)
   if (options.dryRun) return 0
 
-  // A marker from an earlier run on this head is stale until this run passes.
-  rmSync(marker, { force: true })
   const env = checkEnv()
   const results = []
   for (const step of steps) {
@@ -431,13 +483,12 @@ function main(argv) {
   for (const result of results) console.log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${result.name} (${result.detail})`)
   const ok = results.length === steps.length && results.every(result => result.ok)
   if (!ok) {
-    console.log(`pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`)
+    console.log(failedRunLine(sha, marker))
     return 1
   }
   // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
-  mkdirSync(dirname(marker), { recursive: true })
   const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), ...markerEvidence(results), lint: results.find(result => result.lint)?.lint, tests: results.find(result => result.tests)?.tests })
-  writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
+  writeMarker(marker, content)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
   const posted = postStatus(sha, content)

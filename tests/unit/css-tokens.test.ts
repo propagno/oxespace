@@ -67,7 +67,7 @@ describe('CSS custom properties', () => {
   })
 
   test('the tokens the diagnostics panel needs exist under their real names', () => {
-    for (const token of ['--bd-subtle', '--bg-elevated', '--tx-muted', '--dot-green', '--dot-yellow', '--dot-red']) {
+    for (const token of ['--bd-subtle', '--surface-raised', '--tx-muted', '--intent-success-solid', '--intent-warning-solid', '--intent-danger-solid']) {
       expect(css, `${token} must stay defined`).toContain(`${token}:`)
     }
   })

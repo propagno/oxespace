@@ -54,7 +54,7 @@ test('import MCP servers from Cursor into the Connections panel', async () => {
     for (const name of ['local-tools', 'remote-docs', 'with-token']) await importer.getByRole('checkbox', { name }).check()
     // The sidebar group header behind the dialog has its own finding (nested interactive controls), tracked
     // by the accessibility audit; this scan is about the Connections dialog.
-    const violations = await scanSurface(page, 'mcp/import', { exclude: ['.ws-group-header'] })
+    const violations = await scanSurface(page, 'mcp/import', { exclude: ['[data-ui="sidebar-group"]'] })
     expect(violations.filter(item => item.impact === 'critical' || item.impact === 'serious'), JSON.stringify(violations, null, 2)).toEqual([])
 
     await importer.getByRole('button', { name: 'Import 3 servers' }).click()

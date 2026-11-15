@@ -8,7 +8,7 @@
   border: none;
   border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--brand, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   cursor: pointer;
   vertical-align: middle;
   transition: opacity var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
@@ -25,13 +25,13 @@
 .diff-comment-row .diff-comment-cell {
   padding: 5px 10px;
   background: var(--accent-soft);
-  border-left: 2px solid var(--brand, var(--accent));
+  border-left: 2px solid var(--accent, var(--accent));
   font-family: inherit;
   white-space: normal;
 }
 
 .diff-comment-icon {
-  color: var(--brand, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   margin-right: 6px;
   vertical-align: text-bottom;
 }
@@ -52,7 +52,7 @@
 }
 
 .diff-comment-delete:hover {
-  color: var(--dot-red, var(--intent-danger-fg));
+  color: var(--intent-danger-solid, var(--intent-danger-fg));
   background: var(--intent-danger-bg);
 }
 
@@ -66,14 +66,14 @@
   padding: 5px 8px;
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-input, var(--surface-sunken));
+  background: var(--surface-base, var(--surface-sunken));
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-2xs);
 }
 
 .diff-comment-input:focus {
-  border-color: var(--brand, var(--accent));
+  border-color: var(--accent, var(--accent));
 }
 
 .diff-comment-actions {
@@ -92,8 +92,8 @@
 }
 
 .diff-comment-save {
-  background: var(--brand, var(--accent));
-  color: var(--text-on-accent);
+  background: var(--accent, var(--accent));
+  color: var(--tx-on-accent);
   font-weight: 600;
 }
 
@@ -115,7 +115,7 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--brand, var(--text-accent));
+  color: var(--accent, var(--tx-accent));
   font-size: var(--fs-2xs);
   font-weight: 600;
   cursor: pointer;
@@ -126,7 +126,20 @@
   background: var(--accent-soft);
 }
 
+/* Changes panel: the "Sent" label of a sent line comment and the send notice */
+.oxe-line-comment-sent {
+  margin-right: auto;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+}
+
+.changes-send-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .review-pane-alert--info {
-  border-left: 2px solid var(--brand, var(--accent));
+  border-left: 2px solid var(--accent, var(--accent));
   color: var(--tx-secondary);
 }

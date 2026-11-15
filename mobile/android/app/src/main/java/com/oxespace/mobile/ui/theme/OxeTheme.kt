@@ -108,7 +108,8 @@ val OxeCodeStyle = style(OxeType.textSm, OxeType.leadingNormal, OxeType.weightRe
 
 /**
  * The desktop's type scale on Material's roles. Phones read at arm's length, so body text starts at `lg` (16 sp)
- * where the desktop's compact density uses `md`.
+ * where the desktop's compact density uses `md`. BRD-07 (OXE-69): titleMedium 16/600, bodyMedium 13, labelMedium 12,
+ * labelSmall 11, and no role under 11 sp (OxeThemeTest).
  */
 val OxeTypography = Typography(
     displaySmall = style(OxeType.textDisplay, OxeType.leadingTight, OxeType.weightSemibold, OxeFonts.display),
@@ -118,7 +119,7 @@ val OxeTypography = Typography(
     titleMedium = style(OxeType.textLg, OxeType.leadingSnug, OxeType.weightSemibold),
     titleSmall = style(OxeType.textMd, OxeType.leadingSnug, OxeType.weightMedium),
     bodyLarge = style(OxeType.textLg, OxeType.leadingNormal, OxeType.weightRegular),
-    bodyMedium = style(OxeType.textMd, OxeType.leadingNormal, OxeType.weightRegular),
+    bodyMedium = style(OxeType.textSm, OxeType.leadingNormal, OxeType.weightRegular),
     bodySmall = style(OxeType.textSm, OxeType.leadingNormal, OxeType.weightRegular),
     labelLarge = style(OxeType.textMd, OxeType.leadingSnug, OxeType.weightMedium),
     labelMedium = style(OxeType.textXs, OxeType.leadingSnug, OxeType.weightMedium),

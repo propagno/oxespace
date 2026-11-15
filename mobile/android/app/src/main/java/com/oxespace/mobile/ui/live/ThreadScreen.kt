@@ -9,7 +9,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.snapshotFlow
@@ -29,13 +28,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,14 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
-import android.content.ClipData
-import androidx.compose.ui.platform.ClipEntry
-import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -75,11 +68,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -122,7 +113,6 @@ import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
-import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import java.util.UUID
@@ -244,7 +234,8 @@ fun ThreadScreen(
             // CR-A42b-2 (M4): the now line under the app bar while the conversation waits on the person.
             pending.firstOrNull()?.let { waiting ->
                 NowBanner(
-                    text = stringResource(R.string.thread_now_needs_you, requestTitle(waiting)) +
+                    lead = stringResource(R.string.thread_state_needs_you),
+                    text = requestTitle(waiting) +
                         (if (pending.size > 1) " " + pluralStringResource(R.plurals.thread_more_requests, pending.size - 1, pending.size - 1) else ""),
                     review = stringResource(R.string.thread_review),
                     onReview = { onOpenRequest(waiting.requestId) },
@@ -303,8 +294,8 @@ fun ThreadScreen(
             items(rows, key = { it.key }) { row ->
                 when (row) {
                     is TimelineRow.Prompt -> PromptBlock(row.text, row.truncated)
-                    is TimelineRow.Prose -> MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated)
-                    is TimelineRow.Answer -> AnswerCard(row.text, row.truncated)
+                    is TimelineRow.Prose -> AgentReply(header?.provider) { MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated) }
+                    is TimelineRow.Answer -> AgentReply(header?.provider) { AnswerCard(row.text, row.truncated) }
                     is TimelineRow.Step -> StepRow(row.tool)
                     is TimelineRow.StepGroup -> StepGroupRow(row.tools)
                     is TimelineRow.Plan -> PlanBlock(row.plan)
@@ -416,7 +407,21 @@ private fun PromptBlock(text: String, truncated: Boolean) {
  * block in both themes (the exported dark `surfaceSunken` is almost the canvas itself).
  */
 @Composable
-private fun promptFill(): Color = lerp(Oxe.colors.surfaceCanvas, Oxe.colors.textPrimary, PROMPT_TINT)
+internal fun promptFill(): Color = lerp(Oxe.colors.surfaceCanvas, Oxe.colors.textPrimary, PROMPT_TINT)
+
+/** 1.5.2 A9 v3 (CR-F3-6): each agent reply under its author line, the provider's 18 dp avatar and its name. */
+@Composable
+private fun AgentReply(provider: String?, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        if (provider != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                ProviderAvatar(provider)
+                Text(providerName(displaySafe(provider, PROVIDER_MAX)), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        content()
+    }
+}
 
 /** The turn's one card: raised, "Resposta do agente" in the accent text, Markdown with copyable code blocks. */
 @Composable
@@ -430,105 +435,6 @@ private fun AnswerCard(text: String, truncated: Boolean) {
     ) {
         Text(stringResource(R.string.thread_answer_label), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textAccent)
         MarkdownText(displaySafeBlock(text, RemoteTextLimits.ITEM_TEXT), truncated = truncated)
-    }
-}
-
-/** The agent's Markdown (Markdown.kt): paragraphs, lists and code blocks. */
-@Composable
-private fun MarkdownText(text: String, truncated: Boolean) {
-    val blocks = remember(text) { parseMarkdown(text) }
-    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-        for (block in blocks) {
-            when (block) {
-                is MdBlock.Paragraph -> Text(spans(block.spans), style = MaterialTheme.typography.bodyLarge)
-                is MdBlock.Bullet -> Row(horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-                    Text(block.marker, style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textSecondary)
-                    Text(spans(block.spans), style = MaterialTheme.typography.bodyLarge)
-                }
-                is MdBlock.Code -> CodeBlock(block.text)
-            }
-        }
-        if (truncated) Text(stringResource(R.string.thread_truncated), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted)
-    }
-}
-
-@Composable
-private fun spans(spans: List<MdSpan>): AnnotatedString {
-    val code = SpanStyle(fontFamily = OxeCodeStyle.fontFamily, fontSize = OxeCodeStyle.fontSize, background = Oxe.colors.surfaceSunken)
-    return buildAnnotatedString {
-        for (span in spans) {
-            when (span) {
-                is MdSpan.Plain -> append(span.text)
-                is MdSpan.Bold -> withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(span.text) }
-                is MdSpan.Code -> withStyle(code) { append(span.text) }
-            }
-        }
-    }
-}
-
-/** A code block: sunken, Plex Mono, scrolls sideways inside itself, with Copiar at the top right. */
-@Composable
-fun CodeBlock(text: String) {
-    val clipboard = LocalClipboard.current
-    val scope = rememberCoroutineScope()
-    var copied by remember(text) { mutableStateOf(false) }
-    LaunchedEffect(copied) { if (copied) { delay(COPIED_MS); copied = false } }
-    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).background(promptFill(), RoundedCornerShape(OxeRadius.md))) {
-        Text(
-            text,
-            style = OxeCodeStyle,
-            softWrap = false,
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 76.dp, top = 14.dp, bottom = 14.dp),
-        )
-        TextButton(
-            onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("code", text))) }; copied = true },
-            modifier = Modifier.align(Alignment.TopEnd).heightIn(min = 48.dp),
-        ) { Text(stringResource(if (copied) R.string.thread_copied else R.string.thread_copy), style = MaterialTheme.typography.labelMedium) }
-    }
-}
-
-/** One step: status icon, verb, the target in Plex Mono, a muted count, and a chevron that opens its output. */
-@Composable
-private fun StepRow(tool: RemoteThreadItem.Tool, indent: Boolean = false) {
-    var open by rememberSaveable(tool.id) { mutableStateOf(false) }
-    val output = tool.output?.takeIf { it.isNotEmpty() }
-    // The diff opens with the output, behind the same tap, inside this screen that already blocks screenshots.
-    val diff = tool.diff?.takeIf { it.files.isNotEmpty() || !it.patch.isNullOrEmpty() }
-    val opens = output != null || diff != null
-    val kind = stepKind(tool.name)
-    val count = tool.filesChanged?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.thread_files_changed, it.toInt(), it.toInt()) }
-    Column {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 40.dp)
-                .then(if (opens) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = if (open) "expanded" else "collapsed" } else Modifier)
-                .padding(start = if (indent) 26.dp else 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
-        ) {
-            StepIcon(tool.state)
-            Text(
-                buildAnnotatedString {
-                    append(stringResource(verbRes(kind)))
-                    append(' ')
-                    withStyle(SpanStyle(fontFamily = OxeCodeStyle.fontFamily, color = Oxe.colors.textPrimary)) {
-                        append(displaySafe(if (kind == StepKind.OTHER) "${tool.name} ${tool.detail}" else tool.detail, TARGET_MAX))
-                    }
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Oxe.colors.textSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-                modifier = Modifier.weight(1f),
-            )
-            count?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted) }
-            if (opens) Chevron(open)
-        }
-        tool.redacted?.takeIf { it > 0 }?.let {
-            Text(pluralStringResource(R.plurals.terminal_redacted, it.toInt(), it.toInt()), style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.padding(start = 26.dp))
-        }
-        // What is shown is what Copiar copies: hidden characters written out, never obeyed.
-        if (open && output != null) Box(Modifier.padding(start = 26.dp)) { CodeBlock(showHidden(output)) }
-        if (open && diff != null) ToolDiffView(diff, Modifier.padding(start = 26.dp, top = OxeSpace.space2))
     }
 }
 
@@ -553,27 +459,7 @@ private fun StepGroupRow(tools: List<RemoteThreadItem.Tool>) {
     }
 }
 
-@Composable
-private fun StepIcon(state: String) {
-    Box(Modifier.width(18.dp), contentAlignment = Alignment.Center) {
-        when (state) {
-            "running" -> Spinner()
-            "failed" -> Text("✕", color = Oxe.colors.intentDangerFg, fontWeight = FontWeight.Bold)
-            "completed" -> Text("✓", color = Oxe.colors.intentSuccessFg, fontWeight = FontWeight.Bold)
-            else -> Text("·", color = Oxe.colors.textMuted)
-        }
-    }
-}
-
-@Composable
-private fun Spinner() {
-    CircularProgressIndicator(Modifier.size(14.dp).semantics { hideFromAccessibility() }, color = Oxe.colors.accent, trackColor = Oxe.colors.borderSubtle, strokeWidth = 2.dp)
-}
-
-@Composable
-private fun Chevron(open: Boolean) {
-    Icon(ImageVector.vectorResource(R.drawable.ic_chevron), contentDescription = null, tint = Oxe.colors.textMuted, modifier = Modifier.size(20.dp).rotate(if (open) 90f else 0f))
-}
+// StepRow, StepIcon, Spinner and Chevron live in ToolCard.kt (A12).
 
 /** The plan: one raised block, "Plano · 1 de 3", done steps muted and struck through, the current one at 600. */
 @Composable
@@ -613,7 +499,7 @@ private fun RequestMarker(request: RemoteThreadItem.Request) {
             text,
             style = MaterialTheme.typography.labelMedium,
             color = if (waiting) Oxe.colors.intentWarningFg else Oxe.colors.textMuted,
-            modifier = Modifier.background(if (waiting) Oxe.colors.intentWarningBg else Oxe.colors.surfaceSunken, RoundedCornerShape(50)).padding(horizontal = OxeSpace.space3, vertical = 3.dp),
+            modifier = Modifier.background(if (waiting) Oxe.colors.intentWarningBg else Oxe.colors.surfaceSunken, RoundedCornerShape(OxeRadius.full)).padding(horizontal = OxeSpace.space3, vertical = 3.dp),
         )
     }
 }
@@ -630,9 +516,10 @@ private fun TurnBar(row: TimelineRow.TurnBar, onToggle: () -> Unit) {
         },
         steps,
     )
+    val state = stringResource(if (row.open) R.string.thread_step_expanded else R.string.thread_step_collapsed)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable(role = Role.Button, onClick = onToggle)
-            .semantics { stateDescription = if (row.open) "expanded" else "collapsed" },
+            .semantics { stateDescription = state },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = Oxe.colors.textMuted, modifier = Modifier.weight(1f))
@@ -739,8 +626,8 @@ private fun Composer(
         val stops = ComposerControl.STOP in mode.controls
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                .background(Oxe.colors.surfaceRaised, RoundedCornerShape(24.dp))
-                .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(24.dp))
+                .background(Oxe.colors.surfaceRaised, RoundedCornerShape(OxeRadius.full))
+                .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(OxeRadius.full))
                 .padding(start = if (stops) 4.dp else OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -843,15 +730,6 @@ private fun ConversationSkeleton(modifier: Modifier, afterMs: Long) {
 
 // ---- words -----------------------------------------------------------------------------------------------------------
 
-private fun verbRes(kind: StepKind) = when (kind) {
-    StepKind.READ -> R.string.thread_verb_read
-    StepKind.RUN -> R.string.thread_verb_run
-    StepKind.EDIT -> R.string.thread_verb_edit
-    StepKind.CREATE -> R.string.thread_verb_create
-    StepKind.SEARCH -> R.string.thread_verb_search
-    StepKind.OTHER -> R.string.thread_verb_other
-}
-
 private fun doingRes(kind: StepKind) = when (kind) {
     StepKind.READ -> R.string.thread_doing_read
     StepKind.RUN -> R.string.thread_doing_run
@@ -870,7 +748,6 @@ private fun groupRes(kind: StepKind) = when (kind) {
 
 private const val TITLE_MAX = 200
 private const val TARGET_MAX = 160
-private const val COPIED_MS = 2_000L
 private const val SKELETON_DELAY_MS = 300L
 private const val PROMPT_TINT = 0.06f
 private const val PROVIDER_MAX = 40

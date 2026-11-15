@@ -45,13 +45,18 @@ export function decideThreadAttention({ previous, current, viewing }: ThreadAtte
   return { kind, unread: !viewing, notify: !viewing }
 }
 
-export function threadAttentionText(kind: ThreadAttentionKind, title: string): { title: string; body: string } {
+/**
+ * The words of a notice (OXE-130). "Needs you" and "Finished": the conversation's name alone is the title, the state
+ * and the place (its project, by name) the body. A failure keeps its words.
+ */
+export function threadAttentionText(kind: ThreadAttentionKind, title: string, place = ''): { title: string; body: string } {
   // B10: the title can come from the agent; a reserved app name in it is never shown as the sender.
   const untitled = i18n.t('notify.untitled', { ns: 'thread' })
   const name = withoutReservedName(title.trim(), untitled) || untitled
+  const where = place.trim()
   switch (kind) {
-    case 'needs-approval': return { title: i18n.t('notify.approval', { ns: 'thread', name }), body: i18n.t('notify.approvalBody', { ns: 'thread' }) }
+    case 'needs-approval': return { title: name, body: where ? i18n.t('notify.needsYou', { ns: 'thread', place: where }) : i18n.t('notify.needsYouShort', { ns: 'thread' }) }
     case 'failed': return { title: i18n.t('notify.failed', { ns: 'thread', name }), body: i18n.t('notify.failedBody', { ns: 'thread' }) }
-    case 'finished': return { title: i18n.t('notify.finished', { ns: 'thread', name }), body: i18n.t('notify.finishedBody', { ns: 'thread' }) }
+    case 'finished': return { title: name, body: where ? i18n.t('notify.finishedAt', { ns: 'thread', place: where }) : i18n.t('notify.finishedShort', { ns: 'thread' }) }
   }
 }

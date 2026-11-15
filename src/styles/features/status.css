@@ -16,7 +16,7 @@
 /* Thinking: agent is streaming output right now — pulse at 1.2s. */
 .pane-activity-dot.activity-thinking,
 .pane-status-dot.activity-thinking {
-  background: var(--dot-green);
+  background: var(--intent-success-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
@@ -26,7 +26,7 @@
    Quiet but visible, like "your turn". */
 .pane-activity-dot.activity-awaiting,
 .pane-status-dot.activity-awaiting {
-  background: var(--brand);
+  background: var(--accent);
   box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18), 0 0 6px rgba(18, 199, 154, 0.65);
 }
 
@@ -39,13 +39,13 @@
 
 .pane-activity-dot.activity-error,
 .pane-status-dot.activity-error {
-  background: var(--dot-red);
+  background: var(--intent-danger-solid);
   box-shadow: 0 0 6px rgba(248, 113, 113, 0.65);
 }
 
 .pane-activity-dot.activity-starting,
 .pane-status-dot.activity-starting {
-  background: var(--dot-yellow);
+  background: var(--intent-warning-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
   box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
@@ -108,7 +108,7 @@
 /* The sidebar row's state line, in the same warning words. */
 .pane-row-preview.is-decision { color: var(--intent-warning-fg); font-weight: 600; }
 /* Beside the row's name, visible in the compact layout too. */
-.pane-row-decision-mark { flex-shrink: 0; color: var(--intent-warning-fg); }
+.pane-row-decision-mark { display: inline-block; vertical-align: -2px; margin-inline-start: var(--space-1); flex-shrink: 0; color: var(--intent-warning-fg); }
 
 
 /* Consolidated integration control. Five equal-looking topbar chips competed
@@ -126,9 +126,9 @@
   gap: 6px;
   height: 30px;
   padding: 0 9px;
-  border: 1px solid var(--pane-border);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--pane-surface-raised) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 76%, transparent);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 580;
@@ -139,7 +139,7 @@
 .workspace-integrations-trigger:hover,
 .workspace-integrations-trigger[aria-expanded='true'] {
   border-color: color-mix(in srgb, var(--tx-primary) 16%, transparent);
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
 }
 
@@ -151,8 +151,8 @@
   flex-shrink: 0;
 }
 
-.workspace-integrations-health.tone-healthy { background: var(--dot-green); box-shadow: 0 0 6px color-mix(in srgb, var(--dot-green) 62%, transparent); }
-.workspace-integrations-health.tone-attention { background: var(--dot-yellow); }
+.workspace-integrations-health.tone-healthy { background: var(--intent-success-solid); box-shadow: 0 0 6px color-mix(in srgb, var(--intent-success-solid) 62%, transparent); }
+.workspace-integrations-health.tone-attention { background: var(--intent-warning-solid); }
 .workspace-integrations-health.tone-idle { background: var(--tx-muted); opacity: 0.55; }
 
 .workspace-integrations-count {
@@ -177,7 +177,7 @@
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--tx-primary) 12%, transparent);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-elevated) 96%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 96%, transparent);
   box-shadow: var(--elevation-4), inset 0 1px 0 var(--ov-1);
   backdrop-filter: blur(20px) saturate(130%);
   -webkit-backdrop-filter: blur(20px) saturate(130%);
@@ -189,7 +189,7 @@
   justify-content: space-between;
   height: 30px;
   padding: 0 8px 5px;
-  border-bottom: 1px solid var(--pane-border);
+  border-bottom: 1px solid var(--bd-default);
   color: var(--tx-primary);
   font-size: var(--fs-2xs);
 }
@@ -212,7 +212,7 @@
 }
 
 .workspace-integrations-row.is-action { cursor: pointer; }
-.workspace-integrations-row.is-action:hover { background: var(--surface-hover); color: var(--tx-primary); }
+.workspace-integrations-row.is-action:hover { background: var(--fill-hover); color: var(--tx-primary); }
 
 .workspace-integrations-row-icon {
   display: inline-flex;
@@ -221,15 +221,15 @@
   width: 24px;
   height: 24px;
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
 }
 
 .workspace-integrations-row-copy { display: grid; gap: 1px; min-width: 0; }
 .workspace-integrations-row-copy strong { color: inherit; font-size: var(--fs-2xs); font-weight: 620; }
 .workspace-integrations-row-copy span { overflow: hidden; color: var(--tx-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
-.workspace-integrations-row-dot.activity-thinking { background: var(--dot-green); }
-.workspace-integrations-row-dot.activity-awaiting { background: var(--dot-yellow); }
+.workspace-integrations-row-dot.activity-thinking { background: var(--intent-success-solid); }
+.workspace-integrations-row-dot.activity-awaiting { background: var(--intent-warning-solid); }
 .workspace-integrations-row-dot.activity-idle { background: var(--tx-muted); opacity: 0.42; }
 
 @container terminal-pane (max-width: 560px) {
@@ -257,5 +257,5 @@
 
 /* Configure agent: readiness above the form. */
 .agent-config-readiness { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
-.agent-config-readiness-detail { color: var(--text-secondary); font-size: var(--text-xs); }
+.agent-config-readiness-detail { color: var(--tx-secondary); font-size: var(--fs-xs); }
 .agent-config-health { margin-left: auto; }

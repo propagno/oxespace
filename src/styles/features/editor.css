@@ -9,7 +9,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-tile);
+  background: var(--surface-base);
 }
 
 .editor-sidebar {
@@ -20,7 +20,7 @@
   min-height: 0;
   overflow: hidden;
   border-right: 1px solid var(--bd-subtle);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 
 .editor-sidebar-title {
@@ -78,14 +78,14 @@
 .editor-browser-directory:hover,
 .editor-browser-file:hover {
   color: var(--tx-primary);
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   border-left-color: var(--ov-3);
 }
 
 .editor-browser-file.active {
-  color: var(--brand-light);
+  color: var(--tx-accent);
   background: var(--fill-selected);
-  border-left-color: var(--brand);
+  border-left-color: var(--accent);
 }
 
 .editor-browser-directory span,
@@ -121,7 +121,7 @@
   min-width: 0;
   border-bottom: 1px solid var(--bd-subtle);
   padding: 0 14px;
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 
 .editor-path {

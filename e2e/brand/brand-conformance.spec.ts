@@ -7,11 +7,11 @@
  *
  * Runs only through playwright.brand.config.ts (the smoke config ignores e2e/brand/**).
  */
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Density } from '../helpers/launch'
-import { installThreadFixtures, openThreadWithState, registerThreadProject } from '../helpers/thread-fixtures'
+import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor, type Density } from '../helpers/launch'
+import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
 type Expect = { token?: string; oneOf?: string[]; px?: number; eq?: number }
@@ -29,7 +29,29 @@ const tokenNames = [...new Set([...readFileSync(join(process.cwd(), 'src/styles/
 const results: Result[] = []
 
 /** Where each scene's selectors are evaluated. Settings is a dialog; the other scenes are the whole window. */
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'settings-general': '[role=dialog]' }
+/**
+ * BRD-01's two-line row: one terminal of the open workspace waits on a permission, through main's AgentStateService e2e
+ * hook (electron/main/e2e/agent-state-hook.ts, as the BRD-09 e2e uses it), so the sidebar draws its second line.
+ */
+async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<void> {
+  try {
+    const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
+      .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
+    const paneId = panes.at(-1)
+    if (!paneId) throw new Error('no terminal pane')
+    await app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), { paneId, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
+    const row = page.locator("[data-ui=sidebar-row][data-lines='2']").first()
+    await row.waitFor({ timeout: 10_000 })
+    // DIAG (#854, BRD-01.row-two-line.height): the row's box and each child's, to read a height over --row-2.
+    console.log(`[BRAND] two-line row: ${await row.evaluate(node => [node, ...node.children].map(child => `${child === node ? 'row' : (child.getAttribute('class') ?? child.tagName)}=${Math.round(child.getBoundingClientRect().height * 10) / 10}`).join(' '))}`)
+    console.log(`[BRAND] two-line title: ${await row.evaluate(node => { const title = node.children[1] as HTMLElement | undefined; if (!title) return 'none'; const cs = getComputedStyle(title); return `display=${cs.display} lh=${cs.lineHeight} fs=${cs.fontSize} ws=${cs.whiteSpace} :: ` + [...title.childNodes].map(child => child.nodeType === 3 ? `text(${(child.textContent ?? '').length})` : (() => { const el = child as HTMLElement; const c = getComputedStyle(el); return `${el.tagName.toLowerCase()}.${el.getAttribute('class') ?? ''}[${c.display},${c.position},h=${Math.round(el.getBoundingClientRect().height * 10) / 10}]` })()).join(' ') })}`)
+    console.log(`[BRAND] short OxeCode buttons: ${await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]')].filter(el => el.getBoundingClientRect().height < 27.5).map(el => `${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)}|${el.getAttribute('data-size')}|${el.getAttribute('class')}|h=${Math.round(el.getBoundingClientRect().height * 10) / 10}`).join(' ; ') || 'none')}`)
+  } catch (error) {
+    console.log(`[BRAND] could not seed a terminal that needs a decision: ${(error as Error).message.split('\n')[0]}`)
+  }
+}
+
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -47,6 +69,18 @@ async function openSidePanels(page: Page): Promise<void> {
     }
   }
   await page.getByTestId('changes-panel').waitFor({ timeout: 10_000 }).catch(() => {})
+}
+
+/** BRD-11 (OXE-75): Ctrl+K in OxeCode, then ">" so the bar lists its command rows. A failure leaves the scene's measures as "no element". */
+async function openCommandBar(page: Page): Promise<void> {
+  try {
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
+    await page.locator('[data-ui="command-bar"]').waitFor({ timeout: 10_000 })
+    await page.keyboard.type('>')
+    await page.locator('[data-ui="command-row"]').first().waitFor({ timeout: 10_000 })
+  } catch (error) {
+    console.log(`[BRAND] could not open the command bar: ${(error as Error).message.split('\n')[0]}`)
+  }
 }
 
 async function measureScene(page: Page, scene: string, density: Density, theme: 'light' | 'dark'): Promise<void> {
@@ -139,20 +173,43 @@ test.describe.serial('brand conformance (OXE-149)', () => {
     for (const theme of ['light', 'dark'] as const) {
       test(`${density} ${theme}`, async () => {
         test.setTimeout(180_000)
-        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density })
+        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1' } })
         try {
-          await resizeWindow(app, 1440, 900)
+          // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
+          await layoutAtWidth(app, page, 1440, 900)
           await installThreadFixtures(app, workspaceRoot)
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
           await registerThreadProject(app, page, workspaceRoot)
           await openSidePanels(page)
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
+          await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
+          await openCommandBar(page)
+          await measureScene(page, 'command-bar', density, theme)
+          await page.keyboard.press('Escape')
+          await page.locator('[data-ui="command-bar"]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
           await measureScene(page, 'chat-conversation', density, theme)
+          // OxeChat's approved target (15/11): a request waiting in the conversation and on its sidebar row, and the
+          // opening of a conversation with no messages yet (the new-conversation screen).
+          // The same conversation, moved between states: a failure here reports its measures as "no element" and never
+          // ends the run (the status of every interface PR comes from this run).
+          for (const [state, scene] of [['approval', 'chat-approval'], ['empty', 'chat-new-session']] as const) {
+            try {
+              await setThreadState(app, workspaceRoot, state)
+              await page.waitForLoadState('domcontentloaded')
+            } catch (error) {
+              console.log(`[BRAND] could not set the ${state} state: ${(error as Error).message.split('\n')[0]}`)
+            }
+            await measureScene(page, scene, density, theme)
+          }
           await openSettings(page)
           await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
+          // With a workspace open Settings can open in that workspace's scope: open the app's General page, which BRD-06 measures.
+          await page.locator('.settings-center-nav').getByRole('button', { name: /^General/ }).first().click({ timeout: 10_000 }).catch(() => console.log('[BRAND] could not open General'))
+          // General loads lazily: measure once its page column is there (a miss reports "no element", as before).
+          await page.locator('[data-ui=settings-page]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] the General page did not render'))
           await measureScene(page, 'settings-general', density, theme)
         } finally {
           await app.close()

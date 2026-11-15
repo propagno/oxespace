@@ -22,6 +22,13 @@ function commentHeight(body: string, perLine: number): number {
   return 20 + lines * 18 + 28
 }
 
+/** The line's current text, or null when the model has no such line. */
+function lineText(editor: Editor, line: number): string | null {
+  try { return editor.getModel()?.getLineContent(line) ?? null } catch { return null }
+}
+
+const timeOf = (at: number): string => new Date(at).toLocaleTimeString(i18n.language || undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
+
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -84,7 +91,8 @@ export function attachLineComments(diff: MonacoEditor.IStandaloneDiffEditor, mon
     const comments = api.comments()
     for (const { side, editor } of sides) {
       clearZones(editor)
-      const mine = comments.filter(comment => comment.side === side)
+      // A sent comment stays while its line still reads as it did when the comment was made.
+      const mine = comments.filter(comment => comment.side === side && (comment.sentAt == null || lineText(editor, comment.lineNo) === comment.lineContent))
       for (const comment of mine) {
         const card = element('div', 'oxe-line-comment')
         card.append(element('p', undefined, comment.body))
@@ -94,6 +102,7 @@ export function attachLineComments(diff: MonacoEditor.IStandaloneDiffEditor, mon
         remove.setAttribute('aria-label', tc('changes.comments.removeLabel', { line: comment.lineNo }))
         remove.addEventListener('mousedown', event => event.stopPropagation())
         remove.addEventListener('click', () => api.remove(comment.id))
+        if (comment.sentAt != null) footer.append(element('span', 'oxe-line-comment-sent', tc('changes.comments.sentAt', { time: timeOf(comment.sentAt) })))
         footer.append(remove)
         card.append(footer)
         const perLine = Math.max(14, Math.floor((editor.getLayoutInfo().contentWidth - 40) / 6.6))

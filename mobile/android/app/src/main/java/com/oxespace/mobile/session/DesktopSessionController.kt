@@ -23,7 +23,8 @@ sealed interface DesktopStatus {
     /** Nothing paired. [revokedFrom] names the desktop that just removed this phone, to say so once. */
     data class Unpaired(val revokedFrom: String? = null, val revoked: Boolean = false, val lapsed: Boolean = false) : DesktopStatus
     data class Connecting(val desktop: PairedDesktop) : DesktopStatus
-    data class Connected(val desktop: PairedDesktop, val desktopName: String?) : DesktopStatus
+    /** [desktopOs] and [pairedAt] are what the desktop said at sign-in (OXE-179); null from an older desktop. */
+    data class Connected(val desktop: PairedDesktop, val desktopName: String?, val desktopOs: String? = null, val pairedAt: Long? = null) : DesktopStatus
     /** A live session dropped (desktop asleep, Wi-Fi blip): trying again right away. */
     data class Reconnecting(val desktop: PairedDesktop) : DesktopStatus
     /** No answer: the desktop is off, or its gateway is. Trying again after [retryInMs]. */
@@ -184,7 +185,7 @@ class DesktopSessionController(
                 // Remember where it answered, so the next start goes there first.
                 val host = session.connectedHost
                 if (host != null && host != desktop.host) store.save((store.load() ?: desktop).copy(host = host))
-                mutableStatus.value = DesktopStatus.Connected(desktop, state.desktopName ?: desktop.desktopName)
+                mutableStatus.value = DesktopStatus.Connected(desktop, state.desktopName ?: desktop.desktopName, state.desktopOs, state.pairedAt)
             }
             is SessionState.Ended -> {
                 val wasConnected = mutableStatus.value is DesktopStatus.Connected

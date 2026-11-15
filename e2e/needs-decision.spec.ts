@@ -21,7 +21,7 @@ const setAgentState = (app: ElectronApplication, input: HookInput): Promise<Hook
 const header = (page: Page, paneId: string) => page.locator(`[data-testid="pane-container"][data-pane-id="${paneId}"]`)
 const row = (page: Page, paneId: string) => page.locator(`[data-testid="pane-session-row"][data-pane-id="${paneId}"]`)
 
-test('a blocked pane reads "Needs your decision"; a finished one keeps its look', async () => {
+test('a blocked pane reads "Needs you"; a finished one keeps its look', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot, consoleErrors } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
@@ -52,13 +52,13 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     expect(await setAgentState(app, { paneId: done, state: 'done', agent: 'claude' })).toMatchObject({ ok: true, explain: { state: { state: 'done' } } })
 
     // Header: words, a different dot, and the origin.
-    await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs your decision')
+    await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs you')
     await expect(header(page, done).getByTestId('pane-decision-chip')).toHaveCount(0)
     await expect(header(page, blocked)).toHaveAttribute('data-tone', 'needs-decision')
     await expect(header(page, done)).toHaveAttribute('data-tone', 'awaiting')
     await expect(header(page, blocked).getByTestId('pane-status-dot')).toHaveClass(/activity-needs-decision/)
     await expect(header(page, done).getByTestId('pane-status-dot')).toHaveClass(/activity-awaiting/)
-    await expect(header(page, blocked).getByTestId('pane-status-text')).toHaveText("Needs your decision · Reported by the agent's hooks")
+    await expect(header(page, blocked).getByTestId('pane-status-text')).toHaveText("Needs you · Reported by the agent's hooks")
     // Screen readers: a polite status region, filled once on entry.
     const live = header(page, blocked).getByTestId('pane-decision-live')
     await expect(live).toHaveAttribute('role', 'status')
@@ -66,9 +66,11 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await expect(header(page, done).getByTestId('pane-decision-live')).toHaveText('')
 
     // Sidebar rows differ in words, not only in color.
-    await expect(row(page, blocked).getByTestId('pane-row-status')).toContainText('Needs your decision')
-    await expect(row(page, done).getByTestId('pane-row-status')).toContainText('Awaiting')
-    await expect(row(page, blocked)).toContainText("needs your decision, Reported by the agent's hooks")
+    await expect(row(page, blocked).getByTestId('pane-row-status')).toContainText('Needs your approval')
+    // BRD-01: a finished terminal stays one line; its state is in its accessible name.
+    await expect(row(page, done).getByTestId('pane-row-status')).toHaveCount(0)
+    await expect(row(page, done)).toContainText('finished')
+    await expect(row(page, blocked)).toContainText("needs you, Reported by the agent's hooks")
     // The compact row hides its state line: a visible mark beside the name, not the dot's color alone.
     await expect(row(page, blocked).getByTestId('pane-row-decision-mark')).toBeVisible()
     await expect(row(page, done).getByTestId('pane-row-decision-mark')).toHaveCount(0)
@@ -78,9 +80,10 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await expect(badge).toHaveText('1')
     await expect(badge).toHaveAttribute('aria-label', '1 needs your decision')
 
-    // Main was asked for an OS notification for the decision right away (no stability gate, no cooldown).
-    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __notified: Array<{ title: string; paneId: string }> }).__notified)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ title: expect.stringContaining('needs your decision'), paneId: blocked })]))
+    // Main was asked for an OS notification for the decision right away (no stability gate, no cooldown). Since OXE-130
+    // the title is the pane's name and the body says the state and the place ("Needs you · <place>").
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __notified: Array<{ body: string; paneId: string }> }).__notified)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: expect.stringMatching(/^Needs you · /), paneId: blocked })]))
 
     await page.screenshot({ path: join(OUT, 'panes-light.png') })
 
@@ -97,7 +100,7 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await header(page, blocked).getByRole('button', { name: 'More pane actions' }).click()
     await page.getByRole('menuitem', { name: 'Why this status?' }).click()
     const dialog = page.getByTestId('status-explain-dialog')
-    await expect(dialog).toContainText('Waiting for a decision')
+    await expect(dialog).toContainText('Needs you')
     await expect(dialog).toContainText("Reported by the agent's hooks")
     await page.screenshot({ path: join(OUT, 'explain-light.png') })
     await page.keyboard.press('Escape')
@@ -105,7 +108,7 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
 
     // Dark: the same states, read back from main after the reload.
     await setAppearance(page, 'dark')
-    await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs your decision')
+    await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs you')
     await expect(page.getByTestId('attention-badge')).toHaveText('1')
     await expect(row(page, blocked).getByTestId('pane-row-decision-mark')).toBeVisible()
     await page.screenshot({ path: join(OUT, 'panes-dark.png') })

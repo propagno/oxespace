@@ -114,7 +114,10 @@
   "activityCenter": {
     "nothingToRead": "Nada para marcar como lido",
     "nothingToReadText": "Toda a atividade já está lida.",
-    "allRead": "Toda a atividade marcada como lida"
+    "allRead": "Toda a atividade marcada como lida",
+    "nothingWaiting": "Nada esperando por você",
+    "arrived": "{{name}} precisa de você: {{request}}",
+    "threadRequest": "uma aprovação está esperando"
   },
   "report": {
     "title": "Relatar um problema",
@@ -161,6 +164,9 @@
       },
       "approvals": {
         "queue": "Abrir a fila de aprovações"
+      },
+      "attention": {
+        "next": "Ir para o próximo que precisa de você"
       },
       "code": {
         "changes": "Alterações",
@@ -303,8 +309,8 @@
     "close": "Fechar",
     "dismiss": "Dispensar",
     "toast": {
-      "region": "Notificações",
-      "dismiss": "Dispensar notificação",
+      "region": "Avisos",
+      "dismiss": "Dispensar aviso",
       "repeated_one": "Repetida {{count}} vez",
       "repeated_other": "Repetida {{count}} vezes",
       "repeated_many": "Repetida {{count}} vezes"
@@ -641,11 +647,13 @@
     "trigger": "Perguntar, rodar ou ir para…",
     "dialogLabel": "Barra de comando",
     "inputLabel": "Perguntar, rodar ou ir para",
+    "hintsLine": "Digite > para comandos, ? para exemplos, @ para pedir a um agente, / para rodar um comando",
     "groups": {
       "commands": "Comandos",
       "skills": "Skills",
       "agents": "Agentes",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Painéis"
     },
     "hints": {
       "agent": "começar ou delegar",
@@ -719,6 +727,9 @@
       "activity": {
         "open": "Abrir a central de atividade",
         "markAllRead": "Marcar tudo como lido"
+      },
+      "attention": {
+        "next": "Ir para o próximo que precisa de você"
       },
       "help": {
         "shortcuts": "Mostrar os atalhos de teclado",

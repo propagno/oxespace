@@ -20,7 +20,7 @@
   flex-wrap: wrap;
   padding: 8px 12px;
   border-bottom: 1px solid var(--bd-subtle);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   font-size: var(--fs-xs);
 }
 .review-toolbar-label {
@@ -31,7 +31,7 @@
 }
 .review-diff-mode-toggle {
   display: inline-flex;
-  background: var(--bg-tile);
+  background: var(--surface-base);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -57,7 +57,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: var(--bg-tile);
+  background: var(--surface-base);
   color: var(--tx-secondary);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -87,7 +87,7 @@
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--bd-subtle);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   height: 100%;
   min-height: 0;
   overflow: hidden;
@@ -103,8 +103,8 @@
   min-height: 0;
   height: 100%;
 }
-.ws-settings-use-default { align-self: flex-start; padding: 7px 10px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
-.ws-settings-use-default:hover { background: var(--wb-selection); }
+.ws-settings-use-default { align-self: flex-start; padding: 7px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-primary); font-size: var(--fs-xs); cursor: pointer; }
+.ws-settings-use-default:hover { background: var(--fill-selected); }
 @container (max-width: 620px) {
   .review-pane-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(140px, 38%) minmax(0, 1fr); }
   .review-pane-tree { height: auto; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
@@ -140,7 +140,7 @@
   cursor: pointer;
   text-align: left;
 }
-.review-tree-dir:hover { background: var(--bg-ws-hover); color: var(--tx-primary); }
+.review-tree-dir:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .review-tree-dir.all-reviewed { color: var(--tx-muted); }
 .review-tree-dir-name {
   font-weight: 500;
@@ -162,7 +162,7 @@
   width: 100%;
   padding: 2px 8px;
 }
-.review-tree-file:hover { background: var(--bg-ws-hover); }
+.review-tree-file:hover { background: var(--fill-hover); }
 .review-tree-file.selected { background: var(--fill-selected); }
 .review-tree-file.reviewed .review-tree-file-label { color: var(--tx-muted); text-decoration: line-through; }
 .review-tree-checkbox {
@@ -202,7 +202,7 @@
 
 /* DiffCard v2 */
 .review-card {
-  background: var(--bg-tile);
+  background: var(--surface-base);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
   margin: 10px;
@@ -216,7 +216,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  background: var(--bg-tile-header);
+  background: var(--surface-chrome);
   position: sticky;
   top: 0;
   z-index: var(--layer-sticky);
@@ -239,7 +239,7 @@
   cursor: pointer;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   position: relative;
 }
 .review-card-reviewed input { width: 11px; height: 11px; margin: 0; accent-color: var(--accent); cursor: pointer; }
@@ -272,4 +272,4 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
-.diff-line--blank { background: var(--bg-app); opacity: 0.4; }
+.diff-line--blank { background: var(--surface-canvas); opacity: 0.4; }

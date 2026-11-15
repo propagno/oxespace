@@ -17,7 +17,7 @@ const dialog = (name: string | RegExp): Check => async page => { await expect(pa
 const testId = (id: string): Check => async page => { await expect(page.getByTestId(id).first()).toBeVisible() }
 // The mode's id, not a role or its name: a modal hides the rest of the page from the accessibility tree.
 const view = (shell: AppMode): Check => async page => {
-  await expect(modeButton(page, shell)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, shell)).toHaveAttribute('aria-selected', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
 const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[data-toast], [role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
@@ -65,6 +65,9 @@ const PALETTE_EFFECTS: Record<string, Check> = {
   'help.about': both(dialog('About OXESpace'), testId('about-dialog')),
   'activity.open': testId('activity-center'),
   'activity.markAllRead': toast(/Nothing to mark as read|All activity marked as read/),
+  // OXE-128: it activates the oldest pane or conversation waiting on you; the audit's workspace has none waiting
+  // (the E2E mock keeps no agent session), so it changes nothing and says so in a toast.
+  'attention.next': toast('Nothing waiting for you'),
   'new-workspace': dialog('Create new workspace'),
   'workspace-settings': both(view('code'), dialog('Settings'), async page => {
     await expect(page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General Project instructions/ })).toHaveAttribute('aria-current', 'page')
@@ -175,7 +178,7 @@ async function dismiss(page: Page): Promise<void> {
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
   // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
-  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-selected', 'true')
   await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
@@ -213,7 +216,7 @@ test.describe('offer audit', () => {
       for (const id of ids) {
         if (NATIVE_DIALOG.has(id)) continue
         await dismiss(page)
-        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
+        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-selected') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
         const errorsBefore = pageErrors(launched).length
         const panesBefore = await paneCount(page)
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
@@ -421,7 +424,7 @@ test.describe('offer audit', () => {
           await dismiss(page)
           if (label === 'Toggle sidebar' || label === 'Toggle split layout' || label.startsWith('Maximize')) await runCommand(page, label === 'Toggle sidebar' ? 'toggle-sidebar' : label.startsWith('Maximize') ? 'maximize-pane' : 'toggle-split-layout')
           if (label.startsWith('Split pane')) await runCommand(page, 'layout-2')
-          if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code')
+          if (await modeButton(page, 'code').getAttribute('aria-selected') !== 'true') await selectView(page, 'code')
           await dismiss(page)
         }
       }
@@ -436,14 +439,14 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       const row = page.getByTestId('sidebar-workspace-item').first()
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       const menu = page.locator('.ws-group-context-menu')
       await expect(menu.getByRole('menuitem', { name: 'Move up' })).toBeDisabled()
       await expect(menu.getByRole('menuitem', { name: 'Move down' })).toBeDisabled()
       await menu.getByRole('menuitem', { name: 'Workspace settings' }).click()
       await dialog('Settings')(page)
       await dismiss(page)
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       await menu.getByRole('menuitem', { name: 'Rename' }).click()
       await expect(page.getByRole('textbox', { name: /Rename workspace/ })).toBeFocused()
       await page.keyboard.press('Escape')

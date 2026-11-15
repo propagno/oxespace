@@ -1,5 +1,7 @@
 // @vitest-environment node
-import { join } from 'node:path'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ALWAYS_TESTS,
@@ -11,6 +13,7 @@ import {
   classifyChange,
   CI_UNIT_JOBS,
   ciEvidence,
+  failedRunLine,
   markerContent,
   markerPath,
   NETWORK_FAILURE,
@@ -25,6 +28,7 @@ import {
   visualPlatforms,
   WORKERS,
   withNetworkRetry,
+  writeMarker,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/pr-ready.mjs'
 
@@ -245,5 +249,46 @@ describe('the marker and the environment', () => {
     expect(() => parseArgs(['--base'])).toThrow()
     expect(() => parseArgs(['--base', '--full'])).toThrow()
     expect(() => parseArgs(['--force'])).toThrow()
+  })
+})
+
+describe('the marker survives a failed run (OXE-115)', () => {
+  it('rodada que falha mantém o marcador do mesmo head', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'oxe-115-'))
+    try {
+      const marker = join(dir, 'pr-ready', `${SHA}.json`)
+      const passed = markerContent({ sha: SHA, at: 'earlier', base: 'origin/main', steps: ['ci'], evidence: 'ci', runs: [1] })
+      writeMarker(marker, passed)
+      // A later run on the same head fails: the marker of the passing run stays, and the output says this run failed.
+      expect(failedRunLine(SHA, marker)).toMatch(/this run failed; the marker of an earlier passing run on this head stands/)
+      expect(JSON.parse(await readFile(marker, 'utf8'))).toEqual(passed)
+      expect(failedRunLine(SHA, join(dir, 'pr-ready', `${'b'.repeat(40)}.json`))).toMatch(/no marker written/)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('troca atômica do marcador', async () => {
+    const calls: string[] = []
+    const marker = join('C:', 'repo', '.claude', 'pr-ready', `${SHA}.json`)
+    writeMarker(marker, { ok: true }, {
+      mkdirSync: (path: string) => calls.push(`mkdir ${path}`),
+      writeFileSync: (path: string) => calls.push(`write ${path}`),
+      renameSync: (from: string, to: string) => calls.push(`rename ${from} -> ${to}`)
+    })
+    const temporary = `${marker}.${process.pid}.tmp`
+    // The content lands in a temporary file next to the marker and replaces it in one rename, only at the end.
+    expect(calls).toEqual([`mkdir ${dirname(marker)}`, `write ${temporary}`, `rename ${temporary} -> ${marker}`])
+
+    const dir = await mkdtemp(join(tmpdir(), 'oxe-115-'))
+    try {
+      const real = join(dir, `${SHA}.json`)
+      writeMarker(real, { run: 1 })
+      writeMarker(real, { run: 2 })
+      expect(JSON.parse(await readFile(real, 'utf8'))).toEqual({ run: 2 })
+      expect((await readdir(dir)).filter(name => name.endsWith('.tmp'))).toEqual([])
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

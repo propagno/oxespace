@@ -3,6 +3,7 @@ import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessS
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
+import { FinishSoundSetting } from './NotificationSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
@@ -14,7 +15,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
-import { UpdatePreferences } from './UpdatePreferences'
+import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
@@ -203,7 +204,7 @@ function SettingsContentHeader({
     <header className="settings-content-header">
       <div>
         <span className="settings-content-kicker">{kicker}</span>
-        <h2 id={titleId}>{title}</h2>
+        <SettingsPageTitle id={titleId}>{title}</SettingsPageTitle>
         {description && <p className="settings-content-description">{description}</p>}
       </div>
       <div className="settings-content-actions">
@@ -871,6 +872,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </Button>
 
         <AgentHooksSetting />
+
+        <FinishSoundSetting />
       </div>
     </section>
   )
