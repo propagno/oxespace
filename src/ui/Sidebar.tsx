@@ -1,4 +1,6 @@
 import { forwardRef, useRef, type HTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type MouseEvent, type ReactElement, type ReactNode } from 'react'
+import { X } from 'lucide-react'
+import { IconButton } from './Button'
 import styles from './Sidebar.module.css'
 import { cx } from './cx'
 
@@ -17,12 +19,29 @@ export function SidebarHeader({ title, actions, collapse, className }: { title: 
   </div>
 }
 
-/** The filter: filled, no border, with its shortcut hint. Forwards everything to the input. */
-export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode; hint?: ReactNode }>(function SidebarFilter({ icon, hint, className, ...rest }, ref) {
+/**
+ * The filter: filled, no border, with its shortcut hint. Forwards everything to the input. With `onClear`, a field
+ * holding text shows a quiet clear IconButton where the hint was (MARCA 15/11); clearing by click, Enter on it or
+ * Escape in the field puts focus back in the field.
+ */
+export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { icon?: ReactNode; hint?: ReactNode; onClear?: () => void; clearLabel?: string }>(function SidebarFilter({ icon, hint, onClear, clearLabel, className, onKeyDown, ...rest }, ref) {
+  const input = useRef<HTMLInputElement | null>(null)
+  const attach = (element: HTMLInputElement | null): void => {
+    input.current = element
+    if (typeof ref === 'function') ref(element)
+    else if (ref) ref.current = element
+  }
+  const hasText = rest.value !== undefined ? String(rest.value).length > 0 : false
+  const clear = (): void => { onClear?.(); input.current?.focus() }
   return <div data-ui="sidebar-filter" className={cx(styles.filter, className)}>
     {icon ? <span className={styles.filterIcon} aria-hidden="true">{icon}</span> : null}
-    <input ref={ref} type="search" className={styles.filterInput} {...rest} />
-    {hint ? <kbd className={styles.filterHint}>{hint}</kbd> : null}
+    <input ref={attach} type="search" className={styles.filterInput} {...rest} onKeyDown={event => {
+      onKeyDown?.(event)
+      if (!event.defaultPrevented && event.key === 'Escape' && onClear && hasText) { event.preventDefault(); event.stopPropagation(); clear() }
+    }} />
+    {onClear && hasText
+      ? <IconButton size="sm" variant="ghost" label={clearLabel ?? ''} icon={<X size={12} aria-hidden="true" />} onClick={clear} />
+      : hint ? <kbd className={styles.filterHint}>{hint}</kbd> : null}
   </div>
 })
 
