@@ -18,6 +18,9 @@ import com.oxespace.mobile.ui.f4.f4Paparazzi
 import com.oxespace.mobile.ui.f4.render
 import com.oxespace.mobile.ui.f4.uiCode
 import com.oxespace.mobile.ui.live.LocalClock
+import com.oxespace.mobile.protocol.RemoteLimits
+import com.oxespace.mobile.protocol.pairing.PairingQrRead
+import com.oxespace.mobile.protocol.pairing.PairingQrs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -45,7 +48,9 @@ import org.junit.Test
  *   "Cancelar", at least 48 dp tall) below them that leaves pairing as Back does;
  * - the time left on the code (user rule of 15/11 ~05:00Z, OXE-179 CA-2; A16 brings the QR's expiry): the Waiting state
  *   carries `expiresAt: Long?` (`PairingState.Waiting(desktopName, verification, expiresAt: Long? = null)`, built here
- *   by name), PairingScreen reads the time from LocalClock (ui/live/Labels.kt) and says "O código expira em 4:59."
+ *   by name, its expiresAt read from a fixture QR whose exp is the scan + RemoteLimits.PAIRING_CODE_TTL_MS, the
+ *   desktop's TTL), PairingScreen reads the time from LocalClock (ui/live/Labels.kt) and says "O código expira em 2:00."
+ *   right after the scan (the whole seconds left, rounded up, as m:ss), then "1:59" one second later, ticking down
  *   (pairing_code_expires_in, "O código expira em %1$s." / "The code expires in %1$s.", MARCA 15/11) under the waiting
  *   line: the value ticks as m:ss in tabular digits (font feature "tnum"), never "5 min"; with no expiry (an older
  *   desktop) the waiting line is alone; at 0 the code boxes and the countdown go and the EXISTING home_lapsed text takes
@@ -91,20 +96,46 @@ class PairingStepsTest {
 
     @Test
     fun confirmingSaysTheTimeLeftOnTheCode() {
-        host.now = 1_000_000L
-        val screen = pairing(waiting(expiresAt = 1_000_000L + 299_000))
-        val left = screen.leaves.firstOrNull { screen.text(it).contains("O código expira em") }
-        assertNotNull("\"O código expira em 4:59.\" while the computer confirms; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", left)
-        assertTrue("m:ss, never minutes in words: ${screen.text(left!!)}", screen.text(left).contains("O código expira em 4:59."))
-        assertTrue("never \"min\"", screen.leaves.none { Regex("""\d+\s*min\b""").containsMatchIn(screen.text(it)) })
-        assertTrue(
-            "the ticking value uses tabular digits (tnum): ${screen.style(left)?.fontFeatureSettings}",
-            screen.style(left)?.fontFeatureSettings.orEmpty().contains("tnum"),
-        )
-        assertTrue("with the waiting line", screen.leaves.any { screen.text(it).contains(screen.string("pairing_waiting_computer")) })
-        assertTrue("and the code", screen.merged.any { screen.label(it) == screen.string("pairing_verification_description", "2 8 T 5 C Y") })
-        assertEquals("O código expira em %1${'$'}s.", catalog("values-pt-rBR", "pairing_code_expires_in"))
+        // A fixture QR as the desktop shows it: exp = the moment of the scan + the desktop's own TTL (never a fixed value).
+        val scannedAt = 1_000_000L
+        val ttl = RemoteLimits.PAIRING_CODE_TTL_MS
+        val uri = "oxespace://pair?v=1&host=192.168.0.12&port=7443&fp=${"b".repeat(64)}&code=AbCdEfGhIjKlMnOpQrSt_-&name=Studio&exp=${scannedAt + ttl}"
+        val qr = (PairingQrs.read(uri) as? PairingQrRead.Ok)?.qr
+        assertNotNull("the fixture QR reads", qr)
+        val expiresAt = try {
+            qr!!.javaClass.getMethod("getExpiresAt").invoke(qr) as Long?
+        } catch (missing: ReflectiveOperationException) {
+            throw AssertionError("PairingQr.expiresAt (A16) does not exist: $missing")
+        }
+        assertEquals("the phone keeps the QR's exp", scannedAt + ttl, expiresAt)
+
+        // The phone shows whole seconds left, rounded up (ceil), as m:ss: 120 s left reads "2:00", then it ticks down.
+        fun mmss(leftMs: Long): String = ((leftMs + 999) / 1000).let { "${it / 60}:${"%02d".format(it % 60)}" }
+        val catalogValue = catalog("values-pt-rBR", "pairing_code_expires_in")
+        assertEquals("O código expira em %1${'$'}s.", catalogValue)
         assertEquals("The code expires in %1${'$'}s.", catalog("values", "pairing_code_expires_in"))
+        for (elapsed in listOf(0L, 1_000L, 1_500L, ttl - 61_000L, ttl - 500L)) {
+            host.now = scannedAt + elapsed
+            val screen = pairing(waiting(expiresAt = expiresAt!!))
+            val expected = "O código expira em ${mmss(ttl - elapsed)}."
+            val left = screen.leaves.firstOrNull { screen.text(it).contains("O código expira em") }
+            assertNotNull("\"$expected\" ${elapsed} ms after the scan; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", left)
+            assertTrue("${elapsed} ms after the scan: \"$expected\", got \"${screen.text(left!!)}\"", screen.text(left).contains(expected))
+            assertTrue("never \"min\"", screen.leaves.none { Regex("""\d+\s*min\b""").containsMatchIn(screen.text(it)) })
+            assertTrue(
+                "the ticking value uses tabular digits (tnum): ${screen.style(left)?.fontFeatureSettings}",
+                screen.style(left)?.fontFeatureSettings.orEmpty().contains("tnum"),
+            )
+            assertTrue("with the waiting line", screen.leaves.any { screen.text(it).contains(screen.string("pairing_waiting_computer")) })
+            assertTrue("and the code", screen.merged.any { screen.label(it) == screen.string("pairing_verification_description", "2 8 T 5 C Y") })
+        }
+        // No fixed duration on the phone: a code whose exp says 90 s reads "1:30", one whose exp says 7 s reads "0:07".
+        for (leftMs in listOf(90_000L, 7_000L)) {
+            host.now = scannedAt
+            val screen = pairing(waiting(expiresAt = scannedAt + leftMs))
+            val expected = "O código expira em ${mmss(leftMs)}."
+            assertTrue("the value comes from exp, never a fixed 5 minutes: \"$expected\"", screen.leaves.any { screen.text(it).contains(expected) })
+        }
     }
 
     @Test
