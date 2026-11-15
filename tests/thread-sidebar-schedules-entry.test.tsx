@@ -18,18 +18,18 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('the way to Schedules in the conversation sidebar', () => {
-  it('is one of the header actions, beside Add project, and opens Schedules', () => {
+  it('is one of the header actions and opens Schedules', () => {
     const { container } = render(<ThreadSidebar onCreate={vi.fn()} />)
-    const actions = container.querySelector('.nav-panel-title .sidebar-actions') as HTMLElement
-    expect([...actions.querySelectorAll('button')].map(button => button.getAttribute('aria-label'))).toEqual(['Add project', 'Schedules'])
+    // BRD-02 (OXE-166): the src/ui SidebarHeader holds New conversation and Schedules beside the collapse button.
+    const header = container.querySelector('[data-ui="sidebar-header"]') as HTMLElement
+    expect([...header.querySelectorAll('button')].map(button => button.getAttribute('aria-label'))).toContain('Schedules')
     fireEvent.click(screen.getByRole('button', { name: 'Schedules' }))
     expect(useUIStore.getState().isSchedulesOpen).toBe(true)
   })
 
-  it('leaves the strip under the list to its two counts, which stay on one line in any language', () => {
+  it('has no counts strip under the list: Archived lives in the tree and the conversation total is gone (BRD-02, PE-09·C)', () => {
     render(<ThreadSidebar onCreate={vi.fn()} />)
-    const strip = screen.getByText(/^Archived/).parentElement as HTMLElement
-    expect(strip.querySelectorAll('button')).toHaveLength(0)
-    expect([...strip.children].map(child => child.textContent)).toEqual(['Archived · 0', '1 conversation'])
+    expect(screen.queryByText(/^\d+ conversations?$/)).toBeNull()
+    expect(screen.queryByText(/^Archived · \d+$/)).toBeNull()
   })
 })
