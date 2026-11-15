@@ -7,6 +7,8 @@ import { OxeMark } from '../Brand/OxeLogo'
 import { PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
 import { openInstallDocs } from './AgentCliOnboarding'
 import styles from './FirstRun.module.css'
+import { useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { watchFirstAnswer } from './firstAnswer'
 
 export type FirstRunAgentStatus = 'ready' | 'missing' | 'signed-out' | 'signing-in'
 
@@ -66,6 +68,14 @@ export function FirstRun({
   const hasReadyAgent = agents.some(agent => agent.status === 'ready')
   const isSigningIn = agents.some(agent => agent.status === 'signing-in')
   const wasWaitingForSignIn = useRef(false)
+
+  // Local "time to first answer" (diagnostics, never sent): the clock starts when the first run appears, and
+  // firstAnswer.ts records the first agent answer, in OxeChat or in an OxeCode pane.
+  useEffect(() => {
+    if (useNavigationPrefs.getState().firstRun.dismissed) return
+    useNavigationPrefs.getState().startFirstRunClock(Date.now())
+    watchFirstAnswer()
+  }, [])
 
   useEffect(() => {
     if (isSigningIn && !hasReadyAgent) {

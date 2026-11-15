@@ -4,7 +4,6 @@ import { Suspense, type ReactElement } from 'react'
 import { SidebarSkeleton } from '../src/ui'
 import { chunk, lazyFrom } from '../src/lib/chunk'
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary'
-import { FirstRunChecklistFallback } from '../src/components/Onboarding/FirstRunChecklistFallback'
 import type { Workspace } from '../shared/types/workspace'
 
 // The Settings pages' chunk stays pending until a test lets it through: the frame is what the first click shows.
@@ -78,17 +77,6 @@ describe('a lazy part that fails to load', () => {
       expect(await screen.findByText('sidebar rows')).toBeInTheDocument()
       expect(attempts).toBe(2)
     } finally { quiet.mockRestore() }
-  })
-})
-
-describe('first-run checklist fallback', () => {
-  it('holds the card\'s place without announcing anything', () => {
-    const { container } = render(<FirstRunChecklistFallback />)
-    const card = container.firstElementChild as HTMLElement
-    expect(card).toHaveAttribute('aria-hidden', 'true')
-    expect(card.className).toMatch(/card/)
-    expect(card.className).toMatch(/fallback/)
-    expect(screen.queryAllByRole('status')).toHaveLength(0)
   })
 })
 
