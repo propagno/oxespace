@@ -3,8 +3,9 @@ name: Jira sync
 # Keeps the OXE items in Jira in step with pull requests and releases (scripts/jira-sync.mjs, tested in
 # tests/unit/jira-sync.test.ts). A PR names its items with the key in its title or branch: open → Em revisão,
 # `na-fila` → Na fila, merged → Na main; a published vX.Y.Z releases that Jira version and lands its items in
-# Lançado. The schedule is what sees the train's merges and unlabels: they are made with GITHUB_TOKEN, whose events
-# start no workflow. A Jira failure is a warning, never a failed run.
+# Lançado. The train's merges and unlabels are made with GITHUB_TOKEN, whose events start no workflow: the end of
+# every Merge train run starts this sync (OXE-291), and the schedule stays as the net when GitHub skips a cron (it
+# skipped two hours on 15/11). A Jira failure is a warning, never a failed run.
 
 on:
   # pull_request_target: the script always comes from main; nothing from the PR is checked out or run.
@@ -12,6 +13,10 @@ on:
     types: [opened, reopened, edited, labeled, unlabeled, closed]
   release:
     types: [published]
+  # OXE-291: right after the train merges, not at the next cron. The script still comes from main (checkout below).
+  workflow_run:
+    workflows: ["Merge train"]
+    types: [completed]
   schedule:
     - cron: "7,22,37,52 * * * *"
   workflow_dispatch:

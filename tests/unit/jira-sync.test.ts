@@ -1,5 +1,7 @@
 // @vitest-environment node
 // scripts/jira-sync.mjs: which Jira items a pull request names, and where they move.
+import { readFileSync } from 'node:fs'
+import { load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
 import { declarationsOf, isTested, keysOf, mergeNotes, plan, shouldMove, STATES, targetOf, versionOfBranch, versionOfTag } from '../../scripts/jira-sync.mjs'
@@ -94,5 +96,34 @@ describe('jira-sync', () => {
       expect(plan([pr({ number: 3, title: 'feat (OXE-72)', labels: ['na-fila'] })]).get('OXE-72')).toEqual({ target: 'Na fila', pr: 3 })
       expect(mergeNotes([pr({ number: 3, title: 'feat (OXE-72)' })])).toEqual({ comments: [], warnings: [] })
     })
+  })
+})
+
+// OXE-291: the workflow file itself, read as YAML.
+describe('the Jira sync workflow (OXE-291)', () => {
+  type Workflow = { on: Record<string, { types?: string[]; workflows?: string[]; cron?: string }[] | Record<string, unknown> | null>; concurrency: { group: string; 'cancel-in-progress': boolean }; permissions: Record<string, string>; jobs: { sync: { steps: Array<{ uses?: string; with?: Record<string, unknown>; run?: string }> } } }
+  const workflow = load(readFileSync('.github/workflows/jira-sync.yml', 'utf8')) as Workflow
+
+  it('runs when a Merge train run completes, so train merges never wait for the schedule', () => {
+    expect(workflow.on.workflow_run).toEqual({ workflows: ['Merge train'], types: ['completed'] })
+    const train = load(readFileSync('.github/workflows/merge-train.yml', 'utf8')) as { name: string }
+    expect(train.name).toBe('Merge train')
+  })
+
+  it('keeps its other triggers, its non-cancelling concurrency group and empty permissions', () => {
+    expect(Object.keys(workflow.on).sort()).toEqual(['pull_request_target', 'release', 'schedule', 'workflow_dispatch', 'workflow_run'])
+    expect(workflow.on.pull_request_target).toEqual({ types: ['opened', 'reopened', 'edited', 'labeled', 'unlabeled', 'closed'] })
+    expect(workflow.on.release).toEqual({ types: ['published'] })
+    expect(workflow.on.schedule).toEqual([{ cron: '7,22,37,52 * * * *' }])
+    expect(workflow.concurrency).toEqual({ group: 'jira-sync', 'cancel-in-progress': false })
+    expect(workflow.permissions).toEqual({})
+  })
+
+  it('a workflow_run sync checks out main only and never fails the run on a Jira error', () => {
+    const [checkout, , sync] = workflow.jobs.sync.steps
+    expect(checkout.uses).toMatch(/^actions\/checkout@[0-9a-f]{40}/)
+    expect(checkout.with).toMatchObject({ ref: '${{ github.event.repository.default_branch }}', 'sparse-checkout': 'scripts/jira-sync.mjs', 'persist-credentials': false })
+    expect(sync.run).toBe('node scripts/jira-sync.mjs')
+    expect(readFileSync('scripts/jira-sync.mjs', 'utf8')).toMatch(/never fails/)
   })
 })
