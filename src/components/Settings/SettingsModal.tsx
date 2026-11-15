@@ -1,8 +1,9 @@
 import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X } from 'lucide-react'
-import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessSettings'
+import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessSettings'; import { ConversationSettings } from './ConversationSettings'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { AppearanceSettings } from './AppearanceSettings'
+import { FinishSoundSetting } from './NotificationSettings'
 import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile, AgentProvider, AgentReadiness } from '../../../shared/types/agent'
 import type { AgentHookAgent, AgentHooksStatus } from '../../../shared/types/agent-hooks'
@@ -13,7 +14,7 @@ import { useAgentStore } from '../../store/agent.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
-import { applyWithUndo, Button, EmptyState, Notice, SegmentedControl, Switch, Select } from '../../ui'
+import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
@@ -30,7 +31,6 @@ export interface SettingsModalProps {
 }
 import { installDocLabel, PROVIDER_INSTALL_DOCS } from './providerInstallDocs'
 import type { TFunction } from 'i18next'
-import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { compatibilityBadge, type ProviderCompatibility } from '../../../shared/providerCompatibility'
 import { formatNumber } from '../../utils/formatTime'
 export { PROVIDER_INSTALL_DOCS }
@@ -513,49 +513,9 @@ function ProvidersSettingsSection({
         </Button>
 
         <NewConversationAccessSetting />
-        <IdleConversationsSetting />
+        <ConversationSettings />
       </div>
     </section>
-  )
-}
-
-/** How long an idle Thread conversation keeps its agent process (and the MCP servers it started) running. */
-function IdleConversationsSetting(): ReactElement | null {
-  const { t } = useTranslation('settings')
-  const api = window.oxe?.thread
-  const [minutes, setMinutes] = useState<number | null>(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    void Promise.resolve(api?.idleSuspendMinutes?.())
-      .then((value) => { if (!cancelled && typeof value === 'number') setMinutes(value) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [api])
-
-  if (minutes === null || !api?.setIdleSuspendMinutes) return null
-
-  const change = async (next: number): Promise<void> => {
-    setError('')
-    try { setMinutes(await api.setIdleSuspendMinutes!(next)) }
-    catch (cause) { setError(humanizeError(cause, t('idle.saveFailed'))) }
-  }
-
-  return (
-    <div className="settings-form-group">
-      <h3 className="settings-form-group-title">{t('idle.title')}</h3>
-      <label className="settings-field">
-        <span>{t('idle.after')}</span>
-        <Select aria-label={t('idle.afterLabel')} value={minutes} onChange={(event) => void change(Number(event.target.value))}>
-          {THREAD_IDLE_SUSPEND_CHOICES.map((value) => (
-            <option key={value} value={value}>{value === 0 ? t('idle.never') : t('idle.minutes', { count: value })}</option>
-          ))}
-        </Select>
-        <span className="settings-field-hint">{t('idle.hint')}</span>
-      </label>
-      {error && <Notice intent="danger">{error}</Notice>}
-    </div>
   )
 }
 
@@ -912,6 +872,8 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         </Button>
 
         <AgentHooksSetting />
+
+        <FinishSoundSetting />
       </div>
     </section>
   )

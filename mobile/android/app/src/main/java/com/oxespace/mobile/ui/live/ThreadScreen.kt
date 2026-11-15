@@ -613,7 +613,7 @@ private fun RequestMarker(request: RemoteThreadItem.Request) {
             text,
             style = MaterialTheme.typography.labelMedium,
             color = if (waiting) Oxe.colors.intentWarningFg else Oxe.colors.textMuted,
-            modifier = Modifier.background(if (waiting) Oxe.colors.intentWarningBg else Oxe.colors.surfaceSunken, RoundedCornerShape(50)).padding(horizontal = OxeSpace.space3, vertical = 3.dp),
+            modifier = Modifier.background(if (waiting) Oxe.colors.intentWarningBg else Oxe.colors.surfaceSunken, RoundedCornerShape(OxeRadius.full)).padding(horizontal = OxeSpace.space3, vertical = 3.dp),
         )
     }
 }
@@ -739,8 +739,8 @@ private fun Composer(
         val stops = ComposerControl.STOP in mode.controls
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                .background(Oxe.colors.surfaceRaised, RoundedCornerShape(24.dp))
-                .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(24.dp))
+                .background(Oxe.colors.surfaceRaised, RoundedCornerShape(OxeRadius.full))
+                .border(BorderStroke(1.dp, Oxe.colors.borderDefault), RoundedCornerShape(OxeRadius.full))
                 .padding(start = if (stops) 4.dp else OxeSpace.space4, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),

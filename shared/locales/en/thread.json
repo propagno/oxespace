@@ -396,9 +396,9 @@
     "stopTitle": "Stop turn · Esc",
     "stopShort": "Stop",
     "queue": "Queue follow-up",
-    "queueTitle": "Queue follow-up · Enter",
+    "queueTitle": "Queue follow-up · {{key}}",
     "send": "Send",
-    "sendTitle": "Send · Enter",
+    "sendTitle": "Send · {{key}}",
     "tooLong": "This message has {{length}} characters; the limit is {{limit}}. Attach long text as a file instead.",
     "files": "Project files"
   },
@@ -1483,10 +1483,9 @@
     "running": "Working",
     "attention": "Needs you",
     "failed": "Failed",
-    "interrupted": "Paused",
-    "background": "Background",
     "completed": "Finished",
-    "ready": "Ready"
+    "idle": "Idle",
+    "interrupted": "Stopped"
   },
   "undoTurn": {
     "nothing": "Nothing to undo",
@@ -1593,7 +1592,7 @@
     "completedWarnings": "Finished with warnings",
     "completed": "Finished",
     "failed": "Failed",
-    "interrupted": "Paused",
+    "interrupted": "Stopped",
     "actions_one": "{{count}} action",
     "actions_other": "{{count}} actions",
     "failedCount": " · {{count}} failed",
@@ -1728,12 +1727,15 @@
   },
   "notify": {
     "untitled": "Conversation",
-    "approval": "{{name}} — needs approval",
-    "approvalBody": "The agent is waiting for your decision to continue.",
+    "needsYou": "Needs you · {{place}}",
+    "needsYouShort": "Needs you",
     "failed": "{{name}} — failed",
     "failedBody": "The turn ended with an error. Open the conversation to see why.",
-    "finished": "{{name}} — finished",
-    "finishedBody": "The agent completed the turn.",
+    "finishedAt": "Finished · {{place}}",
+    "finishedShort": "Finished",
+    "agentsFinished_one": "{{count}} agent finished",
+    "agentsFinished_other": "{{count}} agents finished",
+    "agentsFinishedBody": "Open the activity list to see them.",
     "requestsWaiting_one": "{{count}} request is waiting for your decision.",
     "requestsWaiting_other": "{{count}} requests are waiting for your decision."
   },

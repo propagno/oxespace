@@ -10,7 +10,7 @@
   min-height: 0;
   overflow: hidden;
   position: relative;
-  background: var(--term-bg, var(--pane-surface));
+  background: var(--term-bg, var(--surface-base));
   color: var(--term-fg, var(--text-primary));
 }
 
@@ -19,7 +19,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  background: var(--term-bg, var(--bg-tile-content));
+  background: var(--term-bg, var(--surface-base));
   color: var(--term-fg, var(--text-primary));
   padding: 0;
   box-sizing: border-box;
@@ -55,7 +55,7 @@
 }
 
 .terminal-search-input:focus {
-  border-color: var(--brand-light);
+  border-color: var(--text-accent);
 }
 
 .terminal-search-count {
@@ -96,10 +96,10 @@
   height: 27px;
   margin: 0;
   padding: 0 10px;
-  background: var(--term-bg, var(--pane-surface-raised));
+  background: var(--term-bg, var(--surface-raised));
   color: color-mix(in srgb, var(--term-fg, var(--tx-muted)) 72%, transparent);
   border: 0;
-  border-top: 1px solid var(--term-line, var(--pane-border));
+  border-top: 1px solid var(--term-line, var(--border-default));
   border-radius: 0;
   box-shadow: none;
   backdrop-filter: none;
@@ -220,7 +220,7 @@
 }
 
 .statusbar-more-check {
-  color: var(--brand-light, var(--text-accent));
+  color: var(--text-accent, var(--text-accent));
   flex-shrink: 0;
 }
 
@@ -249,8 +249,8 @@
 
 .terminal-restore-dialog > label { display: grid; gap: 7px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .terminal-restore-list { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 7px; }
-.terminal-restore-list button { display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left; color: var(--tx-primary); background: var(--bg-elevated); border: 1px solid var(--bd-base); border-radius: var(--radius-md); cursor: pointer; }
-.terminal-restore-list button:hover:not(:disabled) { border-color: var(--brand-light, var(--accent)); }
+.terminal-restore-list button { display: grid; gap: 4px; width: 100%; padding: 11px 12px; text-align: left; color: var(--tx-primary); background: var(--surface-raised); border: 1px solid var(--bd-base); border-radius: var(--radius-md); cursor: pointer; }
+.terminal-restore-list button:hover:not(:disabled) { border-color: var(--text-accent, var(--accent)); }
 .terminal-restore-list button:disabled { opacity: .5; cursor: default; }
 .terminal-restore-list button span, .terminal-restore-list button small { color: var(--tx-secondary); overflow-wrap: anywhere; }
 .terminal-restore-dialog [role='alert'] { color: var(--error, var(--intent-danger-fg)); }
@@ -379,7 +379,7 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  background: var(--term-bg, var(--bg-tile-content));
+  background: var(--term-bg, var(--surface-base));
   color: var(--term-fg, var(--text-primary));
 }
 

@@ -422,7 +422,9 @@ export const IPC_CHANNELS = {
     rotate: 'android:rotate',
     screenshot: 'android:screenshot',
     setAgentsCanSee: 'android:set-agents-can-see',
-    startEmulator: 'android:start-emulator'
+    startEmulator: 'android:start-emulator',
+    /** main → window: open the Android device panel (an agent asked for the device). */
+    openPanel: 'android:open-panel'
   },
   /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
   /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
@@ -654,6 +656,8 @@ export interface AgentNotificationPayload {
   workspaceId: string
   /** What the notification is about; the main process picks the image. Without it, the app icon. */
   icon?: import('./app').NotificationIcon
+  /** No sound (a finished notice while Settings › Notifications has the finish sound off). Without it, the system sound. */
+  silent?: boolean
 }
 
 export interface AgentHooksApi {

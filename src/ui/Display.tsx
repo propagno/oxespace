@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, Info, WifiOff } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, Sun, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
 import { BrandLoader, BrandMark } from './BrandLoader'
@@ -121,21 +121,43 @@ export function OfflineState({ title = i18n.t('ui.offline.title'), message = i18
   </div>
 }
 
-export type NoticeIntent = 'info' | 'success' | 'warning' | 'danger'
-const NOTICE_ICONS = { info: Info, success: CheckCircle2, warning: AlertTriangle, danger: AlertTriangle } as const
-const NOTICE_STYLES = { info: styles.noticeInfo, success: styles.noticeSuccess, warning: styles.noticeWarning, danger: styles.noticeDanger }
+export type NoticeIntent = 'info' | 'success' | 'warning' | 'danger' | 'attention'
+const NOTICE_ICONS = { info: Info, success: CheckCircle2, warning: AlertTriangle, danger: AlertTriangle, attention: Sun } as const
+const NOTICE_STYLES = { info: styles.noticeInfo, success: styles.noticeSuccess, warning: styles.noticeWarning, danger: styles.noticeDanger, attention: styles.noticeAttention }
+
+/** The attention notices already said in this window, by their `announceKey` (bounded: the oldest is forgotten first). */
+const ANNOUNCED_NOTICES = new Set<string>()
+const ANNOUNCED_NOTICES_MAX = 200
+
+/** True the first time this notice is shown for its key; a remount or a re-render of the same key is not said again. */
+function useFirstAnnouncement(key: string | undefined): boolean {
+  const [first] = useState(() => key === undefined || !ANNOUNCED_NOTICES.has(key))
+  useEffect(() => {
+    if (key === undefined || ANNOUNCED_NOTICES.has(key)) return
+    ANNOUNCED_NOTICES.add(key)
+    if (ANNOUNCED_NOTICES.size > ANNOUNCED_NOTICES_MAX) ANNOUNCED_NOTICES.delete(ANNOUNCED_NOTICES.values().next().value as string)
+  }, [key])
+  return first
+}
 
 /**
  * A short message inside a form or panel that stays until its cause goes away: a risk to weigh before acting, a
  * setting that could not be applied, an action that failed. Warning and danger are announced at once; info and
  * success politely. For a whole place that failed to load, use ErrorState.
+ *
+ * `attention` is "this needs you" (an agent's request waiting for an answer), not a warning: a neutral card whose
+ * signal, the sun ochre, is only in its header (icon and title). It is a polite status named by `label`, and it is
+ * said once per `announceKey`: showing the same request again (a re-render, the panel reopened) does not repeat it.
  */
-export function Notice({ intent = 'info', title, children, actions, className }: { intent?: NoticeIntent; title?: ReactNode; children?: ReactNode; actions?: ReactNode; className?: string }): ReactElement {
+export function Notice({ intent = 'info', title, children, actions, className, label, announceKey }: { intent?: NoticeIntent; title?: ReactNode; children?: ReactNode; actions?: ReactNode; className?: string; label?: string; announceKey?: string }): ReactElement {
   const Icon = NOTICE_ICONS[intent]
-  return <div className={cx(styles.notice, NOTICE_STYLES[intent], className)} role={intent === 'warning' || intent === 'danger' ? 'alert' : 'status'} data-intent={intent}>
+  const firstAnnouncement = useFirstAnnouncement(intent === 'attention' ? announceKey : undefined)
+  const role = intent === 'warning' || intent === 'danger' ? 'alert' : 'status'
+  return <div className={cx(styles.notice, NOTICE_STYLES[intent], className)} role={role} data-intent={intent}
+    aria-label={label} aria-live={intent === 'attention' ? (firstAnnouncement ? 'polite' : 'off') : undefined}>
     <Icon size={14} aria-hidden="true" className={styles.noticeIcon} />
     <div className={styles.noticeBody}>
-      {title && <strong>{title}</strong>}
+      {title && <strong className={styles.noticeTitle}>{title}</strong>}
       {children && <div>{children}</div>}
       {actions && <div className={styles.noticeActions}>{actions}</div>}
     </div>

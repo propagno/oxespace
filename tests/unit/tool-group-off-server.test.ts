@@ -40,7 +40,10 @@ describe('a tool group the project turned off is refused at tools/call, whatever
     expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off('data'))).toBe('data')
     expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off())).toBeUndefined()
     expect(offGroupBlocking(DATA_TOOL, ['/p'], () => off('docs', 'app'))).toBeUndefined()
-    expect(offGroupBlocking(CORE_TOOL, ['/p'], () => off('orchestration', 'data', 'docs', 'app'))).toBeUndefined()
+    expect(offGroupBlocking(CORE_TOOL, ['/p'], () => off('orchestration', 'data', 'docs', 'preview', 'app'))).toBeUndefined()
+    // OXE-108: the preview tools follow their own group; turning docs off no longer reaches them.
+    expect(offGroupBlocking('oxespace_open_web_preview', ['/p'], () => off('preview'))).toBe('preview')
+    expect(offGroupBlocking('oxespace_open_web_preview', ['/p'], () => off('docs'))).toBeUndefined()
     // Not an OXESpace group tool at all (the enable switch, an unknown name): not this rule's business.
     expect(offGroupBlocking('oxespace_tools_enable', ['/p'], () => off('data'))).toBeUndefined()
   })

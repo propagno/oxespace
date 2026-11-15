@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create, type StoreApi } from 'zustand'
 import type { CreateWorkspaceInput, ShellProfile, UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceEditorStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceSettingsInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../shared/types/workspace'
 import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
@@ -35,6 +35,21 @@ interface WorkspaceState {
   reorderWorkspaces: (orderedIds: string[]) => Promise<void>
   updateSettings: (input: UpdateWorkspaceSettingsInput) => Promise<void>
   clearError: () => void
+}
+
+/** The list with the saved workspace in place of its cached copy. */
+const replaced = (workspaces: Workspace[], workspace: Workspace): Workspace[] => workspaces.map((item) => (item.id === workspace.id ? workspace : item))
+
+/** The saved workspace replaces its cached copy, and the error clears. */
+const withSaved = (workspace: Workspace) => (state: WorkspaceState): Partial<WorkspaceState> => ({ workspaces: replaced(state.workspaces, workspace), error: null })
+
+/** Saves a side panel's state: the saved workspace replaces its cached copy; a failure shows as the store's error. */
+async function savePanelState(set: StoreApi<WorkspaceState>['setState'], save: () => Promise<Workspace>): Promise<void> {
+  try {
+    set(withSaved(await save()))
+  } catch (err) {
+    set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
+  }
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
@@ -144,144 +159,76 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   splitPane: async (paneId, direction) => {
     const workspace = await window.oxe.workspace.splitPane({ paneId, direction })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
   applyWorkspace: (workspace) => {
-    set((state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }))
+    set((state) => ({ workspaces: replaced(state.workspaces, workspace) }))
   },
 
   createPane: async (workspaceId) => {
     const { workspace, paneId } = await window.oxe.workspace.createPane({ workspaceId })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
     return paneId
   },
 
   updatePaneType: async (paneId, type) => {
     const workspace = await window.oxe.workspace.updatePaneType({ paneId, type })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
   updatePaneName: async (paneId, displayName) => {
     const workspace = await window.oxe.workspace.updatePaneName({ paneId, displayName })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
   setPaneAgent: async (paneId, agentProfileId, options) => {
     const workspace = await window.oxe.workspace.setPaneAgent({ paneId, agentProfileId, preserveSession: options?.preserveSession })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
   setPaneRootPath: async (paneId, rootPath) => {
     const workspace = await window.oxe.workspace.setPaneRootPath({ paneId, rootPath })
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
   updateEditorState: async (input) => {
     const workspace = await window.oxe.workspace.updateEditorState(input)
-    set((state) => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-      error: null
-    }))
+    set(withSaved(workspace))
   },
 
-  updateReviewState: async (input) => {
-    try {
-      const workspace = await window.oxe.workspace.updateReviewState(input)
-      set((state) => ({
-        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-        error: null
-      }))
-    } catch (err) {
-      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
-    }
-  },
+  updateReviewState: (input) => savePanelState(set, () => window.oxe.workspace.updateReviewState(input)),
 
-  updateGitHubState: async (input) => {
-    try {
-      const workspace = await window.oxe.workspace.updateGitHubState(input)
-      set((state) => ({
-        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-        error: null
-      }))
-    } catch (err) {
-      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
-    }
-  },
+  updateGitHubState: (input) => savePanelState(set, () => window.oxe.workspace.updateGitHubState(input)),
 
   showRepositoryView: async (workspaceId, view) => {
     const previous = get().workspaces.find((item) => item.id === workspaceId)
-    if (!previous) return
-    const toGit = view === 'git'
-    if (toGit ? previous.githubPanelVisible && !previous.editorVisible : previous.editorVisible && !previous.githubPanelVisible) return
-    const editor: UpdateWorkspaceEditorStateInput = toGit
-      ? { workspaceId, editorVisible: false, editorExpanded: false }
-      : { workspaceId, editorVisible: true, editorExpanded: false, editorWidthPercent: previous.githubPanelWidthPercent ?? 48 }
-    const github: UpdateWorkspaceGitHubStateInput = toGit
-      ? { workspaceId, githubPanelVisible: true, githubPanelExpanded: false, githubPanelWidthPercent: previous.editorWidthPercent ?? 48 }
-      : { workspaceId, githubPanelVisible: false, githubPanelExpanded: false }
-    const { workspaceId: _editorId, ...editorChange } = editor
-    const { workspaceId: _githubId, ...githubChange } = github
-    const change: Partial<Workspace> = { ...editorChange, ...githubChange } as Partial<Workspace>
-    const patch = (state: WorkspaceState, next: Partial<Workspace>): Partial<WorkspaceState> => ({
-      workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item))
-    })
+    const git = view === 'git'
+    // No such workspace, or it already shows that view alone.
+    if (!previous || !!previous.githubPanelVisible === git && !!previous.editorVisible === !git) return
+    // The panel that opens takes the width of the one that closes (48% when it had none).
+    const editor = { editorVisible: !git, editorExpanded: false, ...(!git && { editorWidthPercent: previous.githubPanelWidthPercent ?? 48 }) }
+    const github = { githubPanelVisible: git, githubPanelExpanded: false, ...(git && { githubPanelWidthPercent: previous.editorWidthPercent ?? 48 }) }
+    const change: Partial<Workspace> = { ...editor, ...github }
+    const patch = (next: Partial<Workspace>, error: string | null = null): void =>
+      set((state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspaceId ? { ...item, ...next } : item)), error }))
     // One update: the dock never sees both panels hidden, so terminals do not refit in between.
-    set((state) => ({ ...patch(state, change), error: null }))
+    patch(change)
+    const saveEditor = () => window.oxe.workspace.updateEditorState({ workspaceId, ...editor })
+    const saveGitHub = () => window.oxe.workspace.updateGitHubState({ workspaceId, ...github })
     try {
       // Persist in turn; only the last answer holds both changes, so the store takes that one alone.
-      if (toGit) await window.oxe.workspace.updateGitHubState(github)
-      else await window.oxe.workspace.updateEditorState(editor)
-      const saved = toGit ? await window.oxe.workspace.updateEditorState(editor) : await window.oxe.workspace.updateGitHubState(github)
-      set((state) => ({ workspaces: state.workspaces.map((item) => (item.id === saved.id ? saved : item)) }))
+      const saved = git ? (await saveGitHub(), await saveEditor()) : (await saveEditor(), await saveGitHub())
+      set((state) => ({ workspaces: replaced(state.workspaces, saved) }))
     } catch (err) {
       // Undo only the fields this switch touched, so a concurrent change to the workspace survives.
-      const restore = Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]])) as Partial<Workspace>
-      set((state) => ({ ...patch(state, restore), error: humanizeError(err, i18n.t('failures.workspace.panelState')) }))
+      patch(Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]])), humanizeError(err, i18n.t('failures.workspace.panelState')))
     }
   },
 
-  updateBackgroundState: async (input) => {
-    try {
-      const workspace = await window.oxe.workspace.updateBackgroundState(input)
-      set((state) => ({
-        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-        error: null
-      }))
-    } catch (err) {
-      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
-    }
-  },
+  updateBackgroundState: (input) => savePanelState(set, () => window.oxe.workspace.updateBackgroundState(input)),
 
-  updateWorktreeState: async (input) => {
-    try {
-      const workspace = await window.oxe.workspace.updateWorktreeState(input)
-      set((state) => ({
-        workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)),
-        error: null
-      }))
-    } catch (err) {
-      set({ error: humanizeError(err, i18n.t('failures.workspace.panelState')) })
-    }
-  },
+  updateWorktreeState: (input) => savePanelState(set, () => window.oxe.workspace.updateWorktreeState(input)),
 
   reorderWorkspaces: async (orderedIds) => {
     // Optimistic update — reorder the local cache immediately so the
@@ -314,7 +261,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
       rollbackMessage: i18n.t('code:workspace.settingsFailed'),
-      reconcile: (workspace, state) => ({ workspaces: state.workspaces.map((item) => (item.id === workspace.id ? workspace : item)) }),
+      reconcile: (workspace, state) => ({ workspaces: replaced(state.workspaces, workspace) }),
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}
     })

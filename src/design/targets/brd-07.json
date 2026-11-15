@@ -1,0 +1,139 @@
+{
+  "brd": "BRD-07",
+  "card": "OXE-23",
+  "title": "Phone type scale and radii",
+  "platform": "android",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "measures": [
+    {
+      "id": "BRD-07.titleMedium.size",
+      "scene": "theme",
+      "select": "Typography.titleMedium",
+      "prop": "font-size",
+      "expect": {
+        "sp": 16
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-07.titleMedium.weight",
+      "scene": "theme",
+      "select": "Typography.titleMedium",
+      "prop": "font-weight",
+      "expect": {
+        "eq": 600
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-07.bodyMedium.size",
+      "scene": "theme",
+      "select": "Typography.bodyMedium",
+      "prop": "font-size",
+      "expect": {
+        "sp": 13
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-07.labelMedium.size",
+      "scene": "theme",
+      "select": "Typography.labelMedium",
+      "prop": "font-size",
+      "expect": {
+        "sp": 12
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-07.labelSmall.size",
+      "scene": "theme",
+      "select": "Typography.labelSmall",
+      "prop": "font-size",
+      "expect": {
+        "sp": 11
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-07.min-text",
+      "scene": "screens",
+      "select": "Text",
+      "prop": "min-font-size",
+      "expect": {
+        "gte": 11
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "no auto-size below 11 sp"
+    },
+    {
+      "id": "BRD-07.radius.source",
+      "scene": "screens",
+      "select": "Shape",
+      "prop": "radius",
+      "expect": {
+        "oneOf": [
+          "OxeRadius"
+        ]
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "default"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "radii only from OxeRadius"
+    }
+  ]
+}
