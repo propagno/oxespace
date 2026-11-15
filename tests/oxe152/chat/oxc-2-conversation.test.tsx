@@ -14,22 +14,37 @@
 //   state word (thread:turnTiming.completed) and then the step count (thread:fold.steps / fold.stepsWithParts).
 // - Requests: a pending approval is one [data-ui=request-card] inside the column, answered by the existing buttons
 //   (approvalButtons, #823): Negar (thread:request.deny) before Permitir uma vez (thread:f7.card.allowOnce).
+// - BRD-19 folded into OXE-167 (coordination 15/11; canvas v2 board 7): ThreadFailureCard has one mould: the title
+//   (thread:failure.title.*), then the message, then the action buttons; a usage failure reads Tentar o turno de novo
+//   (thread:failure.retry) before Atualizar o uso (thread:failure.refresh); the provider's codes and raw detail sit only
+//   under the "Diagnóstico do provedor" disclosure (thread:failure.diagnostic), hidden until opened; usage limits stay
+//   compact: one line per window, "<window> · N% usados · Renova em …" (failure.window.* · failure.used · failure.resetsIn),
+//   no progress bars. Each kind keeps its existing action in that mould: context -> Compactar a conversa (failure.compact),
+//   configuration -> Mudar a configuração (failure.changeConfiguration), sandbox -> Revisar as permissões
+//   (failure.reviewPermissions), a turn that changed files -> Desfazer as alterações e tentar de novo / Tentar de novo sem
+//   desfazer (failure.undoAndRetry / retryKeep), authentication -> the reconnect sentence (failure.reconnect), no retry.
+// - BRD-21 folded into OXE-167 (superseded by v2): Mais ações holds today's items in four groups, destructive last:
+//   Renomear · Fixar · Delegar… · Servidores MCP… | Texto maior · Mostrar cada chamada de ferramenta · Detalhes |
+//   Bifurcar · Exportar | Arquivar · Excluir… (thread:moreActions.*); Bifurcar is disabled for a non-Codex conversation
+//   with its reason (thread:moreActions.forkCodexOnly).
 // - BRD-04/BRD-05 (PR #842): the card's measures are enforced and in enforced.lock.json (BRD-04.tabs.count is also
 //   OXE-169's: the first to land enforces it, the lock keeps it). The composer's measures are OXE-172's (OXC-2b), the panel toggles' and the main area's raw-button count OXC-4's (the tool tabs row it removes holds raw
 //   buttons), the new conversation's OXC-3's.
 // Queries use data-ui, ARIA roles and the active catalog's strings.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { cleanup, render, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAccountStore } from '../../../src/store/account.store'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
 import { ThreadView } from '../../../src/components/Threads/ThreadView'
+import { ThreadHeader } from '../../../src/components/Threads/ThreadHeader'
+import { ThreadFailureCard, usageResetIn, usageWindowLabel } from '../../../src/components/Threads/ThreadFailureCard'
 import { changeLanguage, i18n } from '../../../src/i18n'
 import { threadAgentName } from '../../../shared/threadProviders'
 import type { Workspace } from '../../../shared/types/workspace'
-import type { ThreadApi, ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
+import type { ConversationThread, ThreadApi, ThreadEvent, ThreadFailure, ThreadSnapshot } from '../../../shared/types/thread'
 
 vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'feat/thread', detached: false, shortSha: null, error: null }) }))
 
@@ -121,5 +136,80 @@ describe('OXE-167 OXC-2 conversation header and column (A11)', () => {
 
   it('turns its own BRD-04 and BRD-05 measures to enforced', () => {
     expect(notEnforced(OXC2_MEASURES)).toEqual([])
+  })
+})
+
+const RESETS_AT = Date.now() + 2 * 3600_000
+const failed = (failure: Partial<ThreadFailure> & Pick<ThreadFailure, 'code'>): Extract<ThreadEvent, { type: 'completed' }> => ({
+  type: 'completed', status: 'failed', failure: { id: `f-${failure.code}`, occurredAt: 1_790_000_000_000, message: 'The provider stopped the turn.', ...failure } as ThreadFailure })
+const buttonNames = (root: HTMLElement): string[] => within(root).queryAllByRole('button').map(button => (button.getAttribute('aria-label') ?? button.textContent ?? '').trim())
+
+describe('OXE-167 OXC-2 failure card mould, BRD-19 (A11)', () => {
+  it.each(['en', 'pt-BR'])('a usage failure (%s): title, message, Tentar before Atualizar, codes only under Diagnóstico do provedor, one compact line per window', async locale => {
+    await changeLanguage(locale)
+    const { container } = render(<ThreadFailureCard latest onRetry={vi.fn()} refreshUsage={vi.fn(async () => ({ windows: [], checkedAt: 1 }))}
+      event={failed({ code: 'usage', providerCode: 'usage_limit_reached', httpStatus: 429, detail: 'raw provider body 7f3a', usage: { checkedAt: 1_790_000_000_000, windows: [{ label: 'Session · 5 hours', usedPercent: 100, resetsAt: RESETS_AT }] } })} />)
+    const title = screen.getByText(tt('failure.title.usage'))
+    const buttons = buttonNames(container as HTMLElement)
+    const retry = buttons.indexOf(tt('failure.retry')), refresh = buttons.indexOf(tt('failure.refresh'))
+    expect([retry >= 0, refresh >= 0, retry < refresh], `buttons ${buttons.join(' | ')}`).toEqual([true, true, true])
+    for (const code of ['usage_limit_reached', 'HTTP 429', 'raw provider body 7f3a']) expect(screen.getByText(code, { exact: false }), `${code} waits under the diagnostic`).not.toBeVisible()
+    const disclosure = screen.getByText(tt('failure.diagnostic'))
+    expect(Boolean(title.compareDocumentPosition(disclosure) & Node.DOCUMENT_POSITION_FOLLOWING), 'the diagnostic comes after the title').toBe(true)
+    fireEvent.click(disclosure)
+    for (const code of ['usage_limit_reached', 'raw provider body 7f3a']) expect(screen.getByText(code, { exact: false }), `${code} shows once opened`).toBeVisible()
+    const line = `${usageWindowLabel('Session · 5 hours')} · ${tt('failure.used', { percent: '100' })} · ${tt('failure.resetsIn', { time: usageResetIn(RESETS_AT) })}`
+    expect([...container.querySelectorAll('*')].some(element => element.textContent?.replace(/\s+/g, ' ').trim() === line), `one line "${line}"`).toBe(true)
+    expect(container.querySelectorAll('progress'), 'usage limits stay compact').toHaveLength(0)
+  })
+
+  it.each([
+    ['context', 'failure.compact', 'onCompact'],
+    ['configuration', 'failure.changeConfiguration', 'onPermissions'],
+    ['sandbox', 'failure.reviewPermissions', 'onPermissions']
+  ] as const)('a %s failure keeps its action (%s) in the mould', (code, key, handler) => {
+    const callbacks = { onCompact: vi.fn(), onPermissions: vi.fn(), onRetry: vi.fn() }
+    render(<ThreadFailureCard latest event={failed({ code })} {...callbacks} />)
+    expect(screen.getByText(tt(`failure.title.${code}`))).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: tt(key) }))
+    expect(callbacks[handler]).toHaveBeenCalled()
+  })
+
+  it('a turn that changed files offers Desfazer as alterações e tentar de novo or Tentar de novo sem desfazer', () => {
+    const onRetry = vi.fn()
+    render(<ThreadFailureCard latest hasChanges onRetry={onRetry} event={failed({ code: 'server' })} />)
+    fireEvent.click(screen.getByRole('button', { name: tt('failure.retry') }))
+    expect(screen.getByRole('button', { name: tt('failure.retryKeep') })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: tt('failure.undoAndRetry') }))
+    expect(onRetry).toHaveBeenCalledWith(true)
+  })
+
+  it('an authentication failure says to reconnect and offers no retry', () => {
+    const { container } = render(<ThreadFailureCard latest onRetry={vi.fn()} event={failed({ code: 'authentication' })} />)
+    expect(screen.getByText(tt('failure.title.authentication'))).toBeInTheDocument()
+    expect(container).toHaveTextContent(tt('failure.reconnect'))
+    expect(buttonNames(container as HTMLElement)).not.toContain(tt('failure.retry'))
+  })
+})
+
+const HEADER_THREAD = { id: 't1', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Fix login', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 } as ConversationThread
+
+describe('OXE-167 OXC-2 Mais ações in four groups, BRD-21 (A11)', () => {
+  it.each(['en', 'pt-BR'])('lists today\'s items (%s) in four groups, destructive last, Bifurcar disabled with its reason', async locale => {
+    await changeLanguage(locale)
+    render(<ThreadHeader thread={HEADER_THREAD} pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onExport={() => {}} onTogglePanel={() => {}} />)
+    fireEvent.keyDown(screen.getByRole('button', { name: tt('header.moreActions') }), { key: 'Enter' })
+    const menu = await screen.findByRole('menu', { name: tt('header.moreActions') })
+    const groups: string[][] = [[]]
+    for (const element of menu.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemcheckbox"], [role="separator"]')) {
+      if (element.getAttribute('role') === 'separator') { if (groups.at(-1)!.length) groups.push([]) } else groups.at(-1)!.push(element.textContent?.trim() ?? '')
+    }
+    const expected = [['rename', 'pin', 'delegate', 'mcp'], ['largerText', 'showEveryToolCall', 'details'], ['fork', 'export'], ['archive', 'delete']]
+    expect(groups.map(group => group.length), `groups ${JSON.stringify(groups)}`).toEqual(expected.map(group => group.length))
+    expected.forEach((group, index) => group.forEach((key, position) =>
+      expect(groups[index][position].startsWith(tt(`moreActions.${key}`)), `group ${index + 1}, item ${position + 1}: "${groups[index][position]}" is ${tt(`moreActions.${key}`)}`).toBe(true)))
+    const fork = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(item => item.textContent?.trim().startsWith(tt('moreActions.fork')))!
+    expect(fork).toHaveAttribute('aria-disabled', 'true')
+    expect(fork.textContent).toContain(tt('moreActions.forkCodexOnly'))
   })
 })
