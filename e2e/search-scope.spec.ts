@@ -36,12 +36,15 @@ test('Find in files searches the active pane\'s worktree, and the workspace root
     await page.getByTestId('wizard-launch-btn').click()
     const pane = page.getByTestId('terminal-pane')
     await expect(pane).toHaveCount(1)
-    const paneId = await pane.first().getAttribute('data-pane-id')
-    expect(paneId).toBeTruthy()
-
-    // The pane moves into the hotfix worktree, as the Worktrees panel does.
-    await page.evaluate(({ paneId, rootPath }) => window.oxe.workspace.setPaneRootPath({ paneId, rootPath }), { paneId: paneId ?? '', rootPath: tree })
+    // The pane moves into the hotfix worktree the way a person does it: the Worktrees panel, with the pane active.
     await pane.first().click()
+    await togglePanel(page, 'Worktrees')
+    const worktrees = page.getByTestId('workspace-worktree-panel')
+    const hotfix = worktrees.locator('.worktree-menu-item-select').filter({ hasText: 'hotfix' })
+    await expect(hotfix).toBeEnabled({ timeout: 15_000 })
+    await hotfix.click()
+    await expect(hotfix).toHaveAttribute('aria-current', 'true', { timeout: 15_000 })
+    await togglePanel(page, 'Worktrees')
 
     await togglePanel(page, 'Find in files')
     const panel = page.getByTestId('workspace-search-panel')
