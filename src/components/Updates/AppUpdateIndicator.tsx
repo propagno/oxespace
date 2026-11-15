@@ -6,6 +6,7 @@ import { Button, Popover } from '../../ui'
 import { useApprovalsStore } from '../Approvals/approvals.store'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { updateChipView } from './updateChip'
+import styles from './AppUpdateIndicator.module.css'
 
 const RELEASE_URL = 'https://github.com/propagno/oxespace/releases/latest'
 
@@ -23,8 +24,8 @@ export function AppUpdateIndicator(): ReactElement | null {
 
   return <div className="app-update-indicator">
     <Popover open={open} onOpenChange={setOpen} align="end" label={t('updates.app.title')}
-      trigger={<Button variant="ghost" size="sm" className="app-update-trigger" aria-label={chip.label} title={chip.label}>
-        {app.status === 'downloading' ? <Download size={14} /> : app.status === 'error' ? <AlertTriangle size={14} /> : <ArrowUpCircle size={14} />}
+      trigger={<Button variant="ghost" size="sm" square className={styles.trigger} aria-label={chip.label} title={chip.label}
+        icon={app.status === 'downloading' ? <Download size={14} /> : app.status === 'error' ? <AlertTriangle size={14} /> : <ArrowUpCircle size={14} />}>
         <span className="app-update-dot" aria-hidden="true" />
       </Button>}>
       <div className="app-update-popover">
@@ -33,7 +34,7 @@ export function AppUpdateIndicator(): ReactElement | null {
         {manual || app.status === 'error' ? (
           <ExternalAnchor href={RELEASE_URL} source="app">{t('updates.chip.openReleases')} <ArrowUpCircle size={14} /></ExternalAnchor>
         ) : app.status === 'downloaded' ? (
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div className={styles.actions}>
             <Button size="sm" variant="primary" icon={<RefreshCw size={14} />} onClick={() => void quitAndInstall()}>{t('updates.chip.restartNow')}</Button>
             <Button size="sm" variant="secondary" onClick={() => { dismissBanner(); setOpen(false) }}>{t('updates.chip.later')}</Button>
           </div>
