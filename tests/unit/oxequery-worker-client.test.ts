@@ -2,7 +2,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OxeQueryWorkerClient } from '../../electron/main/services/oxequery/worker-client'
 import { connectIncidentJournal, incidentSubject } from '../../electron/main/services/diagnostics/incident-sink'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
@@ -64,6 +64,13 @@ describe('OxeQueryWorkerClient time budget', () => {
     await Promise.all(clients.map(client => client.close().catch(() => undefined)))
     removeTempDir(dir)
   })
+  // OXE-151: the client's budget timers are fake, so a budget runs out only when a test moves the clock. With real
+  // timers a budget of 100 ms also counted the worker thread's start-up, and on a loaded runner the set-up request
+  // (`begin`, `ping`) ran out before the worker had read it. The workers stay real threads with real time.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }) })
+  afterEach(() => { vi.useRealTimers() })
+  /** Moves the client's clock on by `ms`, firing the budgets and pings that fall due. */
+  const elapse = async (ms: number): Promise<void> => { await vi.advanceTimersByTimeAsync(ms) }
   const client = (timeoutMs: number): OxeQueryWorkerClient => {
     const created = new OxeQueryWorkerClient(workerPath, timeoutMs)
     clients.push(created)
@@ -72,19 +79,25 @@ describe('OxeQueryWorkerClient time budget', () => {
 
   it('fails only the request that overran its budget; the worker and other requests carry on', async () => {
     const shared = client(400)
-    const slow = shared.call('slow', undefined, { delayMs: 800 })
+    // The slow statement does not answer within the test; the quick one answers before the budget runs out.
+    const slow = shared.call('slow', undefined, { delayMs: 60_000 })
     const quick = shared.call('quick', undefined, { delayMs: 100 })
-    await expect(slow).rejects.toThrow(/did not answer in time/)
     await expect(quick).resolves.toEqual({ done: true, op: 'quick' })
+    const slowFails = expect(slow).rejects.toThrow(/did not answer in time/)
+    await elapse(400)
+    await slowFails
     await expect(shared.call('after', undefined, { delayMs: 0 })).resolves.toEqual({ done: true, op: 'after' })
   })
 
   it('restarts a worker that no longer answers a ping after a timeout', async () => {
     const stuck = new OxeQueryWorkerClient(join(dir, 'stuck.cjs'), 100, undefined, 200)
     clients.push(stuck)
-    await expect(stuck.call('anything')).rejects.toThrow(/did not answer in time/)
+    const failed = expect(stuck.call('anything')).rejects.toThrow(/did not answer in time/)
+    await elapse(100)
+    await failed
     const worker = () => (stuck as unknown as { worker?: unknown }).worker
-    await new Promise(resolve => setTimeout(resolve, 600))
+    // The ping the timeout sent goes unanswered for its whole 200 ms: the worker is restarted.
+    await elapse(200)
     expect(worker()).toBeUndefined()
   })
 
@@ -106,11 +119,14 @@ describe('OxeQueryWorkerClient time budget', () => {
     const shared = roles(150)
     await shared.call('begin', person)
     await expect(shared.call('sql.run', agent)).resolves.toEqual({ done: true })
-    await expect(shared.call('slow', agent)).rejects.toThrow(/did not answer in time/)
-    await new Promise(resolve => setTimeout(resolve, 100))
+    const slow = expect(shared.call('slow', agent)).rejects.toThrow(/did not answer in time/)
+    await elapse(150)
+    await slow
+    // The worker reads its messages in order: the stop the timeout sent arrives before this request.
     expect(await shared.call('stops')).toEqual([{ op: 'close', id: 'c1', role: 'agent' }])
-    await expect(shared.call('sql.slow', agent).catch(() => 'timed out')).resolves.toBe('timed out')
-    await new Promise(resolve => setTimeout(resolve, 100))
+    const sqlSlow = shared.call('sql.slow', agent).catch(() => 'timed out')
+    await elapse(150)
+    await expect(sqlSlow).resolves.toBe('timed out')
     const stops = await shared.call<{ op: string; role: string }[]>('stops')
     expect(stops.every(stop => stop.role === 'agent')).toBe(true)
     expect(stops.map(stop => stop.op)).toEqual(['close', 'sql.cancel'])
@@ -126,8 +142,11 @@ describe('OxeQueryWorkerClient time budget', () => {
       const stuck = roles(100, faults)
       await stuck.call('begin', person)
       const worker = workerOf(stuck)
-      await expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
-      await new Promise(resolve => setTimeout(resolve, 600))
+      const hang = expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
+      await elapse(100)
+      await hang
+      // The ping goes unanswered: the restart is due, and put off.
+      await elapse(200)
       expect(workerOf(stuck)).toBe(worker)
       expect(faults.some(fault => /restart put off while a person session is at risk/.test(fault))).toBe(true)
       // The deferral is visible in the diagnostics journal, with the connection whose timeout asked (hashed, as every subject).
@@ -140,12 +159,17 @@ describe('OxeQueryWorkerClient time budget', () => {
     const stuck = roles(100)
     await stuck.call('ping')
     const worker = workerOf(stuck)
-    await expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
+    const hang = expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
+    await elapse(100)
+    await hang
     // Sent after the agent's request, so the worker never reads it; its own budget is long.
     const waiting = stuck.call('sql.run', { ...person, statementTimeoutMs: 600_000 } as ResolvedConnection).catch(() => undefined)
-    await new Promise(resolve => setTimeout(resolve, 600))
+    await elapse(200)
     expect(workerOf(stuck)).toBe(worker)
-    await stuck.close()
+    // close() asks the stuck worker to close all first, and gives up when that request's budget runs out.
+    const closing = stuck.close()
+    await elapse(100)
+    await closing
     await waiting
   })
 
@@ -153,8 +177,10 @@ describe('OxeQueryWorkerClient time budget', () => {
     const stuck = roles(100)
     await stuck.call('begin', person)
     await stuck.call('commit', person)
-    await expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
-    await new Promise(resolve => setTimeout(resolve, 600))
+    const hang = expect(stuck.call('hang', agent)).rejects.toThrow(/did not answer in time/)
+    await elapse(100)
+    await hang
+    await elapse(200)
     expect(workerOf(stuck)).toBeUndefined()
   })
 

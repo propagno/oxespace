@@ -1024,6 +1024,11 @@
     "designWait": "Espere a página terminar de carregar antes de usar o Modo Design.",
     "addedToDraft": "Adicionado ao rascunho da conversa ativa.",
     "agentExternal": "Um agente pediu um endereço externo. Ligue Externo para abri-lo.",
+    "approval": {
+      "title": "Um agente pede para abrir esta página no Navegador",
+      "hint": "Responder aqui é o mesmo que responder na central de aprovações.",
+      "label": "Um agente pede para abrir {{url}} no Navegador"
+    },
     "copied": "Prévia copiada para a área de transferência.",
     "close": "Fechar o navegador",
     "tabs": "Abas do navegador",

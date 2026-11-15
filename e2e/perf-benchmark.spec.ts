@@ -11,7 +11,7 @@
  * Budgets: 1 frame @60fps = 16.7ms · 100ms = perceptible.
  */
 import { modeButton } from './helpers/modes'
-import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, symlinkSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,6 +20,7 @@ import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
+import { launchForPerf } from './helpers/perf-launch'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -78,9 +79,13 @@ function report(op: string, xs: number[]): void {
   const s = stats(xs)
   const warm = xs.length > 1 ? stats(xs.slice(1)) : null
   const flag = s.mean > 100 ? '🔴' : s.mean > 16.7 ? '🟡' : '🟢'
+  // median= and first= (the first sample of the launch, a surface's first open) are read by the release gate
+  // (.github/workflows/perf-gate.yml, perf-gate/summarize.mjs).
+  const sorted = [...xs].sort((a, b) => a - b)
+  const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
   console.log(
     `[RESULT] ${op.padEnd(40)} n=${xs.length} min=${f(s.min)} mean=${f(s.mean)} p95=${f(s.p95)} max=${f(s.max)} ms` +
-    `${warm ? ` · warm mean=${f(warm.mean)} p95=${f(warm.p95)}` : ''} ${flag}`
+    `${warm ? ` · warm mean=${f(warm.mean)} p95=${f(warm.p95)}` : ''} median=${f(median)} first=${f(xs[0])} ${flag}`
   )
   if (ENFORCE_BUDGETS) {
     // Shared runners occasionally pause a renderer for several seconds while
@@ -101,14 +106,11 @@ async function launchApp(options: { mockNative?: boolean } = {}): Promise<{ app:
   ensureOutJunction()
   const root = join(tmpdir(), `oxe-perf-${Date.now()}-${Math.random().toString(36).slice(2)}`)
   const mockNative = options.mockNative ?? true
-  const app = await electron.launch({
-    args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: {
-      ...process.env,
-      OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
-      OXESPACE_E2E_MOCK_NATIVE: mockNative ? '1' : '0',
-      OXESPACE_DB_PATH: join(root, 'db.sqlite3')
-    }
+  const app = await launchForPerf({
+    ...process.env,
+    OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
+    OXESPACE_E2E_MOCK_NATIVE: mockNative ? '1' : '0',
+    OXESPACE_DB_PATH: join(root, 'db.sqlite3')
   })
   const pid = app.process().pid
   const page = await app.firstWindow()
@@ -807,6 +809,29 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
       }, `Streaming output ${i}. `.repeat(20)))
     }
     report('thread 5k: streaming append', appends)
+
+    // The same keystrokes while an agent streams (OXE-105): one event every 100 ms through the same thread:send path
+    // as the append above. Reported only; a build where the composer refuses input meanwhile says so instead of
+    // failing the test.
+    try {
+      await composer.focus()
+      await page.evaluate(() => {
+        const box = window as unknown as { __keySamples: number[]; __perfStream?: number }
+        box.__keySamples.length = 0
+        let tick = 0
+        box.__perfStream = window.setInterval(() => { void window.oxe.thread!.send('e2e-thread', `Streamed chunk ${tick++}. `.repeat(8)) }, 100)
+      })
+      await page.keyboard.type('Check the latest change for regressions', { delay: 40 })
+      await page.waitForTimeout(100)
+      const streamingKeys = await page.evaluate(() => {
+        const box = window as unknown as { __keySamples: number[]; __perfStream?: number }
+        window.clearInterval(box.__perfStream)
+        return [...box.__keySamples]
+      })
+      report('thread 5k: keystroke→paint while streaming', streamingKeys)
+    } catch (error) {
+      console.log(`[RESULT] thread 5k: keystroke→paint while streaming — not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    }
     const reads = await app.evaluate(() => (globalThis as Record<string, unknown>).perfReadCounts as { reads: number; deltas: number })
     expect(reads.deltas, 'streamed events arrive as deltas, not full rereads').toBeGreaterThanOrEqual(REPEATS)
   } finally {
