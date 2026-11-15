@@ -96,9 +96,6 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--fs-sm);
   color: var(--tx-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .examples {

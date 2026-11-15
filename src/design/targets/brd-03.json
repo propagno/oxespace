@@ -22,7 +22,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.tab.font-size",
@@ -41,7 +41,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.tab.font-weight",
@@ -60,7 +60,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.tab.underline",
@@ -79,12 +79,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.button.height",
       "scene": "code-workspace",
-      "select": "[data-ui=button]",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
       "prop": "height",
       "expect": {
         "oneOf": [
@@ -102,12 +102,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.button.font-size",
       "scene": "code-workspace",
-      "select": "[data-ui=button]",
+      "select": "[data-ui=button]:not([data-size=lg])",
       "prop": "font-size",
       "expect": {
         "token": "--fs-xs"
@@ -121,12 +121,33 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced",
+      "note": "sm and md text; brand 14/11, the BRD-04 decision"
+    },
+    {
+      "id": "BRD-03.button-lg.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=button][data-size=lg]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending",
+      "note": "lg text (dialog footers, a page primary); measured in the first-run scene once #858 (BRD-12) lands, which has lg primaries (MARCA + coordination 15/11)"
     },
     {
       "id": "BRD-03.button.font-weight",
       "scene": "code-workspace",
-      "select": "[data-ui=button]",
+      "select": "aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-medium"
@@ -140,7 +161,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.icon-button.height",
@@ -163,12 +184,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-03.raw-button.count",
       "scene": "code-workspace",
-      "select": "button:not([data-ui]):not([role=tab])",
+      "select": "header button:not([data-ui]):not([role=tab]), aside button:not([data-ui]):not([role=tab])",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -183,7 +204,7 @@
         "dark"
       ],
       "state": "pending",
-      "note": "every button of the surface is a Button or IconButton"
+      "note": "every button of the workspace bar and the sidebar is a Button or IconButton (OxeCode surface)"
     }
   ]
 }

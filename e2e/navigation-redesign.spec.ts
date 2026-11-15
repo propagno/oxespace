@@ -18,7 +18,7 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.getByTestId('wizard-layout-card-2').click()
     await page.getByTestId('wizard-launch-btn').click()
     await expect(page.getByTestId('terminal-pane')).toHaveCount(2)
-    await expect(modeButton(page, 'code')).toHaveAttribute('aria-pressed', 'true')
+    await expect(modeButton(page, 'code')).toHaveAttribute('aria-selected', 'true')
     // The application menus sit behind one button (Windows and Linux; macOS keeps its native menu bar).
     if (process.platform !== 'darwin') {
       // From 1121 px the menus are listed in the title bar; a narrower window (a CI screen) keeps them behind one button.

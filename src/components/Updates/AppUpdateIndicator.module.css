@@ -1,6 +1,8 @@
 /* The update trigger is a ghost --control-sm icon button like the other title bar icons (OXE-250, PM-02·13).
    button.trigger out-ranks the primitive's .button so its transparent 1px border is dropped. */
 button.trigger { position: relative; border-width: 0; border-radius: var(--radius-sm); color: var(--accent); }
+/* A failed update says so in the danger colour; downloading and ready stay in the accent (MARCA 15/11). */
+button.trigger[data-status='error'] { color: var(--intent-danger-fg); }
 button.trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 .actions { display: flex; gap: var(--space-2); }

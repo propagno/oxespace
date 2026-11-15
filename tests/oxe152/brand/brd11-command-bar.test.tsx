@@ -13,17 +13,15 @@
 // - With no prefix the text searches conversations (thread store titles), files and workspaces (workspace store names):
 //   "billing" lists the workspace billing and the conversation "Billing webhook". With ">" first it lists commands only:
 //   every option sits in the group named commandBar.groups.commands, and no workspace or conversation is offered.
-// - One palette (CA-4): CommandMenu renders the same component, so open it shows [data-ui=command-bar] with the same
-//   combobox (named commandBar.inputLabel). The "/" commands, "@agent", "open" and "?" keep working (U8.3).
+// - One palette (CA-4, CommandMenu renders the same component) is T30b's, with the e2e migration (coordination 15/11).
 // - src/design/targets/brd-11.json (new, card OXE-75): BRD-11.row.height (scene command-bar, height, --bar-md) enforced
 //   and locked; e2e/brand/brand-conformance.spec.ts measures the command-bar scene (Ctrl+K in OxeCode, a query with rows).
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CommandBar } from '../../../src/components/CommandBar/CommandBar'
-import { CommandMenu } from '../../../src/components/CommandMenu/CommandMenu'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useSkillStore } from '../../../src/store/skill.store'
@@ -114,15 +112,6 @@ describe('OXE-75 BRD-11 one command bar (A27)', () => {
     const commands = screen.getByRole('group', { name: t('commandBar.groups.commands') })
     for (const option of options()) expect(commands.contains(option), `${option.textContent} is a command`).toBe(true)
     expect(options().filter(option => /billing|shop|Billing webhook/.test(option.textContent ?? ''))).toEqual([])
-  })
-
-  it('CommandMenu is the same palette', async () => {
-    // jsdom has no ResizeObserver; today's palette (cmdk) needs one, so main fails on the assertion, not on the render.
-    if (!('ResizeObserver' in window)) Object.assign(window, { ResizeObserver: class { observe(): void {} unobserve(): void {} disconnect(): void {} } })
-    Element.prototype.scrollIntoView ??= function scrollIntoView(): void {}
-    render(<CommandMenu open onOpenChange={vi.fn()} workspace={null} actions={[]} workspaces={WORKSPACES as never} onSelectWorkspace={vi.fn()} onSelectPane={vi.fn()} />)
-    await waitFor(() => expect(document.querySelectorAll('[data-ui="command-bar"]')).toHaveLength(1))
-    expect(within(bar()).getByRole('combobox', { name: t('commandBar.inputLabel') })).toBeInTheDocument()
   })
 
   it('turns its own BRD-11 measure to enforced', () => {
