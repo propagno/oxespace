@@ -8,7 +8,7 @@
     {
       "id": "BRD-05.title.font-size",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "h1",
       "prop": "font-size",
       "expect": {
         "token": "--text-lg"
@@ -27,7 +27,7 @@
     {
       "id": "BRD-05.title.font-weight",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "h1",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-semibold"
@@ -46,7 +46,7 @@
     {
       "id": "BRD-05.title.font-family",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "h1",
       "prop": "font-family",
       "expect": {
         "token": "--font-ui"
