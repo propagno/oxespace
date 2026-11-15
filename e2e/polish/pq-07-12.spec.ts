@@ -80,6 +80,8 @@ test('PQ-07·12 in the app: the Color + Favorite pair lines up with the Group in
     await openOxeQuery(page)
     await page.getByRole('button', { name: cat('connections.new') }).first().click()
     const dialog = page.getByRole('dialog').last()
+    // liberação de teste congelado: coordenação 15/11, pq-07-12 espera a entrada do diálogo terminar (getAnimations().finished) antes de medir; nenhuma asserção muda (OXE-225)
+    await dialog.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)))
     const group = await dialog.getByLabel(cat('form.group'), { exact: true }).boundingBox()
     const swatches = await dialog.getByRole('radiogroup', { name: cat('form.color') }).boundingBox()
     expect(group && swatches).toBeTruthy()
