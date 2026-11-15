@@ -17,8 +17,9 @@
 //   Policy, in the same navigation.
 // - Agents & permissions: "Custom agent" is a Button in a section header (the SettingsSection's actions), not a field
 //   and not a row.
-// - One mould (CA-7): SettingsSection has no variant (no data-variant, `plain` is gone: no card is the default);
-//   measured on CI, BRD-23.section.border-radius 0 and the section title 14/600.
+// - One mould (brand 15/11: CA-4 wins over CA-7): the card, SettingsSection with --radius-lg (12), a subtle border,
+//   raised; no variant (no data-variant, `plain` is gone and its two uses become the card); measured on CI,
+//   BRD-23.section.border-radius --radius-lg and the section title 14/600.
 // - src/design/targets/brd-23.json (new, card OXE-100): the measures below, enforced and locked, scene settings-general.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -58,7 +59,7 @@ function measureProblems(brd: string, card: string, pins: readonly Pin[]): strin
   return problems
 }
 const SETTINGS_MEASURES: readonly Pin[] = [
-  { id: 'BRD-23.section.border-radius', scene: 'settings-general', prop: 'border-radius', expect: { px: 0 } },
+  { id: 'BRD-23.section.border-radius', scene: 'settings-general', prop: 'border-radius', expect: { token: '--radius-lg' } },
   { id: 'BRD-23.section-title.font-size', scene: 'settings-general', prop: 'font-size', expect: { token: '--text-md' } },
   { id: 'BRD-23.section-title.font-weight', scene: 'settings-general', prop: 'font-weight', expect: { token: '--weight-semibold' } }
 ]
@@ -81,10 +82,12 @@ describe('OXE-100 BRD-23 Settings, 9 sections and the App / workspace selector (
     navNames().forEach((name, index) => expect(name.startsWith(SECTIONS[index]), `section ${index + 1} is ${SECTIONS[index]}: "${name}"`).toBe(true))
   }, 30_000)
 
-  it('pt-BR has the same 9 sections', async () => {
+  it('pt-BR has the same 9 sections, with the brand\'s names', async () => {
     await changeLanguage('pt-BR')
     open()
     await waitFor(() => expect(navNames()).toHaveLength(9), { timeout: 10_000 })
+    const PT = ['Geral', 'Aparência', 'Agentes e permissões', 'Notificações', 'Teclado', 'Terminal', 'Integrações', 'Dados e diagnóstico', 'Sobre']
+    navNames().forEach((name, index) => expect(name.startsWith(PT[index]), `seção ${index + 1} é ${PT[index]}: "${name}"`).toBe(true))
   }, 30_000)
 
   it('the top holds the App / workspace selector and the Ctrl+F search; the workspace lists General, Projects and Policy', async () => {
