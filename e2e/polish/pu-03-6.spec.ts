@@ -4,13 +4,13 @@
 // Contract: the first run's headings, read from the accessibility tree (role heading and its level), start with one level
 // 1 and skip no level; each of the three steps' titles is level 2.
 import { expect, test } from '@playwright/test'
-import { launchApp, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth } from '../helpers/launch'
 
 test('PU-03·6 in the app: one h1, then h2 step titles, no skipped level', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     const first = page.getByTestId('first-run')
     await expect(first).toBeVisible()
     const levels = await first.getByRole('heading').evaluateAll(els => els.map(el => Number(el.getAttribute('aria-level') ?? el.tagName.slice(1))))

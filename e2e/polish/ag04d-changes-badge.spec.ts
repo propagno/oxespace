@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 const git = (cwd: string, ...args: string[]): string => execFileSync('git', args, { cwd, encoding: 'utf8' })
 
@@ -21,7 +21,7 @@ test('AG-04d in the app: the Changes button counts the changed files without ope
     writeFileSync(join(workspaceRoot, 'README.md'), '# demo\n')
     git(workspaceRoot, 'add', '.')
     git(workspaceRoot, 'commit', '-q', '-m', 'init')
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const header = page.locator('header[aria-label="Workspace status"], [data-ui="workspace-header"]').first()
     await expect(header.getByRole('button', { name: /^Changes$/ })).toHaveCount(1)

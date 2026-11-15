@@ -4,7 +4,7 @@
 // Contract: in the dark theme, every OxeLogo tile on the first run's window (the title bar's app icon and the first run's
 // mark, when it has a tile) has a computed stroke equal to --bd-subtle; in the light theme the tile has no stroke.
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, resizeWindow, setAppearance } from '../helpers/launch'
+import { launchApp, layoutAtWidth, setAppearance } from '../helpers/launch'
 
 /** The colour a token resolves to here, read through a probe element. */
 const tokenColor = (page: Page, token: string): Promise<string> => page.evaluate(name => {
@@ -21,7 +21,7 @@ test('PU-03·3 in the app: the Ramo tile is outlined in --bd-subtle on the dark 
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'dark', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await expect(page.getByTestId('first-run')).toBeVisible()
     await expect(page.locator('svg[data-ui="brand-mark"] rect')).not.toHaveCount(0)
     const subtle = await tokenColor(page, '--bd-subtle')

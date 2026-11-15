@@ -4,13 +4,13 @@
 // "OxeCode ·"; its [data-ui=panel-group] holds only buttons with a name and a tooltip; the branch shows only when git
 // knows it (never "Branch unavailable").
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 test('BRD-13 in the app: the workspace header is the workspace, the panel group is labelled', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const header = page.locator('[data-ui="workspace-header"]')
     await expect(header).toHaveCount(1)

@@ -3,13 +3,13 @@
 // Contract: Changes and Browser opened from the Panels menu (btn-open-tools, the path the conformance scene takes) are each
 // one [data-ui=dock-panel] region named by its title, with that title in an h2 of its header and the close control last.
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 test('BRD-15 in the app: Changes and Browser are DockPanels', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     for (const name of ['Changes', 'Browser']) {
       await page.getByTestId('btn-open-tools').click()

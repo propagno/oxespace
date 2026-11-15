@@ -7,7 +7,7 @@
 // closes the queue and the focus goes back to the pill. Requests of conversations are proved by the window and main tests
 // (A26, A34): the conversation fixtures stand in for main's IPC, so they are not used here.
 import { expect, test, type ElectronApplication } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
@@ -17,7 +17,7 @@ test('BRD-10 / OXE-176 in the app: a waiting terminal is the queue\'s one row, a
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
       .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))

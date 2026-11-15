@@ -5,7 +5,7 @@
 // colour of the src/ui Tabs list (BRD-09 wins over the card's --fill-selected pair: --tx-primary) and differs from an
 // unselected tab's, so the dark theme never falls back to the light rule.
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 const tokenColor = (page: Page, token: string): Promise<string> => page.evaluate(name => {
   const probe = document.createElement('div')
@@ -20,7 +20,7 @@ test('PM-02·1 in the app: the selected mode reads in the dark theme', async () 
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'dark', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     expect(await page.evaluate(() => document.documentElement.dataset.mode)).toBe('dark')
     const tabs = page.locator('[data-ui="tabs"][role="tablist"]').filter({ has: page.locator('[data-app-mode]') })

@@ -5,7 +5,7 @@
 // Contract: in the comfortable density the title bar (header.workbench-titlebar) is 40px tall (--bar-lg), and the bell's
 // count ([data-testid=activity-count]) lies wholly inside the bar and inside the bell's own box.
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
@@ -21,7 +21,7 @@ test('PM-02·3 in the app: the title bar is 40px in comfortable and the bell\'s 
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', density: 'comfortable', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await setAgentState(app, { paneId: await lastTerminal(page), state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const bar = page.locator('header.workbench-titlebar')

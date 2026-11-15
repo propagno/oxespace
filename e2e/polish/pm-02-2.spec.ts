@@ -7,7 +7,7 @@
 // ([data-testid=attention-badge]) lies inside its own tab and inside the title bar (header.workbench-titlebar), never over
 // the next tab, and is painted --attn-bg.
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
@@ -32,7 +32,7 @@ test('PM-02·2 in the app: the waiting count sits inside its tab and the title b
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await setAgentState(app, { paneId: await firstTerminal(page), state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const tabs = page.locator('[data-ui="tabs"][role="tablist"]').filter({ has: page.locator('[data-app-mode]') })

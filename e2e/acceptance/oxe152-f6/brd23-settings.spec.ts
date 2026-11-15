@@ -3,7 +3,7 @@
 // Contract: Settings opens on the app scope with the 9 sections of the target in order in "Settings categories"; the
 // [data-ui=settings-scope] selector switches to the workspace, whose sections are General, Projects and Policy.
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 import { openSettings } from '../../helpers/settings'
 
 const SECTIONS = ['General', 'Appearance', 'Agents & permissions', 'Notifications', 'Keyboard', 'Terminal', 'Integrations', 'Data & diagnostics', 'About']
@@ -12,7 +12,7 @@ test('BRD-23 in the app: nine sections and the App / workspace selector', async 
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await openSettings(page)
     const dialog = page.getByRole('dialog', { name: 'Settings', exact: true })

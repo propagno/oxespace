@@ -3,13 +3,13 @@
 // Contract: the terminal's "More pane actions" menu holds at most 8 own items, none disabled, grouped by separators, with
 // any Close/Kill item alone in the last group; Esc closes it.
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 test('BRD-16 in the app: the terminal menu is short and ordered', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await page.locator('[data-testid="pane-container"]').first().getByRole('button', { name: 'More pane actions' }).click()
     const menu = page.getByTestId('pane-actions-menu')

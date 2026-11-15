@@ -3,13 +3,13 @@
 // Contract: the Changes panel's scope badge is a toggle button in the accessibility tree: "Pin the scope", not pressed;
 // Enter from the keyboard pins it ("Follow the active pane", pressed); Space unpins it again.
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 test('AG-04c in the app: the pin is a toggle with its state, from the keyboard', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await page.getByTestId('btn-open-tools').click()
     await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name: /^Changes$/ }).click()

@@ -4,13 +4,13 @@
 // (.terminal-cmd-input); the pane the person clicks is the focused one (its header data-focused="true", one at a time);
 // no header says "Branch unavailable".
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 test('BRD-14 in the app: PaneHeader on every terminal, no command-line footer, one focused pane', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const containers = page.locator('[data-testid="pane-container"]')
     await expect.poll(() => containers.count()).toBeGreaterThan(1)

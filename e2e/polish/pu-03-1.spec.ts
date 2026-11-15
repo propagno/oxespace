@@ -4,13 +4,13 @@
 // Contract: with forced colours emulated and no workspace, the first run's step 1 is aria-current="step" with a 2px
 // outline, and every agent row's state is a [data-ui=status-signal] with an accessible name.
 import { expect, test } from '@playwright/test'
-import { launchApp, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth } from '../helpers/launch'
 
 test('PU-03·1 in the app: forced colours show the current step and each agent\'s state', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await page.emulateMedia({ forcedColors: 'active' })
     const first = page.getByTestId('first-run')
     await expect(first).toBeVisible()

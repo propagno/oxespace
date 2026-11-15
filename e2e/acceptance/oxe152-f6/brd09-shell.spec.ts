@@ -6,7 +6,7 @@
 // data); no needs-you pill while nothing waits; a terminal that starts waiting puts its count in the OxeCode tab and shows
 // the pill; the status bar ([data-ui=status-bar]) names the workspace and shows neither "agents working" nor the version.
 import { expect, test, type ElectronApplication } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
@@ -16,7 +16,7 @@ test('BRD-09 in the app: mode tabs with the needs-you count, the pill only when 
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const tabs = page.locator('[data-ui="tabs"][role="tablist"]').filter({ has: page.locator('[data-app-mode]') })
     await expect(tabs).toHaveCount(1)

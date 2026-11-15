@@ -5,13 +5,13 @@
 // exactly three [data-ui=first-run-step] with a data-state; no "Clone"/"Clonar"; no disabled button in a step that is
 // "next"; and OxeCode's empty state never shows the first-run checklist ([data-testid=first-run-checklist]).
 import { expect, test } from '@playwright/test'
-import { launchApp, resizeWindow } from '../../helpers/launch'
+import { launchApp, layoutAtWidth } from '../../helpers/launch'
 
 test('BRD-12 in the app: one start in three steps, with the mark and the display title', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     const first = page.getByTestId('first-run')
     await expect(first).toBeVisible()
     await expect(first.locator('svg[data-ui="brand-mark"]')).not.toHaveCount(0)

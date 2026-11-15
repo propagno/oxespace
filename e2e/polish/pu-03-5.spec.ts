@@ -4,7 +4,7 @@
 // Contract: the first run's title [data-ui=first-run-title] computes font-size equal to --fs-display, font-stretch equal
 // to --stretch-display, and a balanced wrap (text-wrap / text-wrap-style balance), in both densities.
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, resizeWindow, setAppearance } from '../helpers/launch'
+import { launchApp, layoutAtWidth, setAppearance } from '../helpers/launch'
 
 const token = (page: Page, prop: 'font-size' | 'font-stretch', name: string): Promise<string> => page.evaluate(([property, tokenName]) => {
   const probe = document.createElement('div')
@@ -19,7 +19,7 @@ test('PU-03·5 in the app: the first run\'s title is --fs-display, --stretch-dis
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', locale: 'pt-BR', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     for (const density of ['compact', 'comfortable'] as const) {
       await setAppearance(page, 'light', density)
       const title = page.locator('[data-ui="first-run-title"]')

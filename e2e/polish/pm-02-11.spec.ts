@@ -5,7 +5,7 @@
 // Red until the card's task (after T28).
 // Contract: the status bar's usage reading ([data-testid=usage-status]) is at least 24px tall (--target-min).
 import { expect, test } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 
 test('PM-02·11 in the app: the status bar\'s usage target is 24px', async () => {
   test.setTimeout(180_000)
@@ -19,7 +19,7 @@ test('PM-02·11 in the app: the status bar\'s usage target is 24px', async () =>
         return { provider, available: true, installed: true, planLabel: null, display: weekly, windows: [{ kind: 'session', usedPct: 40, resetsAtMs: Date.now() + 3_600_000 }, weekly], error: null, source: 'oauth', observedAtMs: Date.now() }
       })
     })
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     const usage = page.getByTestId('usage-status').first()
     await expect(usage).toBeVisible({ timeout: 30_000 })
