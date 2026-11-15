@@ -67,6 +67,22 @@ describe('ResultGrid', () => {
     expect(screen.getAllByRole('columnheader').map(node => node.style.width)).toEqual(natural)
   })
 
+  it('sorts when the column name is clicked, and the name is its own element apart from the hover actions (PQ-07·3)', () => {
+    grid()
+    const name = screen.getAllByText('name').find(node => node.classList.contains('oq-grid-name'))!
+    expect(name.querySelector('button')).toBeNull()
+    fireEvent.click(name)
+    expect(name.closest('[role="columnheader"]')).toHaveAttribute('aria-sort', 'ascending')
+  })
+
+  it('offers pin and hide from the header menu on a right click (PQ-07·3)', () => {
+    grid()
+    const header = screen.getAllByText('name').find(node => node.classList.contains('oq-grid-name'))!.closest('[role="columnheader"]')!
+    fireEvent.contextMenu(header)
+    expect(screen.getByRole('menuitem', { name: 'Pin column name' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Hide column name' })).toBeInTheDocument()
+  })
+
   it('lets the server order the rows when asked to, and sorts loaded rows otherwise', () => {
     const onSort = vi.fn()
     const { grid: element } = grid({ onSort })

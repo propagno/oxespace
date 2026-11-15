@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/oxequery-result-grid.test.tsx tests/design-lint.test.ts --maxWorkers=2 && npm run build && npx playwright test e2e/oxequery.spec.ts --reporter=list
