@@ -1530,10 +1530,9 @@
     "running": "Trabalhando",
     "attention": "Precisa de você",
     "failed": "Falhou",
-    "interrupted": "Pausada",
-    "background": "Em segundo plano",
-    "completed": "Concluída",
-    "ready": "Pronta"
+    "completed": "Concluído",
+    "idle": "Ocioso",
+    "interrupted": "Interrompido"
   },
   "undoTurn": {
     "nothing": "Nada para desfazer",
@@ -1642,7 +1641,7 @@
     "completedWarnings": "Concluído com avisos",
     "completed": "Concluído",
     "failed": "Falhou",
-    "interrupted": "Pausado",
+    "interrupted": "Interrompido",
     "actions_one": "{{count}} ação",
     "actions_many": "{{count}} ações",
     "actions_other": "{{count}} ações",

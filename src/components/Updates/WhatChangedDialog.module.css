@@ -55,10 +55,10 @@
   background: var(--surface-sunken);
 }
 
-.saved[data-intent='warning'] { border-color: var(--warning); }
+.saved[data-intent='warning'] { border-color: var(--intent-warning-solid); }
 
 .savedIcon { grid-row: span 2; margin-top: 2px; color: var(--text-muted); }
-.saved[data-intent='warning'] .savedIcon { color: var(--warning); }
+.saved[data-intent='warning'] .savedIcon { color: var(--intent-warning-solid); }
 
 .saved p { margin: 0; color: var(--text-primary); font-size: var(--text-sm); line-height: 1.45; overflow-wrap: anywhere; }
 .saved .note { color: var(--text-muted); font-size: var(--text-xs); }
