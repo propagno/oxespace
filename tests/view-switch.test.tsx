@@ -25,14 +25,14 @@ function Harness({ onCommit, skeleton = false }: { onCommit: (view: AppView) => 
 
 beforeEach(() => { vi.useFakeTimers(); loaded = false; document.querySelectorAll('[aria-live]').forEach(node => node.replaceChildren()) })
 afterEach(() => { cleanup(); vi.useRealTimers() })
-const button = (name: string) => screen.getByRole('button', { name })
+const button = (name: string) => screen.getByRole('tab', { name })
 
 describe('switching views (F7.2, docs/design/motion.md)', () => {
   // The view's chunk starts loading after the selected button has painted (a frame, advanced with the timers).
   it('a shortcut (Ctrl+3) selects and marks the button busy in the same task, as a click does (HML on #363)', () => {
     render(<Harness onCommit={() => undefined} />)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: '3', code: 'Digit3', ctrlKey: true, bubbles: true })) })
-    expect(button('OxeQuery')).toHaveAttribute('aria-pressed', 'true')
+    expect(button('OxeQuery')).toHaveAttribute('aria-selected', 'true')
     expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'true')
     expect(screen.getByTestId('current')).toHaveTextContent('code')
   })
@@ -41,9 +41,9 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     const commit = vi.fn()
     render(<Harness onCommit={commit} />)
     act(() => { button('OxeQuery').click() })
-    expect(button('OxeQuery')).toHaveAttribute('aria-pressed', 'true')
+    expect(button('OxeQuery')).toHaveAttribute('aria-selected', 'true')
     expect(button('OxeQuery')).toHaveAttribute('aria-busy', 'true')
-    expect(button('OxeCode')).toHaveAttribute('aria-pressed', 'false')
+    expect(button('OxeCode')).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByTestId('current')).toHaveTextContent('code')
     await act(async () => { vi.advanceTimersByTime(20); await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
     expect(commit).toHaveBeenCalledWith('data')
@@ -66,7 +66,7 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     render(<Harness onCommit={commit} />)
     act(() => { button('OxeQuery').click() })
     act(() => { button('OxeCode').click() })
-    expect(button('OxeCode')).toHaveAttribute('aria-pressed', 'true')
+    expect(button('OxeCode')).toHaveAttribute('aria-selected', 'true')
     await act(async () => { vi.advanceTimersByTime(SKELETON_AFTER_MS * 2) })
     expect(commit).not.toHaveBeenCalled()
     expect(screen.getByTestId('current')).toHaveTextContent('code')

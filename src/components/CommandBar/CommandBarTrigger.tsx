@@ -17,7 +17,7 @@ export function CommandBarTrigger({ onOpen }: CommandBarTriggerProps): ReactElem
 
   return (
     <Button
-      size="sm"
+      size="md"
       variant="secondary"
       className={styles.trigger}
       aria-keyshortcuts={keyShortcuts}
