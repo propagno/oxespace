@@ -141,8 +141,22 @@ async function keyEcho(page: Page, idlePane: string): Promise<number> {
   return ms
 }
 
-async function measure(label: string, unit: 'ms', run: () => Promise<number>): Promise<void> {
-  try { add(label, unit, await run()) } catch (error) { console.log(`[LOAD] ${label} — one sample not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`) }
+const shot = new Set<string>()
+async function measure(page: Page, label: string, unit: 'ms', run: () => Promise<number>): Promise<void> {
+  try { add(label, unit, await run()) } catch (error) {
+    console.log(`[LOAD] ${label} — one sample not measured: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`)
+    // The first miss of each measure leaves what the window showed, for the artifact.
+    if (shot.has(label)) return
+    shot.add(label)
+    const state = await page.evaluate(() => ({
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+      options: document.querySelectorAll('[role="option"], [cmdk-item]').length,
+      focused: `${document.activeElement?.tagName ?? ''}.${(document.activeElement as HTMLElement | null)?.className ?? ''}`.slice(0, 120),
+      workspaces: Array.from(document.querySelectorAll('[data-testid="sidebar-workspace-item"]')).map(node => `${(node.textContent ?? '').trim().slice(0, 40)}:${(node as HTMLElement).offsetParent ? 'shown' : 'hidden'}`)
+    })).catch(() => null)
+    console.log(`[LOAD] ${label} — window state: ${JSON.stringify(state)}`)
+    await page.screenshot({ path: join(dirname(RESULTS), `${label.replace(/[^a-z0-9]+/gi, '-')}.png`) }).catch(() => undefined)
+  }
 }
 
 async function killApp(app: ElectronApplication): Promise<void> {
@@ -187,22 +201,25 @@ test.describe.serial('the app under real terminal load (OXE-120)', () => {
         let peak = 0
         const sampler = setInterval(() => { void workingSetMb(app).then(mb => { peak = Math.max(peak, mb) }).catch(() => undefined) }, 1000)
 
-        await page.locator(`[data-testid="terminal-pane"][data-pane-id="${idle}"]`).click()
-        for (let i = 0; i < 5; i++) await measure('key echo (idle pane)', 'ms', () => keyEcho(page, idle))
-        for (let i = 0; i < 3; i++) {
-          await measure('Ctrl K → first item', 'ms', async () => {
-            await armInputTimerUntil(page, [{ selector: '[cmdk-item]' }])
+        // Every sample is taken while the 8 panes are still printing; a sample past the load would measure nothing.
+        const loaded = (): boolean => Date.now() - startedAt < (LOAD_SECONDS - 1) * 1000
+        await page.locator(`[data-testid="terminal-pane"][data-pane-id="${idle}"]`).click({ timeout: 5_000 })
+        for (let i = 0; i < 5 && loaded(); i++) await measure(page, 'key echo (idle pane)', 'ms', () => keyEcho(page, idle))
+        for (let i = 0; i < 3 && loaded(); i++) {
+          await measure(page, 'Ctrl K → first item', 'ms', async () => {
+            await armInputTimerUntil(page, [{ selector: '[cmdk-item], [role="dialog"] [role="option"]' }])
             await page.keyboard.press('Control+K')
-            const ms = await readInputTimer(page, 10_000)
+            const ms = await readInputTimer(page, 3_000)
             await page.keyboard.press('Escape')
             return ms
           })
         }
         for (const label of ['beta-repo', 'alpha-repo']) {
-          await measure('workspace switch → grid', 'ms', async () => {
+          if (!loaded()) break
+          await measure(page, 'workspace switch → grid', 'ms', async () => {
             await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
-            await page.getByTestId('sidebar-workspace-item').filter({ hasText: label }).getByTestId('sidebar-workspace-select').click()
-            return await readInputTimer(page, 15_000)
+            await page.getByTestId('sidebar-workspace-item').filter({ hasText: label }).getByTestId('sidebar-workspace-select').click({ timeout: 5_000 })
+            return await readInputTimer(page, 5_000)
           })
         }
 
