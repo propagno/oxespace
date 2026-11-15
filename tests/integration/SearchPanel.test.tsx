@@ -76,6 +76,23 @@ describe('SearchPanel', () => {
     )
   })
 
+  // OXE-191: with the active pane in a worktree, Search read the main checkout while Files and Git read the worktree.
+  test('searches and opens matches under the panels\' scope (a worktree), not the workspace root', async () => {
+    const user = userEvent.setup()
+    // Another workspace id: the editor store keeps the file the earlier test opened for ws-1.
+    render(<SearchPanel workspace={{ ...WORKSPACE, id: 'ws-2' } as Workspace} rootPath="C:/repo-wt/hotfix" />)
+
+    await user.type(screen.getByLabelText('Search query'), 'needle')
+    await waitFor(() => expect(window.oxe.search.run).toHaveBeenCalled())
+    const call = (window.oxe.search.run as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+    expect(call).toMatchObject({ workspaceId: 'ws-2', query: 'needle', rootPath: 'C:/repo-wt/hotfix' })
+
+    await user.click(await screen.findByTitle('Open src/foo.ts at line 12'))
+    await waitFor(() => expect(window.oxe.fs.readFile).toHaveBeenCalledWith(
+      { workspaceId: 'ws-2', rootPath: 'C:/repo-wt/hotfix', relativePath: 'src/foo.ts' }
+    ))
+  })
+
   test('shows a failed search as an error, without a stale summary', async () => {
     useSearchStore.setState({ query: 'needle(', results: { ...RESULT, totalMatches: 0, totalFiles: 0, files: [] }, error: 'regex parse error' })
     window.oxe.search.run = vi.fn().mockResolvedValue({ ...RESULT, files: [], totalMatches: 0, totalFiles: 0, error: 'regex parse error' })
