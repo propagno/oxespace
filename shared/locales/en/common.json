@@ -639,11 +639,13 @@
     "trigger": "Ask, run or go to…",
     "dialogLabel": "Command bar",
     "inputLabel": "Ask, run or go to",
+    "hintsLine": "Type > for commands, ? for examples, @ to ask an agent, / to run a command",
     "groups": {
       "commands": "Commands",
       "skills": "Skills",
       "agents": "Agents",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Panes"
     },
     "hints": {
       "agent": "start or delegate",
