@@ -437,11 +437,9 @@
       "conversationStep": "First conversation",
       "newConversation": "New conversation",
       "waitsForAgent": "Opens once an agent is connected",
-      "openAloneBefore": "Or open",
-      "openAloneOr": "or",
-      "openAloneAfter": "on their own",
+      "openAlone": "Or open <code>OxeCode</code> or <query>OxeQuery</query> on their own",
       "heroTitle": "Agents that work in your code and show every step",
-      "heroLead": "Pick a project folder, connect Claude Code or Codex, and start working with full visibility."
+      "heroLead": "Pick a project folder, connect Claude Code or Codex, and work seeing every step."
     }
   },
   "usage": {

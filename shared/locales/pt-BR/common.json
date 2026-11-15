@@ -444,9 +444,7 @@
       "conversationStep": "Primeira conversa",
       "newConversation": "Nova conversa",
       "waitsForAgent": "Abre quando um agente estiver conectado",
-      "openAloneBefore": "Ou abra o",
-      "openAloneOr": "ou o",
-      "openAloneAfter": "sozinhos",
+      "openAlone": "Ou abra o <code>OxeCode</code> ou o <query>OxeQuery</query> sozinhos",
       "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
       "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa."
     }

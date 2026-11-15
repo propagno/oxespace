@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import type { AgentProvider } from '../../../shared/types/agent'
 import { Button, cx } from '../../ui'
 import { OxeMark } from '../Brand/OxeLogo'
@@ -98,7 +98,7 @@ export function FirstRun({
               <div className={styles.actions}>
                 {folder
                   ? <Button variant="secondary" size="sm" onClick={onOpenFolder}>{t('firstRun.v2.change')}</Button>
-                  : <Button variant="primary" size="sm" data-testid="btn-new-workspace" onClick={createWorkspace}>{t('firstRun.v2.chooseFolder')}</Button>}
+                  : <Button variant="primary" size="lg" data-testid="btn-new-workspace" onClick={createWorkspace}>{t('firstRun.v2.chooseFolder')}</Button>}
               </div>
             </div>
             {folder ? <p className={styles.folderBadge} title={folder}>{folder}</p> : null}
@@ -151,7 +151,7 @@ export function FirstRun({
               </h3>
               {hasReadyAgent ? (
                 <div className={styles.actions}>
-                  <Button variant="primary" size="sm" onClick={onNewConversation}>{t('firstRun.v2.newConversation')}</Button>
+                  <Button variant="primary" size="lg" onClick={onNewConversation}>{t('firstRun.v2.newConversation')}</Button>
                 </div>
               ) : null}
             </div>
@@ -160,11 +160,11 @@ export function FirstRun({
         </ol>
 
         <p className={styles.modesLine}>
-          {t('firstRun.v2.openAloneBefore')}{' '}
-          <Button variant="ghost" size="sm" onClick={() => onOpenMode('code')}>OxeCode</Button>{' '}
-          {t('firstRun.v2.openAloneOr')}{' '}
-          <Button variant="ghost" size="sm" onClick={() => onOpenMode('data')}>OxeQuery</Button>{' '}
-          {t('firstRun.v2.openAloneAfter')}
+          {/* One sentence, one key (MARCA 15/11): the words around the two buttons move with the language. */}
+          <Trans t={t} i18nKey="firstRun.v2.openAlone" components={{
+            code: <Button variant="ghost" size="sm" onClick={() => onOpenMode('code')} />,
+            query: <Button variant="ghost" size="sm" onClick={() => onOpenMode('data')} />
+          }} />
         </p>
       </div>
     </section>
