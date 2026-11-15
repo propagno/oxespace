@@ -1,0 +1,1 @@
+npx vitest related --run electron/main/ipc/thread.ipc.ts electron/preload/api.ts shared/mcp-coverage.ts shared/types/ipc.ts shared/types/thread.ts electron/main/ipc/thread-sessions.ipc.ts --maxWorkers=2
