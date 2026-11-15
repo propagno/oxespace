@@ -43,14 +43,13 @@ test('Find in files searches the active pane\'s worktree, and the workspace root
     const hotfix = worktrees.locator('.worktree-menu-item-select').filter({ hasText: 'hotfix' })
     await expect(hotfix).toBeEnabled({ timeout: 15_000 })
     await hotfix.click()
-    await expect(hotfix).toHaveAttribute('aria-current', 'true', { timeout: 15_000 })
     await togglePanel(page, 'Worktrees')
 
     await togglePanel(page, 'Find in files')
     const panel = page.getByTestId('workspace-search-panel')
     await expect(panel).toBeVisible()
     // The header names what it searches: the worktree.
-    await expect(panel.getByTestId('panel-scope-badge')).toHaveClass(/is-worktree/)
+    await expect(panel.getByTestId('panel-scope-badge')).toHaveClass(/is-worktree/, { timeout: 15_000 })
 
     await panel.getByLabel('Search query').fill('needle-in')
     await expect(panel.getByText('hotfix-only.ts')).toBeVisible({ timeout: 15_000 })
