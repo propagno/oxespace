@@ -24,7 +24,7 @@ export function AppUpdateIndicator(): ReactElement | null {
 
   return <div className="app-update-indicator">
     <Popover open={open} onOpenChange={setOpen} align="end" label={t('updates.app.title')}
-      trigger={<Button variant="ghost" size="sm" square className={styles.trigger} aria-label={chip.label} title={chip.label}
+      trigger={<Button variant="ghost" size="sm" square className={styles.trigger} data-status={app.status} aria-label={chip.label} title={chip.label}
         icon={app.status === 'downloading' ? <Download size={14} /> : app.status === 'error' ? <AlertTriangle size={14} /> : <ArrowUpCircle size={14} />}>
         <span className="app-update-dot" aria-hidden="true" />
       </Button>}>
