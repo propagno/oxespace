@@ -606,8 +606,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-json-node { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--tx-primary); }
 .oq-conn-section { display: flex; flex-direction: column; gap: var(--space-1); }
 .oq-container-picker-section { display: flex; flex-direction: column; gap: var(--space-2); }
-.oq-source-radiogroup { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
-.oq-source-radio { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--fs-xs); color: var(--tx-primary); cursor: pointer; }
+/* The source is src/ui's SegmentedControl and the container src/ui's Select (PQ-07·1): no local radio or select rules. */
+
 .oq-container-picker-reason { font-size: var(--fs-xs); color: var(--tx-muted); }
 .oq-form-group { display: flex; flex-direction: column; gap: var(--space-1); }
 .oq-mtree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: var(--fs-xs); }
