@@ -367,24 +367,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
   const oxePod = (await import('./services/oxepod/startup')).startOxePod(db)
   oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
-  // PQ-07·16: the agent activity names who acted, a conversation by its title and a pane by its name.
-  const auditThreadTitle = db.prepare("SELECT json_extract(data_json, '$.title') AS title FROM conversation_threads WHERE id = ?")
-  const auditPaneName = db.prepare('SELECT display_name, agent_name FROM panes WHERE id = ?')
-  const { auditActorNames } = await import('./services/oxequery/audit-log')
-  auditActorNames.resolve = actor => {
-    const colon = actor.indexOf(':')
-    const kind = actor.slice(0, colon), id = actor.slice(colon + 1)
-    if (!id) return null
-    if (kind === 'thread') {
-      const title = (auditThreadTitle.get(id) as { title: unknown } | undefined)?.title
-      return typeof title === 'string' ? title : null
-    }
-    if (kind === 'pane') {
-      const pane = auditPaneName.get(id) as { display_name: string | null; agent_name: string | null } | undefined
-      return pane ? pane.display_name || pane.agent_name || null : null
-    }
-    return null
-  }
   const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)
   const { registerThreadIpc } = await import('./ipc/thread.ipc')
   const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
