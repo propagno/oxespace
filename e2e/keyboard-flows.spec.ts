@@ -162,7 +162,7 @@ test('OxeQuery grid: arrows, extend, jump, open a row and let go of the selectio
   try {
     await resizeWindow(app, 1280, 800)
     await openDemoWorkspace(page, workspaceRoot)
-    await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
     await connectFromContainer(page, 'pg-dev')
     const tree = page.getByRole('tree', { name: 'Schema objects' })
     await tree.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })

@@ -14,6 +14,11 @@ data class PairingQr(
     val fingerprint: String,
     val code: String,
     val desktopName: String?,
+    /**
+     * When the one-time code expires, epoch ms on the desktop's clock (the QR's `exp`, OXE-179); null from an older
+     * desktop. It only tells the person how long is left: the desktop alone decides whether the code is still valid.
+     */
+    val expiresAt: Long? = null,
 )
 
 /** Why a scanned code can't pair; each one has its own message in the app. */
@@ -38,6 +43,8 @@ object PairingQrs {
     private val code = Regex("^[A-Za-z0-9_-]{22}$")
     private val host = Regex("^[A-Za-z0-9.:-]{1,253}$")
     private const val MAX_URI = 1024
+    /** `exp`: a non-negative integer in plain decimal digits, as `readPairingUri` reads it. */
+    private val expiry = Regex("^[0-9]{1,15}$")
 
     /** Same acceptance as `readPairingUri` in shared/remote/protocol.ts, plus the app's rule of LAN addresses only. */
     fun read(text: String): PairingQrRead {
@@ -73,6 +80,8 @@ object PairingQrs {
         if (name != null && (name.isBlank() || name.length > RemoteLimits.MAX_DEVICE_NAME_LENGTH || name.any { it.isISOControl() })) {
             return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
         }
-        return PairingQrRead.Ok(PairingQr(address, port, pin, oneTimeCode, name))
+        val exp = fields["exp"]
+        if (exp != null && !expiry.matches(exp)) return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
+        return PairingQrRead.Ok(PairingQr(address, port, pin, oneTimeCode, name, exp?.toLong()))
     }
 }

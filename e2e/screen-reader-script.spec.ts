@@ -49,12 +49,12 @@ test('screen-reader script: start, palette, Code mode, Settings', async () => {
     expect(await focused(page)).toMatchObject({ role: 'input' })
     await expect(page.getByRole('searchbox', { name: /Filter workspaces/ })).toBeFocused()
 
-    // 3.1 · The mode switch: each mode a toggle button, the current one pressed.
-    await expect(page.getByRole('navigation', { name: 'Application view' })).toMatchAriaSnapshot(`
-      - navigation "Application view":
-        - button /^(Oxe)?Code$/ [pressed]
-        - button /^(Thread|OxeChat)$/
-        - button "OxeQuery"
+    // 3.1 · The mode switch: a tablist of the modes, the current one selected (BRD-09).
+    await expect(page.getByRole('tablist', { name: 'Application view' })).toMatchAriaSnapshot(`
+      - tablist "Application view":
+        - tab /^(Oxe)?Code$/ [selected]
+        - tab /^(Thread|OxeChat)$/
+        - tab "OxeQuery"
     `)
 
     // 2.4 · The sidebar's width is a separator with its value, adjustable from the keyboard and read again.
@@ -97,7 +97,7 @@ test('screen-reader script: Thread mode, composer, live announcements', async ()
     await openThreadWithState(app, page, workspaceRoot, 'empty')
 
     // 3.1 · The conversations mode button is pressed.
-    await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: /^(Thread|OxeChat)$/ })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: /^(Thread|OxeChat)$/ })).toHaveAttribute('aria-selected', 'true')
 
     // 3.2–3.3 · The sidebar: a filter search box, then the project and its conversation; its width is a separator.
     await expect(page.getByRole('complementary', { name: /(Thread|OxeChat) sidebar/ })).toMatchAriaSnapshot(`

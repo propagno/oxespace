@@ -4,7 +4,7 @@ import { expect, type Page } from '@playwright/test'
 /** A view of the title bar, by its mode id (e2e/helpers/modes.ts), so a renamed mode never breaks a spec. */
 export async function openView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
-  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-selected', 'true')
 }
 
 /** A container row in the sidebar; its name also carries the state dot and the port. */
