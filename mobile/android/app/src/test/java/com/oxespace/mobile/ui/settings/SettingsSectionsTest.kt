@@ -28,17 +28,24 @@ import org.junit.Test
  * screen lock", asked on every answer, shown as "Always", a safety rule and never a switch, and "Critical requests",
  * whose Allow unlocks after the request screen's hold (CRITICAL_ALLOW_HOLD_MS, 2 s), a number the text takes from the
  * app and never writes by hand; (3) Notifications / Notificações, one switch per kind; (4) Appearance / Aparência, the
- * theme as System, Light, Dark ("Same as the phone" was cut); (5) Typing in terminals / Digitação; (6) Can't connect? /
- * Não conecta?; (7) About / Sobre. (5) and (6) are rows you can open (a chevron), each at least 48 dp tall. Nothing on
+ * theme as System, Light, Dark / Sistema, Claro, Escuro ("Igual ao do celular" was cut); (5) Typing in terminals /
+ * Digitação nos terminais, a row whose only text under the title is "Tamanho do texto" (terminal_text_size: the text
+ * size is the one typing setting the phone has, so the key bar is not named); (6) Can't connect? / Não consegue
+ * conectar?; (7) About / Sobre. (5) and (6) are rows you can open (a chevron), each at least 48 dp tall; what they open
+ * leaves the top page: the terminal text size choice (Pequeno, Médio, Grande) and "Informar o endereço do computador"
+ * are no longer on it. Nothing on
  * the page is cut (no ellipsis, no line beyond maxLines) in pt-BR. Section words: MARCA's mock (en) and its caption
- * (pt-BR). At the largest system font (2.0) nothing is cut either: SettingsSectionsTestAtTheLargestFont below. The
+ * (pt-BR), and MARCA's answers of 15/11 (Q-M1 to Q-M4, via the coordination). At the largest system font (2.0) nothing is cut either: SettingsSectionsTestAtTheLargestFont below. The
  * guards (nothing cut at the default font, Notifications, Appearance, the computer card: green on main) are
  * SettingsSectionsGuardTest below.
  *
  * New strings, read by name: settings_answers_title, settings_answers_presence, settings_answers_presence_body,
  * settings_answers_always, settings_answers_critical, settings_answers_critical_body (with %1$d, the seconds),
  * settings_typing_title, settings_cant_connect_title. Changed: settings_theme_title (Theme -> Appearance / Tema ->
- * Aparência) and settings_theme_system (Same as the phone -> System).
+ * Aparência) and settings_theme_system (Same as the phone -> System / Igual ao do celular -> Sistema). The pages the
+ * two rows open use only existing strings (Q-M1) and are not read here: one frame is laid out, a tap does not redraw.
+ * The computer card shows what the phone knows (Q-M4): the name, the connection line and Unpair; the OS and the
+ * pairing date are a 1.5.3 divergence.
  *
  * Approval safety: the Answers card has no switch, no toggle and no tap target: the fingerprint or screen lock on every
  * answer is a rule the phone states, not a preference.
@@ -82,20 +89,28 @@ class SettingsSectionsTest {
             "settings_cant_connect_title" to "Can't connect?",
             "settings_about_title" to "About",
             "settings_theme_system" to "System",
+            "settings_answers_presence" to "Fingerprint or screen lock",
+            "settings_answers_presence_body" to "Asked on every answer. A safety rule.",
+            "settings_answers_always" to "Always",
+            "settings_answers_critical" to "Critical requests",
+            "settings_answers_critical_body" to "Allow unlocks after %1${'$'}d s.",
         )
         val pt = mapOf(
             "settings_answers_title" to "Respostas",
             "settings_alerts_title" to "Notificações",
             "settings_theme_title" to "Aparência",
-            "settings_typing_title" to "Digitação",
-            "settings_cant_connect_title" to "Não conecta?",
+            "settings_typing_title" to "Digitação nos terminais",
+            "settings_cant_connect_title" to "Não consegue conectar?",
             "settings_about_title" to "Sobre",
+            "settings_theme_system" to "Sistema",
+            "settings_answers_presence" to "Digital ou bloqueio de tela",
+            "settings_answers_presence_body" to "Pedido a cada resposta. Uma regra de segurança.",
+            "settings_answers_always" to "Sempre",
+            "settings_answers_critical" to "Pedidos críticos",
+            "settings_answers_critical_body" to "Permitir libera depois de %1${'$'}d s.",
         )
         for ((name, word) in en) assertEquals("en $name", word, catalog("values", name))
         for ((name, word) in pt) assertEquals("pt-BR $name", word, catalog("values-pt-rBR", name))
-        val critical = catalog("values", "settings_answers_critical_body")
-        assertTrue("the critical text takes the seconds from the app (%1\$d), never a number written by hand: $critical", critical.orEmpty().contains("%1\$d"))
-        assertTrue("pt-BR too", catalog("values-pt-rBR", "settings_answers_critical_body").orEmpty().contains("%1\$d"))
     }
 
     @Test
@@ -127,6 +142,17 @@ class SettingsSectionsTest {
             assertTrue("${screen.describe(row!!)} is at least 48 dp tall", screen.heightDp(row) >= 47.5f)
             assertTrue("${screen.describe(row)} spans the page", screen.widthDp(row) >= screen.screenWidthDp() * 0.6f)
         }
+        val typing = screen.boundsDp(screen.button(screen.string("settings_typing_title"))!!)
+        val inRow = screen.leaves.filter { screen.text(it).isNotBlank() && screen.boundsDp(it).let { b -> b.top >= typing.top - 1f && b.bottom <= typing.bottom + 1f } }
+            .map { screen.text(it).trim() }
+        assertEquals(
+            "the Typing row says its title and only \"${screen.string("terminal_text_size")}\" (the one typing setting the phone has)",
+            listOf(screen.string("settings_typing_title"), screen.string("terminal_text_size")),
+            inRow,
+        )
+        val moved = listOf("terminal_size_small", "terminal_size_medium", "terminal_size_large", "home_enter_address").map { screen.string(it) }
+            .filter { screen.leavesWithText(it).isNotEmpty() }
+        assertEquals("the text size choice and the computer's address moved behind their rows", emptyList<String>(), moved)
     }
 }
 
