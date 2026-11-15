@@ -1,0 +1,1 @@
+npm run build && bash scripts/run-with-xvfb.sh npx playwright test --config playwright.acceptance.config.ts e2e/acceptance/oxe152-f6 --reporter=list ; bash scripts/run-with-xvfb.sh npx playwright test e2e/polish --reporter=list
