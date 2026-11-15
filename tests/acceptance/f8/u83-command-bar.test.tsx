@@ -66,12 +66,15 @@ describe('U8.3 · The command bar', () => {
     expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+K')).map(binding => binding.id as string)).toEqual(['commandBar.open'])
   })
 
-  test('empty, the bar shows the four hints, and the combobox is not expanded', async () => {
+  // Released 15/11 (coordination, BRD-11): one hints line when empty, the examples under "?".
+  test('empty, the bar shows one hints line, and the combobox is not expanded; "?" shows the examples', async () => {
     const { input } = await renderBar()
-    for (const hint of ['start or delegate', 'run a skill', 'go anywhere', 'every command and its shortcut']) expect(screen.getByText(hint)).toBeInTheDocument()
-    for (const example of ['@Codex write tests for the Pix webhook', '/skill pix-rules', 'open billing-staging', '?']) expect(screen.getByText(example)).toBeInTheDocument()
+    expect(document.querySelectorAll('[data-ui="command-hints"]')).toHaveLength(1)
+    for (const example of ['@Codex write tests for the Pix webhook', '/skill pix-rules', 'open billing-staging']) expect(screen.queryByText(example)).toBeNull()
     expect(input).toHaveAttribute('aria-expanded', 'false')
     expect(input).not.toHaveAttribute('aria-activedescendant')
+    await userEvent.type(input, '?')
+    for (const example of ['@Codex write tests for the Pix webhook', '/skill pix-rules', 'open billing-staging']) await waitFor(() => expect(screen.getAllByText(example).length).toBeGreaterThan(0))
   })
 
   test('with results the combobox is expanded over labelled groups, the active option is its descendant, and options are not tabbable', async () => {
@@ -181,13 +184,15 @@ describe('U8.3 · The command bar', () => {
   test('the command bar reads in pt-BR', async () => {
     await changeLanguage('pt-BR')
     const { input } = await renderBar()
-    for (const hint of ['começar ou delegar', 'rodar uma skill', 'ir a qualquer lugar', 'todos os comandos e atalhos']) expect(screen.getByText(hint)).toBeInTheDocument()
+    // Released 15/11 (coordination, BRD-11): the hints line, not four hint cards; the pt-BR examples under "?" (below).
+    expect(document.querySelectorAll('[data-ui="command-hints"]')).toHaveLength(1)
     await userEvent.type(input, 'zzqq')
     expect(await screen.findByText('Nada encontrado para zzqq', undefined, { timeout: 2_000 })).toBeInTheDocument()
     await userEvent.clear(input)
     await userEvent.type(input, '?')
     await waitFor(() => expect(options().length).toBeGreaterThan(0))
     for (const option of options()) expect(option.textContent).toMatch(/Também: /)
+    expect(screen.getAllByText('@Codex escreva testes para o webhook do Pix').length).toBeGreaterThan(0)
   })
 
   test('a skill with no agent pane focused asks to focus one first, and nothing runs', async () => {
