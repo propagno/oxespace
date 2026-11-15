@@ -17,6 +17,7 @@ import com.oxespace.mobile.ui.f4.catalog
 import com.oxespace.mobile.ui.f4.f4Paparazzi
 import com.oxespace.mobile.ui.f4.render
 import com.oxespace.mobile.ui.f4.uiCode
+import com.oxespace.mobile.ui.live.LocalClock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -40,13 +41,20 @@ import org.junit.Test
  *   words Ler · Conectar · Confirmar · Pronto (the mock's "Reach" is pairing_step_connect, "Conectar"); the steps stay
  *   one stop for TalkBack ("3/4: Confirmar");
  * - while the computer is asked to confirm, the six code boxes stay, then the line "Esperando o computador…"
- *   (pairing_waiting_computer, en "Waiting for the computer…") alone, with no countdown, and a Cancel button
- *   (pairing_cancel, "Cancel" / "Cancelar", at least 48 dp tall) below them that leaves pairing as Back does;
+ *   (pairing_waiting_computer, en "Waiting for the computer…") and a Cancel button (pairing_cancel, "Cancel" /
+ *   "Cancelar", at least 48 dp tall) below them that leaves pairing as Back does;
+ * - the time left on the code (user rule of 15/11 ~05:00Z, OXE-179 CA-2; A16 brings the QR's expiry): the Waiting state
+ *   carries `expiresAt: Long?` (`PairingState.Waiting(desktopName, verification, expiresAt: Long? = null)`, built here
+ *   by name), PairingScreen reads the time from LocalClock (ui/live/Labels.kt) and says "The code expires in 1:48."
+ *   (pairing_code_expires_in, %1$s = m:ss) under the waiting line; with no expiry (an older desktop) the waiting line is
+ *   alone; once expired, the code boxes and the countdown go and the screen asks for a new code: the existing
+ *   pairing_failed_code_expired text and the pairing_scan_again button, which calls onScanAgain (PairingFlow.scanAgain
+ *   then leaves a Waiting whose code expired, and drops that attempt);
  * - nothing under 11 sp (BRD-07): the guard PairingStepsGuardTest below, green on main.
- * The time left on the code is a 1.5.3 divergence (Q-M5): the phone does not know when the code expires.
  *
  * Red at F4 @ origin/main 4fabc30f5: no back button on any state, the title is a line of the scanning state only, below
- * the steps; the steps are thin bars; the confirm state has a progress bar, no waiting line and no Cancel.
+ * the steps; the steps are thin bars; the confirm state has a progress bar, no waiting line, no Cancel, and the
+ * Waiting state has no expiry.
  */
 class PairingStepsTest {
     @get:Rule
@@ -77,6 +85,33 @@ class PairingStepsTest {
             assertTrue("$name: the top bar is above the steps", titleBox.bottom <= screen.boundsDp(steps!!).top + 1f)
             assertTrue("$name: Back does what the phone's Back does (OnBackPressedDispatcher)", host.backs > 0)
         }
+    }
+
+    @Test
+    fun confirmingSaysTheTimeLeftOnTheCode() {
+        host.now = 1_000_000L
+        val screen = pairing(waiting(expiresAt = 1_000_000L + 108_000))
+        val left = screen.string("pairing_code_expires_in", "1:48")
+        assertTrue("\"$left\" while the computer confirms; texts: ${screen.leaves.map { screen.text(it) }.filter { it.isNotBlank() }}", screen.leaves.any { screen.text(it).contains(left) })
+        assertTrue("with the waiting line", screen.leaves.any { screen.text(it).contains(screen.string("pairing_waiting_computer")) })
+        assertTrue("and the code", screen.merged.any { screen.label(it) == screen.string("pairing_verification_description", "2 8 T 5 C Y") })
+        assertEquals("The code expires in %1${'$'}s.", catalog("values", "pairing_code_expires_in"))
+    }
+
+    @Test
+    fun anExpiredCodeAsksForANewOne() {
+        host.now = 1_000_000L
+        host.scans = 0
+        var tapped = false
+        val screen = pairing(waiting(expiresAt = 1_000_000L - 1)) { s -> if (!tapped) s.button(s.string("pairing_scan_again"))?.let { tapped = true; s.tap(it) } }
+        assertTrue("it says the code expired", screen.leaves.any { screen.text(it).contains(screen.string("pairing_failed_code_expired")) })
+        val again = screen.button(screen.string("pairing_scan_again"))
+        assertNotNull("a button to read a new code", again)
+        assertTrue("${screen.describe(again!!)} is at least 48 dp tall", screen.heightDp(again) >= 47.5f)
+        assertTrue("it calls onScanAgain", host.scans > 0)
+        assertTrue("the old code is gone", screen.merged.none { screen.label(it) == screen.string("pairing_verification_description", "2 8 T 5 C Y") })
+        val countdown = screen.leaves.map { screen.text(it) }.filter { Regex("""\d{1,2}:\d{2}""").containsMatchIn(it) }
+        assertEquals("no countdown once expired", emptyList<String>(), countdown)
     }
 
     @Test
@@ -115,7 +150,7 @@ class PairingStepsTest {
         assertTrue("the waiting line is below the code", screen.boundsDp(waiting!!).top >= screen.boundsDp(code!!).bottom - 1f)
         assertTrue("Cancel is below the waiting line", screen.boundsDp(cancel).top >= screen.boundsDp(waiting).bottom - 1f)
         val countdown = screen.leaves.map { screen.text(it) }.filter { Regex("""\d{1,2}:\d{2}""").containsMatchIn(it) }
-        assertEquals("no countdown (a 1.5.3 divergence: the phone does not know when the code expires)", emptyList<String>(), countdown)
+        assertEquals("an older desktop's code (no expiry): the waiting line alone, no countdown", emptyList<String>(), countdown)
         assertTrue("Cancel leaves pairing as Back does (OnBackPressedDispatcher)", host.backs > 0)
         assertEquals("Cancel", catalog("values", "pairing_cancel"))
         assertEquals("Cancelar", catalog("values-pt-rBR", "pairing_cancel"))
@@ -151,9 +186,21 @@ private val STATES = listOf(
     "failed" to PairingState.Failed(PairingFailure.TIMED_OUT),
 )
 
-/** The pairing screen with an OnBackPressedDispatcher that counts what reaches it, as MainActivity's BackHandler would. */
+/** `PairingState.Waiting("Studio", "28T5CY", expiresAt)`, read by name so this file compiles before A16 adds the field. */
+private fun waiting(expiresAt: Long): PairingState = try {
+    PairingState.Waiting::class.java.getConstructor(String::class.java, String::class.java, Long::class.javaObjectType).newInstance("Studio", "28T5CY", expiresAt)
+} catch (missing: ReflectiveOperationException) {
+    throw AssertionError("PairingState.Waiting(desktopName, verification, expiresAt: Long?) does not exist: $missing")
+}
+
+/**
+ * The pairing screen with an OnBackPressedDispatcher that counts what reaches it, as MainActivity's BackHandler would,
+ * on a fixed clock ([now], through LocalClock), counting onScanAgain.
+ */
 private class PairingHost(private val paparazzi: Paparazzi) {
     var backs = 0
+    var scans = 0
+    var now = 1_000_000L
 
     @Composable
     private fun WithBack(content: @Composable () -> Unit) {
@@ -168,6 +215,8 @@ private class PairingHost(private val paparazzi: Paparazzi) {
     }
 
     fun render(state: PairingState, act: (Screen) -> Unit): Screen = paparazzi.render(act = act) {
-        WithBack { PairingScreen(state, {}, {}) { modifier -> Box(modifier) } }
+        CompositionLocalProvider(LocalClock provides { now }) {
+            WithBack { PairingScreen(state, { scans++ }, {}) { modifier -> Box(modifier) } }
+        }
     }
 }
