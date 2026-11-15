@@ -12,7 +12,10 @@
 //   pane actions" button among them) sit in it, hidden until hover or focus by the primitive (CA-3, fidelity on CI).
 // - The focused pane's header is the primitive with `focused` (the accent tint and border are the primitive's, both themes):
 //   with the pane active in the terminal store, [data-ui=pane-header] carries data-focused="true"; another pane's does not.
-// - A branch that is not known is not shown: no "Branch unavailable" (code:paneMenu.noBranch) in the pane; a known one is.
+// - The branch chip shows only when the pane's branch or worktree differs from the workspace's (coordination 15/11): the
+//   workspace's branch is useGitBranch on the workspace root ("main" here), the pane's what main reports for it
+//   (terminal.branch). Unknown: nothing, never "Branch unavailable" (code:paneMenu.noBranch); the same as the workspace's:
+//   no chip ([data-testid=pane-branch-badge] gone, the name not in the header); different: the chip with the pane's branch.
 // - A shell pane has no command-line footer: no .terminal-cmd-input, running or not; Ctrl+/ (terminal.slash) is the way in.
 // - src/design/targets/brd-14.json (new, card OXE-82): the measures below, enforced and locked, scene code-workspace.
 import { existsSync, readFileSync } from 'node:fs'
@@ -27,7 +30,8 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { preloadOxe } from '../../acceptance/f4/crf4-8-preload'
 
 const mocks = vi.hoisted(() => ({ branch: 'feat/pix-webhook' as string | null }))
-vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: mocks.branch, detached: false, shortSha: null, error: mocks.branch ? null : 'unavailable' }) }))
+// The workspace's branch (and any folder's read through useGitBranch) is main; the pane's own comes from terminal.branch.
+vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'main', detached: false, shortSha: null, error: null }) }))
 vi.mock('../../../src/components/Terminal/TerminalView', () => ({ TerminalView: () => <div data-testid="xterm-stub" /> }))
 
 const ROOT = process.cwd()
@@ -117,6 +121,17 @@ describe('OXE-82 BRD-14 the terminal pane (A30)', () => {
     mocks.branch = 'feat/pix-webhook'
     const known = await mount()
     expect(headerOf(known)).toHaveTextContent('feat/pix-webhook')
+  }, 30_000)
+
+  it('the branch chip shows only when the pane is on another branch than the workspace', async () => {
+    mocks.branch = 'main'
+    const same = await mount()
+    expect(same.querySelectorAll('[data-testid="pane-branch-badge"]'), 'no chip on the branch of the workspace').toHaveLength(0)
+    expect(headerOf(same).textContent ?? '').not.toMatch(/(^|\W)main(\W|$)/)
+    cleanup()
+    mocks.branch = 'feat/pix-webhook'
+    const other = await mount()
+    expect(headerOf(other)).toHaveTextContent('feat/pix-webhook')
   }, 30_000)
 
   it('a running shell pane has no command-line footer', async () => {
