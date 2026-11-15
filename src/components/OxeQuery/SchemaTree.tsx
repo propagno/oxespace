@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Pin, PinOff, Play, Plus, RefreshCw, Search, Server, Table } from 'lucide-react'
 import { AnchoredMenu, IconButton, type MenuEntry } from '../../ui'
@@ -248,7 +248,10 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     if (row.type === 'note') return <div key={row.id} className="oq-tree-row oq-muted" role="none" style={style}>{row.label}</div>
     const branch = row.expanded !== undefined
     const name = row.item && row.item.kind !== 'relation' ? `${row.label} (${describeItem(row.item)})` : row.label
-    return <div key={row.id} role="treeitem" className="oq-tree-row" data-index={index} data-kind={row.type} style={style} tabIndex={index === focusIndex ? 0 : -1}
+    // How many actions sit over the row's right end, so the name leaves them room while they show.
+    const actionCount = row.item?.kind === 'relation' ? 2 + Number(canStructure(row.item.table)) + Number(canRefresh(row.item.table)) : 0
+    const rowStyle = actionCount ? { ...style, '--oq-tree-actions-n': actionCount } as CSSProperties : style
+    return <div key={row.id} role="treeitem" className="oq-tree-row" data-index={index} data-kind={row.type} data-actions={actionCount ? actionCount : undefined} style={rowStyle} tabIndex={index === focusIndex ? 0 : -1}
       aria-level={row.level} aria-expanded={branch ? row.expanded : undefined} aria-label={name} aria-selected={index === focusIndex}
       onClick={() => { setFocusIndex(index); activate(row) }} onFocus={() => setFocusIndex(index)}
       onContextMenu={row.item?.kind === 'relation' ? event => { if (event.defaultPrevented) return; event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) } : undefined}
