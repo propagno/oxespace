@@ -1,24 +1,23 @@
 import { useShallow } from 'zustand/react/shallow'
-import { threadProductName } from '../../../shared/threadProviders'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, LoadingState, Menu, Notice, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, IconButton, LoadingState, Menu, Notice, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { snippetParts, useThreadContentMatches } from '../../hooks/useThreadContentSearch'
-import { AlignJustify, Archive, ArchiveRestore, CalendarClock, Check, ChevronDown, Circle, CircleCheck, CircleX, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Square, Sun, Trash2, UserRound } from 'lucide-react'
-import type { ConversationThread, ThreadProjectSummary } from '../../../shared/types/thread'
+import { AlignJustify, Archive, ArchiveRestore, CalendarClock, Check, ChevronDown, Circle, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Search, Trash2, UserRound } from 'lucide-react'
+import type { ConversationThread, ThreadPendingRequestSummary, ThreadProjectSummary } from '../../../shared/types/thread'
+import type { SessionChanges } from '../../../shared/types/thread-session'
 import { useThreadStore } from '../../store/thread.store'
 import { readThreadListCache } from '../../store/threadListCache'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
-import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
 import { ThreadRail } from './ThreadRail'
+import { ThreadSidebarRow } from './ThreadSidebarRow'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
-import { SearchField } from '../Navigation/SearchField'
-import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
@@ -47,6 +46,12 @@ function relativeTime(timestamp: number): string {
   return minutes < 1 ? t('thread:sidebar.age.now') : minutes < 60 ? t('thread:sidebar.age.minutes', { count: minutes }) : minutes < 1440 ? t('thread:sidebar.age.hours', { count: Math.floor(minutes / 60) }) : t('thread:sidebar.age.days', { count: Math.floor(minutes / 1440) })
 }
 
+/**
+ * The OxeChat sidebar (BRD-02, OXE-166, OXC-1) on OxeCode's mould: a src/ui SidebarHeader (Conversations, New
+ * conversation, Schedules, collapse), a SidebarFilter, Pinned, the Projects label, one SidebarGroup per project with its
+ * sections and then No section, Archived last and collapsed, and a SidebarFooter of IconButtons. Each conversation is a
+ * two-line SidebarRow; one that waits shows its needs-you mini card, read from pendingRequestsAll().
+ */
 export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
 }) {
@@ -92,6 +97,39 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const { ref: attachList, onKeyDown: onListKeyDown } = useListKeyboard<HTMLElement>()
   useNavigationSearch(search, collapsed, toggleCollapse)
   const selected = threads.find(t => t.id === selectedId)
+
+  // Needs you: the read-only list every window uses (pendingRequestsAll), one request per waiting conversation.
+  const [pending, setPending] = useState<Map<string, ThreadPendingRequestSummary>>(() => new Map())
+  const waitingKey = useMemo(() => threads.filter(thread => thread.status === 'approval').map(thread => thread.id).join(','), [threads])
+  const refreshPending = useCallback(() => {
+    const read = window.oxe?.thread?.pendingRequestsAll
+    if (!read) return
+    void Promise.resolve(read()).then(list => {
+      if (!Array.isArray(list)) return
+      const byThread = new Map<string, ThreadPendingRequestSummary>()
+      for (const request of list) if (!byThread.has(request.threadId)) byThread.set(request.threadId, request)
+      setPending(byThread)
+    }).catch(() => undefined)
+  }, [])
+  useEffect(() => { if (waitingKey) refreshPending(); else setPending(new Map()) }, [waitingKey, refreshPending])
+
+  // Line 2's +N −N: the session view (OXE-170), read again when the list or a conversation's places change.
+  const [changes, setChanges] = useState<Map<string, SessionChanges>>(() => new Map())
+  const sessionsKey = useMemo(() => threads.map(thread => `${thread.id}:${thread.status}`).join(','), [threads])
+  const refreshSessions = useCallback(() => {
+    const read = window.oxe?.thread?.sessions
+    if (!read) return
+    void Promise.resolve(read()).then(list => {
+      if (!Array.isArray(list)) return
+      setChanges(new Map(list.map(session => [session.id, session.changes])))
+    }).catch(() => undefined)
+  }, [])
+  useEffect(() => { if (sessionsKey) refreshSessions() }, [sessionsKey, refreshSessions])
+  useEffect(() => {
+    const off = window.oxe?.thread?.onPlacesChanged?.(() => refreshSessions())
+    return () => { if (typeof off === 'function') off() }
+  }, [refreshSessions])
+
   // Also matches by conversation content (native transcript index), not just title/path.
   const contentMatches = useThreadContentMatches(query)
   const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentMatches.has(thread.nativeSessionId), [contentMatches])
@@ -113,10 +151,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && (`${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
-  const activeConversationCount = useMemo(
-    () => threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId)).length,
-    [threads, hiddenProjects]
-  )
+  const pinned = threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
   // Sections inside each project (F13): dragging a row and its "Move to section" menu make the same move.
   const sections = useThreadSections(useMemo(() => groups.map(group => group.id), [groups]), threads)
   const drag = useSectionDrag(threads, (thread, sectionId) => void sections.moveTo(thread, sectionId))
@@ -143,33 +178,32 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     finally { setRestoringId(null) }
   }
   const row = (thread: ConversationThread) => {
-    const status = threadNavigationStatus(thread), unread = unreadIds.includes(thread.id)
-    return <div key={thread.id} className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread), status.kind === 'attention' && styles.attentionRow)} data-thread-row={thread.id} {...drag.rowProps(thread)}
-    onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setRowMenuId(thread.id) }}
-    onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setRowMenuId(thread.id) } }}><button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} aria-current={selectedId === thread.id ? 'page' : undefined}
-    title={`${displayThreadTitle(thread.title)}\n${thread.provider} · ${status.label}${unread ? ` · ${t('sidebar.unreadShort')}` : ''}\n${thread.rootPath}`} onClick={() => void select(thread.id)}>
-    {unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}
-    <span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{status.kind === 'ready' ? <Circle size={10} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={14} /> : status.kind === 'attention' ? <Sun size={14} /> : status.kind === 'failed' ? <CircleX size={14} /> : status.kind === 'interrupted' ? <Square size={11} /> : null}</span>
-    <span className={cx('thread-session-content', styles.content)}><span className={cx('thread-session-title', styles.title)}>{displayThreadTitle(thread.title)}</span>{' '}<span className={cx('thread-session-meta', styles.meta)}><span className={cx('thread-session-provider', styles.provider)}><AgentProviderIcon provider={thread.provider} size={density === 'compact' ? 11 : 12} /><span>{threadProductName(thread.provider)}</span></span>{' '}<span className={cx('thread-session-state', styles.state)} data-status={status.kind}>{status.label}</span>{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>{(() => {
-      // Found by what was said in it: the line that matched, so the person sees why it is listed.
-      const found = query && thread.nativeSessionId ? contentMatches.get(thread.nativeSessionId) : undefined
-      return found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : null
-    })()}</span>{' '}
-    <small className={styles.time}>{relativeTime(thread.updatedAt)}</small>
-  </button><button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.openSideNamed', { name: displayThreadTitle(thread.title) })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))}><Columns2 size={14} /></button><Menu label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
-    { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
-    { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(namedThreadTitle(thread.title)) } },
-    { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
-    moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
-    { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
-    { type: 'separator' },
-    { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: displayThreadTitle(thread.title) }) } },
-    { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: displayThreadTitle(thread.title) }) } }
-  ]} trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: displayThreadTitle(thread.title) })} title={t('sidebar.conversationActions')}><MoreHorizontal size={14} /></button>} /></div>
+    const name = displayThreadTitle(thread.title)
+    // Found by what was said in it: the line that matched, so the person sees why it is listed.
+    const found = query && thread.nativeSessionId ? contentMatches.get(thread.nativeSessionId) : undefined
+    return <ThreadSidebarRow key={thread.id} thread={thread} selected={selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
+      request={thread.status === 'approval' ? pending.get(thread.id) : undefined} time={relativeTime(thread.updatedAt)} dragProps={drag.rowProps(thread)}
+      snippet={found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : undefined}
+      onSelect={() => void select(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
+      actions={<>
+        <IconButton size="sm" data-list-action className="thread-row-action" label={t('sidebar.openSideNamed', { name })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)}
+          icon={<Columns2 size={14} aria-hidden="true" />} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))} />
+        <Menu label={t('sidebar.actionsFor', { name })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
+          { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
+          { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(namedThreadTitle(thread.title)) } },
+          { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
+          moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
+          { label: unreadIds.includes(thread.id) ? t('sidebar.markRead') : t('sidebar.markUnread'), icon: unreadIds.includes(thread.id) ? <Check size={14} /> : <Circle size={14} />, onSelect: () => unreadIds.includes(thread.id) ? markRead(thread.id) : markUnread(thread.id) },
+          { type: 'separator' },
+          { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: name }) } },
+          { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: name }) } }
+        ]} trigger={<IconButton size="sm" data-list-action className="thread-row-action" label={t('sidebar.actionsFor', { name })} title={t('sidebar.conversationActions')} icon={<MoreHorizontal size={14} aria-hidden="true" />} />} />
+      </>} />
   }
-  // Schedules sits with the header's actions: in the strip below it pushed the two counts onto a second line in Portuguese.
+  // New conversation goes to the selected conversation's project, or the first one listed.
+  const createTarget = groups.find(group => group.id === selected?.projectId) ?? groups[0]
   const railPrimary: RailAction[] = [
-    { id: 'add-project', label: t('sidebar.addProject'), icon: FolderPlus, onClick: onAddProject },
+    { id: 'new-conversation', label: t('view.newConversation'), icon: Plus, disabled: !createTarget || unavailableProjects.includes(createTarget.id), onClick: () => { if (createTarget) onCreate(createTarget.id, createTarget.rootPath) } },
     { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }
   ]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
@@ -180,81 +214,86 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt)
         .map(thread => {
           const navStatus = threadNavigationStatus(thread)
-          return {
-            id: thread.id,
-            title: displayThreadTitle(thread.title),
-            needsYou: navStatus.kind === 'attention',
-            current: thread.id === selectedId,
-            status: navStatus.kind
-          }
+          return { id: thread.id, title: displayThreadTitle(thread.title), needsYou: navStatus.kind === 'attention', current: thread.id === selectedId, status: navStatus.kind }
         })}
       onSelect={id => void select(id)}
       onArchived={() => { toggleCollapse(); setShowArchived(true) }} />}
     {!collapsed && <div className="nav-panel">
-      <div className="nav-panel-title"><strong>{t('sidebar.conversations')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="thread" /></div>
-      <div className={cx('thread-nav-actions', styles.search)}>
-        <SearchField className="thread-nav-search" ref={search} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={query} onChange={setQuery} shortcut="/" />
-      </div>
+      <SidebarHeader title={t('sidebar.conversations')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="thread" />} />
+      <SidebarFilter ref={search} className="thread-nav-search" icon={<Search size={14} />} hint={query ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')}
+        value={query} onChange={event => setQuery(event.target.value)} onClear={() => setQuery('')} clearLabel={i18n.t('common:nav.clearSearch')} autoComplete="off" spellCheck={false} />
       <nav ref={attachList} onKeyDown={onListKeyDown} className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
         {coldSkeleton
           ? <div data-testid="thread-sidebar-skeleton"><Skeleton lines={5} label={t('sidebar.loading')} /></div>
           : loading && !threads.length && <LoadingState label={t('sidebar.loading')} />}
         {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
-        {threads.some(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')) && <section><h2>{t('sidebar.pinnedHeading')}</h2>{threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)).map(row)}</section>}
-        {!!groups.length && <div className={cx('thread-list-heading', styles.listHeading)}><h2>{t('sidebar.projects')}</h2><button type="button" aria-label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}><AlignJustify size={14} aria-hidden="true" /></button></div>}
+        {pinned.length > 0 && <section className="thread-pinned-section">
+          <SidebarSection label={<span role="heading" aria-level={2}>{t('sidebar.pinnedHeading')}</span>} />
+          <div className={cx('thread-pinned-rows', styles.rows)}>{pinned.map(row)}</div>
+        </section>}
+        {!coldSkeleton && <SidebarSection label={t('sidebar.projects')} action={<>
+          <IconButton size="sm" label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'}
+            icon={<AlignJustify size={14} aria-hidden="true" />} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} />
+          {onAddProject && <IconButton size="sm" label={t('sidebar.addProject')} title={t('sidebar.addProject')} icon={<FolderPlus size={14} aria-hidden="true" />} onClick={onAddProject} />}
+        </>} />}
         {groups.map(group => {
           const matchedColor = workspaces.find(w => w.rootPath === group.rootPath)?.color ?? null
-          return <section key={group.id} {...workspaceColorAttrs({ id: group.id, color: typeof matchedColor === 'string' ? null : matchedColor })} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && cx('is-active', styles.active))}>
-          <div className={cx('thread-project-heading', styles.heading)}>
-          <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} title={group.path} aria-expanded={query ? true : expanded[group.id] ?? true} onClick={() => toggle(group.id)}><ChevronDown size={12} /><span className={styles.projectDot} aria-hidden="true" /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailableProjects.includes(group.id) && <small>{t('sidebar.directoryMissing')}</small>}{groups.filter(g => g.name === group.name).length > 1 && <small>{group.path.split(/[\\/]/).slice(-2).join('/')}</small>}<span className={styles.count} aria-hidden="true">{group.threads.length}</span></button>
-          <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.newInNamed', { name: group.name })} title={t('sidebar.newIn')} disabled={!group.rootPath || unavailableProjects.includes(group.id)} onClick={() => onCreate(group.id, group.rootPath)}><Plus size={14} /></button>
-          <Menu label={t('sidebar.projectActions', { name: group.name })} align="end"
-            trigger={<button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.actionsFor', { name: group.name })} data-project-actions={group.id}><MoreHorizontal size={14} /></button>}
-            items={[
-              { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
-              { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
-              ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailableProjects.includes(group.id), onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
-              { type: 'separator' as const },
-              { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
-            ]} />
-          </div>
-          {(query || (expanded[group.id] ?? true)) && <div className={cx('thread-project-children', styles.children)}>{(() => {
-            const split = groupBySection(group.threads, sections.sectionsOf(group.id), sections.sectionOf)
-            const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
-            const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
-            return <>
-              {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
-              <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <button type="button" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</button>}</div>
-            </>
-          })()}</div>}
-        </section>
+          const open = query ? true : expanded[group.id] ?? true
+          const unavailable = unavailableProjects.includes(group.id)
+          const duplicate = groups.filter(g => g.name === group.name).length > 1
+          return <section key={group.id} {...workspaceColorAttrs({ id: group.id, color: typeof matchedColor === 'string' ? null : matchedColor })} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && 'is-active')}>
+            <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={open} onSelect={() => toggle(group.id)}
+              lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />}
+              title={<><span className={styles.projectDot} aria-hidden="true" /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailable && <small className={styles.dupPath}> {t('sidebar.directoryMissing')}</small>}{duplicate && <small className={styles.dupPath}> {group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</>}
+              actions={<>
+                <IconButton size="sm" data-list-action className="thread-row-action" label={t('sidebar.newInNamed', { name: group.name })} title={t('sidebar.newIn')} disabled={!group.rootPath || unavailable} icon={<Plus size={14} aria-hidden="true" />} onClick={() => onCreate(group.id, group.rootPath)} />
+                <Menu label={t('sidebar.projectActions', { name: group.name })} align="end"
+                  trigger={<IconButton size="sm" data-list-action className="thread-row-action" label={t('sidebar.actionsFor', { name: group.name })} title={t('sidebar.projectActions', { name: group.name })} data-project-actions={group.id} icon={<MoreHorizontal size={14} aria-hidden="true" />} />}
+                  items={[
+                    { label: t('sidebar.projectSettings'), onSelect: () => setProjectSettingsId(group.id) },
+                    { label: t('sections.newSection'), onSelect: () => sections.setDialog({ kind: 'create', projectId: group.id }) },
+                    ...(group.rootPath ? [{ label: t('sidebar.openInCode'), disabled: unavailable, onSelect: () => void onOpenInCode?.(group.rootPath!).catch(error => setActionError(humanizeError(error, t('sidebar.openInCodeFailed')))) }] : []),
+                    { type: 'separator' as const },
+                    { label: t('sidebar.removeProjectMenu'), danger: true, onSelect: () => { setActionError(''); setConfirmation({ kind: 'project', id: group.id, title: group.name }) } }
+                  ]} />
+              </>} />
+            {open && <div className={cx('thread-project-children', styles.children)}>{(() => {
+              const split = groupBySection(group.threads, sections.sectionsOf(group.id), sections.sectionOf)
+              const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
+              const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
+              return <>
+                {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
+                {split.sections.length > 0 && <SidebarSection label={t('sections.none')} />}
+                <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <Button variant="ghost" size="sm" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</Button>}</div>
+              </>
+            })()}</div>}
+          </section>
         })}
-        {archived.length > 0 && <section className={cx('thread-archived-section', styles.section)} aria-label={t('sidebar.archivedRegion')}>
-          <button type="button" data-list-item className={cx('thread-project-toggle', styles.toggle)} aria-expanded={query ? true : showArchived} onClick={() => setShowArchived(value => !value)}><ChevronDown size={12} /><span>{t('sidebar.archived')}</span>{' '}<small>{archived.length}</small></button>
-          {(query || showArchived) && archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
-            <button type="button" data-list-item className={cx('thread-navigation-item', styles.item)} disabled={restoringId !== null} title={[displayThreadTitle(thread.title), `${thread.provider} · ${thread.rootPath}`].join('\n')} onClick={() => void restoreArchived(thread)}><span>{displayThreadTitle(thread.title)}</span>{' '}<small>{relativeTime(thread.updatedAt)}</small></button>
-            <button type="button" data-list-action className={cx('thread-row-action', styles.action)} aria-label={t('sidebar.restoreNamed', { name: displayThreadTitle(thread.title) })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null} onClick={() => void restoreArchived(thread)}>{restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} />}</button>
-          </div>)}
+        {archived.length > 0 && <section className={cx('thread-archived-section', styles.archivedSection)} aria-label={t('sidebar.archivedRegion')}>
+          <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={query ? true : showArchived} aria-label={`${t('sidebar.archived')} ${archived.length}`}
+            lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />} title={t('sidebar.archived')} meta={<span className={styles.count}>{archived.length}</span>} onSelect={() => setShowArchived(value => !value)} />
+          {(query || showArchived) && <div className={styles.rows}>{archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
+            <SidebarRow className="thread-navigation-item" data-list-item title={displayThreadTitle(thread.title)} meta={relativeTime(thread.updatedAt)} onSelect={restoringId !== null ? undefined : () => void restoreArchived(thread)}
+              actions={<IconButton size="sm" data-list-action className="thread-row-action" label={t('sidebar.restoreNamed', { name: displayThreadTitle(thread.title) })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null}
+                icon={restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} aria-hidden="true" />} onClick={() => void restoreArchived(thread)} />} />
+          </div>)}</div>}
         </section>}
         {actionError && <ErrorState compact title={actionError} />}
         {/* Moves and deletes are said here, politely, as they happen. */}
         <p className="sr-only" role="status" aria-live="polite" data-testid="thread-sections-announcer">{sections.announcement}</p>
         {sections.error && <Notice intent="danger" actions={<Button size="sm" variant="ghost" onClick={sections.clearError}>{t('common.close')}</Button>}>{sections.error}</Notice>}
-        {!loading && !coldSkeleton && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')} />}
-        {hiddenProjects.length > 0 && <section className={cx('thread-hidden-section', styles.section)} aria-label={t('sidebar.removedProjects')}>
-          <h2>{t('sidebar.removedProjects')}</h2>
+        {!loading && !coldSkeleton && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')}
+          actions={!query && onAddProject ? <Button size="sm" variant="secondary" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onAddProject}>{t('sidebar.addProject')}</Button> : undefined} />}
+        {hiddenProjects.length > 0 && <section className="thread-hidden-section" aria-label={t('sidebar.removedProjects')}>
+          <SidebarSection label={t('sidebar.removedProjects')} />
           {hiddenProjects.map(id => {
             const project = projects.find(item => item.projectId === id)
             if (!project) return null
-            return <button key={id} type="button" data-list-item className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} onClick={() => void useThreadStore.getState().restoreProject(id)}><ArchiveRestore size={14} aria-hidden="true" /><span>{project.displayName}</span>{' '}<small>{t('sidebar.restore')}</small></button>
+            return <Button key={id} variant="ghost" size="sm" data-list-item className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} icon={<ArchiveRestore size={14} aria-hidden="true" />} onClick={() => void useThreadStore.getState().restoreProject(id)}><span>{project.displayName}</span>{' '}<small>{t('sidebar.restore')}</small></Button>
           })}
         </section>}
       </nav>
-      <div className={styles.summaryStrip}>
-        <span>{t('sidebar.archivedCount', { count: archived.length })}</span>
-        <span>{t('sidebar.conversationCount', { count: activeConversationCount })}</span>
-      </div>
-      <SidebarFooter context={railContext} onToggle={toggleCollapse} />
+      <SidebarFooterBar className="nav-rail-footer" context={railContext} onToggle={toggleCollapse} />
     </div>}
     {projectSettingsId && projects.find(project => project.projectId === projectSettingsId) &&
       <ThreadProjectSettingsDialog project={projects.find(project => project.projectId === projectSettingsId)!} unavailable={unavailableProjects.includes(projectSettingsId)} onClose={() => setProjectSettingsId(null)} returnFocusTo={() => document.querySelector<HTMLElement>(`[data-project-actions="${projectSettingsId}"]`)} />}
