@@ -22,7 +22,7 @@
 //   enforced.lock.json, scene code-workspace (e2e/brand/brand-conformance.spec.ts measures it), both densities and themes.
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ModeSwitch } from '../../../src/components/Navigation/ModeSwitch'
 import { NeedsYouPill } from '../../../src/components/Navigation/NeedsYouPill'
@@ -81,7 +81,13 @@ const tablist = (): HTMLElement => {
 const tabs = (): HTMLElement[] => within(tablist()).getAllByRole('tab')
 const digits = (el: Element): string => (el.textContent ?? '').replace(/[^0-9]/g, '')
 
+/** Main's agents overview (BRD-10 / OXE-176 read the pill's number from it), with these rows. */
+function overview(agents: unknown[]): void {
+  const sources = { panes: { ok: true }, threads: { ok: true }, delegations: { ok: true }, work: { ok: true } }
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { agents: { overview: vi.fn(async () => ({ agents, sources })), onChanged: vi.fn(() => () => undefined), markSeen: vi.fn(async () => undefined) } } })
+}
 beforeEach(() => {
+  overview([])
   useWorkspaceStore.setState({ workspaces: [] } as never)
   useTerminalStore.setState({ panes: {} } as never)
   useActivityStore.setState({ live: { code: {}, thread: {} } } as never)
@@ -119,18 +125,21 @@ describe('OXE-72 BRD-09 title bar (A24)', () => {
   it.each(['en', 'pt-BR'])('the needs-you pill (%s) does not exist while nothing waits, and shows the count when something does', async locale => {
     await changeLanguage(locale)
     const first = render(<NeedsYouPill />)
+    await new Promise(resolve => setTimeout(resolve, 50))
     expect(screen.queryByTestId('needs-you-pill')).toBeNull()
     expect(screen.queryByText(t('attention.nothingWaiting'))).toBeNull()
     expect(document.body.textContent ?? '').not.toContain(t('attention.nothingWaiting'))
     first.unmount()
     // One OxeCode terminal waits (a real pane of a workspace, blocked): the pill's count today and the queue's pending
-    // rows after BRD-10 / OXE-176 agree on it.
+    // rows after BRD-10 / OXE-176 (main's agents overview, one needs-you pane row) agree on it.
     const running = { status: 'running', error: null, lastActivityAt: null, lastOutput: null, lastIntent: null, lastIntentAt: null, isWorking: false, hasUnread: false, hookState: null, hookAt: null, agentSource: null, location: null, detached: false }
     useWorkspaceStore.setState({ workspaces: [{ id: 'ws-1', name: 'demo', rootPath: '/repo', defaultShellProfileId: 'builtin-claude', panes: [{ id: 'pane-0', workspaceId: 'ws-1', type: 'terminal', rowIndex: 0, columnIndex: 0, status: 'running', agentProfileId: null, agentName: 'Claude', displayName: null, shellProfileId: 'builtin-claude', rootPath: null, createdAt: null }] }] } as never)
     useTerminalStore.setState({ panes: { 'pane-0': { ...running, agentState: 'blocked' } } } as never)
     useActivityStore.setState({ live: { code: { 'pane-0': 'needs-you' }, thread: {} } } as never)
+    overview([{ kind: 'pane', id: 'pane-0', state: 'needs-you', provider: 'claude', mode: 'code', title: 'Claude', workspaceId: 'ws-1', since: 10, seenAt: null, session: null, worktree: null, cost: null,
+      requests: [{ requestId: 'pane:pane-0:3', kind: 'approval', title: { code: 'agents.request.pane', params: {} }, risk: null, reversible: null, answerable: false, since: 10 }] }])
     render(<NeedsYouPill />)
-    expect(screen.getByTestId('needs-you-pill')).toHaveTextContent(t('attention.needsYou', { count: 1 }))
+    await waitFor(() => expect(screen.getByTestId('needs-you-pill')).toHaveTextContent(t('attention.needsYou', { count: 1 })))
   })
 
   it('the command field is the md control (28, 32 comfortable), named from the catalog', () => {
