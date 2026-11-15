@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/android-generated.test.ts tests/integration/WorkspaceSurface.test.tsx tests/oxe152/code/p-panel-no-suspend.test.tsx tests/ui-scale-primitives.test.tsx tests/ui-section-label.test.tsx --maxWorkers=2 --reporter=verbose

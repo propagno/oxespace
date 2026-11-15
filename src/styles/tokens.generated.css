@@ -18,13 +18,13 @@
   --space-12: 48px;
   --space-0-5: 2px;
   --space-1-5: 6px;
-  --text-2xs: 11px;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-display: 28px;
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-display: 28px;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -98,19 +98,19 @@
   --fill-pressed: #dedeea;
   --fill-selected: #d3f1de;
   --fill-selected-strong: #c3ebd2;
-  --text-primary: #1e1e27;
-  --text-secondary: #44444d;
-  --text-muted: #5a5a64;
-  --text-disabled: #ababc1;
-  --text-on-accent: #ffffff;
-  --text-on-solid: #ffffff;
-  --text-on-identity: #ffffff;
-  --text-accent: #007346;
-  --text-link: #18659b;
-  --border-subtle: #dedeea;
-  --border-default: #d3d3e2;
-  --border-strong: #c3c3d5;
-  --border-focus: #007044;
+  --tx-primary: #1e1e27;
+  --tx-secondary: #44444d;
+  --tx-muted: #5a5a64;
+  --tx-disabled: #ababc1;
+  --tx-on-accent: #ffffff;
+  --tx-on-solid: #ffffff;
+  --tx-on-identity: #ffffff;
+  --tx-accent: #007346;
+  --tx-link: #18659b;
+  --bd-subtle: #dedeea;
+  --bd-default: #d3d3e2;
+  --bd-strong: #c3c3d5;
+  --bd-focus: #007044;
   --accent: #007044;
   --accent-hover: #00603a;
   --accent-soft: #e2f6e9;
@@ -227,19 +227,19 @@
   --fill-pressed: #2a284a;
   --fill-selected: #0a2d1c;
   --fill-selected-strong: #085333;
-  --text-primary: #ecedff;
-  --text-secondary: #c7c8e2;
-  --text-muted: #a2a2bb;
-  --text-disabled: #565192;
-  --text-on-accent: #07120b;
-  --text-on-solid: #0e0e18;
-  --text-on-identity: #ffffff;
-  --text-accent: #83d6a7;
-  --text-link: #88c8fe;
-  --border-subtle: #2a284a;
-  --border-default: #34315b;
-  --border-strong: #413e71;
-  --border-focus: #44b77e;
+  --tx-primary: #ecedff;
+  --tx-secondary: #c7c8e2;
+  --tx-muted: #a2a2bb;
+  --tx-disabled: #565192;
+  --tx-on-accent: #07120b;
+  --tx-on-solid: #0e0e18;
+  --tx-on-identity: #ffffff;
+  --tx-accent: #83d6a7;
+  --tx-link: #88c8fe;
+  --bd-subtle: #2a284a;
+  --bd-default: #34315b;
+  --bd-strong: #413e71;
+  --bd-focus: #44b77e;
   --accent: #44b77e;
   --accent-hover: #5dc68e;
   --accent-soft: #0b2417;
@@ -357,19 +357,19 @@
     --fill-pressed: #2a284a;
     --fill-selected: #0a2d1c;
     --fill-selected-strong: #085333;
-    --text-primary: #ecedff;
-    --text-secondary: #c7c8e2;
-    --text-muted: #a2a2bb;
-    --text-disabled: #565192;
-    --text-on-accent: #07120b;
-    --text-on-solid: #0e0e18;
-    --text-on-identity: #ffffff;
-    --text-accent: #83d6a7;
-    --text-link: #88c8fe;
-    --border-subtle: #2a284a;
-    --border-default: #34315b;
-    --border-strong: #413e71;
-    --border-focus: #44b77e;
+    --tx-primary: #ecedff;
+    --tx-secondary: #c7c8e2;
+    --tx-muted: #a2a2bb;
+    --tx-disabled: #565192;
+    --tx-on-accent: #07120b;
+    --tx-on-solid: #0e0e18;
+    --tx-on-identity: #ffffff;
+    --tx-accent: #83d6a7;
+    --tx-link: #88c8fe;
+    --bd-subtle: #2a284a;
+    --bd-default: #34315b;
+    --bd-strong: #413e71;
+    --bd-focus: #44b77e;
     --accent: #44b77e;
     --accent-hover: #5dc68e;
     --accent-soft: #0b2417;
@@ -476,11 +476,11 @@
 }
 
 :root[data-density='comfortable'] {
-  --text-2xs: 12px;
-  --text-xs: 13px;
-  --text-sm: 14px;
-  --text-md: 15px;
-  --text-lg: 17px;
+  --fs-2xs: 12px;
+  --fs-xs: 13px;
+  --fs-sm: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
   --control-sm: 28px;
   --control-md: 32px;
   --control-lg: 36px;
@@ -493,16 +493,16 @@
 
 @media (prefers-contrast: more) {
   :root, [data-mode='light'] {
-    --border-subtle: #c3c3d5;
-    --border-default: #c3c3d5;
-    --text-muted: #44444d;
-    --text-disabled: #5a5a64;
+    --bd-subtle: #c3c3d5;
+    --bd-default: #c3c3d5;
+    --tx-muted: #44444d;
+    --tx-disabled: #5a5a64;
   }
   :root[data-mode='dark'], [data-mode='dark'] {
-    --border-subtle: #413e71;
-    --border-default: #413e71;
-    --text-muted: #c7c8e2;
-    --text-disabled: #a2a2bb;
+    --bd-subtle: #413e71;
+    --bd-default: #413e71;
+    --tx-muted: #c7c8e2;
+    --tx-disabled: #a2a2bb;
   }
 }
 
