@@ -105,8 +105,6 @@
       "interrupted": "Stopped",
       "failed": "Failed"
     },
-    "pendingCount_one": "Needs you ({{count}})",
-    "pendingCount_other": "Needs you ({{count}})",
     "back": "Back",
     "menu": "More options",
     "jobs": "Background jobs",
@@ -269,8 +267,9 @@
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
     },
-    "nowNeedsYou": "Needs you: {{title}}",
-    "review": "Review"
+    "review": "Review",
+    "stepCollapsed": "Collapsed",
+    "stepExpanded": "Expanded"
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
@@ -373,7 +372,8 @@
       "permissions": "Permission request"
     },
     "noUndo": "No undo.",
-    "allowIn": "in {{seconds}} s"
+    "allowIn": "in {{seconds}} s",
+    "holdToAllow": "Press and hold to allow"
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -455,5 +455,19 @@
       "version": "Version {{version}}",
       "sameWifi": "Works while this phone and your computer are on the same Wi-Fi."
     }
+  },
+  "needsYou": {
+    "agent": "The agent",
+    "allowed": "Allowed",
+    "asksApproval": "{{agent}} needs your approval",
+    "asksQuestion": "{{agent}} needs your answer",
+    "asksRun": "{{agent}} needs your approval",
+    "denied": "Denied",
+    "kindCommand": "Approve command",
+    "kindQuestions_one": "{{count}} question",
+    "kindQuestions_other": "{{count}} questions",
+    "offline": "Not connected to your computer. Answer once it is back.",
+    "reply": "Reply",
+    "title": "Needs you"
   }
 }

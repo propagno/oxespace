@@ -463,6 +463,7 @@ function WorkspaceSurfaceComponent({
       content: (
         <WorkspaceSearchPanel
           workspace={workspace}
+          scope={panelScope}
           isExpanded={searchExpanded}
           onCollapse={onCloseSearch}
           onToggleExpanded={() => setSearchExpanded((value) => !value)}
