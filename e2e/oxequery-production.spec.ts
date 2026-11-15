@@ -33,7 +33,7 @@ test('a production connection asks for its name before a write, shows its limits
     await dialog.getByRole('radio', { name: 'Production' }).click()
     await dialog.getByRole('switch', { name: /Read-only/ }).setChecked(false)
     await dialog.getByRole('button', { name: 'Save' }).click()
-    await expect(page.locator('.oq-badge[data-environment="prod"]')).toBeVisible()
+    await expect(page.locator('.oq-env-pill[data-env="prod"]').first()).toBeVisible()
 
     // Production reads up to 1,000 rows and gives a statement 30 seconds; the toolbar says so.
     await expect(page.locator('.oq-editor-toolbar [data-oq-timeout]')).toHaveText('Timeout 30 s')
