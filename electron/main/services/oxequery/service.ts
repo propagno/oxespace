@@ -231,7 +231,7 @@ export class OxeQueryService {
       if (!resolve) return null
       const known = names.get(actor)
       if (known !== undefined) return known
-      let value: string | null = null
+      let value: string | null
       try {
         const named = resolve(actor)
         value = typeof named === 'string' && named.trim() ? named.trim().slice(0, 200) : null
