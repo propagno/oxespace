@@ -8,7 +8,8 @@ import { togglePanel } from './helpers/panels'
 /**
  * OXE-191: Find in files follows the panels' scope. With the active pane in a git worktree, Files, Git and Changes
  * read the worktree, while Search kept searching the main checkout. A real repository, a real worktree and the
- * app's real search (ripgrep in the main process); only the terminals are mocked, none is used here.
+ * app's real search (ripgrep in the main process); real terminals too: the panels' scope prefers the folder the pane's shell reports (its location), which a mocked
+ * terminal never updates after the pane moves.
  */
 test('Find in files searches the active pane\'s worktree, and the workspace root once pinned', async () => {
   test.setTimeout(90_000)
@@ -25,7 +26,7 @@ test('Find in files searches the active pane\'s worktree, and the workspace root
   writeFileSync(join(tree, 'hotfix-only.ts'), 'export const marker = "needle-in-hotfix"\n')
 
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
   } })
   try {
     const page = await app.firstWindow()
@@ -49,7 +50,14 @@ test('Find in files searches the active pane\'s worktree, and the workspace root
     const panel = page.getByTestId('workspace-search-panel')
     await expect(panel).toBeVisible()
     // The header names what it searches: the worktree.
-    await expect(panel.getByTestId('panel-scope-badge')).toHaveClass(/is-worktree/, { timeout: 15_000 })
+    try {
+      await expect(panel.getByTestId('panel-scope-badge')).toHaveClass(/is-worktree/, { timeout: 20_000 })
+    } catch (error) {
+      // What the app holds when it does not follow: the panes' saved roots and the Worktrees panel's own words.
+      const panes = await page.evaluate(() => window.oxe.workspace.list().then(list => list.flatMap(item => item.panes.map(one => ({ id: one.id, rootPath: one.rootPath ?? null })))))
+      console.log(`[search-scope] panes ${JSON.stringify(panes)}; badge "${await panel.getByTestId('panel-scope-badge').getAttribute('title')}"`)
+      throw error
+    }
 
     await panel.getByLabel('Search query').fill('needle-in')
     await expect(panel.getByText('hotfix-only.ts')).toBeVisible({ timeout: 15_000 })
