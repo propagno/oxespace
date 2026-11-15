@@ -1,0 +1,1 @@
+npx vitest related --run electron/main/services/conversation/kernel/command-router.ts electron/main/services/conversation/thread-manager.ts electron/main/services/conversation/thread-orchestrator.ts shared/types/thread.ts electron/main/services/conversation/thread-sessions.ts shared/types/thread-session.ts --maxWorkers=2
