@@ -36,7 +36,11 @@ enum class SessionEnd {
 sealed interface SessionState {
     data object Opening : SessionState
     data object Authenticating : SessionState
-    data class Ready(val desktopName: String?) : SessionState
+    /**
+     * Signed in. [desktopOs] ("Windows 11") and [pairedAt] (epoch ms on the desktop's clock) come with the sign-in
+     * result (OXE-179); an older desktop sends neither.
+     */
+    data class Ready(val desktopName: String?, val desktopOs: String? = null, val pairedAt: Long? = null) : SessionState
     data class Ended(val reason: SessionEnd) : SessionState
 }
 
@@ -138,7 +142,7 @@ class SessionProtocol(
         }
         if (result == null || result.accessToken.isEmpty() || result.expiresInMs <= 0) return end(SessionEnd.PROTOCOL)
         tokens.token = AccessToken(result.accessToken, now() + result.expiresInMs, result.expiresInMs)
-        state = SessionState.Ready(desktopName)
+        state = SessionState.Ready(desktopName, result.desktopOs?.takeIf { it.isNotBlank() }, result.pairedAt?.takeIf { it >= 0 })
         return emptyList()
     }
 
