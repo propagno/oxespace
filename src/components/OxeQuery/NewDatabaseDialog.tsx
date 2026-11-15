@@ -2,7 +2,7 @@ import { useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Dialog } from '../../ui'
 import { Notice } from '../../ui/Display'
-import { SegmentedControl } from '../../ui/Field'
+import { SegmentedControl, TextField } from '../../ui/Field'
 import { errorMessage, oq } from './client'
 import { useOxeQueryStore } from './oxequery.store'
 
@@ -44,10 +44,11 @@ export function NewDatabaseDialog({ onClose }: { onClose: () => void }): ReactEl
     <form ref={formRef} id="oq-new-database-form" className="oq-scope oq-dialog-form" onSubmit={event => void submit(event)}>
       <SegmentedControl label={t('newDatabase.engine')} className="oq-engine-choice" value={kind} onChange={value => { setKind(value); setTag(value === 'postgres' ? '17' : '8') }}
         options={ENGINES.map(({ id, name }) => ({ value: id, label: name }))} />
-      <label>{t('newDatabase.name')}<input value={name} onChange={event => setName(event.target.value)} placeholder={kind === 'postgres' ? 'pg-app' : 'mongo-app'} required autoFocus /></label>
-      <label>{t('newDatabase.version')}<input value={tag} onChange={event => setTag(event.target.value)} aria-describedby="oq-tag-hint" required /></label>
-      <small id="oq-tag-hint" className="oq-muted">{t('newDatabase.versionHint', { examples: kind === 'postgres' ? '17, 16-alpine' : '8, 7' })}</small>
-      <label>{t('newDatabase.port')} <small className="oq-muted">{t('newDatabase.optional')}</small><input type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} placeholder={t('newDatabase.portPlaceholder')} /></label>
+      {/* The src/ui fields: the label above, the hint under, the field as wide as the form (OXE-160: a field the browser
+          sized cut "first free port" to "first free p", and labels sat inline with their fields). */}
+      <TextField label={t('newDatabase.name')} value={name} onChange={event => setName(event.target.value)} placeholder={kind === 'postgres' ? 'pg-app' : 'mongo-app'} required autoFocus />
+      <TextField label={t('newDatabase.version')} hint={t('newDatabase.versionHint', { examples: kind === 'postgres' ? '17, 16-alpine' : '8, 7' })} value={tag} onChange={event => setTag(event.target.value)} required />
+      <TextField label={<>{t('newDatabase.port')} <span className="oq-muted">{t('newDatabase.optional')}</span></>} type="number" min={1024} max={65535} value={port} onChange={event => setPort(event.target.value)} placeholder={t('newDatabase.portPlaceholder')} />
       {error && <Notice intent="danger">{error}</Notice>}
     </form>
   </Dialog>

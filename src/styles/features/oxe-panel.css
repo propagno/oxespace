@@ -44,9 +44,9 @@
   flex: 0 0 auto;
   background: var(--tx-muted);
 }
-.oxe-health-dot.oxe-health-healthy { background: var(--dot-green); }
-.oxe-health-dot.oxe-health-warning { background: var(--dot-yellow); }
-.oxe-health-dot.oxe-health-critical { background: var(--dot-red); }
+.oxe-health-dot.oxe-health-healthy { background: var(--intent-success-solid); }
+.oxe-health-dot.oxe-health-warning { background: var(--intent-warning-solid); }
+.oxe-health-dot.oxe-health-critical { background: var(--intent-danger-solid); }
 .oxe-health-label { text-transform: capitalize; color: var(--tx-primary); }
 .oxe-panel-meta { color: var(--tx-muted); font-size: var(--fs-2xs); }
 
@@ -68,12 +68,12 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--brand-light);
+  color: var(--tx-accent);
   cursor: pointer;
   text-align: left;
   transition: background var(--transition-base), border-color var(--transition-base);
 }
-.oxe-nextstep:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--brand); }
+.oxe-nextstep:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 .oxe-nextstep:disabled { opacity: 0.5; cursor: default; }
 .oxe-nextstep code { font-family: var(--font-mono); font-size: var(--fs-xs); }
 .oxe-nextstep-reason { margin: 0; font-size: var(--fs-2xs); color: var(--tx-muted); line-height: 1.45; }
@@ -89,7 +89,7 @@
   line-height: 1.4;
   color: var(--tx-secondary);
 }
-.oxe-diagnostics svg { color: var(--dot-yellow); flex: 0 0 auto; margin-top: 1px; }
+.oxe-diagnostics svg { color: var(--intent-warning-solid); flex: 0 0 auto; margin-top: 1px; }
 
 .oxe-panel-actions { display: flex; gap: 8px; margin-top: auto; }
 .oxe-panel-action {
@@ -97,17 +97,17 @@
   align-items: center;
   gap: 6px;
   padding: 7px 10px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
   cursor: pointer;
   transition: background var(--transition-base), color var(--transition-base);
 }
-.oxe-panel-action:hover:not(:disabled) { background: var(--surface-hover); color: var(--tx-primary); }
+.oxe-panel-action:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .oxe-panel-action:disabled { opacity: 0.5; cursor: default; }
-.oxe-panel-action.primary { border-color: var(--brand); color: var(--brand-light); background: var(--accent-soft); }
+.oxe-panel-action.primary { border-color: var(--accent); color: var(--tx-accent); background: var(--accent-soft); }
 
 .oxe-onboarding {
   display: flex;
@@ -124,8 +124,8 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  color: var(--brand-light);
+  background: var(--ov-1);
+  color: var(--tx-accent);
 }
 .oxe-onboarding strong { color: var(--tx-primary); font-size: var(--fs-sm); }
 .oxe-onboarding p { margin: 0; font-size: var(--fs-2xs); line-height: 1.5; color: var(--tx-muted); }
@@ -137,7 +137,7 @@
   color: var(--tx-muted);
   text-decoration: none;
 }
-.oxe-onboarding-link:hover { color: var(--brand-light); }
+.oxe-onboarding-link:hover { color: var(--tx-accent); }
 .oxe-onboarding-retry {
   display: inline-flex;
   align-items: center;
@@ -149,7 +149,7 @@
   color: var(--tx-secondary);
   cursor: pointer;
 }
-.oxe-onboarding-retry:hover:not(:disabled) { color: var(--brand-light); }
+.oxe-onboarding-retry:hover:not(:disabled) { color: var(--tx-accent); }
 .oxe-onboarding-retry:disabled { opacity: 0.5; cursor: default; }
 
 /* Live indicator — pulses when a fresh summary lands. */
@@ -164,7 +164,7 @@
   transition: opacity var(--transition-base);
 }
 .oxe-live-dot.live {
-  background: var(--dot-green);
+  background: var(--intent-success-solid);
   opacity: 1;
   --pulse-scale: 1.6;
   --pulse-opacity: 0.6;
@@ -179,7 +179,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid var(--dot-yellow);
+  border: 1px solid var(--intent-warning-solid);
   border-radius: var(--radius-sm);
   background: var(--intent-warning-bg);
 }
@@ -187,7 +187,7 @@
 .oxe-skill-info code { font-family: var(--font-mono); font-size: var(--fs-2xs); }
 .oxe-skill-info strong { color: var(--tx-primary); }
 .oxe-skill-badge { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
-.oxe-skill-badge.missing { background: var(--dot-yellow); }
+.oxe-skill-badge.missing { background: var(--intent-warning-solid); }
 
 /* Embedded dashboard. */
 .oxe-dashboard-section { flex: 1 1 auto; min-height: 220px; }
@@ -197,9 +197,9 @@
   flex: 1 1 auto;
   min-height: 200px;
   height: 100%;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 /* ErrorBoundary fallback — keeps a single component crash from blanking the app. */
@@ -212,7 +212,7 @@
   padding: 16px;
 }
 /* The root boundary covers the window, on the canvas, so a crash never leaves it blank. */
-.error-boundary-page { position: fixed; inset: 0; background: var(--surface-canvas); color: var(--text-primary); }
+.error-boundary-page { position: fixed; inset: 0; background: var(--surface-canvas); color: var(--tx-primary); }
 
 .terminal-view {
   width: 100%;
@@ -222,7 +222,7 @@
   overflow: hidden;
   /* The terminal's own dark, in both themes: the padding around the character grid and the part of the pane the grid
      does not reach are the same surface as the grid, not a light frame around it. */
-  background: var(--term-bg, var(--bg-tile-content));
+  background: var(--term-bg, var(--surface-base));
   border-radius: 0;
   border: none;
   box-shadow: none;
@@ -250,7 +250,7 @@
   /* Keep wheel/trackpad targets on the viewport (not lost on host padding). */
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-primary) 22%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--tx-primary) 22%, transparent) transparent;
 }
 .terminal-view .xterm-screen {
   max-width: 100%;

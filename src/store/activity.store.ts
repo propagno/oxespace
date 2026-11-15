@@ -47,6 +47,12 @@ export interface AttentionSummary {
   thread: AttentionCounts
 }
 
+/** When a pane or conversation entered "needs you" (Date.now()), and a number that is new for every wait. */
+export interface AttentionWait {
+  since: number
+  seq: number
+}
+
 export const ACTIVITY_LIMIT = 50
 
 export type ActivityInput = Omit<ActivityItem, 'at' | 'read'> & { at?: number; read?: boolean }
@@ -55,6 +61,8 @@ interface ActivityState {
   /** Newest first, at most ACTIVITY_LIMIT. */
   items: ActivityItem[]
   live: Record<LiveScope, Record<string, LiveAttention>>
+  /** The entries of `live` that need a person, with when each started waiting: leaving the state drops it, entering again is a new wait. */
+  waiting: Record<LiveScope, Record<string, AttentionWait>>
   /** Adds an entry, replacing the one for the same subject and moving it to the top. */
   record: (input: ActivityInput) => void
   /** Drops the subject's entry when it is of `kind` (by default, a request that no longer waits). */
@@ -67,6 +75,9 @@ interface ActivityState {
 
 const key = (item: Pick<ActivityItem, 'source' | 'id'>): string => `${item.source}:${item.id}`
 const EMPTY_LIVE = (): ActivityState['live'] => ({ code: {}, thread: {} })
+const EMPTY_WAITING = (): ActivityState['waiting'] => ({ code: {}, thread: {} })
+/** Never reset: a wait keeps its number, so a new wait is told apart from an old one with the same subject. */
+let waitSeq = 0
 
 function sameEntries(a: Record<string, LiveAttention>, b: Record<string, LiveAttention>): boolean {
   const keys = Object.keys(a)
@@ -77,6 +88,7 @@ function sameEntries(a: Record<string, LiveAttention>, b: Record<string, LiveAtt
 export const useActivityStore = create<ActivityState>((set, get) => ({
   items: [],
   live: EMPTY_LIVE(),
+  waiting: EMPTY_WAITING(),
 
   record: (input) => {
     const item: ActivityItem = { ...input, at: input.at ?? Date.now(), read: input.read ?? false }
@@ -103,12 +115,19 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   },
 
   setLive: (scope, entries) => {
-    const live = get().live
+    const { live, waiting } = get()
     if (sameEntries(live[scope], entries)) return
-    set({ live: { ...live, [scope]: entries } })
+    const before = waiting[scope]
+    const next: Record<string, AttentionWait> = {}
+    for (const [id, state] of Object.entries(entries)) {
+      if (state !== 'needs-you') continue
+      // Still waiting keeps its start; a new entry into the state is a new wait (OXE-128/Q-4).
+      next[id] = live[scope][id] === 'needs-you' && before[id] ? before[id] : { since: Date.now(), seq: ++waitSeq }
+    }
+    set({ live: { ...live, [scope]: entries }, waiting: { ...waiting, [scope]: next } })
   },
 
-  reset: () => set({ items: [], live: EMPTY_LIVE() })
+  reset: () => set({ items: [], live: EMPTY_LIVE(), waiting: EMPTY_WAITING() })
 }))
 
 function count(entries: Record<string, LiveAttention>): AttentionCounts {

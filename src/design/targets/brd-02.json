@@ -1,9 +1,9 @@
 {
   "brd": "BRD-02",
-  "card": "OXE-22",
-  "title": "OxeChat sidebar",
+  "card": "OXE-166",
+  "title": "OxeChat sidebar (OXC-1)",
   "platform": "desktop",
-  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "source": "OxeChat canvas approved by the user on 15/11 (artifact 796YHhr9AjmYNVkakawr9c, 14 boards) and its written target (OXE-166..170)",
   "measures": [
     {
       "id": "BRD-02.header.height",
@@ -60,8 +60,7 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "the section label line"
+      "state": "pending"
     },
     {
       "id": "BRD-02.group.height",
@@ -102,15 +101,12 @@
       "state": "pending"
     },
     {
-      "id": "BRD-02.row.height",
+      "id": "BRD-02.row2.height",
       "scene": "chat-conversation",
-      "select": "[data-ui=sidebar-row]",
+      "select": "[data-ui=sidebar-row][data-lines=\"2\"]",
       "prop": "height",
       "expect": {
-        "oneOf": [
-          "--row-1",
-          "--row-2"
-        ]
+        "token": "--row-2"
       },
       "tolerance": 0.5,
       "densities": [
@@ -121,8 +117,102 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "one line; the second line only when it needs you"
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row1.height",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row][data-lines=\"1\"]",
+      "prop": "height",
+      "expect": {
+        "token": "--row-1"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-title.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-title]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-sm"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-title.font-weight",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-title]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-medium"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row-meta.font-size",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row] [data-ui=row-meta]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-xs"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.row.radius",
+      "scene": "chat-conversation",
+      "select": "[data-ui=sidebar-row]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
     },
     {
       "id": "BRD-02.archived-band.count",
@@ -143,8 +233,45 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "the band leaves; Archived moves to the Projects menu"
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.raw-button.count",
+      "scene": "chat-conversation",
+      "select": "[aria-label=\"OxeChat sidebar\"] button:not([data-ui])",
+      "prop": "count",
+      "expect": {
+        "eq": 0
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-02.attention.radius",
+      "scene": "chat-approval",
+      "select": "[data-ui=row-attention]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
     }
   ]
 }

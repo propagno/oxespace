@@ -185,11 +185,11 @@ describe('derivePaneDisplayState — status tone derivation', () => {
 
 describe('compactPathLabel + formatPaneStatus', () => {
   test('formats labels for all 6 tones', () => {
-    expect(formatPaneStatus('thinking')).toBe('Thinking')
-    expect(formatPaneStatus('awaiting')).toBe('Awaiting')
+    expect(formatPaneStatus('thinking')).toBe('Working')
+    expect(formatPaneStatus('awaiting')).toBe('Finished')
     expect(formatPaneStatus('starting')).toBe('Starting')
     expect(formatPaneStatus('exited')).toBe('Exited')
-    expect(formatPaneStatus('error')).toBe('Needs attention')
+    expect(formatPaneStatus('error')).toBe('Failed')
     expect(formatPaneStatus('idle')).toBe('Idle')
   })
 

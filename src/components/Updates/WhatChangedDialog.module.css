@@ -5,7 +5,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -15,8 +15,8 @@
 .head > span {
   padding: var(--space-2) var(--space-3);
   background: var(--surface-sunken);
-  color: var(--text-muted);
-  font-size: var(--text-2xs);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
   font-weight: var(--weight-semibold);
 }
 
@@ -25,16 +25,16 @@
   align-items: center;
   min-width: 0;
   padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--text-sm);
+  border-top: 1px solid var(--bd-subtle);
+  font-size: var(--fs-sm);
   line-height: 1.4;
 }
 
 .head > .arrow, .row > .arrow { justify-content: center; padding-inline: 0; }
-.row > .arrow { color: var(--text-muted); }
+.row > .arrow { color: var(--tx-muted); }
 
-.feature { color: var(--text-primary); font-weight: var(--weight-medium); }
-.destination { flex-wrap: wrap; gap: 0 var(--space-1); color: var(--text-secondary); }
+.feature { color: var(--tx-primary); font-weight: var(--weight-medium); }
+.destination { flex-wrap: wrap; gap: 0 var(--space-1); color: var(--tx-secondary); }
 
 .destination code, .saved code {
   padding: 0 var(--space-1);
@@ -50,15 +50,15 @@
   gap: var(--space-1) var(--space-3);
   margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-sunken);
 }
 
-.saved[data-intent='warning'] { border-color: var(--warning); }
+.saved[data-intent='warning'] { border-color: var(--intent-warning-solid); }
 
-.savedIcon { grid-row: span 2; margin-top: 2px; color: var(--text-muted); }
-.saved[data-intent='warning'] .savedIcon { color: var(--warning); }
+.savedIcon { grid-row: span 2; margin-top: 2px; color: var(--tx-muted); }
+.saved[data-intent='warning'] .savedIcon { color: var(--intent-warning-solid); }
 
-.saved p { margin: 0; color: var(--text-primary); font-size: var(--text-sm); line-height: 1.45; overflow-wrap: anywhere; }
-.saved .note { color: var(--text-muted); font-size: var(--text-xs); }
+.saved p { margin: 0; color: var(--tx-primary); font-size: var(--fs-sm); line-height: 1.45; overflow-wrap: anywhere; }
+.saved .note { color: var(--tx-muted); font-size: var(--fs-xs); }

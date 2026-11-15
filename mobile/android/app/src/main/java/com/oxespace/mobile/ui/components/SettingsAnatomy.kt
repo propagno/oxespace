@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeType
 
@@ -42,7 +43,7 @@ import com.oxespace.mobile.ui.theme.OxeType
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val colors = Oxe.colors
-    val track = RoundedCornerShape(12.dp)
+    val track = RoundedCornerShape(OxeRadius.lg)
     Row(
         modifier.fillMaxWidth().clip(track).background(colors.surfaceSunken).border(1.dp, colors.borderSubtle, track).padding(3.dp).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -50,7 +51,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
         options.forEachIndexed { i, label ->
             val on = i == selected
             Box(
-                Modifier.weight(1f).heightIn(min = 42.dp).clip(RoundedCornerShape(9.dp))
+                Modifier.weight(1f).heightIn(min = 42.dp).clip(RoundedCornerShape(OxeRadius.md))
                     .background(if (on) colors.surfaceRaised else colors.surfaceSunken)
                     .selectable(selected = on, role = Role.Tab) { onSelect(i) },
                 contentAlignment = Alignment.Center,

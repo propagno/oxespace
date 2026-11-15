@@ -7,6 +7,10 @@ import { McpManager } from '../../electron/main/services/mcp.service'
 import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { removeTempDir } from '../helpers/removeTempDir'
 
+// A test that starts a process (on Windows, the PATH and PATHEXT lookup of the command) can pass the
+// default 5 s on a loaded CI runner (OXE-171); only these tests get the longer limit.
+const SPAWN_TIMEOUT_MS = 20_000
+
 describe('McpManager trust gates', () => {
   test('internal MCP credentials are inherited, never written into tracked project config', async () => {
     const rootPath = await mkdtemp(join(tmpdir(), 'oxe-mcp-secret-'))
@@ -96,7 +100,7 @@ describe('McpManager trust gates', () => {
     expect(health.some((event) => event.status === 'unhealthy' && event.message?.includes('not found'))).toBe(true)
 
     db.close()
-  })
+  }, SPAWN_TIMEOUT_MS)
 
   test('a test lists the tools, lets the server go and is remembered on the row', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'oxe-mcp-test-'))
@@ -122,7 +126,7 @@ describe('McpManager trust gates', () => {
       expect(manager.list(null).find(row => row.id === server.id)).toMatchObject({ health: 'healthy', tools: [{ name: 'echo' }] })
       expect((manager as unknown as { runtimes: Map<string, unknown> }).runtimes.size).toBe(0)
     } finally { db.close(); removeTempDir(dir) }
-  })
+  }, SPAWN_TIMEOUT_MS)
 })
 
 describe('McpManager under a policy', () => {

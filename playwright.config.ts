@@ -24,6 +24,8 @@ export default defineConfig({
     // fails (ci.yml perf-recheck); measured here too, a slow runner turned the smoke run red with no recheck.
     '**/perceived-perf.spec.ts',
     '**/browser-preview-performance.spec.ts',
+    // Real-PTY load (OXE-120): its own workflow (perf-load.yml), one job per OS; never in the smoke run.
+    '**/perf-load.spec.ts',
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
     '**/visual/**',
