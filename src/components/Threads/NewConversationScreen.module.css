@@ -1,0 +1,28 @@
+/* The new conversation in place (OXC-3, OXE-168; BRD-05 scene chat-new-session): the opening's title, the row of
+   pickers that says where the agent works, the composer and the four starters, on one centred column. */
+.screen { display: flex; flex: 1; justify-content: center; min-height: 0; overflow-y: auto; padding: var(--space-5) var(--space-3); }
+.column { display: flex; flex-direction: column; gap: var(--space-3); width: min(100%, 72ch); margin-block: auto; }
+.hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.title { margin: 0; color: var(--tx-primary); font-family: var(--font-display); font-size: var(--fs-xl); font-weight: var(--weight-semibold); }
+
+/* Where the agent works: pills of one control height, the switch tinted while it is on. */
+.pickers { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.pickers .picker { display: inline-flex; align-items: center; gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--fs-xs); }
+.pickers span.picker { border: 1px solid var(--bd-subtle); color: var(--tx-secondary); }
+.pickers .picker[aria-checked='true'] { border-color: var(--accent-border); background: var(--accent-soft); color: var(--tx-accent); }
+.worktree { display: grid; gap: var(--space-2); }
+.hint { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+
+/* The composer of the opening: the first message creates the conversation. */
+.composer { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
+.composer:focus-within { border-color: var(--accent-border); }
+.message { width: 100%; resize: vertical; border: 0; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-sm); }
+.actions { display: flex; justify-content: flex-end; }
+
+/* Starters fill the composer; nothing is sent on click. */
+.starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.starters .starter { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: start; white-space: normal; }
+.starters .starter:hover { border-color: var(--accent-border); background: var(--fill-hover); }
+.starter strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
+.starter span { color: var(--tx-muted); font-size: var(--fs-xs); }

@@ -305,11 +305,15 @@ export async function registerThreadProject(app: ElectronApplication, page: Page
   }, { workspaceId: workspace.id, rootPath: root })
 }
 
-/** Opens Thread mode, creates the fake thread through the real dialog and applies a named state. */
+/** Opens Thread mode, creates the fake thread through the real new-conversation screen and applies a named state. */
 export async function openThreadWithState(app: ElectronApplication, page: Page, root: string, state: ExtendedThreadStateName): Promise<void> {
   await modeButton(page, 'thread').click()
   await page.getByRole('button', { name: 'New conversation in repo' }).click()
-  await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+  // The new conversation is a screen in place (OXC-3): the first message creates it.
+  await page.locator('[data-ui="new-conversation-title"]').waitFor()
+  const box = page.locator('[data-ui="composer"]').getByRole('textbox', { name: 'Message' })
+  await box.fill('Start')
+  await box.press('Enter')
   await page.locator('.thread-timeline').waitFor()
   await setThreadState(app, root, state)
 }
