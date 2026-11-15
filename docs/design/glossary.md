@@ -91,11 +91,13 @@ agree.
 | needs-you | Needs you | Precisa de você |
 | failed | Failed | Falhou |
 | working | Working | Trabalhando |
-| finished | Finished | Terminou |
+| finished | Finished | Concluído |
 | idle | Idle | Ocioso |
 | stopped | Stopped | Interrompido |
 | unknown | Not confirmed | Não confirmado |
 | (terminal only) starting / exited | Starting / Exited | Iniciando / Encerrado |
+
+finished pt-BR: "Concluído" (era "Terminou"): decisão de coordenação de 14/11, a pedido da MARCA. Todo estado é um adjetivo no masculino, como "Ocioso" e "Interrompido"; é a palavra do catálogo desde a 1.5.0.
 
 They describe the agent, so pt-BR uses the masculine everywhere ("Ocioso", "Interrompido"), also on a conversation row. One i18n namespace, `agents.state.*`, holds them. No other catalog may define these state words.
 

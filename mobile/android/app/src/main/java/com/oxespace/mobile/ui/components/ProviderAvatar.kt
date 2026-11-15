@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeFonts
 import com.oxespace.mobile.ui.theme.OxeIdentity
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeType
 
 /*
@@ -38,8 +39,9 @@ private fun providerLook(provider: String): ProviderLook? = when (provider.trim(
 @Composable
 fun ProviderAvatar(provider: String, modifier: Modifier = Modifier, size: Dp = 18.dp) {
     val look = providerLook(provider)
-    val shape = RoundedCornerShape(size * 0.28f)
-    val fontSize = with(LocalDensity.current) { (size * 0.56f).toSp() }
+    val shape = RoundedCornerShape(OxeRadius.sm)
+    // The letter is 0.56 of the tile, never under 11 (BRD-07): the 18 dp tile drew it at 10 sp. Sized in dp, as the tile is.
+    val fontSize = with(LocalDensity.current) { maxOf(size * 0.56f, 11.dp).toSp() }
     val tile = if (look != null) {
         modifier.size(size).background(look.fill, shape)
     } else {

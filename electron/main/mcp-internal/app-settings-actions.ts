@@ -55,7 +55,7 @@ export const ACTIONS: Record<string, Run> = {
   async native_sessions(args, scope, ctx) {
     if (!ctx.db) throw new ActionRefused('Sessions are unavailable right now.', 'unavailable')
     const provider = str(args, 'provider', 10) === 'codex' ? 'codex' : 'claude'
-    const sessions = new SessionService(ctx.db).listSessions(scope.workspaceId ?? 'mcp', scope.rootPath, provider).sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)
+    const sessions = (await new SessionService(ctx.db).listSessions(scope.workspaceId ?? 'mcp', scope.rootPath, provider)).sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)
     const limit = int(args, 'limit', 30, 1, 100)
     return { items: sessions.slice(0, limit).map(({ filePath: _path, ...session }) => session), total: sessions.length, ...(sessions.length > limit ? { truncated: true } : {}) }
   },

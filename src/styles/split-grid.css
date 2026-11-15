@@ -7,14 +7,14 @@
   height: 100%;
   background:
     radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 36%),
-    var(--workspace-canvas);
+    var(--surface-canvas);
   overflow: hidden;
 }
 
 .split-pane-slot {
   position: absolute;
   overflow: visible;
-  border-radius: var(--pane-radius);
+  border-radius: var(--radius-lg);
   background: transparent;
   border: none;
   box-sizing: border-box;
@@ -75,7 +75,7 @@
   width: 36px;
   height: 8px;
   z-index: calc(var(--layer-raised) + 5);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   cursor: grab;
   touch-action: none;
@@ -96,7 +96,7 @@
   width: 18px;
   height: 2px;
   transform: translateX(-50%);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--tx-muted) 42%, transparent);
   opacity: 0;
   transition: width var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard);
@@ -131,6 +131,6 @@
   pointer-events: none;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
-  border-radius: var(--pane-radius);
+  border-radius: var(--radius-lg);
   box-shadow: var(--elevation-3);
 }

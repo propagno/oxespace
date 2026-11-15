@@ -5,7 +5,7 @@
 .thread-events-body:has(.thread-events-detail) { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
 .thread-events-list { display: grid; align-content: start; gap: 2px; margin: 0; padding: 0; list-style: none; max-height: 420px; overflow: auto; }
 .thread-events-row { display: grid; grid-template-columns: 92px 84px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; width: 100%; padding: 4px 6px; border: 1px solid transparent; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.thread-events-row:hover, .thread-events-row[aria-pressed='true'] { border-color: var(--bd-base); background: var(--bg-hover); }
+.thread-events-row:hover, .thread-events-row[aria-pressed='true'] { border-color: var(--bd-base); background: var(--fill-hover); }
 .thread-events-row.is-failed .thread-events-meta { color: var(--intent-danger-fg); }
 .thread-events-row time, .thread-events-meta { font-variant-numeric: tabular-nums; font-size: 12px; opacity: 0.8; }
 .thread-events-type { font-size: 12px; font-weight: 600; }

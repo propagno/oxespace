@@ -10,7 +10,7 @@
 .thread-file-error { margin: 4px 8px 0 30px; color: var(--dot-red); font-size: var(--fs-2xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-view .thread-file-expand { min-width: 28px; min-height: 28px; flex-shrink: 0; padding: 6px; color: var(--text-muted); }
 .thread-file-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
-.thread-inline-evidence { max-height: 360px; min-width: 0; overflow: auto; margin: 6px 0 12px; border: 1px solid var(--border-default); border-radius: var(--nav-radius); background: var(--pane-surface-raised); }
+.thread-inline-evidence { max-height: 360px; min-width: 0; overflow: auto; margin: 6px 0 12px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); }
 .thread-inline-evidence p, .thread-inline-evidence > div[role="alert"] { padding: 10px 12px; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-inline-evidence pre { padding: 12px; font: 11px/1.7 var(--font-mono); overflow: auto; }
 .thread-turn-timing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--fs-2xs); color: var(--text-muted); }
@@ -21,7 +21,7 @@
 .thread-turn-timing.is-failed .thread-turn-outcome, .thread-turn-timing.is-failed .thread-turn-outcome svg { color: var(--intent-danger-fg); }
 .thread-turn-timing.is-interrupted .thread-turn-outcome svg { color: var(--dot-yellow); }
 .thread-view .thread-turn-timing { font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); }
-.thread-plan { margin: 12px 0 18px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--pane-surface-raised); padding: 10px 12px; }
+.thread-plan { margin: 12px 0 18px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); padding: 10px 12px; }
 .thread-plan > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; font-size: var(--fs-xs); }
 .thread-plan > summary::-webkit-details-marker { display: none; }
 .thread-plan strong { font-weight: 500; }
@@ -41,21 +41,21 @@
 .thread-file-stats { display: inline-flex; flex-shrink: 0; gap: 6px; font: 11px var(--font-mono); margin-left: auto; }
 .thread-file-stats > span:first-child { color: var(--intent-success-fg); }
 .thread-file-stats > span:last-child { color: var(--intent-danger-fg); }
-.thread-change-summary { margin: 14px 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden; background: var(--pane-surface-raised); }
+.thread-change-summary { margin: 14px 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
 .thread-change-summary > header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: var(--fs-xs); }
 .thread-change-summary > header > svg { flex: none; color: var(--text-muted); }
 .thread-change-summary > header > span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 .thread-change-summary > header strong { font-weight: 600; color: var(--text-primary); }
 .thread-change-summary > header small { color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-change-summary .thread-change-view { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font-size: var(--fs-xs); }
-.thread-change-summary .thread-change-view:hover { background: var(--nav-hover); }
+.thread-change-summary .thread-change-view:hover { background: var(--fill-hover); }
 .thread-change-summary > div { border-top: 1px solid var(--border-default); padding: 2px 4px; }
 .thread-change-summary > div > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; background: transparent; text-align: left; font-size: var(--fs-xs); color: var(--text-secondary); }
-.thread-change-summary > div > button:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-change-summary > div > button:hover { background: var(--fill-hover); color: var(--text-primary); }
 /* A changed file with its own undo: the open button keeps the row look, actions sit beside it. */
 .thread-change-summary .thread-change-file { display: flex; align-items: center; gap: 6px; padding-right: 4px; }
 .thread-change-summary .thread-change-file > button:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 1; min-width: 0; min-height: 30px; padding: 0 8px; border: 0; background: transparent; text-align: left; font-size: var(--fs-xs); color: var(--text-secondary); cursor: pointer; }
-.thread-change-summary .thread-change-file > button:first-child:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-change-summary .thread-change-file > button:first-child:hover { background: var(--fill-hover); color: var(--text-primary); }
 .thread-change-summary .thread-change-file .thread-change-view { height: 22px; padding: 0 8px; font-size: var(--fs-2xs); }
 .thread-change-file-state { flex: none; color: var(--text-muted); font-size: var(--fs-2xs); }
 .thread-change-summary .thread-change-more { display: flex; align-items: center; gap: 6px; width: 100%; height: 30px; padding: 0 12px; border: 0; border-top: 1px solid var(--border-default); background: transparent; color: var(--text-primary); font-size: var(--fs-xs); }
@@ -64,17 +64,17 @@
 .thread-workbench.is-review-maximized > .thread-view { display: none; }
 .thread-review-host.is-maximized { flex: 1; width: auto; }
 .thread-review-host { flex-shrink: 0; min-width: 0; min-height: 0; height: 100%; }
-.thread-review-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; background: var(--pane-surface); color: var(--text-primary); font-size: var(--fs-xs); }
+.thread-review-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; background: var(--surface-base); color: var(--text-primary); font-size: var(--fs-xs); }
 /* Design-system Buttons (CSS-module class _button_…) keep their own variant; this styles the panel's plain buttons. */
-.thread-review-panel button:not([class*="_button_"]) { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 5px 8px; border: 0; border-radius: var(--nav-radius); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; text-align: left; }
+.thread-review-panel button:not([class*="_button_"]) { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 5px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; text-align: left; }
 .thread-review-panel button:not([class*="_button_"]):hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); color: var(--text-primary); }
 .thread-review-panel button:focus-visible, .thread-change-summary button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .thread-review-panel button:disabled { opacity: .45; cursor: default; }
 .thread-review-heading { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--border-default); background: var(--surface-chrome); }
 .thread-review-menu { position: relative; margin-right: auto; min-width: 0; }
 .thread-review-menu > button { color: var(--text-primary); font-weight: 500; }
-.thread-review-menu-items { z-index: var(--layer-dropdown); width: 220px; padding: 5px; border: 1px solid var(--border-default); border-radius: var(--surface-radius); background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--elevation-3); font: var(--fs-xs) var(--font-ui); }
-.thread-review-menu-item { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border-radius: var(--nav-radius); cursor: pointer; outline: none; }
+.thread-review-menu-items { z-index: var(--layer-dropdown); width: 220px; padding: 5px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--elevation-3); font: var(--fs-xs) var(--font-ui); }
+.thread-review-menu-item { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
 .thread-review-menu-item[data-highlighted] { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
 .thread-review-menu-item > span { margin-left: auto; display: inline-flex; }
 .thread-review-menu-items > button { display: flex; width: 100%; min-height: 34px; }
@@ -103,17 +103,17 @@
 .thread-diff-line.is-removed { background: color-mix(in srgb, var(--dot-red) 10%, transparent); }
 .thread-diff-line > button { min-height: 28px; padding: 4px; justify-content: center; opacity: 0; }
 .thread-diff-line:hover > button, .thread-diff-line:focus-within > button { opacity: 1; }
-.thread-review-comment { display: grid; gap: 10px; padding: 14px; border-top: 1px solid var(--border-default); background: var(--pane-surface-raised); }
+.thread-review-comment { display: grid; gap: 10px; padding: 14px; border-top: 1px solid var(--border-default); background: var(--surface-raised); }
 .thread-review-comment label { display: grid; gap: 8px; color: var(--text-secondary); }
-.thread-review-comment textarea { width: 100%; min-height: 96px; padding: 10px; resize: vertical; border: 1px solid var(--border-default); border-radius: var(--nav-radius); background: var(--surface-base); color: var(--text-primary); font: inherit; }
+.thread-review-comment textarea { width: 100%; min-height: 96px; padding: 10px; resize: vertical; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-base); color: var(--text-primary); font: inherit; }
 .thread-review-comment textarea:focus-visible { outline: 1px solid var(--accent); }
 .thread-review-comment > div { display: flex; justify-content: flex-end; gap: 8px; }
 .thread-review-comment button[type="submit"] { background: var(--accent); color: var(--surface-canvas); }
-.thread-subagent { border: 1px solid var(--border-default); border-radius: var(--nav-radius); background: var(--surface-raised); padding: 11px; color: var(--text-secondary); font-size: var(--fs-xs); }
+.thread-subagent { border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--surface-raised); padding: 11px; color: var(--text-secondary); font-size: var(--fs-xs); }
 .thread-subagent header { display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
 .thread-subagent header strong { min-width: 0; overflow-wrap: anywhere; }
 .thread-subagent-state { margin-left: auto; color: var(--text-muted); font-size: var(--fs-2xs); text-transform: capitalize; }
-.thread-subagent-stop { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border-subtle, currentColor); border-radius: var(--radius-pill, 999px); background: transparent; color: var(--text-secondary); font-size: var(--fs-2xs); cursor: pointer; }
+.thread-subagent-stop { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border-subtle, currentColor); border-radius: var(--radius-full, 999px); background: transparent; color: var(--text-secondary); font-size: var(--fs-2xs); cursor: pointer; }
 .thread-subagent-stop:disabled { opacity: .5; cursor: default; }
 .thread-subagent-state.is-running { color: var(--accent); }
 .thread-subagent-state.is-failed { color: var(--dot-red); }
@@ -148,7 +148,7 @@
 
 /* A finished turn's intermediate work, folded under one line ("Completed 7 steps in 1m 3s"). */
 .thread-turn-fold { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; padding: 4px 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
-.thread-turn-fold:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-turn-fold:hover { background: var(--fill-hover); color: var(--text-primary); }
 .thread-turn-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .thread-turn-fold-chevron { transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-turn-fold[aria-expanded='true'] .thread-turn-fold-chevron { transform: rotate(90deg); }
@@ -173,7 +173,7 @@
    control below it. */
 .thread-sticky-prompt-anchor:has(.thread-sticky-prompt)::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 36px; background: var(--surface-base); }
 /* Prefixed: `.thread-view button` would otherwise strip the strip's border and fill, and the text under it showed through. */
-.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-base); box-shadow: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
+.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-md); background: var(--surface-base); box-shadow: var(--elevation-1, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--text-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
 .thread-view .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-view .thread-sticky-prompt:hover { color: var(--text-primary); background: var(--surface-raised); border-color: var(--border-default); }
 .thread-view .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -186,7 +186,7 @@
 .thread-dock-changes-hint { overflow: hidden; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
 .thread-dock-changes-actions { display: inline-flex; flex: none; gap: 4px; }
 .thread-dock-changes button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--border-subtle, var(--border-default)); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; cursor: pointer; }
-.thread-dock-changes button:hover:not(:disabled) { background: var(--nav-hover); color: var(--text-primary); }
+.thread-dock-changes button:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
 .thread-dock-changes button:disabled { opacity: .5; cursor: default; }
 .thread-dock-changes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .thread-dock-changes-chevron { flex: none; margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
@@ -204,7 +204,7 @@
 
 .thread-change-file-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
 /* The checkout a file was changed in, when it is not the conversation's own (a worktree). */
-.thread-file-checkout { flex: none; max-width: 40%; overflow: hidden; padding: 0 5px; border-radius: var(--radius-sm); background: var(--nav-hover); color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.thread-file-checkout { flex: none; max-width: 40%; overflow: hidden; padding: 0 5px; border-radius: var(--radius-sm); background: var(--fill-hover); color: var(--text-muted); font-size: var(--fs-2xs); text-overflow: ellipsis; white-space: nowrap; }
 /* Changes for one turn: its files, then the selected file's change blocks. */
 .thread-turn-review { display: flex; flex-direction: column; flex: 1; width: 100%; min-width: 0; min-height: 0; height: 100%; font-size: var(--fs-xs); }
 .thread-turn-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
@@ -214,7 +214,7 @@
 .thread-turn-review-heading .thread-change-view { display: inline-flex; flex: none; align-items: center; gap: 4px; }
 .thread-turn-review-files { flex: none; max-height: 40%; margin: 0; padding: 4px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle, var(--border-default)); }
 .thread-turn-review-files button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: inherit; text-align: left; cursor: pointer; }
-.thread-turn-review-files button:hover { background: var(--nav-hover); color: var(--text-primary); }
+.thread-turn-review-files button:hover { background: var(--fill-hover); color: var(--text-primary); }
 .thread-turn-review-files button[aria-current='true'] { background: var(--fill-selected); color: var(--text-primary); }
 .thread-turn-review-files button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .thread-turn-review-files .thread-change-file-name { flex: 1; }
@@ -222,5 +222,5 @@
 .thread-turn-review-reported { display: grid; gap: 4px; margin-top: 8px; text-align: start; }
 .thread-turn-review-reported > span { display: flex; gap: 6px; min-width: 0; }
 .thread-turn-review .thread-change-view { height: 24px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
-.thread-turn-review .thread-change-view:hover:not(:disabled) { background: var(--nav-hover); }
+.thread-turn-review .thread-change-view:hover:not(:disabled) { background: var(--fill-hover); }
 .thread-turn-review .thread-change-view:disabled { opacity: .5; cursor: default; }

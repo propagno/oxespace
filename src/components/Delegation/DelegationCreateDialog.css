@@ -9,8 +9,8 @@
 .delegation-form-body label > span { color: var(--tx-muted); font-weight: 400; }
 .delegation-form-body input:not([type=checkbox], [type=radio]), .delegation-form-body textarea, .delegation-form-body select {
   width: 100%; min-width: 0; min-height: 36px; padding: 8px 10px;
-  border: 1px solid var(--bd-base); border-radius: var(--nav-radius);
-  background: var(--bg-input); color: var(--tx-primary); font: inherit;
+  border: 1px solid var(--bd-base); border-radius: var(--radius-sm);
+  background: var(--surface-base); color: var(--tx-primary); font: inherit;
   font-size: var(--fs-sm); line-height: 1.4;
 }
 .delegation-form-body textarea { resize: vertical; }
@@ -35,7 +35,7 @@
 .delegation-evidence textarea { height: 72px; }
 .delegation-evidence p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .delegation-session-list { display: grid; gap: 4px; max-height: 172px; overflow-y: auto; }
-.delegation-session-list label { display: flex; align-items: flex-start; gap: 9px; padding: 8px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); cursor: pointer; }
+.delegation-session-list label { display: flex; align-items: flex-start; gap: 9px; padding: 8px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--surface-raised); cursor: pointer; }
 .delegation-session-list label:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 55%, var(--bd-base)); }
 .delegation-session-list input { width: 16px; height: 16px; flex: 0 0 16px; margin: 2px 0 0; accent-color: var(--accent); }
 .delegation-session-list label > span { display: grid; gap: 3px; min-width: 0; }
@@ -47,8 +47,8 @@
 .delegation-memory-option small { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 400; line-height: 1.4; }
 .delegation-strategies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; border: 0; }
 .delegation-strategies legend { margin-bottom: 7px; padding: 0; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 500; }
-.delegation-strategies label { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; padding: 6px; border: 1px solid var(--bd-base); border-radius: var(--nav-radius); background: var(--bg-elevated); color: var(--tx-secondary); white-space: nowrap; cursor: pointer; font-size: var(--fs-xs); }
-.delegation-strategies label[data-selected=true] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated)); color: var(--tx-primary); }
+.delegation-strategies label { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; padding: 6px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-secondary); white-space: nowrap; cursor: pointer; font-size: var(--fs-xs); }
+.delegation-strategies label[data-selected=true] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised)); color: var(--tx-primary); }
 .delegation-strategies input, .delegation-options input { width: 16px; height: 16px; min-height: 0; margin: 0; accent-color: var(--accent); flex: 0 0 16px; }
 .delegation-branch-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .delegation-branch-fields > label:only-child { grid-column: 1 / -1; }
@@ -56,7 +56,7 @@
 .delegation-options label { display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; font-weight: 400; cursor: pointer; }
 .delegation-options input { margin-top: 1px; }
 .delegation-options .delegation-remote-field { display: grid; margin-top: 2px; cursor: default; }
-.delegation-preview { display: grid; gap: 10px; margin-top: 1px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--bd-base)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)); font-size: var(--fs-xs); }
+.delegation-preview { display: grid; gap: 10px; margin-top: 1px; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--bd-base)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent) 6%, var(--surface-raised)); font-size: var(--fs-xs); }
 .delegation-preview header, .delegation-preview dd { display: flex; align-items: center; gap: 6px; }
 .delegation-preview header { color: var(--tx-primary); }
 .delegation-preview dl { display: grid; gap: 8px; margin: 0; }

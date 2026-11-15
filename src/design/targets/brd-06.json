@@ -28,7 +28,7 @@
     {
       "id": "BRD-06.title.font-size",
       "scene": "settings-general",
-      "select": "main h1",
+      "select": "h1",
       "prop": "font-size",
       "expect": {
         "token": "--text-xl"
@@ -47,7 +47,7 @@
     {
       "id": "BRD-06.title.font-family",
       "scene": "settings-general",
-      "select": "main h1",
+      "select": "h1",
       "prop": "font-family",
       "expect": {
         "token": "--font-display"

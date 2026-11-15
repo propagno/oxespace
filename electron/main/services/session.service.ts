@@ -1,10 +1,11 @@
-import { closeSync, existsSync, openSync, readFileSync, readSync, writeFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../db/index'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { ForkSessionInput, ForkSessionResult, SessionSummary } from '../../../shared/types/session'
 import { UsageService } from './usage.service'
+import type { SessionMetadata } from './usage/types'
 import { defaultClaudeProjectsRoot, encodeClaudeProjectPath } from './usage/claude-project-path'
 import { safeJoin } from '../utils/safe-join'
 
@@ -43,42 +44,52 @@ export class SessionService {
     private readonly claudeProjectsRoot: string = defaultClaudeProjectsRoot()
   ) {}
 
-  /** Returns enriched session summaries for the workspace, joined with fork metadata. */
-  listSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider): SessionSummary[] {
-    const sessions = this.usage.listSessionsFor(provider, workspaceRootPath)
-    if (sessions.length === 0) return []
+  /**
+   * Returns enriched session summaries for the workspace, joined with fork metadata. Claude transcripts are read
+   * asynchronously, never in one blocking pass on the main process (OXE-157); `onPartial` gets the summaries read so far.
+   */
+  async listSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider, onPartial?: (sessions: SessionSummary[]) => void): Promise<SessionSummary[]> {
+    let forksBySessionId: Map<string, ForkRow> | null = null
+    const summarize = (sessions: SessionMetadata[]): SessionSummary[] => {
+      forksBySessionId ??= this.forksOf(workspaceId)
+      return sessions.map(session => this.summary(session, forksBySessionId!, workspaceRootPath, provider))
+    }
+    const sessions = await this.usage.listSessionsForAsync(provider, workspaceRootPath, onPartial && (partial => onPartial(summarize(partial))))
+    return sessions.length === 0 ? [] : summarize(sessions)
+  }
 
+  private forksOf(workspaceId: string): Map<string, ForkRow> {
     const forks = this.db
       .prepare('SELECT * FROM session_forks WHERE workspace_id = ?')
       .all(workspaceId) as ForkRow[]
     const forksBySessionId = new Map<string, ForkRow>()
     for (const row of forks) forksBySessionId.set(row.fork_session_id, row)
+    return forksBySessionId
+  }
 
-    return sessions.map((session) => {
-      const fork = forksBySessionId.get(session.sessionId)
-      const snapshot = session.snapshot ?? this.usage.getSnapshotFor(provider, workspaceRootPath, session.sessionId)
-      const filePath = provider === 'claude'
-        ? join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath), `${session.sessionId}.jsonl`)
-        : null
-      const firstMessagePreview = filePath ? readFirstMessagePreview(filePath) : session.summary ?? null
-
-      return {
-        sessionId: session.sessionId,
-        provider,
-        modelId: session.modelId,
-        requestCount: session.requestCount,
-        lastUpdatedMs: session.lastUpdatedMs,
-        sessionStartedAtMs: session.sessionStartedAtMs,
-        totalTokens: snapshot.inputTokens + snapshot.cacheCreationTokens + snapshot.cacheReadTokens + snapshot.outputTokens,
-        estimatedCostUsd: snapshot.estimatedCostUsd,
-        filePath,
-        isFork: fork !== undefined,
-        parentSessionId: fork?.parent_session_id ?? null,
-        label: fork?.label ?? null,
-        firstMessagePreview,
-        workspaceRootPath: session.workspaceRootPath ?? null
-      }
-    })
+  private summary(session: SessionMetadata, forksBySessionId: Map<string, ForkRow>, workspaceRootPath: string, provider: AgentProvider): SessionSummary {
+    const fork = forksBySessionId.get(session.sessionId)
+    const snapshot = session.snapshot ?? this.usage.getSnapshotFor(provider, workspaceRootPath, session.sessionId)
+    const filePath = provider === 'claude'
+      ? join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath), `${session.sessionId}.jsonl`)
+      : null
+    return {
+      sessionId: session.sessionId,
+      provider,
+      modelId: session.modelId,
+      requestCount: session.requestCount,
+      lastUpdatedMs: session.lastUpdatedMs,
+      sessionStartedAtMs: session.sessionStartedAtMs,
+      totalTokens: snapshot.inputTokens + snapshot.cacheCreationTokens + snapshot.cacheReadTokens + snapshot.outputTokens,
+      estimatedCostUsd: snapshot.estimatedCostUsd,
+      filePath,
+      isFork: fork !== undefined,
+      parentSessionId: fork?.parent_session_id ?? null,
+      label: fork?.label ?? null,
+      // Claude's async list reads the first message with the transcript.
+      firstMessagePreview: session.firstMessagePreview ?? (filePath ? null : session.summary ?? null),
+      workspaceRootPath: session.workspaceRootPath ?? null
+    }
   }
 
   /**
@@ -154,13 +165,13 @@ export class SessionService {
    * Also cleans up any fork bookkeeping associated with the deleted sessions.
    * Returns the number of files deleted.
    */
-  cleanupUnusedSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider): number {
+  async cleanupUnusedSessions(workspaceId: string, workspaceRootPath: string, provider: AgentProvider): Promise<number> {
     if (provider !== 'claude') return 0
     let cleaned = 0
     const projectDir = join(this.claudeProjectsRoot, encodeClaudeProjectPath(workspaceRootPath))
     if (!existsSync(projectDir)) return 0
 
-    const sessions = this.usage.listSessionsFor(provider, workspaceRootPath)
+    const sessions = await this.usage.listSessionsForAsync(provider, workspaceRootPath)
     for (const session of sessions) {
       if (session.requestCount === 0) {
         const filePath = join(projectDir, `${session.sessionId}.jsonl`)
@@ -180,59 +191,4 @@ export class SessionService {
     }
     return cleaned
   }
-}
-
-const PREVIEW_MAX = 80
-
-/**
- * Returns a short preview of the first user message in a Claude JSONL transcript.
- * Reads up to the first ~64KB of the file (enough to skip system entries and
- * locate the first user turn) without slurping the whole transcript into memory.
- * Returns null when the file is missing, malformed, or has no user message.
- */
-function readFirstMessagePreview(filePath: string): string | null {
-  try {
-    if (!existsSync(filePath)) return null
-    // Read up to 64KB — Claude transcripts often start with a large system entry,
-    // so we need more than just the first line to land on the first user message.
-    // Only the first 64 KB is read from disk: reading the whole file and then slicing it read hundreds of MB per
-    // session on /resume (1.5.2).
-    const fd = openSync(filePath, 'r')
-    let buf: string
-    try {
-      const head = Buffer.alloc(65536)
-      buf = head.toString('utf8', 0, readSync(fd, head, 0, head.length, 0))
-    } finally {
-      closeSync(fd)
-    }
-    for (const line of buf.split('\n')) {
-      if (!line.trim()) continue
-      let entry: { type?: string; role?: string; message?: { role?: string; content?: unknown } }
-      try { entry = JSON.parse(line) } catch { continue }
-      const role = entry.role ?? entry.message?.role
-      if (entry.type === 'system' || role === 'system') continue
-      if (role !== 'user') continue
-      const content = entry.message?.content
-      const text = extractTextContent(content)
-      if (!text) continue
-      return text.length > PREVIEW_MAX ? `${text.slice(0, PREVIEW_MAX - 1)}…` : text
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
-function extractTextContent(content: unknown): string {
-  if (typeof content === 'string') return content.trim()
-  if (Array.isArray(content)) {
-    for (const item of content) {
-      if (typeof item === 'string') return item.trim()
-      if (item && typeof item === 'object') {
-        const text = (item as { text?: unknown; type?: unknown }).text
-        if (typeof text === 'string') return text.trim()
-      }
-    }
-  }
-  return ''
 }

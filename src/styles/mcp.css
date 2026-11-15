@@ -10,8 +10,8 @@
   /* Was teal-gradient with inner glow — now a clean Claude-flavor dialog. */
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-md);
-  background: var(--bg-modal);
-  box-shadow: var(--shadow-modal);
+  background: var(--surface-overlay);
+  box-shadow: var(--elevation-4);
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 
@@ -35,7 +35,7 @@
 
 .mcp-panel-scope {
   padding: 2px 10px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--surface-quiet);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
@@ -83,7 +83,7 @@
 }
 
 .mcp-panel-add:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   border-color: var(--bd-input-focus);
   color: var(--tx-primary);
 }
@@ -111,7 +111,7 @@
   flex: 0 0 auto;
 }
 
-.mcp-server-row:hover { border-color: var(--bd-base); background: var(--surface-hover); }
+.mcp-server-row:hover { border-color: var(--bd-base); background: var(--fill-hover); }
 /* Health states keep the semantic accent on the LEFT edge only, instead of
    colouring the entire border. Less neon, still legible. */
 .mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 rgba(52, 212, 116, 0.55); }
@@ -171,7 +171,7 @@
   transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 .mcp-builtin-regen:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-primary);
   border-color: var(--bd-base);
 }
@@ -286,7 +286,7 @@
 
 .mcp-server-tag {
   padding: 2px 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--surface-quiet);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
@@ -309,7 +309,7 @@
   background: var(--intent-danger-bg);
   color: var(--intent-danger-fg);
 }
-.mcp-tab-alert { margin-left: 6px; padding: 1px 6px; border-radius: var(--radius-pill); font-size: var(--fs-2xs); font-weight: 600; }
+.mcp-tab-alert { margin-left: 6px; padding: 1px 6px; border-radius: var(--radius-full); font-size: var(--fs-2xs); font-weight: 600; }
 
 /* Whether the agent connected: the one state that decides if the tools work. */
 .mcp-agent-state.is-connected { background: var(--intent-success-bg); color: var(--intent-success-fg); }
@@ -488,7 +488,7 @@
 .mcp-panel-footer code {
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-secondary);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
@@ -581,7 +581,7 @@
   align-self: flex-start;
   padding: 3px;
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--surface-quiet);
   gap: 2px;
 }
@@ -589,7 +589,7 @@
 .mcp-create-mode-tab {
   padding: 4px 14px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -630,9 +630,9 @@
   padding: 0 10px;
   min-height: 34px;
   border: 1px solid var(--bd-base);
-  border-radius: var(--nav-radius);
+  border-radius: var(--radius-sm);
   color: var(--tx-muted);
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
 }
 .mcp-panel-search:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .mcp-panel-search input {
@@ -645,7 +645,7 @@
   font: inherit;
 }
 
-.mcp-create-note { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--wb-border); border-radius: var(--radius-md); background: var(--ov-1); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
+.mcp-create-note { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--ov-1); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
 
 .mcp-import { display: grid; gap: 8px; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
 .mcp-import p { margin: 0; font-size: 12px; }

@@ -4,6 +4,7 @@ import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,9 +52,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.agents.AgentTapTarget
 import com.oxespace.mobile.agents.AgentsScreen
@@ -73,6 +78,7 @@ import com.oxespace.mobile.session.LiveRepository
 import com.oxespace.mobile.ui.SecureScreen
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
+import com.oxespace.mobile.ui.theme.OxeType
 import com.oxespace.mobile.ui.components.EmptyState
 import com.oxespace.mobile.ui.components.ProviderAvatar
 import com.oxespace.mobile.ui.components.StatusGlyph
@@ -144,39 +150,58 @@ fun LiveHome(
             )
         },
         bottomBar = {
-            NavigationBar {
-                for (item in LiveTab.entries) {
-                    val label = stringResource(item.label)
-                    val waiting = if (item == LiveTab.REQUESTS && requests.isNotEmpty()) {
-                        pluralStringResource(R.plurals.live_requests_badge, requests.size, requests.size)
-                    } else {
-                        null
-                    }
-                    NavigationBarItem(
-                        selected = tab == item,
-                        onClick = { tab = item },
-                        // TalkBack reads the count with the tab, not only the bare number of the badge.
-                        modifier = Modifier.semantics { if (waiting != null) stateDescription = waiting },
-                        // One line that shrinks with large text instead of breaking a word in two.
-                        label = {
-                            BasicText(
-                                label,
-                                style = MaterialTheme.typography.labelMedium.copy(color = LocalContentColor.current),
-                                maxLines = 1,
-                                softWrap = false,
-                                autoSize = TextAutoSize.StepBased(minFontSize = 7.sp, maxFontSize = MaterialTheme.typography.labelMedium.fontSize),
-                            )
-                        },
-                        icon = {
-                            if (waiting != null) {
-                                BadgedBox(badge = { Badge(containerColor = Oxe.colors.attnBg, contentColor = Oxe.colors.attnFg, modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
-                                    Icon(item.icon, contentDescription = null)
+            BoxWithConstraints {
+                val labels = LiveTab.entries.map { stringResource(it.label) }
+                val labelStyle = MaterialTheme.typography.labelMedium
+                val fit = tabBarFit(labels, labelStyle, maxWidth)
+                NavigationBar {
+                    LiveTab.entries.forEachIndexed { index, item ->
+                        val label = labels[index]
+                        val selected = tab == item
+                        val showLabel = !fit.compact || selected
+                        val waiting = if (item == LiveTab.REQUESTS && requests.isNotEmpty()) {
+                            pluralStringResource(R.plurals.live_requests_badge, requests.size, requests.size)
+                        } else {
+                            null
+                        }
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { tab = item },
+                            // TalkBack reads the count with the tab, not only the bare number of the badge. When the
+                            // labels don't fit (BRD-07), the open tab is wider so its label is whole.
+                            // An icon-only tab keeps its name for TalkBack, on the tab itself so it reads as before.
+                            modifier = Modifier.weight(if (fit.compact && selected) fit.openWeight else 1f)
+                                .semantics {
+                                    if (!showLabel) contentDescription = label
+                                    if (waiting != null) stateDescription = waiting
+                                },
+                            alwaysShowLabel = !fit.compact,
+                            // One line that shrinks with large text, never under 11 sp and never cut in a word.
+                            label = if (showLabel) {
+                                {
+                                    BasicText(
+                                        label,
+                                        style = labelStyle.copy(color = LocalContentColor.current),
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                        autoSize = TextAutoSize.StepBased(minFontSize = OxeType.text2xs, maxFontSize = labelStyle.fontSize),
+                                    )
                                 }
                             } else {
-                                Icon(item.icon, contentDescription = null)
-                            }
-                        },
-                    )
+                                null
+                            },
+                            icon = {
+                                if (waiting != null) {
+                                    BadgedBox(badge = { Badge(containerColor = Oxe.colors.attnBg, contentColor = Oxe.colors.attnFg, modifier = Modifier.clearAndSetSemantics { }) { Text("${requests.size}") } }) {
+                                        Icon(item.icon, contentDescription = null)
+                                    }
+                                } else {
+                                    Icon(item.icon, contentDescription = null)
+                                }
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -338,4 +363,35 @@ private fun Tasks(jobs: List<RemoteJob>, delegations: List<RemoteDelegation>, mo
 @Composable
 private fun Section(title: String) {
     Text(title, style = MaterialTheme.typography.labelLarge, color = Oxe.colors.textSecondary, modifier = Modifier.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space2))
+}
+
+/** Material 3's NavigationBar spaces its items by 8 dp; an icon-only tab keeps the 48 dp touch target. */
+private val TabSpacing = 8.dp
+private val IconOnlyTab = 48.dp
+
+/** How the bottom bar lays out its labels: all of them, or only the open tab's in a wider slot ([openWeight]). */
+private class TabBarFit(val compact: Boolean, val openWeight: Float)
+
+/**
+ * BRD-07 (OXE-69): measured, never by locale. When a label does not fit its equal share of [width] even at the 11 sp
+ * floor (a large system font), only the open tab shows its label, and it gets the room its longest label needs while
+ * the others keep at least an icon's width.
+ */
+@Composable
+private fun tabBarFit(labels: List<String>, style: TextStyle, width: Dp): TabBarFit {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(labels, style, width, density) {
+        val count = labels.size
+        val slot = (width - TabSpacing * (count - 1)) / count
+        fun widthAt(label: String, size: TextUnit) = with(density) {
+            measurer.measure(label, style.copy(fontSize = size), maxLines = 1, softWrap = false).size.width.toDp()
+        }
+        if (labels.all { widthAt(it, OxeType.text2xs) <= slot }) return@remember TabBarFit(compact = false, openWeight = 1f)
+        val room = width - TabSpacing * (count - 1)
+        val longest = labels.maxOf { widthAt(it, style.fontSize) }
+        val open = minOf(longest + TabSpacing * 2, room - IconOnlyTab * (count - 1))
+        val others = (room - open) / (count - 1)
+        TabBarFit(compact = true, openWeight = maxOf(1f, open / others))
+    }
 }

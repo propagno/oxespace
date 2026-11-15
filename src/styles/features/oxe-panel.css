@@ -68,12 +68,12 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   background: var(--accent-soft);
-  color: var(--brand-light);
+  color: var(--text-accent);
   cursor: pointer;
   text-align: left;
   transition: background var(--transition-base), border-color var(--transition-base);
 }
-.oxe-nextstep:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--brand); }
+.oxe-nextstep:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 .oxe-nextstep:disabled { opacity: 0.5; cursor: default; }
 .oxe-nextstep code { font-family: var(--font-mono); font-size: var(--fs-xs); }
 .oxe-nextstep-reason { margin: 0; font-size: var(--fs-2xs); color: var(--tx-muted); line-height: 1.45; }
@@ -105,9 +105,9 @@
   cursor: pointer;
   transition: background var(--transition-base), color var(--transition-base);
 }
-.oxe-panel-action:hover:not(:disabled) { background: var(--surface-hover); color: var(--tx-primary); }
+.oxe-panel-action:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .oxe-panel-action:disabled { opacity: 0.5; cursor: default; }
-.oxe-panel-action.primary { border-color: var(--brand); color: var(--brand-light); background: var(--accent-soft); }
+.oxe-panel-action.primary { border-color: var(--accent); color: var(--text-accent); background: var(--accent-soft); }
 
 .oxe-onboarding {
   display: flex;
@@ -125,7 +125,7 @@
   justify-content: center;
   border-radius: var(--radius-md);
   background: var(--surface-quiet);
-  color: var(--brand-light);
+  color: var(--text-accent);
 }
 .oxe-onboarding strong { color: var(--tx-primary); font-size: var(--fs-sm); }
 .oxe-onboarding p { margin: 0; font-size: var(--fs-2xs); line-height: 1.5; color: var(--tx-muted); }
@@ -137,7 +137,7 @@
   color: var(--tx-muted);
   text-decoration: none;
 }
-.oxe-onboarding-link:hover { color: var(--brand-light); }
+.oxe-onboarding-link:hover { color: var(--text-accent); }
 .oxe-onboarding-retry {
   display: inline-flex;
   align-items: center;
@@ -149,7 +149,7 @@
   color: var(--tx-secondary);
   cursor: pointer;
 }
-.oxe-onboarding-retry:hover:not(:disabled) { color: var(--brand-light); }
+.oxe-onboarding-retry:hover:not(:disabled) { color: var(--text-accent); }
 .oxe-onboarding-retry:disabled { opacity: 0.5; cursor: default; }
 
 /* Live indicator — pulses when a fresh summary lands. */
@@ -222,7 +222,7 @@
   overflow: hidden;
   /* The terminal's own dark, in both themes: the padding around the character grid and the part of the pane the grid
      does not reach are the same surface as the grid, not a light frame around it. */
-  background: var(--term-bg, var(--bg-tile-content));
+  background: var(--term-bg, var(--surface-base));
   border-radius: 0;
   border: none;
   box-shadow: none;

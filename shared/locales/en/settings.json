@@ -293,6 +293,11 @@
     "hint": "Each open OxeChat conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
     "saveFailed": "Could not save this setting"
   },
+  "sendKey": {
+    "title": "Messages",
+    "label": "Send message with",
+    "hint": "Which key sends a message from the conversation box and answers an agent's question. Shift+Enter always starts a new line."
+  },
   "terminal": {
     "title": "Terminal",
     "description": "Set the default font, cursor and behavior for every workspace. Workspace overrides remain independent.",
@@ -345,7 +350,12 @@
     "notifyHint": "Desktop alerts when a background agent finishes, exits, or errors. Clicking focuses the terminal.",
     "onlyUnwatched": "Only for terminals you are <strong>not watching</strong>.",
     "sendTest": "Send test notification",
-    "testBody": "Test notification"
+    "testBody": "Test notification",
+    "sound": {
+      "title": "Sound",
+      "label": "Play a sound when an agent finishes",
+      "hint": "A notification that an agent needs you always plays the system sound."
+    }
   },
   "updates": {
     "kicker": "System",

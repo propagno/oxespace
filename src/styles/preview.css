@@ -223,7 +223,7 @@
   align-items: stretch;
   min-width: 0;
   border-bottom: 1px solid var(--bd-subtle);
-  background: var(--bg-base, var(--bg-elevated));
+  background: var(--bg-base, var(--surface-raised));
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -246,12 +246,12 @@
 }
 
 .editor-tab:hover {
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--tx-primary);
 }
 
 .editor-tab.active {
-  background: var(--bg-elevated);
+  background: var(--surface-raised);
   color: var(--tx-primary);
 }
 
@@ -304,6 +304,6 @@
 }
 
 .editor-tab-close:hover {
-  background: var(--bg-hover, var(--ov-2));
+  background: var(--fill-hover, var(--ov-2));
   opacity: 1;
 }

@@ -13,23 +13,23 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--pane-border);
-  border-radius: var(--pane-radius);
-  background: var(--pane-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-base);
   box-shadow: var(--pane-shadow);
   isolation: isolate;
   transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
 }
 .pane-container:focus-within {
-  border-color: var(--wb-focus);
+  border-color: var(--border-focus);
 }
 .pane-container.active {
-  border-color: var(--pane-border-active) !important;
-  box-shadow: inset 0 2px 0 var(--wb-focus) !important;
+  border-color: var(--border-focus) !important;
+  box-shadow: inset 0 2px 0 var(--border-focus) !important;
 }
 .pane-container.active > .pane-header {
-  background: var(--wb-chrome);
-  border-bottom-color: var(--wb-border);
+  background: var(--surface-chrome);
+  border-bottom-color: var(--border-default);
   box-shadow: none;
 }
 .pane-container.active > .pane-header .pane-header-left {
@@ -46,8 +46,8 @@
   justify-content: space-between;
   height: 36px;
   padding: 4px 8px 4px 10px;
-  background: var(--wb-chrome);
-  border-bottom: 1px solid var(--pane-border);
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
   gap: 8px;
   transition: background var(--transition-fast), border-color var(--transition-fast);
@@ -85,6 +85,9 @@
   white-space: nowrap;
 }
 .pane-header .pane-branch-badge { max-width: 35%; flex-shrink: 1; }
+/* OXE-128: the pane that needs the person wears a 2 px ring inside its header. An outline, so the workspace color
+   stripe (box-shadow, src/design/workspace-color.css) stays and the header keeps its height; it survives forced colors. */
+.pane-container > .pane-header[data-attention='true'] { outline: 2px solid var(--attn); outline-offset: -2px; }
 /* The pane left the branch it started on (U4.4): "switched from X". */
 .pane-branch-badge.is-moved { color: var(--accent); }
 .pane-branch-badge[data-tone='warning']:not(.is-moved) { color: var(--intent-warning-fg); }
@@ -268,7 +271,7 @@
   margin: -2px 0;
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -293,7 +296,7 @@
   gap: 1px;
   height: 28px;
   border: 1px solid var(--ov-2);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--surface-sunken) 12%, transparent);
   padding: 0 4px;
   flex-shrink: 0;
@@ -368,7 +371,7 @@
 .tile-btn {
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;

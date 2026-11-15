@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeFonts
+import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
 
 /*
@@ -49,7 +50,7 @@ fun NowBanner(text: String, review: String, onReview: () -> Unit, modifier: Modi
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
-        Box(Modifier.width(8.dp).height(8.dp).background(colors.attn, RoundedCornerShape(4.dp)))
+        Box(Modifier.width(8.dp).height(8.dp).background(colors.attn, RoundedCornerShape(OxeRadius.full)))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = colors.attnFg, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         OxeButton(review, onClick = onReview, kind = OxeButtonKind.GHOST)
     }
@@ -72,7 +73,7 @@ fun GateCard(
     risk: @Composable () -> Unit = {},
 ) {
     val colors = Oxe.colors
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(OxeRadius.lg)
     Row(
         modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).background(colors.surfaceRaised).border(1.dp, colors.attnBorder, shape),
     ) {
@@ -95,7 +96,7 @@ fun GateCard(
 fun StepsSummary(summary: String, failed: Boolean, open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier, glyph: @Composable () -> Unit = {}, trailing: @Composable () -> Unit = {}) {
     val colors = Oxe.colors
     Row(
-        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+        modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(OxeRadius.lg))
             .background(if (failed) colors.intentDangerBg else colors.surfaceSunken)
             .clickable(role = Role.Button, onClick = onToggle)
             .padding(horizontal = OxeSpace.space3)

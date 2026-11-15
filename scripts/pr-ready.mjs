@@ -37,7 +37,7 @@
  * pushed. The live app's OXESPACE_* and AI_MEMORY_* variables are dropped from every check's environment.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { changedFiles, planRelatedTests } from './related-tests.mjs'
@@ -104,10 +104,11 @@ export function oxeCcCommand(env = process.env) {
 /**
  * The brand fidelity gate (OXE-148; the user's rule of 14/11: the release is faithful to the rebranding end to end,
  * and an interface PR enters only with the conformance test and MARCA green). A PR that touches the interface needs
- * these commit statuses green on its exact head: `marca/fidelidade`, posted by MARCA after the side-by-side check
- * against the approved target (OXE-149 adds `marca/conformidade`, its job's, with that job).
+ * these commit statuses green on its exact head: `marca/conformidade`, posted by CI's brand conformance job (the built
+ * app measured against src/design/targets; OXE-149), and `marca/fidelidade`, posted by MARCA after the side-by-side
+ * check against the approved target, for what the test does not measure.
  */
-export const BRAND_CONTEXTS = ['marca/fidelidade']
+export const BRAND_CONTEXTS = ['marca/conformidade', 'marca/fidelidade']
 const INTERFACE_PATHS = [
   /^src\/.+\.(tsx|css)$/,
   /^src\/(design|styles|ui)\//,
@@ -135,7 +136,7 @@ export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
  */
 export function buildSteps({ origin = false, base = 'origin/main', ...rest }) {
   const steps = changeSteps({ base, ...rest })
-  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
+  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (CI and MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
   return origin ? [{ name: `origin of every commit since the cut (oxe-cc ship check-origin ${base}..HEAD)`, kind: 'origin', args: [`${base}..HEAD`] }, ...steps] : steps
 }
 
@@ -241,6 +242,28 @@ export function markerEvidence(results) {
   if (proof) return { evidence: proof.evidence, runs: proof.runs ?? [] }
   const fromCi = results.length > 0 && results.every(result => result.ciRuns)
   return fromCi ? { evidence: 'ci', runs: [...new Set(results.flatMap(result => result.ciRuns))] } : { evidence: 'local', runs: [] }
+}
+
+/**
+ * Writes the marker atomically (OXE-115): the content goes to a temporary file next to it, renamed over the marker
+ * only once it is complete, so a reader never sees a half-written marker and an earlier one stays until the swap.
+ */
+export function writeMarker(marker, content, fs = { mkdirSync, writeFileSync, renameSync }) {
+  fs.mkdirSync(dirname(marker), { recursive: true })
+  const temporary = `${marker}.${process.pid}.tmp`
+  fs.writeFileSync(temporary, `${JSON.stringify(content, null, 2)}\n`)
+  fs.renameSync(temporary, marker)
+}
+
+/**
+ * The line a failed run ends with (OXE-115). A run that fails leaves the marker of an earlier passing run on the same
+ * head in place: that run proved this exact commit, and a failure here (often the network or a status not posted yet)
+ * does not undo it.
+ */
+export function failedRunLine(sha, marker, exists = existsSync) {
+  return exists(marker)
+    ? `pr:ready FAILED for ${sha.slice(0, 8)}: this run failed; the marker of an earlier passing run on this head stands (${marker}).`
+    : `pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`
 }
 
 /** The marker the gate reads: <main checkout>/.claude/pr-ready/<sha>.json. `commonDir` is git's common dir. */
@@ -416,8 +439,6 @@ function main(argv) {
   for (const reason of related.reasons ?? []) console.log(`    (${reason})`)
   if (options.dryRun) return 0
 
-  // A marker from an earlier run on this head is stale until this run passes.
-  rmSync(marker, { force: true })
   const env = checkEnv()
   const results = []
   for (const step of steps) {
@@ -430,13 +451,12 @@ function main(argv) {
   for (const result of results) console.log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${result.name} (${result.detail})`)
   const ok = results.length === steps.length && results.every(result => result.ok)
   if (!ok) {
-    console.log(`pr:ready FAILED for ${sha.slice(0, 8)}: no marker written.`)
+    console.log(failedRunLine(sha, marker))
     return 1
   }
   // A GitHub step, when there is one, is the last step: its conclusions were read just now, never cached.
-  mkdirSync(dirname(marker), { recursive: true })
   const content = markerContent({ sha, at: new Date().toISOString(), base: options.base, steps: results.map(r => r.name), ...markerEvidence(results), lint: results.find(result => result.lint)?.lint, tests: results.find(result => result.tests)?.tests })
-  writeFileSync(marker, `${JSON.stringify(content, null, 2)}\n`)
+  writeMarker(marker, content)
   console.log(`pr:ready OK for ${sha.slice(0, 8)}: wrote ${marker}`)
   // The same verdict where GitHub (and the merge train) can read it: a `pr:ready` commit status on this exact sha.
   const posted = postStatus(sha, content)

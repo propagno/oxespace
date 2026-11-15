@@ -7,6 +7,7 @@ import { deriveStatusTone, resolvePaneIdentity, type PaneDisplayTone } from '../
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 import { agentErrorDetail, paneNoticeLabel } from '../utils/agentNotice'
+import { sendAgentNotice, type AgentNoticeKind } from './agentNotify'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -48,6 +49,8 @@ export function noticeLabel(pane: WorkspacePane, shellProfileName: string | null
  * recorded and pinged on entry, focused or not, and outside the cooldown — a
  * finished turn a minute ago must not hide a request now. Only the pane being
  * looked at is spared the ping.
+ *
+ * OXE-130: the title is the pane's name, the body the state and the workspace; sound and grouping in agentNotify.
  */
 
 const POLL_MS = 1500
@@ -67,8 +70,8 @@ export function useAgentNotifications(): void {
   useEffect(() => {
     const tracks = new Map<string, PaneTrack>()
 
-    const fire = (title: string, body: string, paneId: string, workspaceId: string): void => {
-      void window.oxe?.notifications?.notify({ title, body, paneId, workspaceId }).catch(() => undefined)
+    const fire = (kind: AgentNoticeKind, title: string, body: string, paneId: string, workspaceId: string): void => {
+      sendAgentNotice({ kind, title, body, paneId, workspaceId })
     }
 
     // The activity center records every transition; the OS ping keeps its own gates.
@@ -104,17 +107,17 @@ export function useAgentNotifications(): void {
           // Global per-pane rate limit: at most one ping per cooldown window,
           // whatever the tone does in between.
           const onCooldown = existing.lastNotifiedAt !== null && now - existing.lastNotifiedAt < COOLDOWN_MS
-          const notify = (title: string, body: string): void => {
+          const notify = (kind: AgentNoticeKind, title: string, body: string): void => {
             if (onCooldown || !notificationsEnabled) return
             existing.lastNotifiedAt = now
-            fire(title, body, pane.id, ws.id)
+            fire(kind, title, body, pane.id, ws.id)
           }
 
           if (tone === 'needs-decision') {
             if (existing.tone !== 'needs-decision') {
               existing.recordedDecision = true
               recordDecision()
-              if (notificationsEnabled && !isViewing) fire(tc('pane.decisionNotice.title', { agent: label }), tc('pane.decisionNotice.body', { workspace: ws.name }), pane.id, ws.id)
+              if (notificationsEnabled && !isViewing) fire('needs-you', label, tc('pane.decisionNotice.place', { workspace: ws.name }), pane.id, ws.id)
             }
           } else if (existing.recordedDecision) {
             existing.recordedDecision = false
@@ -139,7 +142,7 @@ export function useAgentNotifications(): void {
               !windowFocused
             ) {
               existing.notifiedAwaiting = true
-              notify(tc('pane.notice.finishedTitle', { agent: label }), tc('pane.notice.finishedBody', { workspace: ws.name }))
+              notify('finished', label, tc('pane.notice.finished', { workspace: ws.name }))
             }
           } else {
             existing.awaitingSince = null
@@ -157,9 +160,9 @@ export function useAgentNotifications(): void {
           }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {
-              notify(tc('pane.notice.endedTitle', { agent: label }), tc('pane.notice.endedBody', { workspace: ws.name }))
+              notify('other', tc('pane.notice.endedTitle', { agent: label }), tc('pane.notice.endedBody', { workspace: ws.name }))
             } else if (tone === 'error') {
-              notify(tc('pane.notice.errorTitle', { agent: label }), errorBody())
+              notify('other', tc('pane.notice.errorTitle', { agent: label }), errorBody())
             }
           }
 

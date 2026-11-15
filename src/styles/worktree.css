@@ -197,9 +197,9 @@
   transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
-.worktree-menu-item:hover { background: var(--surface-hover); border-color: var(--bd-base); }
+.worktree-menu-item:hover { background: var(--fill-hover); border-color: var(--bd-base); }
 .worktree-menu-item.active { background: var(--fill-selected); border-color: var(--accent-border); }
-.worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--brand); }
+.worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--accent); }
 .worktree-menu-item.prunable { opacity: 0.55; }
 .worktree-menu-item-select {
   display: flex;
@@ -314,7 +314,7 @@
   padding: 8px 10px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-app);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
@@ -354,7 +354,7 @@
 }
 
 .worktree-menu-create-browse:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   border-color: var(--bd-base);
   color: var(--tx-primary);
 }
@@ -375,7 +375,7 @@
 .worktree-menu-create-hint code {
   padding: 0 4px;
   border-radius: var(--radius-xs);
-  background: var(--surface-active);
+  background: var(--fill-pressed);
   color: var(--tx-primary);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
@@ -435,7 +435,7 @@
 }
 
 .worktree-menu-create-advanced-toggle:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   color: var(--tx-secondary);
 }
 
@@ -489,7 +489,7 @@
   height: 18px;
   padding: 0 5px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: var(--fs-2xs);
@@ -540,7 +540,7 @@
   margin-left: 6px;
   padding: 1px 6px;
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);

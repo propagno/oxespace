@@ -123,7 +123,7 @@
 }
 
 .option:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
 }
 
 .option[aria-selected='true'] {
@@ -207,11 +207,11 @@
 }
 
 .defaultRow:hover {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
 }
 
 .defaultRow:focus-visible {
-  background: var(--surface-hover);
+  background: var(--fill-hover);
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }

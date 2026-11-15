@@ -359,7 +359,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toBeVisible()
     await expect(projectTree.locator('.thread-session-provider .agent-provider-icon')).toHaveCSS('background-color', await page.evaluate(() => { const el = document.createElement('span'); el.style.backgroundColor = 'var(--provider-codex)'; document.body.append(el); const color = getComputedStyle(el).backgroundColor; el.remove(); return color }))
     await expect(projectTree.locator('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
-    await expect(projectTree.locator('.thread-session-state')).toHaveText('Ready')
+    await expect(projectTree.locator('.thread-session-state')).toHaveText('Idle')
     await app.evaluate(({BrowserWindow}, url) => BrowserWindow.getAllWindows()[0].webContents.send('mcp-internal:on-web-preview', {
       workspaceId:(globalThis as Record<string, unknown>).e2eWorkspaceId, threadId:'e2e-thread', url, requestedAt:Date.now()
     }), previewUrl)

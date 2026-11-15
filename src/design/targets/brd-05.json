@@ -1,14 +1,14 @@
 {
   "brd": "BRD-05",
-  "card": null,
-  "title": "Conversation title (VIS-04)",
+  "card": "OXE-167, OXE-168",
+  "title": "OxeChat titles and new conversation (OXC-2, OXC-3)",
   "platform": "desktop",
-  "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
+  "source": "OxeChat canvas approved by the user on 15/11 (artifact 796YHhr9AjmYNVkakawr9c, 14 boards) and its written target (OXE-166..170)",
   "measures": [
     {
       "id": "BRD-05.title.font-size",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "[data-ui=chat-title]",
       "prop": "font-size",
       "expect": {
         "token": "--text-lg"
@@ -27,7 +27,7 @@
     {
       "id": "BRD-05.title.font-weight",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "[data-ui=chat-title]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-semibold"
@@ -46,10 +46,124 @@
     {
       "id": "BRD-05.title.font-family",
       "scene": "chat-conversation",
-      "select": "main h1",
+      "select": "[data-ui=chat-title]",
       "prop": "font-family",
       "expect": {
         "token": "--font-ui"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.new-title.font-size",
+      "scene": "chat-new-session",
+      "select": "[data-ui=new-conversation-title]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--text-xl"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.new-title.font-weight",
+      "scene": "chat-new-session",
+      "select": "[data-ui=new-conversation-title]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-semibold"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.new-title.font-family",
+      "scene": "chat-new-session",
+      "select": "[data-ui=new-conversation-title]",
+      "prop": "font-family",
+      "expect": {
+        "token": "--font-display"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.picker.height",
+      "scene": "chat-new-session",
+      "select": "[data-ui=context-picker]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.starter.count",
+      "scene": "chat-new-session",
+      "select": "[data-ui=starter]",
+      "prop": "count",
+      "expect": {
+        "eq": 4
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending"
+    },
+    {
+      "id": "BRD-05.new-composer.radius",
+      "scene": "chat-new-session",
+      "select": "[data-ui=composer]",
+      "prop": "border-radius",
+      "expect": {
+        "token": "--radius-lg"
       },
       "tolerance": 0.5,
       "densities": [

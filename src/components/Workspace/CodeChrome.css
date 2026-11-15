@@ -69,7 +69,7 @@
 }
 /* Labels hide; the MCP button's quarantine count stays, on the icon's corner. */
 .workspace-topbar .workspace-topbar-action span:not(.workspace-topbar-alert) { display: none; }
-.workspace-topbar .workspace-topbar-action[aria-pressed='true'] { background: var(--nav-selected); color: var(--text-primary); }
+.workspace-topbar .workspace-topbar-action[aria-pressed='true'] { background: var(--fill-selected); color: var(--text-primary); }
 
 .pane-agent-chip, .pane-agent-chip[class*='provider-'] { padding: 0 4px; border-color: transparent; background: transparent; color: var(--text-primary); font-weight: var(--weight-semibold); }
 

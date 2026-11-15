@@ -117,7 +117,7 @@
     "job": {
       "pending": "Iniciando",
       "running": "Rodando",
-      "exited": "Terminou",
+      "exited": "Concluída",
       "failed": "Falhou",
       "killed": "Parada"
     },
@@ -126,7 +126,7 @@
     "agentState": {
       "working": "Trabalhando",
       "blocked": "Precisa de você",
-      "done": "Terminou",
+      "done": "Concluído",
       "idle": "Ocioso",
       "unknown": "Não confirmado"
     },

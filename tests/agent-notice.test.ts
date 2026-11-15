@@ -28,8 +28,8 @@ describe('turn notices built around agent text', () => {
   })
 
   it('never name a conversation after the app, while the app\'s own words stay', () => {
-    expect(threadAttentionText('needs-approval', 'OxeChat security check')).toEqual({ title: 'Conversation — needs approval', body: 'The agent is waiting for your decision to continue.' })
-    expect(threadAttentionText('finished', 'Refactor parser').title).toBe('Refactor parser — finished')
+    expect(threadAttentionText('needs-approval', 'OxeChat security check', 'pix-api')).toEqual({ title: 'Conversation', body: 'Needs you · pix-api' })
+    expect(threadAttentionText('finished', 'Refactor parser').title).toBe('Refactor parser')
   })
 
   it('leave text without a reserved name alone', () => {

@@ -200,6 +200,8 @@ const ALLOWED_FS_IMPORTS = new Set([
   // source file reads/writes; evidence reads committed blobs through Git.
   'electron/main/services/coordination/workspace-resolver.ts',
   'electron/main/services/usage/claudeProvider.ts',
+  // OXE-157: /resume's list reads the same Claude transcripts asynchronously, in chunks (never a path from the renderer).
+  'electron/main/services/usage/claude-transcript-scan.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
   // AI usage/credits chips: read account-wide quota from outside the
