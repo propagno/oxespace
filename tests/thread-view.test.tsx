@@ -255,7 +255,7 @@ describe('Thread workspace UI', () => {
     useThreadStore.setState({ unreadIds: ['thread'] })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
     const status = () => screen.getByRole('button', { name: /^Unread conversation Auth investigation/ }).querySelector('.thread-session-state')
-    expect(status()).toHaveTextContent('Ready')
+    expect(status()).toHaveTextContent('Idle')
     expect(screen.getByLabelText('Unread conversation')).toBeVisible()
     act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'running' }] }))
     expect(status()).toHaveTextContent('Working')

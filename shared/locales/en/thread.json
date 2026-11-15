@@ -1483,10 +1483,9 @@
     "running": "Working",
     "attention": "Needs you",
     "failed": "Failed",
-    "interrupted": "Paused",
-    "background": "Background",
     "completed": "Finished",
-    "ready": "Ready"
+    "idle": "Idle",
+    "interrupted": "Stopped"
   },
   "undoTurn": {
     "nothing": "Nothing to undo",
@@ -1593,7 +1592,7 @@
     "completedWarnings": "Finished with warnings",
     "completed": "Finished",
     "failed": "Failed",
-    "interrupted": "Paused",
+    "interrupted": "Stopped",
     "actions_one": "{{count}} action",
     "actions_other": "{{count}} actions",
     "failedCount": " · {{count}} failed",
