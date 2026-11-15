@@ -6,7 +6,7 @@ import { Dialog } from '../../ui'
 import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
-import { Select } from '../../ui/Field'
+import { Select, TextField } from '../../ui/Field'
 import { toast } from '../../ui/Toast'
 import { formatNumber } from '../../utils/formatTime'
 import { ErrorState } from '../../ui/Display'
@@ -87,7 +87,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
         cancel: { label: t('common.close'), onClick: close },
         primary: { label: t('common.import'), disabled: busy !== '' || mapped === 0, onClick: () => void run(false) }
       }}>
-      <div className="oq-scope">
+      <div className="oq-scope oq-import-body">
         <p className="oq-muted">{preview.fileName} · {preview.format.toUpperCase()} · {formatBytes(preview.bytes)}</p>
 
         {preview.format === 'csv' && <fieldset className="oq-import-options">
@@ -112,7 +112,7 @@ export function ImportButton({ connection, target, onImported }: { connection: O
                 {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name}>{column.name} ({column.type})</option>)}
               </Select>
               // Enter in a field name never imports for real: the import stays a deliberate click.
-              : <input aria-label={t('import.fieldFor', { field })} value={mapping[field] ?? ''} placeholder={t('import.skip')} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault() }} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
+              : <TextField aria-label={t('import.fieldFor', { field })} value={mapping[field] ?? ''} placeholder={t('import.skip')} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault() }} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
           </tr>)}</tbody>
         </table>
         {target.kind === 'table' && <fieldset className="oq-import-options">
