@@ -22,7 +22,11 @@
 //   as a second start.
 // - src/design/targets/brd-12.json (new, card OXE-77): the measures below, enforced and locked, scene first-run, which
 //   e2e/brand/brand-conformance.spec.ts measures (a fresh profile, before a workspace exists).
-// The English copy of the new strings is the brand's (asked in the plan); this file reads the pt-BR copy of the card.
+// The English copy is the brand's of 15/11 ("Agents that work in your code and show every step", Project folder, Change,
+// Connect an agent, Sign in to Codex, Use Claude Code, First conversation, "Opens once an agent is connected", "Or open
+// OxeCode or OxeQuery on their own"). Step 1's action is what creates the workspace: it keeps data-testid
+// btn-new-workspace (e2e/helpers/launch.ts openDemoWorkspace clicks it), and the first run has no other New workspace
+// button (brand 15/11).
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -130,6 +134,19 @@ describe('OXE-77 BRD-12 first use, one start in three steps (A28)', () => {
     await new Promise(resolve => setTimeout(resolve, 1_500))
     expect(screen.queryByTestId('first-run-checklist')).toBeNull()
     expect(document.body.textContent ?? '').not.toContain(i18n.t('firstRun.title'))
+  })
+
+  it('reads in English with the brand\'s copy, and step 1 holds the one btn-new-workspace', async () => {
+    await changeLanguage('en')
+    render(<FirstRun {...props()} />)
+    expect(squash(screenRoot().querySelector('[data-ui="first-run-title"]')?.textContent)).toBe('Agents that work in your code and show every step')
+    for (const [index, name] of ['Project folder', 'Connect an agent', 'First conversation'].entries()) expect(within(steps()[index]).getByRole('heading', { name })).toBeInTheDocument()
+    expect(within(steps()[1]).getByRole('button', { name: 'Sign in to Codex' })).toBeInTheDocument()
+    expect(steps()[2]).toHaveTextContent('Opens once an agent is connected')
+    expect([...screenRoot().querySelectorAll('*')].some(el => squash(el.textContent) === 'Or open OxeCode or OxeQuery on their own')).toBe(true)
+    const create = screenRoot().querySelectorAll('[data-testid="btn-new-workspace"]')
+    expect(create, 'one btn-new-workspace, in step 1').toHaveLength(1)
+    expect(steps()[0].contains(create[0])).toBe(true)
   })
 
   it('turns its own BRD-12 measures to enforced', () => {
