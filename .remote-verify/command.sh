@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Sidebar/CodeRail.tsx src/components/Workbench/WorkbenchPanelMenu.tsx src/components/Workspace/IntegrationsStatusChips.tsx src/components/Workspace/WorkspaceSurface.tsx tests/design-lint.test.ts --maxWorkers=2
