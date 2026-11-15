@@ -7,7 +7,7 @@
  *
  * Runs only through playwright.brand.config.ts (the smoke config ignores e2e/brand/**).
  */
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Density } from '../helpers/launch'
@@ -29,6 +29,23 @@ const tokenNames = [...new Set([...readFileSync(join(process.cwd(), 'src/styles/
 const results: Result[] = []
 
 /** Where each scene's selectors are evaluated. Settings is a dialog; the other scenes are the whole window. */
+/**
+ * BRD-01's two-line row: one terminal of the open workspace waits on a permission, through main's AgentStateService e2e
+ * hook (electron/main/e2e/agent-state-hook.ts, as the BRD-09 e2e uses it), so the sidebar draws its second line.
+ */
+async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<void> {
+  try {
+    const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
+      .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
+    const paneId = panes.at(-1)
+    if (!paneId) throw new Error('no terminal pane')
+    await app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), { paneId, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
+    await page.locator("[data-ui=sidebar-row][data-lines='2']").first().waitFor({ timeout: 10_000 })
+  } catch (error) {
+    console.log(`[BRAND] could not seed a terminal that needs a decision: ${(error as Error).message.split('\n')[0]}`)
+  }
+}
+
 const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]' }
 
 /**
@@ -139,7 +156,7 @@ test.describe.serial('brand conformance (OXE-149)', () => {
     for (const theme of ['light', 'dark'] as const) {
       test(`${density} ${theme}`, async () => {
         test.setTimeout(180_000)
-        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density })
+        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1' } })
         try {
           await resizeWindow(app, 1440, 900)
           await installThreadFixtures(app, workspaceRoot)
@@ -148,6 +165,7 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await registerThreadProject(app, page, workspaceRoot)
           await openSidePanels(page)
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
+          await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
           await measureScene(page, 'chat-conversation', density, theme)
