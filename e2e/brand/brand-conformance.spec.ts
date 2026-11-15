@@ -29,7 +29,7 @@ const tokenNames = [...new Set([...readFileSync(join(process.cwd(), 'src/styles/
 const results: Result[] = []
 
 /** Where each scene's selectors are evaluated. Settings is a dialog; the other scenes are the whole window. */
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]', 'command-bar': '[data-ui=command-bar]' }
+const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '[role=dialog]', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -154,6 +154,10 @@ test.describe.serial('brand conformance (OXE-149)', () => {
         const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density })
         try {
           await resizeWindow(app, 1440, 900)
+          // BRD-12 (OXE-77): a fresh profile opens on the first run, before any workspace exists.
+          await page.getByTestId('first-run').waitFor({ timeout: 15_000 }).catch(() => console.log('[BRAND] the first run did not show'))
+          await page.evaluate(() => document.fonts.ready.then(() => undefined))
+          await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
