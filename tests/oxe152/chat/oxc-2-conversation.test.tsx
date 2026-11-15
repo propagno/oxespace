@@ -25,8 +25,11 @@
 //   desfazer (failure.undoAndRetry / retryKeep), authentication -> the reconnect sentence (failure.reconnect), no retry.
 // - BRD-21 folded into OXE-167 (superseded by v2): Mais ações holds today's items in four groups, destructive last:
 //   Renomear · Fixar · Delegar… · Servidores MCP… | Texto maior · Mostrar cada chamada de ferramenta · Detalhes |
-//   Bifurcar · Exportar | Arquivar · Excluir… (thread:moreActions.*); Bifurcar is disabled for a non-Codex conversation
-//   with its reason (thread:moreActions.forkCodexOnly).
+//   Abrir no OxeCode · Bifurcar · Exportar | Arquivar · Excluir… (thread:moreActions.*); Bifurcar is disabled for a
+//   non-Codex conversation with its reason (thread:moreActions.forkCodexOnly). Brand 15/11 (PDM-approved): "Abrir no
+//   OxeCode" comes FIRST in group 3 ("Abrir no OxeCode" / "Open in OxeCode"); with an owned worktree it reads "Abrir a
+//   worktree no OxeCode" / "Open the worktree in OxeCode"; it calls ThreadHeader's onOpenInCode(path), the same handler the
+//   project menu and ThreadWorktreeFinishDialog use, with the worktree's path or else the conversation's rootPath.
 // - BRD-04/BRD-05 (PR #842): the card's measures are enforced and in enforced.lock.json (BRD-04.tabs.count is also
 //   OXE-169's: the first to land enforces it, the lock keeps it). The composer's measures are OXE-172's (OXC-2b), the panel toggles' and the main area's raw-button count OXC-4's (the tool tabs row it removes holds raw
 //   buttons), the new conversation's OXC-3's.
@@ -193,23 +196,64 @@ describe('OXE-167 OXC-2 failure card mould, BRD-19 (A11)', () => {
 })
 
 const HEADER_THREAD = { id: 't1', workspaceId: 'ws', projectId: 'project', rootPath: '/repo', provider: 'claude', title: 'Fix login', pinned: false, status: 'idle', nativeSessionId: null, createdAt: 1, updatedAt: 1 } as ConversationThread
+const OPEN_IN_CODE = { en: 'Open in OxeCode', 'pt-BR': 'Abrir no OxeCode' } as const
+const OPEN_WORKTREE_IN_CODE = { en: 'Open the worktree in OxeCode', 'pt-BR': 'Abrir a worktree no OxeCode' } as const
+/** ThreadHeader's props, with the onOpenInCode the conversation's menu uses (the App's handler in the app). */
+const headerProps = (thread: ConversationThread, onOpenInCode: (path: string) => Promise<void>) => ({
+  thread, pending: false, running: false, onCommand: () => {}, onDelegate: () => {}, onPin: () => {}, onExport: () => {}, onTogglePanel: () => {}, onOpenInCode
+}) as unknown as Parameters<typeof ThreadHeader>[0]
+async function openMenu(): Promise<HTMLElement> {
+  fireEvent.keyDown(screen.getByRole('button', { name: tt('header.moreActions') }), { key: 'Enter' })
+  return screen.findByRole('menu', { name: tt('header.moreActions') })
+}
 
 describe('OXE-167 OXC-2 Mais ações in four groups, BRD-21 (A11)', () => {
   it.each(['en', 'pt-BR'])('lists today\'s items (%s) in four groups, destructive last, Bifurcar disabled with its reason', async locale => {
     await changeLanguage(locale)
-    render(<ThreadHeader thread={HEADER_THREAD} pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onExport={() => {}} onTogglePanel={() => {}} />)
+    render(<ThreadHeader {...headerProps(HEADER_THREAD, vi.fn(async () => undefined))} />)
     fireEvent.keyDown(screen.getByRole('button', { name: tt('header.moreActions') }), { key: 'Enter' })
     const menu = await screen.findByRole('menu', { name: tt('header.moreActions') })
     const groups: string[][] = [[]]
     for (const element of menu.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemcheckbox"], [role="separator"]')) {
       if (element.getAttribute('role') === 'separator') { if (groups.at(-1)!.length) groups.push([]) } else groups.at(-1)!.push(element.textContent?.trim() ?? '')
     }
-    const expected = [['rename', 'pin', 'delegate', 'mcp'], ['largerText', 'showEveryToolCall', 'details'], ['fork', 'export'], ['archive', 'delete']]
+    const expected = [['rename', 'pin', 'delegate', 'mcp'], ['largerText', 'showEveryToolCall', 'details'], ['openInCode', 'fork', 'export'], ['archive', 'delete']]
+    const label = (key: string): string => key === 'openInCode' ? OPEN_IN_CODE[locale as 'en'] : tt(`moreActions.${key}`)
     expect(groups.map(group => group.length), `groups ${JSON.stringify(groups)}`).toEqual(expected.map(group => group.length))
     expected.forEach((group, index) => group.forEach((key, position) =>
-      expect(groups[index][position].startsWith(tt(`moreActions.${key}`)), `group ${index + 1}, item ${position + 1}: "${groups[index][position]}" is ${tt(`moreActions.${key}`)}`).toBe(true)))
+      expect(groups[index][position].startsWith(label(key)), `group ${index + 1}, item ${position + 1}: "${groups[index][position]}" is ${label(key)}`).toBe(true)))
     const fork = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(item => item.textContent?.trim().startsWith(tt('moreActions.fork')))!
     expect(fork).toHaveAttribute('aria-disabled', 'true')
     expect(fork.textContent).toContain(tt('moreActions.forkCodexOnly'))
+  })
+})
+
+describe('OXE-167 OXC-2 Abrir no OxeCode in Mais ações, brand 15/11 (A11)', () => {
+  it.each(['en', 'pt-BR'] as const)('without a worktree (%s) it reads Abrir no OxeCode and opens the conversation\'s folder', async locale => {
+    await changeLanguage(locale)
+    const onOpenInCode = vi.fn(async () => undefined)
+    render(<ThreadHeader {...headerProps(HEADER_THREAD, onOpenInCode)} />)
+    const menu = await openMenu()
+    fireEvent.click(within(menu).getByRole('menuitem', { name: OPEN_IN_CODE[locale] }))
+    expect(onOpenInCode).toHaveBeenCalledWith('/repo')
+  })
+
+  it.each(['en', 'pt-BR'] as const)('with an owned worktree (%s) it reads Abrir a worktree no OxeCode and opens the worktree', async locale => {
+    await changeLanguage(locale)
+    const onOpenInCode = vi.fn(async () => undefined)
+    const thread = { ...HEADER_THREAD, rootPath: '/repo-worktrees/fix-login', ownedWorktree: { path: '/repo-worktrees/fix-login', branch: 'fix/login', projectRoot: '/repo', baseSha: '0'.repeat(40), createdAt: 1 } } as ConversationThread
+    render(<ThreadHeader {...headerProps(thread, onOpenInCode)} />)
+    const menu = await openMenu()
+    expect(within(menu).queryByRole('menuitem', { name: OPEN_IN_CODE[locale] }), 'one label, the worktree one').toBeNull()
+    fireEvent.click(within(menu).getByRole('menuitem', { name: OPEN_WORKTREE_IN_CODE[locale] }))
+    expect(onOpenInCode).toHaveBeenCalledWith('/repo-worktrees/fix-login')
+  })
+
+  it('adds the worktree label pair to the catalogs', () => {
+    const flat = (value: unknown, prefix = ''): Record<string, string> => Object.assign({}, ...Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+      typeof item === 'string' ? { [prefix + key]: item } : flat(item, `${prefix}${key}.`)))
+    const en = flat(JSON.parse(readFileSync(join(ROOT, 'shared/locales/en/thread.json'), 'utf8')))
+    const pt = flat(JSON.parse(readFileSync(join(ROOT, 'shared/locales/pt-BR/thread.json'), 'utf8')))
+    expect(Object.keys(en).some(key => en[key] === OPEN_WORKTREE_IN_CODE.en && pt[key] === OPEN_WORKTREE_IN_CODE['pt-BR']), 'one key holds both texts').toBe(true)
   })
 })
