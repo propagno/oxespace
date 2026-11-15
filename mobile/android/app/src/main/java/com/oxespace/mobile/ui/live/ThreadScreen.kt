@@ -244,7 +244,8 @@ fun ThreadScreen(
             // CR-A42b-2 (M4): the now line under the app bar while the conversation waits on the person.
             pending.firstOrNull()?.let { waiting ->
                 NowBanner(
-                    text = stringResource(R.string.thread_now_needs_you, requestTitle(waiting)) +
+                    lead = stringResource(R.string.thread_state_needs_you),
+                    text = requestTitle(waiting) +
                         (if (pending.size > 1) " " + pluralStringResource(R.plurals.thread_more_requests, pending.size - 1, pending.size - 1) else ""),
                     review = stringResource(R.string.thread_review),
                     onReview = { onOpenRequest(waiting.requestId) },
@@ -303,8 +304,8 @@ fun ThreadScreen(
             items(rows, key = { it.key }) { row ->
                 when (row) {
                     is TimelineRow.Prompt -> PromptBlock(row.text, row.truncated)
-                    is TimelineRow.Prose -> MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated)
-                    is TimelineRow.Answer -> AnswerCard(row.text, row.truncated)
+                    is TimelineRow.Prose -> AgentReply(header?.provider) { MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated) }
+                    is TimelineRow.Answer -> AgentReply(header?.provider) { AnswerCard(row.text, row.truncated) }
                     is TimelineRow.Step -> StepRow(row.tool)
                     is TimelineRow.StepGroup -> StepGroupRow(row.tools)
                     is TimelineRow.Plan -> PlanBlock(row.plan)
@@ -417,6 +418,20 @@ private fun PromptBlock(text: String, truncated: Boolean) {
  */
 @Composable
 private fun promptFill(): Color = lerp(Oxe.colors.surfaceCanvas, Oxe.colors.textPrimary, PROMPT_TINT)
+
+/** 1.5.2 A9 v3 (CR-F3-6): each agent reply under its author line, the provider's 18 dp avatar and its name. */
+@Composable
+private fun AgentReply(provider: String?, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+        if (provider != null) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+                ProviderAvatar(provider)
+                Text(providerName(displaySafe(provider, PROVIDER_MAX)), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        content()
+    }
+}
 
 /** The turn's one card: raised, "Resposta do agente" in the accent text, Markdown with copyable code blocks. */
 @Composable
