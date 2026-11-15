@@ -4,13 +4,13 @@
 // Contract: with a toast on screen (Ctrl+Shift+U with nothing waiting raises one), the accessibility tree has the region
 // "Avisos" and, in it, the button "Dispensar aviso"; nothing is named "Notificações".
 import { expect, test } from '@playwright/test'
-import { launchApp, layoutAtWidth } from '../helpers/launch'
+import { launchApp, resizeWindow } from '../helpers/launch'
 
 test('PM-02·10 in the app: the toasts are "Avisos", dismissed with "Dispensar aviso"', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp({ appearance: 'light', locale: 'pt-BR', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await layoutAtWidth(app, page, 1440, 900)
+    await resizeWindow(app, 1440, 900)
     await page.locator('button[data-app-mode]').first().waitFor()
     await page.keyboard.press('Control+Shift+U')
     const region = page.getByRole('region', { name: 'Avisos', exact: true })
