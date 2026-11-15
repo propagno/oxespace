@@ -1,0 +1,1 @@
+npx vitest related --run electron/main/index.ts electron/main/services/oxequery/audit-log.ts electron/main/services/oxequery/service.ts shared/types/oxequery.ts src/components/OxeQuery/ActivityPanel.tsx tests/integration/oxequery-service.test.ts --maxWorkers=2
