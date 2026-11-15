@@ -186,12 +186,12 @@ describe('notifications for a decision', () => {
     setState('done')
     tick(12_000)
     expect(notify).toHaveBeenCalledTimes(1)
-    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude — waiting for you', body: 'demo: the agent finished and is waiting for your reply.' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Claude', body: 'Finished · demo' })
 
     setState('blocked')
     tick()
     expect(notify).toHaveBeenCalledTimes(2)
-    expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude — needs your decision', paneId: 'p1', workspaceId: 'ws-1' })
+    expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude', body: 'Needs you · demo', paneId: 'p1', workspaceId: 'ws-1', silent: false })
     expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', title: 'Claude', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
 
     // Held, it does not ping again; answered, the request leaves the list.
@@ -209,7 +209,7 @@ describe('notifications for a decision', () => {
     setState('blocked')
     tick()
     expect(useActivityStore.getState().items[0]).toMatchObject({ title: 'Codex' })
-    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Codex — needs your decision' })
+    expect(notify.mock.calls[0][0]).toMatchObject({ title: 'Codex', body: 'Needs you · demo' })
   })
 
   it('a finished turn still waits for the stability gate and the cooldown', () => {

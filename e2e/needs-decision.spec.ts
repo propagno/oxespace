@@ -78,9 +78,10 @@ test('a blocked pane reads "Needs your decision"; a finished one keeps its look'
     await expect(badge).toHaveText('1')
     await expect(badge).toHaveAttribute('aria-label', '1 needs your decision')
 
-    // Main was asked for an OS notification for the decision right away (no stability gate, no cooldown).
-    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __notified: Array<{ title: string; paneId: string }> }).__notified)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ title: expect.stringContaining('needs your decision'), paneId: blocked })]))
+    // Main was asked for an OS notification for the decision right away (no stability gate, no cooldown). Since OXE-130
+    // the title is the pane's name and the body says the state and the place ("Needs you · <place>").
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __notified: Array<{ body: string; paneId: string }> }).__notified)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: expect.stringMatching(/^Needs you · /), paneId: blocked })]))
 
     await page.screenshot({ path: join(OUT, 'panes-light.png') })
 
