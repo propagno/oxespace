@@ -547,7 +547,6 @@ function WorkspaceSurfaceComponent({
         <Button
           variant="ghost"
           size="sm"
-          className="workspace-topbar-add-btn"
           icon={<Plus size={12} aria-hidden="true" />}
           onClick={() => onSplitPane(splitTargetPaneId, 'vertical')}
         >
@@ -561,7 +560,6 @@ function WorkspaceSurfaceComponent({
             <Button
               variant="ghost"
               size="sm"
-              className="workspace-topbar-add-btn"
               icon={<Bot size={12} aria-hidden="true" />}
             >
               {tc('workspace.topbar.agent', { defaultValue: 'Agent' })}
@@ -584,7 +582,6 @@ function WorkspaceSurfaceComponent({
           <Button
             variant="ghost"
             size="sm"
-            className="workspace-topbar-add-btn"
             icon={<LayoutGrid size={12} aria-hidden="true" />}
           >
             {maximizedPaneId

@@ -280,7 +280,7 @@ export function Sidebar({
                     setDropPosition(null)
                   }}
                 />
-                {open && terminals.length > 0 ? <div className="sidebar-terminal-children">
+                {open && terminals.length > 0 ? <div>
                   {terminals.map((pane, index) =>
                     <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
                       isActive={isActive && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
