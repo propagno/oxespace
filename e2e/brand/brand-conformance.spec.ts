@@ -10,7 +10,7 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { launchApp, openDemoWorkspace, pinWorkspaceColor, resizeWindow, type Density } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor, type Density } from '../helpers/launch'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
@@ -175,7 +175,8 @@ test.describe.serial('brand conformance (OXE-149)', () => {
         test.setTimeout(180_000)
         const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1' } })
         try {
-          await resizeWindow(app, 1440, 900)
+          // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
+          await layoutAtWidth(app, page, 1440, 900)
           await installThreadFixtures(app, workspaceRoot)
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
