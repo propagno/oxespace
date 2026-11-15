@@ -25,6 +25,7 @@ import com.oxespace.mobile.notify.NotificationTaps
 import com.oxespace.mobile.pairing.PairLinkForHomologation
 import com.oxespace.mobile.protocol.live.showsConversationToggle
 import com.oxespace.mobile.pairing.PairedDesktop
+import com.oxespace.mobile.pairing.PairingState
 import com.oxespace.mobile.pairing.PairingViewModel
 import com.oxespace.mobile.session.DesktopStatus
 import com.oxespace.mobile.session.SessionViewModel
@@ -126,12 +127,23 @@ class MainActivity : ComponentActivity() {
     private fun Pairing(onDone: () -> Unit, onBack: () -> Unit) {
         val state by pairing.state.collectAsStateWithLifecycle()
         BackHandler(onBack = onBack)
+        // A15: already granted by the time the ask shows (a grant from the app's settings): go on at once.
+        LaunchedEffect(state) {
+            if (state is PairingState.AskingLocalNetwork && LocalNetworkAccess.granted(applicationContext)) pairing.onLocalNetworkGranted()
+        }
         PairingScreen(
             state = state,
             onScanAgain = pairing::scanAgain,
             onDone = onDone,
-            // Local network access first: scanning a code the phone then can't send anywhere helps no one.
-            camera = { modifier -> LocalNetworkGate { CameraWithPermission(stringResource(R.string.pairing_camera_description), pairing::onScanned, modifier) } },
+            // A15 (MOB-1): the scan comes first; at step 2 the camera's area holds the local network ask, and the flow
+            // goes on once Android grants it (onLocalNetworkGranted).
+            camera = { modifier ->
+                if (state is PairingState.AskingLocalNetwork) {
+                    LocalNetworkGate(onGranted = pairing::onLocalNetworkGranted, modifier = modifier) { }
+                } else {
+                    CameraWithPermission(stringResource(R.string.pairing_camera_description), pairing::onScanned, modifier)
+                }
+            },
         )
     }
 
