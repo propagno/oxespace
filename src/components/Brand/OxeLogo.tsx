@@ -37,7 +37,7 @@ export function OxeLogo({ size = 28, variant = 'full' }: OxeLogoProps): ReactEle
 
 export function OxeMark({ size, tile }: { size: number; tile: boolean }): ReactElement {
   // Drawn on a 48-unit grid; solid columns hold down to 12px in one color.
-  return <svg className={styles.mark} width={size} height={size} viewBox={MARK_VIEWBOX} aria-hidden="true">
+  return <svg className={styles.mark} data-ui="brand-mark" width={size} height={size} viewBox={MARK_VIEWBOX} aria-hidden="true">
     {tile && <rect className={styles.tile} width="48" height="48" rx={TILE_RADIUS} />}
     <path transform={tile ? MARK_ON_TILE : undefined} className={tile ? styles.onTile : styles.inline} d={MARK_PATH} />
   </svg>

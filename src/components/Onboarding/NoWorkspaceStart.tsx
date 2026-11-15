@@ -1,19 +1,22 @@
 import { Plus } from 'lucide-react'
-import { Suspense, lazy, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AppView } from '../../keyboard/keybindings'
-import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { Button } from '../../ui'
 import { OxeLogo } from '../Brand/OxeLogo'
-import { FirstRunChecklistFallback } from './FirstRunChecklistFallback'
 
-// The checklist only shows on first run, so it stays out of the entry bundle.
-const FirstRunChecklist = lazy(() => import('./FirstRunChecklist').then(m => ({ default: m.FirstRunChecklist })))
+export interface NoWorkspaceStartProps {
+  onNewWorkspace: () => void
+  onSelectMode: (view: AppView) => void
+  onAddProject: () => void
+}
 
-/** OxeCode with no workspace yet: start one, go to another mode, or follow the first-run guide. */
-export function NoWorkspaceStart({ onNewWorkspace, onSelectMode, onAddProject }: { onNewWorkspace: () => void; onSelectMode: (view: AppView) => void; onAddProject: () => void }): ReactElement {
+/**
+ * OxeCode with no workspace yet: start one or go to another mode. The first run has one start, the FirstRun screen
+ * (BRD-12, OXE-77), so this empty state never shows the first-run checklist as a second one.
+ */
+export function NoWorkspaceStart({ onNewWorkspace, onSelectMode }: NoWorkspaceStartProps): ReactElement {
   const { t } = useTranslation()
-  const firstRunDismissed = useNavigationPrefs(state => state.firstRun.dismissed)
   return (
     <div className="empty-state">
       <OxeLogo size={56} variant="hero" />
@@ -23,7 +26,6 @@ export function NoWorkspaceStart({ onNewWorkspace, onSelectMode, onAddProject }:
         <span>{t('app.start.elsewhere')}</span>
         {(['thread', 'data'] as const).map(view => <Button key={view} variant="ghost" size="sm" onClick={() => onSelectMode(view)}>{t(`app.start.open.${view}`)}</Button>)}
       </div>
-      {!firstRunDismissed ? <Suspense fallback={<FirstRunChecklistFallback />}><FirstRunChecklist onNewWorkspace={onNewWorkspace} onAddProject={onAddProject} /></Suspense> : null}
     </div>
   )
 }
