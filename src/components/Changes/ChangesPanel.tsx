@@ -259,7 +259,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     if (!onSendComments || !pendingComments.length || sending) return
     const batch = pendingComments
     setSending(true)
-    let delivered = false
+    let delivered: boolean
     try { delivered = await onSendComments(formatDiffComments(batch)) } catch { delivered = false } finally { setSending(false) }
     if (delivered) {
       markSent(batch.map(item => item.id), Date.now())
