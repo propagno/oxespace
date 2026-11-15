@@ -41,6 +41,20 @@ export interface CommandHost {
   disposeAdapter(id: string): Promise<void>
   /** Removes the conversation, its cached snapshot and its attachments. */
   deleteThread(id: string): Promise<void>
+  /** OXE-170: the parallel chats of the session this main chat leads, in order; none for a parallel chat. */
+  sessionChats?(id: string): string[]
+}
+
+/** OXE-170 RN-3: a parallel chat ends with its session; one still working is stopped first. */
+async function endSessionChat(host: CommandHost, chatId: string, remove: boolean): Promise<void> {
+  if (host.isBusy(chatId)) {
+    await host.interrupt(chatId).catch(() => undefined)
+    for (let attempt = 0; attempt < 50 && host.isBusy(chatId); attempt++) await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  await host.disposeAdapter(chatId)
+  if (remove) { await host.deleteThread(chatId); return }
+  const latest = host.read(chatId)
+  if (!latest.thread.archived) { latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length }) }
 }
 
 export async function runThreadCommand(host: CommandHost, id: string, text: string): Promise<ThreadCommandResult> {
@@ -146,6 +160,7 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
     }
     if (name === 'archive' || name === 'delete') {
       if (argument !== 'confirm') return { kind: 'confirm', confirm: threadConfirmation(name) }
+      for (const chatId of host.sessionChats?.(id) ?? []) await endSessionChat(host, chatId, name === 'delete')
       await host.disposeAdapter(id)
       if (name === 'delete') await host.deleteThread(id)
       else { const latest = host.read(id); latest.thread.archived = true; host.save(latest, { eventsFrom: latest.events.length }) }
