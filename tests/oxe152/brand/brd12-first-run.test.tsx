@@ -127,8 +127,7 @@ describe('OXE-77 BRD-12 first use, one start in three steps (A28)', () => {
 
   it('OxeCode with no workspace does not show the first-run checklist as a second start', async () => {
     useNavigationPrefs.setState(state => ({ firstRun: { ...state.firstRun, dismissed: false } }) as never)
-    // The checklist is a lazy chunk today: load it first so its absence is not a matter of timing.
-    await import('../../../src/components/Onboarding/FirstRunChecklist')
+    // The checklist module is gone (dead code since BRD-12); its absence is checked below.
     render(<NoWorkspaceStart onNewWorkspace={vi.fn()} onSelectMode={vi.fn()} onAddProject={vi.fn()} />)
     await waitFor(() => expect(screen.getByText(i18n.t('app.start.newWorkspace'))).toBeInTheDocument())
     await new Promise(resolve => setTimeout(resolve, 1_500))
