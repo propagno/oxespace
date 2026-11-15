@@ -25,7 +25,7 @@ export function QueryError({ error, children }: { error: QueryErrorInfo; childre
   const { t } = useTranslation('oxequery')
   const plain = describeQueryError(error)
   const detail = [error.sqlState ? `SQLSTATE ${error.sqlState}` : '', error.position ? t('queryError.position', { position: error.position }) : ''].filter(Boolean).join(' · ')
-  return <div className="oq-query-error">
+  return <div className="oq-query-error" data-ui="query-error">
     <ErrorState compact title={t('queryError.title')} message={`${plain.headline}. ${plain.recovery}`}
       actions={<Button size="sm" variant="ghost" icon={<Copy size={12} aria-hidden="true" />} onClick={() => void copyText(error.message, t('queryError.copied'), t('queryError.copiedDone'))}>{t('queryError.copy')}</Button>} />
     <details className="oq-query-error-detail">
