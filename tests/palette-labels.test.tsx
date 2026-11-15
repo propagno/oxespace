@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ThreadSnapshot } from '../shared/types/thread'
 import type { Workspace, WorkspacePane } from '../shared/types/workspace'
@@ -158,11 +158,11 @@ describe('palette search', () => {
   }
   /** The first command row for a query, as the palette ranks it. */
   async function firstCommand(query: string): Promise<string> {
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: query } })
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: `>${query}` } })
     return await waitFor(() => {
-      const option = [...document.querySelectorAll('[cmdk-item][data-value^="cmd-"]')][0]
+      const option = document.querySelector('[role="option"]')
       if (!option) throw new Error(`nothing for ${query}`)
-      return option.querySelector('[class*="label"]')!.textContent!
+      return option.querySelector('[data-part="title"]')!.textContent!
     })
   }
 
@@ -180,15 +180,18 @@ describe('palette search', () => {
     expect(await firstCommand('Restart terminal')).toBe('Terminal: Reiniciar')
   })
 
-  it('lists workspaces and panes under one Go to group, short, with the full path searchable and in the tooltip', async () => {
+  it('finds workspaces and panes by name in the one bar, with the full path searchable and in the tooltip', async () => {
     setup()
     render(<Palette />)
-    const group = await waitFor(() => [...document.querySelectorAll('[cmdk-group]')].find(node => node.querySelector('[cmdk-group-heading]')?.textContent === 'Go to') as HTMLElement)
-    expect(within(group).getByText('Go to: demo-project')).toBeInTheDocument()
-    expect(within(group).getByText('Go to: Terminal 2')).toBeInTheDocument()
-    expect(group.textContent).not.toContain(TEMP_PATH)
-    expect(group.querySelector('[data-value="ws-w1"]')?.getAttribute('title')).toBe(TEMP_PATH)
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'oxespace-e2e-a1b2c3' } })
-    await waitFor(() => expect(document.querySelector('[data-value="ws-w1"]')).not.toBeNull())
+    const input = await screen.findByRole('combobox')
+    const titled = (title: string): HTMLElement | undefined => screen.queryAllByRole('option').find(option => option.querySelector('[data-part="title"]')?.textContent === title)
+    fireEvent.change(input, { target: { value: 'demo-project' } })
+    const row = await waitFor(() => { const found = titled('demo-project'); if (!found) throw new Error('no demo-project row'); return found })
+    expect(row).toHaveAttribute('data-ui', 'command-row')
+    expect(row.getAttribute('title')).toBe(TEMP_PATH)
+    fireEvent.change(input, { target: { value: 'Terminal 2' } })
+    await waitFor(() => expect(titled('Terminal 2')).toBeDefined())
+    fireEvent.change(input, { target: { value: 'oxespace-e2e-a1b2c3' } })
+    await waitFor(() => expect(screen.queryAllByRole('option').some(option => option.getAttribute('title') === TEMP_PATH)).toBe(true))
   })
 })

@@ -96,7 +96,7 @@ describe('CommandMenu', () => {
     expect(screen.getByLabelText('Ctrl+E')).toBeInTheDocument()
   })
 
-  test('lists the last commands run under Recent when the query is empty', async () => {
+  test('lists the last commands run first when the query is only ">"', async () => {
     const user = userEvent.setup()
     const { useCommandHistoryStore } = await import('../../src/store/command-history.store')
     useCommandHistoryStore.setState({ recent: [] })
@@ -105,13 +105,12 @@ describe('CommandMenu', () => {
       { id: 'open-tools', title: 'Open Tools', category: 'Workspace', run: vi.fn() }
     ]
     const view = render(<CommandMenu open onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
-    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+    expect((await screen.findAllByRole('option'))[0].textContent).toMatch(/^Usage & Rate Limits/)
     await user.click(await screen.findByText('Open Tools'))
     expect(useCommandHistoryStore.getState().recent).toEqual(['open-tools'])
     view.rerender(<CommandMenu open={false} onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
     view.rerender(<CommandMenu open onOpenChange={vi.fn()} workspace={workspace} actions={actions} workspaces={[]} onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />)
-    const recent = await screen.findByText('Recent')
-    expect(recent.closest('[cmdk-group]')?.textContent).toContain('Open Tools')
+    await waitFor(() => expect(screen.getAllByRole('option')[0].textContent).toMatch(/^Open Tools/))
     for (let index = 0; index < 12; index++) useCommandHistoryStore.getState().record(`command-${index}`)
     expect(useCommandHistoryStore.getState().recent).toHaveLength(8)
   })
@@ -161,6 +160,8 @@ describe('CommandMenu', () => {
     )
 
     const input = await screen.findByPlaceholderText(/Search files and commands/i)
+    // The palette opens on ">" (commands); without it the bar finds file names.
+    await user.clear(input)
     await user.type(input, 'App')
 
     await waitFor(() => expect(screen.getByText('App.tsx')).toBeInTheDocument())

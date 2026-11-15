@@ -1,52 +1,41 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { FileText, FolderGit2, Bot } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
-import type { SearchResult } from '../../../shared/types/search'
+import type { Workspace } from '../../../shared/types/workspace'
 import type { CommandPaletteAction } from '../../utils/commandRegistry'
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, commandStyles } from '../../ui/CommandPalette'
 import { useEditorStore } from '../../store/editor.store'
+import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { useCommandHistoryStore } from '../../store/command-history.store'
-import { fuzzyScore, rankBy, rankText } from '../../utils/fuzzy'
-import { KEYBINDINGS, chordsFor, type KeybindingId } from '../../keyboard/keybindings'
-import { KeyChord } from '../Keyboard/KeyChord'
-import { commandCategoryLabel } from '../../commands/commandText'
-import { goToPane, goToWorkspace } from '../../commands/goTo'
+import { getKeyboardView, type AppView } from '../../keyboard/keybindings'
+import { goToPane } from '../../commands/goTo'
+import { CommandBarHost } from '../CommandBar/CommandBarHost'
+import type { CommandBarPlace } from '../CommandBar/CommandBar'
 
 interface CommandMenuProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workspace: Workspace | null
-  /** The full command registry (shared with the legacy palette) — cmd-J is now
-   *  the unified surface for commands + file name + file content search. */
+  /** The full command registry, listed after ">". */
   actions: CommandPaletteAction[]
-  /** All open workspaces/worktrees, for jump-to (Orca cmd-J parity). */
+  /** All open workspaces/worktrees, for jump-to. */
   workspaces: Workspace[]
   onSelectWorkspace: (id: string) => void
   /** Focus a pane (agent/terminal) in the active workspace. */
   onSelectPane: (paneId: string) => void
 }
 
-// Ignore stale async search responses (a superseded query resolving late).
-let requestToken = 0
-const MATCHES_PER_FILE = 4
-const MAX_NAME_MATCHES = 15
-
-const KEYBINDING_IDS = new Set<string>(KEYBINDINGS.map(binding => binding.id))
-/** A command's shortcut: a registry id (with the user's override) or a literal chord. */
-function commandChord(shortcut: string | undefined): string | undefined {
-  if (!shortcut) return undefined
-  return KEYBINDING_IDS.has(shortcut) ? chordsFor(shortcut as KeybindingId)[0] : shortcut
+const splitPath = (p: string): { name: string; dir: string } => {
+  const i = p.lastIndexOf('/')
+  return { name: i >= 0 ? p.slice(i + 1) : p, dir: i >= 0 ? p.slice(0, i) : '' }
 }
 
-const actionScore = (action: CommandPaletteAction, q: string): number =>
-  rankText(action.title, `${action.subtitle ?? ''} ${(action.keywords ?? []).join(' ')} ${action.category ?? ''}`, q)
+/** A view chosen the way the title bar's view buttons choose it: the window's own switch (and its pending state). */
+function showView(view: AppView): void {
+  document.querySelector<HTMLElement>(`[data-app-mode="${view}"]`)?.click()
+}
 
 /**
- * cmd-J unified command palette (Wave 1 · #8 Native Search seed). Runs quick
- * actions and searches file contents through the existing ripgrep backend
- * (window.oxe.search). Built on the shadcn/cmdk `command` primitive (F1).
+ * The palette shortcut (Ctrl+Shift+P, Ctrl+J) opens the one command bar (OXE-75, BRD-11 CA-4), with ">" typed so it
+ * lists commands first. Clearing the ">" searches workspaces, conversations, panes and the workspace's file names.
  */
 export function CommandMenu({
   open,
@@ -58,55 +47,22 @@ export function CommandMenu({
   onSelectPane
 }: CommandMenuProps): ReactElement {
   const { t } = useTranslation()
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult | null>(null)
-  const [loading, setLoading] = useState(false)
   const [fileList, setFileList] = useState<string[]>([])
+  const activePaneId = useUIStore(state => state.activePaneId)
 
   useEffect(() => {
     if (!open) return
-    setQuery('')
-    setResults(null)
-    setLoading(false)
     if (!workspace) {
       setFileList([])
       return
     }
     // Snapshot the tracked file list once per open for name quick-open.
     let active = true
-    window.oxe.search
-      .listFiles({ workspaceId: workspace.id, rootPath: workspace.rootPath })
+    Promise.resolve(window.oxe?.search?.listFiles?.({ workspaceId: workspace.id, rootPath: workspace.rootPath }))
       .then((r) => { if (active) setFileList(Array.isArray(r?.files) ? r.files : []) })
       .catch(() => { if (active) setFileList([]) })
     return () => { active = false }
   }, [open, workspace])
-
-  // Debounced content search via the ripgrep service.
-  useEffect(() => {
-    const q = query.trim()
-    if (!q || !workspace) {
-      setResults(null)
-      return
-    }
-    const token = ++requestToken
-    setLoading(true)
-    const handle = window.setTimeout(() => {
-      window.oxe.search
-        .run({ workspaceId: workspace.id, rootPath: workspace.rootPath, query: q })
-        .then((r) => {
-          if (token === requestToken) {
-            setResults(r && Array.isArray(r.files) ? r : null)
-            setLoading(false)
-          }
-        })
-        .catch(() => {
-          if (token === requestToken) setLoading(false)
-        })
-    }, 200)
-    return () => window.clearTimeout(handle)
-  }, [query, workspace])
-
-  const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
   const openFile = useCallback(
     (path: string) => {
@@ -115,163 +71,46 @@ export function CommandMenu({
         .getState()
         .openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: path })
       void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
-      close()
     },
-    [workspace, close]
+    [workspace]
   )
 
-  const runAction = useCallback(
-    (fn: () => void) => {
-      fn()
-      close()
-    },
-    [close]
-  )
-  const recentIds = useCommandHistoryStore(state => state.recent)
-  const runCommand = useCallback(
-    (action: CommandPaletteAction) => {
-      useCommandHistoryStore.getState().record(action.id)
-      runAction(action.run)
-    },
-    [runAction]
-  )
+  const runAction = (id: string): void => { actions.find(action => action.id === id && !action.disabled)?.run() }
 
-  const q = query.trim().toLowerCase()
-  // One ranker for every group: best match first, groups ordered by their best match.
-  // "Go to": workspaces, then the panes of the active one; the full path stays searchable.
-  const matchedWorkspaces = rankBy(workspaces, q, (w) => { const text = goToWorkspace(w); return rankText(text.label, `${text.name} ${w.rootPath}`, q) })
-  const panes = workspace?.panes ?? []
-  const matchedPanes = rankBy(panes, q, (p) => { const text = goToPane(p, panes); return rankText(text.label, `${text.name} ${p.agentName ?? ''}`, q) })
-  const enabled = actions.filter((a) => !a.disabled)
-  const matchedActions = rankBy(enabled, q, (a) => actionScore(a, q))
-  const actionGroups = new Map<string, CommandPaletteAction[]>()
-  for (const a of matchedActions) {
-    const key = a.category ?? 'General'
-    const arr = actionGroups.get(key) ?? []
-    arr.push(a)
-    actionGroups.set(key, arr)
-  }
-  const byId = new Map(enabled.map((a) => [a.id, a]))
-  const recentActions = q ? [] : recentIds.flatMap((id) => byId.get(id) ?? [])
+  const places = useMemo<CommandBarPlace[]>(() => {
+    const panes = workspace?.panes ?? []
+    const panesLabel = t('commandBar.groups.panes')
+    const filesLabel = t('commands.menu.files')
+    return [
+      ...panes.map(pane => {
+        const text = goToPane(pane, panes)
+        return { key: `pane-${pane.id}`, group: panesLabel, primary: text.name, secondary: text.detail, words: `${text.label} ${pane.agentName ?? ''}`, run: () => onSelectPane(pane.id) }
+      }),
+      ...fileList.map(path => {
+        const { name, dir } = splitPath(path)
+        return { key: `file-${path}`, group: filesLabel, primary: name, secondary: dir, title: path, words: path, run: () => openFile(path) }
+      })
+    ]
+  }, [fileList, onSelectPane, openFile, t, workspace])
 
-  const files = results?.files ?? []
-  const nameMatches = q
-    ? fileList
-        .map((p) => ({ p, s: fuzzyScore(p, q) }))
-        .filter((x) => x.s > 0)
-        .sort((a, b) => b.s - a.s)
-        .slice(0, MAX_NAME_MATCHES)
-        .map((x) => x.p)
-    : []
-
-  const splitPath = (p: string): { name: string; dir: string } => {
-    const i = p.lastIndexOf('/')
-    return { name: i >= 0 ? p.slice(i + 1) : p, dir: i >= 0 ? p.slice(0, i) : '' }
-  }
+  const activePane = workspace?.panes.find(pane => pane.id === activePaneId) ?? null
 
   return (
-    <CommandDialog
+    <CommandBarHost
       open={open}
       onOpenChange={onOpenChange}
-      shouldFilter={false}
-      title={t('commands.menu.title')}
-      description={t('commands.menu.description')}
-    >
-      <CommandInput value={query} onValueChange={setQuery} placeholder={t('commands.menu.placeholder')} />
-      <CommandList>
-        {recentActions.length > 0 ? (
-          <CommandGroup heading={t('commands.menu.recent')}>
-            {recentActions.map((a) => <ActionItem key={`recent-${a.id}`} action={a} value={`recent-${a.id}`} onSelect={runCommand} />)}
-          </CommandGroup>
-        ) : null}
-
-        {matchedWorkspaces.length + matchedPanes.length > 0 ? (
-          <CommandGroup heading={commandCategoryLabel('Go to')}>
-            {matchedWorkspaces.map((w) => {
-              const text = goToWorkspace(w)
-              return (
-                <CommandItem key={`ws-${w.id}`} value={`ws-${w.id}`} title={text.path} onSelect={() => runAction(() => onSelectWorkspace(w.id))}>
-                  <FolderGit2 />
-                  <span className={commandStyles.label}>{text.label}</span>
-                  <span className={commandStyles.detail}>{text.detail}</span>
-                </CommandItem>
-              )
-            })}
-            {matchedPanes.map((p) => {
-              const text = goToPane(p, panes)
-              return (
-                <CommandItem key={`pane-${p.id}`} value={`pane-${p.id}`} onSelect={() => runAction(() => onSelectPane(p.id))}>
-                  <Bot />
-                  <span className={commandStyles.label}>{text.label}</span>
-                  {text.detail ? <span className={commandStyles.detail}>{text.detail}</span> : null}
-                </CommandItem>
-              )
-            })}
-          </CommandGroup>
-        ) : null}
-
-        {[...actionGroups].map(([category, items]) => (
-          <CommandGroup key={category} heading={commandCategoryLabel(category)}>
-            {items.map((a) => <ActionItem key={a.id} action={a} value={`cmd-${a.id}`} onSelect={runCommand} />)}
-          </CommandGroup>
-        ))}
-
-        {q && nameMatches.length > 0 ? (
-          <CommandGroup heading={t('commands.menu.files')}>
-            {nameMatches.map((p) => {
-              const { name, dir } = splitPath(p)
-              return (
-                <CommandItem key={`name-${p}`} value={`name-${p}`} onSelect={() => openFile(p)}>
-                  <FileText />
-                  <span className={commandStyles.label}>{name}</span>
-                  {dir ? <span className={commandStyles.detail}>{dir}</span> : null}
-                </CommandItem>
-              )
-            })}
-          </CommandGroup>
-        ) : null}
-
-        {q ? (
-          <CommandGroup heading={loading ? t('commands.menu.searching') : t('commands.menu.contents', { count: results?.totalMatches ?? 0 })}>
-            {files.flatMap((f) =>
-              f.matches.slice(0, MATCHES_PER_FILE).map((m, i) => (
-                <CommandItem
-                  key={`${f.path}-${m.lineNumber}-${i}`}
-                  value={`content-${f.path}-${m.lineNumber}-${i}`}
-                  onSelect={() => openFile(f.path)}
-                >
-                  <FileText />
-                  <span className={commandStyles.truncate}>{f.path}</span>
-                  <span className={commandStyles.trailing}>:{m.lineNumber}</span>
-                </CommandItem>
-              ))
-            )}
-          </CommandGroup>
-        ) : null}
-
-        {q &&
-        !loading &&
-        matchedWorkspaces.length === 0 &&
-        matchedPanes.length === 0 &&
-        matchedActions.length === 0 &&
-        nameMatches.length === 0 &&
-        files.length === 0 ? (
-          <CommandEmpty>{t('commands.menu.empty')}</CommandEmpty>
-        ) : null}
-      </CommandList>
-    </CommandDialog>
-  )
-}
-
-function ActionItem({ action, value, onSelect }: { action: CommandPaletteAction; value: string; onSelect: (action: CommandPaletteAction) => void }): ReactElement {
-  const Icon = action.icon
-  const chord = commandChord(action.shortcut)
-  return (
-    <CommandItem value={value} onSelect={() => onSelect(action)}>
-      {Icon ? <Icon /> : null}
-      <span className={commandStyles.label}>{action.title}</span>
-      {action.subtitle ? <span className={commandStyles.detail}>{action.subtitle}</span> : null}
-      {chord ? <span className={commandStyles.trailing}><KeyChord chord={chord} /></span> : null}
-    </CommandItem>
+      applicationView={getKeyboardView()}
+      selectMode={showView}
+      activeWorkspace={workspace}
+      activePane={activePane}
+      onNewTerminal={() => runAction('split-vertical')}
+      onNewConversation={() => runAction('thread.new')}
+      actions={actions}
+      workspaces={workspaces}
+      places={places}
+      onSelectWorkspace={onSelectWorkspace}
+      placeholder={t('commands.menu.placeholder')}
+      initialQuery=">"
+    />
   )
 }

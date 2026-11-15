@@ -9,8 +9,9 @@ import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { toast } from '../../ui/Toast'
+import { useContributedCommands, type CommandPaletteAction } from '../../utils/commandRegistry'
 import { OPEN_APPROVAL_QUEUE_EVENT } from '../Approvals/approvalsBoot'
-import { CommandBar } from './CommandBar'
+import { CommandBar, type CommandBarPlace } from './CommandBar'
 
 export interface CommandBarHostProps {
   open: boolean
@@ -23,6 +24,16 @@ export interface CommandBarHostProps {
   onNewTerminal: () => void
   /** What "New conversation" does in OxeChat. */
   onNewConversation: () => void
+  /** The palette's commands listed after ">"; the registry's when not given. */
+  actions?: readonly CommandPaletteAction[]
+  /** The workspaces it finds and opens; the workspace store's when not given. */
+  workspaces?: readonly Workspace[]
+  /** Panes, files and the like it finds with no prefix. */
+  places?: readonly CommandBarPlace[]
+  placeholder?: string
+  initialQuery?: string
+  /** How a workspace is opened; the workspace store's when not given. */
+  onSelectWorkspace?: (id: string) => void
 }
 
 export function CommandBarHost({
@@ -33,13 +44,21 @@ export function CommandBarHost({
   activeWorkspace,
   activePane,
   onNewTerminal,
-  onNewConversation
+  onNewConversation,
+  actions,
+  workspaces: givenWorkspaces,
+  places,
+  placeholder,
+  initialQuery,
+  onSelectWorkspace
 }: CommandBarHostProps): ReactElement {
   const skills = useSkillStore(state => state.skills)
-  const workspaces = useWorkspaceStore(state => state.workspaces)
+  const storeWorkspaces = useWorkspaceStore(state => state.workspaces)
+  const workspaces: readonly Workspace[] = givenWorkspaces ?? storeWorkspaces
   const setActiveWorkspace = useWorkspaceStore(state => state.setActiveWorkspace)
   const snapshot = useThreadStore(state => state.snapshot)
   const projects = useThreadStore(state => state.projects)
+  const contributed = useContributedCommands()
   const [requests, setRequests] = useState<CommandRequestItem[]>([])
 
   useEffect(() => {
@@ -119,7 +138,8 @@ export function CommandBarHost({
         ?? workspaces.find(ws => ws.name.toLowerCase().startsWith(q))
         ?? workspaces.find(ws => ws.name.toLowerCase().includes(q))
       if (match) {
-        void setActiveWorkspace(match.id)
+        if (onSelectWorkspace) onSelectWorkspace(match.id)
+        else void setActiveWorkspace(match.id)
         selectMode('code')
         return
       }
@@ -145,7 +165,19 @@ export function CommandBarHost({
         }
       })
     }
-  }, [activeWorkspace, onNewConversation, onNewTerminal, projects, selectMode, setActiveWorkspace, snapshot?.thread.projectId, snapshot?.thread.rootPath, workspaces])
+  }, [activeWorkspace, onNewConversation, onNewTerminal, onSelectWorkspace, projects, selectMode, setActiveWorkspace, snapshot?.thread.projectId, snapshot?.thread.rootPath, workspaces])
 
-  return <CommandBar open={open} onOpenChange={onOpenChange} context={context} onRun={handleRun} />
+  return (
+    <CommandBar
+      open={open}
+      onOpenChange={onOpenChange}
+      context={context}
+      onRun={handleRun}
+      actions={actions ?? contributed}
+      workspaces={workspaces}
+      places={places}
+      placeholder={placeholder}
+      initialQuery={initialQuery}
+    />
+  )
 }
