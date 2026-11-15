@@ -134,8 +134,8 @@ export function registerThreadIpc(
     if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
   })
   ipcMain.handle(IPC_CHANNELS.thread.list, event => manager.then(service => service.list()))
-  // Read-only summary for the activity center; answering a request stays in the conversation.
-  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()))
+  // Read-only summary for the window (activity center, the sidebar's mini card): with the command and the policy verdict.
+  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsForWindow()))
   // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
   let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
   const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
