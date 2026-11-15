@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/oxe152/polish/pm02-app-menus.test.tsx tests/keybindings.test.ts --maxWorkers=2 && npm run build && npx playwright test e2e/polish/pm-02-8.spec.ts
