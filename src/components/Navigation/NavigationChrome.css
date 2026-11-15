@@ -1,23 +1,23 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--surface-chrome); background-image: none; border-right: 0; overflow: clip; }
 /* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
-.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--border-subtle); border-radius: 0; background: var(--surface-base); }
+.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--bd-subtle); border-radius: 0; background: var(--surface-base); }
 .app-shell.first-run-shell { grid-template-columns: minmax(0, 1fr); } .app-shell.first-run-shell > aside { display: none; }
 .app-shell.first-run-shell > .workspace-surface { grid-column: 1 / -1; }
 .desktop-search svg { flex-shrink: 0; }
 
-.sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: 8px; position: relative; height: var(--control-lg); min-height: var(--control-lg); padding: 0 10px; border: 1px solid var(--bd-base); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-chrome); box-shadow: none; }
+.sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: 8px; position: relative; height: var(--control-lg); min-height: var(--control-lg); padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-chrome); box-shadow: none; }
 .desktop-search input, .sidebar .desktop-search input, .thread-navigation .desktop-search input, .settings-center .desktop-search input { flex: 1; width: 0; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--tx-primary); font-family: inherit; font-size: var(--fs-xs); font-weight: 400; outline: none; box-shadow: none; }
 .desktop-search input::placeholder { color: var(--tx-muted); }
 .desktop-search input::-webkit-search-cancel-button { display: none; }
 .desktop-search kbd { flex-shrink: 0; font-size: var(--fs-2xs); color: var(--tx-muted); background: transparent; border: 0; padding: 0; }
 .desktop-search button, .thread-navigation .desktop-search button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; background: transparent; color: var(--tx-muted); cursor: pointer; }
-.sidebar .desktop-search:focus-within, .thread-navigation .desktop-search:focus-within, .settings-center .desktop-search:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: var(--bd-base); }
+.sidebar .desktop-search:focus-within, .thread-navigation .desktop-search:focus-within, .settings-center .desktop-search:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-color: var(--bd-default); }
 
 
-.workspace-topbar-name { font-size: var(--fs-base); font-weight: 600; line-height: 1.4; }
+.workspace-topbar-name { font-size: var(--fs-md); font-weight: 600; line-height: 1.4; }
 .thread-heading, .settings-center-toolbar { padding: 0 var(--chrome-inset); }
-.thread-heading h1 { font-size: var(--fs-base); }
+.thread-heading h1 { font-size: var(--fs-md); }
 .sidebar-redesign .sidebar-nav-item:has(.sidebar-nav-kbd) { order: initial; margin: 0; border: 0; background: transparent; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .sidebar-redesign .sidebar-search-wrap { margin: 0 12px 12px; }
 .sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
@@ -40,7 +40,7 @@
 .settings-center-nav > nav { gap: 4px; }
 .settings-center-nav > nav button, .settings-back { min-height: var(--nav-row-h); font-size: var(--fs-sm); border-radius: var(--radius-sm); }
 .settings-center :is(.settings-btn, .settings-header-action) { height: var(--control-lg); min-height: var(--control-lg); padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
-.settings-center .settings-btn.primary, .settings-center .ws-settings-form-v2 .primary-action { color: var(--text-on-accent); background: var(--accent); }
+.settings-center .settings-btn.primary, .settings-center .ws-settings-form-v2 .primary-action { color: var(--tx-on-accent); background: var(--accent); }
 .settings-center .ws-settings-form-v2 .modal-actions button { height: 36px; min-height: 36px; padding: 0 12px; font-size: var(--fs-xs); border-radius: var(--radius-sm); }
 .settings-center .ws-settings-page-heading h3 { line-height: 1.3; font-weight: 600; }
 .settings-center :is(.settings-update-card-head > div > span, .settings-update-hint, .settings-update-card-head .settings-status-pill, .settings-bundled-list span, .settings-scope-note, .settings-search kbd) { font-size: var(--fs-2xs); }
@@ -56,12 +56,12 @@
 
 /* Collapsed rails & rail buttons (G10) */
 .nav-rail { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; height: 100%; min-height: 0; padding: var(--space-2) 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
-.nav-rail-btn { position: relative; display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
-.nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); }
+.nav-rail-btn { position: relative; display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--tx-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .nav-rail-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
-.sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); overflow-y: auto; scrollbar-width: none; }
-.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--surface-raised); color: var(--text-secondary); font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
-.sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--text-primary); }
+.sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--bd-subtle); border-bottom: 1px solid var(--bd-subtle); overflow-y: auto; scrollbar-width: none; }
+.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--bd-subtle); background: var(--surface-raised); color: var(--tx-secondary); font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
 .sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }
 .sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--intent-warning-fg); padding: 1px; }
@@ -69,7 +69,7 @@
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
 .pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn, .ws-group-expand-btn { min-width: var(--control-md); min-height: var(--control-md); }
 .pane-row-time { font-size: var(--fs-2xs); }
-.pane-row-time.recent { color: var(--text-secondary); }
+.pane-row-time.recent { color: var(--tx-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--control-md); display: inline-flex; align-items: center; }
 
 /* The footer of an expanded sidebar sits at its bottom, however short the list above. */

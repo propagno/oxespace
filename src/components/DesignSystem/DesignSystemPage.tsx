@@ -69,12 +69,12 @@ function TypeSection(): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Families</h2>
     <div className={styles.stack}>
-      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-display)', fontWeight: 700 }}>Instrument Sans</span></div>
-      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontSize: 'var(--text-lg)' }}>IBM Plex Sans · The agent finished and changed 3 files.</span></div>
-      <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
+      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-display)', fontWeight: 700 }}>Instrument Sans</span></div>
+      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontSize: 'var(--fs-lg)' }}>IBM Plex Sans · The agent finished and changed 3 files.</span></div>
+      <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
     </div>
     <h2 className={styles.sectionTitle}>Scale</h2>
-    <div className={styles.stack}>{sizes.map(([name, px]) => <div key={name} className={styles.typeRow}><code>--text-{name} · {px}px</code><span style={{ fontSize: `var(--text-${name})`, fontFamily: name === 'display' ? 'var(--font-display)' : undefined, fontWeight: name === 'display' || name === 'xl' ? 600 : undefined }}>Review the changes before you commit</span></div>)}</div>
+    <div className={styles.stack}>{sizes.map(([name, px]) => <div key={name} className={styles.typeRow}><code>--fs-{name} · {px}px</code><span style={{ fontSize: `var(--fs-${name})`, fontFamily: name === 'display' ? 'var(--font-display)' : undefined, fontWeight: name === 'display' || name === 'xl' ? 600 : undefined }}>Review the changes before you commit</span></div>)}</div>
   </>
 }
 
