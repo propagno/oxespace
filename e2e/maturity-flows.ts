@@ -199,7 +199,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const dirs = scratch('oxequery')
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
       await expect(page.locator('.oq-view')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByRole('complementary', { name: 'OxeQuery sidebar' })).toBeVisible()
 
