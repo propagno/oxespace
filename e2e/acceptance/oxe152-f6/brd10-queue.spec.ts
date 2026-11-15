@@ -1,6 +1,6 @@
 // Frozen end-to-end acceptance test for 1.5.2 OxeCode/Shell F6 (Jira OXE-73, BRD-10, with bug OXE-176), in the built app
-// with real services: real terminals (OXESPACE_E2E_MOCK_NATIVE=0), main's real AgentStateService (the e2e hook) and main's
-// agents overview. Written by the planner; the executor must not edit it. Red until T37 and T29 land.
+// with real services: main's real AgentStateService driven by its e2e hook and main's agents overview (the hook exists
+// only with OXESPACE_E2E_MOCK_NATIVE=1, electron/main/e2e/agent-state-hook.ts: no paid agent can be made to wait otherwise). Written by the planner; the executor must not edit it. Red until T37 and T29 land.
 // Contract: a terminal that waits on its agent makes the pill say "1 needs you"; the pill opens the queue
 // ([data-ui=needs-you-queue]) with exactly that one row, a pane row naming the workspace, and no Deny / Allow on it;
 // "Go to terminal" (thread:f7.queue.goToPane) takes the person to that pane (its container gets the focus within); Esc
@@ -15,7 +15,7 @@ const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unkn
 
 test('BRD-10 / OXE-176 in the app: a waiting terminal is the queue\'s one row, and Go to terminal reaches it', async () => {
   test.setTimeout(180_000)
-  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0', OXESPACE_E2E_AGENT_STATE: '1' } })
+  const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_E2E_AGENT_STATE: '1' } })
   try {
     await resizeWindow(app, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
