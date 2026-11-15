@@ -47,6 +47,7 @@ import com.oxespace.mobile.settings.ThemeChoice
 import com.oxespace.mobile.settings.darkThemeFor
 import com.oxespace.mobile.ui.settings.SettingsScreen
 import com.oxespace.mobile.ui.settings.SharedPreferenceStore
+import com.oxespace.mobile.ui.settings.computerSubtitle
 
 class MainActivity : ComponentActivity() {
     private val session: SessionViewModel by viewModels()
@@ -174,7 +175,8 @@ class MainActivity : ComponentActivity() {
                 SettingsScreen(
                     preferences,
                     computer = name,
-                    connection = banner ?: stringResource(R.string.live_connected_hint),
+                    // OXE-179: the OS and pairing date the desktop sent at sign-in; an older desktop sends neither.
+                    connection = computerSubtitle(this@MainActivity, (status as? DesktopStatus.Connected)?.desktopOs, (status as? DesktopStatus.Connected)?.pairedAt, banner ?: stringResource(R.string.live_connected_hint), System.currentTimeMillis()),
                     version = BuildConfig.VERSION_NAME,
                     onEnterAddress = { settingsOpen = false; askingAddress = true },
                     onUnpair = { settingsOpen = false; session.unpair() },
