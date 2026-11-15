@@ -1,0 +1,1 @@
+npx vitest related --run src/components/CommandBar/CommandBar.tsx src/components/CommandBar/CommandBarHost.tsx src/components/CommandMenu/CommandMenu.tsx tests/integration/CommandMenu.test.tsx tests/palette-labels.test.tsx tests/unit/brand-targets.test.ts --maxWorkers=2
