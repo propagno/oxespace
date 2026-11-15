@@ -212,7 +212,7 @@ async function timeDomToggle(
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
   // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
   // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab').first().focus()
   await page.keyboard.press(shortcut)
 }
 
@@ -612,7 +612,7 @@ async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Pro
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
+    if (button.getAttribute('aria-selected') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
   }, mode)
 }
@@ -627,10 +627,10 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    const nav = page.getByRole('navigation', { name: 'Application view' })
+    const nav = page.getByRole('tablist', { name: 'Application view' })
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
+    await nav.getByRole('tab', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
     await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
