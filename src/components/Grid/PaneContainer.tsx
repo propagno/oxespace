@@ -100,6 +100,15 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const [providerSessionsOpen, setProviderSessionsOpen] = useState(false)
   const [explainOpen, setExplainOpen] = useState(false)
   const needsDecision = display.statusTone === 'needs-decision'
+  // OXE-128 CA-5: the header wears the attention ring while the pane waits, until the first key pressed in the pane;
+  // leaving the state and entering it again starts a new wait, with the ring back.
+  const [ringDismissed, setRingDismissed] = useState(false)
+  const [ringWasWaiting, setRingWasWaiting] = useState(needsDecision)
+  if (ringWasWaiting !== needsDecision) {
+    setRingWasWaiting(needsDecision)
+    if (!needsDecision) setRingDismissed(false)
+  }
+  const showAttentionRing = needsDecision && !ringDismissed
   // The status in words, with where it comes from (UX-07): the dot's tooltip and the header's screen-reader text.
   const statusText = display.originLabel ? `${display.statusLabel} · ${display.originLabel}` : display.statusLabel
   const [sessionDetails, setSessionDetails] = useState<TerminalStatusResult | null>(null)
@@ -199,8 +208,8 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   }
 
   return (
-    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)}>
-      <header className="pane-header" {...workspaceColorAttrs(workspace)} onContextMenu={openMenuFromContext}>
+    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
+      <header className="pane-header" {...workspaceColorAttrs(workspace)} data-attention={showAttentionRing ? 'true' : undefined} onContextMenu={openMenuFromContext}>
         <div className="pane-header-left">
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>

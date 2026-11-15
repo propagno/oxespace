@@ -160,6 +160,7 @@ before. Code panes receive the whole registry.
 | `thread.sections` | Sections of the conversation list (F13) | **Forbidden**: For 1.4, how the person organizes their own list: an agent neither reads nor rearranges it. |
 | `thread.approvals` | Answer a Thread's approvals and questions | **Forbidden**: Approvals stay with the person. |
 | `thread.side_chat` | A side chat about a conversation | Excluded: The person's read-only scratch copy of a conversation; agents ask in their own. |
+| `thread.sessions` | Sessions and their parallel chats: list, read, create a chat, open a chat (OXE-170) | Excluded: The person's window, like the conversation list: which chats a session holds and which one is open. Agents create and drive Threads with oxespace_thread_create and send. |
 | `thread.access` | Permission rules and auto-approval | **Forbidden**: Raises access. |
 | `thread.places` | A conversation's places, their diffs, path links, panes, collisions and agent summary (F4) | Excluded: The person's window: read models of where a conversation worked. Agents read their own checkout with oxespace_git. |
 | `thread.cockpit` | A conversation's tool tabs, background shells and timeline (F6, F8) | Excluded: The person's window: read models of what a conversation used and left running. Agents see their own tools and shells. |

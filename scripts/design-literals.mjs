@@ -76,19 +76,19 @@ function replacement(color, property, onSolid, context = {}) {
   if (fam === 'neutral') {
     if (color.a < 1) {
       // Translucent white or black: a tint of the text or of the canvas, so it follows the mode.
-      const base = l > 0.5 ? 'var(--text-primary)' : 'var(--surface-sunken)'
-      if (kind === 'text') return l > 0.5 ? (color.a > 0.75 ? 'var(--text-primary)' : color.a > 0.5 ? 'var(--text-secondary)' : 'var(--text-muted)') : 'var(--text-muted)'
+      const base = l > 0.5 ? 'var(--tx-primary)' : 'var(--surface-sunken)'
+      if (kind === 'text') return l > 0.5 ? (color.a > 0.75 ? 'var(--tx-primary)' : color.a > 0.5 ? 'var(--tx-secondary)' : 'var(--tx-muted)') : 'var(--tx-muted)'
       return `color-mix(in srgb, ${base} ${pct(color.a)}, transparent)`
     }
     // White text on a colored fill is a label on that fill, not body text.
     if (kind === 'text' && l > 0.85 && onSolid) return onSolid
-    if (kind === 'text') return l > 0.85 ? 'var(--text-primary)' : l > 0.65 ? 'var(--text-secondary)' : l > 0.4 ? 'var(--text-muted)' : 'var(--text-on-accent)'
-    if (kind === 'border') return l > 0.5 ? 'var(--border-strong)' : 'var(--border-default)'
+    if (kind === 'text') return l > 0.85 ? 'var(--tx-primary)' : l > 0.65 ? 'var(--tx-secondary)' : l > 0.4 ? 'var(--tx-muted)' : 'var(--tx-on-accent)'
+    if (kind === 'border') return l > 0.5 ? 'var(--bd-strong)' : 'var(--bd-default)'
     // A white fill under dark text was the old inverted primary button; anything else is a raised surface.
     if (l > 0.9) return context.darkText ? (context.hover ? 'var(--accent-hover)' : 'var(--accent)') : 'var(--surface-raised)'
     return l < 0.06 ? 'var(--surface-sunken)' : l < 0.11 ? 'var(--surface-canvas)' : l < 0.16 ? 'var(--surface-base)' : l < 0.22 ? 'var(--surface-raised)' : 'var(--surface-overlay)'
   }
-  const role = fam === 'accent' ? { fg: 'var(--text-accent)', bg: 'var(--accent-soft)', solid: 'var(--accent)', border: 'var(--accent-border)' }
+  const role = fam === 'accent' ? { fg: 'var(--tx-accent)', bg: 'var(--accent-soft)', solid: 'var(--accent)', border: 'var(--accent-border)' }
     : { fg: `var(--intent-${fam}-fg)`, bg: `var(--intent-${fam}-bg)`, solid: `var(--intent-${fam}-solid)`, border: `var(--intent-${fam}-border)` }
   if (kind === 'text') return role.fg
   if (kind === 'border') return color.a < 0.6 ? role.border : role.solid
@@ -106,9 +106,9 @@ for (const path of (targets.length ? targets : ['src']).flatMap(target => files(
   const background = block.match(/background(?:-color)?\s*:\s*([^;}]+)/i)?.[1] ?? ''
   const bgColor = parseColor((background.match(LITERAL) ?? [''])[0])
   // Initials and logo letters sit on identity colors set inline.
-  const onSolid = /letter|avatar|initial|monogram/i.test(selector) ? 'var(--text-on-identity)'
-    : /var\(--(accent|brand)\b/.test(background) || (bgColor && bgColor.a >= 0.6 && family(bgColor) === 'accent') ? 'var(--text-on-accent)'
-    : /var\(--(dot-|intent-)/.test(background) || (bgColor && bgColor.a >= 0.6 && family(bgColor) !== 'neutral') ? 'var(--text-on-solid)' : ''
+  const onSolid = /letter|avatar|initial|monogram/i.test(selector) ? 'var(--tx-on-identity)'
+    : /var\(--(accent|brand)\b/.test(background) || (bgColor && bgColor.a >= 0.6 && family(bgColor) === 'accent') ? 'var(--tx-on-accent)'
+    : /var\(--(dot-|intent-)/.test(background) || (bgColor && bgColor.a >= 0.6 && family(bgColor) !== 'neutral') ? 'var(--tx-on-solid)' : ''
   const textColor = parseColor((block.match(/(?:^|[;{\s])color\s*:\s*([^;}]+)/i)?.[1]?.match(LITERAL) ?? [''])[0])
   const darkText = Boolean(textColor && hsl(textColor).l < 0.3)
   return selector + block.replace(/([a-z-]+)\s*:\s*([^;{}]+)(;|(?=}))/gi, (declaration, property, value, end) => {
