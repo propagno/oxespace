@@ -1,0 +1,1 @@
+npx vitest related --run src/components/CommandBar/CommandBarTrigger.tsx src/components/Navigation/ModeSwitch.tsx src/components/Navigation/NeedsYouPill.tsx tests/integration/AppModeSwitch.test.tsx tests/unit/brand-targets.test.ts tests/unit/needs-you-pill.test.tsx tests/unit/oxechat-visual-findings.test.tsx tests/view-switch.test.tsx --maxWorkers=2
