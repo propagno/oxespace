@@ -151,23 +151,20 @@ class SettingsSectionsTest {
         } catch (missing: ReflectiveOperationException) {
             throw AssertionError("computerSubtitle(context, os, pairedAt, connection, now) does not exist in SettingsScreen.kt: $missing")
         }
-        fun localized(tag: String): android.content.Context = screen.context.createConfigurationContext(
-            android.content.res.Configuration(screen.context.resources.configuration).apply { setLocale(java.util.Locale.forLanguageTag(tag)) },
-        )
         val connection = "Conectado · mesma Wi-Fi"
         val pairedAt = 1_794_744_000_000L // 15 Nov 2026, 12:00 UTC
         val now = 1_794_830_400_000L // 16 Nov 2026, 12:00 UTC: the same year
         val nextYear = 1_826_366_400_000L // 16 Nov 2027, 12:00 UTC
-        fun line(tag: String, os: String?, at: Long?, connected: String?, clock: Long) = method.invoke(null, localized(tag), os, at, connected, clock) as String
+        // The rule's locale (pt-rBR). layoutlib ignores createConfigurationContext, so the en-US half is its own class below.
+        fun line(os: String?, at: Long?, connected: String?, clock: Long) = method.invoke(null, screen.context, os, at, connected, clock) as String
 
-        assertEquals("pt-BR, this year: the OS, \"pareado em\" and the short date, the connection", "Windows 11 · pareado em 15 de nov. · $connection", line("pt-BR", "Windows 11", pairedAt, connection, now))
-        assertEquals("en, this year", "Windows 11 · paired Nov 15 · Connected · same Wi-Fi", line("en-US", "Windows 11", pairedAt, "Connected · same Wi-Fi", now))
-        val older = line("pt-BR", "Windows 11", pairedAt, connection, nextYear)
+        assertEquals("pt-BR, this year: the OS, \"pareado em\" and the short date, the connection", "Windows 11 · pareado em 15 de nov. · $connection", line("Windows 11", pairedAt, connection, now))
+        val older = line("Windows 11", pairedAt, connection, nextYear)
         assertTrue("another year: the phone's medium date with its year: $older", older.contains("pareado em 15 de nov. de 2026"))
-        for (text in listOf(older, line("en-US", "macOS 15", pairedAt, "x", nextYear))) {
+        for (text in listOf(older)) {
             assertTrue("never ISO: $text", !Regex("""\d{4}-\d{2}-\d{2}""").containsMatchIn(text))
         }
-        assertEquals("an older desktop's missing details are left out", connection, line("pt-BR", null, null, connection, now))
+        assertEquals("an older desktop's missing details are left out", connection, line(null, null, connection, now))
         assertEquals("paired %1\$s", catalog("values", "settings_computer_paired"))
         assertEquals("pareado em %1\$s", catalog("values-pt-rBR", "settings_computer_paired"))
         // rigor: source-assertion. MainActivity needs an Android Activity; this module has no Robolectric.
@@ -214,6 +211,41 @@ class SettingsSectionsTestAtTheLargestFont {
             page.preferences.theme = theme
             val screen = page.render {}
             assertEquals("no text is cut on Settings at the largest font (theme $theme)", emptyList<String>(), screen.cutTexts())
+        }
+    }
+}
+
+/**
+ * The en-US half of theComputerCardShowsTheOsAndThePairingDate, on its own rule: layoutlib's BridgeContext ignores
+ * createConfigurationContext (it returns the same context), so a locale is only a Paparazzi DeviceConfig. Its name keeps
+ * "SettingsSectionsTest" so the criterion's --tests selects it. Frozen with SettingsSectionsTest (coordination 15/11,
+ * OXE-179): the same assertions, moved.
+ */
+class SettingsSectionsTestInEnglish {
+    @get:Rule
+    val paparazzi = f4Paparazzi(locale = "en")
+
+    private val page = SettingsPage(paparazzi)
+
+    @Test
+    fun theComputerCardShowsTheOsAndThePairingDateInEnglish() {
+        val screen = page.render {}
+        val method = try {
+            Class.forName("com.oxespace.mobile.ui.settings.SettingsScreenKt").getMethod(
+                "computerSubtitle",
+                android.content.Context::class.java, String::class.java, Long::class.javaObjectType, String::class.java, Long::class.javaPrimitiveType,
+            )
+        } catch (missing: ReflectiveOperationException) {
+            throw AssertionError("computerSubtitle(context, os, pairedAt, connection, now) does not exist in SettingsScreen.kt: $missing")
+        }
+        val pairedAt = 1_794_744_000_000L // 15 Nov 2026, 12:00 UTC
+        val now = 1_794_830_400_000L // 16 Nov 2026, 12:00 UTC: the same year
+        val nextYear = 1_826_366_400_000L // 16 Nov 2027, 12:00 UTC
+        fun line(os: String?, at: Long?, connected: String?, clock: Long) = method.invoke(null, screen.context, os, at, connected, clock) as String
+
+        assertEquals("en, this year", "Windows 11 · paired Nov 15 · Connected · same Wi-Fi", line("Windows 11", pairedAt, "Connected · same Wi-Fi", now))
+        for (text in listOf(line("macOS 15", pairedAt, "x", nextYear))) {
+            assertTrue("never ISO: $text", !Regex("""\d{4}-\d{2}-\d{2}""").containsMatchIn(text))
         }
     }
 }
