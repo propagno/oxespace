@@ -62,7 +62,7 @@ async function arm(page: Page): Promise<void> {
         const sk = [...main.querySelectorAll('[data-skeleton]')].find(visible)
         if (sk && t < 300) (rec as unknown as { early?: string[] }).early = [...((rec as unknown as { early?: string[] }).early ?? []), `${Math.round(t)}:${sk.closest('[data-view]')?.getAttribute('data-view') ?? 'none'}:${sk.closest('[data-testid]')?.getAttribute('data-testid') ?? ''}:${(sk.parentElement?.className ?? '').toString().slice(0, 60)}`].slice(0, 6)
         rec.frames.push({
-          t, pressed: button.getAttribute('aria-pressed') === 'true', busy: button.getAttribute('aria-busy') === 'true',
+          t, pressed: button.getAttribute('aria-selected') === 'true', busy: button.getAttribute('aria-busy') === 'true',
           oldUp: visible(old), newUp: !!next, skeleton: inMain('[data-skeleton]'), brand: inMain('[data-brand-loader]'), spinner: inMain('[class*="spinner"]'),
           dimmed: !!old && Number(getComputedStyle(old).opacity) < 1,
           focusInNew: !!next && !!document.activeElement && next.contains(document.activeElement),

@@ -335,6 +335,15 @@ export interface OxeQueryAuditEntry {
   rows: number | null
   durationMs: number | null
   errorCode: string | null
+  /** Who acted, by a person-readable name (a conversation's title, a pane's name); null when unknown. Set by `audit.list`. */
+  actorLabel?: string | null
+}
+
+/** One page of the audit, newest first; `cursor` asks for the next (older) page and is null on the last one. */
+export interface OxeQueryAuditPage {
+  entries: Array<OxeQueryAuditEntry & { actorLabel: string | null }>
+  hasMore: boolean
+  cursor: string | null
 }
 
 export type ExportFormat = 'csv' | 'json' | 'ndjson' | 'sql' | 'xlsx'
@@ -592,7 +601,7 @@ export interface OxeQueryOps {
   'sql.explain': { input: SqlExplainInput; output: SqlExplain }
   /** OxePod makes the container; OxeQuery saves it as a connection. The password goes to secure storage only. */
   'connections.createInContainer': { input: CreateDatabaseInput; output: OxeQueryConnection }
-  'audit.list': { input: { connectionId?: string; limit?: number }; output: OxeQueryAuditEntry[] }
+  'audit.list': { input: { connectionId?: string; limit?: number; cursor?: string | null }; output: OxeQueryAuditPage }
   'library.list': { input: { connectionId: string }; output: { saved: SavedQuery[]; history: QueryHistoryItem[] } }
   'library.save': { input: { connectionId: string; id?: string; name: string; sql: string }; output: SavedQuery }
   'library.delete': { input: { connectionId: string; id: string }; output: { deleted: boolean } }
