@@ -18,9 +18,14 @@
 //   the toolbar says which layout it is in as data-width, from its container's inline size (a ResizeObserver): "full" at
 //   560 px and above (boards 1 and 8: Modelo, Esforço and Acesso apart), "medium" from 420 to 559 (Modelo and Esforço in one
 //   chip with one popover; Acesso apart), "narrow" below 420 (Modelo, Esforço and Acesso in one "configuração do turno"
-//   popover). At every width "/" (thread:composer.commands) and Enviar (thread:composer.send) stay in the toolbar, and every
-//   control is a src/ui primitive (the 24 px floor of the target-size lint). jsdom has no layout: the width is fed through
-//   the observer and the test reads data-width and which controls exist.
+//   popover). Brand answers of 15/11: the narrow trigger's accessible name and the popover's title are a new pair,
+//   "Configuração do turno" / "Turn settings", and the trigger shows the current model as text. At every width "/"
+//   (thread:composer.commands), "+" (thread:composer.add), the context ring (ThreadUsageRing, named thread:usage.trigger
+//   "Uso: …") and Enviar (thread:composer.send) stay in the toolbar, and while a turn runs Pôr na fila (thread:composer.queue)
+//   and Parar (thread:composer.stopShort) do; every control is a src/ui primitive (the 24 px floor of the target-size lint).
+//   jsdom has no layout: the width is fed through the observer and the test reads data-width and which controls exist.
+//   "No horizontal scroll" (scrollWidth <= clientWidth) is the brand's PR check (marca/fidelidade), not asserted here:
+//   stubbing both sizes in jsdom would prove nothing.
 // - BRD-04 (PR #842): the card's measures are enforced and in enforced.lock.json (composer radius, toolbar height, the
 //   button scale of the main area). BRD-05.new-composer.radius is measured in the new-conversation scene, so it is
 //   OXC-3's (it lands after this card).
@@ -131,6 +136,14 @@ function observeWidth(width: number): { set(next: number): void } {
   return { set(next: number) { current = next; act(() => { for (const item of observers) item.callback(item.targets.map(target => entry(target, next)) as unknown as ResizeObserverEntry[], item.self) }) } }
 }
 const mentions = (list: HTMLElement[], words: string[]): HTMLElement[] => list.filter(el => words.some(word => said(el).includes(word)))
+/** The key of the new pair (brand 15/11): whatever its name, en "Turn settings" and pt-BR "Configuração do turno". */
+function turnSettings(_locale: string): { key: string } {
+  const flat = (value: unknown, prefix = ''): Record<string, string> => Object.assign({}, ...Object.entries(value as Record<string, unknown>).map(([key, item]) =>
+    typeof item === 'string' ? { [prefix + key]: item } : flat(item, `${prefix}${key}.`)))
+  const en = flat(JSON.parse(readFileSync(join(ROOT, 'shared/locales/en/thread.json'), 'utf8')))
+  const pt = flat(JSON.parse(readFileSync(join(ROOT, 'shared/locales/pt-BR/thread.json'), 'utf8')))
+  return { key: Object.keys(en).find(key => en[key] === 'Turn settings' && pt[key] === 'Configuração do turno') ?? '' }
+}
 
 describe('OXE-172 OXC-2b composer toolbar by container width, board 11 (A12)', () => {
   afterEach(() => { vi.unstubAllGlobals() })
@@ -144,6 +157,9 @@ describe('OXE-172 OXC-2b composer toolbar by container width, board 11 (A12)', (
     const list = controls(toolbar)
     for (const el of list) expect(['button', 'icon-button'], `toolbar control "${said(el).slice(0, 40)}"`).toContain(el.getAttribute('data-ui'))
     expect(indexOf(list, tt('composer.commands')), '"/" stays').toBeGreaterThanOrEqual(0)
+    expect(indexOf(list, tt('composer.add')), '"+" stays').toBeGreaterThanOrEqual(0)
+    const ring = tt('usage.trigger', { label: '\u0000' }).split('\u0000')[0]
+    expect(list.some(el => (el.getAttribute('aria-label') ?? '').startsWith(ring)), 'the context ring stays').toBe(true)
     expect(indexOf(list, tt('composer.send')), 'Enviar stays').toBeGreaterThanOrEqual(0)
     const model = tt('config.chip.model'), effort = tt('config.chip.effort'), access = tt('config.access')
     const modelOrEffort = mentions(list, [model, effort]), anyConfig = mentions(list, [model, effort, access])
@@ -155,7 +171,26 @@ describe('OXE-172 OXC-2b composer toolbar by container width, board 11 (A12)', (
       expect(modelOrEffort, 'Modelo and Esforço are one chip').toHaveLength(1)
       expect(mentions(list, [access]).filter(el => !modelOrEffort.includes(el)), 'Acesso stays apart').toHaveLength(1)
     }
-    if (layout === 'narrow') expect(anyConfig, 'Modelo, Esforço and Acesso are one popover trigger').toHaveLength(1)
+    if (layout === 'narrow') {
+      const settings = turnSettings('en')
+      const triggers = list.filter(el => el.getAttribute('aria-label') === tt(settings.key))
+      expect(triggers, 'one Configuração do turno trigger').toHaveLength(1)
+      expect(triggers[0].textContent, 'it shows the current model').toContain('Native model')
+      expect(mentions(list, [model, effort, access]).filter(el => el !== triggers[0]), 'nothing else names Modelo, Esforço or Acesso').toEqual([])
+    }
+  })
+
+  it.each([600, 500, 400])('at %i px, while a turn runs with text typed, Pôr na fila and Parar stay', width => {
+    observeWidth(width)
+    const f = fixture('running', [{ type: 'message', id: 'u1', role: 'user', text: 'Refactor the login' } as ThreadEvent])
+    render(<ThreadView workspace={f.workspace} />)
+    fireEvent.change(screen.getByRole('textbox', { name: tt('composer.message') }), { target: { value: 'Also keep the old route' } })
+    const list = controls(one('[data-ui="composer-toolbar"]'))
+    for (const key of ['composer.queue', 'composer.stopShort', 'composer.commands', 'composer.add']) expect(indexOf(list, tt(key)), `${key} at ${width} px`).toBeGreaterThanOrEqual(0)
+  })
+
+  it('adds the pair Configuração do turno / Turn settings to the catalogs', () => {
+    expect(turnSettings('en').key, 'one key holds Turn settings in en and Configuração do turno in pt-BR').not.toBe('')
   })
 
   it('follows the column as it narrows, without a remount', () => {
