@@ -16,15 +16,16 @@
 // - Clicking NeedsYouPill opens the queue in place: one [data-ui=needs-you-queue] with groups [data-ui=needs-you-group] in
 //   this order, each only when it has rows, data-state needs-you | failed | working, its heading the state word (pt-BR
 //   Precisa de você / Falhou / Trabalhando; en Needs you / Failed / Working). Failed and Working show at most 3 rows
-//   ([data-ui=needs-you-row]) and then a "+N" line for the rest. The Needs-you cap is the brand's open question: not
-//   frozen here (the fixtures keep that group at 3 rows or fewer).
+//   ([data-ui=needs-you-row]) and then a "+N more" / "+N mais" line for the rest; Needs you is never capped (brand
+//   15/11): every pending row, the list scrolls.
 // - Needs you: one [data-ui=needs-you-item] data-kind="request" per answerable request (oldest first), then one
 //   data-kind="pane" per waiting terminal (OXE-176).
 // - A request item shows the exact command (summary.command.text) in a <code> element (mono). Not critical: Buttons
 //   "Deny" / "Allow once" (pt-BR "Negar" / "Permitir uma vez"), [data-ui=button] data-size="md" (28, 32 comfortable); a
 //   decision is the conversation's (RT-1): window.oxe.thread.respond(threadId, requestId, { decision }). Critical
 //   (summary.risk 'critical'): only "See impact" / "Ver impacto" (thread:f7.card.seeImpact), which opens the request's
-//   impact (useOpenRequest.open(requestId)); no Deny, no Allow, and A never allows it. A critical item carries a
+//   impact (useOpenRequest.open(requestId)); no Deny, no Allow; keys act only on the buttons shown: D and A do nothing on
+//   it and Enter is See impact (brand 15/11); nothing critical is decided from the queue. A critical item carries a
 //   [data-ui=risk-label] with the catalog's risk word (common:approvals.risk.critical); any other item has none, whatever
 //   its command says.
 // - A pane item (OXE-176): a StatusSignal needs-you ([data-ui=status-signal][data-state=needs-you]), "{workspace} ›
@@ -178,11 +179,15 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     expect(respond).toHaveBeenCalledWith('thread-1', 'r3', { decision: 'decline' })
   })
 
-  it('a critical item is never allowed from the queue, by a press or by holding', async () => {
+  it('a critical item is never decided from the queue: D and A do nothing, Enter opens its impact', async () => {
     render(<NeedsYouPill />)
     await open(3)
     key('j')
     expect(focusedItem()).toBe(1)
+    key('d')
+    expect(decided('r2', 'decline')).toBe(false)
+    key('Enter')
+    expect(useOpenRequest.getState().requestId).toBe('r2')
     vi.useFakeTimers()
     key('a')
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'a' })
