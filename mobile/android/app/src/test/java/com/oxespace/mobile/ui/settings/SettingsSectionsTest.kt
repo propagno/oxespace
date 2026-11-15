@@ -44,8 +44,12 @@ import org.junit.Test
  * settings_typing_title, settings_cant_connect_title. Changed: settings_theme_title (Theme -> Appearance / Tema ->
  * Aparência) and settings_theme_system (Same as the phone -> System / Igual ao do celular -> Sistema). The pages the
  * two rows open use only existing strings (Q-M1) and are not read here: one frame is laid out, a tap does not redraw.
- * The computer card shows what the phone knows (Q-M4): the name, the connection line and Unpair; the OS and the
- * pairing date are a 1.5.3 divergence.
+ * The computer card (user rule of 15/11 ~05:00Z: the backend follows the design, OXE-179) shows the name, then one
+ * line: the OS, "paired <date>" (settings_computer_paired, with %1$s) and the connection line, joined by " · ", from
+ * `computerSubtitle(context: Context, os: String?, pairedAt: Long?, connection: String?): String` in
+ * SettingsScreen.kt (read by name here), which MainActivity passes as SettingsScreen's `connection` with the
+ * DesktopStatus.Connected's desktopOs / pairedAt (A16 brings them from the protocol); an older desktop's missing
+ * details are left out. The real data path (the gateway to the phone's session) is A16's end-to-end test.
  *
  * Approval safety: the Answers card has no switch, no toggle and no tap target: the fingerprint or screen lock on every
  * answer is a rule the phone states, not a preference.
@@ -131,6 +135,34 @@ class SettingsSectionsTest {
         assertTrue("\"$critical\" (the request screen's $seconds s) is in the Answers card", screen.leavesWithText(critical).any(::inCard))
         val controls = screen.merged.filter { inCard(it) && (screen.toggles(it) || screen.clickable(it)) }
         assertEquals("nothing in the Answers card can be switched or tapped: a safety rule, not a preference", emptyList<String>(), controls.map { screen.describe(it) })
+    }
+
+    @Test
+    fun theComputerCardShowsTheOsAndThePairingDate() {
+        val screen = settings()
+        val method = try {
+            Class.forName("com.oxespace.mobile.ui.settings.SettingsScreenKt")
+                .getMethod("computerSubtitle", android.content.Context::class.java, String::class.java, Long::class.javaObjectType, String::class.java)
+        } catch (missing: ReflectiveOperationException) {
+            throw AssertionError("computerSubtitle(context, os, pairedAt, connection) does not exist in SettingsScreen.kt: $missing")
+        }
+        val connection = "Conectado · mesma Wi-Fi"
+        val pairedAt: Long = 1_793_707_200_000 // 3 Nov 2026, 10:00 UTC
+        val line = method.invoke(null, screen.context, "Windows 11", pairedAt, connection) as String
+        val parts = line.split(" · ")
+        assertEquals("the OS first: $line", "Windows 11", parts.first())
+        assertTrue("the connection line last: $line", line.endsWith(" · $connection"))
+        val paired = catalog("values-pt-rBR", "settings_computer_paired")
+        assertNotNull("settings_computer_paired in pt-BR", paired)
+        val (before, after) = paired!!.split("%1\$s").let { it.first() to it.getOrElse(1) { "" } }
+        val date = parts.getOrNull(1).orEmpty()
+        assertTrue("the second part is \"$paired\" with the date: $line", date.startsWith(before) && date.endsWith(after) && date.length > before.length + after.length)
+        assertTrue("the date is the 3rd: $date", date.removePrefix(before).removeSuffix(after).contains("3"))
+        assertEquals("an older desktop's missing details are left out", connection, method.invoke(null, screen.context, null, null, connection))
+        assertEquals("paired %1\$s", catalog("values", "settings_computer_paired"))
+        // rigor: source-assertion. MainActivity needs an Android Activity; this module has no Robolectric.
+        val activity = java.io.File("src/main/java/com/oxespace/mobile/MainActivity.kt").readText()
+        assertTrue("MainActivity passes computerSubtitle(...) to Settings", Regex("""(?<![A-Za-z0-9_.])computerSubtitle\(""").containsMatchIn(activity))
     }
 
     @Test
