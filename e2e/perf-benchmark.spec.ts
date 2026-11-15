@@ -341,7 +341,7 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+      await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
       switchTimes.push(await readInputTimer(page))
     }
@@ -422,7 +422,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
       // a failed fix.
       await armInputTimerUntil(page, [
-        { selector: '.ws-group.active', text: label },
+        { selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label },
         { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
       ])
       await target.getByTestId('sidebar-workspace-select').click()

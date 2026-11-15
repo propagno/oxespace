@@ -169,7 +169,7 @@ function WorkspaceGroupComponent({
   return (
     <div
       className={`ws-group${isDragging ? ' dragging' : ''}${dropClass}`}
-      data-testid="sidebar-workspace-item" {...workspaceColorAttrs(workspace)}
+      data-testid="sidebar-workspace-item" data-active={isActive ? '' : undefined} {...workspaceColorAttrs(workspace)}
       draggable={Boolean(onDragStart) && !renaming}
       onDragStart={(event) => {
         if (!onDragStart || renaming) return
