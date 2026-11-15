@@ -1,0 +1,33 @@
+{
+  "brd": "BRD-10",
+  "card": "OXE-73",
+  "title": "The needs-you queue from the title-bar pill: requests with their exact command and md actions, waiting terminals",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-10) and the card OXE-73 spec-v1 (15/11, with bug OXE-176)",
+  "measures": [
+    {
+      "id": "BRD-10.item-button.height",
+      "scene": "needs-you-queue",
+      "select": "[data-ui=needs-you-item][data-kind=request] [data-ui=button]",
+      "prop": "height",
+      "expect": { "token": "--control-md" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "a request's actions (Deny, Allow once, See impact) are the md control"
+    },
+    {
+      "id": "BRD-10.command.font-family",
+      "scene": "needs-you-queue",
+      "select": "[data-ui=needs-you-item] code",
+      "prop": "font-family",
+      "expect": { "token": "--font-mono" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the exact command is shown in the mono face"
+    }
+  ]
+}

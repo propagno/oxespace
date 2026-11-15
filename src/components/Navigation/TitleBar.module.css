@@ -44,7 +44,7 @@
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
-.needs:hover { border-color: var(--attn); }
+.needs:hover, .needs[aria-expanded='true'] { border-color: var(--attn); }
 .needsSlot { visibility: hidden; pointer-events: none; cursor: default; }
 .needsSlot .sun { animation: none; }
 .sun {

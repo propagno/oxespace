@@ -2256,7 +2256,17 @@
       "allClearTitle": "Tudo em dia",
       "approvalRules": "Regras de aprovação",
       "openTask": "Abrir a conversa",
-      "closeQueue": "Fechar aprovações"
+      "closeQueue": "Fechar aprovações",
+      "panelLabel": "O que precisa de você",
+      "group": {
+        "needsYou": "Precisa de você",
+        "failed": "Falhou",
+        "working": "Trabalhando"
+      },
+      "more": "+{{rest}} mais",
+      "deny": "Negar",
+      "paneWaiting": "Esperando você no terminal",
+      "goToPane": "Ir ao terminal"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
