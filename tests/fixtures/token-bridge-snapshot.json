@@ -1,0 +1,609 @@
+{
+ "source": "src/styles/tokens.css @ origin/main",
+ "count": 89,
+ "names": {
+  "--bg-app": {
+   "declared": "var(--surface-canvas)",
+   "generated": [
+    "--surface-canvas"
+   ],
+   "kind": "alias"
+  },
+  "--bg-sidebar": {
+   "declared": "var(--surface-chrome)",
+   "generated": [
+    "--surface-chrome"
+   ],
+   "kind": "alias"
+  },
+  "--bg-elevated": {
+   "declared": "var(--surface-raised)",
+   "generated": [
+    "--surface-raised"
+   ],
+   "kind": "alias"
+  },
+  "--bg-tile": {
+   "declared": "var(--surface-base)",
+   "generated": [
+    "--surface-base"
+   ],
+   "kind": "alias"
+  },
+  "--bg-tile-header": {
+   "declared": "var(--surface-chrome)",
+   "generated": [
+    "--surface-chrome"
+   ],
+   "kind": "alias"
+  },
+  "--bg-tile-content": {
+   "declared": "var(--surface-base)",
+   "generated": [
+    "--surface-base"
+   ],
+   "kind": "alias"
+  },
+  "--bg-ws-hover": {
+   "declared": "var(--fill-hover)",
+   "generated": [
+    "--fill-hover"
+   ],
+   "kind": "alias"
+  },
+  "--bg-modal": {
+   "declared": "var(--surface-overlay)",
+   "generated": [
+    "--surface-overlay"
+   ],
+   "kind": "alias"
+  },
+  "--bg-input": {
+   "declared": "var(--surface-base)",
+   "generated": [
+    "--surface-base"
+   ],
+   "kind": "alias"
+  },
+  "--bg-segment": {
+   "declared": "var(--surface-sunken)",
+   "generated": [
+    "--surface-sunken"
+   ],
+   "kind": "alias"
+  },
+  "--bg-hover": {
+   "declared": "var(--fill-hover)",
+   "generated": [
+    "--fill-hover"
+   ],
+   "kind": "alias"
+  },
+  "--bg-subtle": {
+   "declared": "var(--surface-raised)",
+   "generated": [
+    "--surface-raised"
+   ],
+   "kind": "alias"
+  },
+  "--warning": {
+   "declared": "var(--intent-warning-solid)",
+   "generated": [
+    "--intent-warning-solid"
+   ],
+   "kind": "alias"
+  },
+  "--wb-canvas": {
+   "declared": "var(--surface-canvas)",
+   "generated": [
+    "--surface-canvas"
+   ],
+   "kind": "alias"
+  },
+  "--wb-chrome": {
+   "declared": "var(--surface-chrome)",
+   "generated": [
+    "--surface-chrome"
+   ],
+   "kind": "alias"
+  },
+  "--wb-raised": {
+   "declared": "var(--surface-raised)",
+   "generated": [
+    "--surface-raised"
+   ],
+   "kind": "alias"
+  },
+  "--wb-selection": {
+   "declared": "var(--fill-selected)",
+   "generated": [
+    "--fill-selected"
+   ],
+   "kind": "alias"
+  },
+  "--wb-border": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--wb-focus": {
+   "declared": "var(--border-focus)",
+   "generated": [
+    "--border-focus"
+   ],
+   "kind": "alias"
+  },
+  "--bd-divider": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--bd-sidebar": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--bd-input": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--bd-input-focus": {
+   "declared": "var(--border-focus)",
+   "generated": [
+    "--border-focus"
+   ],
+   "kind": "alias"
+  },
+  "--bd-subtle": {
+   "declared": "var(--border-subtle)",
+   "generated": [
+    "--border-subtle"
+   ],
+   "kind": "alias"
+  },
+  "--bd-base": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--tx-primary": {
+   "declared": "var(--text-primary)",
+   "generated": [
+    "--text-primary"
+   ],
+   "kind": "alias"
+  },
+  "--tx-secondary": {
+   "declared": "var(--text-secondary)",
+   "generated": [
+    "--text-secondary"
+   ],
+   "kind": "alias"
+  },
+  "--tx-muted": {
+   "declared": "var(--text-muted)",
+   "generated": [
+    "--text-muted"
+   ],
+   "kind": "alias"
+  },
+  "--dot-green": {
+   "declared": "var(--intent-success-solid)",
+   "generated": [
+    "--intent-success-solid"
+   ],
+   "kind": "alias"
+  },
+  "--dot-orange": {
+   "declared": "var(--intent-warning-solid)",
+   "generated": [
+    "--intent-warning-solid"
+   ],
+   "kind": "alias"
+  },
+  "--dot-yellow": {
+   "declared": "var(--intent-warning-solid)",
+   "generated": [
+    "--intent-warning-solid"
+   ],
+   "kind": "alias"
+  },
+  "--dot-blue": {
+   "declared": "var(--intent-info-solid)",
+   "generated": [
+    "--intent-info-solid"
+   ],
+   "kind": "alias"
+  },
+  "--dot-gray": {
+   "declared": "var(--text-disabled)",
+   "generated": [
+    "--text-disabled"
+   ],
+   "kind": "alias"
+  },
+  "--dot-red": {
+   "declared": "var(--intent-danger-solid)",
+   "generated": [
+    "--intent-danger-solid"
+   ],
+   "kind": "alias"
+  },
+  "--brand": {
+   "declared": "var(--accent)",
+   "generated": [
+    "--accent"
+   ],
+   "kind": "alias"
+  },
+  "--brand-light": {
+   "declared": "var(--text-accent)",
+   "generated": [
+    "--text-accent"
+   ],
+   "kind": "alias"
+  },
+  "--bg-pane-active-header": {
+   "declared": "color-mix(in srgb, var(--accent) 6%, transparent)",
+   "generated": [
+    "--accent"
+   ],
+   "kind": "compound"
+  },
+  "--bd-pane-active": {
+   "declared": "color-mix(in srgb, var(--accent) 36%, transparent)",
+   "generated": [
+    "--accent"
+   ],
+   "kind": "compound"
+  },
+  "--nav-row-h": {
+   "declared": "32px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--control-h": {
+   "declared": "var(--control-lg)",
+   "generated": [
+    "--control-lg"
+   ],
+   "kind": "alias"
+  },
+  "--chrome-h": {
+   "declared": "42px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--chrome-inset": {
+   "declared": "14px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--nav-radius": {
+   "declared": "var(--radius-sm)",
+   "generated": [
+    "--radius-sm"
+   ],
+   "kind": "alias"
+  },
+  "--surface-radius": {
+   "declared": "var(--radius-md)",
+   "generated": [
+    "--radius-md"
+   ],
+   "kind": "alias"
+  },
+  "--nav-selected": {
+   "declared": "var(--fill-selected)",
+   "generated": [
+    "--fill-selected"
+   ],
+   "kind": "alias"
+  },
+  "--nav-hover": {
+   "declared": "var(--fill-hover)",
+   "generated": [
+    "--fill-hover"
+   ],
+   "kind": "alias"
+  },
+  "--sidebar-w": {
+   "declared": "280px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--sidebar-w-collapsed": {
+   "declared": "var(--rail-w)",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--frame-gap": {
+   "declared": "8px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--frame-radius": {
+   "declared": "var(--radius-lg)",
+   "generated": [
+    "--radius-lg"
+   ],
+   "kind": "alias"
+  },
+  "--panel-radius": {
+   "declared": "var(--radius-lg)",
+   "generated": [
+    "--radius-lg"
+   ],
+   "kind": "alias"
+  },
+  "--rail-w": {
+   "declared": "48px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--hit-min": {
+   "declared": "var(--control-md)",
+   "generated": [
+    "--control-md"
+   ],
+   "kind": "alias"
+  },
+  "--ov-1": {
+   "declared": "color-mix(in srgb, var(--text-primary) 4%, transparent)",
+   "generated": [
+    "--text-primary"
+   ],
+   "kind": "compound"
+  },
+  "--ov-2": {
+   "declared": "color-mix(in srgb, var(--text-primary) 7%, transparent)",
+   "generated": [
+    "--text-primary"
+   ],
+   "kind": "compound"
+  },
+  "--ov-3": {
+   "declared": "color-mix(in srgb, var(--text-primary) 11%, transparent)",
+   "generated": [
+    "--text-primary"
+   ],
+   "kind": "compound"
+  },
+  "--surface-quiet": {
+   "declared": "var(--ov-1)",
+   "generated": [
+    "--text-primary"
+   ],
+   "kind": "alias"
+  },
+  "--surface-hover": {
+   "declared": "var(--fill-hover)",
+   "generated": [
+    "--fill-hover"
+   ],
+   "kind": "alias"
+  },
+  "--surface-active": {
+   "declared": "var(--fill-pressed)",
+   "generated": [
+    "--fill-pressed"
+   ],
+   "kind": "alias"
+  },
+  "--radius-xs": {
+   "declared": "4px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--radius-pill": {
+   "declared": "var(--radius-full)",
+   "generated": [
+    "--radius-full"
+   ],
+   "kind": "alias"
+  },
+  "--space-xs": {
+   "declared": "var(--space-1)",
+   "generated": [
+    "--space-1"
+   ],
+   "kind": "alias"
+  },
+  "--space-sm": {
+   "declared": "var(--space-2)",
+   "generated": [
+    "--space-2"
+   ],
+   "kind": "alias"
+  },
+  "--space-md": {
+   "declared": "var(--space-3)",
+   "generated": [
+    "--space-3"
+   ],
+   "kind": "alias"
+  },
+  "--space-lg": {
+   "declared": "var(--space-4)",
+   "generated": [
+    "--space-4"
+   ],
+   "kind": "alias"
+  },
+  "--space-xl": {
+   "declared": "var(--space-6)",
+   "generated": [
+    "--space-6"
+   ],
+   "kind": "alias"
+  },
+  "--space-2xl": {
+   "declared": "var(--space-8)",
+   "generated": [
+    "--space-8"
+   ],
+   "kind": "alias"
+  },
+  "--shadow-sm": {
+   "declared": "var(--elevation-1)",
+   "generated": [
+    "--elevation-1"
+   ],
+   "kind": "alias"
+  },
+  "--shadow-md": {
+   "declared": "var(--elevation-2)",
+   "generated": [
+    "--elevation-2"
+   ],
+   "kind": "alias"
+  },
+  "--shadow-lg": {
+   "declared": "var(--elevation-3)",
+   "generated": [
+    "--elevation-3"
+   ],
+   "kind": "alias"
+  },
+  "--shadow-modal": {
+   "declared": "var(--elevation-4)",
+   "generated": [
+    "--elevation-4"
+   ],
+   "kind": "alias"
+  },
+  "--transition-fast": {
+   "declared": "var(--duration-fast) var(--ease-standard)",
+   "generated": [
+    "--duration-fast",
+    "--ease-standard"
+   ],
+   "kind": "compound"
+  },
+  "--transition-base": {
+   "declared": "var(--duration-base) var(--ease-standard)",
+   "generated": [
+    "--duration-base",
+    "--ease-standard"
+   ],
+   "kind": "compound"
+  },
+  "--workspace-canvas": {
+   "declared": "var(--surface-canvas)",
+   "generated": [
+    "--surface-canvas"
+   ],
+   "kind": "alias"
+  },
+  "--pane-surface": {
+   "declared": "var(--surface-base)",
+   "generated": [
+    "--surface-base"
+   ],
+   "kind": "alias"
+  },
+  "--pane-surface-raised": {
+   "declared": "var(--surface-raised)",
+   "generated": [
+    "--surface-raised"
+   ],
+   "kind": "alias"
+  },
+  "--pane-border": {
+   "declared": "var(--border-default)",
+   "generated": [
+    "--border-default"
+   ],
+   "kind": "alias"
+  },
+  "--pane-border-active": {
+   "declared": "var(--border-focus)",
+   "generated": [
+    "--border-focus"
+   ],
+   "kind": "alias"
+  },
+  "--pane-radius": {
+   "declared": "var(--panel-radius)",
+   "generated": [
+    "--radius-lg"
+   ],
+   "kind": "alias"
+  },
+  "--pane-gap": {
+   "declared": "var(--frame-gap)",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--pane-shadow": {
+   "declared": "none",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--fs-2xs": {
+   "declared": "var(--text-2xs)",
+   "generated": [
+    "--text-2xs"
+   ],
+   "kind": "alias"
+  },
+  "--fs-xs": {
+   "declared": "var(--text-xs)",
+   "generated": [
+    "--text-xs"
+   ],
+   "kind": "alias"
+  },
+  "--fs-sm": {
+   "declared": "var(--text-sm)",
+   "generated": [
+    "--text-sm"
+   ],
+   "kind": "alias"
+  },
+  "--fs-base": {
+   "declared": "var(--text-md)",
+   "generated": [
+    "--text-md"
+   ],
+   "kind": "alias"
+  },
+  "--fs-lg": {
+   "declared": "var(--text-lg)",
+   "generated": [
+    "--text-lg"
+   ],
+   "kind": "alias"
+  },
+  "--fs-xl": {
+   "declared": "var(--text-xl)",
+   "generated": [
+    "--text-xl"
+   ],
+   "kind": "alias"
+  },
+  "--fs-2xl": {
+   "declared": "22px",
+   "generated": [],
+   "kind": "literal"
+  },
+  "--lh-base": {
+   "declared": "var(--leading-normal)",
+   "generated": [
+    "--leading-normal"
+   ],
+   "kind": "alias"
+  }
+ }
+}
