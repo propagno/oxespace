@@ -1,0 +1,1 @@
+(node scripts/test-electron.mjs tests/oxe152/approvals/ag01b-dock.test.tsx --maxWorkers=2 --reporter=verbose || touch .ap-window-red) ; npm run build && npx playwright test e2e/polish/ag01b-dock.spec.ts --reporter=list && test ! -e .ap-window-red
