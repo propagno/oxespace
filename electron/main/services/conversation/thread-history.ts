@@ -155,6 +155,20 @@ export class ThreadHistory {
     }))
   }
 
+  /**
+   * The person's window's read (desktop IPC only, the phone's protocol does not use it): the summaries above plus the
+   * command an approval would run and the permission rules' verdict. The OxeChat sidebar's mini card (OXE-166) shows the
+   * real command and labels a critical one from the verdict, never from the agent's text.
+   */
+  pendingRequestsForWindow(limit = 200): ThreadPendingRequestSummary[] {
+    return this.pendingRequestRows(limit).map(({ thread, request }) => ({
+      threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: readThreadTitle(thread.title), requestId: request.id, kind: request.kind, title: request.title, createdAt: request.createdAt, generation: request.generation,
+      ...(request.impact ? { impact: { risk: request.impact.risk, reversible: request.impact.reversible } } : {}),
+      ...(typeof request.command === 'string' && request.command ? { command: request.command } : {}),
+      ...(request.policy ? { policy: { decision: request.policy.decision, ...(request.policy.risk ? { risk: request.policy.risk } : {}), ...(request.policy.level ? { level: request.policy.level } : {}), ...(request.policy.guarded ? { guarded: true as const } : {}) } } : {})
+    }))
+  }
+
   private pendingRequests(id: string, thread: ConversationThread): ThreadRequest[] {
     if (thread.status !== 'approval') return []
     return (this.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'request' AND json_extract(data_json, '$.request.state') = 'pending' ORDER BY seq LIMIT 100").all(id) as { data_json: string }[])

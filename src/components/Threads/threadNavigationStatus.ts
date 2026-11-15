@@ -9,6 +9,11 @@ type StateWord = 'attention' | 'running' | 'idle' | 'failed' | 'completed' | 'in
 
 const status = (kind: ThreadNavigationStatus, word: StateWord) => ({ kind, label: i18n.t(`thread:status.${word}`) })
 
+/** The state word that ends line 2 of a conversation row (OXE-166): a stopped one says Interrupted, as the timeline does. */
+export function threadRowStateWord(thread: ConversationThread): string {
+  return thread.status === 'interrupted' ? i18n.t('thread:timeline.interrupted') : threadNavigationStatus(thread).label
+}
+
 /** Execution state alone determines the status color; unread and selection are separate signals. */
 export function threadNavigationStatus(thread: ConversationThread): { kind: ThreadNavigationStatus; label: string } {
   switch (thread.status) {
