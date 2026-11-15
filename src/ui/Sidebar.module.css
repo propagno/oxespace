@@ -37,7 +37,7 @@
    transparent) and the title ellipsizes before them; the lead's signal and a second line never hide. */
 .rowWrap { position: relative; }
 .rowActionsAside { position: absolute; inset-block-start: 0; inset-inline-end: var(--space-1-5); height: var(--row-1); }
-.rowWrap:hover > .row:not(.selected) { background: var(--fill-hover); }
+:where(.rowWrap:hover > .row) { background: var(--fill-hover); }
 .rowWrap:hover > .row, .rowWrap:focus-within > .row { padding-inline-end: calc(var(--space-1-5) + var(--row-actions-w, 0px) + var(--space-1)); }
 .rowWrap:hover > .row .meta, .rowWrap:focus-within > .row .meta { opacity: 0; }
 .rowWrap:hover > .reveal, .rowWrap:focus-within > .reveal { opacity: 1; }
