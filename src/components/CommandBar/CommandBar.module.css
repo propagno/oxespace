@@ -90,6 +90,50 @@
   color: var(--tx-muted);
 }
 
+/* BRD-11: the empty bar is one line that says what ">" and "?" do. */
+.hintsLine {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-sm);
+  color: var(--tx-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.example {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--fs-xs);
+}
+
+.hintExample {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-accent);
+  background: var(--surface-sunken);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.hintText {
+  color: var(--tx-secondary);
+}
+
 .listbox {
   display: flex;
   flex-direction: column;
@@ -111,12 +155,16 @@
   color: var(--tx-muted);
 }
 
+/* BRD-11: every result is one line, --bar-md tall (32, 36 comfortable): its name, then what it does. */
 .option {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  height: var(--bar-md);
+  flex-shrink: 0;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard);
@@ -132,12 +180,16 @@
 
 .optionMain {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .optionPrimary {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
   color: var(--tx-primary);
@@ -147,6 +199,8 @@
 }
 
 .optionSecondary {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--fs-xs);
   color: var(--tx-secondary);
   overflow: hidden;
@@ -165,104 +219,6 @@
 
 .also {
   white-space: nowrap;
-}
-
-.emptyBody {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  max-height: 58vh;
-}
-
-.defaultSections {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: 0 var(--space-2) var(--space-2);
-  border-top: 1px solid var(--bd-subtle);
-  padding-top: var(--space-2);
-}
-
-/* A two-line row (name over description) built on <Button>: the button's one-line control height, line-height 1 and
-   nowrap are undone here, or each row's text ran into the next one (1.5.0, user report 13/11). */
-.defaultRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  width: 100%;
-  height: auto;
-  min-height: var(--control-lg);
-  line-height: 1.35;
-  white-space: normal;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard);
-}
-
-.defaultRow:hover {
-  background: var(--fill-hover);
-}
-
-.defaultRow:focus-visible {
-  background: var(--fill-hover);
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-.hints {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-
-@media (max-width: 560px) {
-  .hints {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.hintCard {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
-}
-
-.hintCard:hover {
-  background: var(--fill-hover);
-  border-color: var(--bd-default);
-}
-
-.hintExample {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--tx-accent);
-  background: var(--surface-sunken);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-}
-
-.hintText {
-  color: var(--tx-secondary);
 }
 
 .emptyRow {

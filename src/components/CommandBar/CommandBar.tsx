@@ -11,7 +11,11 @@ import {
   type ParsedCommandLine
 } from '../../../shared/command-bar'
 import type { MainMessage } from '../../../shared/messages'
+import type { Workspace } from '../../../shared/types/workspace'
+import { goToWorkspace } from '../../commands/goTo'
 import { formatChord } from '../../keyboard/chords'
+import { KEYBINDINGS, chordsFor, type KeybindingId } from '../../keyboard/keybindings'
+import { useCommandHistoryStore } from '../../store/command-history.store'
 import { useSkillStore } from '../../store/skill.store'
 import { useThreadStore } from '../../store/thread.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -19,13 +23,38 @@ import { Button } from '../../ui/Button'
 import { Notice } from '../../ui/Display'
 import { Kbd } from '../../ui/Field'
 import { useModalSurface } from '../../ui/useModalSurface'
+import type { CommandPaletteAction } from '../../utils/commandRegistry'
+import { rankBy, rankText } from '../../utils/fuzzy'
+import { KeyChord } from '../Keyboard/KeyChord'
 import styles from './CommandBar.module.css'
+
+/** Something the bar finds by its words with no prefix (a pane, a file); `group` is the heading it is listed under. */
+export interface CommandBarPlace {
+  key: string
+  group: string
+  primary: string
+  secondary?: string
+  /** The tooltip, such as a full path. */
+  title?: string
+  /** More words it is found by. */
+  words?: string
+  run: () => void
+}
 
 export interface CommandBarProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   context: CommandContext
   onRun: (parsed: ParsedCommandLine) => void
+  /** The palette's commands (the registry): listed after ">" with the bar's own (BRD-11, one palette). */
+  actions?: readonly CommandPaletteAction[]
+  /** Panes, files and the like, found with no prefix. */
+  places?: readonly CommandBarPlace[]
+  /** The workspaces it finds and opens; the workspace store's when not given. */
+  workspaces?: readonly Workspace[]
+  placeholder?: string
+  /** What the field holds when the bar opens (">" from the palette shortcut: commands first). */
+  initialQuery?: string
 }
 
 interface BarOption {
@@ -35,8 +64,12 @@ interface BarOption {
   secondary: string
   alsoText: string
   shortcutText: string | null
+  /** A registry shortcut, shown as key caps. */
+  chord?: string
+  title?: string
   fill?: string
   parsed?: ParsedCommandLine
+  run?: () => void
 }
 
 interface BarGroup {
@@ -58,12 +91,19 @@ const GO_TO_COMMAND_IDS = new Set<string>(['pending'])
 const WINDOW_COMMANDS = new Set<string>(['terminal', 'new', 'theme'])
 /** The sentence of an error from main, without the channel in front of it. */
 const errorReason = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '').split('\u0000')[0].slice(0, 200)
-const HINT_FILL: Record<'agent' | 'skill' | 'open' | 'help', string> = {
-  agent: '@Codex ',
-  skill: '/skill ',
-  open: 'open ',
-  help: '?'
+/** The examples "?" shows above every command (BRD-11: the empty bar is one line of hints). */
+const EXAMPLE_KINDS = ['agent', 'skill', 'open'] as const
+const MAX_PER_PLACE_GROUP = 15
+
+const KEYBINDING_IDS = new Set<string>(KEYBINDINGS.map(binding => binding.id))
+/** A command's shortcut: a registry id (with the user's override) or a literal chord. */
+function commandChord(shortcut: string | undefined): string | undefined {
+  if (!shortcut) return undefined
+  return KEYBINDING_IDS.has(shortcut) ? chordsFor(shortcut as KeybindingId)[0] : shortcut
 }
+
+const actionScore = (action: CommandPaletteAction, q: string): number =>
+  rankText(action.title, `${action.subtitle ?? ''} ${(action.keywords ?? []).join(' ')} ${action.category ?? ''}`, q)
 
 function workspaceTier(name: string, q: string): number {
   const lower = name.toLowerCase()
@@ -73,14 +113,16 @@ function workspaceTier(name: string, q: string): number {
   return 2
 }
 
-export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarProps): ReactElement | null {
+export function CommandBar({ open, onOpenChange, context, onRun, actions, places, workspaces: givenWorkspaces, placeholder, initialQuery = '' }: CommandBarProps): ReactElement | null {
   const { t } = useTranslation()
   const baseId = useId()
   const listboxId = `${baseId}-listbox`
   const inputRef = useRef<HTMLInputElement | null>(null)
   const skills = useSkillStore(state => state.skills)
-  const workspaces = useWorkspaceStore(state => state.workspaces)
+  const storeWorkspaces = useWorkspaceStore(state => state.workspaces)
+  const workspaces: readonly Workspace[] = givenWorkspaces ?? storeWorkspaces
   const threads = useThreadStore(state => state.threads)
+  const recentIds = useCommandHistoryStore(state => state.recent)
 
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -94,12 +136,13 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
   useLayoutEffect(() => {
     if (!open) return
-    setQuery('')
+    setQuery(initialQuery)
     setActiveIndex(0)
     setRefusal(null)
     setConfirmingStop(false)
     setAnnounced('')
     inputRef.current?.focus({ preventScroll: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   useEffect(() => {
@@ -177,6 +220,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
       parsed: entry.id === 'skill' ? undefined : { kind: 'command', id: entry.id, args }
     })
 
+    // Plain words find a command by what it does and by the button it stands for (new conversation), not only by its id.
+    const commandWords = (entry: (typeof COMMAND_CATALOG)[number]): string => `${entry.id} ${t(`commandBar.catalog.${entry.id}`)} ${t(`commandBar.fallback.${entry.id}`)}`.toLowerCase()
+
     const modeOption = (dest: (typeof modeDestinations)[number]): BarOption => ({
       key: `dest-${dest.id}`,
       domId: nextDomId(),
@@ -200,6 +246,32 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         shortcutText: formatChord('Mod+Enter'),
         parsed: { kind: 'open', query: `beside:${th.id}` }
       }))
+    }
+
+    // ">" lists commands only, in one group: the palette's (registry) and the bar's own (BRD-11, CA-3).
+    if (startTrimmed.startsWith('>')) {
+      const rest = startTrimmed.slice(1).trim().toLowerCase()
+      const enabled = (actions ?? []).filter(action => !action.disabled)
+      const recentRank = (id: string): number => { const at = recentIds.indexOf(id); return at < 0 ? recentIds.length : at }
+      const ranked: CommandPaletteAction[] = rest
+        ? rankBy(enabled, rest, action => actionScore(action, rest))
+        : enabled.map((action, index) => ({ action, index }))
+          .sort((a, b) => recentRank(a.action.id) - recentRank(b.action.id) || a.index - b.index)
+          .map(entry => entry.action)
+      const items: BarOption[] = [
+        ...ranked.map(action => ({
+          key: `action-${action.id}`,
+          domId: nextDomId(),
+          primary: action.title,
+          secondary: action.subtitle ?? '',
+          alsoText: '',
+          shortcutText: null,
+          chord: commandChord(action.shortcut),
+          run: () => { useCommandHistoryStore.getState().record(action.id); action.run() }
+        })),
+        ...COMMAND_CATALOG.filter(entry => !rest || commandWords(entry).includes(rest)).map(entry => catalogOption(entry))
+      ]
+      return items.length > 0 ? [{ key: 'commands', groupLabel: t('commandBar.groups.commands'), items }] : []
     }
 
     if (trimmed === '?') {
@@ -316,6 +388,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
             secondary: ws.rootPath,
             alsoText: t('commandBar.also', { button: 'OxeCode' }),
             shortcutText: null,
+            title: ws.rootPath,
             parsed: { kind: 'open', query: ws.name }
           }))
         })
@@ -342,8 +415,6 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
     const q = trimmed.toLowerCase()
     const out: BarGroup[] = []
-    // Plain words find a command by what it does and by the button it stands for ("new conversation"), not only by its id.
-    const commandWords = (entry: (typeof COMMAND_CATALOG)[number]): string => `${entry.id} ${t(`commandBar.catalog.${entry.id}`)} ${t(`commandBar.fallback.${entry.id}`)}`.toLowerCase()
     const cmdMatches = COMMAND_CATALOG.filter(entry => commandWords(entry).includes(q))
     const actionItems = cmdMatches.filter(entry => !GO_TO_COMMAND_IDS.has(entry.id)).map(entry => catalogOption(entry))
     const matchedModes = modeDestinations
@@ -367,8 +438,9 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         items: goToItems
       })
     }
+    // A workspace is found by its name and by its folder; the full path is its tooltip.
     const wsMatches = workspaces
-      .filter(ws => ws.name.toLowerCase().includes(q))
+      .filter(ws => ws.name.toLowerCase().includes(q) || ws.rootPath.toLowerCase().includes(q))
       .slice()
       .sort((a, b) => workspaceTier(a.name, q) - workspaceTier(b.name, q))
     if (wsMatches.length > 0) {
@@ -378,10 +450,11 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         items: wsMatches.map(ws => ({
           key: `ws-${ws.id}`,
           domId: nextDomId(),
-          primary: ws.name,
+          primary: goToWorkspace(ws).name,
           secondary: ws.rootPath,
           alsoText: t('commandBar.also', { button: 'OxeCode' }),
           shortcutText: null,
+          title: ws.rootPath,
           parsed: { kind: 'open', query: ws.name }
         }))
       })
@@ -410,8 +483,26 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         items: beside
       })
     }
+    // Panes and files the host offers, under their own headings.
+    const placeGroups = new Map<string, BarOption[]>()
+    for (const place of rankBy(places ?? [], q, item => rankText(item.primary, `${item.secondary ?? ''} ${item.words ?? ''}`, q))) {
+      const list = placeGroups.get(place.group) ?? []
+      if (list.length >= MAX_PER_PLACE_GROUP) continue
+      list.push({
+        key: `place-${place.key}`,
+        domId: nextDomId(),
+        primary: place.primary,
+        secondary: place.secondary ?? '',
+        alsoText: '',
+        shortcutText: null,
+        title: place.title,
+        run: place.run
+      })
+      placeGroups.set(place.group, list)
+    }
+    for (const [group, items] of placeGroups) out.push({ key: `places-${group}`, groupLabel: group, items })
     return out
-  }, [baseId, context.threadId, disallowedCommand, open, skills, startTrimmed, t, threads, trimmed, workspaces])
+  }, [actions, baseId, context.threadId, disallowedCommand, open, places, recentIds, skills, startTrimmed, t, threads, trimmed, workspaces])
 
   const flatOptions = useMemo(() => groups.flatMap(g => g.items), [groups])
   const hasOptions = flatOptions.length > 0
@@ -497,11 +588,21 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
     }
   }
 
+  /** A palette command, a pane or a file: it runs, and the bar closes. */
+  const runOption = (option: BarOption & { run: () => void }): void => {
+    option.run()
+    onOpenChange(false)
+  }
+
   const submitCurrent = (optionOverride?: BarOption): void => {
     if (disallowedCommand) return
     const chosen = optionOverride ?? activeOption
 
     if (optionOverride) {
+      if (optionOverride.run) {
+        runOption(optionOverride as BarOption & { run: () => void })
+        return
+      }
       if (optionOverride.fill) {
         setQuery(optionOverride.fill)
         setActiveIndex(0)
@@ -518,6 +619,10 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
 
     const rawParsed = parseCommandLine(query, skills.map(s => s.name))
     if ((rawParsed.kind === 'help' || (rawParsed.kind === 'unknown' && !CONTROL_CHAR_RE.test(query))) && chosen) {
+      if (chosen.run) {
+        runOption(chosen as BarOption & { run: () => void })
+        return
+      }
       if (chosen.fill) {
         setQuery(chosen.fill)
         setActiveIndex(0)
@@ -634,6 +739,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         aria-modal="true"
         aria-label={t('commandBar.dialogLabel')}
         className={styles.surface}
+        data-ui="command-bar"
       >
         <div className={styles.inputRow}>
           <Search size={15} aria-hidden="true" className={styles.inputIcon} />
@@ -647,7 +753,7 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
             aria-controls={showListbox ? listboxId : undefined}
             {...(activeOption ? { 'aria-activedescendant': activeOption.domId } : {})}
             className={styles.combobox}
-            placeholder={t('commandBar.trigger')}
+            placeholder={placeholder ?? t('commandBar.trigger')}
             value={query}
             onChange={event => {
               setQuery(event.target.value)
@@ -664,70 +770,17 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
         </div>
 
         {!trimmed && !refusal && (
-          <div className={styles.emptyBody}>
-            <div className={styles.hints}>
-              {(['agent', 'skill', 'open', 'help'] as const).map(kind => (
-                <div
-                  key={kind}
-                  className={styles.hintCard}
-                  onClick={() => {
-                    setQuery(HINT_FILL[kind])
-                    setActiveIndex(0)
-                    setRefusal(null)
-                    setAnnounced('')
-                    inputRef.current?.focus({ preventScroll: true })
-                  }}
-                >
-                  <code className={styles.hintExample}>{t(`commandBar.examples.${kind}`)}</code>
-                  <span className={styles.hintText}>{t(`commandBar.hints.${kind}`)}</span>
-                </div>
-              ))}
-            </div>
-            <div className={styles.defaultSections}>
-              <div className={styles.group}>
-                <div className={styles.groupHeading}>{t('commandBar.sections.actions')}</div>
-                {COMMAND_CATALOG.filter((entry): entry is typeof entry & { id: Exclude<typeof entry.id, 'skill'> } => !GO_TO_COMMAND_IDS.has(entry.id) && entry.id !== 'skill').slice(0, 4).map(entry => (
-                  <Button
-                    key={entry.id}
-                    variant="ghost"
-                    className={styles.defaultRow}
-                    onClick={() => void executeParsed({ kind: 'command', id: entry.id, args: '' })}
-                  >
-                    <span className={styles.optionMain}>
-                      <span className={styles.optionPrimary}>/{entry.id}</span>
-                      <span className={styles.optionSecondary}>{t(`commandBar.catalog.${entry.id}`)}</span>
-                    </span>
-                    <span className={styles.optionMeta}>
-                      {entry.shortcut ? <Kbd>{formatChord(entry.shortcut)}</Kbd> : null}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-              <div className={styles.group}>
-                <div className={styles.groupHeading}>{t('commandBar.sections.goTo')}</div>
-                {[
-                  { id: 'oxecode', label: 'OxeCode', desc: t('commandBar.destinations.oxecode'), chord: 'Mod+1' },
-                  { id: 'oxechat', label: 'OxeChat', desc: t('commandBar.destinations.oxechat'), chord: 'Mod+2' },
-                  { id: 'oxequery', label: 'OxeQuery', desc: t('commandBar.destinations.oxequery'), chord: 'Mod+3' },
-                  { id: 'settings', label: t('commandBar.destinations.settings'), desc: t('commandBar.destinations.settingsHint'), chord: 'Mod+,' }
-                ].map(dest => (
-                  <Button
-                    key={dest.id}
-                    variant="ghost"
-                    className={styles.defaultRow}
-                    onClick={() => void executeParsed({ kind: 'open', query: dest.id })}
-                  >
-                    <span className={styles.optionMain}>
-                      <span className={styles.optionPrimary}>{dest.label}</span>
-                      <span className={styles.optionSecondary}>{dest.desc}</span>
-                    </span>
-                    <span className={styles.optionMeta}>
-                      <Kbd>{formatChord(dest.chord)}</Kbd>
-                    </span>
-                  </Button>
-                ))}
-              </div>
-            </div>
+          <p className={styles.hintsLine} data-ui="command-hints">{t('commandBar.hintsLine')}</p>
+        )}
+
+        {trimmed === '?' && (
+          <div className={styles.examples} data-ui="command-examples">
+            {EXAMPLE_KINDS.map(kind => (
+              <span key={kind} className={styles.example}>
+                <code className={styles.hintExample}>{t(`commandBar.examples.${kind}`)}</code>
+                <span className={styles.hintText}>{t(`commandBar.hints.${kind}`)}</span>
+              </span>
+            ))}
           </div>
         )}
 
@@ -775,17 +828,19 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
                       role="option"
                       tabIndex={-1}
                       aria-selected={selected}
+                      data-ui="command-row"
+                      title={item.title}
                       className={styles.option}
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => submitCurrent(item)}
                     >
                       <div className={styles.optionMain}>
-                        <span className={styles.optionPrimary}>{item.primary}</span>
-                        <span className={styles.optionSecondary}>{item.secondary}</span>
+                        <span className={styles.optionPrimary} data-part="title">{item.primary}</span>
+                        {item.secondary ? <span className={styles.optionSecondary}>{item.secondary}</span> : null}
                       </div>
                       <div className={styles.optionMeta}>
-                        <span className={styles.also}>{item.alsoText}</span>
-                        {item.shortcutText && <Kbd>{item.shortcutText}</Kbd>}
+                        {item.alsoText ? <span className={styles.also}>{item.alsoText}</span> : null}
+                        {item.chord ? <KeyChord chord={item.chord} /> : item.shortcutText ? <Kbd>{item.shortcutText}</Kbd> : null}
                       </div>
                     </div>
                   )
