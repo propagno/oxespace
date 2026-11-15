@@ -304,6 +304,11 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
 .oq-activity-table tbody tr { cursor: pointer; }
+/* Who acted: the agent's name, with its raw id beside it in mono (PQ-07·16). */
+.oq-activity-table .oq-activity-actor { display: inline; margin-left: var(--space-1); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+/* A failed request reads as one. */
+.oq-activity-table tr[data-outcome="error"] .oq-activity-result { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }
+.oq-activity-more { display: flex; justify-content: center; padding: var(--space-2) 0; }
 .oq-activity-table tbody tr:hover { background: var(--fill-hover, rgba(127, 127, 127, 0.08)); }
 .oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
