@@ -315,7 +315,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     {sendNotice && <div role="status" className="changes-note changes-send-notice"><span>{sendNotice.text}</span>{sendNotice.kind === 'failed' && <Button variant="secondary" size="sm" loading={sending} onClick={() => void sendComments()}>{t('changes.comments.retry')}</Button>}</div>}
     <div className="changes-body">
       <div className="changes-diff">
-        {!summary && loading ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
+        {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
+        {!summary && !error && (loading || !ready) ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
           : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">
