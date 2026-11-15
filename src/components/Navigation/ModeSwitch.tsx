@@ -50,7 +50,8 @@ export function ModeSwitch({ mode, allowReselect, onSelect }: { mode: Navigation
       const attentionId = counts && counts.needsYou + counts.failed + counts.working > 0 ? `mode-attention-${item.mode}` : undefined
       const selected = shown === item.mode
       const ModeIcon = item.Icon
-      // The tab is named by the product name; its count describes it, so focus reads "OxeChat … 1 needs you".
+      // The tab is named by the product name; its count describes it, so focus reads "OxeChat … 1 needs you". The count
+      // itself is aria-hidden, so the visible text matches the name (axe label-content-name-mismatch) and it is read once.
       return <button key={item.mode} type="button" role="tab" className={cx(displayStyles.tab, styles.option)} data-state={selected ? 'active' : 'inactive'}
         aria-selected={selected} tabIndex={selected ? 0 : -1} aria-label={item.label} data-app-mode={item.mode} aria-busy={pending === item.mode}
         title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
@@ -69,7 +70,7 @@ const withKey = (title: string, mode: NavigationMode): string => { const key = s
 /** The tab's number is what needs you there; a failure alone or busy agents are a dot, never a number. */
 function Attention({ id, counts, scope }: { id: string; counts: AttentionCounts; scope: 'code' | 'thread' }) {
   const label = describeAttention(counts, scope)
-  if (counts.needsYou > 0) return <span id={id} className={styles.badge} role="status" aria-label={label} data-testid="attention-badge">{counts.needsYou > 9 ? '9+' : counts.needsYou}</span>
-  if (counts.failed > 0) return <span id={id} className={cx(styles.working, styles.failed)} role="status" aria-label={label} data-testid="attention-failed" />
-  return <span id={id} className={styles.working} role="status" aria-label={label} data-testid="working-indicator" />
+  if (counts.needsYou > 0) return <span id={id} className={styles.badge} role="status" aria-label={label} aria-hidden="true" data-testid="attention-badge">{counts.needsYou > 9 ? '9+' : counts.needsYou}</span>
+  if (counts.failed > 0) return <span id={id} className={cx(styles.working, styles.failed)} role="status" aria-label={label} aria-hidden="true" data-testid="attention-failed" />
+  return <span id={id} className={styles.working} role="status" aria-label={label} aria-hidden="true" data-testid="working-indicator" />
 }
