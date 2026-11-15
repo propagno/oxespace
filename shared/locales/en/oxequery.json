@@ -297,7 +297,8 @@
     "filterClear": "Clear filter",
     "pin": "Pin column {{name}}",
     "unpin": "Unpin column {{name}}",
-    "pinTitle": "Pin to the left"
+    "pinTitle": "Pin to the left",
+    "columnMenu": "Actions for column {{name}}"
   },
   "library": {
     "saved": "Query saved",
@@ -1151,6 +1152,7 @@
     "pin": "Pin to the top",
     "unpin": "Unpin",
     "browse": "Browse {{name}}",
+    "actionsFor": "Actions for {{name}}",
     "newTable": "New table",
     "newTableIn": "New table in {{schema}}",
     "newTableTitle": "Create a table",
