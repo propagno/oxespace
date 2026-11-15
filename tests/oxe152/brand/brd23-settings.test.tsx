@@ -60,7 +60,7 @@ function measureProblems(brd: string, card: string, pins: readonly Pin[]): strin
 }
 const SETTINGS_MEASURES: readonly Pin[] = [
   { id: 'BRD-23.section.border-radius', scene: 'settings-general', prop: 'border-radius', expect: { token: '--radius-lg' } },
-  { id: 'BRD-23.section-title.font-size', scene: 'settings-general', prop: 'font-size', expect: { token: '--text-md' } },
+  { id: 'BRD-23.section-title.font-size', scene: 'settings-general', prop: 'font-size', expect: { token: '--fs-md' } },
   { id: 'BRD-23.section-title.font-weight', scene: 'settings-general', prop: 'font-weight', expect: { token: '--weight-semibold' } }
 ]
 

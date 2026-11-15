@@ -67,7 +67,7 @@ function measureProblems(brd: string, card: string, pins: readonly Pin[]): strin
 }
 const PANE_MEASURES: readonly Pin[] = [
   { id: 'BRD-14.pane-header.height', scene: 'code-workspace', prop: 'height', expect: { token: '--bar-md' } },
-  { id: 'BRD-14.pane-title.font-size', scene: 'code-workspace', prop: 'font-size', expect: { token: '--text-xs' } },
+  { id: 'BRD-14.pane-title.font-size', scene: 'code-workspace', prop: 'font-size', expect: { token: '--fs-xs' } },
   { id: 'BRD-14.pane-title.font-weight', scene: 'code-workspace', prop: 'font-weight', expect: { token: '--weight-semibold' } }
 ]
 

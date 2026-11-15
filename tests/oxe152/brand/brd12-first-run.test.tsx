@@ -9,7 +9,7 @@
 // Contract:
 // - FirstRun ([data-testid=first-run]) shows the Ramo mark, the OxeMark svg, which carries data-ui="brand-mark", and the
 //   title firstRun.v2.heroTitle ("Agentes que trabalham no seu código e mostram cada passo") on [data-ui=first-run-title]
-//   (--text-display 28, --font-display, measured on CI).
+//   (--fs-display 28, --font-display, measured on CI).
 // - One list of exactly 3 [data-ui=first-run-step], in order, each with data-state "done" | "current" | "next":
 //   1 "Pasta do projeto" (shows the chosen path and a "Trocar" button; "Escolher pasta" style action before one is chosen),
 //   2 "Conectar um agente" (each agent's state; "Entrar no Codex" for a signed-out Codex),
@@ -64,7 +64,7 @@ function measureProblems(brd: string, card: string, pins: readonly Pin[]): strin
   return problems
 }
 const FIRST_RUN_MEASURES: readonly Pin[] = [
-  { id: 'BRD-12.title.font-size', scene: 'first-run', prop: 'font-size', expect: { token: '--text-display' } },
+  { id: 'BRD-12.title.font-size', scene: 'first-run', prop: 'font-size', expect: { token: '--fs-display' } },
   { id: 'BRD-12.title.font-family', scene: 'first-run', prop: 'font-family', expect: { token: '--font-display' } }
 ]
 
