@@ -56,15 +56,20 @@ describe('Settings › Tools (F10)', () => {
     expect(report.oxeYaml).toBe('missing')
     expect(report.groups.map(group => [group.id, group.mode, group.source, group.configurable])).toEqual([
       ['core', 'always', 'default', false], ['orchestration', 'on-demand', 'default', true], ['data', 'on-demand', 'default', true],
-      ['docs', 'on-demand', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false], ['code', 'always', 'role', false]
+      ['docs', 'on-demand', 'default', true], ['preview', 'always', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false], ['code', 'always', 'role', false]
     ])
-    for (const group of report.groups) {
+    // docs holds nothing since OXE-108 moved the previews to preview.
+    expect(report.groups.find(group => group.id === 'docs')?.tools).toEqual([])
+    for (const group of report.groups.filter(item => item.tools.length)) {
       expect(group.cost.claude.loaded.chars, group.id).toBeGreaterThan(0)
       expect(group.cost.claude.deferred.chars, group.id).toBeLessThan(group.cost.claude.loaded.chars)
       expect(group.cost.claude.loaded.tokens).toBe(estimateTokens(group.cost.claude.loaded.chars))
       expect(group.cost.codex.loaded).toEqual(group.cost.claude.loaded)
     }
-    expect(report.totals.plainConversation.chars).toBeLessThan(report.totals.everythingOnDemand.chars + 1)
+    // A plain conversation pays core and preview (always) in full, and the names of the other groups.
+    const byId = Object.fromEntries(report.groups.map(group => [group.id, group.cost.claude]))
+    expect(report.totals.plainConversation.chars).toBe(byId.core.loaded.chars + byId.preview.loaded.chars
+      + ['orchestration', 'data', 'docs', 'app'].reduce((sum, id) => sum + byId[id].deferred.chars, 0))
     // A plain conversation stays within today's budget.
     expect(report.groups[0].cost.claude.loaded.chars).toBeLessThanOrEqual(9000)
   })
@@ -174,9 +179,9 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     const args = internalArgs(root)
     expect(args[0]).toBe('/bin/oxespace-mcp.cjs')
     const allowed = allowedOf(args)!
-    expect(allowed).toEqual([...MCP_TOOL_GROUPS.core, ...CODE_START_TOOLS, 'oxespace_tools_enable'])
+    expect(allowed).toEqual([...MCP_TOOL_GROUPS.core, ...CODE_START_TOOLS, ...MCP_TOOL_GROUPS.preview, 'oxespace_tools_enable'])
     for (const group of ['orchestration', 'data', 'docs', 'app'] as const) for (const tool of MCP_TOOL_GROUPS[group]) expect(allowed, tool).not.toContain(tool)
-    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'data', 'docs', 'orchestration'])
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'data', 'orchestration'])
   })
 
   it('starts an agent in a Code terminal, or one reading .mcp.json, within the 9,000-char budget, instructions included (T8)', async () => {
@@ -208,15 +213,16 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     const { root, db, files } = project()
     withInternalServer(db)
     new McpConfigSync(db).syncWorkspace('A')
-    await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'always' })
+    await setToolGroupMode(db, files, { rootPath: root, group: 'preview', mode: 'off' })
     let args = internalArgs(root)
-    expect(allowedOf(args)).toContain('oxespace_open_web_preview')
+    expect(allowedOf(args)).not.toContain('oxespace_open_web_preview')
+    expect(enableableOf(args)).not.toHaveProperty('preview')
     expect(args.filter(arg => arg === '--allowed-tools')).toHaveLength(1)
     // The project-entry mark that lets the entry step aside in a pane with its own bridge, once.
     expect(args.filter(arg => arg === '--project-entry')).toHaveLength(1)
-    await setToolGroupMode(db, files, { rootPath: root, group: 'docs', mode: 'off' })
+    await setToolGroupMode(db, files, { rootPath: root, group: 'preview', mode: 'always' })
     args = internalArgs(root)
-    expect(allowedOf(args)).not.toContain('oxespace_open_web_preview')
-    expect(enableableOf(args)).not.toHaveProperty('docs')
+    expect(allowedOf(args)).toContain('oxespace_open_web_preview')
+    expect(args.filter(arg => arg === '--allowed-tools')).toHaveLength(1)
   })
 })

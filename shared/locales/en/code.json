@@ -978,6 +978,11 @@
     "designWait": "Wait for the page to finish loading before using Design Mode.",
     "addedToDraft": "Added to the draft of the active conversation.",
     "agentExternal": "An agent asked for an external address. Turn on External to open it.",
+    "approval": {
+      "title": "An agent asks to open this page in the Browser",
+      "hint": "Your answer here is the same as in the approvals center.",
+      "label": "An agent asks to open {{url}} in the Browser"
+    },
     "copied": "Preview copied to the clipboard.",
     "close": "Close browser",
     "tabs": "Browser tabs",

@@ -160,7 +160,10 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           background: deps.background,
           fileSystem: deps.fileSystem,
           webPreview: deps.webPreview,
-          worktree: deps.worktree
+          worktree: deps.worktree,
+          androidAccess: deps.androidAccess,
+          askAndroidScreenshot: deps.askAndroidScreenshot,
+          openAndroidPanel: deps.openAndroidPanel
         }
         // A tool the project's, user's or organization's policy blocks never runs, whichever client calls it.
         const blocked = (await import('./tool-policy')).toolCallBlocked(tool.descriptor.name, ctx)

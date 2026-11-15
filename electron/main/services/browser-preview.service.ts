@@ -138,7 +138,7 @@ export class BrowserPreviewService {
     meta.url = url
     let tab = this.tabs.get(key)
     if (!tab) {
-      const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,...guestProbeWebPreferences()}})
+      const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,defaultEncoding:'UTF-8',...guestProbeWebPreferences()}})
       view.setBackgroundColor('#07080e')
       tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
