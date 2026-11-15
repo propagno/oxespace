@@ -83,3 +83,23 @@ export class AuditLog {
     try { return this.db.prepare('DELETE FROM oxequery_audit WHERE ts < ?').run(this.now() - days * 86_400_000).changes } catch { return 0 }
   }
 }
+
+/** PQ-07·16: names who acted from the app's own database, a conversation by its title and a pane by its name. */
+export function wireAuditActorNames(db: { prepare(sql: string): { get(...params: unknown[]): unknown } }): void {
+  const threadTitle = db.prepare("SELECT json_extract(data_json, '$.title') AS title FROM conversation_threads WHERE id = ?")
+  const paneName = db.prepare('SELECT display_name, agent_name FROM panes WHERE id = ?')
+  auditActorNames.resolve = actor => {
+    const colon = actor.indexOf(':')
+    const kind = actor.slice(0, colon), id = actor.slice(colon + 1)
+    if (!id) return null
+    if (kind === 'thread') {
+      const title = (threadTitle.get(id) as { title: unknown } | undefined)?.title
+      return typeof title === 'string' ? title : null
+    }
+    if (kind === 'pane') {
+      const pane = paneName.get(id) as { display_name: string | null; agent_name: string | null } | undefined
+      return pane ? pane.display_name || pane.agent_name || null : null
+    }
+    return null
+  }
+}
