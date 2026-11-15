@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { useUIStore } from '../../store/ui.store'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
-import { gitBranchLabel } from '../../utils/paneGitContext'
+import { scopeBadgeLabel } from '../../utils/paneGitContext'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
@@ -31,7 +31,7 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
   const togglePin = useUIStore((s) => s.togglePanelScopePin)
   const branch = useGitBranch(workspaceId, scope.rootPath)
 
-  const label = gitBranchLabel(branch)
+  const label = scopeBadgeLabel(branch, scope.folderName)
   const title = pinned
     ? tc('workspace.scope.pinned', { path: scope.rootPath })
     : scope.isWorktree

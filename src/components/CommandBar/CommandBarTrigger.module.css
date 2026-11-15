@@ -3,8 +3,8 @@
   align-items: center;
   gap: var(--space-2);
   flex: 0 1 260px;
-  height: 26px;
-  min-height: 26px;
+  height: var(--control-md);
+  min-height: var(--control-md);
   min-width: 96px;
   max-width: 260px;
   padding: 0 var(--space-2-5, 10px);

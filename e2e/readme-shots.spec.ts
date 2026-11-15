@@ -198,7 +198,7 @@ for (const theme of THEMES) {
       await shoot(page, 'thread', theme)
 
       // OxeQuery: the demo PostgreSQL connection and a table.
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
       await connectFromContainer(page, 'pg-dev')
       await page.getByRole('treeitem', { name: 'users', exact: true }).click({ position: { x: 12, y: 8 } })
       await expect(page.getByRole('gridcell', { name: 'alice', exact: true })).toBeVisible()

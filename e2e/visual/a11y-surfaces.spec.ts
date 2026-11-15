@@ -188,7 +188,7 @@ for (const theme of THEMES) {
       }, () => page.getByRole('dialog').last())
       await page.getByRole('button', { name: 'Close settings', exact: true }).click().catch(() => undefined)
       await reach(`${theme}/oxequery`, found, page, async () => {
-        await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+        await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
         await expect(page.locator('.oq-view')).toBeVisible({ timeout: 15_000 })
       })
       await reach(`${theme}/oxequery-containers`, found, page, async () => {
