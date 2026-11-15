@@ -5,7 +5,7 @@
 .list h2 { margin: var(--space-2) var(--space-3); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; color: var(--text-muted); }
 .listHeading { display: flex; align-items: center; justify-content: space-between; padding-right: var(--space-1); }
 .listHeading button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; color: var(--text-secondary); border-radius: var(--radius-sm); }
-.listHeading button[aria-pressed='true'] { background: var(--nav-selected); color: var(--text-primary); }
+.listHeading button[aria-pressed='true'] { background: var(--fill-selected); color: var(--text-primary); }
 
 /* ── Project group ── */
 .group { margin: 0 0 var(--space-2); }
@@ -24,7 +24,7 @@
 
 /* ── Conversation row ── */
 .row { position: relative; display: flex; align-items: center; min-width: 0; min-height: 40px; border-radius: var(--radius-md); }
-.row:has(.item[aria-current='page']) { background: var(--nav-selected); }
+.row:has(.item[aria-current='page']) { background: var(--fill-selected); }
 .attentionRow:not(:has(.item[aria-current='page'])) { background: var(--intent-warning-bg); }
 .item { flex: 1; width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 6px var(--space-2); display: flex; align-items: flex-start; gap: 8px; border-radius: var(--radius-md); text-align: left; font-size: var(--text-sm); }
 .item[aria-current='page'] { background: transparent; }
@@ -65,7 +65,7 @@
 .row .action { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 .row:hover .action, .row:focus-within .action { opacity: 1; }
 @media (hover: none) { .row .action { opacity: 1; } }
-.rows .row > .action { position: absolute; top: 4px; right: 34px; background: var(--nav-selected); }
+.rows .row > .action { position: absolute; top: 4px; right: 34px; background: var(--fill-selected); }
 .rows .row > .action:last-child { right: var(--space-1); }
 .rows .row:hover > .action, .rows .row:focus-within > .action { background: var(--fill-hover); }
 .rows .row:hover .time, .rows .row:focus-within .time { visibility: hidden; }

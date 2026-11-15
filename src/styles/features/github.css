@@ -147,7 +147,7 @@
 
 .github-sync-card.state-no-remote {
   border-color: var(--intent-warning-border);
-  background: color-mix(in srgb, var(--wb-raised) 94%, var(--dot-yellow));
+  background: color-mix(in srgb, var(--surface-raised) 94%, var(--dot-yellow));
 }
 
 .github-sync-callout {
@@ -174,22 +174,22 @@
 .github-sync-card.state-behind,
 .github-sync-card.state-dirty-behind {
   border-color: var(--intent-warning-border);
-  background: color-mix(in srgb, var(--wb-raised) 92%, var(--dot-yellow));
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--dot-yellow));
 }
 
 .github-sync-card.state-ahead {
   border-color: var(--intent-info-border);
-  background: color-mix(in srgb, var(--wb-raised) 92%, var(--dot-blue));
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--dot-blue));
 }
 
 .github-sync-card.state-diverged {
   border-color: var(--intent-danger-border);
-  background: color-mix(in srgb, var(--wb-raised) 92%, var(--dot-red));
+  background: color-mix(in srgb, var(--surface-raised) 92%, var(--dot-red));
 }
 
 .github-sync-card.state-ok {
   border-color: var(--intent-success-border);
-  background: color-mix(in srgb, var(--wb-raised) 94%, var(--dot-green));
+  background: color-mix(in srgb, var(--surface-raised) 94%, var(--dot-green));
 }
 
 .github-sync-card-main {
@@ -204,7 +204,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--panel-radius);
+  border-radius: var(--radius-lg);
   flex-shrink: 0;
   background: var(--ov-1);
   color: var(--text-muted);
@@ -250,7 +250,7 @@
   gap: 4px;
   height: 22px;
   padding: 0 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-default);
   background: color-mix(in srgb, var(--surface-sunken) 25%, transparent);
   color: var(--text-muted);
@@ -282,9 +282,9 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border-radius: var(--panel-radius);
-  border: 1px solid var(--wb-border);
-  background: var(--wb-raised);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--surface-raised);
 }
 
 .github-changes-header {
@@ -432,7 +432,7 @@
   flex-shrink: 0;
   padding: 12px;
   border-top: 1px solid var(--ov-1);
-  background: var(--wb-raised);
+  background: var(--surface-raised);
 }
 
 .github-auto-row {
@@ -452,7 +452,7 @@
   padding: 8px 10px;
   border: 1px solid var(--bd-base);
   border-radius: var(--radius-md);
-  background: var(--wb-canvas);
+  background: var(--surface-canvas);
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-xs);
@@ -665,8 +665,8 @@
 }
 
 .github-branch-row.current {
-  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
-  background: color-mix(in srgb, var(--brand) 8%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .github-branch-left {
@@ -739,7 +739,7 @@
   min-height: 26px;
   padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background: var(--ov-1);
   color: var(--gh-muted);
   font-size: var(--fs-2xs);
@@ -753,9 +753,9 @@
 }
 
 .github-filter-tab.active {
-  border-color: color-mix(in srgb, var(--brand) 30%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   background: var(--fill-selected);
-  color: var(--brand-light, var(--text-accent));
+  color: var(--text-accent, var(--text-accent));
 }
 
 /* PR rows */
@@ -820,7 +820,7 @@
   align-items: center;
   height: 20px;
   padding: 0 9px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: capitalize;

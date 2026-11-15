@@ -127,6 +127,31 @@ object OxeIcons {
     /** CR-A42b-2: the Requests ("Needs you") tab: the bell, with the sun badge on top of it. */
     val Bell: ImageVector by lazy { strokeIcon("Bell", "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3 -2 3 -9", "M10 21h4") }
 
+    /** 1.5.2 A7: the sun, the header of a "Precisa de você" card (attn means needs you, only). */
+    val Sun: ImageVector by lazy {
+        strokeIcon(
+            "Sun",
+            "M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0",
+            "M12 2v2",
+            "M12 20v2",
+            "M4.93 4.93l1.41 1.41",
+            "M17.66 17.66l1.41 1.41",
+            "M2 12h2",
+            "M20 12h2",
+            "M6.34 17.66l-1.41 1.41",
+            "M19.07 4.93l-1.41 1.41",
+        )
+    }
+
+    /** 1.5.2 A8 (OXE-102 CA-1): the header's gear, the phone's Settings in one tap. */
+    val Settings: ImageVector by lazy {
+        strokeIcon(
+            "Settings",
+            "M12.22 2h-0.44a2 2 0 0 0 -2 2v0.18a2 2 0 0 1 -1 1.73l-0.43 0.25a2 2 0 0 1 -2 0l-0.15 -0.08a2 2 0 0 0 -2.73 0.73l-0.22 0.38a2 2 0 0 0 0.73 2.73l0.15 0.1a2 2 0 0 1 1 1.72v0.51a2 2 0 0 1 -1 1.74l-0.15 0.09a2 2 0 0 0 -0.73 2.73l0.22 0.38a2 2 0 0 0 2.73 0.73l0.15 -0.08a2 2 0 0 1 2 0l0.43 0.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h0.44a2 2 0 0 0 2 -2v-0.18a2 2 0 0 1 1 -1.73l0.43 -0.25a2 2 0 0 1 2 0l0.15 0.08a2 2 0 0 0 2.73 -0.73l0.22 -0.39a2 2 0 0 0 -0.73 -2.73l-0.15 -0.08a2 2 0 0 1 -1 -1.74v-0.5a2 2 0 0 1 1 -1.74l0.15 -0.09a2 2 0 0 0 0.73 -2.73l-0.22 -0.38a2 2 0 0 0 -2.73 -0.73l-0.15 0.08a2 2 0 0 1 -2 0l-0.43 -0.25a2 2 0 0 1 -1 -1.73V4a2 2 0 0 0 -2 -2z",
+            "M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+        )
+    }
+
     /** CR-A42b-2: the Tasks tab (background jobs and delegations): the clock. */
     val Clock: ImageVector by lazy { strokeIcon("Clock", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M12 7v5l3 2") }
 }

@@ -257,11 +257,12 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
     if (item.type === 'radio') return <RadixMenu.RadioGroup key={index} value={item.value} onValueChange={item.onValueChange}>
       {item.options.map(option => <RadixMenu.RadioItem key={option.value} value={option.value} className={styles.menuItem} aria-label={option.ariaLabel ?? option.label}>
         <span className={styles.menuRadioText}>{option.label}{option.hint && <small>{option.hint}</small>}</span>
-        <RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+        <RadixMenu.ItemIndicator className={styles.menuRadioCheck}><Check size={14} /></RadixMenu.ItemIndicator>
       </RadixMenu.RadioItem>)}
     </RadixMenu.RadioGroup>
     if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {item.label}<RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator>
+      {/* A check item has no icon: its left column is the check, drawn only while checked; the slot keeps labels aligned. */}
+      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.label}
     </RadixMenu.CheckboxItem>
     return <MenuActionItem key={index} item={item} />
   })

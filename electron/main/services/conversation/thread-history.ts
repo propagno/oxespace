@@ -353,7 +353,14 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
       let turnId = eventsFrom > 0
         ? ((this.db.prepare('SELECT turn_id FROM conversation_events WHERE thread_id = ? AND seq < ? ORDER BY seq DESC LIMIT 1').get(snapshot.thread.id, eventsFrom) as { turn_id: string | null } | undefined)?.turn_id ?? null)
         : null
-      snapshot.events.slice(eventsFrom).forEach((event, offset) => {
+      // One statement per write, not one per event: preparing ~2,000 of them blocked the main process ~20 ms when /resume
+      // imported a long native session (OXE-157).
+      const pending = snapshot.events.slice(eventsFrom)
+      const upsertEvent = pending.length ? this.db.prepare('INSERT INTO conversation_events (thread_id, seq, turn_id, data_json, rev) VALUES (?, ?, ?, ?, ?) ON CONFLICT(thread_id, seq) DO UPDATE SET turn_id = excluded.turn_id, data_json = excluded.data_json, rev = excluded.rev') : null
+      const upsertEnvelope = pending.length ? this.db.prepare(`INSERT INTO conversation_event_envelopes (thread_id, seq, event_id, operation_id, turn_id, generation, schema_version, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(thread_id, seq) DO UPDATE SET event_id = excluded.event_id, operation_id = excluded.operation_id, turn_id = excluded.turn_id, generation = excluded.generation, schema_version = excluded.schema_version, updated_at = excluded.updated_at`) : null
+      pending.forEach((event, offset) => {
         const seq = eventsFrom + offset
         if (event.type === 'message' && event.role === 'user') turnId = event.id
         if ((event.type === 'tool' || event.type === 'turn-diff') && event.files) event.files = event.files.slice(0, 100).map(file => {
@@ -372,20 +379,18 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
           return { ...metadata, artifactId: id, truncated, ...(metadata.source !== 'tool-input' && parsed.hunks.length && !truncated ? { additions: parsed.additions, deletions: parsed.deletions } : {}) }
         })
         const data = JSON.stringify(event)
-        if (previous.get(seq) !== data) this.db.prepare('INSERT INTO conversation_events (thread_id, seq, turn_id, data_json, rev) VALUES (?, ?, ?, ?, ?) ON CONFLICT(thread_id, seq) DO UPDATE SET turn_id = excluded.turn_id, data_json = excluded.data_json, rev = excluded.rev').run(snapshot.thread.id, seq, turnId, data, revision)
+        if (previous.get(seq) !== data) upsertEvent!.run(snapshot.thread.id, seq, turnId, data, revision)
         const existing = envelopes.get(seq)
         const envelope = createThreadEventEnvelope({ payload: event, threadId: snapshot.thread.id, sequence: seq, generation: snapshot.thread.generation ?? 1, eventId: existing?.event_id, operationId: options.operationId ?? existing?.operation_id ?? undefined, turnId: turnId ?? undefined, createdAt: existing?.created_at })
-        this.db.prepare(`INSERT INTO conversation_event_envelopes (thread_id, seq, event_id, operation_id, turn_id, generation, schema_version, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(thread_id, seq) DO UPDATE SET event_id = excluded.event_id, operation_id = excluded.operation_id, turn_id = excluded.turn_id, generation = excluded.generation, schema_version = excluded.schema_version, updated_at = excluded.updated_at`)
-          .run(snapshot.thread.id, seq, envelope.eventId, envelope.operationId ?? null, envelope.turnId ?? null, envelope.generation, envelope.schemaVersion, envelope.createdAt, envelope.updatedAt)
+        upsertEnvelope!.run(snapshot.thread.id, seq, envelope.eventId, envelope.operationId ?? null, envelope.turnId ?? null, envelope.generation, envelope.schemaVersion, envelope.createdAt, envelope.updatedAt)
       })
       // Removing events (rewind, recovery) cannot be expressed as a delta.
       const truncated = this.db.prepare('DELETE FROM conversation_events WHERE thread_id = ? AND seq >= ?').run(snapshot.thread.id, snapshot.events.length).changes > 0
       const epoch = truncated || !stamp?.epoch ? randomUUID() : stamp.epoch
       const turns = snapshot.turns ?? []
       const turnsFrom = Math.max(0, Math.min(options.turnsFrom ?? (options.eventsFrom === undefined ? 0 : Math.max(0, turns.length - 1)), turns.length))
-      for (const turn of turns.slice(turnsFrom)) this.db.prepare('INSERT INTO conversation_turns (thread_id, id, data_json) VALUES (?, ?, ?) ON CONFLICT(thread_id, id) DO UPDATE SET data_json = excluded.data_json').run(snapshot.thread.id, turn.id, JSON.stringify(turn))
+      const upsertTurn = turns.length > turnsFrom ? this.db.prepare('INSERT INTO conversation_turns (thread_id, id, data_json) VALUES (?, ?, ?) ON CONFLICT(thread_id, id) DO UPDATE SET data_json = excluded.data_json') : null
+      for (const turn of turns.slice(turnsFrom)) upsertTurn!.run(snapshot.thread.id, turn.id, JSON.stringify(turn))
       // Full rewrites (rewind/import/recovery) may remove turns. Tail writes only
       // append/update and must not scan the complete event table.
       if (eventsFrom === 0 && turnsFrom === 0) this.db.prepare('DELETE FROM conversation_turns WHERE thread_id = ? AND id NOT IN (SELECT turn_id FROM conversation_events WHERE thread_id = ? AND turn_id IS NOT NULL)').run(snapshot.thread.id, snapshot.thread.id)

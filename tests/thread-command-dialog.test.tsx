@@ -43,7 +43,7 @@ describe('ThreadCommandDialog', () => {
 
   it('marks delete as destructive', () => {
     setup({ kind: 'confirm', confirm: threadConfirmation('delete') })
-    expect(screen.getByRole('button', { name: 'Delete conversation' }).className).toMatch(/danger/)
+    expect(screen.getByRole('button', { name: 'Delete conversation' })).toHaveAttribute('data-variant', 'danger')
   })
 
   it('keeps command output copyable', () => {

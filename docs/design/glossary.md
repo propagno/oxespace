@@ -91,11 +91,13 @@ agree.
 | needs-you | Needs you | Precisa de você |
 | failed | Failed | Falhou |
 | working | Working | Trabalhando |
-| finished | Finished | Terminou |
+| finished | Finished | Concluído |
 | idle | Idle | Ocioso |
 | stopped | Stopped | Interrompido |
 | unknown | Not confirmed | Não confirmado |
 | (terminal only) starting / exited | Starting / Exited | Iniciando / Encerrado |
+
+finished pt-BR: "Concluído" (era "Terminou"): decisão de coordenação de 14/11, a pedido da MARCA. Todo estado é um adjetivo no masculino, como "Ocioso" e "Interrompido"; é a palavra do catálogo desde a 1.5.0.
 
 They describe the agent, so pt-BR uses the masculine everywhere ("Ocioso", "Interrompido"), also on a conversation row. One i18n namespace, `agents.state.*`, holds them. No other catalog may define these state words.
 
@@ -118,6 +120,8 @@ Colour tokens (desktop CSS / phone `OxeTokens`), so critical never looks like hi
 | critical | danger, **solid** | `--intent-danger-solid` background, `--text-on-solid` text, bold word / `intentDangerSolid` + on-solid |
 
 Colour never carries it alone. The badge says "Risco: Alto"; inside a sentence it's lowercase ("Risco: alto.").
+
+Texto de origem não confiável (o título escrito pelo agente) nunca é rótulo de risco: o rótulo de um pedido crítico vem do catálogo do app ou de texto calculado pelo desktop (coordenação 14/11).
 
 ## 7. Actions (verbs)
 

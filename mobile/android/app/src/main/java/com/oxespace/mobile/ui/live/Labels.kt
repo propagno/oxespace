@@ -3,9 +3,14 @@ package com.oxespace.mobile.ui.live
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.oxespace.mobile.R
+import com.oxespace.mobile.agents.AgentState
 import com.oxespace.mobile.ui.theme.Oxe
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
 
 /** Words the desktop sends as data, in the phone's language; a value a newer desktop adds shows as it came. */
 @Composable
@@ -91,6 +96,23 @@ fun ageLabel(atMs: Long): String {
     }
 }
 
+/**
+ * 1.5.2 A8 (OXE-102 CA-2): the conversation row's time, shortest: "agora", "3 min", "HH:mm" today, the day before that.
+ * "min" is the unit, the same in both languages.
+ */
+@Composable
+fun shortAgeLabel(atMs: Long): String {
+    val now = LocalClock.current()
+    val minutes = ((now - atMs) / 60_000).coerceAtLeast(0)
+    if (minutes < 1) return stringResource(R.string.live_age_now)
+    if (minutes < 60) return "$minutes min"
+    val zone = TimeZone.getDefault()
+    val pattern = if (dayOf(now, zone) == dayOf(atMs, zone)) "HH:mm" else "dd/MM"
+    return SimpleDateFormat(pattern, LocalConfiguration.current.locales[0]).apply { timeZone = zone }.format(Date(atMs))
+}
+
+private fun dayOf(ms: Long, zone: TimeZone): Long = (ms + zone.getOffset(ms)) / 86_400_000L
+
 // ---- 1.5.0 F10 A42 (F2 audit G8): every delegation state in the phone's words. Test: DelegationStateLabelTest. ----
 
 /** The words for a delegation's state; one the phone doesn't know reads as live_delegation_state_unknown, never the wire word. */
@@ -119,4 +141,27 @@ fun threadAgentState(status: String, lastTurnStatus: String?, pendingRequests: L
     status == "idle" && lastTurnStatus == "completed" -> com.oxespace.mobile.agents.AgentState.FINISHED
     status == "idle" -> com.oxespace.mobile.agents.AgentState.IDLE
     else -> com.oxespace.mobile.agents.AgentState.UNKNOWN
+}
+
+/** 1.5.2 A8 (OXE-102): the brand's one word per state on a conversation row (Precisa de você, Trabalhando, Ocioso, Falhou, Concluído). */
+@Composable
+fun threadStateLabel(state: AgentState): String = stringResource(
+    when (state) {
+        AgentState.NEEDS_YOU -> R.string.live_agent_state_blocked
+        AgentState.WORKING -> R.string.live_agent_state_working
+        AgentState.IDLE -> R.string.live_agent_state_idle
+        AgentState.FINISHED -> R.string.live_agent_state_done
+        AgentState.FAILED -> R.string.live_status_failed
+        AgentState.STOPPED -> R.string.live_status_interrupted
+        else -> R.string.live_agent_state_unknown
+    },
+)
+
+/** The state word's colour, by token: the ochre only for Needs you. */
+@Composable
+fun threadStateColor(state: AgentState): Color = when (state) {
+    AgentState.NEEDS_YOU -> Oxe.colors.attnFg
+    AgentState.WORKING -> Oxe.colors.intentInfoFg
+    AgentState.FAILED -> Oxe.colors.intentDangerFg
+    else -> Oxe.colors.textSecondary
 }

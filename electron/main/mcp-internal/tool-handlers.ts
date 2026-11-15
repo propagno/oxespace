@@ -17,7 +17,6 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
-import { savePreviewCapture } from '../services/browser-preview/preview-capture-store'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
@@ -300,9 +299,21 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
     return textResult({ queued: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
   }
   const { runGated } = await import('./app-settings-actions')
-  return target.kind === 'local'
-    ? runGated({ tool: 'oxespace_open_web_preview', level: 'write', handler: open }, args, ctx)
-    : runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx)
+  if (target.kind === 'local') return runGated({ tool: 'oxespace_open_web_preview', level: 'write', handler: open }, args, ctx)
+  // OXE-109: the workspace's host access (Settings › What agents can do) is asked first; only 'deny' skips the question,
+  // since an unknown host reads as allowed and cannot mean the person allowed this page.
+  const workspace = execution.workspaceId.startsWith('thread:') ? undefined : ctx.workspaceServ.get(execution.workspaceId)
+  const host = new URL(target.href).hostname
+  // Loaded here, on an agent's first external page, not at start: the permissions model lives in the approvals chunk.
+  const { activeHostDecision } = await import('../services/approvals/agent-permissions')
+  if (activeHostDecision(workspace?.rootPath ?? execution.canonicalRoot, host) === 'deny') {
+    return errorResult(`Agents may not open ${host} in this workspace. The person can change that in Settings › What agents can do.`)
+  }
+  // The approval center's record exists: the panel opens on it while the agent waits; nothing loads before the OK.
+  const asked = (approvalId: string): void => {
+    ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId, url: target.href, requestedAt: Date.now(), permission: 'ask', approvalId })
+  }
+  return runGated({ tool: 'oxespace_open_web_preview', level: 'confirm', handler: open, confirm: async () => previewApproval(target) }, args, ctx, asked)
 }
 
 async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -346,7 +357,23 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
 
 async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const execution = requirePreviewExecution(ctx)
-  const fileName = asRecord(args).fileName
+  const input = asRecord(args)
+  const fileName = input.fileName
+  const owner = execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId
+  // The capture store loads with the first capture, not at start (main's entry budget).
+  const { isPreviewCaptureName, readPreviewCapture, savePreviewCapture } = await import('../services/browser-preview/preview-capture-store')
+  if (input.element !== undefined) {
+    if (!isPreviewCaptureName(input.element)) throw new Error('element must be a capture file name, for example element-mf3k2a-1a2b3c4d.png')
+    if (fileName !== undefined) throw new Error('Pass either element or fileName, not both')
+    if (!ctx.captureRoot) return errorResult('Preview capture directory is unavailable')
+    let png: Buffer
+    try {
+      png = await readPreviewCapture(ctx.captureRoot, owner, input.element)
+    } catch {
+      return errorResult(`No capture named ${input.element} for this execution`)
+    }
+    return { content: [{ type: 'image', data: png.toString('base64'), mimeType: 'image/png' }], isError: false }
+  }
   if (fileName !== undefined && (typeof fileName !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.png$/.test(fileName))) throw new Error('fileName must be a short PNG basename, for example aba-1.png')
   if (!ctx.documentation) return errorResult('Browser preview service unavailable')
   const verify = (): void => { ctx.executions!.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) }
@@ -356,7 +383,7 @@ async function captureWebPreview(args: unknown, ctx: ToolContext): Promise<Inter
   const content: InternalMcpToolCallResult['content'] = []
   if (typeof fileName === 'string') {
     if (!ctx.captureRoot) throw new Error('Preview capture directory is unavailable')
-    const { directory, path } = await savePreviewCapture(ctx.captureRoot, execution.owner.kind === 'thread' ? execution.owner.id : execution.workspaceId, fileName, shot.png)
+    const { directory, path } = await savePreviewCapture(ctx.captureRoot, owner, fileName, shot.png)
     content.push({ type: 'text', text: JSON.stringify({ directory, path, bytes: shot.png.length, pageUrl: shot.pageUrl }) })
   }
   content.push({ type: 'image', data: shot.png.toString('base64'), mimeType: 'image/png' })
@@ -376,7 +403,7 @@ async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<Intern
   const access = ctx.androidAccess?.()
   if (!access) return errorResult('Android device service is unavailable.')
   const owner = execution.owner
-  const shot = await access.screenshot({
+  const take = () => access.screenshot({
     serial,
     sessionKey: execution.id,
     ask: ({ serial: s, sessionKey }) =>
@@ -384,10 +411,25 @@ async function deviceScreenshot(args: unknown, ctx: ToolContext): Promise<Intern
         ? ctx.askAndroidScreenshot({ serial: s, sessionKey, owner, label: `${owner.kind}:${owner.id}` })
         : Promise.resolve(false)
   })
+  let shot: Awaited<ReturnType<typeof take>>
+  try {
+    shot = await take()
+  } catch (error) {
+    // A failed capture's handling loads only when a capture fails (main's entry budget).
+    const { recoverAndroidCapture } = await import('./android-capture-advice')
+    const recovered = await recoverAndroidCapture(error, serial, take, () => access.startAdbServer())
+    if (recovered.advice !== undefined) return errorResult(recovered.advice)
+    shot = recovered.shot
+  }
   if (!shot.ok) {
+    const notAllowed = shot.code === 'android.agents.notAllowed'
+    // OXE-109: the person sees the request where it can be answered, the Android device panel, opened for them.
+    if (notAllowed) ctx.openAndroidPanel?.({ workspaceId: execution.workspaceId, serial })
     return errorResult(
-      shot.code === 'android.agents.notAllowed'
-        ? 'Agents can see is off for this device. Ask the person to enable Agents can see in the Android panel.'
+      notAllowed
+        ? (ctx.openAndroidPanel
+          ? 'Agents can see is off for this device. OXESpace opened the Android device panel for the person; ask them to turn on Agents can see there, then try again.'
+          : 'Agents can see is off for this device. Ask the person to enable Agents can see in the Android device panel.')
         : 'The person declined the Android screenshot request.'
     )
   }

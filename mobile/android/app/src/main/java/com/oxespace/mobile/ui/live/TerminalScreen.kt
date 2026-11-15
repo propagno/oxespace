@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -460,7 +462,7 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 }
             },
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
+        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it; message = null },
@@ -480,8 +482,9 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                         LineCheck.Clear -> sendLine()
                     }
                 },
-                // T18-c: Send with an empty field sends Enter alone.
-                enabled = !busy,
+                // OXE-102 CA-4: off with an empty field (the key row's Enter key covers a bare Enter); as tall as the field.
+                modifier = Modifier.fillMaxHeight(),
+                enabled = !busy && text.isNotEmpty(),
             )
         }
     }
