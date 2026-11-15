@@ -53,11 +53,11 @@ export function ModeSwitch({ mode, allowReselect, onSelect }: { mode: Navigation
       // The tab is named by the product name; its count describes it, so focus reads "OxeChat … 1 needs you". The count
       // itself is aria-hidden, so the visible text matches the name (axe label-content-name-mismatch) and it is read once.
       return <button key={item.mode} type="button" role="tab" className={cx(displayStyles.tab, styles.option)} data-state={selected ? 'active' : 'inactive'}
-        aria-selected={selected} tabIndex={selected ? 0 : -1} aria-label={item.label} data-app-mode={item.mode} aria-busy={pending === item.mode}
+        aria-selected={selected} tabIndex={selected ? 0 : -1} data-app-mode={item.mode} aria-busy={pending === item.mode}
         title={withKey(t(`nav.modeTitle.${item.mode}`), item.mode)} aria-describedby={attentionId}
         onPointerEnter={() => prefetchView(item.mode)} onFocus={() => prefetchView(item.mode)}
         onClick={() => { if (allowReselect || item.mode !== shown) onSelect(item.mode) }}>
-        <ModeIcon size={13} className={styles.modeIcon} />
+        <ModeIcon size={13} className={styles.modeIcon} aria-hidden="true" />
         <span>{item.label}</span>
         {counts && attentionId && <Attention id={attentionId} counts={counts} scope={item.mode === 'code' ? 'code' : 'thread'} />}
       </button>
