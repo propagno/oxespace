@@ -4,7 +4,7 @@ import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, Meter, cx } from '../../ui'
-import { PROVIDER_ICONS, USAGE_PROVIDERS as PROVIDERS, formatResetIn, isUsageProvider, providerName, type UsageProvider } from './UsageStatus'
+import { PROVIDER_ICONS, USAGE_PROVIDERS as PROVIDERS, formatResetIn, isUsageProvider, orderWindows, providerName, windowGroups, windowName, type UsageProvider } from './UsageStatus'
 import popover from './UsagePopover.module.css'
 import { i18n } from '../../i18n'
 
@@ -25,13 +25,14 @@ export function UsagePopover({ active }: { active: UsageProvider }): ReactElemen
   return <div className={popover.root} data-testid="usage-popover">
     {shown.map(snapshot => {
       const Icon = PROVIDER_ICONS[isUsageProvider(snapshot.provider) ? snapshot.provider : 'claude']
-      const windows = [...snapshot.windows].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
+      const windows = orderWindows(snapshot.windows)
+      const groups = windowGroups(windows)
       const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 60_000))
       return <section key={snapshot.provider} className={popover.provider} aria-label={tc('workspace.usage.provider', { name: providerName(snapshot.provider) })}>
         <header><Icon size={14} aria-hidden="true" /><strong>{providerName(snapshot.provider)}</strong>{snapshot.planLabel && <span className={popover.plan}>{snapshot.planLabel}</span>}{snapshot.provider === active && <span className={popover.current}>{tc('workspace.usage.inUse')}</span>}</header>
         {windows.map(window => {
           const reset = formatResetIn(window.resetsAtMs, now)
-          return <Meter key={window.kind} label={window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')} value={window.usedPct}
+          return <Meter key={`${window.group ?? ''}-${window.kind}`} label={windowName(window, groups)} value={window.usedPct}
             detail={reset ? tc('workspace.usage.usedReset', { pct: window.usedPct, reset }) : tc('workspace.usage.used', { pct: window.usedPct })} />
         })}
         <p className={cx(popover.age, snapshot.stale && popover.stale)}>{snapshot.stale ? tc('workspace.usage.staleMinutes', { age }) : age < 1 ? tc('workspace.usage.readNow') : tc('workspace.usage.readMinutes', { age })}</p>

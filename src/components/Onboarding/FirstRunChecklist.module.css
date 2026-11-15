@@ -2,7 +2,7 @@
   width: min(440px, 100%);
   margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   text-align: left;
@@ -10,9 +10,9 @@
 
 .title {
   margin: 0 0 var(--space-2);
-  font-size: var(--text-sm);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-semibold);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .row {
@@ -34,14 +34,14 @@
 }
 
 .headline {
-  font-size: var(--text-sm);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .detail {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
 }
 
 .actions {
@@ -64,8 +64,8 @@
 
 .progress {
   flex: 1;
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
 }
 
 .steps {
@@ -90,10 +90,10 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
 }
 
 .step[data-done] .marker {
@@ -113,23 +113,23 @@
 /* Two classes: the empty screen styles every h3 and p inside it. */
 .step .stepTitle {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .step[data-done] .stepTitle,
 .step .optional {
   font-weight: var(--weight-regular);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
 }
 
 .step .body p {
   /* The empty screen caps every paragraph's width; these span the card. */
   max-width: none;
   margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
 }
 
 .body .actions {

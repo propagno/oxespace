@@ -51,6 +51,9 @@ export const KEYBINDINGS = [
   { id: 'sidebar.toggle', chords: ['Mod+B'], scope: 'global', reservedInTerminal: true },
   { id: 'activity.open', chords: [], scope: 'global', reservedInTerminal: true },
   { id: 'approvals.queue', chords: ['Mod+Shift+A'], scope: 'global', reservedInTerminal: true },
+  // The next pane or conversation that needs the person, oldest first, in a cycle (OXE-128). No second default chord for
+  // Linux, where IBus may take Ctrl+Shift+U: the command is in the palette and can be rebound in Settings › Keyboard.
+  { id: 'attention.next', chords: ['Mod+Shift+U'], scope: 'global', reservedInTerminal: true },
   // The three modes, in the order of the switch in the title bar.
   { id: 'view.code', chords: ['Mod+1'], scope: 'global', reservedInTerminal: true },
   { id: 'view.thread', chords: ['Mod+2'], scope: 'global', reservedInTerminal: true },

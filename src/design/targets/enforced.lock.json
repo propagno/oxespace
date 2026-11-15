@@ -21,6 +21,13 @@
     "BRD-06.title.font-size",
     "BRD-06.title.font-family",
     "BRD-06.nav.height",
-    "BRD-06.option.count"
+    "BRD-06.option.count",
+    "BRD-07.bodyMedium.size",
+    "BRD-07.labelMedium.size",
+    "BRD-07.labelSmall.size",
+    "BRD-07.min-text",
+    "BRD-07.radius.source",
+    "BRD-07.titleMedium.size",
+    "BRD-07.titleMedium.weight"
   ]
 }
