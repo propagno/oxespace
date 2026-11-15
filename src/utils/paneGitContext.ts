@@ -9,6 +9,15 @@ export function gitBranchLabel(status: GitBranchStatus | null): string {
   return status.branch ?? i18n.t('paneMenu.noBranch', { ns: 'code' })
 }
 
+/**
+ * What a panel's scope badge says: the branch when git knows it, and the folder's own name when the folder has no
+ * git (no branch and no sha). Never "Branch unavailable": a folder without git is still a real place to name.
+ */
+export function scopeBadgeLabel(status: GitBranchStatus | null, folderName: string): string {
+  if (status && !status.branch && !status.shortSha && folderName) return folderName
+  return gitBranchLabel(status)
+}
+
 const key = (path: string): string => /^[a-z]:[\\/]|^\\\\/i.test(path)
   ? path.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : path.replace(/\/$/, '')
 
