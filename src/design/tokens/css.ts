@@ -7,8 +7,20 @@ import { IDENTITY, LOGO, type Mode } from './palette'
 import { colorRoles, elevations } from './semantic'
 import { BAR, CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, ROW, SPACE, STRETCH, TARGET_MIN, TEXT, WEIGHT } from './scales'
 
+/**
+ * OXE-137 (T18): the CSS carries the short canonical names of the type sizes (--fs-*), text colors (--tx-*) and borders
+ * (--bd-*). The keys of scales.ts and semantic.ts keep their long names, since the phone's Kotlin (OxeTokens.kt) reads them.
+ */
+const SHORT_NAMES: ReadonlyArray<readonly [long: string, short: string, suffixes: readonly string[]]> = [
+  ['text', 'fs', ['2xs', 'xs', 'sm', 'md', 'lg', 'xl', 'display']],
+  ['text', 'tx', ['primary', 'secondary', 'muted', 'disabled', 'on-accent', 'on-solid', 'on-identity', 'accent', 'link']],
+  ['border', 'bd', ['default', 'subtle', 'strong', 'focus']]
+]
+const CSS_NAME = new Map(SHORT_NAMES.flatMap(([long, short, suffixes]) => suffixes.map(suffix => [`${long}-${suffix}`, `${short}-${suffix}`] as const)))
+const cssName = (name: string): string => CSS_NAME.get(name) ?? name
+
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
-  `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${name}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
+  `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${cssName(name)}: ${value};`),...extra.map(line => `  ${line}`)].join('\n')}\n}`
 
 function modeTokens(mode: Mode): Record<string, string> {
   return { ...colorRoles(mode), ...elevations(mode) }
