@@ -44,6 +44,8 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
     await row.waitFor({ timeout: 10_000 })
     // DIAG (#854, BRD-01.row-two-line.height): the row's box and each child's, to read a height over --row-2.
     console.log(`[BRAND] two-line row: ${await row.evaluate(node => [node, ...node.children].map(child => `${child === node ? 'row' : (child.getAttribute('class') ?? child.tagName)}=${Math.round(child.getBoundingClientRect().height * 10) / 10}`).join(' '))}`)
+    console.log(`[BRAND] two-line title: ${await row.evaluate(node => { const title = node.children[1] as HTMLElement | undefined; if (!title) return 'none'; const cs = getComputedStyle(title); return `display=${cs.display} lh=${cs.lineHeight} fs=${cs.fontSize} ws=${cs.whiteSpace} :: ` + [...title.childNodes].map(child => child.nodeType === 3 ? `text(${(child.textContent ?? '').length})` : (() => { const el = child as HTMLElement; const c = getComputedStyle(el); return `${el.tagName.toLowerCase()}.${el.getAttribute('class') ?? ''}[${c.display},${c.position},h=${Math.round(el.getBoundingClientRect().height * 10) / 10}]` })()).join(' ') })}`)
+    console.log(`[BRAND] short OxeCode buttons: ${await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('aside [data-ui=button], [data-ui=workspace-bar] [data-ui=button], [data-ui=panel-stack] [data-ui=button]')].filter(el => el.getBoundingClientRect().height < 27.5).map(el => `${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 30)}|${el.getAttribute('data-size')}|${el.getAttribute('class')}|h=${Math.round(el.getBoundingClientRect().height * 10) / 10}`).join(' ; ') || 'none')}`)
   } catch (error) {
     console.log(`[BRAND] could not seed a terminal that needs a decision: ${(error as Error).message.split('\n')[0]}`)
   }
@@ -203,6 +205,8 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           }
           await openSettings(page)
           await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
+          // General loads lazily: measure once its page column is there (a miss reports "no element", as before).
+          await page.locator('[data-ui=settings-page]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] the General page did not render'))
           await measureScene(page, 'settings-general', density, theme)
         } finally {
           await app.close()
