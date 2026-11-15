@@ -13,6 +13,7 @@ import { i18n } from '../../i18n'
 import { RichText } from '../../i18n/RichText'
 import { Button, ConfirmDialog, EmptyState, ErrorState, TextField } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
+import { isSamePath } from '../../utils/workspaceScope'
 
 /** The code catalog in the language on screen when it is called. */
 const tc = i18n.getFixedT(null, 'code')
@@ -128,7 +129,8 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
 
   const activeWorktree = useMemo(() => {
     if (!activeCurrentPath) return null
-    return worktrees.find((w) => w.path === activeCurrentPath) ?? null
+    // The pane's saved root and git's list spell one folder differently (C:\repo vs C:/repo): same path, same row (OXE-273).
+    return worktrees.find((w) => isSamePath(w.path, activeCurrentPath)) ?? null
   }, [worktrees, activeCurrentPath])
 
   const paneLabel = activePane
@@ -323,7 +325,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
           <EmptyState icon={<FolderTree size={20} />} title={t('worktree.none')}>{t('worktree.noneHint')}</EmptyState>
         ) : (
           worktrees.map((wt) => {
-            const isCurrent = wt.path === activeCurrentPath
+            const isCurrent = activeCurrentPath !== null && isSamePath(wt.path, activeCurrentPath)
             const itemTitle = !activePane
               ? t('worktree.pickPaneTitle')
               : isCurrent
