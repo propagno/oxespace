@@ -3,13 +3,13 @@ package com.oxespace.mobile.ui.live
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.oxespace.mobile.R
 import com.oxespace.mobile.agents.AgentState
 import com.oxespace.mobile.ui.theme.Oxe
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import java.util.TimeZone
 
 /** Words the desktop sends as data, in the phone's language; a value a newer desktop adds shows as it came. */
@@ -108,7 +108,7 @@ fun shortAgeLabel(atMs: Long): String {
     if (minutes < 60) return "$minutes min"
     val zone = TimeZone.getDefault()
     val pattern = if (dayOf(now, zone) == dayOf(atMs, zone)) "HH:mm" else "dd/MM"
-    return SimpleDateFormat(pattern, Locale.getDefault()).apply { timeZone = zone }.format(Date(atMs))
+    return SimpleDateFormat(pattern, LocalConfiguration.current.locales[0]).apply { timeZone = zone }.format(Date(atMs))
 }
 
 private fun dayOf(ms: Long, zone: TimeZone): Long = (ms + zone.getOffset(ms)) / 86_400_000L
