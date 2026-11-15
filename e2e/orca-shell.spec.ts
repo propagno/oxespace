@@ -39,7 +39,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     await expect(page.getByRole('button', { name: 'Files & commands' })).toHaveCount(1)
     await expect(page.getByTestId('btn-open-tools')).toBeVisible()
     await expect(page.locator('.app-statusbar')).toBeVisible()
-    const terminalToggle = page.locator('.ws-group-expand-btn')
+    const terminalToggle = page.getByRole('button', { name: /terminals? in / })
     await expect(terminalToggle).toHaveCount(1)
     await expect(terminalToggle).toHaveAttribute('aria-expanded', 'true')
     const terminalRows = page.getByTestId('pane-session-row')
@@ -61,7 +61,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
 
     // Move focus out of xterm first: Ctrl+E is a shell line-editing key while
     // the terminal owns focus, and an application shortcut elsewhere.
-    await page.locator('.sidebar-section-header').last().click()
+    await page.locator('[data-ui="sidebar-section"]').last().click()
     await page.keyboard.press('Control+e')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible()
     await page.getByTestId('workspace-editor-panel').getByRole('button', { name: 'Expand panel' }).click()
@@ -119,7 +119,7 @@ test('restores a collapsed workspace terminal list after restart', async () => {
     await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
     await page.getByRole('radio', { name: /1 pane/ }).check()
     await page.getByTestId('wizard-launch-btn').click()
-    const toggle = page.locator('.ws-group-expand-btn')
+    const toggle = page.getByRole('button', { name: /terminals? in / })
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
@@ -138,10 +138,10 @@ test('restores a collapsed workspace terminal list after restart', async () => {
   try {
     const page = await resumedApp.firstWindow()
     await expect(page.getByTestId('sidebar-workspace-item')).toHaveCount(1)
-    await expect(page.locator('.ws-group-expand-btn')).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('button', { name: /terminals? in / })).toHaveAttribute('aria-expanded', 'false')
     await expect(page.getByTestId('pane-session-row')).toHaveCount(0)
-    await page.locator('.ws-group-expand-btn').click()
-    await expect(page.locator('.ws-group-expand-btn')).toHaveAttribute('aria-expanded', 'true')
+    await page.getByRole('button', { name: /terminals? in / }).click()
+    await expect(page.getByRole('button', { name: /terminals? in / })).toHaveAttribute('aria-expanded', 'true')
     await expect(page.getByTestId('pane-session-row')).toHaveCount(1)
   } finally {
     await resumedApp.close()

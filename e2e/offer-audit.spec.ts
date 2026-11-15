@@ -439,14 +439,14 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       const row = page.getByTestId('sidebar-workspace-item').first()
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       const menu = page.locator('.ws-group-context-menu')
       await expect(menu.getByRole('menuitem', { name: 'Move up' })).toBeDisabled()
       await expect(menu.getByRole('menuitem', { name: 'Move down' })).toBeDisabled()
       await menu.getByRole('menuitem', { name: 'Workspace settings' }).click()
       await dialog('Settings')(page)
       await dismiss(page)
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       await menu.getByRole('menuitem', { name: 'Rename' }).click()
       await expect(page.getByRole('textbox', { name: /Rename workspace/ })).toBeFocused()
       await page.keyboard.press('Escape')
