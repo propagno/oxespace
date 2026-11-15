@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Settings/ExternalEditorSetting.tsx src/components/Settings/SeenSitesSetting.tsx src/components/Settings/SettingsCenter.tsx src/components/Settings/SettingsModal.tsx src/ui/Settings.tsx --maxWorkers=2
