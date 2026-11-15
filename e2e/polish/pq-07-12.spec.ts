@@ -3,7 +3,7 @@
 // anything is saved. Written by the planner; the executor must not edit it. Red while Color + Favorite float ~10 px
 // above the Group input.
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 // ---- catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pqReadFile } from 'node:fs'
 import { join as pqJoin } from 'node:path'
@@ -75,7 +75,7 @@ test('PQ-07·12 in the app: the Color + Favorite pair lines up with the Group in
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await openOxeQuery(page)
     await page.getByRole('button', { name: cat('connections.new') }).first().click()

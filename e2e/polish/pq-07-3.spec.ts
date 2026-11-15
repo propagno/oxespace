@@ -2,7 +2,7 @@
 // with real services (OXESPACE_E2E_MOCK_NATIVE=0) and a real PostgreSQL container. Written by the planner; the executor
 // must not edit it. Red until the last column stops taking the pane's spare width and numeric headers align right.
 import { expect, test, type Page } from '@playwright/test'
-import { launchApp, openDemoWorkspace, resizeWindow } from '../helpers/launch'
+import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 // ---- catalog strings (inlined in each frozen file so every task's PR stands alone) ----
 import { readFileSync as pqReadFile } from 'node:fs'
 import { join as pqJoin } from 'node:path'
@@ -78,7 +78,7 @@ test('PQ-07·3 in the app: after SELECT id, name, qty the qty header sits within
   await startPostgres(PG, 'CREATE TABLE items (id int PRIMARY KEY, name text, qty int); INSERT INTO items VALUES (1, \'pen\', 5), (2, \'cup\', 9);')
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', realClock: true, env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
-    await resizeWindow(app, 1440, 900)
+    await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
     await connectContainer(page, PG)
     await page.locator('.oq-editor .monaco-editor').first().click()
