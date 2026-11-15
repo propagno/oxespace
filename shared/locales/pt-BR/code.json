@@ -1215,6 +1215,8 @@
       "weekShort": "sem",
       "session": "Janela de 5 horas",
       "weekly": "Janela semanal",
+      "groupGemini": "Gemini",
+      "groupClaudeGpt": "Claude e GPT",
       "line": "{{name}}: {{pct}}% usado",
       "lineReset": "{{name}}: {{pct}}% usado, renova em {{reset}}",
       "staleSeconds": "Última leitura conhecida, de {{age}} s atrás (o provedor não está respondendo agora)",

@@ -31,21 +31,48 @@ export function formatResetIn(resetsAtMs: number | null, now: number): string | 
   return tc('workspace.usage.days', { days: Math.floor(hours / 24), hours: hours % 24 })
 }
 
-/** The short reading for the bar ("5h 42% · wk 18%") and the detail for its tooltip. */
+/** The name of a group of models whose quota counts apart (Antigravity), or null for a single quota. */
+export function groupName(group: string | undefined): string | null {
+  if (!group) return null
+  return group === 'gemini' ? tc('workspace.usage.groupGemini') : group === 'claude-gpt' ? tc('workspace.usage.groupClaudeGpt') : group
+}
+
+/** "Janela semanal", or "Janela semanal · Gemini" when the provider splits its quota by group of models. */
+export function windowName(window: CreditsWindow): string {
+  const base = window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')
+  const group = groupName(window.group)
+  return group ? `${base} · ${group}` : base
+}
+
+/** The groups in the provider's order (the first is the one the bar shows), the five-hour window before the weekly. */
+export function orderWindows(windows: CreditsWindow[]): CreditsWindow[] {
+  const groups = [...new Set(windows.map(window => window.group ?? ''))]
+  return [...windows].sort((a, b) => groups.indexOf(a.group ?? '') - groups.indexOf(b.group ?? '') || (a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1))
+}
+
+/**
+ * The short reading for the bar ("5h 42% · wk 18%") and the detail for its tooltip. When the quota is split by group
+ * of models (OXE-174), the bar reads the display window's group only, named ("Gemini: 5h 9% · wk 3%"); the tooltip
+ * lists every group.
+ */
 export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short: string; detail: string; peak: number } {
   const label = (window: CreditsWindow) => window.kind === 'session' ? tc('workspace.usage.sessionShort') : tc('workspace.usage.weekShort')
-  const windows = [...(snapshot.windows ?? [])].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
+  const windows = orderWindows(snapshot.windows ?? [])
+  const barGroup = snapshot.display?.group ?? windows[0]?.group
+  const bar = barGroup === undefined ? windows : windows.filter(window => window.group === barGroup)
   const name = `${providerName(snapshot.provider)}${snapshot.planLabel ? ` (${snapshot.planLabel})` : ''}`
   const detail = windows.map(window => {
     const reset = formatResetIn(window.resetsAtMs, now)
-    const name = window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')
+    const name = windowName(window)
     return reset ? tc('workspace.usage.lineReset', { name, pct: window.usedPct, reset }) : tc('workspace.usage.line', { name, pct: window.usedPct })
   })
   const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 1000))
+  const group = groupName(barGroup)
+  const short = bar.map(window => `${label(window)} ${window.usedPct}%`).join(' · ')
   return {
-    short: windows.map(window => `${label(window)} ${window.usedPct}%`).join(' · '),
+    short: group ? `${group}: ${short}` : short,
     detail: [name, ...detail, snapshot.stale ? tc('workspace.usage.staleSeconds', { age }) : tc('workspace.usage.readSeconds', { age })].join('\n'),
-    peak: Math.max(0, ...windows.map(window => window.usedPct))
+    peak: Math.max(0, ...bar.map(window => window.usedPct))
   }
 }
 

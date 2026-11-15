@@ -62,27 +62,50 @@ export function antigravityUserAgent(version: string, platform: NodeJS.Platform 
 }
 
 /**
- * The summary's groups each hold a weekly and a five-hour bucket ("Claude and GPT models", and on some plans one for
- * Gemini). One reading per kind is shown: the most used of the groups, which is the one that stops the person first.
+ * The summary's groups each hold a weekly and a five-hour bucket ("Gemini models", "Claude and GPT models"). Each group
+ * counts apart, so every window keeps its group (OXE-174): showing the most used group as "Antigravity" read the
+ * Claude and GPT quota to a person working with Gemini. Gemini, Antigravity's own models, comes first, then the rest
+ * in the service's order. Window names are read loosely ("weekly", "WEEKLY", "5h", "five_hour"); `unknown` collects
+ * the names that were still not understood, for the log.
  */
-export function antigravityWindows(data: unknown): CreditsWindow[] {
+export function antigravityWindows(data: unknown, unknown: Set<string> = new Set()): CreditsWindow[] {
   const groups = asRecord(data)?.groups
-  const worst = new Map<CreditsWindow['kind'], CreditsWindow>()
-  for (const group of Array.isArray(groups) ? groups : []) {
-    const buckets = asRecord(group)?.buckets
-    for (const raw of Array.isArray(buckets) ? buckets : []) {
-      const bucket = asRecord(raw)
-      const kind = bucket?.window === 'weekly' ? 'weekly' : bucket?.window === '5h' ? 'session' : null
+  const read: Array<{ group: string; windows: CreditsWindow[] }> = []
+  for (const raw of Array.isArray(groups) ? groups : []) {
+    const record = asRecord(raw)
+    const group = antigravityGroup(typeof record?.displayName === 'string' ? record.displayName : '')
+    const windows = new Map<CreditsWindow['kind'], CreditsWindow>()
+    for (const value of Array.isArray(record?.buckets) ? record.buckets : []) {
+      const bucket = asRecord(value)
+      const name = typeof bucket?.window === 'string' ? bucket.window : ''
+      const kind = windowKind(name)
       const remaining = typeof bucket?.remainingFraction === 'number' ? bucket.remainingFraction : Number.NaN
-      if (!kind || !Number.isFinite(remaining)) continue
+      if (!kind) { if (name) unknown.add(name.slice(0, 40)); continue }
+      if (!Number.isFinite(remaining)) continue
       const usedPct = Math.min(100, Math.max(0, Math.round((1 - remaining) * 100)))
       const reset = typeof bucket?.resetTime === 'string' ? Date.parse(bucket.resetTime) : Number.NaN
-      const window: CreditsWindow = { kind, usedPct, resetsAtMs: Number.isFinite(reset) ? reset : null }
-      const known = worst.get(kind)
-      if (!known || window.usedPct > known.usedPct) worst.set(kind, window)
+      const known = windows.get(kind)
+      // Two buckets of one kind in one group: the more used one, which stops the person first.
+      if (!known || usedPct > known.usedPct) windows.set(kind, { kind, usedPct, resetsAtMs: Number.isFinite(reset) ? reset : null, group })
     }
+    if (windows.size) read.push({ group, windows: (['session', 'weekly'] as const).flatMap(kind => windows.get(kind) ?? []) })
   }
-  return (['session', 'weekly'] as const).flatMap(kind => worst.get(kind) ?? [])
+  const gemini = read.filter(entry => entry.group === 'gemini')
+  return [...gemini, ...read.filter(entry => entry.group !== 'gemini')].flatMap(entry => entry.windows)
+}
+
+/** 'gemini' and 'claude-gpt' for the groups the app names; any other group keeps the service's own words. */
+export function antigravityGroup(displayName: string): string {
+  if (/gemini/i.test(displayName)) return 'gemini'
+  if (/claude|gpt/i.test(displayName)) return 'claude-gpt'
+  return displayName.trim().slice(0, 40) || 'other'
+}
+
+function windowKind(name: string): CreditsWindow['kind'] | null {
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (key === 'weekly' || key === 'week' || key === '7d') return 'weekly'
+  if (key === '5h' || key === 'fivehour' || key === '5hour' || key === 'fivehours' || key === '5hours') return 'session'
+  return null
 }
 
 /** "Google AI Ultra": the paid plan when there is one, else the current tier's name. */
@@ -104,6 +127,8 @@ export interface AntigravityCreditsDeps {
 
 export class AntigravityCreditsService implements AgentCreditsProvider {
   readonly provider = 'antigravity' as const
+  /** Window names already logged as not read, so each is logged once. */
+  private readonly unknownWindows = new Set<string>()
   private cache: { value: AgentCreditsSnapshot; at: number } | null = null
   private signIn: AntigravitySignIn | null = null
   private plan: { label: string | null; token: string } | null = null
@@ -179,8 +204,17 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
       const plan = await this.post(ANTIGRAVITY_PLAN_URL, { metadata: { ideType: 'ANTIGRAVITY', platform: 'PLATFORM_UNSPECIFIED', pluginType: 'GEMINI' } }, headers).catch(() => null)
       this.plan = { label: plan?.ok ? antigravityPlan(plan.data) : null, token: signIn.accessToken }
     }
-    const windows = antigravityWindows(quota.data)
-    const display = windows.find(window => window.kind === 'weekly') ?? windows[0] ?? null
+    const unknown = new Set<string>()
+    const windows = antigravityWindows(quota.data, unknown)
+    for (const name of unknown) {
+      if (this.unknownWindows.has(name)) continue
+      this.unknownWindows.add(name)
+      // The name only: what the service calls a window it did not understand, never the token or the account.
+      console.warn(`[agent-credits] antigravity: a quota window named "${name}" was not read`)
+    }
+    // The bar shows the first group (Gemini when the plan has it): the weekly window, else the five-hour one.
+    const first = windows[0]?.group
+    const display = windows.find(window => window.group === first && window.kind === 'weekly') ?? windows[0] ?? null
     return { provider: this.provider, available: display !== null, installed: true, planLabel: this.plan.label, display, windows, error: null, source: 'oauth', observedAtMs: this.now() }
   }
 

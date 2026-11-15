@@ -7,6 +7,7 @@ import type { CopilotCredits } from '../../../shared/types/copilot'
 import { Badge, Button, Dialog, Meter } from '../../ui'
 import styles from './UsageModal.module.css'
 import { formatDateTime } from '../../utils/formatTime'
+import { groupName, orderWindows } from '../Workspace/UsageStatus'
 
 interface UsageModalProps {
   open: boolean
@@ -26,7 +27,7 @@ function fmtReset(ms: number | null): string {
 function WindowRow({ window }: { window: CreditsWindow }): ReactElement {
   const { t } = useTranslation()
   return <div className={styles.window} data-testid="usage-window">
-    <Meter label={window.kind === 'session' ? t('usage.session') : t('usage.week')} value={Math.round(window.usedPct)} detail={t('usage.used', { percent: Math.round(window.usedPct) })} />
+    <Meter label={[window.kind === 'session' ? t('usage.session') : t('usage.week'), groupName(window.group)].filter(Boolean).join(' · ')} value={Math.round(window.usedPct)} detail={t('usage.used', { percent: Math.round(window.usedPct) })} />
     <span className={styles.note} title={window.resetsAtMs ? formatDateTime(window.resetsAtMs) : undefined}>{fmtReset(window.resetsAtMs)}</span>
   </div>
 }
@@ -50,7 +51,7 @@ function ProviderCard({ title, snapshot }: { title: string; snapshot: AgentCredi
     {!snapshot || !snapshot.installed ? <p className={styles.note}>{t('usage.notDetected')}</p>
       : snapshot.error && !snapshot.stale ? <p className={styles.error}>{snapshot.error}</p>
       : snapshot.windows.length === 0 ? <p className={styles.note}>{t('usage.noQuota')}</p>
-      : snapshot.windows.map(window => <WindowRow key={window.kind} window={window} />)}
+      : orderWindows(snapshot.windows).map(window => <WindowRow key={`${window.group ?? ''}-${window.kind}`} window={window} />)}
   </Card>
 }
 
