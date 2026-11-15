@@ -63,7 +63,8 @@ test('Changes panel lists branch changes, switches base and shows a side-by-side
     // The comment box is an overlay widget inside Monaco, located structurally.
     await panel.locator('.oxe-line-composer textarea').fill('Please rename this value')
     await panel.locator('.oxe-line-composer button.is-primary').click()
-    await expect(panel.getByRole('group', { name: 'Review comments' })).toContainText('1 comment')
+    // The send button says the count (OXE-129); the group no longer repeats it beside the button.
+    await expect(panel.getByRole('button', { name: 'Send 1 comment to the agent' })).toBeVisible()
     await expect(panel.locator('.oxe-line-comment')).toContainText('Please rename this value')
     await page.screenshot({ path: test.info().outputPath('changes-comment.png') })
     await panel.locator('.oxe-line-comment-remove').click()

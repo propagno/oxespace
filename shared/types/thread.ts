@@ -476,6 +476,12 @@ export interface ConversationThread {
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
+  /** OXE-170: on a parallel chat, the id of its session's main chat; absent on a main chat (every older conversation). The sections list reads it too (a child follows its parent's section). */
+  parentThreadId?: string
+  /** OXE-170: a parallel chat's place in its session, in the order of creation. */
+  childOrder?: number
+  /** OXE-170: on a main chat, the chat of its session the window shows; absent means the main chat. */
+  openChatId?: string
   generation?: number
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
@@ -723,6 +729,14 @@ export interface ThreadApi {
   sections?(workspaceId: string): Promise<import('./thread-sections').ThreadSections>
   /** F13: replaces the whole state; returns what was stored, or a C3 refusal that stored nothing. */
   saveSections?(workspaceId: string, state: import('./thread-sections').ThreadSections): Promise<import('./thread-sections').ThreadSectionsSaveResult>
+  /** OXE-170: every session (a main chat and its parallel chats), archived ones too. The person's window only. */
+  sessions?(): Promise<import('./thread-session').SessionView[]>
+  /** OXE-170: one session, by its main chat's id. */
+  session?(sessionId: string): Promise<import('./thread-session').SessionView>
+  /** OXE-170: a parallel chat in the session's folder or worktree, with any installed agent; the checkout never changes. */
+  createChat?(sessionId: string, input: { provider: ThreadProvider }): Promise<ThreadSnapshot>
+  /** OXE-170: records the chat the window shows; returns the session with it open. */
+  openChat?(sessionId: string, chatId: string): Promise<import('./thread-session').SessionView>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>

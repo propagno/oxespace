@@ -31,21 +31,62 @@ export function formatResetIn(resetsAtMs: number | null, now: number): string | 
   return tc('workspace.usage.days', { days: Math.floor(hours / 24), hours: hours % 24 })
 }
 
-/** The short reading for the bar ("5h 42% · wk 18%") and the detail for its tooltip. */
+/** The groups of a reading, in order of first appearance. */
+export function windowGroups(windows: CreditsWindow[]): string[] {
+  return [...new Set(windows.map(window => window.group).filter((group): group is string => Boolean(group)))]
+}
+
+/**
+ * The name of a group of models whose quota counts apart (Antigravity), or null for a single quota. A group the app
+ * does not know is "Outros modelos", numbered when the reading has more than one ("Outros modelos 2"): never the
+ * service's own words, which are not the app's (brand review of #846).
+ */
+export function groupName(group: string | undefined, groups: string[] = group ? [group] : []): string | null {
+  if (!group) return null
+  if (group === 'gemini') return tc('workspace.usage.groupGemini')
+  if (group === 'claude-gpt') return tc('workspace.usage.groupClaudeGpt')
+  const others = groups.filter(other => other !== 'gemini' && other !== 'claude-gpt')
+  const n = others.indexOf(group) + 1
+  return n > 1 ? tc('workspace.usage.groupOtherN', { n }) : tc('workspace.usage.groupOther')
+}
+
+/** "Janela semanal", or "Janela semanal · Gemini" when the provider splits its quota by group of models. */
+export function windowName(window: CreditsWindow, groups?: string[]): string {
+  const base = window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')
+  const group = groupName(window.group, groups)
+  return group ? `${base} · ${group}` : base
+}
+
+/** The groups in the provider's order (the first is the one the bar shows), the five-hour window before the weekly. */
+export function orderWindows(windows: CreditsWindow[]): CreditsWindow[] {
+  const groups = [...new Set(windows.map(window => window.group ?? ''))]
+  return [...windows].sort((a, b) => groups.indexOf(a.group ?? '') - groups.indexOf(b.group ?? '') || (a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1))
+}
+
+/**
+ * The short reading for the bar ("5h 42% · wk 18%") and the detail for its tooltip. When the quota is split by group
+ * of models (OXE-174), the bar reads the display window's group only, named ("Gemini: 5h 9% · wk 3%"); the tooltip
+ * lists every group.
+ */
 export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short: string; detail: string; peak: number } {
   const label = (window: CreditsWindow) => window.kind === 'session' ? tc('workspace.usage.sessionShort') : tc('workspace.usage.weekShort')
-  const windows = [...(snapshot.windows ?? [])].sort((a, b) => a.kind === b.kind ? 0 : a.kind === 'session' ? -1 : 1)
+  const windows = orderWindows(snapshot.windows ?? [])
+  const barGroup = snapshot.display?.group ?? windows[0]?.group
+  const bar = barGroup === undefined ? windows : windows.filter(window => window.group === barGroup)
   const name = `${providerName(snapshot.provider)}${snapshot.planLabel ? ` (${snapshot.planLabel})` : ''}`
+  const groups = windowGroups(windows)
   const detail = windows.map(window => {
     const reset = formatResetIn(window.resetsAtMs, now)
-    const name = window.kind === 'session' ? tc('workspace.usage.session') : tc('workspace.usage.weekly')
+    const name = windowName(window, groups)
     return reset ? tc('workspace.usage.lineReset', { name, pct: window.usedPct, reset }) : tc('workspace.usage.line', { name, pct: window.usedPct })
   })
   const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 1000))
+  const group = groupName(barGroup, groups)
+  const short = bar.map(window => `${label(window)} ${window.usedPct}%`).join(' · ')
   return {
-    short: windows.map(window => `${label(window)} ${window.usedPct}%`).join(' · '),
+    short: group ? `${group}: ${short}` : short,
     detail: [name, ...detail, snapshot.stale ? tc('workspace.usage.staleSeconds', { age }) : tc('workspace.usage.readSeconds', { age })].join('\n'),
-    peak: Math.max(0, ...windows.map(window => window.usedPct))
+    peak: Math.max(0, ...bar.map(window => window.usedPct))
   }
 }
 

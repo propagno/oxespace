@@ -14,7 +14,7 @@ import { connection, installFakeOxeQuery, type FakeOxeQuery } from './helpers/ox
  * OXE-160: the Import, "Server of <db>" and New database dialogs draw on the same scale as the other OxeQuery dialogs.
  * jsdom has no layout, so the test renders each dialog and runs the stylesheets that reach a dialog (OxeQuery.css, the
  * CSS Modules of src/ui and the module the server panel uses) against the rendered nodes: every text in the dialog body
- * takes its size from a --text-2xs/xs/sm token (none falls through to the page's 16 px, none is a literal), every label
+ * takes its size from a --fs-2xs/xs/sm token (none falls through to the page's 16 px, none is a literal), every label
  * of a field sits above it, every field with a placeholder fills its column (a field sized by the browser cut "first
  * free port" to "first free p"), and no matched rule paints a literal colour.
  */
@@ -81,14 +81,14 @@ function matched(node: Element): Rule[] {
 const declared = (node: Element, names: string[]): Array<{ name: string; value: string; rule: Rule }> =>
   matched(node).flatMap(rule => rule.declarations.filter(([name]) => names.includes(name)).map(([name, value]) => ({ name, value, rule })))
 
-const TYPE_TOKEN = /^var\(--text-(2xs|xs|sm)\)$/
+const TYPE_TOKEN = /^var\(--fs-(2xs|xs|sm)\)$/
 const describeNode = (node: Element): string => `<${node.tagName.toLowerCase()}${node.className && typeof node.className === 'string' ? ` class="${node.className}"` : ''}> "${(node.textContent || (node as HTMLInputElement).placeholder || '').trim().slice(0, 40)}"`
 
 /** The size a node's text takes: the nearest font size a matched rule sets on it or an ancestor in the dialog. */
 function fontSize(node: Element, dialog: Element): string {
   for (let current: Element | null = node; current && current !== dialog.parentElement; current = current.parentElement) {
     const sizes = declared(current, ['font-size', 'font'])
-      .map(({ name, value }) => name === 'font' ? value.match(/var\(--text-[\w-]+\)|\b[\d.]+(px|rem|em|pt|%)/)?.[0] ?? '' : value)
+      .map(({ name, value }) => name === 'font' ? value.match(/var\(--fs-[\w-]+\)|\b[\d.]+(px|rem|em|pt|%)/)?.[0] ?? '' : value)
       .filter(value => value && value !== 'inherit')
     const literal = sizes.find(value => !TYPE_TOKEN.test(value))
     if (literal) return literal

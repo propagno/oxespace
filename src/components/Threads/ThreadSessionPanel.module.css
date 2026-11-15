@@ -5,41 +5,41 @@
 .sections { display: flex; flex-direction: column; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
 .section { min-width: 0; border-radius: var(--radius-lg); }
 .section[data-dragging='true'] { opacity: 0.5; }
-.section[data-drop='before'] { box-shadow: 0 -3px 0 var(--border-focus); }
-.section[data-drop='after'] { box-shadow: 0 3px 0 var(--border-focus); }
+.section[data-drop='before'] { box-shadow: 0 -3px 0 var(--bd-focus); }
+.section[data-drop='after'] { box-shadow: 0 3px 0 var(--bd-focus); }
 
-.grip { display: inline-flex; align-items: center; justify-content: center; width: var(--control-sm); height: var(--control-sm); color: var(--text-muted); cursor: grab; touch-action: none; user-select: none; border-radius: var(--radius-sm); }
-.grip:hover { color: var(--text-primary); background: var(--surface-sunken); }
+.grip { display: inline-flex; align-items: center; justify-content: center; width: var(--control-sm); height: var(--control-sm); color: var(--tx-muted); cursor: grab; touch-action: none; user-select: none; border-radius: var(--radius-sm); }
+.grip:hover { color: var(--tx-primary); background: var(--surface-sunken); }
 .section .grip { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 .section:is(:hover, :focus-within) .grip, .section[data-dragging='true'] .grip { opacity: 1; }
 .section[data-dragging='true'] .grip { cursor: grabbing; }
 
-.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--text-sm); }
-.facts dt { color: var(--text-muted); font-size: var(--text-xs); }
-.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); }
-.facts code { font-family: var(--font-mono); font-size: var(--text-xs); }
-.path { font-family: var(--font-mono); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.muted { color: var(--text-muted); }
+.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--fs-sm); }
+.facts dt { color: var(--tx-muted); font-size: var(--fs-xs); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--tx-primary); }
+.facts code { font-family: var(--font-mono); font-size: var(--fs-xs); }
+.path { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--tx-muted); }
 
-.table { width: 100%; margin-top: var(--space-2); border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
-.table th { padding: var(--space-1) 0; font-weight: var(--weight-regular); text-align: left; color: var(--text-secondary); }
-.table td { width: 1%; padding: var(--space-1) 0 var(--space-1) var(--space-4); text-align: right; color: var(--text-primary); white-space: nowrap; }
-.table td:last-child { min-width: 4.5em; color: var(--text-muted); font-size: var(--text-xs); }
-.table tr + tr th, .table tr + tr td { border-top: 1px solid var(--border-subtle); }
-.table tr[data-kind] th, .table tr[data-kind] td { color: var(--text-muted); }
+.table { width: 100%; margin-top: var(--space-2); border-collapse: collapse; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.table th { padding: var(--space-1) 0; font-weight: var(--weight-regular); text-align: left; color: var(--tx-secondary); }
+.table td { width: 1%; padding: var(--space-1) 0 var(--space-1) var(--space-4); text-align: right; color: var(--tx-primary); white-space: nowrap; }
+.table td:last-child { min-width: 4.5em; color: var(--tx-muted); font-size: var(--fs-xs); }
+.table tr + tr th, .table tr + tr td { border-top: 1px solid var(--bd-subtle); }
+.table tr[data-kind] th, .table tr[data-kind] td { color: var(--tx-muted); }
 
-.subheading { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--text-secondary); }
+.subheading { margin: var(--space-3) 0 var(--space-1); font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-secondary); }
 .subheading:first-child { margin-top: 0; }
-.list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.list { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
 .list li { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
-.count { flex: none; color: var(--text-secondary); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-primary); }
+.count { flex: none; color: var(--tx-secondary); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .failed { color: var(--intent-danger-fg); }
 .added { color: var(--intent-success-fg); }
 .removed { color: var(--intent-danger-fg); }
-.note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--text-secondary); }
-.notes { display: grid; gap: var(--space-1); margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
-.notes .note { margin: 0; color: var(--text-muted); }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--text-xs); }
+.note { margin: var(--space-2) 0 0; font-size: var(--fs-xs); color: var(--tx-secondary); }
+.notes { display: grid; gap: var(--space-1); margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--bd-subtle); }
+.notes .note { margin: 0; color: var(--tx-muted); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--fs-xs); }
 .worktreeNotices { margin-top: var(--space-1); }
 .worktreeNotices ul { margin: 0; padding-left: var(--space-3); }
