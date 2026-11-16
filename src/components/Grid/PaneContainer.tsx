@@ -1,5 +1,5 @@
-import { CircleHelp, Eraser, Info, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { ChevronDown, ChevronRight, CircleHelp, History, Info, Keyboard, LayoutGrid, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -67,6 +67,22 @@ function statusClass(status: WorkspacePane['status']): string {
   if (status === 'running') return 'running'
   if (status === 'exited') return 'exited'
   return ''
+}
+
+/**
+ * A named group of the ⋯ menu (BRD-16): its trigger is one item; the group opens under it as its own role=menu, so the
+ * menu keeps at most 8 items of its own. Never a "More" bucket: each group is named for what it holds.
+ */
+function PaneSubmenu({ id, label, icon, open, onToggle, children }: { id: string; label: string; icon: ReactNode; open: boolean; onToggle: (id: string) => void; children: ReactNode }): ReactElement {
+  const listId = useId()
+  return <>
+    <Button variant="ghost" role="menuitem" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? listId : undefined} className={paneMenu.item} data-testid={`pane-menu-group-${id}`}
+      onClick={event => { event.stopPropagation(); onToggle(id) }}
+      onKeyDown={event => { if ((event.key === 'ArrowRight' && !open) || (event.key === 'ArrowLeft' && open)) { event.preventDefault(); onToggle(id) } }}>
+      {icon}{label}{open ? <ChevronDown size={14} className={paneMenu.chevron} aria-hidden="true" /> : <ChevronRight size={14} className={paneMenu.chevron} aria-hidden="true" />}
+    </Button>
+    {open ? <div id={listId} role="menu" aria-label={label} className={paneMenu.submenu}>{children}</div> : null}
+  </>
 }
 
 export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true, isActive, isMaximized, onActivate, onArrange, onClose, onSplitHorizontal, onSplitVertical, onToggleMaximize, pane, workspace }: PaneContainerProps): ReactElement {
@@ -246,6 +262,12 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
     action()
   }
 
+  // BRD-16: one named group open at a time; the menu opens with all of them closed.
+  const [submenu, setSubmenu] = useState<string | null>(null)
+  useEffect(() => { if (!menuOpen) setSubmenu(null) }, [menuOpen])
+  const toggleSubmenu = (id: string): void => setSubmenu(current => current === id ? null : id)
+  const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
+
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
       <PaneHeader
@@ -358,97 +380,33 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             </button>
             {menuOpen ? (
               <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right ?? 'auto', left: menuPlacement.left ?? 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
-                {isTerminalPane ? (
-                  <>
-                    <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</button>
-                    <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</Button>
-                    <div className="pane-actions-popover-sep" aria-hidden="true" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="pane-actions-popover-item"
-                      disabled={!terminalCanMutate}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        runMenuAction(() => {
-                          window.dispatchEvent(new CustomEvent('oxe:terminal-clear', { detail: { paneId: pane.id } }))
-                        })
-                      }}
-                    >
-                      <Eraser size={14} aria-hidden="true" />
-                      {tc('paneMenu.clear')}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="pane-actions-popover-item"
-                      disabled={!terminalCanRestart}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        runMenuAction(() => {
-                          window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } }))
-                        })
-                      }}
-                    >
-                      <RotateCcw size={14} aria-hidden="true" />
-                      {tc('paneMenu.newSession')}
-                    </button>
+                {isTerminalPane ? <>
+                  <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</Button>
+                  <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</Button>
+                  <div role="separator" className="pane-actions-popover-sep" />
+                  {/* BRD-16: what is unavailable is hidden, never shown disabled. Clear terminal is in the terminal's own right-click menu. */}
+                  {resumeAgent ? <PaneSubmenu id="session" label={tc('paneMenu.sessionGroup')} icon={<History size={14} aria-hidden="true" />} open={submenu === 'session'} onToggle={toggleSubmenu}>
+                    {terminalCanRestart ? newSessionItem : null}
+                    <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />
+                    {resume?.outcome === 'resumed' && <StartFreshMenuItem paneId={pane.id} agent={resume.agent} onDone={runMenuAction} />}
+                  </PaneSubmenu> : terminalCanRestart ? newSessionItem : null}
+                  <PaneSubmenu id="keys" label={tc('paneMenu.keysGroup')} icon={<Keyboard size={14} aria-hidden="true" />} open={submenu === 'keys'} onToggle={toggleSubmenu}>
                     <Suspense fallback={null}><TerminalFocusMenuItems paneId={pane.id} onDone={() => setMenuOpen(false)} /></Suspense>
                     <PanePhoneMenuItems paneId={pane.id} onDone={runMenuAction} />
-                    {isTerminalPane && resumeAgent && <EnableResumeMenuItem agent={resumeAgent} onDone={runMenuAction} />}
-                    {isTerminalPane && resume?.outcome === 'resumed' && <StartFreshMenuItem paneId={pane.id} agent={resume.agent} onDone={runMenuAction} />}
-                    <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="pane-actions-popover-item"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    runMenuAction(() => onSplitVertical?.(pane.id))
-                  }}
-                >
-                  <PanelRight size={14} aria-hidden="true" />
-                  {tc('paneMenu.splitRight')}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="pane-actions-popover-item"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    runMenuAction(() => onSplitHorizontal?.(pane.id))
-                  }}
-                >
-                  <PanelBottom size={14} aria-hidden="true" />
-                  {tc('paneMenu.splitDown')}
-                </button>
-                {onArrange ? <>
-                  <div className="pane-actions-popover-sep" aria-hidden="true" />
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" disabled={!hasPreviousPane} title={hasPreviousPane ? undefined : tc('paneMenu.firstPane')} onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</button>
-                  <button type="button" role="menuitem" className="pane-actions-popover-item" onClick={e => { e.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</button>
+                  </PaneSubmenu>
+                  <div role="separator" className="pane-actions-popover-sep" />
                 </> : null}
-                {onClose ? (
-                  <>
-                    <div className="pane-actions-popover-sep" aria-hidden="true" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="pane-actions-popover-item danger"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        runMenuAction(() => {
-                          onClose(pane.id)
-                        })
-                      }}
-                    >
-                      <X size={14} aria-hidden="true" />
-                      {tc('paneMenu.close')}
-                    </button>
-                  </>
-                ) : null}
+                <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onSplitVertical?.(pane.id)) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.splitRight')}</Button>
+                <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onSplitHorizontal?.(pane.id)) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.splitDown')}</Button>
+                {onArrange ? <PaneSubmenu id="arrange" label={tc('paneMenu.arrange')} icon={<LayoutGrid size={14} aria-hidden="true" />} open={submenu === 'arrange'} onToggle={toggleSubmenu}>
+                  {hasPreviousPane ? <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</Button> : null}
+                  {hasPreviousPane ? <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</Button> : null}
+                  <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</Button>
+                </PaneSubmenu> : null}
+                {onClose ? <>
+                  <div role="separator" className="pane-actions-popover-sep" />
+                  <Button variant="ghost" role="menuitem" className={`${paneMenu.item} ${paneMenu.danger} pane-actions-popover-item danger`} onClick={event => { event.stopPropagation(); runMenuAction(() => onClose(pane.id)) }}><X size={14} aria-hidden="true" />{tc('paneMenu.close')}</Button>
+                </> : null}
               </div>
             ) : null}
           </div>
