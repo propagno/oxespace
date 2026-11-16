@@ -963,6 +963,7 @@
       },
       "copy": "Copy context",
       "stop": "Stop terminal",
+      "menu": "Terminal actions",
       "close": "Close terminal"
     },
     "version": "OXESpace v{{version}}"
@@ -1959,6 +1960,9 @@
     "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
     "phoneWriteFailed": "Could not change typing from the phone",
     "whyStatus": "Why this status?",
+    "sessionGroup": "Agent session",
+    "keysGroup": "Keys and typing",
+    "arrange": "Arrange panes",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",
       "shown": "Shown",

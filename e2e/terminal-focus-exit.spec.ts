@@ -124,6 +124,7 @@ test('F6 and the Tab focus toggle leave a terminal; the dividers are reachable a
     // T1: "Send F6 to the program" in this pane's ⋯ menu: F6 and Shift+F6 reach the program, Ctrl+M still gets out.
     const firstPane = page.getByTestId('pane-container').filter({ has: page.locator(`[data-terminal-pane="${first}"]`) })
     await firstPane.getByRole('button', { name: 'More pane actions' }).click()
+    await page.getByRole('menuitem', { name: 'Keys and typing' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Send F6 to the program' }).click()
     await expect(page.getByTestId('pane-actions-menu')).toHaveCount(0)
     await recordTerminalWrites(app)

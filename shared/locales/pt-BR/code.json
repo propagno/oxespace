@@ -1010,6 +1010,7 @@
       },
       "copy": "Copiar o contexto",
       "stop": "Parar o terminal",
+      "menu": "Ações do terminal",
       "close": "Fechar o terminal"
     },
     "version": "OXESpace v{{version}}"
@@ -2029,6 +2030,9 @@
     "phoneWriteBadgeTitle": "Um celular pareado pode digitar neste terminal. Desligue no menu ⋯.",
     "phoneWriteFailed": "Não foi possível mudar a digitação pelo celular",
     "whyStatus": "Por que este status?",
+    "sessionGroup": "Sessão do agente",
+    "keysGroup": "Teclas e digitação",
+    "arrange": "Organizar os painéis",
     "explain": {
       "description": "O que o OXESpace leu para decidir o status deste painel.",
       "shown": "Exibido",
