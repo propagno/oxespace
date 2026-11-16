@@ -1181,7 +1181,9 @@
     "scope": {
       "pinned": "Fixado em {{folder}}",
       "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para mantê-los aqui mesmo quando outro painel estiver ativo.",
-      "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo."
+      "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo.",
+      "pinAction": "Fixar o escopo",
+      "followAction": "Seguir o painel ativo"
     },
     "systems": {
       "title": "Sistemas",
