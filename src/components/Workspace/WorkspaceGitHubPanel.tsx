@@ -7,6 +7,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { i18n } from '../../i18n'
+import { DockPanel, IconButton } from '../../ui'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -26,40 +27,28 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
   const openFiles = (): void => {
     void useWorkspaceStore.getState().showRepositoryView(workspace.id, 'files')
   }
+  const expandLabel = isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')
 
   return (
-    <section className="workspace-editor-panel workspace-github-panel" data-testid="workspace-github-panel">
-      <header className="workspace-editor-header">
-        <div className="workspace-editor-title">
-          <GitBranch size={14} aria-hidden="true" />
-          <span>{workspace.name}</span>
-          <PanelScopeBadge workspaceId={workspace.id} scope={scope} />
-        </div>
-        <div className="workspace-editor-actions repository-view-actions" aria-label={tc('workspace.panel.repositoryViews')}>
-          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.files')} title={tc('workspace.panel.files')} onClick={openFiles}>
-            <Files size={14} aria-hidden="true" />
-          </button>
-          <button type="button" className="tile-btn active" aria-label={tc('panels.git')} title={tc('panels.git')}>
-            <GitBranch size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            onClick={onToggleExpanded}
-          >
-            {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
-          </button>
-          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
-            <ChevronsRight size={14} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+    <DockPanel
+      testId="workspace-github-panel"
+      className="workspace-editor-panel workspace-github-panel"
+      icon={<GitBranch size={14} aria-hidden="true" />}
+      title={tc('panels.git')}
+      count={<PanelScopeBadge workspaceId={workspace.id} scope={scope} />}
+      actions={<>
+        <span className="repository-view-actions" role="group" aria-label={tc('workspace.panel.repositoryViews')}>
+          <IconButton label={tc('workspace.panel.files')} title={tc('workspace.panel.files')} icon={<Files size={14} aria-hidden="true" />} onClick={openFiles} />
+          <IconButton label={tc('panels.git')} title={tc('panels.git')} aria-pressed icon={<GitBranch size={14} aria-hidden="true" />} />
+        </span>
+        <IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />
+      </>}
+      close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
+    >
       <div className="workspace-editor-content">
         <div className="git-control-view-switch"><span>{advancedGitHub ? tc('workspace.git.github') : tc('workspace.git.local')}</span><button type="button" onClick={() => setAdvancedGitHub(value => !value)}>{advancedGitHub ? tc('workspace.git.back') : tc('workspace.git.github')}</button></div>
         {advancedGitHub ? <GitHubPanel workspaceId={workspace.id} rootPath={scope.rootPath} activeTab={activeTab} onTabChange={onTabChange} /> : <GitControlPanel workspaceId={workspace.id} rootPath={scope.rootPath} />}
       </div>
-    </section>
+    </DockPanel>
   )
 }

@@ -51,14 +51,17 @@ test('the Thread sidebar keeps rows readable at every width and zoom', async () 
         expect(Number(await separator.getAttribute('aria-valuenow'))).toBe(width)
         await page.waitForTimeout(100)
         const rows = await sidebar.locator('.thread-navigation-row').evaluateAll(elements => elements.map(row => {
-          const title = row.querySelector('.thread-session-title') as HTMLElement
-          return { overflow: row.scrollWidth > row.clientWidth + 1, lines: Math.round(title.clientHeight / parseFloat(getComputedStyle(title).lineHeight)), cut: title.scrollHeight > title.clientHeight + 1 }
+          // BRD-02 (OXE-166): the title is one line, cut with an ellipsis by the row's title cell.
+          const cell = (row.querySelector('.thread-session-title') as HTMLElement).parentElement as HTMLElement
+          const style = getComputedStyle(cell)
+          return { overflow: row.scrollWidth > row.clientWidth + 1, ellipsis: style.whiteSpace === 'nowrap' && style.textOverflow === 'ellipsis', cut: cell.scrollWidth > cell.clientWidth + 1 }
         }))
         console.log(`zoom ${zoom} width ${width}:`, JSON.stringify(rows))
         await page.screenshot({ path: test.info().outputPath(`sidebar-${width}-${String(zoom).replace('.', '_')}.png`), clip: { x: 0, y: 0, width: Math.min(width + 80, page.viewportSize()!.width), height: 420 } })
-        // Nothing spills sideways, and a long title gets a second line before it is cut.
+        // Nothing spills sideways, and a long title stays on one line, cut with an ellipsis.
         expect(rows.every(row => !row.overflow)).toBe(true)
-        expect(rows[0].lines).toBe(2)
+        expect(rows[0].ellipsis).toBe(true)
+        expect(rows[0].cut).toBe(true)
       }
     }
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1))

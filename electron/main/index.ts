@@ -655,7 +655,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.once('before-quit', () => clearInterval(pruneHttpInterval))
   const agentActivity = new AgentActivity(db, {
     isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
-    pendingFor: (connectionId) => approvalCenter.list().some(req => req.target === connectionId || req.target?.includes(connectionId))
+    pendingFor: connectionId => Boolean(oxeQuery.agent?.hasPending(connectionId))
   })
   sharedAgentActivity.current = agentActivity
   registerAgentActivityIpc(agentActivity)

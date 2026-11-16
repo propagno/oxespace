@@ -3,7 +3,7 @@ import type { AgentAccess, OxeQueryConnection } from '../../../../shared/types/o
 import type { ContainerAction, ContainerSummary } from '../../../../shared/types/oxepod'
 import { maskLogLine, DEFAULT_ROWS, MAX_ROWS, UNTRUSTED_NOTICE, compilePatterns, redactDocument, redactStatement, shapeDocuments, shapeRows } from './agent-output'
 import { textHash, type ApprovalBroker } from '../agent-actions/approval-broker'
-import type { AuditLog, AuditRecord } from './audit-log'
+import { auditWritten, type AuditLog, type AuditRecord } from './audit-log'
 import { OxeQueryError, type ResolvedConnection } from './oxequery-errors'
 import { guardSql } from './sql-guard'
 import { sqlNotes, sqlRisk } from './sql-approval'
@@ -181,7 +181,8 @@ export class AgentGateway {
       title: mainMessage('approvals.title.oxequery', {}), summary: mainMessage(`approvals.summary.oxequery.${risk}`, {}),
       target: isContainer ? connection.name : `${connection.name} · ${connection.engine} · ${connection.environment}`,
       notes: [...(production ? [mainMessage('approvals.note.production', {})] : []), ...notes]
-    })
+    // PQ-07·7 (OXE-220): the request now waits; the badge of this connection turns to waiting at once.
+    }, undefined, () => { try { auditWritten.notify?.({ connectionId: connection.id }) } catch { /* a push never blocks the ask */ } })
     if (state.state === 'approved') return state.via === 'session' ? 'approved-session' : 'approved'
     if (state.state === 'denied') throw new AgentToolError('The person declined this request. Do not retry it unchanged.', 'denied')
     if (state.state === 'refused') throw new AgentToolError(englishText(state.refusal), refusalCode(state.refusal))
@@ -189,6 +190,9 @@ export class AgentGateway {
   }
 
   // ---- tools ----------------------------------------------------------------
+
+  /** PQ-07·7 (OXE-220): whether an approval for this connection waits for the person; a boolean only. */
+  hasPending(connectionId: string): boolean { return this.deps.broker.hasPending(connectionId) }
 
   async handle(tool: string, rawArgs: unknown, actor: AgentActor): Promise<unknown> {
     const args = (rawArgs && typeof rawArgs === 'object' && !Array.isArray(rawArgs) ? rawArgs : {}) as Args

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sun } from 'lucide-react'
-import { useUIStore } from '../../store/ui.store'
+import { useOxeQueryStore } from './oxequery.store'
 import { useAgentActivityFilter } from '../../store/agent-activity-filter.store'
 
 interface BadgeState {
@@ -9,24 +9,35 @@ interface BadgeState {
   waiting: boolean
 }
 
+/** Agent activity of a connection today; amber (--attn) while an agent waits. Live: main pushes agentActivity:changed. */
 export function AgentActivityBadge({ connectionId }: { connectionId: string }) {
   const { t } = useTranslation('oxequery')
   const [data, setData] = useState<BadgeState | null>(null)
 
   useEffect(() => {
-    const badge = window.oxe?.agentActivity?.badge
+    const api = window.oxe?.agentActivity
+    const badge = api?.badge
     if (!badge) return
     let active = true
-    badge({ connectionId })
-      .then(res => {
-        if (active && res) {
-          setData(res)
-        }
-      })
-      .catch(() => {
-        if (active) setData(null)
-      })
-    return () => { active = false }
+    const load = (): void => {
+      badge({ connectionId })
+        .then(res => {
+          if (active && res) setData({ today: res.today, waiting: res.waiting })
+        })
+        .catch(() => {
+          if (active) setData(null)
+        })
+    }
+    load()
+    const unsubscribe = api?.onChanged?.(change => {
+      if (!active) return
+      if (change?.connectionId && change.connectionId !== connectionId) return
+      load()
+    })
+    return () => {
+      active = false
+      if (typeof unsubscribe === 'function') unsubscribe()
+    }
   }, [connectionId])
 
   if (!data || data.today <= 0) return null
@@ -35,7 +46,7 @@ export function AgentActivityBadge({ connectionId }: { connectionId: string }) {
 
   const handleClick = () => {
     useAgentActivityFilter.getState().open({ sources: ['databases'], connection: connectionId })
-    useUIStore.getState().openSettingsPage('activity')
+    useOxeQueryStore.getState().openActivity()
   }
 
   return (

@@ -73,6 +73,7 @@ import { useTranslation } from 'react-i18next'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { quarantinedCount } from '../MCP/mcpQuarantine'
 import { preloadMcpPanel } from '../MCP/McpHost'
+import { useGitBranch } from '../../hooks/useGitBranch'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -184,10 +185,13 @@ function WorkspaceSurfaceComponent({
   // worktrees, and a panel that keeps showing the workspace root while the
   // focused pane works somewhere else is actively misleading — so the panels
   // follow the active pane, and each header names what it is reading.
-  const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
+  const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] ?? null)
   const openConnections = useUIStore((s) => s.openMcpPanel)
   const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
   const quarantinedMcp = quarantinedCount(workspaceMcp)
+  // The header names the workspace's branch (BRD-13). A branch git does not know is not shown, never "unavailable".
+  const gitBranch = useGitBranch(workspace.id, workspace.rootPath ?? null, isActive)
+  const branchLabel = gitBranch?.branch ?? gitBranch?.shortSha ?? null
   // …including a worktree the pane's agent moved into, as reported by its hooks.
   const activeLocation = useTerminalStore((s) => (activePaneId ? s.panes[activePaneId]?.location : null) ?? null)
   const panelScope = useMemo(
@@ -533,7 +537,8 @@ function WorkspaceSurfaceComponent({
   const layoutValue = Object.entries(PRESET_SHAPES).find(([, label]) => label === layoutLabel)?.[0] ?? ''
 
   const toolbar = (
-    <header className="workspace-topbar" data-ui="workspace-bar" aria-label={tc('workspace.topbar.label')}>
+    <div className="workspace-topbar-host" data-ui="workspace-bar">
+    <header className="workspace-topbar" data-ui="workspace-header" aria-label={tc('workspace.topbar.label')}>
       <span
         className="workspace-topbar-wschip"
         {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
@@ -543,7 +548,7 @@ function WorkspaceSurfaceComponent({
         <span className="workspace-topbar-wschip-name">{workspace.name}</span>
       </span>
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
-      <span className="workspace-topbar-panes">{tc('workspace.status.panes', { count: workspace.panes.length })}</span>
+      {branchLabel ? <span className="workspace-topbar-branch" data-ui="workspace-branch" title={branchLabel}>{branchLabel}</span> : null}
       {onSplitPane && splitTargetPaneId ? (
         <Button
           variant="ghost"
@@ -615,6 +620,7 @@ function WorkspaceSurfaceComponent({
       />
       <div className="workspace-topbar-spacer" />
       {/* The bar's icon actions are src/ui IconButtons at md (BRD-03): the name is the accessible name and the tooltip. */}
+      <div className="workspace-topbar-panel-group" data-ui="panel-group" role="group" aria-label={tc('workspace.topbar.panels')}>
       {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />)}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
@@ -625,8 +631,10 @@ function WorkspaceSurfaceComponent({
         </>} />
       <IconButton size="md" className="workspace-topbar-action" label={tc('workspace.topbar.activity')} title={tc('tools.background.detail')} aria-pressed={backgroundVisible} onClick={() => onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelVisible: !backgroundVisible, backgroundPanelExpanded: false })}
         icon={<Activity size={14} aria-hidden="true" />} />
+      </div>
       <Suspense fallback={null}><IntegrationsStatusChips workspace={workspace} isActive={isActive} /></Suspense>
     </header>
+    </div>
   )
 
   // IMPORTANT: never swap the outer tree for maximize.

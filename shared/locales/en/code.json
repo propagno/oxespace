@@ -963,6 +963,7 @@
       },
       "copy": "Copy context",
       "stop": "Stop terminal",
+      "menu": "Terminal actions",
       "close": "Close terminal"
     },
     "version": "OXESpace v{{version}}"
@@ -1127,8 +1128,8 @@
       "outside": "The agent reports working outside this repository: {{path}}"
     },
     "scope": {
-      "pinned": "Panels pinned to the workspace root ({{path}}). Click to follow the active pane again.",
-      "worktree": "Panels are reading the worktree at {{path}}. Click to pin them to the workspace root.",
+      "pinned": "Pinned to {{folder}}",
+      "worktree": "Panels are reading the worktree at {{path}}. Click to keep them here even when another pane is active.",
       "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active."
     },
     "systems": {
@@ -1959,6 +1960,9 @@
     "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
     "phoneWriteFailed": "Could not change typing from the phone",
     "whyStatus": "Why this status?",
+    "sessionGroup": "Agent session",
+    "keysGroup": "Keys and typing",
+    "arrange": "Arrange panes",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",
       "shown": "Shown",

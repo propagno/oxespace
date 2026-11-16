@@ -93,6 +93,12 @@ export class ApprovalBroker {
    * so the person is not left with a request nobody waits for (the center closes it, native dialog included, as
    * `approvals.denied.cancelled`), and forget what it was granted.
    */
+  /** PQ-07·7 (OXE-220): whether a request for this scope (a connection) waits for the person. Only that fact, never the request. */
+  hasPending(scope: string): boolean {
+    for (const key of this.pending.keys()) if (key.split('|')[1] === scope) return true
+    return false
+  }
+
   endExecution(executionKey: string): void {
     this.ended.add(executionKey)
     if (this.ended.size > ENDED_MEMORY) this.ended.delete(this.ended.values().next().value!)

@@ -51,7 +51,7 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]' }
+const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-you-queue]', 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]', 'code-menu': 'body' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -80,6 +80,27 @@ async function openCommandBar(page: Page): Promise<void> {
     await page.locator('[data-ui="command-row"]').first().waitFor({ timeout: 10_000 })
   } catch (error) {
     console.log(`[BRAND] could not open the command bar: ${(error as Error).message.split('\n')[0]}`)
+  }
+}
+
+/**
+ * BRD-10 (OXE-73): the needs-you queue with a conversation's approval and its exact command. The run's conversation is
+ * a fixture of the renderer's Thread IPC that main's agents read model does not see, so main's own agents:changed push
+ * brings one request row (risk low, so Deny and Allow once show) to the window. A failure leaves the scene's measures as
+ * "no element".
+ */
+async function openNeedsYouQueue(app: ElectronApplication, page: Page): Promise<void> {
+  try {
+    await app.evaluate(({ BrowserWindow }) => {
+      const sources = { panes: { ok: true, seq: 1 }, threads: { ok: true, seq: 1 }, delegations: { ok: true, seq: 1 }, work: { ok: true, seq: 1 } }
+      const row = { kind: 'thread', id: 'e2e-brand-thread', state: 'needs-you', provider: 'claude', mode: 'thread', title: 'Brand', workspaceId: null, since: 1, seenAt: null, session: null, worktree: null, cost: null,
+        requests: [{ requestId: 'e2e-brand-request', kind: 'approval', title: { code: 'agents.request.approval', params: {} }, risk: 'low', reversible: null, answerable: true, since: 1, command: { text: 'npm run typecheck', untrusted: true } }] }
+      for (const w of BrowserWindow.getAllWindows()) w.webContents.send('agents:changed', { upsert: [row], removed: [], sources })
+    })
+    await page.getByTestId('needs-you-pill').click({ timeout: 10_000 })
+    await page.locator('[data-ui=needs-you-queue] [data-ui=needs-you-item][data-kind=request]').first().waitFor({ timeout: 10_000 })
+  } catch (error) {
+    console.log(`[BRAND] could not open the needs-you queue: ${(error as Error).message.split('\n')[0]}`)
   }
 }
 
@@ -177,6 +198,10 @@ test.describe.serial('brand conformance (OXE-149)', () => {
         try {
           // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
           await layoutAtWidth(app, page, 1440, 900)
+          // BRD-12 (OXE-77): a fresh profile opens on the first run, before any workspace exists.
+          await page.getByTestId('first-run').waitFor({ timeout: 15_000 }).catch(() => console.log('[BRAND] the first run did not show'))
+          await page.evaluate(() => document.fonts.ready.then(() => undefined))
+          await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
@@ -185,10 +210,20 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
+          // BRD-16 (OXE-85): the terminal's ⋯ menu opened in OxeCode, scene code-menu. A miss reports "no element".
+          await page.locator('[data-testid="pane-container"]').first().getByRole('button', { name: 'More pane actions' }).click({ timeout: 10_000 }).catch(() => console.log('[BRAND] could not open the pane menu'))
+          await page.getByTestId('pane-actions-menu').waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the pane menu did not show'))
+          await measureScene(page, 'code-menu', density, theme)
+          await page.keyboard.press('Escape')
+          await page.getByTestId('pane-actions-menu').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openCommandBar(page)
           await measureScene(page, 'command-bar', density, theme)
           await page.keyboard.press('Escape')
           await page.locator('[data-ui="command-bar"]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
+          await openNeedsYouQueue(app, page)
+          await measureScene(page, 'needs-you-queue', density, theme)
+          await page.keyboard.press('Escape')
+          await page.locator('[data-ui=needs-you-queue]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
           await measureScene(page, 'chat-conversation', density, theme)
           // OxeChat's approved target (15/11): a request waiting in the conversation and on its sidebar row, and the

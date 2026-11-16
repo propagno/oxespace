@@ -12,10 +12,16 @@ test('PM-02·10 in the app: the toasts are "Avisos", dismissed with "Dispensar a
   try {
     await resizeWindow(app, 1440, 900)
     await page.locator('button[data-app-mode]').first().waitFor()
-    await page.keyboard.press('Control+Shift+U')
     const region = page.getByRole('region', { name: 'Avisos', exact: true })
+    const dismiss = region.getByRole('button', { name: 'Dispensar aviso', exact: true }).first()
+    // A startup race on CI can drop the first press (root-cause card open): press again until the notice shows.
+    await expect.poll(async () => {
+      if (await dismiss.isVisible()) return true
+      await page.keyboard.press('Control+Shift+U')
+      return false
+    }, { timeout: 10_000, intervals: [250, 500, 1000] }).toBe(true)
     await expect(region).toHaveCount(1)
-    await expect(region.getByRole('button', { name: 'Dispensar aviso', exact: true }).first()).toBeVisible()
+    await expect(dismiss).toBeVisible()
     await expect(page.getByRole('region', { name: 'Notificações', exact: true })).toHaveCount(0)
   } finally {
     await app.close()

@@ -18,7 +18,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     let page = await app.firstWindow()
     await modeButton(page, 'thread').click()
     const add = async (path: string) => {
-      await page.locator('.thread-navigation').getByRole('button', { name: 'Add project' }).click()
+      await page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' }).click()
       await page.getByRole('textbox', { name: 'Project folder path' }).fill(path)
       await page.getByRole('dialog', { name: 'Add project' }).getByRole('button', { name: 'Add project', exact: true }).click()
       await expect(page.getByRole('dialog', { name: 'Add project' })).toHaveCount(0).catch(async () => {

@@ -22,7 +22,13 @@ const view = (shell: AppMode): Check => async page => {
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
 const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[data-toast], [role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
 const settingsPage = (label: string): Check => both(dialog('Settings'), async page => {
-  await expect(page.locator('.settings-center nav[aria-label="Settings categories"] [aria-current="page"]')).toContainText(label)
+  // BRD-23 (OXE-100): a section of several pages marks the page as the checked radio of "Pages in this section"; a
+  // section of one page is the current nav entry. Either way the deep link landed on that page.
+  const center = page.locator('.settings-center')
+  await expect.poll(async () => {
+    const checked = center.locator('[role="radiogroup"][aria-label="Pages in this section"] [role="radio"][aria-checked="true"]')
+    return await checked.count() ? await checked.textContent() : await center.locator('nav[aria-label="Settings categories"] [aria-current="page"]').textContent()
+  }).toContain(label)
 })
 const rootData = (key: 'mode' | 'density', value: string): Check => async page => {
   await expect.poll(() => page.evaluate(name => document.documentElement.dataset[name], key)).toBe(value)
@@ -269,7 +275,7 @@ test.describe('offer audit', () => {
       const THREAD_EFFECTS: Record<string, Check> = {
         'thread.new': both(view('thread'), dialog('New conversation')),
         'thread.add-project': both(view('thread'), dialog('Add project')),
-        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current="page"]')).toContainText('Offer audit') }),
+        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current]')).toContainText('Offer audit') }),
         'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),
         'thread.events': sent('/events'), 'thread.rules': sent('/rules'),
         'thread.undo-last-turn': toast('Nothing to undo'),

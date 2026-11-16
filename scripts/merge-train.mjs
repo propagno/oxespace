@@ -86,6 +86,12 @@ const IGNORED_CONCLUSIONS = new Set(['skipped', 'neutral'])
  */
 export const RETRYABLE_CHECK = /^E2E and native tests \(/
 /**
+ * The OxeQuery live matrices start PostgreSQL, MongoDB and an SSH server in containers on the runner. A container that
+ * does not come up fails the job with no answer about the code (#859, 15/11: ECONNREFUSED 127.0.0.1:27017 and
+ * "No public port '22' published"), so those jobs are repeatable once too, like the E2E shards (OXE-288).
+ */
+export const CONTAINER_CHECK = /^OxeQuery live tests \(/
+/**
  * A job the runner cancelled or timed out is infrastructure, not an answer (car #816, 14/11: a linux unit shard sat
  * 45 minutes in apt-get until the job timed out, and the unit merge job then failed on that shard's result). Such a
  * failure is repeatable too, and so is the unit merge job that failed only because of it.
@@ -96,7 +102,7 @@ export function retryableFailure(failed) {
   const list = failed ?? []
   const name = (check) => String(check?.name ?? '')
   const infra = (check) => INFRA_CONCLUSIONS.has(check?.conclusion)
-  const e2e = (check) => RETRYABLE_CHECK.test(name(check))
+  const e2e = (check) => RETRYABLE_CHECK.test(name(check)) || CONTAINER_CHECK.test(name(check))
   const anyInfra = list.some(infra)
   return list.some((check) => e2e(check) || infra(check)) &&
     list.every((check) => e2e(check) || infra(check) || name(check) === 'CI result' || (anyInfra && UNIT_MERGE_CHECK.test(name(check))))

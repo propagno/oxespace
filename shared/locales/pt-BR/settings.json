@@ -11,6 +11,19 @@
     "category": "Categoria",
     "categoryGroup": "Categoria das configurações",
     "categories": "Categorias das configurações",
+    "scopeApp": "Aplicativo",
+    "sectionPages": "Páginas desta seção",
+    "sections": {
+      "general": { "label": "Geral", "hint": "Navegação, caches de workspace e editor externo" },
+      "appearance": { "label": "Aparência", "hint": "Modo, escala, densidade e idioma" },
+      "agents": { "label": "Agentes e permissões", "hint": "CLIs de agentes, aprovações e o que os agentes podem fazer" },
+      "notifications": { "label": "Notificações", "hint": "Alertas e sons na área de trabalho" },
+      "keyboard": { "label": "Teclado", "hint": "Atalhos e combinações de teclas" },
+      "terminal": { "label": "Terminal", "hint": "Fonte, cursor, rolagem e comportamento" },
+      "integrations": { "label": "Integrações", "hint": "Servidores MCP, skills e dispositivos pareados" },
+      "data": { "label": "Dados e diagnóstico", "hint": "Uso, atividade dos agentes e diagnóstico" },
+      "about": { "label": "Sobre", "hint": "Versão, atualizações e licenças" }
+    },
     "noMatch": "Nenhuma configuração encontrada",
     "appliesAcross": "Vale para todos os workspaces",
     "backToWork": "Voltar ao trabalho",
@@ -268,7 +281,9 @@
     "notInstalled_many": "{{count}} não instalados",
     "notInstalled_other": "{{count}} não instalados",
     "missingHint": "guias de instalação · corrigir caminhos",
-    "newCustomAgent": "Novo agente personalizado",
+    "newCustomAgent": "Agente personalizado",
+    "customAgents": "Agentes personalizados",
+    "customAgentsHint": "Um comando seu, iniciado como um agente embutido.",
     "installDoc": {
       "install": "Instalar {{product}}",
       "docs": "Documentação do {{product}}"
