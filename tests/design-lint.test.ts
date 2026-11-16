@@ -180,7 +180,7 @@ describe('design lint', () => {
       // OXE-215: the SchemaTree row actions are src/ui IconButtons, 480 with this change.
       // OXE-214 + OXE-215 together (ContainerPicker and the SchemaTree actions on the primitives): 478.
       // Promote PR of OXE-229: the count on main after this task, 477.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(477)
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(468)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
