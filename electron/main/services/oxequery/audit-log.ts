@@ -34,6 +34,9 @@ export interface AuditPosition { ts: number; id: number }
  */
 export const auditActorNames: { resolve?: (actor: string) => string | null | undefined } = {}
 
+/** PQ-07·7: main sets `written` at startup so a new audit entry pushes agentActivity:changed for its connection. */
+export const auditWritten: { notify?: (change: { connectionId?: string }) => void } = {}
+
 const clampLimit = (limit: number | undefined): number => Math.max(1, Math.min(Math.trunc(limit ?? 100) || 100, 500))
 
 /** Append-only. Writing must never break the operation being recorded. */
@@ -46,7 +49,8 @@ export class AuditLog {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         this.now(), entry.actor.slice(0, 200), entry.connectionId ?? null, entry.connectionName?.slice(0, 200) ?? null, entry.engine ?? null, entry.environment ?? null,
         entry.tool, entry.textHash ?? null, entry.text?.slice(0, 2000) ?? null, entry.decision, entry.outcome, entry.rows ?? null, entry.durationMs ?? null, entry.errorCode ?? null)
-    } catch { /* the trail is best effort; the operation has already been decided */ }
+    } catch { /* the trail is best effort; the operation has already been decided */ return }
+    try { auditWritten.notify?.(entry.connectionId ? { connectionId: entry.connectionId } : {}) } catch { /* a push never breaks the operation */ }
   }
 
   list(options: { connectionId?: string; limit?: number } = {}): OxeQueryAuditEntry[] {
