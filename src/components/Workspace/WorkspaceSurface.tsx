@@ -185,7 +185,7 @@ function WorkspaceSurfaceComponent({
   // worktrees, and a panel that keeps showing the workspace root while the
   // focused pane works somewhere else is actively misleading — so the panels
   // follow the active pane, and each header names what it is reading.
-  const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] === true)
+  const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] ?? null)
   const openConnections = useUIStore((s) => s.openMcpPanel)
   const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
   const quarantinedMcp = quarantinedCount(workspaceMcp)
