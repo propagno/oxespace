@@ -20,7 +20,7 @@ import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
 import { FieldError, Kbd, Select, TextArea, TextField } from '../../ui/Field'
 import { formatChord } from '../../keyboard/chords'
-import { Button } from '../../ui/Button'
+import { Button, IconButton } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { mongoWritePreview } from './confirm-statements'
 import { MongoWriteDetails } from './ConfirmStatements'
@@ -288,9 +288,9 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
               <summary>{documentLabel(document)}{!connection.readOnly && <span className="oq-doc-actions">
-                <button type="button" aria-label={t('mongo.editDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }}><Pencil size={12} aria-hidden="true" /></button>
-                <button type="button" aria-label={t('mongo.cloneDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'clone') }}><Copy size={12} aria-hidden="true" /></button>
-                <button type="button" aria-label={t('mongo.deleteDocument')} onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }}><Trash2 size={12} aria-hidden="true" /></button>
+                <IconButton size="sm" variant="ghost" label={t('mongo.editDocument')} title={t('mongo.editDocument')} icon={<Pencil size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }} />
+                <IconButton size="sm" variant="ghost" label={t('mongo.cloneDocument')} title={t('mongo.cloneDocument')} icon={<Copy size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'clone') }} />
+                <IconButton size="sm" variant="ghost" label={t('mongo.deleteDocument')} title={t('mongo.deleteDocument')} icon={<Trash2 size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }} />
               </span>}</summary>{view === 'tree' ? <DocumentTree text={document} /> : <pre>{prettyDocument(document)}</pre>}</details>)}</div>}
         </div>
       </>}
