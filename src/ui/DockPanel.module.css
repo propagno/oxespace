@@ -5,7 +5,8 @@
 .count { display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; font-size: var(--fs-xs); color: var(--tx-muted); font-variant-numeric: tabular-nums; }
 .spacer { flex: 1; }
 .actions { display: flex; flex: none; align-items: center; gap: var(--space-1); }
-.toolbar { display: flex; flex: none; align-items: center; gap: var(--space-1-5); min-height: var(--bar-md); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle); }
+/* Each part keeps its own grid row: without a toolbar, the body still takes the growing row, not the auto one (OXE-84). */
+.toolbar { grid-row: 2; display: flex; flex: none; align-items: center; gap: var(--space-1-5); min-height: var(--bar-md); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle); }
 /* A column, so a body that fills the panel (an editor, a diff) grows into it; the grid row or the flex rest sizes it. */
-.body { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
-.footer { display: flex; flex: none; align-items: center; gap: var(--space-2); min-height: var(--bar-md); padding: 0 var(--space-2); border-top: 1px solid var(--bd-subtle); }
+.body { grid-row: 3; display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
+.footer { grid-row: 4; display: flex; flex: none; align-items: center; gap: var(--space-2); min-height: var(--bar-md); padding: 0 var(--space-2); border-top: 1px solid var(--bd-subtle); }
