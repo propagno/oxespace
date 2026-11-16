@@ -1,0 +1,1 @@
+npm run typecheck && npm run build && DEBUG=pw:api npx playwright test e2e/navigation-redesign.spec.ts e2e/appearance-scale-density.spec.ts e2e/settings-devices.spec.ts e2e/settings-desktop.spec.ts e2e/smoke-hub.spec.ts e2e/settings-tools.spec.ts e2e/workspace-settings-design.spec.ts e2e/offer-audit.spec.ts --reporter=line
