@@ -659,6 +659,8 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   sharedAgentActivity.current = agentActivity
   registerAgentActivityIpc(agentActivity)
+  // PQ-07·7: an OxeQuery audit entry or an approval for a connection pushes agentActivity:changed to the windows.
+  void import('./services/oxequery/audit-log').then(({ auditWritten }) => { auditWritten.notify = change => agentActivity.notifyChanged(change) })
   // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
   // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
   registerOxeContextIpc({

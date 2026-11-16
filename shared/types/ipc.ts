@@ -455,7 +455,9 @@ export const IPC_CHANNELS = {
   agentActivity: {
     list: 'agent-activity:list',
     detail: 'agent-activity:detail',
-    badge: 'agent-activity:badge'
+    badge: 'agent-activity:badge',
+    /** main -> renderer: an agent activity source changed (PQ-07·7); payload AgentActivityChange. */
+    changed: 'agentActivity:changed'
   },
   paneConversation: {
     has: 'pane-conversation:has',
