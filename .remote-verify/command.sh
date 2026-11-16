@@ -1,0 +1,1 @@
+npm run typecheck && node scripts/test-electron.mjs tests/acceptance/f9/u95-first-run.test.tsx tests/oxe152/polish/pu03-first-run-forced.test.tsx tests/oxe152/brand/brd12-first-run.test.tsx tests/i18n-catalog.test.ts --maxWorkers=2
