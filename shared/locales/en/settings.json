@@ -11,6 +11,19 @@
     "category": "Category",
     "categoryGroup": "Settings category",
     "categories": "Settings categories",
+    "scopeApp": "App",
+    "sectionPages": "Pages in this section",
+    "sections": {
+      "general": { "label": "General", "hint": "Navigation, workspace caches and the external editor" },
+      "appearance": { "label": "Appearance", "hint": "Mode, scale, density and language" },
+      "agents": { "label": "Agents & permissions", "hint": "Agent CLIs, approvals and what agents can do" },
+      "notifications": { "label": "Notifications", "hint": "Desktop alerts and sounds" },
+      "keyboard": { "label": "Keyboard", "hint": "Shortcuts and key bindings" },
+      "terminal": { "label": "Terminal", "hint": "Font, cursor, scrolling and behavior" },
+      "integrations": { "label": "Integrations", "hint": "MCP servers, skills and paired devices" },
+      "data": { "label": "Data & diagnostics", "hint": "Usage, agent activity and diagnostics" },
+      "about": { "label": "About", "hint": "Version, updates and licenses" }
+    },
     "noMatch": "No matching settings",
     "appliesAcross": "Applies across workspaces",
     "backToWork": "Back to work",
@@ -244,7 +257,9 @@
     },
     "notInstalled": "{{count}} not installed",
     "missingHint": "install guides · fix paths",
-    "newCustomAgent": "New custom agent",
+    "newCustomAgent": "Custom agent",
+    "customAgents": "Custom agents",
+    "customAgentsHint": "A command of your own that starts like a built-in agent.",
     "installDoc": {
       "install": "Install {{product}}",
       "docs": "{{product}} docs"

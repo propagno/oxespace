@@ -190,7 +190,8 @@ describe('OXE-131 · Enter or Ctrl+Enter sends the message', () => {
     const section = row!.closest<HTMLElement>('[data-ui="settings-section"]')
     expect(section, 'inside a SettingsSection').not.toBeNull()
     expect(within(section!).getByRole('heading'), 'the section has a title').toBeInTheDocument()
-    expect(section, 'no card: the plain SettingsSection').toHaveAttribute('data-variant', 'plain')
+    // liberação de teste congelado: coordenação 16/11, oxe-131-send-key segue a anatomia BRD-23 (toda seção é card; o .plain sai do CSS), como o oxe-130; as demais asserções não mudam (OXE-131, OXE-100)
+    expect(section).not.toHaveAttribute('data-variant')
     expect(nothingAfter(page, section!), 'the section is the last thing on the page').toEqual([])
     expect(within(row!).getByText(LABEL.en)).toBeInTheDocument()
     expect(within(group).getAllByRole('radio').map(radio => radio.textContent?.trim())).toEqual(['Enter', 'Ctrl+Enter'])
@@ -208,12 +209,9 @@ describe('OXE-131 · Enter or Ctrl+Enter sends the message', () => {
     cleanup()
     await changeLanguage('en')
     await chooseSendKey('Enter')
-    // SOURCE-TEXT check (marked): the plain variant of SettingsSection draws no card (no border, no background).
+    // SOURCE-TEXT check (marked): BRD-23 has no plain variant; every SettingsSection is the card, so no .plain rule.
     const css = readFileSync(join(__dirname, '..', '..', '..', 'src', 'ui', 'Settings.module.css'), 'utf8')
-    const plain = [...css.matchAll(/([^{}]*\.plain[^{}]*)\{([^}]*)\}/g)].map(match => match[2]).join('\n')
-    expect(plain, 'a .plain rule exists in Settings.module.css').not.toBe('')
-    expect(plain).toMatch(/border:\s*(0|none)\b/)
-    expect(plain).toMatch(/background:\s*(none|transparent)\b/)
+    expect(css).not.toMatch(/\.plain\b/)
   })
 
   it('CA-5 · dica da tecla', async () => {

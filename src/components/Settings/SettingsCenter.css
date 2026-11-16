@@ -35,6 +35,10 @@
 .settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-lg); padding: 6px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); cursor: pointer; }
 .settings-back:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); color: var(--tx-primary); }
 .settings-compact-category { display: none; }
+/* BRD-23: App or the workspace above the navigation; a section of several pages shows them above the page. */
+.settings-scope-select { display: grid; min-width: 0; }
+.settings-scope-select > [role="radiogroup"] { width: 100%; }
+.settings-section-pages { width: min(100%, 720px); margin: 0 auto var(--space-4); }
 .settings-center-main { display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .settings-center-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-default); }
 .settings-center-toolbar > div { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--tx-muted); font-size: var(--fs-2xs); }

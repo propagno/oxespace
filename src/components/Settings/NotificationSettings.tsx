@@ -8,7 +8,7 @@ export function FinishSoundSetting(): ReactElement {
   const { t } = useTranslation('settings')
   const finishSound = useSettingsStore(s => s.finishSound)
   const setFinishSound = useSettingsStore(s => s.setFinishSound)
-  return <SettingsSection plain title={t('notifications.sound.title')}>
+  return <SettingsSection title={t('notifications.sound.title')}>
     <SettingRow label={t('notifications.sound.label')} description={t('notifications.sound.hint')}
       control={<Switch checked={finishSound} onChange={setFinishSound} ariaLabel={t('notifications.sound.label')} />} />
   </SettingsSection>
