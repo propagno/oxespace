@@ -2,6 +2,7 @@ import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatMs } from './catalog'
 import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { IconButton } from '../../ui/Button'
 import type { PlanNode, SqlExplain } from '../../../shared/types/oxequery'
 import { formatNumber } from '../../utils/formatTime'
 
@@ -14,11 +15,11 @@ function Node({ node, depth, analyze }: { node: PlanNode; depth: number; analyze
   return <li role="treeitem" aria-expanded={node.children.length ? open : undefined} aria-level={depth + 1}>
     <div className="oq-plan-node" data-hot={hot}>
       {node.children.length > 0
-        ? <button type="button" aria-label={open ? t('plan.collapse') : t('plan.expand')} onClick={() => setOpen(value => !value)}>{open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}</button>
+        ? <IconButton size="sm" variant="ghost" label={open ? t('plan.collapse') : t('plan.expand')} onClick={() => setOpen(value => !value)} icon={open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />} />
         : <span className="oq-plan-spacer" />}
       <div className="oq-plan-body">
         <div className="oq-plan-title"><strong>{label}</strong>
-          <span className="oq-plan-share" title={t('plan.shareTitle')}><span style={{ width: `${Math.max(2, share)}%` }} /></span><small>{share}%</small></div>
+          <span className="oq-plan-share" role="meter" aria-label={t('plan.shareTitle')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-valuetext={`${share}%`} title={t('plan.shareTitle')}><span style={{ width: `${Math.max(2, share)}%` }} /></span><small>{share}%</small></div>
         <div className="oq-plan-meta">
           {analyze && node.actualMs !== undefined
             ? <span>{t('plan.actual', { own: formatMs(node.selfMs ?? 0, 2), rows: node.actualRows === undefined ? '–' : formatNumber(node.actualRows), estimated: formatNumber(node.planRows) })}{(node.loops ?? 1) > 1 ? ` ${t('plan.loops', { count: node.loops, formatted: formatNumber(node.loops ?? 1) })}` : ''}</span>
@@ -41,7 +42,7 @@ export function ExplainView({ explain, onClose }: { explain: SqlExplain; onClose
       <strong>{explain.analyze ? t('plan.analyzed') : t('plan.estimated')}</strong>
       <span className="oq-muted">{facts.filter(Boolean).join(' · ')}</span>
       <span className="oq-spacer" />
-      <button type="button" aria-label={t('plan.close')} onClick={onClose}><X size={13} aria-hidden="true" /></button>
+      <IconButton size="sm" variant="ghost" label={t('plan.close')} onClick={onClose} icon={<X size={13} aria-hidden="true" />} />
     </header>
     {explain.hints.length > 0 && <ul className="oq-plan-hints" aria-label={t('plan.suggestions')}>{explain.hints.map(hint => <li key={hint}>{hint}</li>)}</ul>}
     {!explain.analyze && <p className="oq-muted">{t('plan.estimatesOnly')}</p>}
