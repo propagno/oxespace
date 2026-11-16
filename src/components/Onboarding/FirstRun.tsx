@@ -102,7 +102,7 @@ export function FirstRun({
         <ol className={styles.steps}>
           <Step index={1} state={folderState}>
             <div className={styles.stepHeader}>
-              <h3 className={styles.stepTitle}>{t('firstRun.v2.folderStep')}</h3>
+              <h2 className={styles.stepTitle}>{t('firstRun.v2.folderStep')}</h2>
               <div className={styles.actions}>
                 {folder
                   ? <Button variant="secondary" size="sm" onClick={onOpenFolder}>{t('firstRun.v2.change')}</Button>
@@ -113,7 +113,7 @@ export function FirstRun({
           </Step>
 
           <Step index={2} state={agentState}>
-            <h3 className={styles.stepTitle}>{t('firstRun.v2.agentStep')}</h3>
+            <h2 className={styles.stepTitle}>{t('firstRun.v2.agentStep')}</h2>
             <div className={styles.agentList}>
               {agents.map((agent) => {
                 const label = providerTitle(agent.provider)
@@ -161,9 +161,9 @@ export function FirstRun({
 
           <Step index={3} state={conversationState}>
             <div className={styles.stepHeader}>
-              <h3 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle}>
+              <h2 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle}>
                 {t('firstRun.v2.conversationStep')}
-              </h3>
+              </h2>
               {hasReadyAgent ? (
                 <div className={styles.actions}>
                   <Button variant="primary" size="sm" onClick={onNewConversation}>{t('firstRun.v2.newConversation')}</Button>
