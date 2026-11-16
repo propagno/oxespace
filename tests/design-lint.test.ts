@@ -180,7 +180,8 @@ describe('design lint', () => {
       // OXE-215: the SchemaTree row actions are src/ui IconButtons, 480 with this change.
       // OXE-214 + OXE-215 together (ContainerPicker and the SchemaTree actions on the primitives): 478.
       // OxeQuery polish × main (16/11): the program's own conversions (T13, T14 and others) on top of main, 471.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(471)
+      // OXE-223: the last five oq-primary buttons on the primary Button, 463.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(463)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
