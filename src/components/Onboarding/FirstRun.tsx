@@ -2,7 +2,7 @@ import { Check } from 'lucide-react'
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentProvider } from '../../../shared/types/agent'
-import { Button, cx } from '../../ui'
+import { Button, cx, StatusSignal, type SignalState } from '../../ui'
 import { OxeMark } from '../Brand/OxeLogo'
 import { PROVIDER_INSTALL_DOCS } from '../Settings/providerInstallDocs'
 import { openInstallDocs } from './AgentCliOnboarding'
@@ -41,10 +41,18 @@ function providerTitle(provider: AgentProvider): string {
   return PROVIDER_INSTALL_DOCS[provider]?.product ?? provider
 }
 
+/** Each agent's state as the brand's signal (PU-03·1): ready is done, signing in is working; missing and signed out wait for you. */
+const AGENT_SIGNAL: Record<FirstRunAgentStatus, SignalState> = {
+  ready: 'done',
+  'signing-in': 'working',
+  missing: 'waiting',
+  'signed-out': 'waiting'
+}
+
 function Step({ index, state, children }: { index: number; state: FirstRunStepState; children: ReactNode }): ReactElement {
   return (
-    <li className={styles.step} data-ui="first-run-step" data-state={state}>
-      <span className={styles.stepNum} aria-hidden="true">{state === 'done' ? <Check size={13} /> : index}</span>
+    <li className={styles.step} data-ui="first-run-step" data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+      <span className={styles.stepNum} data-ui="first-run-step-num" aria-hidden="true">{state === 'done' ? <Check size={13} /> : index}</span>
       <div className={styles.body}>{children}</div>
     </li>
   )
@@ -110,10 +118,17 @@ export function FirstRun({
               {agents.map((agent) => {
                 const label = providerTitle(agent.provider)
                 const docUrl = PROVIDER_INSTALL_DOCS[agent.provider]?.url ?? 'https://github.com'
+                const signalLabel = agent.status === 'ready'
+                  ? t('firstRun.v2.ready')
+                  : agent.status === 'signing-in'
+                    ? t('firstRun.v2.waiting')
+                    : agent.status === 'signed-out'
+                      ? t('firstRun.v2.signIn', { provider: label })
+                      : t('firstRun.v2.howToInstall')
                 return (
                   <div key={agent.provider} className={styles.agentRow}>
                     <span className={styles.agentIdentity}>
-                      <span className={cx(styles.agentDot, agent.status === 'ready' && styles.agentDotReady)} aria-hidden="true" />
+                      <StatusSignal state={AGENT_SIGNAL[agent.status]} label={`${label}: ${signalLabel}`} size={14} />
                       <span className={styles.headline}>{label}</span>
                     </span>
                     <span className={styles.agentActions}>

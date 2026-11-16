@@ -166,18 +166,6 @@
   min-width: 0;
 }
 
-.agentDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bd-strong);
-  flex-shrink: 0;
-}
-
-.agentDotReady {
-  background: var(--accent);
-}
-
 .headline {
   font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
