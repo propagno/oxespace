@@ -14,6 +14,7 @@ import { useAgentStore } from '../../store/agent.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
+import { APP_VERSION } from '../../lib/appVersion'
 import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
@@ -892,7 +893,8 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const { t } = useTranslation('settings')
 
   useEffect(() => {
-    bootstrap()
+    // Without the main process's updater (a renderer-only host), keep the state already known instead of resetting it.
+    if (typeof window !== 'undefined' && typeof window.oxe?.app?.getUpdateState === 'function') bootstrap()
   }, [bootstrap])
 
   const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
@@ -902,7 +904,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const asksToDownload = !manualInstall && (preferences.mode !== 'auto' || pinned)
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
-    ? t('updates.devBuild')
+    ? `v${APP_VERSION}`
     : `v${app.currentVersion}`
 
   const appStatusLabel = (() => {

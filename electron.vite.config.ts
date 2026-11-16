@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readdirSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
@@ -12,6 +12,9 @@ function whisperDirName(): string {
   const os = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : process.platform
   return `${os}-${process.arch}`
 }
+
+/** package.json, read once: the renderer's __APP_VERSION__ is its "version" (OXE-213). */
+const PACKAGE = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
 
 /** True under `electron-vite dev`; `build` and `preview` set it to 'production'. */
 const DEV_SERVER = process.env.NODE_ENV_ELECTRON_VITE === 'development'
@@ -197,6 +200,8 @@ export default defineConfig({
     }
   },
   renderer: {
+    // The installed version, for Settings › About (OXE-213); never a literal.
+    define: { __APP_VERSION__: JSON.stringify(PACKAGE.version) },
     root: '.',
     plugins: [
       react(),
