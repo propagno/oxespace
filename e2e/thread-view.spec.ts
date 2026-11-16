@@ -343,7 +343,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)
-    await expect(page.locator('.thread-navigation').getByRole('button', { name: 'Add project' })).toHaveCount(1)
+    await expect(page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' })).toHaveCount(1)
     await expect(page.locator('.thread-navigation').getByRole('button', { name: 'New conversation', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
     await expect(page.getByRole('dialog', { name: 'New conversation' })).toBeVisible()

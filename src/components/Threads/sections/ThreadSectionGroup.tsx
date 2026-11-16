@@ -36,7 +36,7 @@ export function ThreadSectionGroup({ group, index, total, searching, controller,
         <small className={styles.count}><span aria-hidden="true">{threads.length}</span><span className="sr-only">{t('sections.count', { count: threads.length })}</span></small>
       </Button>}
       action={<Menu label={t('sections.actionsFor', { name: section.name })} align="end"
-        trigger={<Button variant="ghost" size="sm" square data-list-action className="thread-row-action" aria-label={t('sections.actionsFor', { name: section.name })} title={t('sections.actionsFor', { name: section.name })} data-section-actions={section.id} icon={<MoreHorizontal size={14} aria-hidden="true" />} />}
+        trigger={<Button variant="ghost" size="sm" square data-list-action data-testid="thread-row-action" aria-label={t('sections.actionsFor', { name: section.name })} title={t('sections.actionsFor', { name: section.name })} data-section-actions={section.id} icon={<MoreHorizontal size={14} aria-hidden="true" />} />}
         items={[
           { label: t('sections.rename'), icon: <Pencil size={14} />, onSelect: () => controller.setDialog({ kind: 'rename', section }) },
           { label: t('sections.moveUp'), icon: <ArrowUp size={14} />, disabled: index === 0, onSelect: () => void controller.shift(section, -1) },
