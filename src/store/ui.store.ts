@@ -22,6 +22,39 @@ function restoredCollapsedSidebars(): Record<SidebarMode, boolean> {
 
 const initialCollapsedSidebars = restoredCollapsedSidebars()
 
+/** localStorage key of the pinned panel scopes: JSON { [workspaceId]: path }. */
+const PANEL_SCOPE_PINS_KEY = 'oxe.panel-scope-pins'
+
+/** A pinned scope: the path the panels stay on, or the legacy `true` (the workspace root). */
+export type PanelScopePin = string | true
+
+/**
+ * Reads the saved pins. A legacy `true` stays `true` (read as the workspace
+ * root); `false`, empty or any other value means following the active pane and
+ * is dropped. A broken value is ignored.
+ */
+function restoredPanelScopePins(): Record<string, PanelScopePin> {
+  try {
+    const raw = localStorage.getItem(PANEL_SCOPE_PINS_KEY)
+    if (raw === null) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const pins: Record<string, PanelScopePin> = {}
+    for (const [workspaceId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (value === true) pins[workspaceId] = true
+      else if (typeof value === 'string' && value.length > 0) pins[workspaceId] = value
+    }
+    return pins
+  } catch { return {} }
+}
+
+function savePanelScopePins(pins: Record<string, PanelScopePin>): void {
+  try {
+    if (Object.keys(pins).length === 0) localStorage.removeItem(PANEL_SCOPE_PINS_KEY)
+    else localStorage.setItem(PANEL_SCOPE_PINS_KEY, JSON.stringify(pins))
+  } catch { /* optional preference */ }
+}
+
 /** The application Settings pages, in SettingsCenter order. */
 export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 
@@ -55,10 +88,11 @@ interface UIState {
   /** URLs pushed by `oxespace_open_web_preview`, retained until the matching
    *  workspace panel mounts and consumes its own entry. */
   pendingWebPreviewByWorkspace: Record<string, string>
-  /** Workspaces whose side panels are pinned to the workspace root instead of
-   *  following the active pane into its worktree. Deliberately not persisted:
-   *  following the pane is the safe default, so every session starts there. */
-  panelScopePinnedByWorkspace: Record<string, boolean>
+  /** Workspaces whose side panels stay on a pinned path instead of following
+   *  the active pane. The value is the pinned path (a legacy `true` reads as the
+   *  workspace root); absent means following the active pane. Persisted in
+   *  localStorage under "oxe.panel-scope-pins" (OXE-183). */
+  panelScopePinnedByWorkspace: Record<string, PanelScopePin>
   isIntegrationPanelOpen: boolean
   activePaneId: string | null
   openNewWorkspace: () => void
@@ -91,7 +125,8 @@ interface UIState {
   openWebPreview: (workspaceId: string) => void
   closeWebPreview: (workspaceId: string) => void
   setPendingWebPreview: (workspaceId: string, url: string | null) => void
-  togglePanelScopePin: (workspaceId: string) => void
+  /** Pins the panels of a workspace to `rootPath`, or unpins them when already pinned. */
+  togglePanelScopePin: (workspaceId: string, rootPath: string) => void
   openIntegrationPanel: () => void
   closeIntegrationPanel: () => void
   toggleSettings: () => void
@@ -120,7 +155,7 @@ export const useUIStore = create<UIState>((set) => ({
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
-  panelScopePinnedByWorkspace: {},
+  panelScopePinnedByWorkspace: restoredPanelScopePins(),
   isIntegrationPanelOpen: false,
   activePaneId: null,
   openNewWorkspace: () => set({ isNewWorkspaceOpen: true }),
@@ -163,10 +198,11 @@ export const useUIStore = create<UIState>((set) => ({
     else next[workspaceId] = url
     return { pendingWebPreviewByWorkspace: next }
   }),
-  togglePanelScopePin: (workspaceId) => set((state) => {
+  togglePanelScopePin: (workspaceId, rootPath) => set((state) => {
     const next = { ...state.panelScopePinnedByWorkspace }
-    if (next[workspaceId]) delete next[workspaceId]
-    else next[workspaceId] = true
+    if (next[workspaceId] !== undefined) delete next[workspaceId]
+    else next[workspaceId] = rootPath
+    savePanelScopePins(next)
     return { panelScopePinnedByWorkspace: next }
   }),
   openIntegrationPanel: () => set({ isIntegrationPanelOpen: true }),
