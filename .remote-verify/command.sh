@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/check-file-size.mjs && node scripts/test-electron.mjs tests/integration/oxe220-pending-badge.test.ts tests/integration/approvals-routing.test.ts tests/approvals-impl.test.ts tests/integration/oxequery-agent.test.ts tests/acceptance/f3/a10-agent-activity.native.test.ts --maxWorkers=2 --reporter=verbose
