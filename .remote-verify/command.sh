@@ -1,0 +1,1 @@
+npx vitest related --run electron/main/ipc/agent-activity.ipc.ts electron/main/services/agent-activity/read-model.ts electron/main/services/oxequery/audit-log.ts electron/main/services/oxequery/service.ts electron/preload/api.ts shared/mcp-coverage.ts shared/types/agent-activity.ts shared/types/ipc.ts tests/integration/ipc-contracts.test.ts --maxWorkers=2
