@@ -21,7 +21,7 @@ export interface WorkspaceScope {
   folderName: string
   /** Pane the scope was derived from, or null when pinned / no pane active. */
   paneId: string | null
-  /** True when the user pinned the panels to the workspace root. */
+  /** True when the user pinned the panels to a path. */
   pinned: boolean
 }
 
@@ -35,20 +35,31 @@ export interface WorkspaceScope {
 export function resolveWorkspaceScope(
   workspace: Pick<Workspace, 'rootPath' | 'panes'>,
   activePaneId: string | null,
-  pinned = false,
+  /** The pinned path (the scope stays there whatever pane is active), `true` (legacy) for the workspace root, `false`/`null` to follow the active pane. */
+  pinned: string | boolean | null = false,
   /** Where the active pane's agent reports working; a checkout of the same repository wins over the pane's root. */
   location: SessionLocation | null = null
 ): WorkspaceScope {
+  if (typeof pinned === 'string' && pinned.length > 0) {
+    return {
+      rootPath: pinned,
+      isWorktree: !isSamePath(pinned, workspace.rootPath),
+      folderName: folderNameOf(pinned),
+      paneId: null,
+      pinned: true
+    }
+  }
+  const pinnedToRoot = pinned === true
   const pane = activePaneId ? workspace.panes.find((item) => item.id === activePaneId) ?? null : null
   const observed = location?.sameRepository && location.checkoutRoot ? location.checkoutRoot : null
-  const paneRoot = pinned || !pane ? null : observed ?? pane.rootPath ?? null
+  const paneRoot = pinnedToRoot || !pane ? null : observed ?? pane.rootPath ?? null
   const rootPath = paneRoot ?? workspace.rootPath
   return {
     rootPath,
     isWorktree: paneRoot !== null && !isSamePath(paneRoot, workspace.rootPath),
     folderName: folderNameOf(rootPath),
     paneId: paneRoot !== null ? pane?.id ?? null : null,
-    pinned
+    pinned: pinnedToRoot
   }
 }
 

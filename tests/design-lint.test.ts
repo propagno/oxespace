@@ -177,9 +177,13 @@ describe('design lint', () => {
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
       // OXE-149 (CA-5): 500 on main at 14/11, 498 after BRD-01 chrome, 494 after the BRD-01 tree (OXE-60), 485 after the
       // workspace bar and the collapsed rail moved to Button/IconButton (OXE-63, BRD-03), 484 with main at 15/11 (one raw button fewer there); lower it as screens move to the primitives, never raise it.
-      // OXE-84 (BRD-15): the nine OxeCode panels on DockPanel, 463 with this change.
-      // OXE-85 (BRD-16): the terminal and sidebar-row menus on the primitives, 450 with this change.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(428)
+      // OXE-215: the SchemaTree row actions are src/ui IconButtons, 480 with this change.
+      // OXE-214 + OXE-215 together (ContainerPicker and the SchemaTree actions on the primitives): 478.
+      // Promote PR of OXE-229: the count on main after this task, 477.
+      // This PR, merged with main: the count on main after this task, 466.
+      // OXE-84 (#884 after main): the nine panels on DockPanel, 442.
+      // OXE-85 (F6 T35, short ordered menus): 429.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(429)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)

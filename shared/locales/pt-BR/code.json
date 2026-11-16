@@ -1179,8 +1179,8 @@
       "outside": "O agente diz estar trabalhando fora deste repositório: {{path}}"
     },
     "scope": {
-      "pinned": "Painéis fixados na raiz do workspace ({{path}}). Clique para voltar a seguir o painel ativo.",
-      "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para fixá-los na raiz do workspace.",
+      "pinned": "Fixado em {{folder}}",
+      "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para mantê-los aqui mesmo quando outro painel estiver ativo.",
       "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo."
     },
     "systems": {
