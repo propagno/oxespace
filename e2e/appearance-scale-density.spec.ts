@@ -107,6 +107,7 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     // U2: the workspace's density applies at once; there is no Save button.
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.density)).toBe('compact')
     // Back to the application's Appearance page, from the list that is shown at this scale.
+    await settings.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio', { name: 'App', exact: true }).click()
     const wideAppearance = nav.getByRole('button', { name: /^Appearance/ })
     const compactAppearance = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'Appearance', exact: true })
     await expect.poll(async () => await wideAppearance.isVisible() || await compactAppearance.isVisible()).toBe(true)

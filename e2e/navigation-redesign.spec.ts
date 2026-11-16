@@ -87,19 +87,26 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     await page.reload()
     await expect(page.getByRole('separator', { name: 'Sidebar width' })).toHaveAttribute('aria-valuenow', '288')
     await page.getByRole('button', { name: 'Open settings' }).click()
+    // BRD-23 (OXE-100): Settings reopens on the scope it was left in; the application's Appearance is in the App scope.
+    await page.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio', { name: 'App', exact: true }).click()
     await nav.getByRole('button', { name: /^Appearance / }).click()
     await expect(nav.getByRole('button', { name: /^Appearance / })).toHaveAttribute('aria-current', 'page')
     await page.setViewportSize({ width: 850, height: 650 })
     await expect(page.getByRole('group', { name: 'Settings category' })).toBeVisible()
+    // The workspace's Projects and General are in its own scope.
+    await page.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio').last().click()
     await page.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'Projects', exact: true }).click()
     await page.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'General', exact: true }).click()
     await expect(page.getByRole('radiogroup', { name: 'Default shell profile' })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('settings-compact.png') })
     await page.setViewportSize({ width: 1920, height: 1080 })
-    for (const category of ['Terminal', 'Notifications', 'About', 'Diagnostics']) {
+    // BRD-23 (OXE-100): back to the App scope; the nav lists sections, and Diagnostics is a page of Data & diagnostics.
+    await page.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio', { name: 'App', exact: true }).click()
+    for (const category of ['Terminal', 'Notifications', 'About', 'Data & diagnostics']) {
       await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${category}`) }).click()
       await expect(page.locator('.settings-center-main')).toBeVisible()
     }
+    await page.getByRole('radiogroup', { name: 'Pages in this section' }).getByRole('radio', { name: 'Diagnostics', exact: true }).click()
     await page.screenshot({ path: test.info().outputPath('settings-diagnostics.png') })
     await expect(page.getByRole('heading', { name: 'Diagnostics', exact: true })).toBeVisible()
     await page.emulateMedia({ reducedMotion: 'reduce' })
