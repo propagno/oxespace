@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { History, OctagonAlert, ShieldAlert, ShieldCheck, ShieldQuestion, type LucideIcon } from 'lucide-react'
 import { mainMessage } from '../../../shared/messages'
@@ -64,6 +64,16 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
   const notesHeading = useId()
   const inside = useRef<HTMLDivElement>(null)
   const shownAt = useRef(performance.now())
+  // OXE-292: the ways to allow wait ARM_MS after the dialog appears, and say so by being disabled: a click before that
+  // was dropped without a sign, so a person (or a test) clicking at once saw nothing happen. Deny never waits.
+  const [armed, setArmed] = useState(() => armMs <= 0)
+  useEffect(() => {
+    if (armMs <= 0) { setArmed(true); return }
+    const left = armMs - (performance.now() - shownAt.current)
+    if (left <= 0) { setArmed(true); return }
+    const timer = setTimeout(() => setArmed(true), left)
+    return () => clearTimeout(timer)
+  }, [armMs])
   // When the dialog last gained the keyboard (mounted, focus came into it from outside, the window came back): keys in
   // the moments after that were meant for whatever had focus before, such as an Escape typed in vim (S1).
   const keysArmedAt = useRef(performance.now())
@@ -107,8 +117,9 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
   const busy = busyKey === refKey(request)
   // `request` is the one rendered on screen: its id, generation and options are what is answered.
   const choose = (optionId: string): void => {
-    if (performance.now() - shownAt.current < armMs) return
     const option = options.find(item => item.id === optionId)
+    // A deny is always accepted (main says so too); only the ways to allow wait for the dialog to arm.
+    if (option && option.intent !== 'deny' && performance.now() - shownAt.current < armMs) return
     if (!option || (option.intent !== 'deny' && holdLeft > 0)) return
     void useApprovalsStore.getState().respond(api, request, optionId)
   }
@@ -169,7 +180,7 @@ export function ApprovalDialog({ request, position, total, api, armMs = ARM_MS }
         // the ways to allow step back; where Allow is the default, it leads, in danger red when the request is risky.
         const denyLeads = fallback?.intent === 'deny'
         const variant = !allow ? (denyLeads ? 'primary' : 'secondary') : denyLeads || option.intent === 'allow-session' ? 'secondary' : dangerous ? 'danger' : 'primary'
-        return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault && !startedTyping.current} disabled={!!busyKey || (allow && holdLeft > 0)}
+        return <Button key={`${instance}:${option.id}`} variant={variant} autoFocus={isDefault && !startedTyping.current} disabled={!!busyKey || (allow && (holdLeft > 0 || !armed))}
           data-intent={option.intent} data-default={isDefault ? 'true' : undefined} onClick={onOptionClick(option.id)} onKeyDown={onOptionKeyDown(option)}>
           {formatMainMessage(option.label)}
         </Button>
