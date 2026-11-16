@@ -1,0 +1,1 @@
+node scripts/test-electron.mjs tests/oxe152/polish/pm02-mode-switch-css.test.ts tests/oxe152/polish/pm02-mode-badge.test.tsx --maxWorkers=2 --reporter=verbose && npm run build && npx playwright test e2e/polish/pm-02-1.spec.ts e2e/polish/pm-02-2.spec.ts --reporter=line
