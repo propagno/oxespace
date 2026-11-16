@@ -10,22 +10,38 @@
       "scene": "code-workspace",
       "select": "[data-ui=workspace-header] [data-ui=workspace-branch]",
       "prop": "font-family",
-      "expect": { "token": "--font-mono" },
+      "expect": {
+        "token": "--font-mono"
+      },
       "tolerance": 0,
-      "densities": ["compact", "comfortable"],
-      "themes": ["light", "dark"],
-      "state": "enforced",
-      "note": "the workspace's branch is shown in the mono face"
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "pending",
+      "note": "the workspace's branch is shown in the mono face; pending: no conformance scene has a git branch yet: OXE-286"
     },
     {
       "id": "BRD-13.panel-button.height",
       "scene": "code-workspace",
       "select": "[data-ui=workspace-header] [data-ui=panel-group] [data-ui=icon-button]",
       "prop": "height",
-      "expect": { "token": "--control-md" },
+      "expect": {
+        "token": "--control-md"
+      },
       "tolerance": 0.5,
-      "densities": ["compact", "comfortable"],
-      "themes": ["light", "dark"],
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "state": "enforced",
       "note": "the panel group's icon buttons are the md control (28, 32 comfortable)"
     },
@@ -34,10 +50,18 @@
       "scene": "code-workspace",
       "select": "[data-ui=workspace-header] [data-ui=panel-group] [data-ui=icon-button]",
       "prop": "width",
-      "expect": { "token": "--control-md" },
+      "expect": {
+        "token": "--control-md"
+      },
       "tolerance": 0.5,
-      "densities": ["compact", "comfortable"],
-      "themes": ["light", "dark"],
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "state": "enforced",
       "note": "square: as wide as tall"
     }
