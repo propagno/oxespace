@@ -50,6 +50,7 @@
     "BRD-16.menu-item.height",
     "BRD-23.section.border-radius",
     "BRD-23.section-title.font-size",
-    "BRD-23.section-title.font-weight"
+    "BRD-23.section-title.font-weight",
+    "BRD-12.title.font-weight"
   ]
 }
