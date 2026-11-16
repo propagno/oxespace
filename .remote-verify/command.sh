@@ -1,0 +1,1 @@
+npm run typecheck && npm run build && npx playwright test e2e/settings-tabs.spec.ts e2e/cross-workspace-coordination.spec.ts e2e/target-size.spec.ts --reporter=line && npx playwright test --config playwright.visual.config.ts settings-states --reporter=line
