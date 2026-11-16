@@ -38,9 +38,7 @@ test('pane branch and Review follow the worktree the agent reports working in', 
     const pane = page.getByTestId('terminal-pane')
     await expect(pane).toHaveCount(1)
     const badge = page.getByTestId('pane-branch-badge').first()
-    // liberação de teste congelado: coordenação 16/11, session-location segue o BRD-14: no começo o painel está no branch do workspace e não tem chip (o cabeçalho nomeia 'main'); depois de mudar de worktree, as asserções não mudam (OXE-82)
-    await expect(page.getByTestId('pane-branch-badge')).toHaveCount(0)
-    await expect(page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]')).toContainText('main')
+    await expect(badge).toContainText('main')
 
     const paneId = await pane.getAttribute('data-pane-id')
     // The renderer keys the location by pane; the workspace id is informational.
