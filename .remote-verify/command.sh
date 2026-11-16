@@ -1,0 +1,1 @@
+npx eslint tests/oxe152/chat/oxc3-new-conversation-gaps.test.tsx tests/oxe152/chat/oxc5-parallel-entry.test.tsx; node scripts/test-electron.mjs tests/oxe152/chat/oxc3-new-conversation-gaps.test.tsx tests/oxe152/chat/oxc5-parallel-entry.test.tsx --maxWorkers=2 --reporter=verbose
