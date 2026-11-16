@@ -149,7 +149,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-switch span { display: grid; gap: 2px; }
 .oq-switch small { color: var(--tx-muted); }
 .oq-warning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
-.oq-disclosure { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0; padding: 2px 0; border: 0; color: var(--tx-secondary); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-disclosure { display: inline-flex; align-items: center; gap: 4px; min-height: var(--control-sm); margin: 6px 0; padding: 2px 0; border: 0; color: var(--tx-secondary); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-outcome { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); font-size: var(--fs-xs); }
 .oq-outcome-ok { color: var(--intent-success-solid); background: color-mix(in srgb, var(--intent-success-solid) 10%, transparent); }
 
@@ -380,7 +380,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-color-dot[data-color='amber'] { background: var(--avatar-4); }
 .oq-color-dot[data-color='green'] { background: var(--avatar-5); }
 .oq-color-dot[data-color='teal'] { background: var(--avatar-6); }
-.oq-form-pair { display: flex; align-items: center; gap: 16px; }
+/* Color + Favorite sit on the Group input's axis: at the end of their grid cell, as tall as the control (PQ-07·12). */
+.oq-form-pair { display: flex; align-items: center; align-self: end; min-height: var(--control-md); gap: 16px; }
 .oq-tab[data-color] { border-top: 3px solid var(--avatar-1); }
 .oq-tab[data-color='violet'] { border-top: 3px solid var(--avatar-2); }
 .oq-tab[data-color='pink'] { border-top: 3px solid var(--avatar-3); }
