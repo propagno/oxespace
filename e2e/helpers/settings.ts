@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
 /**
  * Opens Settings the way a person would on this screen. Since 1.5.2 the title bar has no Settings button (the user's
@@ -9,16 +9,6 @@ import type { Locator, Page } from '@playwright/test'
  * screen replaces it, and a click aimed at that footer then waited out the whole test (OXE-103, Windows shard 2/3 on
  * main since #790). A footer that goes away before the click hands over to the shortcut.
  */
-/**
- * BRD-23 (OXE-100): the application's Settings are nine sections. A section of several pages lists them in its
- * "Pages in this section" radio group. Opens `section` in the nav (its button's name starts with the section label,
- * then its hint) and, when given, its page.
- */
-export async function openSettingsPage(scope: Page | Locator, section: string, pageName?: string): Promise<void> {
-  await scope.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: section }).click()
-  if (pageName) await scope.getByRole('radiogroup', { name: 'Pages in this section' }).getByRole('radio', { name: pageName, exact: true }).click()
-}
-
 export async function openSettings(page: Page, name = 'Open settings'): Promise<void> {
   await page.locator('button[data-app-mode]').first().waitFor()
   const button = page.getByRole('button', { name, exact: true }).first()
