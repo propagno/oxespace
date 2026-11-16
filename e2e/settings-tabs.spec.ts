@@ -2,7 +2,7 @@ import { _electron as electron, test, type Page } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openSettings } from './helpers/settings'
+import { openSettings, openSettingsPage } from './helpers/settings'
 
 /**
  * Captures every Agent Settings tab for design review.
@@ -41,9 +41,11 @@ test('captures every Agent Settings tab', async () => {
     await openSettings(page)
     await page.locator('.settings-center').waitFor()
 
-    const tabs = ['Terminal', 'Notifications', 'About', 'Diagnostics']
-    for (const [index, label] of tabs.entries()) {
-      await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
+    // BRD-23 (OXE-100): the nav lists sections; Diagnostics is a page of Data & diagnostics.
+    const tabs: Array<[string, string?]> = [['Terminal'], ['Notifications'], ['About'], ['Data & diagnostics', 'Diagnostics']]
+    for (const [index, [section, pageName]] of tabs.entries()) {
+      await openSettingsPage(page, section, pageName)
+      const label = pageName ?? section
       await shot(page, `settings-${index + 1}-${label.toLowerCase().replace(/\s+/g, '-')}`)
     }
   } finally {

@@ -202,7 +202,8 @@ describe('OXE-130 · a notification names the conversation and where it is, with
     const section = row!.closest<HTMLElement>('[data-ui="settings-section"]')
     expect(section, 'inside a SettingsSection').not.toBeNull()
     expect(within(section!).getByRole('heading'), 'the section has a title').toBeInTheDocument()
-    expect(section, 'no card: the plain SettingsSection').toHaveAttribute('data-variant', 'plain')
+    // liberação de teste congelado: coordenação 16/11, oxe-130-notification:205 segue a anatomia BRD-23 (toda seção é card, sem variante plain); as demais asserções não mudam (OXE-130, OXE-100)
+    expect(section).not.toHaveAttribute('data-variant')
     const after = [...settingsPage!.querySelectorAll('*')]
       .filter(node => !section!.contains(node) && !node.contains(section!) && (section!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING))
       .map(node => (node.textContent ?? '').trim()).filter(Boolean)
