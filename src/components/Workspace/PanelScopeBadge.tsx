@@ -23,11 +23,11 @@ interface PanelScopeBadgeProps {
  * disclosure that makes following the pane acceptable at all, and it renders
  * on every scope, worktree or not.
  *
- * Clicking it pins the panels to the workspace root and back, for the case
- * where someone wants to read main while a worktree pane has focus.
+ * Clicking it pins the panels to the scope it shows and back, for the case
+ * where someone wants to keep reading one checkout while another pane has focus.
  */
 export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): ReactElement {
-  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] === true)
+  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] !== undefined)
   const togglePin = useUIStore((s) => s.togglePanelScopePin)
   const branch = useGitBranch(workspaceId, scope.rootPath)
 
@@ -42,7 +42,7 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
     <button
       type="button"
       className={`panel-scope-badge${scope.isWorktree ? ' is-worktree' : ''}${pinned ? ' is-pinned' : ''}`}
-      onClick={() => togglePin(workspaceId)}
+      onClick={() => togglePin(workspaceId, scope.rootPath)}
       title={title}
       data-testid="panel-scope-badge"
     >
