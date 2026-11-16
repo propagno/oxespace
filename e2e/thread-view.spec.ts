@@ -718,7 +718,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('button', { name: /^History conversation 69/ })).toBeVisible()
     await expect(projects.locator('.thread-navigation-item')).toHaveCount(1)
     await page.getByRole('searchbox', { name: 'Filter conversations' }).fill('')
-    const mainThreadName = await projects.locator('.thread-navigation-item[aria-current="page"] span').first().textContent()
+    const mainThreadName = await projects.locator('.thread-navigation-item[aria-current] span').first().textContent()
     const mainThreadButton = projects.locator('.thread-navigation-item').filter({ hasText: mainThreadName! }).first()
     await page.getByRole('button', { name: /^History conversation 69/ }).click()
     await expect(page.locator('.thread-timeline').getByText('Independent conversation history-69')).toBeVisible()
