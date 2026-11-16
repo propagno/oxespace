@@ -61,6 +61,8 @@
     "BRD-02.row-meta.font-size",
     "BRD-02.row.radius",
     "BRD-02.archived-band.count",
-    "BRD-02.raw-button.count"
+    "BRD-02.raw-button.count",
+    "BRD-13.branch.font-family",
+    "BRD-12.title.font-weight"
   ]
 }
