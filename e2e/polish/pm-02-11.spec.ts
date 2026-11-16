@@ -24,9 +24,9 @@ test('PM-02·11 in the app: the status bar\'s usage target is 24px', async () =>
     const usage = page.getByTestId('usage-status').first()
     await expect(usage).toBeVisible({ timeout: 30_000 })
     const box = await usage.boundingBox()
-    // Layout rounding under fractional scaling (Windows, 1/64 px); the target is var(--target-min). Off Windows the exact measure stays.
-    if (process.platform === 'win32') expect(box?.height ?? 0).toBeGreaterThanOrEqual(24 - 0.05)
-    else expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
+    // Layout rounding in every harness (1/64 px: 23.994 for 24). The 24px itself is proved by
+    // tests/oxe152/polish/pm02-status-bar.test.ts › "%s has min-height var(--target-min)".
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24 - 0.05)
   } finally {
     await app.close()
   }
