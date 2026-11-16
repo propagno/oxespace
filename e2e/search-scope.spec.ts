@@ -63,12 +63,12 @@ test('Find in files searches the active pane\'s worktree, and the workspace root
     await expect(panel.getByText('hotfix-only.ts')).toBeVisible({ timeout: 15_000 })
     // The worktree is a checkout of the same repository, so main-only.ts is there too; hotfix-only.ts is its own.
 
-    // Pinned to the workspace root, the same search reads the main checkout.
+    // A36 (OXE-183): the pin keeps the scope being read, the worktree, not the workspace root.
     await panel.getByTestId('panel-scope-badge').click()
     await expect(panel.getByTestId('panel-scope-badge')).toHaveClass(/is-pinned/)
+    await expect(panel.getByTestId('panel-scope-badge')).toHaveAttribute('title', 'Pinned to repo-hotfix')
     await panel.getByLabel('Search query').fill('needle-in-')
-    await expect(panel.getByText('main-only.ts')).toBeVisible({ timeout: 15_000 })
-    await expect(panel.getByText('hotfix-only.ts')).toHaveCount(0)
+    await expect(panel.getByText('hotfix-only.ts')).toBeVisible({ timeout: 15_000 })
   } finally {
     await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 4000))])
     rmSync(root, { recursive: true, force: true, maxRetries: 3 })
