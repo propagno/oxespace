@@ -608,7 +608,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
       detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,
-      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>
+      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>,
+      onChanged: listener => subscribe<import('../../shared/types/agent-activity').AgentActivityChange>(ipc, IPC_CHANNELS.agentActivity.changed, listener)
     },
     paneConversation: {
       has: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.has, paneId) as Promise<boolean>,

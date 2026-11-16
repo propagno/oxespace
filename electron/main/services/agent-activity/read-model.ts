@@ -3,6 +3,7 @@ import {
   AGENT_ACTIVITY_SOURCES,
   type AgentActivityBadge,
   type AgentActivityBadgeQuery,
+  type AgentActivityChange,
   type AgentActivityPage,
   type AgentActivityQuery,
   type AgentActivityRow,
@@ -59,6 +60,22 @@ export class AgentActivity {
     private readonly db: AppDatabase,
     private readonly deps: AgentActivityDeps = {}
   ) {}
+
+  private readonly changeListeners = new Set<(change: AgentActivityChange) => void>()
+
+  /** PQ-07·7: subscribe to changes main records; returns the unsubscribe. */
+  onChanged(listener: (change: AgentActivityChange) => void): () => void {
+    this.changeListeners.add(listener)
+    return () => { this.changeListeners.delete(listener) }
+  }
+
+  /** PQ-07·7: an activity source changed (an OxeQuery audit entry, an approval asked or answered). Never throws. */
+  notifyChanged(change: AgentActivityChange = {}): void {
+    const payload: AgentActivityChange = typeof change?.connectionId === 'string' ? { connectionId: change.connectionId } : {}
+    for (const listener of [...this.changeListeners]) {
+      try { listener(payload) } catch { /* one listener must not stop the others */ }
+    }
+  }
 
   private now(): number {
     return this.deps.now ? this.deps.now() : Date.now()
