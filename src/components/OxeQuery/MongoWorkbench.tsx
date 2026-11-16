@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, Database, Pencil, Play, Plus, RefreshCw, Search, Square, Trash2 } from 'lucide-react'
 import type { MongoCollectionInfo, MongoDatabaseInfo, MongoExplainSummary, MongoResult, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { describeMongoQuery, parseMongoQuery, stringifyMongoQuery } from '../../../shared/mongoQueryText'
 import { OxeQueryClientError, errorMessage, oq } from './client'
@@ -190,7 +190,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   return <div className="oq-workbench" style={{ '--oq-tree-width': `${layout.treeWidth}px` } as CSSProperties}>
     <nav className="oq-tree oq-mtree" aria-label={t('server.databases')}>
       <div className="oq-tree-head">
-        <label className="oq-tree-search"><input type="search" data-oq-action="searchObjects" aria-label={t('mongo.filterCollections')} placeholder={t('mongo.filterCollections')} value={search} onChange={event => setSearch(event.target.value)} /></label>
+        <label className="oq-tree-search"><Search size={12} aria-hidden="true" /><input type="search" data-oq-action="searchObjects" aria-label={t('mongo.filterCollections')} placeholder={t('mongo.filterCollections')} value={search} onChange={event => setSearch(event.target.value)} /></label>
         <button type="button" className="oq-icon" aria-label={t('mongo.refresh')} title={t('common.refresh')} onClick={() => { setCollections({}); void loadDatabases(); for (const database of open) void loadCollections(database) }}><RefreshCw size={13} aria-hidden="true" /></button>
       </div>
       <div className="oq-mtree-body">
