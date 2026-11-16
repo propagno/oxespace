@@ -15,7 +15,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
-import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle } from '../../ui/Settings'
+import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
@@ -502,15 +502,18 @@ function ProvidersSettingsSection({
           </>
         )}
 
-        {/* With no agent yet the empty state's health check is the one main action. */}
-        <Button
-          variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
-          onClick={onNewCustomAgent}
-          data-testid="btn-new-custom-agent"
-        >
-          <Plus size={14} aria-hidden="true" />
-          {t('providers.newCustomAgent')}
-        </Button>
+        {/* BRD-23: Custom agent is a Button in a section header, not a field or a row. With no agent yet the empty
+            state's health check is the one main action. */}
+        <SettingsCard title={t('providers.customAgents')} description={t('providers.customAgentsHint')} actions={
+          <Button
+            variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
+            onClick={onNewCustomAgent}
+            data-testid="btn-new-custom-agent"
+            icon={<Plus size={14} aria-hidden="true" />}
+          >
+            {t('providers.newCustomAgent')}
+          </Button>
+        }>{null}</SettingsCard>
 
         <NewConversationAccessSetting />
         <ConversationSettings />

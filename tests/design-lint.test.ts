@@ -179,7 +179,7 @@ describe('design lint', () => {
       // workspace bar and the collapsed rail moved to Button/IconButton (OXE-63, BRD-03), 484 with main at 15/11 (one raw button fewer there); lower it as screens move to the primitives, never raise it.
       // OXE-84 (BRD-15): the nine OxeCode panels on DockPanel, 463 with this change.
       // OXE-85 (BRD-16): the terminal and sidebar-row menus on the primitives, 450 with this change.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(450)
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(449)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
