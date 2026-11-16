@@ -3,7 +3,7 @@ import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { EmptyState, SettingRow, SettingsSection as SettingsGroup, Skeleton, TextField } from '../../ui'
+import { EmptyState, SegmentedControl, SettingRow, SettingsSection as SettingsGroup, Skeleton, TextField } from '../../ui'
 import { SettingsPageTitle } from '../../ui/Settings'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
@@ -54,6 +54,7 @@ function appPage(id: AppPage, icon: LucideIcon, defaultLabel: string, defaultHin
   }
 }
 
+/** Every application page, in order. The navigation groups them in the nine sections below (BRD-23). */
 export const APPLICATION_SETTINGS_PAGES = [
   appPage('general', Settings2, 'General', 'Navigation, workspace caches and default external editor.', ['editor', 'vscode', 'cursor', 'sites', 'cache']),
   appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.', ['theme', 'dark', 'light', 'font', 'density', 'language', 'locale']),
@@ -71,10 +72,50 @@ export const APPLICATION_SETTINGS_PAGES = [
   appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.', ['version', 'updates', 'release', 'changelog', 'licenses'])
 ] as const
 
+export type AppSectionId = 'general' | 'appearance' | 'agents' | 'notifications' | 'keyboard' | 'terminal' | 'integrations' | 'data' | 'about'
+
+function appSection(id: AppSectionId, icon: LucideIcon, pages: readonly AppPage[]) {
+  return {
+    id,
+    icon,
+    pages,
+    get label() { return ts(`center.sections.${id}.label`) },
+    get hint() { return ts(`center.sections.${id}.hint`) }
+  }
+}
+
+/**
+ * BRD-23 (OXE-100): the nine sections of the application's settings, in order. A section of several pages shows them
+ * as a choice above the page; every page keeps its id, so deep links and saved destinations still land.
+ */
+export const APPLICATION_SETTINGS_SECTIONS = [
+  appSection('general', Settings2, ['general']),
+  appSection('appearance', Palette, ['appearance']),
+  appSection('agents', Bot, ['providers', 'policy', 'agent-permissions']),
+  appSection('notifications', Bell, ['notifications']),
+  appSection('keyboard', Keyboard, ['keyboard']),
+  appSection('terminal', SquareTerminal, ['terminal']),
+  appSection('integrations', Wrench, ['mcp', 'devices']),
+  appSection('data', Activity, ['privacy', 'activity', 'diagnostics']),
+  appSection('about', ArrowUpCircle, ['about'])
+] as const
+type AppSection = typeof APPLICATION_SETTINGS_SECTIONS[number]
+
+const appPageOf = (id: AppPage): Page => APPLICATION_SETTINGS_PAGES.find(page => page.id === id) ?? APPLICATION_SETTINGS_PAGES[0]
+
+/** The section a page belongs to. */
+export function sectionOfPage(page: AppPage): AppSection {
+  return APPLICATION_SETTINGS_SECTIONS.find(section => (section.pages as readonly AppPage[]).includes(page)) ?? APPLICATION_SETTINGS_SECTIONS[0]
+}
+
 function matchesPage(page: Page, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   return `${page.label} ${page.hint ?? ''} ${(page.keywords ?? []).join(' ')}`.toLowerCase().includes(needle)
+}
+
+function matchesSection(section: AppSection, query: string): boolean {
+  return matchesPage(section, query) || section.pages.some(id => matchesPage(appPageOf(id), query))
 }
 
 export function searchSettingsPages(query: string): Page[] {
@@ -114,6 +155,8 @@ export function restoreSettingsDestination(
   return { scope: 'application', page: 'appearance' }
 }
 
+type Scope = 'app' | 'workspace'
+
 export function SettingsCenter(props: SettingsModalProps & {
   workspaces: Workspace[]; initialWorkspaceId?: string; initialPage?: AppPage; shellProfiles: ShellProfile[]; allowWorkspaceScope?: boolean
   onSave: (input: UpdateWorkspaceSettingsInput) => Promise<void>
@@ -132,6 +175,14 @@ export function SettingsCenter(props: SettingsModalProps & {
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
   const content = useRef<HTMLDivElement>(null)
+  // The application page to return to when the scope goes back to App.
+  const lastAppPage = useRef<AppPage>(destination.scope === 'application' ? destination.page : 'general')
+  // Ctrl+F (Cmd+F) reaches the search from anywhere in Settings; the field says so to assistive technology. Set when
+  // the field mounts: the dialog draws its content after the first effects run.
+  const searchRef = (input: HTMLInputElement | null): void => {
+    search.current = input
+    input?.setAttribute('aria-keyshortcuts', 'Control+F Meta+F')
+  }
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent): void => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
@@ -147,7 +198,9 @@ export function SettingsCenter(props: SettingsModalProps & {
   useEffect(() => {
     if (requestedPage && requestedPage !== prevRequestedPage.current) {
       prevRequestedPage.current = requestedPage
-      setDestination({ scope: 'application', page: resolveAppPage(requestedPage) })
+      const page = resolveAppPage(requestedPage)
+      lastAppPage.current = page
+      setDestination({ scope: 'application', page })
     } else {
       prevRequestedPage.current = requestedPage
     }
@@ -161,6 +214,7 @@ export function SettingsCenter(props: SettingsModalProps & {
   const scopeWorkspace = props.allowWorkspaceScope === false ? undefined : workspace ?? props.workspaces.find(w => w.id === activeWorkspaceId) ?? props.workspaces[0]
   // Every setting applies at once (U2), so leaving a page never has anything to save or discard.
   const go = (next: SettingsDestination): void => {
+    if (next.scope === 'application') lastAppPage.current = next.page
     setDestination(next)
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
@@ -169,14 +223,36 @@ export function SettingsCenter(props: SettingsModalProps & {
   const activityCount = useActivityStore(state => state.items.length)
   const readyAgentsCount = (props.agentReadiness ?? []).filter(r => r.status === 'ready' || r.status === 'partial').length
   const appBadge = (id: string): number => (id === 'providers' ? readyAgentsCount : id === 'mcp' ? mcpCount : id === 'activity' ? activityCount : 0)
-  const appFiltered = APPLICATION_SETTINGS_PAGES.filter(p => matchesPage(p, query))
-  const wsFiltered = scopeWorkspace ? SETTINGS_PAGES.filter(p => matchesPage(p, query)) : []
-  const workspaceCaption = scopeWorkspace ? t('center.workspaceNamed', { name: scopeWorkspace.name }) : t('center.workspace')
-  const renderNavButton = ({ icon: Icon, ...page }: NavEntry, current: boolean, onSelect: () => void, keyPrefix = '', inactiveScopeLabel?: string, badge = 0): ReactElement => (
+  const sectionBadge = (section: AppSection): number => section.pages.reduce((sum, id) => sum + appBadge(id), 0)
+  const scope: Scope = destination.scope === 'workspace' && scopeWorkspace ? 'workspace' : 'app'
+  const chooseScope = (next: Scope): void => {
+    if (next === scope) return
+    if (next === 'workspace' && scopeWorkspace) go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: 'general' })
+    else go({ scope: 'application', page: lastAppPage.current })
+  }
+  const currentSection = destination.scope === 'application' ? sectionOfPage(destination.page) : undefined
+  type Entry = { key: string; entry: NavEntry; current: boolean; onSelect: () => void; badge: number }
+  const entries: Entry[] = scope === 'workspace' && scopeWorkspace
+    ? SETTINGS_PAGES.filter(p => matchesPage(p, query)).map(page => ({
+      key: `ws-${page.id}`,
+      entry: { id: page.id, label: page.label, hint: page.hint, icon: page.icon },
+      current: destination.scope === 'workspace' && destination.page === page.id,
+      onSelect: () => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id }),
+      badge: 0
+    }))
+    : APPLICATION_SETTINGS_SECTIONS.filter(section => matchesSection(section, query)).map(section => ({
+      key: `app-${section.id}`,
+      entry: { id: section.id, label: section.label, hint: section.hint, icon: section.icon },
+      current: currentSection?.id === section.id,
+      onSelect: () => { if (currentSection?.id !== section.id) go({ scope: 'application', page: section.pages[0] }) },
+      badge: sectionBadge(section)
+    }))
+  const caption = scope === 'workspace' && scopeWorkspace ? t('center.workspaceNamed', { name: scopeWorkspace.name }) : t('center.application')
+  const renderNavButton = ({ key, entry: { icon: Icon, ...page }, current, onSelect, badge }: Entry): ReactElement => (
     <button
-      key={`${keyPrefix}${page.id}`}
+      key={key}
       title={page.hint}
-      aria-label={`${inactiveScopeLabel && page.id === 'general' ? `${inactiveScopeLabel}: ` : ''}${page.label}${badge > 0 ? ` (${badge})` : ''} ${page.hint ?? ''}`}
+      aria-label={`${page.label}${badge > 0 ? ` (${badge})` : ''} ${page.hint ?? ''}`}
       aria-current={current ? 'page' : undefined}
       onClick={onSelect}
     >
@@ -186,7 +262,6 @@ export function SettingsCenter(props: SettingsModalProps & {
       {badge > 0 ? <small className="settings-nav-badge" aria-hidden="true" data-count={badge} /> : null}
     </button>
   )
-  const hasAnyNav = appFiltered.length > 0 || wsFiltered.length > 0
 
   return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
@@ -198,39 +273,23 @@ export function SettingsCenter(props: SettingsModalProps & {
       onPointerDownOutside={event => event.preventDefault()}>
       <aside className="settings-center-nav">
         <ModalTitle className="settings-center-title"><Settings2 size={16} />{t('center.title')}</ModalTitle>
-        <SearchField className="settings-search" ref={search} label={t('center.searchLabel')} placeholder={t('center.searchPlaceholder')} value={query} onChange={setQuery} shortcut="Ctrl F" />
+        {scopeWorkspace ? <div className="settings-scope-select" data-ui="settings-scope">
+          <SegmentedControl<Scope> label={t('center.scope')} value={scope} onChange={chooseScope}
+            options={[{ value: 'app', label: t('center.scopeApp') }, { value: 'workspace', label: scopeWorkspace.name }]} />
+        </div> : null}
+        <SearchField className="settings-search" ref={searchRef} label={t('center.searchLabel')} placeholder={t('center.searchPlaceholder')} value={query} onChange={setQuery} shortcut="Ctrl F" />
         <div className="settings-scope settings-compact-category"><span>{t('center.category')}</span>
           <div className="settings-category-choices" role="group" aria-label={t('center.categoryGroup')}>
-            {appFiltered.map(page => <button type="button" key={`app-${page.id}`} aria-pressed={destination.scope === 'application' && destination.page === page.id}
-              onClick={() => go({ scope: 'application', page: page.id as AppPage })}>{page.label}</button>)}
-            {scopeWorkspace && wsFiltered.map(page => <button type="button" key={`ws-${page.id}`} aria-pressed={destination.scope === 'workspace' && destination.page === page.id}
-              onClick={() => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] })}>{`${scopeWorkspace.name}: ${page.label}`}</button>)}
-            {!hasAnyNav && <EmptyState compact title={t('center.noMatch')} />}
+            {entries.map(item => <button type="button" key={item.key} aria-pressed={item.current} onClick={item.onSelect}>{item.entry.label}</button>)}
+            {entries.length === 0 && <EmptyState compact title={t('center.noMatch')} />}
           </div>
         </div>
         <nav aria-label={t('center.categories')}>
-          {appFiltered.length > 0 && <>
-            <span className="settings-nav-caption">{t('center.application')}</span>
-            {appFiltered.map(page => renderNavButton(
-              page,
-              destination.scope === 'application' && destination.page === page.id,
-              () => go({ scope: 'application', page: page.id as AppPage }),
-              'app-',
-              destination.scope !== 'application' ? t('center.application') : undefined,
-              appBadge(page.id)
-            ))}
+          {entries.length > 0 && <>
+            <span className="settings-nav-caption">{caption}</span>
+            {entries.map(renderNavButton)}
           </>}
-          {wsFiltered.length > 0 && scopeWorkspace && <>
-            <span className="settings-nav-caption settings-nav-caption-sub">{workspaceCaption}</span>
-            {wsFiltered.map(page => renderNavButton(
-              page,
-              destination.scope === 'workspace' && destination.page === page.id,
-              () => go({ scope: 'workspace', workspaceId: scopeWorkspace.id, page: page.id as typeof SETTINGS_PAGES[number]['id'] }),
-              'ws-',
-              destination.scope !== 'workspace' ? workspaceCaption : undefined
-            ))}
-          </>}
-          {!hasAnyNav && <p className="settings-scope">{t('center.noMatch')}</p>}
+          {entries.length === 0 && <p className="settings-scope">{t('center.noMatch')}</p>}
         </nav>
         <div className="settings-nav-footer">
           <p className="settings-scope-note" title={workspace?.rootPath}>{workspace ? workspace.name : t('center.appliesAcross')}</p>
@@ -256,7 +315,11 @@ export function SettingsCenter(props: SettingsModalProps & {
             }} />
             : <section className="settings-general" data-ui="settings-page"><SettingsPageTitle>{t('center.workspaceClosed')}</SettingsPageTitle><p>{t('center.workspaceClosedHint')}</p></section>
             : <>
-              {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page} onClose={close} />}
+              {currentSection && currentSection.pages.length > 1 ? <div className="settings-section-pages">
+                <SegmentedControl<AppPage> label={t('center.sectionPages')} value={destination.page} onChange={page => go({ scope: 'application', page })}
+                  options={currentSection.pages.map(id => ({ value: id, label: appPageOf(id).label }))} />
+              </div> : null}
+              {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page as SettingsSection} onClose={close} />}
               <footer className="settings-auto-apply-note" data-risky-count={RISKY_SETTING_ROWS.length}>{t('center.autoApplyNote')}</footer>
             </>}
         </Suspense></ErrorBoundary></div>
