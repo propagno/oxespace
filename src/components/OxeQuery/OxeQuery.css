@@ -426,7 +426,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-extras .oq-disclosure { margin: 4px 0; }
 .oq-extras .oq-editor-bar { padding: 4px 0; border-bottom: 0; }
 .oq-extras .oq-filters { margin: 4px 0; }
-.oq-insights { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 2px 14px; padding: 2px 10px; }
+/* The insights bar ends in a divider and the document list starts a step below it (PQ-07·18). */
+.oq-insights { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 2px 14px; padding: var(--space-1) var(--space-3); border-bottom: 1px solid var(--bd-subtle); }
 .oq-insights > section { flex: 0 0 auto; margin: 0; }
 .oq-insights > section:has(> [aria-expanded='true']), .oq-insights > .oq-error { flex-basis: 100%; }
 /* A document is a card; its JSON starts right under its title. */
@@ -434,6 +435,12 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-documents > details[open] > summary { border-bottom: 1px solid var(--bd-subtle); }
 .oq-documents > details > pre { padding-top: 6px; }
 .oq-doc-actions { float: none; }
+.oq-documents { padding-top: var(--space-2); }
+/* A document's Edit / Clone / Delete stay quiet: shown under the pointer, with focus inside, or when it is open (PQ-07·18). */
+.oq-documents > details .oq-doc-actions { display: none; align-items: center; gap: var(--space-0-5); }
+.oq-documents > details:hover .oq-doc-actions, .oq-documents > details:focus-within .oq-doc-actions, .oq-documents > details[open] .oq-doc-actions { display: inline-flex; }
+/* Invalid JSON keeps its danger colour while focused, never the green focus border (PQ-07·18). */
+.oq-workbench .oq-workbench-main .oq-mongo-inputs textarea[aria-invalid='true']:focus-visible, .oq-workbench .oq-workbench-main .oq-mongo-inputs textarea[aria-invalid='true']:focus { border-color: var(--intent-danger-border); box-shadow: 0 0 0 2px color-mix(in srgb, var(--intent-danger-border) 30%, transparent); transition: none; }
 /* Container table: one rule under each row, not under each cell. */
 /* Only an open filter or an open editor needs the full width; collapsed, they stay chips in the row. */
 .oq-extras > form:not(:has(select, input)), .oq-extras > .oq-editor-bar:not(:has(.oq-edit-form, .oq-staged)) { flex-basis: auto; }
