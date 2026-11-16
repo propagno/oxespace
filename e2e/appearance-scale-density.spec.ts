@@ -93,6 +93,8 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     const nav = settings.getByRole('navigation', { name: 'Settings categories' })
     // The workspace's pages come after the application's; its General is the last of the two, named with the workspace
     // or not. At 125% a narrow screen shows the compact list instead, where a workspace page is "<workspace>: <page>".
+    // BRD-23 (OXE-100): the nav lists one scope at a time; the workspace's pages are behind the App/workspace switch.
+    await settings.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio').last().click()
     const wide = nav.getByRole('button', { name: /(^|: )General / }).last()
     const compact = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'General', exact: true })
     await expect.poll(async () => await wide.isVisible() || await compact.isVisible()).toBe(true)

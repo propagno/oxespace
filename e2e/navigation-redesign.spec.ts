@@ -66,6 +66,8 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
     // Settings fill the window below the title bar, which stays in view.
     expect(await settings.boundingBox()).toEqual({ x: 0, y: 36, width: 1280, height: 684 })
     await page.screenshot({ path: test.info().outputPath('settings-general.png') })
+    // BRD-23 (OXE-100): the nav lists one scope at a time; the workspace's pages are behind the App/workspace switch.
+    await page.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio').last().click()
     await nav.getByRole('button', { name: /(^|: )General / }).last().click()
     await expect(page.getByRole('radio', { name: /Comfortable/ })).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('settings-workspace.png') })

@@ -26,7 +26,8 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
     await expect(settings.getByTestId('provider-contract-claude')).toHaveText('Newer than checked')
     await expect(settings.getByTestId('provider-contract-claude')).toHaveAttribute('title', /newer than 2\.1\.306/)
-    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['about', 'About'], ['diagnostics', 'Diagnostics']]
+    // BRD-23 (OXE-100): the nav lists sections; Diagnostics is a page of Data & diagnostics.
+    const categories = [['general', 'General'], ['providers', 'Agents & permissions'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['about', 'About'], ['diagnostics', 'Data & diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       if (width === 600) {
@@ -39,9 +40,10 @@ test('Settings stays usable in short windows and renders updater states', async 
         expect(layout.navHeight).toBeLessThan(150)
         expect(layout.mainTop).toBeGreaterThanOrEqual(layout.navBottom)
       }
-      for (const [id, label] of categories) {
+      for (const [id, label, pageName] of categories) {
         if (width < 900) await settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true }).click()
         else await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
+        if (pageName) await settings.getByRole('radiogroup', { name: 'Pages in this section' }).getByRole('radio', { name: pageName, exact: true }).click()
         expect(await settings.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         const scroller = settings.locator('.settings-center-content')
         expect(await scroller.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
