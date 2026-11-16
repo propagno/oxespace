@@ -30,7 +30,7 @@ export function ParamsBar({ names, values, onChange, onRun, onCancel }: {
       </label>
     })}
     <small>{t('params.hint')}</small>
-    <div><button type="button" onClick={onCancel}>{t('common.cancel')}</button><button type="submit" className="oq-primary" disabled={!ready}>{t('common.run')}</button></div>
+    <div><button type="button" onClick={onCancel}>{t('common.cancel')}</button><Button size="sm" variant="primary" type="submit" disabled={!ready}>{t('common.run')}</Button></div>
   </form>
 }
 
@@ -69,7 +69,7 @@ export function FilterBar({ columns, filters, onApply }: { columns: SqlColumnInf
       <button type="button" className="oq-icon" aria-label={t('filter.remove')} onClick={() => setDraft(current => current.filter((_, position) => position !== index))}><X size={12} aria-hidden="true" /></button>
     </span>)}
     <button type="button" onClick={add}><Plus size={12} aria-hidden="true" />{t('filter.add')}</button>
-    {draft.length > 0 && <button type="submit" className="oq-primary">{t('common.apply')}</button>}
+    {draft.length > 0 && <Button size="sm" variant="primary" type="submit">{t('common.apply')}</Button>}
     {(draft.length > 0 || filters.length > 0) && <button type="button" onClick={clear}>{t('common.clear')}</button>}
   </form>
 }
