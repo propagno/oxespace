@@ -17,6 +17,7 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { GitService } from '../services/git.service'
+import { changedFilesCounterFor, parseChangedCountInput } from '../ipc/git.ipc'
 import { defaultSplitShellProfileId, fallbackShellProfiles } from '../services/shell-profile.defaults'
 // The one real service the mocks keep: file reads are what the editor and
 // preview specs actually assert on, and faking a filesystem would test the fake.
@@ -439,6 +440,10 @@ export function registerE2eMockIpcHandlers(): void {
     gitService.buildDiff(input.rootPath, input.base, input.includeUncommitted ?? true, input.head, input.mode))
   ipcMain.handle(IPC_CHANNELS.git.getFileAtRef, (_event: IpcMainInvokeEvent, input: { rootPath: string; ref: string; path: string }) =>
     gitService.getFileAtRef(input.rootPath, input.ref, input.path))
+  // OXE-185: the changed-files count reads the same real git as the Changes panel, through main's one counter.
+  const changedFiles = changedFilesCounterFor(gitService)
+  ipcMain.handle(IPC_CHANNELS.git.changedCount, (_event: IpcMainInvokeEvent, input: unknown) =>
+    changedFiles.count(parseChangedCountInput(input).rootPath))
   ipcMain.handle(IPC_CHANNELS.github.resolveWorktreeBase, () => ({ baseRef: 'main', remoteName: null, isRemote: false }))
   ipcMain.handle(IPC_CHANNELS.github.listBranches, (_event: IpcMainInvokeEvent, input: { rootPath: string }) => {
     return new Promise(resolve => execFile('git', ['branch', '--format=%(refname:short)'], { cwd: input.rootPath }, (error, stdout) => {
