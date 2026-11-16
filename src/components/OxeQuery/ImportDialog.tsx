@@ -6,7 +6,7 @@ import { Dialog } from '../../ui'
 import { Upload } from 'lucide-react'
 import type { ImportConflict, ImportPreview, ImportReadOptions, ImportResult, ImportTarget, OxeQueryConnection } from '../../../shared/types/oxequery'
 import { OxeQueryClientError, errorMessage, oq } from './client'
-import { Select, TextField } from '../../ui/Field'
+import { Checkbox, Select, TextField } from '../../ui/Field'
 import { toast } from '../../ui/Toast'
 import { formatNumber } from '../../utils/formatTime'
 import { ErrorState } from '../../ui/Display'
@@ -98,18 +98,19 @@ export function ImportButton({ connection, target, onImported }: { connection: O
           <label>{t('import.encoding')}<Select className="oq-select" aria-label={t('import.encoding')} value={options.encoding ?? 'auto'} onChange={event => void reread({ ...options, encoding: event.target.value as ImportReadOptions['encoding'] })}>
             <option value="auto">{preview.detected ? t('import.detected', { value: preview.detected.encoding }) : t('import.detect')}</option><option value="windows-1252">{t('import.windows1252')}</option>
             {PLAIN_ENCODINGS.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</Select></label>
-          <label className="oq-inline"><input type="checkbox" aria-label={t('import.header')} checked={options.hasHeader !== false} onChange={event => void reread({ ...options, hasHeader: event.target.checked })} />{t('import.header')}</label>
+          <Checkbox className="oq-inline" aria-label={t('import.header')} label={t('import.header')} checked={options.hasHeader !== false} onChange={event => void reread({ ...options, hasHeader: event.target.checked })} />
         </fieldset>}
 
         <table className="oq-import-map">
           <thead><tr><th>{t('import.fileField')}</th><th>{t('import.sample')}</th><th>{t('import.goesTo')}</th></tr></thead>
           <tbody>{preview.fields.map((field, index) => <tr key={field}>
-            <td>{field}</td>
-            <td className="oq-muted">{preview.sample.slice(0, 2).map(row => row[index]).filter(Boolean).join(' · ').slice(0, 60)}</td>
+            <td><span className="oq-import-cell" title={field}>{field}</span></td>
+            <td className="oq-muted">{(sample => <span className="oq-import-cell" title={sample}>{sample}</span>)(preview.sample.slice(0, 2).map(row => row[index]).filter(Boolean).join(' · '))}</td>
             <td>{target.kind === 'table'
               ? <Select className="oq-select" aria-label={t('import.columnFor', { field })} value={mapping[field] ?? ''} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))}>
                 <option value="">{t('import.skip')}</option>
-                {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name}>{column.name} ({column.type})</option>)}
+                {/* The label attribute names the option, so a row's text stays its own field and sample (a row found by text never matches another row's column list). */}
+                {preview.targetColumns.filter(column => !column.generated).map(column => <option key={column.name} value={column.name} label={`${column.name} (${column.type})`} />)}
               </Select>
               // Enter in a field name never imports for real: the import stays a deliberate click.
               : <TextField aria-label={t('import.fieldFor', { field })} value={mapping[field] ?? ''} placeholder={t('import.skip')} onKeyDown={event => { if (event.key === 'Enter') event.preventDefault() }} onChange={event => setMapping(current => ({ ...current, [field]: event.target.value }))} />}</td>
@@ -121,11 +122,11 @@ export function ImportButton({ connection, target, onImported }: { connection: O
             <option value="error">{t('import.conflict.error')}</option><option value="skip">{t('import.conflict.skip')}</option><option value="update">{t('import.conflict.update')}</option></Select></label>
           {conflict.mode !== 'error' && <div role="group" aria-label={t('import.keyColumns')} className="oq-import-keys">
             <span className="oq-muted">{conflict.mode === 'update' ? t('import.matchOn') : t('import.matchOnOptional')}</span>
-            {[...new Set(Object.values(mapping).filter(Boolean))].map(column => <label key={column} className="oq-inline"><input type="checkbox" checked={conflict.columns.includes(column)}
-              onChange={event => setConflict({ ...conflict, columns: event.target.checked ? [...conflict.columns, column] : conflict.columns.filter(item => item !== column) })} />{column}</label>)}
+            {[...new Set(Object.values(mapping).filter(Boolean))].map(column => <Checkbox key={column} className="oq-inline" label={column} checked={conflict.columns.includes(column)}
+              onChange={event => setConflict({ ...conflict, columns: event.target.checked ? [...conflict.columns, column] : conflict.columns.filter(item => item !== column) })} />)}
           </div>}
         </fieldset>}
-        {target.kind === 'table' && <label className="oq-inline"><input type="checkbox" checked={emptyAsNull} onChange={event => setEmptyAsNull(event.target.checked)} />{t('import.emptyAsNull')}</label>}
+        {target.kind === 'table' && <Checkbox className="oq-inline" label={t('import.emptyAsNull')} checked={emptyAsNull} onChange={event => setEmptyAsNull(event.target.checked)} />}
         {target.kind === 'collection' && preview.format === 'csv' && <p className="oq-muted">{t('import.csvAsText')}</p>}
 
         {busy === 'dry' || busy === 'import' ? <p role="status">{t(busy === 'dry' ? 'import.checking' : 'import.importing', { count: progress, formatted: formatNumber(progress) })}

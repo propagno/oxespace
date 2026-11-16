@@ -50,6 +50,18 @@ describe('MongoWorkbench', () => {
     expect(api.callsOf('mongo.find')).toHaveLength(calls)
   })
 
+  it('runs with Ctrl+Enter in a query field, but not while a field is not JSON', async () => {
+    await openItems()
+    const calls = api.callsOf('mongo.find').length
+    fireEvent.change(screen.getByLabelText('Filter'), { target: { value: '{"qty":' } })
+    fireEvent.keyDown(screen.getByLabelText('Filter'), { key: 'Enter', ctrlKey: true })
+    expect(api.callsOf('mongo.find')).toHaveLength(calls)
+    fireEvent.change(screen.getByLabelText('Filter'), { target: { value: '{"qty":5}' } })
+    fireEvent.keyDown(screen.getByLabelText('Sort'), { key: 'Enter', metaKey: true })
+    await waitFor(() => expect(api.callsOf('mongo.find')).toHaveLength(calls + 1))
+    expect(api.callsOf('mongo.find').at(-1)).toMatchObject({ filter: '{"qty":5}' })
+  })
+
   it('shows the plan in words and a warning for a collection scan', async () => {
     await openItems()
     api.on('mongo.explain', { stage: 'COLLSCAN', docsExamined: 120, returned: 2, stages: ['COLLSCAN'], warnings: ['The whole collection is read: no index serves this query.'], raw: '{}' })

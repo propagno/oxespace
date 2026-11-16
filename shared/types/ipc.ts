@@ -182,6 +182,7 @@ export const IPC_CHANNELS = {
     getDiffSummary: 'git:diff-summary',
     getFileOriginal: 'git:file-original',
     getFileAtRef: 'git:file-at-ref',
+    changedCount: 'git:changed-count',
     onDiffUpdate: 'git:diff-update'
   },
   search: {
@@ -455,7 +456,9 @@ export const IPC_CHANNELS = {
   agentActivity: {
     list: 'agent-activity:list',
     detail: 'agent-activity:detail',
-    badge: 'agent-activity:badge'
+    badge: 'agent-activity:badge',
+    /** main -> renderer: an agent activity source changed (PQ-07·7); payload AgentActivityChange. */
+    changed: 'agentActivity:changed'
   },
   paneConversation: {
     has: 'pane-conversation:has',
@@ -576,6 +579,8 @@ export interface GitApi {
   getDiffSummary(input: import('./git').GitDiffInput): Promise<import('./git').GitDiffSummary>
   getFileOriginal(input: import('./git').GitFileOriginalInput): Promise<import('./git').GitFileOriginal>
   getFileAtRef(input: import('./git').GitFileAtRefInput): Promise<import('./git').GitFileOriginal>
+  /** OXE-185: the number of changed files (git status) of a scope, debounced in main; null when git cannot tell. */
+  changedCount(input: { rootPath: string }): Promise<number | null>
   onDiffUpdate(listener: (diff: import('./git').GitDiff) => void): () => void
 }
 

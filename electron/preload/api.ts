@@ -286,6 +286,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
       getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       getFileAtRef: (input) => ipc.invoke(IPC_CHANNELS.git.getFileAtRef, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
+      changedCount: (input) => ipc.invoke(IPC_CHANNELS.git.changedCount, input) as Promise<number | null>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
@@ -608,7 +609,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
       detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,
-      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>
+      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>,
+      onChanged: listener => subscribe<import('../../shared/types/agent-activity').AgentActivityChange>(ipc, IPC_CHANNELS.agentActivity.changed, listener)
     },
     paneConversation: {
       has: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.has, paneId) as Promise<boolean>,

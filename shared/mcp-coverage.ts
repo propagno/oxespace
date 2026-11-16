@@ -180,7 +180,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'git.read': {
     label: 'Status, branch, diffs, files at a ref, checkpoints',
     tools: each('oxespace_git', 'read', ['status', 'branch', 'diff_summary', 'diff', 'file_at_ref', 'checkpoints']),
-    ipc: ['git.getBranch', 'git.getStatus', 'git.getDiff', 'git.getDiffSummary', 'git.getFileOriginal', 'git.getFileAtRef', 'github.listCheckpoints', 'thread.projectDiff']
+    ipc: ['git.getBranch', 'git.getStatus', 'git.changedCount', 'git.getDiff', 'git.getDiffSummary', 'git.getFileOriginal', 'git.getFileAtRef', 'github.listCheckpoints', 'thread.projectDiff']
   },
   'git.change': {
     label: 'Stage, commit, branch, fetch, pull, push, checkpoints',
@@ -455,7 +455,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'agent_activity.read': {
     label: 'List, detail and badge of agent activity',
     excluded: "The person's review of what agents did across changes, databases, containers and HTTP.",
-    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']
+    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge', 'agentActivity.changed']
   },
   'code.pane_conversation': {
     label: "A terminal agent's conversation on the desktop (A53)",

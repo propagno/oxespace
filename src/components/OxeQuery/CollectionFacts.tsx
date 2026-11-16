@@ -8,6 +8,7 @@ import type { MongoStats, MongoValidation, OxeQueryConnection } from '../../../s
 import { errorMessage, oq } from './client'
 import { jsonProblem } from './mongo-model'
 import { FieldError, Select } from '../../ui/Field'
+import { Button } from '../../ui/Button'
 import { formatNumber } from '../../utils/formatTime'
 
 /** Size figures and the validation rules of a collection. Rules are shown always and changed only on a read-write connection. */
@@ -80,7 +81,7 @@ export function CollectionFacts({ connection, database, collection }: { connecti
             <option value="strict">{t('facts.strict')}</option><option value="moderate">{t('facts.moderate')}</option><option value="off">{t('facts.off')}</option></Select></label>
           <label>{t('facts.onViolation')}<Select className="oq-select" aria-label={t('facts.action')} value={action} disabled={connection.readOnly} onChange={event => setAction(event.target.value as MongoValidation['action'])}>
             <option value="error">{t('facts.refuse')}</option><option value="warn">{t('facts.warn')}</option></Select></label>
-          {!connection.readOnly && <button type="button" className="oq-primary" disabled={problem !== null} onClick={() => void save()}>{t('facts.save')}</button>}
+          {!connection.readOnly && <Button size="sm" variant="primary" disabled={problem !== null} onClick={() => void save()}>{t('facts.save')}</Button>}
           {saved && <p role="status" className="oq-ok">{saved}</p>}
         </div>
         : <LoadingState label={t('facts.readingRules')} />)}
