@@ -49,6 +49,7 @@ test('agent panes show whether their session was resumed, and the hooks question
 
     // "Start fresh" on the resumed pane: asks first, then main restarts it without the session.
     await pane(page, resumed).getByRole('button', { name: 'More pane actions' }).click()
+    await page.getByRole('menuitem', { name: 'Agent session' }).click()
     await page.getByRole('menuitem', { name: 'Start fresh' }).click()
     const confirm = page.getByRole('dialog', { name: 'Start this Claude pane fresh?' })
     await expect(confirm.getByRole('button', { name: 'Cancel' })).toBeFocused()
