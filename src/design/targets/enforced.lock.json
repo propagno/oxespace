@@ -45,6 +45,7 @@
     "BRD-14.pane-title.font-weight",
     "BRD-15.panel-header.height",
     "BRD-15.panel-title.font-size",
-    "BRD-15.panel-title.font-weight"
+    "BRD-15.panel-title.font-weight",
+    "BRD-16.menu-item.height"
   ]
 }
