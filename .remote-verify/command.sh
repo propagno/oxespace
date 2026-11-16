@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Onboarding/FirstRun.tsx --maxWorkers=2 --exclude tests/oxe152/polish/pu03-app-version.test.ts --exclude tests/oxe152/polish/pu03-splash-motion.test.tsx --exclude tests/oxe152/polish/pm02-rail.test.tsx --exclude tests/oxe152/polish/pu03-app-version.test.tsx
