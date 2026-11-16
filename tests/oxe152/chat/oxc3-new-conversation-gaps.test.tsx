@@ -68,7 +68,7 @@ afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('e
 
 
 describe('OXE-168 OXC-3 the draft row and what the screen leaves out (F5 A21, A22)', () => {
-  it('while the screen is open, the sidebar shows "Nova conversa · rascunho" in its project, and it is the one selection', async () => {
+  it('while the screen is open, the sidebar shows the draft row in its project, and it is the one selection', async () => {
     render(<ThreadSidebar onCreate={vi.fn()} draft={{ projectId: 'p' }} />)
     const aside = screen.getByRole('complementary', { name: tt('sidebar.region') })
     await waitFor(() => expect(within(aside).getAllByText('Fix the login bug').length).toBeGreaterThan(0))
