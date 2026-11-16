@@ -13,6 +13,8 @@ export interface WorkbenchPanelItem {
   /** The name in the interface language, when the caller translates it; the catalog's English name otherwise. */
   label?: string
   title?: string
+  /** A short count drawn on the button (the label already says it in full, so it is hidden from assistive technology); none when absent. */
+  badge?: string
 }
 
 /** Menu entries for panels: checked when open, so several can be stacked in Code. Without a workspace, a line says why it is empty. */
@@ -29,12 +31,13 @@ export function WorkbenchPanelToggle({ item, className, iconOnly = false }: { it
   useTranslation('code')
   const { icon: Icon } = WORKBENCH_PANELS[item.id], label = item.label ?? WORKBENCH_PANELS[item.id].label
   const title = item.title ?? panelTitle(item.id)
+  const badge = item.badge ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid={`panel-badge-${item.id}`}>{item.badge}</span> : null
   if (iconOnly) {
     return <IconButton size="md" className={className} label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}
-      icon={<Icon size={14} aria-hidden="true" />} />
+      icon={<><Icon size={14} aria-hidden="true" />{badge}</>} />
   }
   return <Button variant="ghost" size="md" className={className} aria-label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}
-    icon={<Icon size={14} aria-hidden="true" />}><span>{label}</span></Button>
+    icon={<Icon size={14} aria-hidden="true" />}><span>{label}</span>{badge}</Button>
 }
 
 /** The compact Panels menu: the panels that do not have their own button in the bar. */

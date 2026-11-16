@@ -3,7 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, IconButton, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
-import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
+import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
@@ -16,6 +16,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
+import { useChangedFilesCount } from '../../hooks/useChangedFilesCount'
 import { lazyFrom } from '../../lib/chunk'
 import { CHANGES_PANEL_CHUNK, preloadPanels, WORKSPACE_PANEL_CHUNKS } from './panelChunks'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
@@ -198,6 +199,9 @@ function WorkspaceSurfaceComponent({
     () => resolveWorkspaceScope(workspace, activePaneId, scopePinned, activeLocation),
     [workspace, activePaneId, scopePinned, activeLocation]
   )
+  // OXE-185 (AG-04d): the Changes button counts the files git reports changed in the panel scope's folder, from main's
+  // one counter (the same N the panel reads), without opening the panel. OxeChat's count is its own (OXC-4).
+  const changedFiles = useChangedFilesCount(panelScope.rootPath)
 
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
@@ -621,7 +625,17 @@ function WorkspaceSurfaceComponent({
       <div className="workspace-topbar-spacer" />
       {/* The bar's icon actions are src/ui IconButtons at md (BRD-03): the name is the accessible name and the tooltip. */}
       <div className="workspace-topbar-panel-group" data-ui="panel-group" role="group" aria-label={tc('workspace.topbar.panels')}>
-      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />)}
+      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => {
+        if (item.id !== 'changes') return <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />
+        const counted = typeof changedFiles === 'number' && changedFiles > 0 ? changedFiles : 0
+        const changes: WorkbenchPanelItem = {
+          ...item,
+          label: counted > 0 ? tc('panels.changesCount', { count: counted }) : item.label,
+          badge: counted > 0 ? (counted > 99 ? '99+' : String(counted)) : undefined,
+          title: `${panelTitle('changes')} · ${tc('panels.changesCountTitle', { folder: panelScope.folderName })}`
+        }
+        return <WorkbenchPanelToggle key={item.id} item={changes} iconOnly className="workspace-topbar-action" />
+      })}
       {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
         trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
       <IconButton size="md" className="workspace-topbar-action" label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp"
