@@ -1,0 +1,1 @@
+npm run typecheck && node scripts/test-electron.mjs tests/design-lint.test.ts tests/unit/brand-targets.test.ts tests/unit/css-classes-guard.test.ts tests/oxe152/chat/oxc-1-sidebar.test.tsx --maxWorkers=2
