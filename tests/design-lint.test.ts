@@ -181,7 +181,8 @@ describe('design lint', () => {
       // OXE-214 + OXE-215 together (ContainerPicker and the SchemaTree actions on the primitives): 478.
       // Promote PR of OXE-229: the count on main after this task, 477.
       // This PR, merged with main: the count on main after this task, 466.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(463)
+      // OXE-166 (F4 T9, the OxeChat sidebar on the OxeCode mould): 451.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(451)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
