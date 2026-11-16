@@ -59,7 +59,7 @@ function measureProblems(brd: string, card: string, pins: readonly Pin[]): strin
   return problems
 }
 const HEADER_MEASURES: readonly Pin[] = [
-  { id: 'BRD-13.branch.font-family', scene: 'code-workspace', prop: 'font-family', expect: { token: '--font-mono' } },
+  // liberação de teste congelado: coordenação 16/11, BRD-13.branch.font-family fica pending até uma cena de conformidade ter um branch git (OXE-286); as demais medidas e asserções não mudam (OXE-79)
   { id: 'BRD-13.panel-button.height', scene: 'code-workspace', prop: 'height', expect: { token: '--control-md' } },
   { id: 'BRD-13.panel-button.width', scene: 'code-workspace', prop: 'width', expect: { token: '--control-md' } }
 ]
