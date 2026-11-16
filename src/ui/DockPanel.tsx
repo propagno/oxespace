@@ -8,10 +8,10 @@ import { cx } from './cx'
  * count, actions, close, always in that order), an optional toolbar, the body, an optional footer.
  * Not a modal: ToolPanel is the overlay one.
  */
-export function DockPanel({ icon, title, count, actions, close, toolbar, footer, label, className, children }: {
+export function DockPanel({ icon, title, count, actions, close, toolbar, footer, label, className, testId, children }: {
   icon?: ReactNode
   title: ReactNode
-  /** What the panel holds, said short ("3 files", "12 calls"). */
+  /** What the panel holds, said short ("3 files", "12 calls"), or a small status beside the title. */
   count?: ReactNode
   actions?: ReactNode
   /** The close button (an IconButton), always last. */
@@ -21,9 +21,11 @@ export function DockPanel({ icon, title, count, actions, close, toolbar, footer,
   /** Accessible name of the region when the title is not plain text. */
   label?: string
   className?: string
+  /** The panel's data-testid, kept by the callers that tests and the app already find by it. */
+  testId?: string
   children: ReactNode
 }): ReactElement {
-  return <section data-ui="dock-panel" className={cx(styles.panel, className)} aria-label={label ?? (typeof title === 'string' ? title : undefined)}>
+  return <section data-ui="dock-panel" data-testid={testId} className={cx(styles.panel, className)} aria-label={label ?? (typeof title === 'string' ? title : undefined)}>
     <header className={styles.header}>
       {icon ? <span className={styles.icon} aria-hidden="true">{icon}</span> : null}
       <h2 className={styles.title}>{title}</h2>
