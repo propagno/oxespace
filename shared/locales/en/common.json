@@ -429,6 +429,7 @@
       "change": "Change",
       "agentStep": "Connect an agent",
       "howToInstall": "How to install",
+      "notInstalled": "Not installed",
       "signIn": "Sign in to {{provider}}",
       "waiting": "Waiting for sign-in in your browser…",
       "cancel": "Cancel",

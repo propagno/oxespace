@@ -436,6 +436,7 @@
       "change": "Trocar",
       "agentStep": "Conectar um agente",
       "howToInstall": "Como instalar",
+      "notInstalled": "Não instalado",
       "signIn": "Entrar no {{provider}}",
       "waiting": "Aguardando o login no navegador…",
       "cancel": "Cancelar",
