@@ -69,14 +69,14 @@ export function ServerPanel({ connection, onClose }: { connection: OxeQueryConne
       <div className={styles.actions}><Button size="sm" variant="ghost" onClick={() => setDropping(null)}>{t('common.cancel')}</Button>
         <Button size="sm" variant="danger" loading={busy} disabled={!confirmed} onClick={() => void drop(dropping)}>{t('server.drop')}</Button></div>
     </section>}
-    {!readOnly && <fieldset className={styles.form}>
+    {readOnly && <p role="note" className={styles.note}>{t('structure.readOnly')}</p>}<fieldset className={styles.form} disabled={readOnly}>
       <legend>{t('server.createLegend')}</legend>
       <TextField mono label={t('server.column.name')} value={name} onChange={event => setName(event.target.value)} />
       <Select label={t('server.column.owner')} value={owner} onChange={event => setOwner(event.target.value)}
         options={[{ value: '', label: t('server.currentUser') }, ...(roles ?? []).filter(role => role.login).map(role => ({ value: role.name, label: role.name }))]} />
       <Select label={t('server.column.encoding')} value={encoding} onChange={event => setEncoding(event.target.value)} options={ENCODINGS.map(value => ({ value, label: value }))} />
-      <Button size="sm" icon={<Plus size={14} />} loading={busy} disabled={!name.trim()} onClick={() => void create()}>{t('server.create')}</Button>
-    </fieldset>}
+      <div className={styles.formEnd}><Button icon={<Plus size={14} />} loading={busy} disabled={!name.trim()} onClick={() => void create()}>{t('server.create')}</Button></div>
+    </fieldset>
   </div>
 
   const rolesTab = <div className={styles.section}>

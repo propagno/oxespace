@@ -65,8 +65,12 @@ describe('StructureEditor', () => {
 
   it('needs no changes to be disabled, names problems in a new table, and creates it', async () => {
     const { onChanged, onClose } = open({ table: null })
-    expect(await screen.findByText('Give the table a name.')).toBeInTheDocument()
+    const name = await screen.findByLabelText('Table name')
+    expect(screen.queryByText('Give the table a name.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Review SQL' })).toBeDisabled()
+    fireEvent.focus(name)
+    fireEvent.blur(name)
+    expect(await screen.findByText('Give the table a name.')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Table name'), { target: { value: 'orders' } })
     expect(screen.queryByText('Give the table a name.')).toBeNull()
     api.on('sql.structure.preview', { statements: ['CREATE TABLE "public"."orders" (...)'], warnings: [], destructive: false })
@@ -81,7 +85,7 @@ describe('StructureEditor', () => {
 
   it('asks for the production confirmation even for a harmless change', async () => {
     open({ table: null, environment: 'prod' })
-    await screen.findByText('Give the table a name.')
+    await screen.findByLabelText('Table name')
     fireEvent.change(screen.getByLabelText('Table name'), { target: { value: 'orders' } })
     api.on('sql.structure.preview', { statements: ['CREATE TABLE "public"."orders" (...)'], warnings: [], destructive: false })
     fireEvent.click(screen.getByRole('button', { name: 'Review SQL' }))
