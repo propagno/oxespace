@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Settings/ConversationSettings.tsx src/components/Settings/NotificationSettings.tsx src/components/Settings/SettingsCenter.tsx src/components/Settings/SettingsModal.tsx src/ui/Settings.tsx tests/design-lint.test.ts tests/integration/SettingsCenter.test.tsx tests/unit/brand-targets.test.ts --maxWorkers=2
