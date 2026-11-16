@@ -1,0 +1,1 @@
+npx vitest related --run src/components/Navigation/NavigationChrome.tsx --maxWorkers=2 --exclude tests/oxe152/polish/pu03-app-version.test.ts --exclude tests/oxe152/polish/pu03-splash-motion.test.tsx --exclude tests/oxe152/polish/pu03-app-version.test.tsx
