@@ -12,6 +12,7 @@
 .list code, .sql, .grid code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--tx-secondary); overflow-wrap: anywhere; }
 .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2); align-items: end; margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); }
 .form legend { padding: 0 var(--space-1); color: var(--tx-muted); font-size: var(--fs-xs); }
+.formEnd { display: flex; grid-column: 1 / -1; justify-self: end; }
 .name { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-3); margin-bottom: var(--space-3); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3); margin: 0; }
 .facts dt { color: var(--tx-muted); font-size: var(--fs-xs); }
