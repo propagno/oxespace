@@ -630,7 +630,11 @@ export interface ThreadProjectCatalog {
   unavailable: string[]
 }
 
-/** One request still waiting for a person, without its command or arguments: enough to point at it, not to act on it. */
+/**
+ * One request still waiting for a person: enough to point at it and, for a plain permission, to answer it once. It
+ * carries the command an approval would run and the permission rules' verdict (OXE-166, the sidebar's mini card), never
+ * the tool's other arguments. Desktop IPC only; the phone's protocol does not read it.
+ */
 export interface ThreadPendingRequestSummary {
   threadId: string
   workspaceId: string
@@ -643,6 +647,10 @@ export interface ThreadPendingRequestSummary {
   generation: number
   /** F7 impact summary when main assessed the request; absent otherwise. */
   impact?: { risk: ThreadRequestImpactRisk; reversible: boolean }
+  /** The command an approval would run, when the provider said. */
+  command?: string
+  /** What OXESpace's permission rules said: the verdict, its risk and level, and whether it is guarded. */
+  policy?: Pick<ThreadRequestPolicy, 'decision' | 'risk' | 'level' | 'guarded'>
 }
 
 /** An answer to a request listed by `pendingRequestsAll`, from any window or device. */

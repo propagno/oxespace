@@ -184,7 +184,8 @@ describe('design lint', () => {
       // OXE-84 (#884 after main): the nine panels on DockPanel, 442.
       // OXE-85 (F6 T35, short ordered menus): 429.
       // OXE-100 (#908 after main): the nine Settings sections, 428.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(428)
+      // OXE-166 (#906 after #908): the OxeChat sidebar, 416.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(416)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)

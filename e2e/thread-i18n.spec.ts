@@ -92,7 +92,7 @@ test('captures the Thread states for review', async () => {
     await page.locator('.thread-heading-actions .thread-icon-action').first().click()
     await shot(page, 'header-menu')
     await page.keyboard.press('Escape')
-    await page.locator('.thread-navigation-row .thread-row-action').last().click()
+    await page.locator('.thread-navigation-row [data-testid="thread-row-action"]').last().click()
     await shot(page, 'row-menu')
     await page.keyboard.press('Escape')
     const message = page.getByRole('textbox', { name: pt ? 'Mensagem' : 'Message', exact: true })
