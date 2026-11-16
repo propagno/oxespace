@@ -18,7 +18,7 @@ import { LibraryInputError, QueryLibrary } from './query-library'
 import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from '../agent-actions/approval-broker'
-import { AuditLog, auditActorNames, type AuditPosition } from './audit-log'
+import { AuditLog, auditActorNames, auditWritten, type AuditPosition } from './audit-log'
 import { integrationBlocked, policyStore } from '../policy'
 import { capRows, checkMongoWrite, checkWrite, guardConnection, type Guarded } from './oxequery-guard'
 import type { ExportFormat } from '../../../../shared/types/oxequery'
@@ -172,6 +172,17 @@ export class OxeQueryService {
     }, 30_000)
     this.pruneTimer.unref?.()
     this.approvals = new ApprovalBroker(options.approvalPrompter)
+    // PQ-07·7: an approval for a connection pushes agentActivity:changed when it is asked and when it is answered.
+    {
+      const broker = this.approvals
+      const require = broker.require.bind(broker)
+      const changed = (connectionId: string): void => { try { auditWritten.notify?.({ connectionId }) } catch { /* a push never breaks the request */ } }
+      broker.require = async (executionKey, scope, request, waitMs, onAsked) => {
+        const state = await require(executionKey, scope, request, waitMs, approvalId => { changed(scope); onAsked?.(approvalId) })
+        if (state.state !== 'pending') changed(scope)
+        return state
+      }
+    }
     this.agent = new AgentGateway({
       list: () => this.connections.list(),
       ceiling: environment => this.preferences.get().agentCeiling[environment],
