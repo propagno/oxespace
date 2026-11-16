@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/approvals-boot.test.tsx tests/approvals-dialog.test.tsx tests/approvals-security.test.tsx tests/approvals-sql-notes.test.tsx --maxWorkers=2 --reporter=verbose && npm run build && npx playwright test e2e/approvals.spec.ts e2e/approval-over-settings.spec.ts e2e/needs-decision.spec.ts --reporter=list
