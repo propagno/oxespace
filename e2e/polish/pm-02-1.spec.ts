@@ -28,7 +28,7 @@ test('PM-02·1 in the app: the selected mode reads in the dark theme', async () 
     await tabs.locator('[data-app-mode="thread"]').click()
     const selected = tabs.locator('[data-app-mode="thread"]')
     await expect(selected).toHaveAttribute('aria-selected', 'true')
-    const color = await selected.evaluate(el => getComputedStyle(el).color)
+    const color = await selected.evaluate(async el => { await Promise.all(el.getAnimations().map(animation => animation.finished)); return getComputedStyle(el).color })
     expect(color).toBe(await tokenColor(page, '--tx-primary'))
     expect(color).not.toBe(await tabs.locator('[data-app-mode="data"]').evaluate(el => getComputedStyle(el).color))
   } finally {
