@@ -11,7 +11,7 @@ import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeM
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
-import { Button, Dialog } from '../../ui'
+import { Button, Dialog, PaneHeader } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
 import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
@@ -54,6 +54,15 @@ const EMPTY_TERMINAL_STATE = {
   hasUnread: false
 }
 
+/** How long the agent has been in its state, short: 45s, 12m, 1h 05m. */
+function elapsedLabel(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
+}
+
 function statusClass(status: WorkspacePane['status']): string {
   if (status === 'running') return 'running'
   if (status === 'exited') return 'exited'
@@ -82,6 +91,36 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const resumeAgent = identityKey === 'claude' || identityKey === 'codex' ? identityKey : null
   const resume = usePaneResume(pane.id, display.title, isTerminalPane && terminalState.status === 'running', resumeAgent, terminalState.agentState)
   const terminalCanMutate = terminalState.status === 'running'
+  // BRD-14: the focused pane's header is the primitive's `focused`; the grid says which, else the terminal store.
+  const storeActive = useTerminalStore((s) => s.activePaneId === pane.id)
+  const focused = isActive ?? storeActive
+  // CA-4: an agent pane shows how long its agent has been in its state (main's PaneAgentState.since); a shell has none.
+  const hasAgent = Boolean(pane.agentProfileId || agentProfile)
+  const [agentSince, setAgentSince] = useState<number | null>(null)
+  useEffect(() => {
+    setAgentSince(null)
+    const api = window.oxe?.agentState
+    if (!hasAgent || !api) return
+    let live = true
+    void Promise.resolve(api.list(workspace.id)).then(list => {
+      if (!live || !Array.isArray(list)) return
+      const own = list.find(entry => entry.paneId === pane.id)
+      setAgentSince(own ? own.since : null)
+    }).catch(() => undefined)
+    const off = api.onChanged?.(event => {
+      if (!live || event.paneId !== pane.id) return
+      setAgentSince('cleared' in event ? null : event.since)
+    })
+    return () => { live = false; off?.() }
+  }, [hasAgent, pane.id, workspace.id])
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (agentSince === null) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 15_000)
+    return () => clearInterval(timer)
+  }, [agentSince])
+  const runningTime = hasAgent && agentSince !== null ? elapsedLabel(now - agentSince) : null
   const terminalCanRestart = terminalState.status !== 'starting'
 
 
@@ -209,12 +248,19 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
 
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
-      <header className="pane-header" {...workspaceColorAttrs(workspace)} data-attention={showAttentionRing ? 'true' : undefined} onContextMenu={openMenuFromContext}>
-        <div className="pane-header-left">
+      <PaneHeader
+        className="pane-header"
+        focused={focused}
+        {...workspaceColorAttrs(workspace)}
+        data-attention={showAttentionRing ? 'true' : undefined}
+        onContextMenu={openMenuFromContext}
+        status={<>
           <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
           {/* Polite and once: the text appears when the pane enters the state and stays while it holds. */}
           <span className="sr-only" role="status" data-testid="pane-decision-live">{needsDecision ? tc('pane.decisionAnnounce', { agent: display.providerLabel, reason: display.attentionReason ?? display.statusLabel }) : ''}</span>
+        </>}
+        provider={<>
           <span
             className={`pane-agent-chip provider-${display.providerKey}`}
             title={display.subtitle}
@@ -227,11 +273,12 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
           {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
-          <span className="pane-header-divider" aria-hidden="true">/</span>
-          {isTerminalPane && <PaneBranchBadge paneId={pane.id} workspace={workspace} pane={pane} />}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
-          {renaming ? (
+        </>}
+        branch={isTerminalPane ? <PaneBranchBadge paneId={pane.id} workspace={workspace} pane={pane} /> : null}
+        meta={runningTime ? <span data-ui="pane-running-time">{runningTime}</span> : null}
+        title={renaming ? (
             <input
               ref={renameInputRef}
               type="text"
@@ -262,7 +309,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
               <Pencil size={12} className="pane-intent-edit-hint" aria-hidden="true" />
             </button>
           )}
-        </div>
+      >
         <div className="pane-actions">
           {isTerminalPane ? (
             <button
@@ -406,7 +453,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             ) : null}
           </div>
         </div>
-      </header>
+      </PaneHeader>
       {/* F32: the status-hooks question for this pane's agent, without taking the terminal's focus. */}
       {isTerminalPane && <PaneHooksNotice paneId={pane.id} />}
       <div style={{ display: 'contents' }}>

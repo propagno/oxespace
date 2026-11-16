@@ -39,6 +39,9 @@
     "BRD-12.title.font-family",
     "BRD-12.title.font-size",
     "BRD-13.panel-button.height",
-    "BRD-13.panel-button.width"
+    "BRD-13.panel-button.width",
+    "BRD-14.pane-header.height",
+    "BRD-14.pane-title.font-size",
+    "BRD-14.pane-title.font-weight"
   ]
 }
