@@ -25,7 +25,7 @@ test('workspace settings navigation and responsive visual review', async () => {
       for (const label of ['General', 'Projects', 'Policy']) {
         if (width < 900) {
           // Application and workspace pages share one list since 1.5; a workspace page is named "<workspace>: <page>".
-          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: new RegExp(`: ${label}$`) })
+          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
           await category.click()
           await expect(category).toHaveAttribute('aria-pressed', 'true')
         } else {

@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openConnections } from './helpers/panels'
-import { openSettings } from './helpers/settings'
+import { openSettings, openSettingsPage } from './helpers/settings'
 
 /**
  * Lightweight smoke: workspace → Tools hub → Agent Settings.
@@ -41,7 +41,7 @@ test('smoke: Tools hub and Agent Settings open from sidebar', async () => {
 
     await openSettings(page)
     await expect(page.locator('.settings-center')).toBeVisible()
-    await page.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Diagnostics/ }).click()
+    await openSettingsPage(page, 'Data & diagnostics', 'Diagnostics')
     await expect(page.getByRole('heading', { name: 'Diagnostics' })).toBeVisible()
     await expect(page.getByTestId('diagnostics-checks')).toContainText('Renderer sandbox')
 

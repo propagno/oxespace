@@ -2,7 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openSettings } from './helpers/settings'
+import { openSettings, openSettingsPage } from './helpers/settings'
 
 test('Settings stays usable in short windows and renders updater states', async () => {
   test.setTimeout(90000)
@@ -72,7 +72,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('searchbox', { name: 'Search settings' }).fill('health')
     const nav = settings.getByRole('navigation', { name: 'Settings categories' })
     await expect(nav.getByRole('button')).toHaveCount(1)
-    await expect(nav.getByRole('button', { name: /^Diagnostics/ })).toBeVisible()
+    await expect(nav.getByRole('button', { name: /^Data & diagnostics/ })).toBeVisible()
     await settings.getByRole('searchbox', { name: 'Search settings' }).clear()
     await nav.getByRole('button', { name: /^About/ }).click()
     // How the app updates is the person's choice, and it is saved.
@@ -143,7 +143,7 @@ test('Settings shows the policy files that apply, their rules and a file set asi
     })
     await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Approvals and safety/ }).click()
+    await openSettingsPage(settings, 'Agents & permissions', 'Approvals and safety')
     const policy = settings.getByTestId('policy-settings')
     await expect(policy.getByRole('heading', { name: 'Managed · Acme' })).toBeVisible()
     await expect(policy.getByRole('list', { name: 'Managed rules' })).toContainText('integration.use · db:prod*')

@@ -94,7 +94,7 @@ test('interface scale, density and motion apply app-wide and survive a restart',
     // The workspace's pages come after the application's; its General is the last of the two, named with the workspace
     // or not. At 125% a narrow screen shows the compact list instead, where a workspace page is "<workspace>: <page>".
     const wide = nav.getByRole('button', { name: /(^|: )General / }).last()
-    const compact = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: /: General$/ })
+    const compact = settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: 'General', exact: true })
     await expect.poll(async () => await wide.isVisible() || await compact.isVisible()).toBe(true)
     await (await wide.isVisible() ? wide : compact).click()
     const workspaceDensity = settings.getByRole('radiogroup', { name: 'Density' })
