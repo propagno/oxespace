@@ -51,7 +51,7 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-you-queue]', 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]' }
+const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-you-queue]', 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]', 'code-menu': 'body' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -210,6 +210,12 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
+          // BRD-16 (OXE-85): the terminal's ⋯ menu opened in OxeCode, scene code-menu. A miss reports "no element".
+          await page.locator('[data-testid="pane-container"]').first().getByRole('button', { name: 'More pane actions' }).click({ timeout: 10_000 }).catch(() => console.log('[BRAND] could not open the pane menu'))
+          await page.getByTestId('pane-actions-menu').waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the pane menu did not show'))
+          await measureScene(page, 'code-menu', density, theme)
+          await page.keyboard.press('Escape')
+          await page.getByTestId('pane-actions-menu').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openCommandBar(page)
           await measureScene(page, 'command-bar', density, theme)
           await page.keyboard.press('Escape')
