@@ -27,13 +27,13 @@ interface PanelScopeBadgeProps {
  * where someone wants to keep reading one checkout while another pane has focus.
  */
 export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): ReactElement {
-  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] !== undefined)
+  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] !== undefined) || scope.pinned
   const togglePin = useUIStore((s) => s.togglePanelScopePin)
   const branch = useGitBranch(workspaceId, scope.rootPath)
 
   const label = scopeBadgeLabel(branch, scope.folderName)
   const title = pinned
-    ? tc('workspace.scope.pinned', { path: scope.rootPath })
+    ? tc('workspace.scope.pinned', { folder: scope.folderName })
     : scope.isWorktree
       ? tc('workspace.scope.worktree', { path: scope.rootPath })
       : tc('workspace.scope.root', { path: scope.rootPath })
@@ -43,6 +43,7 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
       type="button"
       className={`panel-scope-badge${scope.isWorktree ? ' is-worktree' : ''}${pinned ? ' is-pinned' : ''}`}
       onClick={() => togglePin(workspaceId, scope.rootPath)}
+      aria-pressed={pinned}
       title={title}
       data-testid="panel-scope-badge"
     >
