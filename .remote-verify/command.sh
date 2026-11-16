@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/test-electron.mjs tests/oxe152/brand/brd15-tool-panels.test.tsx tests/ui-scale-primitives.test.tsx tests/design-lint.test.ts --maxWorkers=2 && npm run build && npm run test:a11y && npx playwright test e2e/acceptance/oxe152-f6/brd15-tool-panels.spec.ts --reporter=line
