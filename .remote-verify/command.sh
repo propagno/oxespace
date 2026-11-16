@@ -1,0 +1,1 @@
+npx vitest related --run electron.vite.config.ts src/components/Settings/SettingsModal.tsx vitest.config.ts src/lib/appVersion.ts src/types/app-version.d.ts --maxWorkers=2 --exclude tests/oxe152/polish/pu03-splash-motion.test.tsx
