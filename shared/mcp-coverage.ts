@@ -455,7 +455,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'agent_activity.read': {
     label: 'List, detail and badge of agent activity',
     excluded: "The person's review of what agents did across changes, databases, containers and HTTP.",
-    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']
+    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge', 'agentActivity.changed']
   },
   'code.pane_conversation': {
     label: "A terminal agent's conversation on the desktop (A53)",
