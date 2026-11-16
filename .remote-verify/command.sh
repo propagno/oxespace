@@ -1,0 +1,1 @@
+npm run build && npx playwright test e2e/appearance-scale-density.spec.ts e2e/settings-devices.spec.ts --reporter=line && DEBUG=pw:api npx playwright test e2e/navigation-redesign.spec.ts --reporter=line

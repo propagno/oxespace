@@ -82,6 +82,7 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
     await item.click()
     await expect(page.getByTestId('pane-phone-write').first()).toHaveText('Phone can type')
     await page.getByRole('button', { name: 'More pane actions' }).first().click()
+    await page.getByRole('menuitem', { name: 'Keys and typing' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Allow typing from the phone' }).click()
     await expect(page.getByTestId('pane-phone-write')).toHaveCount(0)
   } finally {
