@@ -1,0 +1,1 @@
+npm run typecheck && npm run lint && node scripts/check-file-size.mjs && node scripts/test-electron.mjs tests/oxe152/chat/oxc-1-sidebar.test.tsx tests/thread-sidebar-schedules-entry.test.tsx tests/thread-view.test.tsx tests/unit/brand-targets.test.ts tests/design-lint.test.ts --maxWorkers=2
