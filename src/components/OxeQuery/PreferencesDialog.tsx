@@ -57,7 +57,7 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
   return <Dialog toasts title={t('preferences.title')} description={t('preferences.description')} size="md" onClose={onClose} closeLabel={t('common.close')} testId="oxequery-preferences"
     actions={{ cancel: { label: t('common.cancel') }, primary: { label: t('common.save'), loading: busy, disabled: !value, onClick: () => void save() } }}>
     {error && <ErrorState compact title={t(value ? 'preferences.saveFailed' : 'preferences.loadFailed')} message={error} />}
-    {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences">
+    {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences oq-scope">
       <Select label={t('preferences.history')} hint={t('preferences.historyHint')} value={String(value.historyLimit)}
         onChange={event => change({ historyLimit: Number(event.target.value) })} options={[...new Set([...HISTORY, value.historyLimit])].sort((a, b) => a - b).map(item => ({ value: String(item), label: formatNumber(item) }))} />
       <Select label={t('preferences.audit')} hint={t('preferences.auditHint')} value={String(value.auditRetentionDays)}

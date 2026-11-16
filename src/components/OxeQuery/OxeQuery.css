@@ -222,8 +222,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-preferences-ceiling { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .oq-preferences-ceiling > legend { margin-bottom: 8px; padding: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
 .oq-preferences-ceiling > small { font-size: var(--fs-xs); color: var(--tx-muted); }
-.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.oq-preferences-limits > legend { margin-bottom: 4px; padding: 0; font-size: var(--fs-xs); color: var(--tx-muted); }
+.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.oq-preferences-limits > legend { float: left; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0; font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-canvas); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
@@ -303,6 +303,11 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
 .oq-activity-table tbody tr { cursor: pointer; }
+/* Who acted: the agent's name, with its raw id beside it in mono (PQ-07·16). */
+.oq-activity-table .oq-activity-actor { display: inline; margin-left: var(--space-1); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+/* A failed request reads as one. */
+.oq-activity-table tr[data-outcome="error"] .oq-activity-result { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }
+.oq-activity-more { display: flex; justify-content: center; padding: var(--space-2) 0; }
 .oq-activity-table tbody tr:hover { background: var(--fill-hover, rgba(127, 127, 127, 0.08)); }
 .oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
@@ -471,6 +476,10 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Native selects: the same field chrome as src/ui Select, sized to their content in toolbars. */
 :is(.oq-view, .oq-scope) .oq-select { width: auto; min-width: 0; height: var(--control-sm); font-size: var(--fs-xs); }
 :is(.oq-view, .oq-scope) :is(.oq-form, .oq-dialog-form) label > .oq-select, :is(.oq-view, .oq-scope) .oq-form-wide > .oq-select { width: 100%; height: var(--control-md); font-size: var(--fs-sm); }
+/* Import (PQ-07·17): the map and the options share one control height, no --control-sm select next to a --control-md field. */
+.oq-scope .oq-import-map .oq-select, .oq-scope .oq-import-options .oq-select, .oq-scope .oq-import-map input:not([type='checkbox']) { height: var(--control-md); }
+/* The File field and Sample cells are identifiers and data: mono, one line, cut with an ellipsis at 200 px (the title keeps the whole value). */
+.oq-import-map .oq-import-cell { display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
 
 /* Checkboxes and radios take the accent and a real hit area. */
 :is(.oq-view, .oq-scope) input:is([type='checkbox'], [type='radio']) { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
