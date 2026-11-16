@@ -626,7 +626,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-results > .oq-results-bar { border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--bd-subtle); background: var(--surface-sunken); color: var(--tx-secondary); cursor: pointer; font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge:hover { background: var(--fill-hover); color: var(--tx-primary); }
-.oq-agent-activity-badge[data-tone='attn'] { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.oq-agent-activity-badge[data-tone='attn'] { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }
 .oq-grid-header { background: var(--surface-sunken); border-bottom-color: var(--bd-subtle); color: var(--tx-secondary); font-weight: var(--weight-semibold); }
 .oq-grid-row { font-variant-numeric: tabular-nums; }
 
