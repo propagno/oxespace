@@ -48,6 +48,7 @@
 
 /* Shells kept alive for workspaces that are not open: normal, but worth noticing. */
 .action {
+  min-height: var(--target-min);
   padding: 1px var(--space-1);
   border: 0;
   border-radius: var(--radius-sm);
@@ -80,6 +81,7 @@
   color: var(--tx-secondary);
   font: inherit;
   font-variant-numeric: tabular-nums;
+  min-height: var(--target-min);
   cursor: pointer;
 }
 .usage:hover { background: var(--fill-hover); color: var(--tx-primary); }
