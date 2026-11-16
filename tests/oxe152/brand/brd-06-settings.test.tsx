@@ -262,7 +262,8 @@ describe('OXE-67 · BRD-06 · Settings', () => {
     await openPage('general', false)
     const nav = screen.getByRole('navigation', { name: ts('center.categories') })
     const buttons = within(nav).getAllByRole('button')
-    expect(buttons.length).toBeGreaterThan(10)
+    // liberação de teste congelado: coordenação 16/11, brd-06 CA-3 conta as 9 seções do BRD-23 (era > 10); a altura de cada linha não muda (OXE-67, OXE-100)
+    expect(buttons.length).toBeGreaterThanOrEqual(9)
     const off = buttons.flatMap(button => (['compact', 'comfortable'] as const).flatMap(density => {
       const height = resolved(button, 'height', density) ?? resolved(button, 'block-size', density)
       return height === (density === 'compact' ? 28 : 32) ? [] : [`${button.textContent?.trim()} ${density}: height ${height ?? `unset (min-height ${cascaded(button, 'min-height')?.value})`}`]
