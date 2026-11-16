@@ -944,7 +944,7 @@ test('memory: main process with 10 Threads open', async () => {
       if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
       await page.locator('.thread-navigation-item').nth(index).click()
       await page.locator('.thread-timeline').waitFor()
-      await expect(page.locator('.thread-navigation-item[aria-current="page"]')).toHaveCount(1)
+      await expect(page.locator('.thread-navigation-item[aria-current]')).toHaveCount(1)
     }
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)

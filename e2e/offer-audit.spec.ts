@@ -269,7 +269,7 @@ test.describe('offer audit', () => {
       const THREAD_EFFECTS: Record<string, Check> = {
         'thread.new': both(view('thread'), dialog('New conversation')),
         'thread.add-project': both(view('thread'), dialog('Add project')),
-        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current="page"]')).toContainText('Offer audit') }),
+        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current]')).toContainText('Offer audit') }),
         'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),
         'thread.events': sent('/events'), 'thread.rules': sent('/rules'),
         'thread.undo-last-turn': toast('Nothing to undo'),
