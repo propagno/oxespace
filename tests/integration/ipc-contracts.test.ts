@@ -235,7 +235,8 @@ describe('ipc contracts', () => {
     expect(IPC_CHANNELS.agentActivity).toEqual({
       list: 'agent-activity:list',
       detail: 'agent-activity:detail',
-      badge: 'agent-activity:badge'
+      badge: 'agent-activity:badge',
+      changed: 'agentActivity:changed'
     })
   })
 
