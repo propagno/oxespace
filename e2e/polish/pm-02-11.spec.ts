@@ -24,7 +24,8 @@ test('PM-02·11 in the app: the status bar\'s usage target is 24px', async () =>
     const usage = page.getByTestId('usage-status').first()
     await expect(usage).toBeVisible({ timeout: 30_000 })
     const box = await usage.boundingBox()
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
+    // Layout rounding under fractional scaling (Windows, 1/64 px); the target is var(--target-min).
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24 - 0.05)
   } finally {
     await app.close()
   }
