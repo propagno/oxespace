@@ -298,7 +298,8 @@
     "filterClear": "Clear filter",
     "pin": "Pin column {{name}}",
     "unpin": "Unpin column {{name}}",
-    "pinTitle": "Pin to the left"
+    "pinTitle": "Pin to the left",
+    "columnMenu": "Actions for column {{name}}"
   },
   "library": {
     "saved": "Query saved",

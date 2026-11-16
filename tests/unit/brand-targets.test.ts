@@ -42,7 +42,7 @@ const ANDROID_PROPS = new Set(['font-size', 'font-weight', 'min-font-size', 'rad
 
 describe('brand targets (OXE-149)', () => {
   test('the targets are valid and every BRD-01..07 has measures', () => {
-    expect(files).toEqual(['brd-01.json', 'brd-02.json', 'brd-03.json', 'brd-04.json', 'brd-05.json', 'brd-06.json', 'brd-07.json', 'brd-11.json'])
+    expect(files).toEqual(['brd-01.json', 'brd-02.json', 'brd-03.json', 'brd-04.json', 'brd-05.json', 'brd-06.json', 'brd-07.json', 'brd-09.json', 'brd-10.json', 'brd-11.json', 'brd-12.json'])
     for (const { name, doc } of targets) {
       expect(doc.brd.toLowerCase() + '.json', name).toBe(name)
       expect(['desktop', 'android'], name).toContain(doc.platform)

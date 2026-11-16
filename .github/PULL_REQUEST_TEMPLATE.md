@@ -2,6 +2,10 @@
 
 <!-- One or two sentences: the problem and the change. Link the issue: Fixes #123 -->
 
+<!-- Jira (OXE-277): "Fecha OXE-N" when this PR delivers the whole card, "Parte de OXE-N" when it is one piece of it.
+     Only a "Fecha" moves the card to Na main on merge; a key with neither word leaves the card where it is. -->
+Fecha OXE-
+
 ## How it was checked
 
 - [ ] `npm run typecheck` and `npm run lint`

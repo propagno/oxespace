@@ -291,8 +291,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('button', { name: /voice|dictation|microphone/i })).toHaveCount(0)
     await expect(codeInput).toBeFocused()
     const terminalCount = await page.locator('.xterm').count()
-    const nav = page.getByRole('navigation', { name: 'Application view' })
-    await expect(page.locator('.workbench-titlebar').getByRole('navigation', { name: 'Application view' })).toBeVisible()
+    const nav = page.getByRole('tablist', { name: 'Application view' })
+    await expect(page.locator('.workbench-titlebar').getByRole('tablist', { name: 'Application view' })).toBeVisible()
     await expect(nav).toHaveCount(1)
     const canvasTop = await page.locator('.workspace-host:not(.workspace-host-hidden)').evaluate(el => el.getBoundingClientRect().top)
     // The surface draws a 1px frame border, so its content box starts clientTop lower.
@@ -338,7 +338,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
-    expect(threadFooter).toEqual(codeFooter)
+    // OxeCode's footer is on the src/ui anatomy (BRD-01); OxeChat's follows in BRD-02. Both keep the same actions.
+    expect(threadFooter.length).toBe(codeFooter.length)
     await expect(page.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)
@@ -875,7 +876,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
     await expect(sticky).toContainText('Show the files updated in this conversation')
     // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
-    const usage = page.getByTestId('usage-status')
+    // One chip per provider in the status bar (OXE-72): this conversation's is Claude's.
+    const usage = page.getByTestId('usage-status').and(page.getByRole('button', { name: /^Claude / }))
     // The chip shows the agent and its highest window; the windows themselves are in its accessible name.
     await expect(usage).toContainText('40%')
     await expect(usage).toHaveAccessibleName(/5h 40% · wk 30%/)

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pin, X } from 'lucide-react'
 import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, type CellRange, type CopyFormat } from './grid-format'
 import { EMPTY_FILTER, autoColumnWidth, isFiltering, pinColumns, pinOffsets, viewOrder, type GridFilter } from './grid-model'
 import { Select } from '../../ui/Field'
+import { AnchoredMenu, type MenuEntry } from '../../ui'
 
 // The formatters live in grid-format.ts; these stay importable from here.
 export { displayCell, toCsv, toJsonRows, sortedOrder } from './grid-format'
@@ -90,6 +91,30 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const total = visible.reduce((sum, index) => sum + baseWidth(index), 0) + INDEX_WIDTH
   const numeric = useMemo(() => columns.map((_, index) => isNumericColumn(types?.[index], rows, index)), [columns, rows, types])
   const widthOf = baseWidth
+  // The hover actions' width and 4ch of header text, read from the rendered grid so they hold in every density.
+  const [room, setRoom] = useState<{ actions: number; name: number } | null>(null)
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el || typeof getComputedStyle !== 'function') return
+    const style = getComputedStyle(el)
+    const control = parseFloat(style.getPropertyValue('--control-sm')) || 24
+    const gap = parseFloat(style.getPropertyValue('--space-2')) || 8
+    const probe = document.createElement('span')
+    probe.textContent = '0000'
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap'
+    el.querySelector('.oq-grid-header')?.appendChild(probe)
+    const name = probe.getBoundingClientRect().width || 32
+    probe.remove()
+    setRoom({ actions: 2 * control + gap, name })
+  }, [])
+  // Too narrow for the actions and a readable name: no hover actions there (the header menu has them).
+  const narrow = (index: number): boolean => room !== null && widthOf(index) < room.actions + room.name
+  const [headerMenu, setHeaderMenu] = useState<number | null>(null)
+  const headerItems = (index: number): MenuEntry[] => {
+    const items: MenuEntry[] = [{ label: t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] }), icon: <Pin size={14} aria-hidden="true" />, onSelect: () => setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }]
+    if (visible.length > 1) items.push({ label: t('grid.hideNamed', { name: columns[index] }), icon: <X size={14} aria-hidden="true" />, onSelect: () => setHidden(current => new Set([...current, index])) })
+    return items
+  }
   const order = useMemo(() => viewOrder(rows, filter, onSort ? null : sort), [rows, filter, sort, onSort])
   const count = order ? order.length : rows.length
   const pinLeft = useMemo(() => pinOffsets(visible, pinned, widthOf, INDEX_WIDTH), [visible, pinned, widthOf])
@@ -202,8 +227,9 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
         </span>
         {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" className={[pinned.has(index) ? 'is-pinned' : '', numeric[index] ? 'is-number' : ''].filter(Boolean).join(' ') || undefined} style={stickyStyle(index, widthOf(index))}
           title={t('grid.sortTitle', { column: types?.[index] ? `${columns[index]} · ${types[index]}` : columns[index] })}
-          aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}>
-          {columns[index]}{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
+          aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}
+          data-narrow={narrow(index) || undefined} onContextMenu={event => { event.preventDefault(); setHeaderMenu(index) }}>
+          <span className="oq-grid-name">{columns[index]}</span>{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
           <button type="button" className={`oq-grid-pin${pinned.has(index) ? ' is-on' : ''}`} aria-pressed={pinned.has(index)} aria-label={t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] })} title={t('grid.pinTitle')}
             onClick={event => { event.stopPropagation(); setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }}><Pin size={11} aria-hidden="true" /></button>
           {visible.length > 1 && <button type="button" className="oq-grid-hide" aria-label={t('grid.hideNamed', { name: columns[index] })} title={t('grid.hide')}
@@ -212,6 +238,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
             onMouseDown={event => beginResize(index, event)} onClick={event => event.stopPropagation()}
             onDoubleClick={event => { event.stopPropagation(); setOverrides(current => { const next = { ...current }; delete next[index]; return next }) }} />
         </span>)}
+        {headerMenu !== null && <AnchoredMenu open onOpenChange={open => { if (!open) setHeaderMenu(null) }} label={t('grid.columnMenu', { name: columns[headerMenu] })} items={headerItems(headerMenu)} />}
       </div>
       {Array.from({ length: Math.max(0, end - start) }, (_, offset) => start + offset).map(position => {
         const index = order ? order[position] : position
