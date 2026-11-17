@@ -66,7 +66,7 @@
 .sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
 .sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }
-.sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--intent-warning-fg); padding: 1px; }
+.sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--attn-bg); color: var(--attn-fg); padding: 1px; }
 
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
 .pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn { min-width: var(--control-md); min-height: var(--control-md); }
