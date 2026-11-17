@@ -9,7 +9,7 @@
 :where(.input, .textarea, .select) {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--bd-strong);
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--tx-primary);
@@ -36,7 +36,35 @@
 
 /* The box stays 16 px; the label around it is the target, so it is never shorter than --target-min (WCAG 2.5.8). */
 .check { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--target-min); font-size: var(--fs-sm); color: var(--tx-primary); cursor: pointer; }
-.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.check input {
+  position: relative;
+  flex: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--bd-control);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+.check input:checked { border-color: var(--accent); }
+.check input:checked::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.check input:checked::after {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  background: var(--tx-on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
 .check input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .check:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
 .check:hover:not(:has(input:disabled)) input { filter: brightness(0.94); }
@@ -44,19 +72,20 @@
 .switch {
   position: relative;
   flex: none;
+  box-sizing: border-box;
   width: 40px;
   height: 24px;
-  border: 0;
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-full);
-  background: var(--bd-strong);
+  background: var(--surface-sunken);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 .switch::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -64,8 +93,8 @@
   box-shadow: var(--elevation-1);
   transition: transform var(--duration-fast) var(--ease-standard);
 }
-.switch:hover:not(:disabled) { background: var(--tx-muted); }
-.switch[aria-checked='true'] { background: var(--accent); }
+.switch:hover:not(:disabled) { border-color: var(--tx-muted); }
+.switch[aria-checked='true'] { background: var(--accent); border-color: var(--accent); }
 .switch[aria-checked='true']:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--tx-primary)); }
 .switch[aria-checked='true']::after { transform: translateX(16px); }
 .switch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
@@ -131,8 +160,11 @@
  * its track and thumb with CanvasText lines, and in Highlight once on, with the thumb on the right.
  */
 @media (forced-colors: active) {
-  .check input { accent-color: ButtonText; }
-  .check input:checked { accent-color: Highlight; }
+  .check input { forced-color-adjust: none; border-color: ButtonText; background: Canvas; }
+  .check input:checked { border-color: Highlight; }
+  .check input:checked::before { background: Highlight; }
+  .check input:checked::after { background: HighlightText; }
+  .check input:disabled { border-color: GrayText; background: Canvas; }
 
   .switch, .switch:hover:not(:disabled) { forced-color-adjust: none; border: 2px solid CanvasText; background: Canvas; }
   .switch::after { top: 1px; left: 1px; background: CanvasText; box-shadow: none; }
