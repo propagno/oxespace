@@ -109,6 +109,7 @@
   --bd-subtle: #dedeea;
   --bd-default: #d3d3e2;
   --bd-strong: #c3c3d5;
+  --bd-control: #7d7d98;
   --bd-focus: #007044;
   --accent: #007044;
   --accent-hover: #00603a;
@@ -239,6 +240,7 @@
   --bd-subtle: #2a284a;
   --bd-default: #34315b;
   --bd-strong: #413e71;
+  --bd-control: #736dc3;
   --bd-focus: #44b77e;
   --accent: #44b77e;
   --accent-hover: #5dc68e;
@@ -370,6 +372,7 @@
     --bd-subtle: #2a284a;
     --bd-default: #34315b;
     --bd-strong: #413e71;
+    --bd-control: #736dc3;
     --bd-focus: #44b77e;
     --accent: #44b77e;
     --accent-hover: #5dc68e;
