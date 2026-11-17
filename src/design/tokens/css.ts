@@ -14,7 +14,7 @@ import { BAR, CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOT
 const SHORT_NAMES: ReadonlyArray<readonly [long: string, short: string, suffixes: readonly string[]]> = [
   ['text', 'fs', ['2xs', 'xs', 'sm', 'md', 'lg', 'xl', 'display']],
   ['text', 'tx', ['primary', 'secondary', 'muted', 'disabled', 'on-accent', 'on-solid', 'on-identity', 'accent', 'link']],
-  ['border', 'bd', ['default', 'subtle', 'strong', 'focus']]
+  ['border', 'bd', ['default', 'subtle', 'strong', 'control', 'focus']]
 ]
 const CSS_NAME = new Map<string, string>(SHORT_NAMES.flatMap(([long, short, suffixes]) => suffixes.map(suffix => [`${long}-${suffix}`, `${short}-${suffix}`])))
 const cssName = (name: string): string => CSS_NAME.get(name) ?? name
