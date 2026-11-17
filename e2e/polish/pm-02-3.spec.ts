@@ -10,11 +10,11 @@ import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
   app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), input)
-const lastTerminal = async (page: Page): Promise<string> => {
+const terminals = async (page: Page): Promise<string[]> => {
   const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
     .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
-  expect(panes.length, 'a terminal pane').toBeGreaterThan(0)
-  return panes.at(-1) as string
+  expect(panes.length, 'two terminal panes: one to focus, one to signal').toBeGreaterThan(1)
+  return panes
 }
 
 test('PM-02·3 in the app: the title bar is 40px in comfortable and the bell\'s count is whole', async () => {
@@ -23,7 +23,10 @@ test('PM-02·3 in the app: the title bar is 40px in comfortable and the bell\'s 
   try {
     await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
-    await setAgentState(app, { paneId: await lastTerminal(page), state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
+    // The active, visible pane is marked seen on every OS, so its needs-you entry is read: signal a pane that is not the active one.
+    const [signalled, ...others] = await terminals(page)
+    await page.locator(`[data-terminal-pane="${others.at(-1)}"]`).click()
+    await setAgentState(app, { paneId: signalled, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const bar = page.locator('header.workbench-titlebar')
     const count = page.getByTestId('activity-count')
     await expect(count).toBeVisible()
