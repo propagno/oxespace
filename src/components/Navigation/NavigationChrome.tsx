@@ -144,6 +144,7 @@ export function NavigationRail({ mode, primary, context, onToggle, children }: {
     <span className={styles.spacer} />
     <footer className={cx('nav-rail-footer', styles.group)}>
       <ActionButton action={context} />
+      <ThemeButton />
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.openSettings')} title={t('nav.settings')} onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.expandSidebar')} title={t('nav.expandSidebar')} onClick={onToggle}><ChevronsRight size={16} aria-hidden="true" /></button>
     </footer>
