@@ -5,9 +5,10 @@
 // panelScopePinnedByWorkspace, a pinned path after OXE-183).
 // Today (main 66e0080d5) the badge is a toggle with no state for assistive technology and no name saying what it does.
 // Contract: the scope badge button carries aria-pressed ("false" following the active pane, "true" pinned) and an
-// accessible name that says what a press does: unpinned "Pin the scope" / "Fixar o escopo", pinned "Follow the active
-// pane" / "Seguir o painel ativo" (the folder or branch stays visible text and the title keeps the detail); the pin icon
-// shows when pinned; Space and Enter toggle it and aria-pressed follows.
+// accessible name that says what a press does and includes the visible scope label (CR-F6-33, WCAG 2.5.3): unpinned
+// "Pin the scope: <label>" / "Fixar o escopo: <label>", pinned "Follow the active pane: <label>" / "Seguir o painel
+// ativo: <label>" (no parentheses around <label>, as axe strips parentheticals; the folder or branch stays visible text
+// and the title keeps the detail); the pin icon shows when pinned; Space and Enter toggle it and aria-pressed follows.
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,7 +19,7 @@ import { changeLanguage } from '../../../src/i18n'
 vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: 'main', detached: false, shortSha: null, error: null }) }))
 
 const scope = { rootPath: '/repo', isWorktree: false, folderName: 'repo', paneId: null, pinned: false }
-const NAMES = { en: ['Pin the scope', 'Follow the active pane'], 'pt-BR': ['Fixar o escopo', 'Seguir o painel ativo'] } as const
+const NAMES = { en: ['Pin the scope: main', 'Follow the active pane: main'], 'pt-BR': ['Fixar o escopo: main', 'Seguir o painel ativo: main'] } as const
 const badge = (): HTMLElement => screen.getByTestId('panel-scope-badge')
 
 beforeEach(() => { useUIStore.setState({ panelScopePinnedByWorkspace: {} } as never) })
