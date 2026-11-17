@@ -56,7 +56,7 @@ describe('activity store', () => {
 
   it('groups kinds into Needs you, Finished and Updates', () => {
     expect(activityGroup('needs-you')).toBe('needs-you')
-    expect(activityGroup('failed')).toBe('finished')
+    expect(activityGroup('failed')).toBe('failed')
     expect(activityGroup('finished')).toBe('finished')
     expect(activityGroup('quota')).toBe('updates')
     expect(activityGroup('update')).toBe('updates')

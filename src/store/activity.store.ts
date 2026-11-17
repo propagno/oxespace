@@ -158,11 +158,12 @@ export function unreadActivityCount(items: ActivityItem[]): number {
   return items.reduce((total, item) => total + (item.read ? 0 : 1), 0)
 }
 
-export type ActivityGroup = 'needs-you' | 'finished' | 'updates'
+export type ActivityGroup = 'needs-you' | 'failed' | 'finished' | 'updates'
 
-/** The three groups the activity center shows: waiting on a person, outcomes, and news about the app or quotas. */
+/** The four groups the activity center shows: waiting on a person, failures, outcomes, and news about the app or quotas. */
 export function activityGroup(kind: ActivityKind): ActivityGroup {
   if (kind === 'needs-you') return 'needs-you'
-  if (kind === 'finished' || kind === 'failed') return 'finished'
+  if (kind === 'failed') return 'failed'
+  if (kind === 'finished') return 'finished'
   return 'updates'
 }
