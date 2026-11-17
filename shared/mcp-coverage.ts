@@ -259,7 +259,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.undoTurnFile', 'thread.undoTurnHunk', 'thread.exportPortable', 'thread.importPortable', 'thread.recover',
       'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish',
       // Run plan (OXE-167): the person's choice to leave Plan; an agent never runs a plan on the person's behalf.
-      'thread.executePlan']
+      'thread.executePlan', 'thread.editPrompt']
   },
   'thread.project_admin': {
     label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',

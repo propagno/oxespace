@@ -14,7 +14,7 @@ import type { ThreadAccess } from '../../../../shared/threadAccess'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
-import { retryTurn, settleLegacyRewinds, type RetryHost } from './thread-retry'
+import { editPrompt, retryTurn, settleLegacyRewinds, type RetryHost } from './thread-retry'
 import { executePlan, type PlanExecuteHost } from './thread-plan-execute'
 import { mainLanguage } from '../../i18n'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
@@ -732,6 +732,9 @@ export class ThreadOrchestrator {
     return retryTurn(this.retryHost(), id, turnId, options)
   }
 
+  /** Edits the latest prompt: the text goes as the next turn and the edited turn is marked (OXE-167, see thread-retry). */
+  editPrompt(id: string, turnId: string, text: string, options: { restoreFiles?: boolean } = {}): Promise<{ restoredFiles: number }> { return editPrompt(this.retryHost(), id, turnId, text, options) }
+
   private retryHost(): RetryHost {
     return {
       checkpoints: this.checkpoints,
@@ -742,7 +745,8 @@ export class ThreadOrchestrator {
       read: id => this.read(id),
       changed: id => this.changed(id),
       audit: (id, entry) => this.audit(id, entry),
-      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds)
+      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
+      saveTurns: (snapshot, turnsFrom) => { this.history.write(snapshot, { eventsFrom: snapshot.events.length, turnsFrom }); this.changed(snapshot.thread.id) }
     }
   }
 
