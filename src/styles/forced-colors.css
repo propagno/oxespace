@@ -105,4 +105,10 @@
   .thread-usage-ring-track { stroke: GrayText; }
   .thread-usage-ring-value { stroke: Highlight; }
   .thread-usage-ring[data-high='true'] .thread-usage-ring-value { stroke: CanvasText; }
+
+  /* StatusSignal (src/ui/StatusSignal.tsx): keep own colors so the disc stays currentColor and the inner mark
+     stays Canvas; working and done are Highlight, all other states CanvasText. */
+  :root svg[data-ui='status-signal'] { forced-color-adjust: none; color: CanvasText; }
+  :root svg[data-ui='status-signal'][data-state='working'],
+  :root svg[data-ui='status-signal'][data-state='done'] { color: Highlight; }
 }
