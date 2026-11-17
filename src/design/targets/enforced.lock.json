@@ -63,6 +63,16 @@
     "BRD-02.archived-band.count",
     "BRD-02.raw-button.count",
     "BRD-12.title.font-weight",
-    "BRD-25.alert.count"
+    "BRD-25.alert.count",
+    "BRD-04.chat-header.height",
+    "BRD-04.column.width",
+    "BRD-05.title.font-size",
+    "BRD-05.title.font-weight",
+    "BRD-05.title.font-family",
+    "BRD-25.column.width",
+    "BRD-25.prompt.align",
+    "BRD-25.prompt.radius",
+    "BRD-25.turn-gap",
+    "BRD-25.header.meta"
   ]
 }
