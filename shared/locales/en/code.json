@@ -3,6 +3,9 @@
     "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
+    "changesCount_one": "Changes, {{count}} file",
+    "changesCount_other": "Changes, {{count}} files",
+    "changesCountTitle": "Counts the files git reports changed in {{folder}}",
     "browser": "Browser",
     "git": "Commit & pull request",
     "files": "Files",
@@ -1130,7 +1133,9 @@
     "scope": {
       "pinned": "Pinned to {{folder}}",
       "worktree": "Panels are reading the worktree at {{path}}. Click to keep them here even when another pane is active.",
-      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active."
+      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active.",
+      "pinAction": "Pin the scope",
+      "followAction": "Follow the active pane"
     },
     "systems": {
       "title": "Systems",

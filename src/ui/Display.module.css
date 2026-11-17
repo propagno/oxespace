@@ -69,9 +69,6 @@
 .errorDetail code { display: block; margin-top: var(--space-1); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); }
 .errorActions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
 .errorCompact .errorActions { justify-content: flex-start; }
-.errorRetry { min-height: var(--control-md); padding: 0 var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
-.errorRetry:hover { background: var(--fill-hover); }
-.errorRetry:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Success state */
 .successState { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); text-align: center; color: var(--tx-secondary); }

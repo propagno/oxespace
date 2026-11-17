@@ -3,6 +3,10 @@
     "session": "Detalhes da conversa",
     "terminal": "Terminal",
     "changes": "Alterações",
+    "changesCount_one": "Alterações, {{count}} arquivo",
+    "changesCount_many": "Alterações, {{count}} arquivos",
+    "changesCount_other": "Alterações, {{count}} arquivos",
+    "changesCountTitle": "Conta os arquivos que o git aponta como alterados em {{folder}}",
     "browser": "Navegador",
     "git": "Commit e pull request",
     "files": "Arquivos",
@@ -1181,7 +1185,9 @@
     "scope": {
       "pinned": "Fixado em {{folder}}",
       "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para mantê-los aqui mesmo quando outro painel estiver ativo.",
-      "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo."
+      "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo.",
+      "pinAction": "Fixar o escopo",
+      "followAction": "Seguir o painel ativo"
     },
     "systems": {
       "title": "Sistemas",
