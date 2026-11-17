@@ -15,3 +15,7 @@
 
 /* "spin" in the class name keeps it turning, slower, under reduced motion (base.css): a frozen arc reads as a hang. */
 .spin { animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite; }
+
+@media (forced-colors: active) {
+  .failed .mark, .done .mark { stroke: Canvas; }
+}
