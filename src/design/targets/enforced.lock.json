@@ -62,6 +62,7 @@
     "BRD-02.row.radius",
     "BRD-02.archived-band.count",
     "BRD-02.raw-button.count",
-    "BRD-12.title.font-weight"
+    "BRD-12.title.font-weight",
+    "BRD-25.alert.count"
   ]
 }

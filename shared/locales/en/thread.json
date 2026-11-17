@@ -923,7 +923,13 @@
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
     "showCode": "Show code",
-    "showDiagram": "Show diagram"
+    "showDiagram": "Show diagram",
+    "alert": {
+      "note": "Note",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Starts now.",
