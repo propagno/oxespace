@@ -18,6 +18,13 @@ export type ActivityTarget =
   | { type: 'update'; version: string }
   | { type: 'mcp'; serverId: string }
 
+export interface ActivityPlace {
+  project: string
+  mode: 'chat' | 'code'
+}
+
+export type ActivityOutcome = 'allowed' | 'denied' | 'answered'
+
 export interface ActivityItem {
   source: ActivitySource
   /** Stable per subject (a thread, a pane, a job), so a newer state replaces the older one. */
@@ -26,6 +33,8 @@ export interface ActivityItem {
   target: ActivityTarget
   title: string
   detail?: string
+  place?: ActivityPlace
+  outcome?: ActivityOutcome
   at: number
   read: boolean
 }

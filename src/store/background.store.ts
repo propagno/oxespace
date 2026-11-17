@@ -7,6 +7,7 @@ import type {
   StartBackgroundJobInput
 } from '../../shared/types/background'
 import { useActivityStore } from './activity.store'
+import { useWorkspaceStore } from './workspace.store'
 
 interface BackgroundStoreState {
   jobsByWorkspace: Record<string, BackgroundJob[]>
@@ -181,11 +182,13 @@ export function recordJobOutcome(previous: BackgroundJob | undefined, job: Backg
   if (previous && !ACTIVE.has(previous.status)) return
   if (job.status !== 'exited' && job.status !== 'failed') return
   const failed = job.status === 'failed' || (job.exitCode !== null && job.exitCode !== 0)
+  const workspaceName = useWorkspaceStore.getState().workspaces.find((ws) => ws.id === job.workspaceId)?.name
   useActivityStore.getState().record({
     source: 'background', id: job.id, kind: failed ? 'failed' : 'finished',
     target: { type: 'background', workspaceId: job.workspaceId, jobId: job.id },
     title: job.label || job.command,
-    detail: failed ? (job.exitCode !== null ? i18n.t('background.jobFailedCode', { ns: 'code', code: job.exitCode }) : i18n.t('background.jobFailed', { ns: 'code' })) : i18n.t('background.jobFinished', { ns: 'code' })
+    detail: failed ? (job.exitCode !== null ? i18n.t('background.jobFailedCode', { ns: 'code', code: job.exitCode }) : i18n.t('background.jobFailed', { ns: 'code' })) : i18n.t('background.jobFinished', { ns: 'code' }),
+    ...(workspaceName ? { place: { project: workspaceName, mode: 'code' as const } } : {})
   })
 }
 
