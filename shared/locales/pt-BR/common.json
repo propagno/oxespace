@@ -490,8 +490,14 @@
     "emptyHint": "Turnos concluídos, pedidos que precisam de você e atualizações aparecem aqui.",
     "group": {
       "needs-you": "Precisa de você",
+      "failed": "Falhou",
       "finished": "Concluídos",
       "updates": "Atualizações"
+    },
+    "outcome": {
+      "allowed": "Permitido",
+      "denied": "Negado",
+      "answered": "Respondido"
     },
     "kind": {
       "needs-you": "Precisa de você",
