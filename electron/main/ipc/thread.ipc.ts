@@ -148,6 +148,7 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => sides().then(chats => chats.send(sideId, text)))
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.executePlan, (event, id: unknown, turnId: unknown) => manager.then(service => service.executePlan(string(id), string(turnId))))
   ipcMain.handle(IPC_CHANNELS.thread.retryTurn, (event, id: unknown, turnId: unknown, options: unknown) => {
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
