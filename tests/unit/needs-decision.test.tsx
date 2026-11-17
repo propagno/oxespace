@@ -194,12 +194,12 @@ describe('notifications for a decision', () => {
     expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude', body: 'Needs you · demo', paneId: 'p1', workspaceId: 'ws-1', silent: false })
     expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', title: 'Claude', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
 
-    // Held, it does not ping again; answered, the request leaves the list.
+    // Held, it does not ping again; answered, the entry stays read with outcome 'answered'.
     tick(6000)
     expect(notify).toHaveBeenCalledTimes(2)
     setState('working')
     tick()
-    expect(useActivityStore.getState().items.some(item => item.kind === 'needs-you')).toBe(false)
+    expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', read: true, outcome: 'answered' })
   })
 
   it('names an unnamed pane after the agent its shell launches, not a generic word', () => {
