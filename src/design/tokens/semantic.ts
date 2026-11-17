@@ -27,13 +27,16 @@ export function colorRoles(mode: Mode): ColorRoles {
     [`intent-${name}-solid`]: s(p[name], 9),
     [`intent-${name}-fg`]: s(p[name], 11)
   })
+  const surfaceCanvas = light ? s(n, 2) : s(n, 1)
+  const surfaceRaised = light ? '#ffffff' : s(n, 3)
+  const borderControl = n.find(hex => contrast(hex, surfaceCanvas) >= 3 && contrast(hex, surfaceRaised) >= 3) ?? s(n, 11)
   return {
     // Surfaces, from the window background up to floating layers.
-    'surface-canvas': light ? s(n, 2) : s(n, 1),
+    'surface-canvas': surfaceCanvas,
     'surface-sunken': light ? s(n, 3) : oklchToHex({ l: 0.145, c: 0.012, h: SCALE_SPECS.neutral.hue }),
     'surface-chrome': light ? s(n, 3) : s(n, 2),
     'surface-base': light ? s(n, 1) : s(n, 2),
-    'surface-raised': light ? '#ffffff' : s(n, 3),
+    'surface-raised': surfaceRaised,
     'surface-overlay': light ? '#ffffff' : s(n, 4),
     'surface-inverse': s(n, 12),
     // Interaction fills on neutral surfaces.
@@ -59,6 +62,7 @@ export function colorRoles(mode: Mode): ColorRoles {
     'border-subtle': s(n, 5),
     'border-default': s(n, 6),
     'border-strong': s(n, 7),
+    'border-control': borderControl,
     'border-focus': s(accent, 9),
     // Accent.
     'accent': s(accent, 9),
@@ -73,6 +77,7 @@ export function colorRoles(mode: Mode): ColorRoles {
     ...intent('success'),
     ...intent('warning'),
     ...intent('danger'),
+    'intent-danger-solid-hover': s(p.danger, 10),
     ...intent('info'),
     // Code review.
     'diff-add-bg': s(p.success, 3),
