@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Info, Sun, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
 import { BrandLoader, BrandMark } from './BrandLoader'
+import { Button } from './Button'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
@@ -87,7 +88,7 @@ export function ErrorState({ title, message, detail, detailLabel = i18n.t('ui.de
     {children && <div className={styles.errorFix}>{children}</div>}
     {detail && <details className={styles.errorDetail}><summary>{detailLabel}</summary><code lang={detailLang}>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
-      {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+      {onRetry && <Button variant="secondary" onClick={onRetry}>{retryLabel}</Button>}
       {actions}
     </div>}
   </div>
@@ -117,7 +118,7 @@ export function OfflineState({ title = i18n.t('ui.offline.title'), message = i18
     {compact ? <WifiOff size={14} aria-hidden="true" className={styles.offlineIcon} /> : <BrandLoader decorative />}
     <p className={styles.offlineTitle}>{title}</p>
     {message && !compact && <p className={styles.offlineText}>{message}</p>}
-    {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+    {onRetry && <Button variant="secondary" onClick={onRetry}>{retryLabel}</Button>}
   </div>
 }
 
