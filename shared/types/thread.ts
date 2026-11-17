@@ -526,7 +526,7 @@ export type ThreadEvent =
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
-  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string }
+  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string; /** Set when the prompt came from Run plan (OXE-167). */ origin?: 'execute-plan' }
   | { type: 'delta'; id: string; text: string }
   /** The agent's visible reasoning (Claude thinking, Codex summaries), re-emitted whole as it grows. */
   | { type: 'reasoning'; id: string; text: string; startedAt: number; completedAt?: number }
@@ -766,6 +766,8 @@ export interface ThreadApi {
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
+  /** Runs the plan of the latest Plan turn (OXE-167): Plan → Agent, then the run text as the next turn. */
+  executePlan?(id: string, turnId: string): Promise<void>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
   sendQueuedNow?(id: string, itemId: string): Promise<void>
