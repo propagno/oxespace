@@ -94,6 +94,11 @@
      the text color keeps each dot visible on any background the palette forces (the terminal's footer dot was lost). */
   :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-status-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
 
+  /* The first run's current step (PU-03·1): its border and filled number were only colour, so the step is ringed in
+     Highlight and its number is drawn in Highlight / HighlightText. */
+  [data-ui='first-run-step'][aria-current='step'] { outline: 2px solid Highlight; outline-offset: -1px; }
+  [data-ui='first-run-step'][aria-current='step'] [data-ui='first-run-step-num'] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
+
   /* Charts: meters, usage bars and the usage ring draw the filled part in the highlight color on an outlined track. */
   [role='meter'], .thread-usage-bar { outline: 1px solid CanvasText; }
   [role='meter'] > *, .thread-usage-bar > span { forced-color-adjust: none; background: Highlight; }
