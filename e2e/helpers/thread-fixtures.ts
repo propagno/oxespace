@@ -16,6 +16,7 @@ export type ThreadStateName =
   | 'running'
   | 'workbench'
   | 'long-command'
+  | 'anatomy'
 
 export type ExtendedThreadStateName = ThreadStateName | 'approval-sql'
 
@@ -24,7 +25,8 @@ interface ThreadStateDefinition {
   title: string
   provider?: 'claude' | 'codex'
   extra?: Record<string, unknown>
-  events: (ctx: { root: string }) => unknown[]
+  /** The events, or a function of the fixture root for states that name paths under it. */
+  events: unknown[] | ((ctx: { root: string }) => unknown[])
 }
 
 const NOW = Date.UTC(2026, 9, 14, 12, 0, 0)
@@ -191,6 +193,58 @@ export const THREAD_STATES: Record<ThreadStateName, ThreadStateDefinition> = {
       done
     ]
   },
+  /**
+   * BRD-25 (OXE-167, OXE-172): one conversation with the AG-11 situations the chat-anatomy scene measures: a finished
+   * thought (1.2), a run of reads and searches (2.1), edits with their files (2.3, 6.1), a command that passed (2.4b) and
+   * one that failed with its output (2.4c), a ts block (3.2), a table with numbers (3.3), the four alerts (3.4), a plan
+   * (5.1), a compaction and a failed turn (6.2). Left out of the visual loops (no baseline is shot for it).
+   */
+  anatomy: {
+    status: 'failed',
+    title: 'Harden the session cookie',
+    extra: { lastTurnStatus: 'failed' },
+    events: [
+      user('u1', 'Find where the session cookie is set and harden it.'),
+      { type: 'reasoning', id: 'anatomy-reasoning', text: 'The cookie is set in the auth callback. Read the session helpers before changing it.', startedAt: NOW - 60_000, completedAt: NOW - 48_000 },
+      ...([['Read', 'README.md'], ['Grep', 'res.cookie'], ['Glob', 'src/auth/**/*.ts'], ['Read', 'src/auth/callback.ts'], ['Read', 'src/auth/session.ts']] as const).map(([name, detail], index) => ({
+        type: 'tool', id: `anatomy-explore-${index}`, name, state: 'completed', detail, startedAt: NOW - 47_000 + index * 1_000, completedAt: NOW - 46_500 + index * 1_000
+      })),
+      { type: 'plan', id: 'anatomy-plan', steps: [
+        { label: 'Set HttpOnly and SameSite on the session cookie', status: 'completed' },
+        { label: 'Rotate the session id on sign-in', status: 'completed' },
+        { label: 'Run the auth tests', status: 'inProgress' }
+      ] },
+      ...['src/auth/callback.ts', 'src/auth/session.ts', 'tests/auth.test.ts'].map((path, index) => ({
+        type: 'tool', id: `anatomy-file-${index}`, name: 'fileChange', state: 'completed', detail: path,
+        files: [{ path, kind: index === 2 ? 'add' : 'update', state: 'completed', source: 'native-patch', artifactId: `anatomy-artifact-${index}`, additions: 6 + index, deletions: index ? 0 : 2 }]
+      })),
+      { type: 'tool', id: 'anatomy-run-ok', name: 'Bash', state: 'completed', detail: 'npm run typecheck', output: 'TypeScript checks passed', exitCode: 0, startedAt: NOW - 30_000, completedAt: NOW - 22_000 },
+      { type: 'tool', id: 'anatomy-run-failed', name: 'Bash', state: 'failed', detail: 'npm test -- auth', output: 'FAIL tests/auth.test.ts\n  rotates the session id on sign-in\n    expected a new id, received the old one\nTests: 1 failed, 11 passed, 12 total', exitCode: 1, startedAt: NOW - 20_000, completedAt: NOW - 12_000 },
+      answer('anatomy-a1', [
+        'The cookie is now **HttpOnly** and **SameSite=Lax**, and sign-in rotates its id.',
+        '',
+        '```ts\nres.cookie("sid", rotate(id), { httpOnly: true, sameSite: "lax", secure: true })\n```',
+        '',
+        '| File | Added | Removed |',
+        '| --- | ---: | ---: |',
+        '| src/auth/callback.ts | 6 | 2 |',
+        '| src/auth/session.ts | 7 | 0 |',
+        '| tests/auth.test.ts | 8 | 0 |',
+        '',
+        '> [!NOTE]\n> The cookie keeps its name, so open sessions survive the deploy.',
+        '',
+        '> [!IMPORTANT]\n> Secure needs HTTPS; local runs use the dev proxy.',
+        '',
+        '> [!WARNING]\n> One auth test still fails: the rotation keeps the old id.',
+        '',
+        '> [!CAUTION]\n> Do not ship until the rotation test passes.'
+      ].join('\n')),
+      done,
+      user('u2', 'Compact the context and fix the failing test.'),
+      { type: 'tool', id: 'anatomy-compaction', name: 'contextCompaction', state: 'completed', detail: 'Context compacted' },
+      { type: 'completed', status: 'failed', error: 'The provider stopped the turn before it finished.' }
+    ]
+  },
   'long-command': {
     status: 'idle',
     title: 'Inspect project history',
@@ -318,5 +372,5 @@ export async function setThreadState(app: ElectronApplication, root: string, sta
   const definition = state === 'approval-sql' ? THREAD_SQL_APPROVAL_STATE : THREAD_STATES[state]
   await app.evaluate((_context, payload) => {
     ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
-  }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, events: definition.events({ root }) })
+  }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
 }

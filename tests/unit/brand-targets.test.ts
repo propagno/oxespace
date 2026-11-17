@@ -13,12 +13,15 @@ type Expect =
   | { oneOf: string[] }
   | { px: number }
   | { sp: number }
-  | { eq: number }
+  | { eq: number | string }
+  | { max: number }
   | { gte: number }
 type Measure = {
   id: string
   scene: string
-  select: string | { text: string }
+  select: string | { text: string; within?: string }
+  of?: string
+  attr?: string
   prop: string
   expect: Expect
   tolerance: number
@@ -37,12 +40,12 @@ const generated = readFileSync(join(process.cwd(), 'src/styles/tokens.generated.
 const tokenNames = new Set([...generated.matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]))
 const measures = targets.flatMap(({ doc }) => doc.measures.map(measure => ({ ...measure, brd: doc.brd, platform: doc.platform })))
 
-const DESKTOP_PROPS = new Set(['height', 'width', 'font-size', 'font-weight', 'font-family', 'border-radius', 'count'])
+const DESKTOP_PROPS = new Set(['height', 'width', 'font-size', 'font-weight', 'font-family', 'border-radius', 'count', 'margin-block-start', 'border-left-width', 'border-left-color', 'background-color', 'inline-start-offset', 'attr'])
 const ANDROID_PROPS = new Set(['font-size', 'font-weight', 'min-font-size', 'radius'])
 
 describe('brand targets (OXE-149)', () => {
   test('the targets are valid and every BRD-01..07 has measures', () => {
-    expect(files).toEqual(['brd-01.json', 'brd-02.json', 'brd-03.json', 'brd-04.json', 'brd-05.json', 'brd-06.json', 'brd-07.json', 'brd-09.json', 'brd-10.json', 'brd-11.json', 'brd-12.json', 'brd-13.json', 'brd-14.json', 'brd-15.json', 'brd-16.json', 'brd-23.json'])
+    expect(files).toEqual(['brd-01.json', 'brd-02.json', 'brd-03.json', 'brd-04.json', 'brd-05.json', 'brd-06.json', 'brd-07.json', 'brd-09.json', 'brd-10.json', 'brd-11.json', 'brd-12.json', 'brd-13.json', 'brd-14.json', 'brd-15.json', 'brd-16.json', 'brd-23.json', 'brd-25.json'])
     for (const { name, doc } of targets) {
       expect(doc.brd.toLowerCase() + '.json', name).toBe(name)
       expect(['desktop', 'android'], name).toContain(doc.platform)
@@ -66,7 +69,11 @@ describe('brand targets (OXE-149)', () => {
         expect(measure.themes.every(theme => theme === 'light' || theme === 'dark'), where).toBe(true)
         // Classes are hashed, so a measure finds its element by data-ui, ARIA role, a tag or text, never by class.
         if (typeof measure.select === 'string') expect(measure.select, where).not.toMatch(/(^|[\s>+~,(])\.[A-Za-z_-]/)
-        else expect(measure.select.text, where).toBeTruthy()
+        else {
+          expect(measure.select.text, where).toBeTruthy()
+          if (measure.select.within !== undefined) expect(measure.select.within, where).not.toMatch(/(^|[\s>+~,(])\.[A-Za-z_-]/)
+        }
+        if (measure.of !== undefined) expect(measure.of, where).not.toMatch(/(^|[\s>+~,(])\.[A-Za-z_-]/)
       }
     }
   })
@@ -76,7 +83,14 @@ describe('brand targets (OXE-149)', () => {
       const expected = measure.expect
       const names = 'token' in expected ? [expected.token] : 'oneOf' in expected ? expected.oneOf : []
       for (const name of names) expect(tokenNames.has(name), `${measure.id}: ${name} is not in tokens.generated.css`).toBe(true)
-      if (measure.prop === 'count') expect('eq' in expected, measure.id).toBe(true)
+      if (measure.prop === 'count') expect(('eq' in expected && typeof expected.eq === 'number') || ('max' in expected && typeof expected.max === 'number'), measure.id).toBe(true)
+      else if (measure.prop === 'attr') {
+        expect(measure.attr, `${measure.id}: an attr measure names its attribute`).toBeTruthy()
+        expect('eq' in expected, measure.id).toBe(true)
+      } else if (measure.prop === 'inline-start-offset') {
+        expect(measure.of, `${measure.id}: an offset names the element it is measured from`).toBeTruthy()
+        expect('px' in expected || 'token' in expected, measure.id).toBe(true)
+      }
       else expect('token' in expected || 'oneOf' in expected || 'px' in expected, measure.id).toBe(true)
     }
   })

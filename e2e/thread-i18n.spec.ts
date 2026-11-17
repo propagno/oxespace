@@ -84,7 +84,8 @@ test('captures the Thread states for review', async () => {
     await shot(page, 'create-dialog')
     await page.getByRole('button', { name: pt ? 'Criar conversa' : 'Create conversation', exact: true }).click()
     await page.locator('.thread-timeline').waitFor()
-    for (const state of Object.keys(THREAD_STATES) as ThreadStateName[]) {
+    // 'anatomy' is the brand conformance scene (BRD-25), not a screenshot of this flow.
+    for (const state of (Object.keys(THREAD_STATES) as ThreadStateName[]).filter(name => name !== 'anatomy')) {
       await setThreadState(app, workspaceRoot, state)
       await expect(page.locator('.thread-view')).toContainText(THREAD_STATES[state].title.split(' ')[0])
       await shot(page, state)

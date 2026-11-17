@@ -42,3 +42,4 @@ These three files hold the OxeChat target the user approved on 15/11 (canvas of 
 | OXE-167 conversation | `chat-header`, `chat-title`, `chat-column`, `user-message`, `turn-line`, `composer`, `composer-toolbar`, `request-card` |
 | OXE-168 new conversation | `new-conversation-title`, `context-picker`, `starter` |
 | OXE-169 panels | `panel-toggle` (on WorkbenchPanelToggle) |
+| OXE-167, OXE-172 conversation anatomy (BRD-25, brd-25.json, AG-10/11) | `prompt-card`, `turn`, `turn-line`, `explore-group`, `step` (with `data-kind`, `data-state`), `step-output`, `reasoning`, `alert`, `md-table`, `request-card`, `working-set`, `composer-toolbar`, `mode-switch`, `chat-meta`; measured in `chat-conversation`, `chat-approval` and `chat-anatomy` (the fixtures' `anatomy` state); the column's width is the generated `--measure-chat` (800px, both densities) |
