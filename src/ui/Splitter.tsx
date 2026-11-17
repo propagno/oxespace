@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactElement } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import { i18n } from '../i18n'
 import { cx } from './cx'
 import { AnchoredMenu } from './Overlay'
@@ -35,6 +35,29 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
   const drag = useRef<{ start: number; size: number; moved: boolean } | null>(null)
   const separator = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState(false)
+  useLayoutEffect(() => {
+    if (!edge) return
+    const el = separator.current
+    const parent = el?.parentElement
+    if (!el || !parent) return
+    const sync = (): void => {
+      const rect = parent.getBoundingClientRect()
+      el.style.top = `${rect.top}px`
+      el.style.left = `${rect.right - 1}px`
+      el.style.height = `${rect.height}px`
+    }
+    sync()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null
+    observer?.observe(parent)
+    window.addEventListener('resize', sync)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', sync)
+      el.style.top = ''
+      el.style.left = ''
+      el.style.height = ''
+    }
+  }, [edge, value])
   const clamp = (size: number): number => Math.round(Math.max(min, Math.min(max, size)))
   const axis = (event: { clientX: number; clientY: number }): number => orientation === 'vertical' ? event.clientX : event.clientY
   const direction = after ? -1 : 1

@@ -1,12 +1,11 @@
 /* A thin line with a wider grab area; it lights up under the pointer and on keyboard focus. */
-.splitter { position: relative; flex: none; z-index: calc(var(--layer-sticky) + 1); background: var(--bd-default); touch-action: none; }
+.splitter { position: relative; flex: none; z-index: var(--layer-raised); background: var(--bd-default); touch-action: none; }
 .splitter::after { content: ''; position: absolute; }
 .splitter[data-orientation='vertical'] { width: 1px; cursor: col-resize; }
-.splitter[data-orientation='vertical']::after { inset: 0 -3px; }
+.splitter[data-orientation='vertical']::after { inset: 0 calc((var(--target-min) - 1px) / -2); }
 .splitter[data-orientation='horizontal'] { height: 1px; cursor: row-resize; }
-.splitter[data-orientation='horizontal']::after { inset: -3px 0; }
+.splitter[data-orientation='horizontal']::after { inset: calc((var(--target-min) - 1px) / -2) 0; }
 .splitter:hover, .splitter:focus-visible, .splitter:active { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); outline: none; }
-/* On a sidebar's right edge: a 4px grab strip over its border, visible under the pointer and on focus. */
-.splitter.edge { position: absolute; top: 0; bottom: 0; right: 0; width: 4px; background: transparent; z-index: var(--layer-sticky); }
-.splitter.edge::after { inset: 0; }
+/* On a sidebar's right edge: a 1px strip over its border with the same 24px grab area, visible under the pointer and on focus. */
+.splitter.edge { position: fixed; width: 1px; background: transparent; z-index: var(--layer-raised); }
 .splitter.edge:hover, .splitter.edge:focus-visible, .splitter.edge:active { background: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: none; }

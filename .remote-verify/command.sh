@@ -1,0 +1,1 @@
+(node scripts/test-electron.mjs tests/oxe152/polish/pb01-splitter-hit.test.tsx --maxWorkers=2 --reporter=verbose || touch .pb-window-red) ; npm run build && npx playwright test e2e/polish/pb-01-6.spec.ts --reporter=list && test ! -e .pb-window-red
