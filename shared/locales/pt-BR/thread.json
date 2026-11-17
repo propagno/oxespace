@@ -951,6 +951,7 @@
     "image": "[Imagem]",
     "imageAlt": "[Imagem: {{alt}}]",
     "diagram": "Diagrama",
+    "enlarge": "Ampliar",
     "showCode": "Ver o código",
     "showDiagram": "Ver o diagrama",
     "alert": {

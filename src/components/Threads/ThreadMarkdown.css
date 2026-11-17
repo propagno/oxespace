@@ -70,3 +70,8 @@
 .thread-diagram-block .thread-code-toolbar > span { margin-right: auto; }
 .thread-diagram { display: flex; justify-content: center; max-height: 640px; padding: 14px; overflow: auto; background: var(--surface-base); }
 .thread-diagram svg { max-width: 100%; height: auto; }
+/* Diagram | Code: a two-way switch on the bar; the pressed side reads as selected. */
+.thread-diagram-switch button[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
+/* Enlarge: the same drawing in a dialog, as wide as the dialog and as tall as the window lets it be. */
+.thread-diagram-enlarged { max-height: 75vh; }
+.thread-diagram-enlarged svg { width: 100%; max-height: 70vh; }

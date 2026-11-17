@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
 import DOMPurify from 'dompurify'
-import { Check, Code2, Copy, Workflow } from 'lucide-react'
+import { Check, Code2, Copy, Maximize2, Workflow } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { currentMode, onModeChange, type ColorMode } from '../../design/mode'
+import { Button, Dialog } from '../../ui'
 
 type Mermaid = typeof import('mermaid').default
 let mermaid: Mermaid | null = null
@@ -57,8 +58,8 @@ function useColorMode(): ColorMode {
 
 /**
  * A fenced block named `mermaid`, drawn. While the answer is still arriving the text is not a whole diagram yet: the
- * code shows, and the drawing takes its place once the text reads as one. The code is always one click away, and Copy
- * copies the code, never the picture.
+ * code shows, and the drawing takes its place once the text reads as one. Once drawn, the bar reads Diagram | Code,
+ * Enlarge (the same sanitized drawing, larger, in a dialog) and Copy, which copies the code, never the picture.
  */
 export function MermaidDiagram({ code }: { code: string }): ReactElement {
   const { t } = useTranslation('thread')
@@ -66,6 +67,10 @@ export function MermaidDiagram({ code }: { code: string }): ReactElement {
   const [drawn, setDrawn] = useState<{ code: string; mode: ColorMode; svg: string } | null>(() => { const svg = drawings.get(drawingKey(code, mode)); return svg ? { code, mode, svg } : null })
   const [showCode, setShowCode] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [enlarged, setEnlarged] = useState(false)
+  const enlargeButton = useRef<HTMLButtonElement>(null)
+  // The switch shows one word each (Diagram | Code); its accessible names say what a press does and hold that word.
+  const labelId = useId()
   useEffect(() => {
     if (code.length > MAX_DIAGRAM_CHARS || !code.trim()) return
     const known = drawings.get(drawingKey(code, mode))
@@ -85,14 +90,23 @@ export function MermaidDiagram({ code }: { code: string }): ReactElement {
   const diagram = svg !== null && !showCode
   return <div className="thread-code-block thread-diagram-block" data-testid="thread-diagram">
     <div className="thread-code-toolbar">
-      <span data-testid="thread-code-language"><Workflow size={12} aria-hidden="true" /> {t('markdown.diagram')}</span>
-      {svg !== null && <button type="button" aria-pressed={showCode} onClick={() => setShowCode(value => !value)}><Code2 size={12} />{showCode ? t('markdown.showDiagram') : t('markdown.showCode')}</button>}
-      <button type="button" aria-label={t('markdown.copyCode')} onClick={() => { void navigator.clipboard.writeText(code).then(() => setCopied(true), () => undefined) }}>
-        {copied ? <Check size={12} className="oxe-confirm" /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}
-      </button>
+      {svg !== null
+        ? <span className="thread-diagram-switch">
+          <span id={`${labelId}-diagram`} hidden>{t('markdown.showDiagram')}</span>
+          <span id={`${labelId}-code`} hidden>{t('markdown.showCode')}</span>
+          <Button variant="ghost" size="sm" aria-pressed={!showCode} aria-labelledby={`${labelId}-diagram`} onClick={() => setShowCode(false)} icon={<Workflow size={12} aria-hidden="true" />}>{t('markdown.diagram')}</Button>
+          <Button variant="ghost" size="sm" aria-pressed={showCode} aria-labelledby={`${labelId}-code`} onClick={() => setShowCode(true)} icon={<Code2 size={12} aria-hidden="true" />}>{t('markdown.code')}</Button>
+        </span>
+        : <span data-testid="thread-code-language"><Workflow size={12} aria-hidden="true" /> {t('markdown.diagram')}</span>}
+      {svg !== null && <Button variant="ghost" size="sm" ref={enlargeButton} onClick={() => setEnlarged(true)} icon={<Maximize2 size={12} aria-hidden="true" />}>{t('markdown.enlarge')}</Button>}
+      <Button variant="ghost" size="sm" aria-label={t('markdown.copyCode')} onClick={() => { void navigator.clipboard.writeText(code).then(() => setCopied(true), () => undefined) }}
+        icon={copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}>{copied ? t('markdown.copied') : t('markdown.copy')}</Button>
     </div>
     {diagram
       ? <div className="thread-diagram" role="img" aria-label={t('markdown.diagram')} dangerouslySetInnerHTML={{ __html: svg }} />
       : <pre><code>{code}</code></pre>}
+    {enlarged && svg !== null && <Dialog title={t('markdown.diagram')} size="xl" onClose={() => setEnlarged(false)} returnFocusTo={() => enlargeButton.current}>
+      <div className="thread-diagram thread-diagram-enlarged" role="img" aria-label={t('markdown.diagram')} dangerouslySetInnerHTML={{ __html: svg }} />
+    </Dialog>}
   </div>
 }
