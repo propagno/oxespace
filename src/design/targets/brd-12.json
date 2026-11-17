@@ -44,6 +44,26 @@
       ],
       "state": "enforced",
       "note": "the display face"
+    },
+    {
+      "id": "BRD-12.title.font-weight",
+      "scene": "first-run",
+      "select": "[data-ui=first-run-title]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-bold"
+      },
+      "tolerance": 0,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the display title is bold (PU-03·5, OXE-209)"
     }
   ]
 }

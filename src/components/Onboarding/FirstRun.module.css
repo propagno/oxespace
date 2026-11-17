@@ -25,14 +25,16 @@
   gap: var(--space-3);
 }
 
-/* BRD-12: the display title is --fs-display in --font-display, measured by the conformance run. */
+/* BRD-12 / PU-03·5: the display title is --fs-display in --font-display at --stretch-display, bold, tight leading,
+   balanced wrap and no tracking (the type scale sets it), measured by the conformance run. */
 .heroTitle {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--fs-display);
+  font-stretch: var(--stretch-display);
   font-weight: var(--weight-bold);
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
   color: var(--tx-primary);
 }
 
@@ -164,18 +166,6 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.agentDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bd-strong);
-  flex-shrink: 0;
-}
-
-.agentDotReady {
-  background: var(--accent);
 }
 
 .headline {
