@@ -922,6 +922,7 @@
     "image": "[Image]",
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
+    "enlarge": "Enlarge",
     "showCode": "Show code",
     "showDiagram": "Show diagram",
     "alert": {
