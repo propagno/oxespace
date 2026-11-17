@@ -632,7 +632,7 @@ function WorkspaceSurfaceComponent({
           ...item,
           label: counted > 0 ? tc('panels.changesCount', { count: counted }) : item.label,
           badge: counted > 0 ? (counted > 99 ? '99+' : String(counted)) : undefined,
-          title: `${panelTitle('changes')} · ${tc('panels.changesCountTitle', { folder: panelScope.folderName })}`
+          title: [panelTitle('changes'), tc('panels.changesCountTitle', { folder: panelScope.folderName })].join(' · ')
         }
         return <WorkbenchPanelToggle key={item.id} item={changes} iconOnly className="workspace-topbar-action" />
       })}
