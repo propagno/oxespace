@@ -4,7 +4,7 @@ import { useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConversationThread } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
-import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { MARK_PATH, MARK_VIEWBOX } from '../../design/brand'
 import { WorktreeCreationNotices } from '../Worktree/WorktreeCreationNotices'
 
 const STARTERS = ['tour', 'review', 'bugs', 'next'] as const
@@ -24,7 +24,8 @@ export function threadStarters(): { id: (typeof STARTERS)[number]; label: string
 }
 
 /**
- * The opening of a conversation with no messages yet: where the agent will work, and ways to begin in a 2×2 grid.
+ * The opening of a conversation with no messages yet (AG-11 row 1.0): the Ramo mark, where the agent will work, and the
+ * four approved starters in a 2×2 grid.
  */
 export function ThreadEmptyState({ thread, branch, onStarter }: { thread: ConversationThread; branch?: string | null; onStarter: (prompt: string) => void }): ReactElement {
   const { t } = useTranslation('thread')
@@ -39,7 +40,7 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
   }
   return <section className="thread-opening" aria-label={t('opening.label')} data-testid="thread-empty">
     <div className="thread-opening-hero">
-      <AgentProviderIcon provider={thread.provider} size={28} />
+      <svg className="thread-opening-mark" viewBox={MARK_VIEWBOX} width={28} height={28} aria-hidden="true" focusable="false"><path d={MARK_PATH} fill="currentColor" /></svg>
       {/* A worktree of its own is named by its branch in the title: its folder carries a random suffix nobody chose. */}
       <h2>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
     </div>

@@ -435,7 +435,15 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
-    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
+    "effortLevel": {
+      "none": "Nenhum",
+      "minimal": "Mínimo",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "xhigh": "Extra alto",
+      "max": "Máximo"
+    },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
@@ -1008,7 +1016,11 @@
     "copyResponse": "Copiar a resposta",
     "copied": "Copiado",
     "copy": "Copiar",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copiar prompt",
+    "editPrompt": "Editar prompt",
+    "undoTurnChanges": "Desfazer as alterações deste turno",
+    "promptEdited": "Editado · reenviado abaixo"
   },
   "modelPicker": {
     "title": "Escolher modelo",
@@ -2174,7 +2186,9 @@
     "forkCodexOnly": "Bifurcar está disponível para conversas do Codex",
     "export": "Exportar",
     "archive": "Arquivar",
-    "delete": "Excluir…"
+    "delete": "Excluir…",
+    "openInCode": "Abrir no OxeCode",
+    "openWorktreeInCode": "Abrir a worktree no OxeCode"
   },
   "composerModel": {
     "idle": "Pergunte, ou digite / para comandos",
