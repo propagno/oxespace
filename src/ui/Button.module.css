@@ -37,7 +37,7 @@
 .button:where([data-variant='primary']) { background: var(--accent); color: var(--tx-on-accent); }
 .button:where([data-variant='primary']):hover:not(:disabled) { background: var(--accent-hover); }
 
-.button:where([data-variant='secondary']) { background: var(--surface-raised); color: var(--tx-primary); border-color: var(--bd-strong); }
+.button:where([data-variant='secondary']) { background: var(--surface-raised); color: var(--tx-primary); border-color: var(--bd-control); }
 .button:where([data-variant='secondary']):hover:not(:disabled) { background: var(--fill-hover); }
 .button:where([data-variant='secondary']):active:not(:disabled) { background: var(--fill-pressed); }
 

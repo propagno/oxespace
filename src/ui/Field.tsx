@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { forwardRef, useId, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cx } from './cx'
 import styles from './Field.module.css'
@@ -48,10 +49,13 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, Fi
 /** A native select: the platform's own list, keyboard and screen-reader behavior. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ label, hint, error, options, className, id, children, ...rest }, ref) {
   const auto = useId(), inputId = id ?? auto
-  const select = <select ref={ref} id={inputId} className={cx(styles.select, className)} aria-invalid={error ? true : undefined} aria-describedby={described(inputId, { hint, error })} {...rest}>
-    {options?.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-    {children}
-  </select>
+  const select = <span className={styles.selectWrap}>
+    <select ref={ref} id={inputId} className={cx(styles.select, className)} aria-invalid={error ? true : undefined} aria-describedby={described(inputId, { hint, error })} {...rest}>
+      {options?.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+      {children}
+    </select>
+    <ChevronDown size={12} className={styles.selectChevron} aria-hidden="true" />
+  </span>
   return label || hint || error ? <Field id={inputId} label={label} hint={hint} error={error}>{select}</Field> : select
 })
 
