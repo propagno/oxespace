@@ -9,6 +9,7 @@
 // adds, or this card adds it in code.json: one pair) and it shows N, "99+" above 99; at 0 no badge and the plain name.
 // Its title says what it counts (coordination 15/11: two counts, each labelled): the files git reports changed in the
 // scope's folder, naming that folder ("repo" here); the copy is the brand's to review.
+// CR-F6-34: each mount() advances Date.now() past useChangedFilesCount's FRESH_MS=2_000 module cache while keeping rootPath '/repo'.
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -27,8 +28,12 @@ function workspace(): Workspace {
     githubPanelWidthPercent: 40, githubActiveTab: 'status', backgroundPanelVisible: false, backgroundPanelExpanded: false, backgroundPanelWidthPercent: 28,
     panes: [{ id: 'pane-1', workspaceId: 'workspace-1', type: 'terminal', rowIndex: 0, columnIndex: 0, shellProfileId: 'builtin-claude', status: 'idle', agentProfileId: null, agentName: null, displayName: null, createdAt: null, modelOverride: null, rootPath: null }] } as unknown as Workspace
 }
+const realNow = Date.now.bind(Date)
+let nowOffsetMs = 0
 let changedCount: ReturnType<typeof vi.fn>
 function mount(count: number): void {
+  nowOffsetMs += 5_000
+  vi.spyOn(Date, 'now').mockImplementation(() => realNow() + nowOffsetMs)
   changedCount = vi.fn(async () => count)
   Object.defineProperty(window, 'oxe', { configurable: true, value: { ...(window as unknown as { oxe?: object }).oxe, git: { changedCount, getBranch: vi.fn(async () => ({ branch: 'main', detached: false, shortSha: null })) } } })
   const ws = workspace()
