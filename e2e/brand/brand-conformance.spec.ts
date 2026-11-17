@@ -14,8 +14,8 @@ import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor, type De
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
-type Expect = { token?: string; oneOf?: string[]; px?: number; eq?: number }
-type Measure = { id: string; scene: string; select: string | { text: string }; prop: string; expect: Expect; tolerance: number; densities: string[]; themes: string[]; state: 'pending' | 'enforced' }
+type Expect = { token?: string; oneOf?: string[]; px?: number; eq?: number | string; max?: number }
+type Measure = { id: string; scene: string; select: string | { text: string; within?: string }; prop: string; expect: Expect; of?: string; attr?: string; tolerance: number; densities: string[]; themes: string[]; state: 'pending' | 'enforced' }
 type Result = { id: string; state: string; density: string; theme: string; scene: string; ok: boolean; expected: string; measured: string; detail?: string }
 
 const targetsDir = join(process.cwd(), 'src/design/targets')
@@ -51,7 +51,7 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
   }
 }
 
-const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-you-queue]', 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]', 'code-menu': 'body' }
+const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-you-queue]', 'code-workspace': 'body', 'chat-conversation': 'body', 'chat-approval': 'body', 'chat-new-session': 'body', 'chat-anatomy': 'body', 'settings-general': '.settings-center', 'command-bar': '[data-ui=command-bar]', 'first-run': '[data-testid=first-run]', 'code-menu': 'body' }
 
 /**
  * The code-workspace scene has two side panels open (Changes and Browser), so the panel tabs BRD-03 measures exist.
@@ -125,22 +125,33 @@ async function measureScene(page: Page, scene: string, density: Density, theme: 
     }
     host.remove()
     const visible = (element: Element): boolean => { const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 }
-    const pick = (select: string | { text: string }): Element[] => {
+    const pick = (select: string | { text: string; within?: string }): Element[] => {
       if (typeof select !== 'string') {
-        const snapshot = document.evaluate(`.//*[starts-with(normalize-space(text()), ${JSON.stringify(select.text)})]`, root, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
+        // { text, within }: the text counted inside one element only; no such element means none of the text.
+        const scope = select.within ? root.querySelector(select.within) : root
+        if (!scope) return []
+        const snapshot = document.evaluate(`.//*[starts-with(normalize-space(text()), ${JSON.stringify(select.text)})]`, scope, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null)
         return Array.from({ length: snapshot.snapshotLength }, (_, index) => snapshot.snapshotItem(index) as Element).filter(visible)
       }
       return [...root.querySelectorAll(select.replace(/::after$/, ''))].filter(visible)
     }
     const firstFamily = (value: string): string => value.split(',')[0].trim().replace(/^['"]|['"]$/g, '')
+    // A token's colour as the browser computes it (a probe), so it compares with an element's computed colour.
+    const colorOf = (value: string): string => { const probeColor = document.createElement('div'); probeColor.style.color = value; document.body.appendChild(probeColor); const out = getComputedStyle(probeColor).color; probeColor.remove(); return out }
     return list.map(measure => {
       const elements = pick(measure.select)
       const expected = measure.expect
       if (measure.prop === 'count') {
-        const ok = elements.length === expected.eq
-        return { id: measure.id, ok, expected: `count = ${expected.eq}`, measured: `${elements.length}` }
+        const ok = typeof expected.max === 'number' ? elements.length <= expected.max : elements.length === expected.eq
+        return { id: measure.id, ok, expected: typeof expected.max === 'number' ? `count <= ${expected.max}` : `count = ${expected.eq}`, measured: `${elements.length}` }
       }
       if (!elements.length) return { id: measure.id, ok: false, expected: JSON.stringify(expected), measured: 'no element', detail: 'nothing matched the selector in this scene' }
+      if (measure.prop === 'attr') {
+        // The attribute named by `attr` on every element found, against expect.eq.
+        const values = elements.map(element => element.getAttribute(measure.attr ?? '') ?? '(absent)')
+        const off = values.filter(value => value !== String(expected.eq))
+        return { id: measure.id, ok: off.length === 0, expected: `${measure.attr} = ${expected.eq}`, measured: off.length ? [...new Set(off)].slice(0, 4).join(', ') : 'ok', detail: off.length ? `${off.length}/${elements.length} element(s) off target` : undefined }
+      }
       const wanted: string[] = expected.token ? [token(expected.token)] : expected.oneOf ? expected.oneOf.map(token) : [`${expected.px}px`]
       const pseudo = typeof measure.select === 'string' && measure.select.endsWith('::after') ? '::after' : null
       const misses: string[] = []
@@ -157,6 +168,19 @@ async function measureScene(page: Page, scene: string, density: Density, theme: 
           const value = parseFloat(measure.prop === 'font-size' ? style.fontSize : style.borderTopLeftRadius)
           measured = `${value}px`
           ok = wanted.some(target => Math.abs(parseFloat(target) - value) <= measure.tolerance)
+        } else if (measure.prop === 'margin-block-start' || measure.prop === 'border-left-width') {
+          const value = parseFloat(measure.prop === 'margin-block-start' ? style.marginBlockStart : style.borderLeftWidth) || 0
+          measured = `${value}px`
+          ok = wanted.some(target => Math.abs(parseFloat(target) - value) <= measure.tolerance)
+        } else if (measure.prop === 'inline-start-offset') {
+          // The element's left edge minus the left edge of `of` (its nearest such ancestor, else the first in the scene).
+          const from = measure.of ? (element.parentElement?.closest(measure.of) ?? root.querySelector(measure.of)) : null
+          const value = from ? element.getBoundingClientRect().left - from.getBoundingClientRect().left : NaN
+          measured = from ? `${Math.round(value * 10) / 10}px` : `no ${measure.of ?? 'of'} element`
+          ok = from !== null && wanted.some(target => Math.abs(parseFloat(target) - value) <= measure.tolerance)
+        } else if (measure.prop === 'border-left-color' || measure.prop === 'background-color') {
+          measured = measure.prop === 'border-left-color' ? style.borderLeftColor : style.backgroundColor
+          ok = wanted.some(target => colorOf(target) === measured)
         } else if (measure.prop === 'font-weight') {
           measured = style.fontWeight
           ok = wanted.some(target => Number(target) === Number(style.fontWeight))
@@ -181,7 +205,7 @@ async function measureScene(page: Page, scene: string, density: Density, theme: 
         detail: [misses.length ? `${misses.length}/${elements.length} element(s) off target` : '', offColors.length ? `color not a token: ${unique(offColors)}` : ''].filter(Boolean).join('; ') || undefined
       }
     })
-  }, { list: list.map(({ id, select, prop, expect, tolerance }) => ({ id, select, prop, expect, tolerance })), rootSelector: SCENE_ROOT[scene], tokenNames })
+  }, { list: list.map(({ id, select, prop, expect, tolerance, of, attr }) => ({ id, select, prop, expect, tolerance, of, attr })), rootSelector: SCENE_ROOT[scene], tokenNames })
   for (const item of found) {
     const measure = list.find(entry => entry.id === item.id)!
     results.push({ ...item, state: measure.state, density, theme, scene })
@@ -239,6 +263,15 @@ test.describe.serial('brand conformance (OXE-149)', () => {
             }
             await measureScene(page, scene, density, theme)
           }
+          // BRD-25 (OXE-167, OXE-172): the same conversation seeded with the AG-11 situations, scene chat-anatomy.
+          // A failure reports its measures as "no element", like chat-approval.
+          try {
+            await setThreadState(app, workspaceRoot, 'anatomy')
+            await page.waitForLoadState('domcontentloaded')
+          } catch (error) {
+            console.log(`[BRAND] could not set the anatomy state: ${(error as Error).message.split('\n')[0]}`)
+          }
+          await measureScene(page, 'chat-anatomy', density, theme)
           await openSettings(page)
           await page.getByRole('dialog', { name: 'Settings', exact: true }).waitFor()
           // With a workspace open Settings can open in that workspace's scope: open the app's General page, which BRD-06 measures.
