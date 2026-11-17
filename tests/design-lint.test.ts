@@ -197,7 +197,8 @@ describe('design lint', () => {
       expect(fixed.length).toBeLessThanOrEqual(2)
     })
     it('reduced motion is read from data-motion, so the Motion setting can override the operating system', () => {
-      const report = css.flatMap(path => /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
+      // o splash pinta antes de qualquer script, sem data-motion; a preferência do sistema é o único sinal ali (OXE-207)
+      const report = css.flatMap(path => relative(ROOT, path).replace(/\\/g, '/') !== 'src/styles/splash.css' && /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
       expect(report).toEqual([])
     })
   })
