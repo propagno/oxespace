@@ -77,6 +77,7 @@ export function colorRoles(mode: Mode): ColorRoles {
     ...intent('success'),
     ...intent('warning'),
     ...intent('danger'),
+    'intent-danger-solid-hover': s(p.danger, 10),
     ...intent('info'),
     // Code review.
     'diff-add-bg': s(p.success, 3),
