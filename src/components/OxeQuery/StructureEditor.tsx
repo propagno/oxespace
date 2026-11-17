@@ -45,6 +45,8 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
   const [copyData, setCopyData] = useState(false)
   const [restartIdentity, setRestartIdentity] = useState(false)
   const [cascade, setCascade] = useState(false)
+  /** Problems stay hidden until the person leaves the name field or tries a review (PQ-07·13). */
+  const [touched, setTouched] = useState(false)
   const production = connection.environment === 'prod'
 
   useEffect(() => {
@@ -70,7 +72,12 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
     } catch (cause) { setPlan(null); setError(errorMessage(cause)) } finally { setBusy(false) }
   }
 
-  const reviewDraft = (): Promise<void> => review(creating ? { kind: 'create', table: createFromDraft(draft) } : { kind: 'alter', changes }, creating ? t('structure.createTable') : t('structure.applyChanges'))
+  const reviewDraft = (): Promise<void> => {
+    setTouched(true)
+    if (problems.length > 0) return Promise.resolve()
+    return reviewDraftNow()
+  }
+  const reviewDraftNow = (): Promise<void> => review(creating ? { kind: 'create', table: createFromDraft(draft) } : { kind: 'alter', changes }, creating ? t('structure.createTable') : t('structure.applyChanges'))
 
   const apply = async (): Promise<void> => {
     if (!plan) return
@@ -144,7 +151,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
     ? <ErrorState compact title={t('structure.loadFailed')} message={loadError} />
     : !creating && !details ? <LoadingState label={t('structure.loading')} />
       : <>
-        {creating && <div className={styles.name}><TextField mono autoFocus label={t('structure.tableName')} value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} />
+        {creating && <div className={styles.name}><TextField mono autoFocus label={t('structure.tableName')} value={draft.tableName} onChange={event => edit({ ...draft, tableName: event.target.value })} onBlur={() => setTouched(true)} />
           <TextField label={t('structure.commentOptional')} value={draft.comment} onChange={event => edit({ ...draft, comment: event.target.value })} /></div>}
         <Tabs<TabId> label={t('tree.structure')} value={tab} onChange={setTab} tabs={[
           { value: 'columns', label: t('structure.columns'), content: <ColumnsTab draft={draft} details={details} onChange={edit} /> },
@@ -152,7 +159,7 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
           { value: 'indexes', label: t('structure.indexes'), content: <IndexesTab draft={draft} details={details} onChange={edit} /> },
           ...(creating ? [] : [{ value: 'table' as const, label: t('structure.table'), content: tableTab }])
         ]} />
-        {!plan && problems.length > 0 && <ul className={styles.problems} aria-label={t('structure.toFix')}>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul>}
+        {!plan && touched && problems.length > 0 && <ul className={styles.problems} aria-label={t('structure.toFix')}>{problems.map(problem => <li key={problem}>{problem}</li>)}</ul>}
         {plan && <section className={styles.plan} aria-label={t('structure.review')}>
           <h4 className={styles.heading}>{plan.label}</h4>
           {plan.value.warnings.length > 0 && <ul className={styles.warnings}>{plan.value.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
@@ -166,11 +173,13 @@ export function StructureEditor({ connection, schema, table, onClose, onChanged 
 
   return <Dialog title={creating ? t('tree.newTableIn', { schema }) : `${schema}.${table}`} description={creating ? t('structure.createDescription') : t('structure.editDescription')} closeLabel={t('common.close')}
     size="xl" onClose={onClose} testId="structure-editor"
-    footer={<>
-      <Button variant="ghost" onClick={onClose}>{t('common.close')}</Button>
-      {plan && <Button variant={plan.value.destructive ? 'danger' : 'primary'} loading={busy} disabled={readOnly || (needsConfirm && !confirmed)} onClick={() => void apply()}>{plan.label}</Button>}
-      {!plan && !loadError && <Button variant="primary" loading={busy} disabled={readOnly || !pending || problems.length > 0} onClick={() => void reviewDraft()}>{t('structure.reviewSql')}</Button>}
-    </>}>
+    actions={{
+      cancel: { label: t('common.close'), onClick: onClose },
+      primary: plan
+        ? { label: plan.label, danger: plan.value.destructive, loading: busy, disabled: readOnly || (needsConfirm && !confirmed), onClick: () => void apply() }
+        : loadError ? undefined
+          : { label: t('structure.reviewSql'), loading: busy, disabled: readOnly || !pending || problems.length > 0, onClick: () => void reviewDraft() }
+    }}>
     <div className="oq-scope">{readOnly && <p role="note" className={styles.note}>{t('structure.readOnly')}</p>}
     {body}</div>
   </Dialog>

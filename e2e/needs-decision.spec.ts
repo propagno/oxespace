@@ -66,8 +66,10 @@ test('a blocked pane reads "Needs you"; a finished one keeps its look', async ()
     await expect(header(page, done).getByTestId('pane-decision-live')).toHaveText('')
 
     // Sidebar rows differ in words, not only in color.
-    await expect(row(page, blocked).getByTestId('pane-row-status')).toContainText('Needs you')
-    await expect(row(page, done).getByTestId('pane-row-status')).toContainText('Finished')
+    await expect(row(page, blocked).getByTestId('pane-row-status')).toContainText('Needs your approval')
+    // BRD-01: a finished terminal stays one line; its state is in its accessible name.
+    await expect(row(page, done).getByTestId('pane-row-status')).toHaveCount(0)
+    await expect(row(page, done)).toContainText('finished')
     await expect(row(page, blocked)).toContainText("needs you, Reported by the agent's hooks")
     // The compact row hides its state line: a visible mark beside the name, not the dot's color alone.
     await expect(row(page, blocked).getByTestId('pane-row-decision-mark')).toBeVisible()

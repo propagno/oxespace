@@ -2185,7 +2185,17 @@
       "allClearTitle": "All clear",
       "approvalRules": "Approval rules",
       "openTask": "Open the task",
-      "closeQueue": "Close approvals"
+      "closeQueue": "Close approvals",
+      "panelLabel": "What needs you",
+      "group": {
+        "needsYou": "Needs you",
+        "failed": "Failed",
+        "working": "Working"
+      },
+      "more": "+{{rest}} more",
+      "deny": "Deny",
+      "paneWaiting": "Waiting for you in the terminal",
+      "goToPane": "Go to terminal"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

@@ -12,6 +12,7 @@
 .list code, .sql, .grid code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--tx-secondary); overflow-wrap: anywhere; }
 .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-2); align-items: end; margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); }
 .form legend { padding: 0 var(--space-1); color: var(--tx-muted); font-size: var(--fs-xs); }
+.formEnd { display: flex; grid-column: 1 / -1; justify-self: end; }
 .name { display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-3); margin-bottom: var(--space-3); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-3); margin: 0; }
 .facts dt { color: var(--tx-muted); font-size: var(--fs-xs); }
@@ -21,7 +22,7 @@
 .plan { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .sql { margin: 0; max-height: 28vh; overflow: auto; white-space: pre-wrap; color: var(--tx-primary); }
 .warnings { margin: 0; padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }
-.problems { margin: var(--space-3) 0 0; padding-left: var(--space-4); color: var(--intent-warning-fg); font-size: var(--fs-sm); }
+.problems { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-4); border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }
 .error { margin: var(--space-2) 0 0; color: var(--intent-danger-fg); font-size: var(--fs-sm); white-space: pre-wrap; }
 .ok { margin: var(--space-2) 0 0; color: var(--intent-success-fg); font-size: var(--fs-sm); }
 .note { color: var(--tx-muted); font-size: var(--fs-xs); }

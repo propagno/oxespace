@@ -19,6 +19,8 @@ export interface OxeQueryHandle {
  */
 export async function startOxeQuery(db: AppDatabase, pod: () => Promise<OxePodSeam>): Promise<OxeQueryHandle> {
   try {
+    // PQ-07·16: the agent activity names who acted, a conversation by its title and a pane by its name.
+    ;(await import('./audit-log')).wireAuditActorNames(db)
     const [{ OxeQueryService }, { OxeQueryWorkerClient }, { registerOxeQueryIpc, broadcastOxeQueryEvent }, { createSecretCipher }, pickers, { appApprovalPrompter }] = await Promise.all([
       import('./service'), import('./worker-client'), import('../../ipc/oxequery.ipc'), import('./secret-cipher'), import('./file-picker'), import('../agent-actions/approval-prompter')
     ])

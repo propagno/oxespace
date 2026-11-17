@@ -37,6 +37,13 @@ const provider = (value: string | undefined): AgentRow['provider'] => value === 
 const rowKey = (row: AgentKey) => AgentSeenStore.key(row.kind, row.id)
 
 /**
+ * A34: the risk main's policy assessed for an approval F7 impact did not, read as the conversation's card reads it
+ * (threadApprovalRisk): a built-in high-risk command or a destructive one (red) is critical; otherwise unassessed.
+ */
+const policyRisk = (request: ThreadRequest | undefined): AgentRequestSummary['risk'] =>
+  request?.policy?.risk || request?.policy?.level === 'red' ? 'critical' : null
+
+/**
  * S7.1 · The agents read model (spec §3, CCR #513): panes, conversations, delegations and work runs in the seven
  * states, each source read on its own so one that fails never hides the others (§5.7). Reads only; the one write is
  * the person's "seen" mark.
@@ -152,11 +159,15 @@ export class AgentsReadModel {
         cost: typeof thread.costReport?.totalUsd === 'number' ? { usd: thread.costReport.totalUsd } : null,
         requests: pending.map(request => {
           const kind = requestKind(request.kind)
-          const impact = kind === 'approval' ? (request.impact ?? storedById.get(request.requestId)?.impact) : undefined
+          const stored = storedById.get(request.requestId)
+          const impact = kind === 'approval' ? (request.impact ?? stored?.impact) : undefined
+          const command = kind === 'approval' && typeof stored?.command === 'string' && stored.command ? stored.command : undefined
           return {
             requestId: request.requestId, kind, title: REQUEST_TITLE[request.kind]?.() ?? REQUEST_TITLE.approval(),
-            risk: impact ? impact.risk : null, reversible: impact ? impact.reversible : null,
-            answerable: true, since: request.createdAt
+            risk: impact ? impact.risk : (kind === 'approval' ? policyRisk(stored) : null),
+            reversible: impact ? impact.reversible : null,
+            answerable: true, since: request.createdAt,
+            ...(command ? { command: { text: command, untrusted: true as const } } : {})
           }
         }),
         activity

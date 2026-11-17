@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace, type LaunchedApp } from './helpers/launch'
-import { openSettings } from './helpers/settings'
+import { openSettings, openSettingsPage } from './helpers/settings'
 
 /**
  * Settings › Devices against the pretend gateway (electron/main/e2e/remote-mock.ts): the firewall note before the first
@@ -23,7 +23,7 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
 
     await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Phone and devices/ }).click()
+    await openSettingsPage(settings, 'Integrations', 'Phone and devices')
     const devices = settings.getByTestId('devices-settings')
     await expect(devices.getByTestId('devices-gateway-state')).toHaveText('Off. No port is open.')
     await expect(devices.getByRole('button', { name: 'Show pairing code' })).toBeDisabled()
@@ -75,11 +75,14 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
     await settings.getByRole('button', { name: 'Close settings', exact: true }).click()
     await expect(settings).toHaveCount(0)
     await page.getByRole('button', { name: 'More pane actions' }).first().click()
+    // BRD-16 (OXE-85): the phone-typing item sits in the pane menu's "Keys and typing" submenu.
+    await page.getByRole('menuitem', { name: 'Keys and typing' }).click()
     const item = page.getByRole('menuitemcheckbox', { name: 'Allow typing from the phone' })
     await expect(item).toHaveAttribute('aria-checked', 'false')
     await item.click()
     await expect(page.getByTestId('pane-phone-write').first()).toHaveText('Phone can type')
     await page.getByRole('button', { name: 'More pane actions' }).first().click()
+    await page.getByRole('menuitem', { name: 'Keys and typing' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Allow typing from the phone' }).click()
     await expect(page.getByTestId('pane-phone-write')).toHaveCount(0)
   } finally {

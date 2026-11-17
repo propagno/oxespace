@@ -22,25 +22,25 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
+/* BRD-12 / PU-03·5: the display title is --fs-display in --font-display at --stretch-display, bold, tight leading,
+   balanced wrap and no tracking (the type scale sets it), measured by the conformance run. */
 .heroTitle {
   margin: 0;
   font-family: var(--font-display);
-  font-size: calc(var(--fs-display) + var(--space-1));
+  font-size: var(--fs-display);
+  font-stretch: var(--stretch-display);
   font-weight: var(--weight-bold);
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+  line-height: var(--leading-tight);
+  text-wrap: balance;
   color: var(--tx-primary);
 }
 
 @media (max-width: 960px) {
   .screen {
     padding: var(--space-8) var(--space-6);
-  }
-  .heroTitle {
-    font-size: var(--fs-display);
   }
 }
 
@@ -71,17 +71,11 @@
   transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
-.stepActive {
+.step[data-state='current'] {
   border-color: var(--bd-focus);
 }
 
-.stepActive .stepNum {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--tx-on-accent);
-}
-
-.step[data-done] {
+.step[data-state='done'] {
   border-color: var(--intent-success-border);
 }
 
@@ -100,7 +94,13 @@
   font-weight: var(--weight-semibold);
 }
 
-.step[data-done] .stepNum {
+.step[data-state='current'] .stepNum {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--tx-on-accent);
+}
+
+.step[data-state='done'] .stepNum {
   border-color: var(--intent-success-border);
   background: var(--intent-success-bg);
   color: var(--intent-success-fg);
@@ -168,18 +168,6 @@
   min-width: 0;
 }
 
-.agentDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bd-strong);
-  flex-shrink: 0;
-}
-
-.agentDotReady {
-  background: var(--accent);
-}
-
 .headline {
   font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
@@ -202,6 +190,12 @@
   font-weight: var(--weight-medium);
 }
 
+.note {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
+}
+
 .actions {
   display: flex;
   align-items: center;
@@ -209,81 +203,13 @@
   gap: var(--space-2);
 }
 
-.modesFooter {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--bd-subtle);
-}
-
-.modesCaptionRow {
+/* The one line below the steps: OxeCode or OxeQuery on their own. */
+.modesLine {
+  margin: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.modesCaption {
+  flex-wrap: wrap;
+  gap: var(--space-1);
   font-size: var(--fs-xs);
   color: var(--tx-muted);
-}
-
-.modeGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.modeTile {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2-5, 10px);
-  padding: var(--space-3);
-  height: auto;
-  min-height: 56px;
-  border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  color: var(--tx-primary);
-  text-align: left;
-  justify-content: flex-start;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
-}
-
-.modeTile:hover {
-  background: var(--fill-hover);
-  border-color: var(--bd-default);
-}
-
-.modeIcon {
-  color: var(--accent);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.modeText {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.modeName {
-  font-size: var(--fs-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--tx-primary);
-}
-
-.modeDesc {
-  font-size: var(--fs-xs);
-  font-weight: var(--weight-regular);
-  color: var(--tx-secondary);
-}
-
-@media (max-width: 640px) {
-  .modeGrid {
-    grid-template-columns: 1fr;
-  }
 }

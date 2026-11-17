@@ -20,7 +20,7 @@
 .oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }
 .oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-icon svg { flex: none; }
-.oq-prod { color: var(--intent-danger-solid); }
+.oq-prod { color: var(--intent-danger-fg); }
 .oq-muted { color: var(--tx-muted); font-size: var(--fs-xs); }
 .oq-ok { margin: 6px 0; color: var(--intent-success-solid, var(--tx-secondary)); font-size: var(--fs-xs); }
 
@@ -43,24 +43,23 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-view button { font: inherit; }
 .oq-view button:disabled { opacity: .45; cursor: default; }
 .oq-view button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.oq-primary { border-color: transparent !important; color: var(--surface-canvas) !important; background: var(--accent) !important; }
 .oq-danger { border-color: transparent !important; color: var(--tx-on-solid) !important; background: var(--intent-danger-solid) !important; }
 .oq-view textarea, .oq-form input { border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--fs-xs); }
 
 .oq-link { padding: 0; border: 0; color: var(--tx-primary); background: transparent; font-weight: 500; cursor: pointer; }
 
-.oq-columns pre, .oq-documents pre { margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.45; }
+.oq-columns pre, .oq-documents pre { margin: 0; padding: 8px 12px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); line-height: 1.45; }
 
 .oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .oq-editor { flex: none; min-height: 80px; overflow: hidden; border-top: 1px solid var(--bd-default); }
-.oq-badge { padding: 1px 8px; border-radius: var(--radius-full, 999px); font-size: var(--fs-2xs); background: var(--ov-3); }
+.oq-badge { padding: 1px 8px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-full, 999px); font-size: var(--fs-2xs); background: var(--surface-sunken); }
 /* The shortcut beside Run: the one action people repeat, so its key is always in sight. */
 .oq-run-key { display: inline-flex; margin-left: 6px; opacity: .85; }
 .oq-run-key kbd { color: inherit; background: color-mix(in srgb, currentColor 14%, transparent); border-color: transparent; }
-.oq-badge[data-environment='prod'] { color: var(--tx-on-solid); background: var(--intent-danger-solid); }
-.oq-badge[data-readonly='false'] { color: var(--intent-warning-solid); }
-.oq-badge[data-policy='true'] { color: var(--intent-danger-solid); }
+.oq-badge[data-environment='prod'] { border-color: var(--intent-danger-border); color: var(--intent-danger-fg); background: var(--intent-danger-bg); }
+.oq-badge[data-readonly='false'] { color: var(--intent-warning-fg); }
+.oq-badge[data-policy='true'] { color: var(--intent-danger-fg); }
 .oq-confirm { margin: 8px 10px; padding: 10px 12px; border: 1px solid var(--intent-danger-solid); border-radius: var(--radius-md); background: color-mix(in srgb, var(--intent-danger-solid) 8%, transparent); font-size: var(--fs-xs); }
 .oq-confirm ul { margin: 6px 0; padding-left: 18px; }
 .oq-confirm div { display: flex; gap: 8px; justify-content: flex-end; }
@@ -84,17 +83,21 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .oq-tree-row small { flex: none; color: var(--tx-muted); }
 .oq-tree-spacer { display: inline-block; width: 13px; flex: none; }
-.oq-tree-actions { display: none; flex: none; gap: 2px; }
-.oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions, .oq-tree-row[aria-selected='true'] .oq-tree-actions { display: inline-flex; }
-.oq-tree-actions button, .oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
-.oq-tree-actions button:hover, .oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
+/* PQ-07·2: a table's actions take no room at rest (the selected row included), so the name keeps the row's width;
+   under the pointer or with focus in the row they sit over its right end. The keyboard reaches them via Shift+F10. */
+.oq-tree-actions { position: absolute; top: 0; right: var(--space-1); bottom: 0; display: none; align-items: center; gap: var(--space-0-5); padding-left: var(--space-1); }
+/* While the actions show, the name ellipsizes before them; the row's own fill shows through (no background). */
+.oq-tree-row[data-actions]:hover .oq-tree-label, .oq-tree-row[data-actions]:focus-within .oq-tree-label { padding-inline-end: calc(var(--oq-tree-actions-n) * (var(--control-sm) + var(--space-0-5)) + var(--space-1)); }
+.oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions { display: inline-flex; }
+.oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
+.oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
 .oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
 .oq-results > .oq-results-bar { position: sticky; top: 0; z-index: var(--layer-sticky); background: var(--surface-canvas); }
 .oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
 .oq-columns table { border-collapse: collapse; }
 .oq-columns td { padding: 2px 12px 2px 0; color: var(--tx-secondary); }
 
-.oq-grid { flex: 1; min-height: 120px; overflow: auto; position: relative; font-size: 12px; font-family: var(--font-mono, ui-monospace, monospace); }
+.oq-grid { flex: 1; min-height: 120px; overflow: auto; position: relative; font-size: var(--fs-xs); font-family: var(--font-mono, ui-monospace, monospace); }
 .oq-grid-inner { position: relative; }
 .oq-grid-header, .oq-grid-row { display: flex; position: absolute; left: 0; height: 26px; }
 .oq-grid-header { position: sticky; }
@@ -144,25 +147,28 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-switch { display: flex; align-items: flex-start; gap: 10px; font-size: var(--fs-xs); cursor: pointer; }
 .oq-switch span { display: grid; gap: 2px; }
 .oq-switch small { color: var(--tx-muted); }
-.oq-warning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--intent-warning-solid); background: color-mix(in srgb, var(--intent-warning-solid) 10%, transparent); font-size: var(--fs-xs); }
-.oq-disclosure { display: inline-flex; align-items: center; gap: 4px; margin: 6px 0; padding: 2px 0; border: 0; color: var(--tx-secondary); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-warning { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
+.oq-disclosure { display: inline-flex; align-items: center; gap: 4px; min-height: var(--control-sm); margin: 6px 0; padding: 2px 0; border: 0; color: var(--tx-secondary); background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-outcome { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; padding: 8px 10px; border-radius: var(--radius-sm); font-size: var(--fs-xs); }
 .oq-outcome-ok { color: var(--intent-success-solid); background: color-mix(in srgb, var(--intent-success-solid) 10%, transparent); }
 
 /* ── Containers: summary and engine problems ─────────────────────────────── */
 
 /* ── Sidebar details ─────────────────────────────────────────────────────── */
-.oq-engine-tag { padding: 0 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-full, 999px); color: var(--tx-muted); font-size: 10px; line-height: 16px; }
-.oq-env { color: var(--intent-warning-solid); }
+.oq-engine-tag { padding: 0 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-full, 999px); color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 16px; }
+.oq-env { color: var(--intent-warning-fg); }
 
 /* ── Result grid ─────────────────────────────────────────────────────────── */
 .oq-grid-header > span[role='columnheader'] { cursor: pointer; user-select: none; }
 .oq-grid-header > span[role='columnheader']:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
-.oq-grid-header b { color: var(--accent); font-size: 10px; }
+.oq-grid-header b { color: var(--accent); font-size: var(--fs-2xs); }
 .oq-grid-row { cursor: default; }
 .oq-grid-row:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); }
 .oq-grid-row.is-selected { background: var(--fill-selected); }
 .oq-grid-row .is-number { text-align: right; color: var(--tx-secondary); }
+/* A numeric column's header aligns right like its cells; the header row (and the rows) fill the pane past the last column. */
+.oq-grid-header > span.is-number { text-align: right; }
+.oq-grid-inner, .oq-grid-header, .oq-grid-row { min-width: 100%; }
 
 /* ── SQL workbench: query tabs, history, row details ─────────────────────── */
 .oq-qtabs { display: flex; align-items: center; gap: 2px; padding: 4px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
@@ -171,12 +177,12 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-qtab button { padding: 5px 8px; border: 0; color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
 .oq-qtab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 3px; color: var(--tx-muted); }
 .oq-qtab-add { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
-.oq-editor-toolbar kbd { margin-left: 6px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: 4px; font-size: 10px; opacity: .8; }
+.oq-editor-toolbar kbd { margin-left: 6px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: var(--radius-sm); font-size: var(--fs-2xs); opacity: .8; }
 .oq-history { position: relative; }
 .oq-history ul { position: absolute; z-index: var(--layer-dropdown); top: calc(100% + 4px); left: 0; width: min(560px, 70vw); max-height: 320px; margin: 0; padding: 4px; overflow: auto; list-style: none; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--elevation-3); }
 .oq-history li button { display: grid; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; text-align: left; cursor: pointer; }
 .oq-history li button:hover { background: color-mix(in srgb, var(--tx-primary) 7%, transparent); }
-.oq-history code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-history code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
 .oq-history small { color: var(--tx-muted); }
 .oq-results-title { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 /* In a short window the panels above the grid scroll instead of squeezing it to nothing. */
@@ -204,7 +210,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-filepick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .oq-filepick > span { min-width: 120px; }
 .oq-filepick button:not(.oq-link) { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
-.oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border-radius: var(--radius-sm); background: var(--ov-3); }
+.oq-filepick code { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 6px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .oq-filepick-error { flex-basis: 100%; }
 /* The changed-key warning: the explanation, then the trusted and the new fingerprints. */
 .oq-hostkey-notice { margin-top: 10px; }
@@ -216,11 +222,11 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-preferences-ceiling { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .oq-preferences-ceiling > legend { margin-bottom: 8px; padding: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
 .oq-preferences-ceiling > small { font-size: var(--fs-xs); color: var(--tx-muted); }
-.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.oq-preferences-limits > legend { margin-bottom: 4px; padding: 0; font-size: var(--fs-xs); color: var(--tx-muted); }
+.oq-preferences-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; min-width: 0; margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.oq-preferences-limits > legend { float: left; grid-column: 1 / -1; width: 100%; margin: 0; padding: 0; font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .oq-hostkey div { display: flex; justify-content: flex-end; gap: 8px; }
 .oq-hostkey button { padding: 4px 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
-.oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-canvas); font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-fingerprint { display: block; overflow-wrap: anywhere; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-canvas); font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
 .oq-form textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); }
 
 /* ---- Editing and export -------------------------------------------------- */
@@ -229,19 +235,19 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-edit-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--bd-default); border-radius: 6px; background: var(--surface-base); max-height: 280px; overflow: auto; }
 .oq-edit-form > header, .oq-edit-form > footer { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .oq-edit-form > footer { justify-content: flex-end; }
-.oq-edit-form textarea { width: 100%; font-family: var(--font-mono, monospace); font-size: 12px; resize: vertical; }
+.oq-edit-form textarea { width: 100%; font-family: var(--font-mono, monospace); font-size: var(--fs-xs); resize: vertical; }
 .oq-edit-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
-.oq-edit-fields label { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; font-size: 12px; }
+.oq-edit-fields label { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; font-size: var(--fs-xs); }
 .oq-edit-fields label > span { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; }
 .oq-edit-fields small { opacity: 0.6; }
 .oq-null-toggle[aria-pressed="true"] { background: var(--accent); color: var(--tx-on-solid); }
 .oq-staged ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.oq-staged li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; background: var(--surface-base); font-size: 12px; }
+.oq-staged li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface-base); font-size: var(--fs-xs); }
 .oq-staged li[data-kind="delete"] { border-left: 3px solid var(--intent-danger-solid); }
 .oq-staged li[data-kind="update"] { border-left: 3px solid var(--intent-warning-solid); }
 .oq-staged li[data-kind="insert"] { border-left: 3px solid var(--intent-success-solid); }
 .oq-staged-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
-.oq-sql-preview { margin: 6px 0 0; padding: 8px; max-height: 160px; overflow: auto; font-size: 12px; background: var(--surface-base); border-radius: 4px; white-space: pre-wrap; }
+.oq-sql-preview { margin: 6px 0 0; padding: 8px; max-height: 160px; overflow: auto; font-size: var(--fs-xs); background: var(--surface-base); border-radius: var(--radius-sm); white-space: pre-wrap; }
 .oq-export { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .oq-export > ul { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: 6px; min-width: 110px; }
 .oq-export > ul button { width: 100%; text-align: left; }
@@ -261,30 +267,31 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-plan > header { display: flex; align-items: center; gap: 10px; }
 .oq-plan-tree, .oq-plan-tree ul { list-style: none; margin: 0; padding-left: 16px; }
 .oq-plan-tree { padding-left: 0; }
-.oq-plan-node { display: flex; gap: 4px; padding: 4px 6px; border-radius: 4px; }
-.oq-plan-node[data-hot="true"] { background: rgba(229, 83, 75, 0.12); outline: 1px solid rgba(229, 83, 75, 0.45); }
-.oq-plan-spacer { width: 20px; flex: none; }
-.oq-plan-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.oq-plan-node { display: flex; align-items: flex-start; gap: 4px; padding: 4px 6px; border-radius: var(--radius-sm); }
+.oq-plan-node[data-hot="true"] { background: var(--intent-danger-bg); outline: 1px solid var(--intent-danger-border); }
+.oq-plan-spacer { width: var(--control-sm); flex: none; }
+.oq-plan-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-xs); }
 .oq-plan-title { display: flex; align-items: center; gap: 8px; }
-.oq-plan-share { width: 80px; height: 6px; border-radius: 3px; background: var(--bd-default); flex: none; overflow: hidden; }
+.oq-plan-share { width: 80px; height: 6px; border-radius: var(--radius-full); background: var(--bd-default); flex: none; overflow: hidden; }
 .oq-plan-share > span { display: block; height: 100%; background: var(--accent); }
+.oq-plan-node[data-hot="true"] .oq-plan-share > span { background: var(--intent-danger-solid); }
 .oq-plan-meta { display: flex; gap: 12px; opacity: 0.75; flex-wrap: wrap; }
-.oq-plan-detail { opacity: 0.7; font-size: 11px; overflow-wrap: anywhere; }
-.oq-plan-hints { margin: 0; padding: 6px 10px 6px 24px; border-left: 3px solid var(--intent-warning-solid); background: var(--intent-warning-bg); font-size: 12px; }
+.oq-plan-detail { opacity: 0.7; font-size: var(--fs-2xs); overflow-wrap: anywhere; }
+.oq-plan-hints { margin: 0; padding: 6px 10px 6px 24px; border-left: 3px solid var(--intent-warning-solid); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
 
 /* ---- Library (saved queries + history) ---------------------------------- */
 .oq-library { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); width: 420px; max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding: 8px; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: 8px; }
 .oq-library ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .oq-library li { display: flex; gap: 4px; align-items: stretch; }
 .oq-library li > button:first-child { flex: 1; text-align: left; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.oq-library code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; opacity: 0.8; }
+.oq-library code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-2xs); opacity: 0.8; }
 .oq-library-save { display: flex; gap: 6px; }
 .oq-library-save input { flex: 1; }
 .oq-library-wrap { position: relative; }
 
 /* ---- Collection insights -------------------------------------------------- */
 .oq-insights { display: flex; flex-direction: column; }
-.oq-index-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.oq-index-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); }
 .oq-index-list li { display: flex; gap: 8px; align-items: center; }
 .oq-index-form { display: flex; gap: 8px; align-items: center; }
 .oq-index-form input[type="text"], .oq-index-form input:not([type]) { flex: 1; font-family: var(--font-mono, monospace); }
@@ -292,18 +299,23 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* ---- Agent activity ------------------------------------------------------- */
 .oq-activity { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; overflow: auto; }
 .oq-activity-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.oq-activity-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.oq-activity-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
 .oq-activity-table th, .oq-activity-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bd-default); vertical-align: top; }
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
 .oq-activity-table tbody tr { cursor: pointer; }
+/* Who acted: the agent's name, with its raw id beside it in mono (PQ-07·16). */
+.oq-activity-table .oq-activity-actor { display: inline; margin-left: var(--space-1); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+/* A failed request reads as one. */
+.oq-activity-table tr[data-outcome="error"] .oq-activity-result { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }
+.oq-activity-more { display: flex; justify-content: center; padding: var(--space-2) 0; }
 .oq-activity-table tbody tr:hover { background: var(--fill-hover, rgba(127, 127, 127, 0.08)); }
 .oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
-.oq-activity-facts dt { font-size: 11px; opacity: 0.7; }
+.oq-activity-facts dt { font-size: var(--fs-2xs); opacity: 0.7; }
 .oq-activity-facts dd { margin: 0; overflow-wrap: anywhere; }
-.oq-activity-detail-heading { font-size: 12px; margin: 0 0 6px; }
-.oq-activity-statement { margin: 0 0 12px; padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; border: 1px solid var(--bd-default); border-radius: 6px; }
+.oq-activity-detail-heading { font-size: var(--fs-xs); margin: 0 0 6px; }
+.oq-activity-statement { margin: 0 0 12px; padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); border: 1px solid var(--bd-default); border-radius: 6px; }
 
 /* ---- Container resources and stats --------------------------------------- */
 
@@ -320,9 +332,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-grid-row [role='gridcell'].is-focus { outline: 2px solid var(--accent); outline-offset: -2px; }
 .oq-grid-resize { position: absolute; top: 0; right: 0; width: 6px; height: 100%; cursor: col-resize; }
 .oq-grid-resize:hover { background: color-mix(in srgb, var(--accent) 50%, transparent); }
-.oq-grid-hide, .oq-grid-unhide { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; font-size: 11px; opacity: 0; }
-.oq-grid-header > span:hover .oq-grid-hide, .oq-grid-hide:focus-visible { opacity: 1; }
-.oq-grid-unhide { opacity: 1; color: var(--accent); }
+.oq-grid-unhide { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--accent); cursor: pointer; font-size: var(--fs-2xs); }
 
 /* Workbench panels: parameters, transaction, filters, cell viewer, result tabs. */
 .oq-params, .oq-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 10px; padding: 8px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); font-size: var(--fs-xs); }
@@ -334,7 +344,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tx[data-state='failed'] { border-color: var(--intent-danger-solid); color: var(--intent-danger-solid); }
 .oq-cell-viewer { display: flex; flex-direction: column; min-width: 280px; max-width: 45%; border-left: 1px solid var(--bd-default); background: var(--surface-raised); }
 .oq-cell-viewer header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--bd-default); font-size: var(--fs-xs); }
-.oq-cell-viewer pre { flex: 1; margin: 0; padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 12px; }
+.oq-cell-viewer pre { flex: 1; margin: 0; padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: var(--fs-xs); }
 .oq-cell-viewer pre.is-null { color: var(--tx-muted); font-style: italic; }
 .oq-output-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
 .oq-output-tabs button { max-width: 220px; padding: 4px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
@@ -345,11 +355,11 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-mtree-body { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; }
 .oq-mnode-row { display: flex; align-items: center; gap: 2px; }
 .oq-mnode, .oq-mleaf > button:first-child { display: flex; flex: 1; align-items: center; gap: 4px; min-width: 0; padding: 4px 6px; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.oq-mleaf { display: flex; align-items: center; padding-left: 16px; }
+.oq-mleaf { position: relative; display: flex; align-items: center; padding-left: 16px; }
 .oq-mleaf small { margin-left: 6px; color: var(--tx-muted); }
-.oq-mleaf-actions { display: none; flex: none; gap: 2px; }
+.oq-mleaf-actions { position: absolute; top: 0; right: var(--space-1); bottom: 0; display: none; flex: none; align-items: center; gap: var(--space-0-5); padding-left: var(--space-1); background: var(--surface-base); }
 .oq-mleaf:hover .oq-mleaf-actions, .oq-mleaf:focus-within .oq-mleaf-actions { display: inline-flex; }
-.oq-mleaf-actions button { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-mleaf-actions button { display: inline-grid; place-items: center; width: var(--control-sm); height: var(--control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-mnode:hover, .oq-mleaf > button:first-child:hover, .oq-mleaf-actions button:hover { background: color-mix(in srgb, var(--tx-primary) 8%, transparent); }
 .oq-mleaf > button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .oq-field-error { color: var(--intent-danger-solid); font-size: var(--fs-2xs); }
@@ -375,7 +385,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-color-dot[data-color='amber'] { background: var(--avatar-4); }
 .oq-color-dot[data-color='green'] { background: var(--avatar-5); }
 .oq-color-dot[data-color='teal'] { background: var(--avatar-6); }
-.oq-form-pair { display: flex; align-items: center; gap: 16px; }
+/* Color + Favorite sit on the Group input's axis: at the end of their grid cell, as tall as the control (PQ-07·12). */
+.oq-form-pair { display: flex; align-items: center; align-self: end; min-height: var(--control-md); gap: 16px; }
 .oq-tab[data-color] { border-top: 3px solid var(--avatar-1); }
 .oq-tab[data-color='violet'] { border-top: 3px solid var(--avatar-2); }
 .oq-tab[data-color='pink'] { border-top: 3px solid var(--avatar-3); }
@@ -415,7 +426,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-extras .oq-disclosure { margin: 4px 0; }
 .oq-extras .oq-editor-bar { padding: 4px 0; border-bottom: 0; }
 .oq-extras .oq-filters { margin: 4px 0; }
-.oq-insights { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 2px 14px; padding: 2px 10px; }
+/* The insights bar ends in a divider and the document list starts a step below it (PQ-07·18). */
+.oq-insights { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 2px 14px; padding: var(--space-1) var(--space-3); border-bottom: 1px solid var(--bd-subtle); }
 .oq-insights > section { flex: 0 0 auto; margin: 0; }
 .oq-insights > section:has(> [aria-expanded='true']), .oq-insights > .oq-error { flex-basis: 100%; }
 /* A document is a card; its JSON starts right under its title. */
@@ -423,6 +435,12 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-documents > details[open] > summary { border-bottom: 1px solid var(--bd-subtle); }
 .oq-documents > details > pre { padding-top: 6px; }
 .oq-doc-actions { float: none; }
+.oq-documents { padding-top: var(--space-2); }
+/* A document's Edit / Clone / Delete stay quiet: shown under the pointer, with focus inside, or when it is open (PQ-07·18). */
+.oq-documents > details .oq-doc-actions { display: none; align-items: center; gap: var(--space-0-5); }
+.oq-documents > details:hover .oq-doc-actions, .oq-documents > details:focus-within .oq-doc-actions, .oq-documents > details[open] .oq-doc-actions { display: inline-flex; }
+/* Invalid JSON keeps its danger colour while focused, never the green focus border (PQ-07·18). */
+.oq-workbench .oq-workbench-main .oq-mongo-inputs textarea[aria-invalid='true']:focus-visible, .oq-workbench .oq-workbench-main .oq-mongo-inputs textarea[aria-invalid='true']:focus { border-color: var(--intent-danger-border); box-shadow: 0 0 0 2px color-mix(in srgb, var(--intent-danger-border) 30%, transparent); transition: none; }
 /* Container table: one rule under each row, not under each cell. */
 /* Only an open filter or an open editor needs the full width; collapsed, they stay chips in the row. */
 .oq-extras > form:not(:has(select, input)), .oq-extras > .oq-editor-bar:not(:has(.oq-edit-form, .oq-staged)) { flex-basis: auto; }
@@ -466,6 +484,10 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Native selects: the same field chrome as src/ui Select, sized to their content in toolbars. */
 :is(.oq-view, .oq-scope) .oq-select { width: auto; min-width: 0; height: var(--control-sm); font-size: var(--fs-xs); }
 :is(.oq-view, .oq-scope) :is(.oq-form, .oq-dialog-form) label > .oq-select, :is(.oq-view, .oq-scope) .oq-form-wide > .oq-select { width: 100%; height: var(--control-md); font-size: var(--fs-sm); }
+/* Import (PQ-07·17): the map and the options share one control height, no --control-sm select next to a --control-md field. */
+.oq-scope .oq-import-map .oq-select, .oq-scope .oq-import-options .oq-select, .oq-scope .oq-import-map input:not([type='checkbox']) { height: var(--control-md); }
+/* The File field and Sample cells are identifiers and data: mono, one line, cut with an ellipsis at 200 px (the title keeps the whole value). */
+.oq-import-map .oq-import-cell { display: block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
 
 /* Checkboxes and radios take the accent and a real hit area. */
 :is(.oq-view, .oq-scope) input:is([type='checkbox'], [type='radio']) { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
@@ -551,21 +573,28 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-grid-wrap > .oq-grid { min-height: 0; }
 .oq-grid-filter { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--bd-default); }
 .oq-grid-filter input { flex: 1; min-width: 0; max-width: 320px; height: var(--control-sm); font-size: var(--fs-xs); }
-.oq-grid-pin { margin-left: 6px; padding: 0 4px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; opacity: 0; }
-.oq-grid-header > span:hover .oq-grid-pin, .oq-grid-pin:focus-visible, .oq-grid-pin.is-on { opacity: 1; }
+/* PQ-07·3: the pin and hide buttons take no room at rest (a short header is not cut early); under the pointer or with focus they overlay the header's right end as 24 px boxes. The pin also shows while it is on. */
+.oq-grid-pin, .oq-grid-hide { display: none; position: absolute; top: 50%; transform: translateY(-50%); width: var(--control-sm); height: var(--control-sm); padding: 0; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-sm); background: var(--surface-sunken); color: var(--tx-muted); cursor: pointer; font-size: var(--fs-xs); line-height: 1; }
+.oq-grid-hide { right: var(--space-2); }
+.oq-grid-pin { right: calc(var(--space-2) + var(--control-sm)); }
+.oq-grid-header > span:not([data-narrow]):hover .oq-grid-pin, .oq-grid-header > span:not([data-narrow]):hover .oq-grid-hide, .oq-grid-header > span:not([data-narrow]):focus-within .oq-grid-pin, .oq-grid-header > span:not([data-narrow]):focus-within .oq-grid-hide, .oq-grid-pin:focus-visible, .oq-grid-hide:focus-visible, .oq-grid-pin.is-on { display: inline-flex; }
+/* The name is the sort target: while the actions show, it stops before them and ellipsizes, never under them. */
+.oq-grid-name { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+.oq-grid-header > span:not([data-narrow]):hover .oq-grid-name, .oq-grid-header > span:not([data-narrow]):focus-within .oq-grid-name { max-width: calc(100% - 2 * var(--control-sm) - var(--space-2)); }
+.oq-grid-pin:hover, .oq-grid-hide:hover { color: var(--tx-primary); }
 .oq-grid-pin.is-on { color: var(--accent); }
 .oq-grid-header > span.is-pinned, .oq-grid-row [role='gridcell'].is-pinned { z-index: var(--layer-raised); background: var(--surface-raised); }
 .oq-grid-row [role='gridcell'].is-pinned.is-range { background: color-mix(in srgb, var(--accent) 22%, var(--surface-raised)); }
 .oq-json { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .oq-json-tools { display: flex; gap: 6px; padding: 6px 10px 0; }
-.oq-json-tree { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-json-tree { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
 .oq-json-children { margin-left: 14px; padding-left: 6px; border-left: 1px solid var(--bd-default); }
 .oq-json-toggle { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .oq-json-key { color: var(--tx-secondary); }
 .oq-json-string { color: var(--tx-primary); word-break: break-word; }
 .oq-json-number, .oq-json-bool { color: var(--accent); }
 .oq-json-null, .oq-json-summary { color: var(--tx-muted); font-style: italic; }
-.oq-array { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+.oq-array { flex: 1; padding: 8px 10px; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
 .oq-array ol { margin: 6px 0 0; padding-left: 28px; }
 .oq-array li.is-null { color: var(--tx-muted); font-style: italic; }
 
@@ -597,7 +626,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-results > .oq-results-bar { border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--bd-subtle); background: var(--surface-sunken); color: var(--tx-secondary); cursor: pointer; font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge:hover { background: var(--fill-hover); color: var(--tx-primary); }
-.oq-agent-activity-badge[data-tone='attn'] { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.oq-agent-activity-badge[data-tone='attn'] { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }
 .oq-grid-header { background: var(--surface-sunken); border-bottom-color: var(--bd-subtle); color: var(--tx-secondary); font-weight: var(--weight-semibold); }
 .oq-grid-row { font-variant-numeric: tabular-nums; }
 
@@ -606,10 +635,10 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-json-node { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--tx-primary); }
 .oq-conn-section { display: flex; flex-direction: column; gap: var(--space-1); }
 .oq-container-picker-section { display: flex; flex-direction: column; gap: var(--space-2); }
-.oq-source-radiogroup { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
-.oq-source-radio { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--fs-xs); color: var(--tx-primary); cursor: pointer; }
+/* The source is src/ui's SegmentedControl and the container src/ui's Select (PQ-07·1): no local radio or select rules. */
+
 .oq-container-picker-reason { font-size: var(--fs-xs); color: var(--tx-muted); }
 .oq-form-group { display: flex; flex-direction: column; gap: var(--space-1); }
-.oq-mtree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.oq-mtree { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-ui); font-size: var(--fs-xs); }
 .oq-placeholder { display: flex; align-items: center; justify-content: center; padding: var(--space-6); color: var(--tx-muted); font-size: var(--fs-sm); }
 .oq-doc-preview { margin: 0; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); font-family: var(--font-mono); font-size: var(--fs-xs); overflow: auto; }

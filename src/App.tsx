@@ -3,6 +3,7 @@ import { sayAddProjectFirst } from './commands/thread.events'
 import type { CodeCommandContext } from './commands/code.commands'
 import type { ThreadCommandContext } from './commands/thread.commands'
 import { useDeferredModule } from './app/useDeferredModule'
+import { firstRunGate } from './app/firstRunGate'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
@@ -582,13 +583,16 @@ export function App(): ReactElement {
   }
 
   const threadProjects = useThreadStore(state => state.projects)
+  const threadProjectsState = useThreadStore(state => state.projectsState)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
   // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
   // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
   const firstRunStarted = useRef(false)
   const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView() && workspaces.length === 0
-  if (!isLoading && firstRunOpen && threadProjects.length === 0) firstRunStarted.current = true
-  const showFirstRun = !isLoading && firstRunOpen && (threadProjects.length === 0 || firstRunStarted.current)
+  // A restart is not an empty profile until the project catalog is read as empty (OXE-77).
+  const firstRun = firstRunGate({ isLoading, firstRunOpen, projectsState: threadProjectsState, projectCount: threadProjects.length, started: firstRunStarted.current })
+  if (firstRun.start) firstRunStarted.current = true
+  const showFirstRun = firstRun.show
   const openContainerConversation = useCallback((id: string): void => {
     setContainersOpen(false)
     setFirstRunExited(true)
@@ -752,7 +756,7 @@ export function App(): ReactElement {
             <Button variant="ghost" size="sm" onClick={() => setAppNotice(null)}>{t('ui.dismiss')}</Button>
           </div>
         ) : null}
-        {isLoading ? (
+        {isLoading || firstRun.pending ? (
           <div className="empty-state">
             <h3>{t('app.loadingWorkspaces')}</h3>
           </div>

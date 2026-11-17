@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { scrubLiveAppEnv } from './e2e/helpers/live-app-env'
@@ -5,8 +7,12 @@ import { scrubLiveAppEnv } from './e2e/helpers/live-app-env'
 // Before any worker starts: a test that spawns the bridge or Electron must never reach the running app.
 scrubLiveAppEnv()
 
+/** package.json, read once: the renderer's tests see the same __APP_VERSION__ as the build (OXE-213). */
+const PACKAGE = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string }
+
 export default defineConfig({
   plugins: [react()],
+  define: { __APP_VERSION__: JSON.stringify(PACKAGE.version) },
   test: {
     environment: 'jsdom',
     globals: true,

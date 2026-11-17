@@ -5,12 +5,15 @@ import type { OxeQueryAuditEntry } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { formatMs } from './catalog'
 import { EmptyState, ErrorState } from '../../ui/Display'
+import { Button } from '../../ui/Button'
 import { ActivityDetail } from './ActivityDetail'
 import { formatDateTime, formatNumber } from '../../utils/formatTime'
 import './OxeQuery.css'
 
 const DECISIONS = new Set(['auto', 'approved', 'approved-session', 'denied', 'refused', 'pending'])
 const FILTERS = ['all', 'writes', 'problems'] as const
+/** Entries per page of the audit; Load more asks for the next (older) page. */
+const PAGE = 200
 /** The agent tools that act on containers; the rest reach a database. */
 export const isContainerTool = (tool: string): boolean => /^oxespace_containers?_/.test(tool)
 
@@ -26,11 +29,30 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
   // The request shown in full, and its row, where focus goes back when the dialog closes.
   const [detail, setDetail] = useState<OxeQueryAuditEntry | null>(null)
   const detailRow = useRef<HTMLTableRowElement | null>(null)
+  // The cursor of the next (older) page, or null when the last page is shown.
+  const [next, setNext] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
-    try { setEntries(await oq('audit.list', { limit: 200 })); setError('') } catch (cause) { setError(errorMessage(cause)) }
+    try {
+      const page = await oq('audit.list', { limit: PAGE })
+      setEntries(page.entries); setNext(page.hasMore ? page.cursor : null); setError('')
+    } catch (cause) { setError(errorMessage(cause)) }
   }, [])
   useEffect(() => { if (active) void load() }, [active, load])
+
+  const loadMore = async (): Promise<void> => {
+    if (!next) return
+    setLoadingMore(true)
+    try {
+      const page = await oq('audit.list', { limit: PAGE, cursor: next })
+      setEntries(current => {
+        const seen = new Set(current.map(item => item.id))
+        return [...current, ...page.entries.filter(item => !seen.has(item.id))]
+      })
+      setNext(page.hasMore ? page.cursor : null); setError('')
+    } catch (cause) { setError(errorMessage(cause)) } finally { setLoadingMore(false) }
+  }
 
   const shown = entries.filter(entry => isContainerTool(entry.tool) === (scope === 'containers')).filter(entry => filter === 'all' ? true
     : filter === 'writes' ? /execute|write|action/.test(entry.tool)
@@ -55,7 +77,7 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
       <div role="group" aria-label={t('activity.filter')} className="oq-segment">
         {FILTERS.map(value => <button key={value} type="button" role="radio" aria-checked={filter === value} data-selected={filter === value} onClick={() => setFilter(value)}>{t(`activity.show.${value}`)}</button>)}
       </div>
-      <button type="button" onClick={() => void load()}><RefreshCw size={13} aria-hidden="true" />{t('common.refresh')}</button>
+      <Button icon={<RefreshCw size={13} aria-hidden="true" />} onClick={() => void load()}>{t('common.refresh')}</Button>
     </header>
     {error && <ErrorState compact title={error} onRetry={() => void load()} />}
     {shown.length === 0 && !error ? <EmptyState icon={<ShieldCheck size={20} />} title={t('activity.emptyTitle')}>{t(scope === 'containers' ? 'activity.emptyContainers' : 'activity.emptyText')}</EmptyState>
@@ -64,13 +86,16 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
         <tbody>{shown.map(entry => <tr key={entry.id} data-outcome={entry.outcome} data-decision={entry.decision} tabIndex={0} aria-haspopup="dialog"
           title={t('activity.detail.open')} onClick={event => show(entry, event.currentTarget)} onKeyDown={onRowKey(entry)}>
           <td>{formatDateTime(entry.ts)}</td>
-          <td>{entry.actor}</td>
+          <td>{entry.actorLabel ? <>{entry.actorLabel} <code className="oq-activity-actor">{entry.actor}</code></> : entry.actor}</td>
           {scope === 'database' && <td>{entry.connectionName ?? '—'}{entry.environment ? <small> · {entry.environment}</small> : null}</td>}
           <td><strong>{entry.tool.replace('oxespace_', '')}</strong>{entry.text ? <code title={entry.text}>{entry.text.replace(/\s+/g, ' ').slice(0, 120)}</code> : null}</td>
           <td className="oq-decision">{decisionOf(entry)}</td>
-          <td>{result(entry)}</td>
+          <td><span className="oq-activity-result">{result(entry)}</span></td>
         </tr>)}</tbody>
       </table>}
+    {next && <div className="oq-activity-more">
+      <Button loading={loadingMore} onClick={() => void loadMore()}>{t('activity.loadMore')}</Button>
+    </div>}
     {detail && <ActivityDetail entry={detail} scope={scope} decision={decisionOf(detail)} result={result(detail)}
       onClose={() => setDetail(null)} returnFocusTo={() => detailRow.current} />}
   </section>

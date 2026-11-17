@@ -33,7 +33,7 @@ async function switchTo(page: Page, from: string, to: string, how: 'click' | str
             rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)], cls: String((e as HTMLElement).className).slice(0, 60) }
         }) : undefined
         w.__s.push({ ...(hosts ? { hosts } : {}),
-          t, pressed: document.querySelector(`button[data-app-mode="${to}"]`)?.getAttribute('aria-pressed') === 'true',
+          t, pressed: document.querySelector(`button[data-app-mode="${to}"]`)?.getAttribute('aria-selected') === 'true',
           oldUp: visible(oldV), newUp: !!newV,
           skeleton: [...main.querySelectorAll('[data-skeleton]')].some(visible), brand: [...main.querySelectorAll('[data-brand-loader]')].some(visible),
           dimmed: !!oldV && visible(oldV) && Number(getComputedStyle(oldV).opacity) < 1,

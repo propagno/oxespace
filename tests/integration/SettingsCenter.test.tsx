@@ -24,6 +24,8 @@ test('a workspace change applies at once and leaving needs no confirmation', asy
   // Only what changed: an unchanged layout sent along can rebuild the panes and their terminals.
   expect(onSave.mock.calls[0][0]).not.toHaveProperty('layoutPreset')
   expect(screen.queryByRole('button', { name: 'Save workspace settings' })).toBeNull()
+  // BRD-23: the navigation lists one scope at a time; App, at the top, brings back the application's sections.
+  fireEvent.click(screen.getByRole('radio', { name: 'App' }))
   fireEvent.click(within(screen.getByRole('navigation', { name: 'Settings categories' })).getByRole('button', { name: /^Appearance/ }))
   expect(screen.queryByRole('dialog', { name: 'Save your changes?' })).toBeNull()
   expect(await screen.findByRole('heading', { name: 'Appearance' })).toBeVisible()

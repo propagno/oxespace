@@ -1,0 +1,45 @@
+{
+  "brd": "BRD-23",
+  "card": "OXE-100",
+  "title": "Settings in nine sections with the App / workspace selector and the Ctrl+F search; one SettingsSection mould, no variant",
+  "platform": "desktop",
+  "source": "artifact JpDiD9nKrPrMXdcnkED4US (section Settings), oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-23) and the card OXE-100 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-23.section.border-radius",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-section]",
+      "prop": "border-radius",
+      "expect": { "token": "--radius-lg" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "one mould: every SettingsSection is the raised card, 12 px corners"
+    },
+    {
+      "id": "BRD-23.section-title.font-size",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-section] > header h3",
+      "prop": "font-size",
+      "expect": { "token": "--fs-md" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the section title is 14 (15 comfortable)"
+    },
+    {
+      "id": "BRD-23.section-title.font-weight",
+      "scene": "settings-general",
+      "select": "[data-ui=settings-section] > header h3",
+      "prop": "font-weight",
+      "expect": { "token": "--weight-semibold" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the section title is semibold (600)"
+    }
+  ]
+}

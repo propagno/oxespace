@@ -212,7 +212,7 @@ async function timeDomToggle(
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
   // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
   // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab').first().focus()
   await page.keyboard.press(shortcut)
 }
 
@@ -254,7 +254,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
     await createWorkspace(page)
-    await page.locator('.sidebar-section-header').last().click()
+    await page.locator('[data-ui="sidebar-section"]').last().click()
     if (await page.locator('.sidebar.sidebar-collapsed').count()) {
       await pressShellShortcut(page, 'Control+b')
       await page.locator('.sidebar.sidebar-collapsed').waitFor({ state: 'detached' })
@@ -341,7 +341,7 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+      await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
       switchTimes.push(await readInputTimer(page))
     }
@@ -422,7 +422,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
       // a failed fix.
       await armInputTimerUntil(page, [
-        { selector: '.ws-group.active', text: label },
+        { selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label },
         { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
       ])
       await target.getByTestId('sidebar-workspace-select').click()
@@ -525,7 +525,7 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     for (let i = 0; i < modalRepeats; i++) {
       // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
       // the measured interaction is choosing it.
-      await page.locator('.sidebar-section-header').last().click()
+      await page.locator('[data-ui="sidebar-section"]').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
@@ -612,7 +612,7 @@ async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Pro
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
+    if (button.getAttribute('aria-selected') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
   }, mode)
 }
@@ -627,10 +627,10 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    const nav = page.getByRole('navigation', { name: 'Application view' })
+    const nav = page.getByRole('tablist', { name: 'Application view' })
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
+    await nav.getByRole('tab', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
     await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
@@ -944,7 +944,7 @@ test('memory: main process with 10 Threads open', async () => {
       if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
       await page.locator('.thread-navigation-item').nth(index).click()
       await page.locator('.thread-timeline').waitFor()
-      await expect(page.locator('.thread-navigation-item[aria-current="page"]')).toHaveCount(1)
+      await expect(page.locator('.thread-navigation-item[aria-current]')).toHaveCount(1)
     }
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)

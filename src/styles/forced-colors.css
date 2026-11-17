@@ -17,8 +17,8 @@
   /* Separators that resize panels draw their focus as a fill; give them the ring too. */
   :root [role='separator'][tabindex]:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
   /* A search box that draws its own frame rings the frame, not the field inside it. */
-  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find):focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
-  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find) input:focus-visible { outline-style: none; }
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find, .oq-tree-search, .oq-conn-search):focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find, .oq-tree-search, .oq-conn-search) input:focus-visible { outline-style: none; }
   .thread-composer:focus-within { border-color: Highlight; }
   /* OxeQuery fields draw focus as a border tint and a shadow, at a weight the general rule above does not reach. */
   :root :is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):focus-visible { outline-color: Highlight; }
@@ -66,6 +66,19 @@
   /* The active tab is marked by a colored bar; an underline survives the palette. */
   [role='tab'][aria-selected='true'] { text-decoration: underline 2px; text-underline-offset: 4px; }
 
+  /* The primary Button (src/ui): its fill was the only thing telling it from Cancel beside it, and the palette turns
+     both into ButtonFace. An enabled one keeps its own colours as Highlight on HighlightText; a disabled or busy one
+     falls through to the disabled rule below. */
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']) {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']) * { color: inherit; border-color: currentColor; }
+  /* Its focus ring would vanish into the fill; it takes the text color and stands off. */
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
   /* Disabled controls read as disabled. */
   :is(button, input, select, textarea):disabled,
   [aria-disabled='true'],
@@ -79,7 +92,12 @@
   :is([data-status-dot='attention'], [data-status-dot='danger']) { box-sizing: border-box; background: Canvas; border: 2px solid CanvasText; }
   /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. A ring in
      the text color keeps each dot visible on any background the palette forces (the terminal's footer dot was lost). */
-  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
+  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-status-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
+
+  /* The first run's current step (PU-03·1): its border and filled number were only colour, so the step is ringed in
+     Highlight and its number is drawn in Highlight / HighlightText. */
+  [data-ui='first-run-step'][aria-current='step'] { outline: 2px solid Highlight; outline-offset: -1px; }
+  [data-ui='first-run-step'][aria-current='step'] [data-ui='first-run-step-num'] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
 
   /* Charts: meters, usage bars and the usage ring draw the filled part in the highlight color on an outlined track. */
   [role='meter'], .thread-usage-bar { outline: 1px solid CanvasText; }

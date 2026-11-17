@@ -14,8 +14,9 @@ import { useAgentStore } from '../../store/agent.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
+import { APP_VERSION } from '../../lib/appVersion'
 import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
-import { UpdatePreferences } from './UpdatePreferences'
+import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
@@ -204,7 +205,7 @@ function SettingsContentHeader({
     <header className="settings-content-header">
       <div>
         <span className="settings-content-kicker">{kicker}</span>
-        <h2 id={titleId}>{title}</h2>
+        <SettingsPageTitle id={titleId}>{title}</SettingsPageTitle>
         {description && <p className="settings-content-description">{description}</p>}
       </div>
       <div className="settings-content-actions">
@@ -502,15 +503,18 @@ function ProvidersSettingsSection({
           </>
         )}
 
-        {/* With no agent yet the empty state's health check is the one main action. */}
-        <Button
-          variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
-          onClick={onNewCustomAgent}
-          data-testid="btn-new-custom-agent"
-        >
-          <Plus size={14} aria-hidden="true" />
-          {t('providers.newCustomAgent')}
-        </Button>
+        {/* BRD-23: Custom agent is a Button in a section header, not a field or a row. With no agent yet the empty
+            state's health check is the one main action. */}
+        <SettingsCard title={t('providers.customAgents')} description={t('providers.customAgentsHint')} actions={
+          <Button
+            variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
+            onClick={onNewCustomAgent}
+            data-testid="btn-new-custom-agent"
+            icon={<Plus size={14} aria-hidden="true" />}
+          >
+            {t('providers.newCustomAgent')}
+          </Button>
+        }>{null}</SettingsCard>
 
         <NewConversationAccessSetting />
         <ConversationSettings />
@@ -889,7 +893,8 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const { t } = useTranslation('settings')
 
   useEffect(() => {
-    bootstrap()
+    // Without the main process's updater (a renderer-only host), keep the state already known instead of resetting it.
+    if (typeof window !== 'undefined' && typeof window.oxe?.app?.getUpdateState === 'function') bootstrap()
   }, [bootstrap])
 
   const manualInstall = app.installMode === 'manual' || app.status === 'disabled'
@@ -899,7 +904,7 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
   const asksToDownload = !manualInstall && (preferences.mode !== 'auto' || pinned)
   const isDevBuild = app.status === 'disabled'
   const versionLabel = app.currentVersion === 'dev' || !app.currentVersion
-    ? t('updates.devBuild')
+    ? `v${APP_VERSION}`
     : `v${app.currentVersion}`
 
   const appStatusLabel = (() => {

@@ -2,8 +2,8 @@
 .trigger { position: relative; }
 .count {
   position: absolute;
-  top: -3px;
-  right: -3px;
+  top: 0;
+  right: 0;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -42,11 +42,9 @@
 .groupTitle {
   margin: 0;
   padding: var(--space-2) var(--space-3) var(--space-1);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-semibold);
-  color: var(--tx-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--tx-secondary);
 }
 .list { list-style: none; margin: 0; padding: 0 var(--space-1) var(--space-1); }
 

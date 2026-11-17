@@ -45,31 +45,35 @@
   white-space: nowrap;
 }
 
-.workspace-topbar-panes {
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-variant-numeric: tabular-nums;
+/* The wrapper keeps the bar's data-ui (BRD-03 measures its buttons) without adding a layout box. */
+.workspace-topbar-host { display: contents; }
+
+/* The workspace's branch, in the mono face (BRD-13). */
+.workspace-topbar-branch {
+  min-width: 0;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.workspace-topbar .workspace-topbar-add-btn {
-  height: 24px;
-  min-height: 24px;
-  padding: 0 var(--space-2);
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
 }
 
-.workspace-topbar .workspace-topbar-action {
-  width: 28px;
-  min-height: 28px;
-  padding: 0;
-  margin-right: 2px;
-  border-color: transparent;
-  color: var(--tx-secondary);
+/* The panel group: square md IconButtons side by side; size and pressed fill are the primitive's (BRD-13). */
+.workspace-topbar-panel-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
-/* Labels hide; the MCP button's quarantine count stays, on the icon's corner. */
-.workspace-topbar .workspace-topbar-action span:not(.workspace-topbar-alert) { display: none; }
-.workspace-topbar .workspace-topbar-action[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
+
+/* The bar's actions are src/ui Button and IconButton (BRD-03): their size, type, padding and pressed fill are the
+   primitive's, never restyled here. The MCP button's quarantine count sits on the icon's corner. */
+.workspace-topbar .workspace-topbar-action { margin-right: 0; }
+
+/* The systems trigger: the health dot on the server icon's corner. */
+.workspace-integrations-icon { position: relative; display: inline-grid; place-items: center; }
+.workspace-integrations-icon .workspace-integrations-health { position: absolute; top: -2px; right: -3px; }
 
 .pane-agent-chip, .pane-agent-chip[class*='provider-'] { padding: 0 4px; border-color: transparent; background: transparent; color: var(--tx-primary); font-weight: var(--weight-semibold); }
 
@@ -85,8 +89,6 @@
 
 .workspace-editor-title {
   justify-content: flex-start;
-  height: auto;
-  min-height: 24px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -111,11 +113,29 @@
   gap: 2px;
 }
 
+/* The panel stack's row: the src/ui Tabs list (its tabs are the primitive's, never restyled here) and the More menu. */
 .workspace-panel-stack-tabs {
-  min-height: 36px;
-  padding: 3px var(--space-2);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0;
+  padding: 0 var(--space-2);
   background: var(--surface-sunken);
   border-bottom: 1px solid var(--bd-subtle);
+}
+
+.workspace-panel-stack-tablist {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The row draws the bottom line, so the list does not draw a second one. */
+.workspace-panel-stack-tablist > [data-ui='tabs'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
 }
 
 /* Pane Terminal / Conversation toggle switch (G8 / G14). */

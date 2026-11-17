@@ -107,7 +107,7 @@ export interface SegmentedControlProps<T extends string> {
   value: T | null
   onChange: (value: T) => void
   /** `tone: 'danger'` paints the option red while it is chosen (a production environment). */
-  options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger' }>
+  options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger'; /** Turns this one option off (a choice not available yet); arrow keys pass over it. */ disabled?: boolean }>
   label: string
   className?: string
   /** Off while a change saves: the options read as unavailable instead of ignoring a click. */
@@ -116,9 +116,11 @@ export interface SegmentedControlProps<T extends string> {
 
 /** A few mutually exclusive choices shown side by side; arrow keys move between them. Each option is a 24 px target at least. */
 export function SegmentedControl<T extends string>({ value, onChange, options, label, className, disabled = false }: SegmentedControlProps<T>): ReactElement {
-  const move = radioKeys(options, onChange)
+  const enabled = options.filter(option => !option.disabled)
+  const keys = radioKeys(enabled, onChange)
+  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => { const at = enabled.indexOf(options[index]); if (at >= 0) keys(event, at) }
   return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? index === 0 : option.value === value) ? 0 : -1} disabled={disabled}
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? option === enabled[0] : option.value === value) ? 0 : -1} disabled={disabled || option.disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
   </div>
 }
