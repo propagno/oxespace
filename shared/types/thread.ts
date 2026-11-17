@@ -398,7 +398,7 @@ export interface ThreadSubagent {
   status: 'pending' | 'running' | 'interrupted' | 'completed' | 'failed' | 'closed' | 'not-found' | 'unknown'
   message?: string
 }
-export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
+export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[]; /** Set when the person edited this turn's prompt: the id of the turn that sent the edited text (OXE-167). */ editedInto?: string }
 
 /** A worktree created for one conversation; the record that lets archiving clean it up. */
 export interface OwnedThreadWorktree {
@@ -766,6 +766,8 @@ export interface ThreadApi {
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
+  /** Edits the latest prompt (OXE-167): the edited text as the next turn; the edited turn gets `editedInto`. */
+  editPrompt?(id: string, turnId: string, text: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
   /** Runs the plan of the latest Plan turn (OXE-167): Plan → Agent, then the run text as the next turn. */
   executePlan?(id: string, turnId: string): Promise<void>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>

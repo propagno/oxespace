@@ -153,6 +153,10 @@ export function registerThreadIpc(
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
   })
+  ipcMain.handle(IPC_CHANNELS.thread.editPrompt, (event, id: unknown, turnId: unknown, text: unknown, options: unknown) => {
+    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
+    return manager.then(service => service.editPrompt(string(id), string(turnId), message(text), { restoreFiles }))
+  })
   ipcMain.handle(IPC_CHANNELS.thread.readSince, (event, id: unknown, cursor: unknown) => {
     const input = cursor && typeof cursor === 'object' ? cursor as Record<string, unknown> : {}
     const epoch = string(input.epoch), revision = optionalInteger(input.revision, 0, Number.MAX_SAFE_INTEGER)
