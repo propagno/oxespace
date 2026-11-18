@@ -959,6 +959,8 @@
     "image": "[Imagem]",
     "imageAlt": "[Imagem: {{alt}}]",
     "diagram": "Diagrama",
+    "diagramBuilding": "Montando diagrama…",
+    "diagramFailed": "Não foi possível desenhar o diagrama",
     "enlarge": "Ampliar",
     "showCode": "Ver o código",
     "showDiagram": "Ver o diagrama",

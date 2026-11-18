@@ -79,6 +79,7 @@
     "BRD-25.header.meta",
     "BRD-25.run-failed.open",
     "BRD-25.run-ok.closed",
-    "BRD-25.stderr.bg"
+    "BRD-25.stderr.bg",
+    "BRD-25.table.vrule"
   ]
 }

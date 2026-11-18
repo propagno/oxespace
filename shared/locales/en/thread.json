@@ -930,6 +930,8 @@
     "image": "[Image]",
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
+    "diagramBuilding": "Building the diagram…",
+    "diagramFailed": "Couldn't draw this diagram",
     "enlarge": "Enlarge",
     "showCode": "Show code",
     "showDiagram": "Show diagram",
