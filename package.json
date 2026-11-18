@@ -52,7 +52,7 @@
     "verify:linux": "docker build -f docker/linux-verify.Dockerfile -t oxespace-linux-verify . && docker run --rm --name oxespace-linux-verify-run --shm-size=1g oxespace-linux-verify",
     "release:checksums": "node scripts/release-checksums.mjs",
     "security:audit": "npm audit --omit=dev --package-lock-only --audit-level=moderate",
-    "security:audit:tools": "npm audit --package-lock-only --audit-level=high",
+    "security:audit:tools": "node scripts/security-audit-tools.mjs",
     "verify:claude-protocol": "node scripts/probe-claude-protocol.cjs",
     "verify:providers": "node scripts/probe-providers.cjs",
     "tokens": "node scripts/build-tokens.mjs",
