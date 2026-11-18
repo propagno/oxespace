@@ -1,5 +1,5 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
-.sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--surface-chrome); background-image: none; border-right: 0; overflow: clip; }
+.sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--surface-chrome); background-image: none; border-right: 0; }
 /* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
 .app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--bd-subtle); border-radius: 0; background: var(--surface-base); }
 .app-shell.first-run-shell { grid-template-columns: minmax(0, 1fr); } .app-shell.first-run-shell > aside { display: none; }
@@ -50,7 +50,14 @@
 
 /* ─── Icon rail + tree panel (Codex-style sidebar) ───────────────────────── */
 .sidebar.sidebar-redesign, .thread-navigation { display: flex; flex-direction: row; }
-.nav-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.nav-panel { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: clip; }
+:is(.sidebar.sidebar-redesign, .thread-navigation) .nav-panel :is(button, [role='button'], a[href], input, select, [role='tab']) {
+  position: relative;
+  z-index: calc(var(--layer-raised) + 1);
+}
+:is(.sidebar.sidebar-redesign, .thread-navigation) .nav-panel [role='button'] + span {
+  z-index: calc(var(--layer-raised) + 1);
+}
 .nav-panel-title { display: flex; align-items: center; gap: 4px; height: var(--chrome-h); min-height: var(--chrome-h); padding: 0 var(--chrome-inset) 0 10px; }
 .nav-panel-title strong { font-size: var(--fs-sm); font-weight: 600; color: var(--tx-primary); }
 
