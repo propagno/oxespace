@@ -416,6 +416,15 @@
 .thread-activity-single.has-failure summary > svg:first-child { color: var(--intent-danger-solid); }
 .thread-activity-single .thread-tool-diagnostic { padding-left: 23px; }
 .thread-virtual-turn > :is(.thread-tool, .thread-approval, .thread-plan, .thread-reasoning, .thread-file-activity, .thread-change-summary) { max-width: var(--thread-prose-max); }
+/* Plan card (AG-11 5.1): the count is tabular, the bar is a hairline, the steps stay numbered. */
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-count { margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-bar { height: var(--space-0-5); margin-top: var(--space-2); overflow: hidden; border-radius: var(--radius-full); background: var(--fill-hover); }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-bar > span { display: block; height: 100%; background: var(--accent); }
+.thread-view .thread-plan[data-ui="plan-card"] ol { list-style: decimal; padding-inline-start: 1.25em; }
+.thread-view .thread-plan[data-ui="plan-card"] li { display: list-item; }
+.thread-plan-run { margin: var(--space-2) 0; }
+.thread-prompt-origin { margin: var(--space-1) 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-activity-group summary { display: flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .thread-activity-group summary::-webkit-details-marker { display: none; }
 .thread-activity-group summary:hover { color: var(--tx-primary); background: var(--fill-hover); }
