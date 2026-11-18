@@ -65,6 +65,7 @@
     "BRD-02.raw-button.count",
     "BRD-02.attention.radius",
     "BRD-12.title.font-weight",
-    "BRD-25.alert.count"
+    "BRD-25.alert.count",
+    "BRD-25.table.vrule"
   ]
 }
