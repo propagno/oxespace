@@ -50,13 +50,15 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
         // A thread created after the first scan has no previous status either;
         // it is new, not "finished".
         if (!seeded) continue
-        // Approved or answered elsewhere: the entry no longer waits on anyone.
-        if (previous === 'approval' && thread.status !== 'approval') activity.resolve('thread', thread.id)
+        // Approved or answered elsewhere: keep the entry in history, read, with its outcome.
+        if (previous === 'approval' && thread.status !== 'approval') {
+          void resolveApprovalEntry(api.read, thread, () => disposed || known.get(thread.id) === 'approval')
+        }
         const watching = view.current === 'thread' && focused && (thread.id === selectedId || thread.id === secondaryId)
         const decision = decideThreadAttention({ previous, current: thread, viewing: watching })
         if (!decision.kind) continue
         const text = threadAttentionText(decision.kind, displayThreadTitle(thread.title), threadPlace(thread))
-        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: text.body, read: watching })
+        activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: text.body, place: { project: threadPlace(thread), mode: 'chat' }, read: watching })
         if (decision.unread) markUnread(thread.id)
         if (decision.notify && notificationsEnabled) {
           sendAgentNotice({
@@ -89,7 +91,7 @@ const ACTIVITY_KIND: Record<ThreadAttentionKind, ActivityKind> = { 'needs-approv
 const NOTICE_KIND: Record<ThreadAttentionKind, AgentNoticeKind> = { 'needs-approval': 'needs-you', failed: 'other', finished: 'finished' }
 
 /** Where a conversation is: its project's name, else the folder it runs in. */
-function threadPlace(thread: Pick<ConversationThread, 'projectId' | 'rootPath'>): string {
+export function threadPlace(thread: Pick<ConversationThread, 'projectId' | 'rootPath'>): string {
   const project = useThreadStore.getState().projects.find(candidate => candidate.projectId === thread.projectId)
   const named = project?.displayName?.trim() || project?.contexts.find(context => context.rootPath === thread.rootPath)?.label?.trim()
   if (named) return named
@@ -111,18 +113,64 @@ async function seedPending(read: () => Promise<ThreadPendingRequestSummary[]>, t
   if (!Array.isArray(pending)) return
   const byThread = new Map<string, ThreadPendingRequestSummary[]>()
   for (const request of pending) byThread.set(request.threadId, [...(byThread.get(request.threadId) ?? []), request])
-  const titles = new Map(threads.map(thread => [thread.id, displayThreadTitle(thread.title)]))
+  const threadById = new Map(threads.map(thread => [thread.id, thread]))
   const activity = useActivityStore.getState()
   for (const [threadId, requests] of byThread) {
     // Answered while the read was in flight, or the view went away.
     if (!stillWaiting(threadId)) continue
     const first = requests[0]
+    const thread = threadById.get(threadId)
     activity.record({
       source: 'thread', id: threadId, kind: 'needs-you',
       target: threadTarget({ id: threadId, workspaceId: first.workspaceId }),
-      title: titles.get(threadId) ?? displayThreadTitle(first.threadTitle),
+      title: thread ? displayThreadTitle(thread.title) : displayThreadTitle(first.threadTitle),
       detail: requests.length > 1 ? i18n.t('notify.requestsWaiting', { ns: 'thread', count: requests.length }) : first.title,
+      place: { project: thread ? threadPlace(thread) : '', mode: 'chat' },
       at: Math.max(...requests.map(request => request.createdAt))
     })
   }
+}
+
+function mapResolutionOutcome(resolution: string | undefined): 'allowed' | 'denied' | 'answered' {
+  if (resolution === 'approved') return 'allowed'
+  if (resolution === 'declined') return 'denied'
+  return 'answered'
+}
+
+async function resolveApprovalEntry(
+  readThread: NonNullable<NonNullable<typeof window.oxe>['thread']>['read'] | undefined,
+  thread: ConversationThread,
+  cancelled: () => boolean
+): Promise<void> {
+  let outcome: 'allowed' | 'denied' | 'answered' = 'answered'
+  if (readThread) {
+    try {
+      const data = await readThread(thread.id)
+      const resolved = data.events
+        .filter((event): event is Extract<typeof event, { type: 'request' }> =>
+          event.type === 'request' && event.request.kind === 'approval' && event.request.state === 'resolved'
+        )
+        .sort((a, b) => (a.request.resolvedAt ?? a.request.createdAt) - (b.request.resolvedAt ?? b.request.createdAt))
+        .pop()
+      if (resolved) outcome = mapResolutionOutcome(resolved.request.resolution)
+    } catch {
+      // Fall back to generic 'answered' if the thread cannot be read.
+    }
+  }
+  if (cancelled()) return
+  const activity = useActivityStore.getState()
+  const existing = activity.items.find(item => item.source === 'thread' && item.id === thread.id)
+  if (existing && existing.kind !== 'needs-you') return
+  activity.record({
+    source: 'thread',
+    id: thread.id,
+    kind: existing?.kind ?? 'needs-you',
+    target: threadTarget(thread),
+    title: existing?.title ?? displayThreadTitle(thread.title),
+    ...(existing?.detail ? { detail: existing.detail } : {}),
+    place: { project: threadPlace(thread), mode: 'chat' },
+    outcome,
+    at: Date.now(),
+    read: true
+  })
 }

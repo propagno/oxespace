@@ -483,8 +483,14 @@
     "emptyHint": "Finished turns, requests that need you and updates show up here.",
     "group": {
       "needs-you": "Needs you",
+      "failed": "Failed",
       "finished": "Finished",
       "updates": "Updates"
+    },
+    "outcome": {
+      "allowed": "Allowed",
+      "denied": "Denied",
+      "answered": "Answered"
     },
     "kind": {
       "needs-you": "Needs you",
