@@ -145,6 +145,12 @@
 [data-ui="explore-steps"] { display: flex; flex-direction: column; gap: var(--space-1-5); }
 [data-ui="turn-line"] { height: var(--row-1); min-height: var(--row-1); }
 [data-ui="file-pill"] { font-family: var(--font-mono); }
+[data-ui="step"][data-kind="run"] code { font-family: var(--font-mono); }
+[data-ui="step"][data-kind="run"][data-state="done"]:not([data-open="true"]) { height: var(--row-1); min-height: var(--row-1); }
+[data-ui="step-output"] { background-color: var(--term-bg); }
+[data-ui="kind-badge"][data-kind="query"] { color: var(--k-db); }
+[data-ui="kind-badge"][data-kind="http"] { color: var(--k-net); }
+[data-ui="kind-badge"][data-kind="other"] { color: var(--k-box); }
 .thread-reasoning summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 2px 0; }
 .thread-reasoning summary::-webkit-details-marker { display: none; }
 .thread-reasoning:not([open]) summary>svg:first-child { transform: rotate(-90deg); }

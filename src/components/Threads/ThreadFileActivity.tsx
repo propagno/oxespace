@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState, LoadingState } from '../../ui'
 import { parseThreadPatch } from '../../../shared/threadPatch'
+import type { GitDiffLine } from '../../../shared/types/git'
 import type { ThreadArtifact, ThreadFileHunk, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
@@ -40,7 +41,7 @@ function FileActivityRow({ entry, root, roots, threadId, workspaceId, onOpen }: 
   </div>
 }
 
-function ThreadInlineEvidence({ threadId, artifactId }: { threadId: string; artifactId: string }) {
+export function ThreadInlineEvidence({ threadId, artifactId, onComment }: { threadId: string; artifactId: string; onComment?(line: GitDiffLine, body: string): void }) {
   const { t } = useTranslation('thread')
   const [artifact, setArtifact] = useState<ThreadArtifact | null>(null), [error, setError] = useState(''), [revision, setRevision] = useState(0)
   useEffect(() => {
@@ -52,7 +53,7 @@ function ThreadInlineEvidence({ threadId, artifactId }: { threadId: string; arti
     return () => { active = false }
   }, [threadId, artifactId, revision, t])
   const parsed = artifact && artifact.source !== 'tool-input' ? parseThreadPatch(artifact.content) : null
-  return <div className="thread-inline-evidence">{error ? <ErrorState compact title={error} onRetry={() => setRevision(value => value + 1)} retryLabel={t('files.retry')} /> : !artifact ? <LoadingState label={t('files.loadingEvidence')} /> : <>{artifact.truncated && <p>{t('files.incomplete')}</p>}{artifact.source === 'tool-input' && <p>{t('files.toolInput')}</p>}{artifact.source === 'working-tree-observation' && <p>{t('files.observation')}</p>}{parsed?.hunks.length ? <ThreadPatch hunks={parsed.hunks} /> : <pre>{artifact.content}</pre>}</>}</div>
+  return <div className="thread-inline-evidence">{error ? <ErrorState compact title={error} onRetry={() => setRevision(value => value + 1)} retryLabel={t('files.retry')} /> : !artifact ? <LoadingState label={t('files.loadingEvidence')} /> : <>{artifact.truncated && <p>{t('files.incomplete')}</p>}{artifact.source === 'tool-input' && <p>{t('files.toolInput')}</p>}{artifact.source === 'working-tree-observation' && <p>{t('files.observation')}</p>}{parsed?.hunks.length ? <ThreadPatch hunks={parsed.hunks} onComment={onComment} /> : <pre>{artifact.content}</pre>}</>}</div>
 }
 export function FileStats({ file }: { file: ThreadChangeEntry['file'] }) {
   return file.additions !== undefined && file.deletions !== undefined && !file.truncated ? <span className="thread-file-stats"><span>+{file.additions}</span><span>−{file.deletions}</span></span> : null

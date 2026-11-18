@@ -77,6 +77,9 @@
     "BRD-25.header.meta",
     "BRD-25.fold.height",
     "BRD-25.step.height",
-    "BRD-25.reasoning.font"
+    "BRD-25.reasoning.font",
+    "BRD-25.run-failed.open",
+    "BRD-25.run-ok.closed",
+    "BRD-25.stderr.bg"
   ]
 }
