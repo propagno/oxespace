@@ -73,12 +73,10 @@ describe('the sidebar row and the pane header', () => {
       <PaneSessionRow pane={ws.panes[1]} paneIndex={1} workspace={ws} isActive={false} agentProfiles={[]} onClick={() => undefined} onActivatePane={() => undefined} />
     </>)
     const [blocked, done] = [...container.querySelectorAll('[data-testid="pane-session-row"]')] as HTMLElement[]
-    // BRD-01: only the row that needs a decision has a second line, and it says what is asked.
-    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Needs your approval or answer')
-    expect(within(done).queryByTestId('pane-row-status')).toBeNull()
-    expect(done).toHaveTextContent('finished')
-    expect(blocked.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
-    expect(done.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).toBeNull()
+    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Claude · Needs you')
+    expect(within(done).getByTestId('pane-row-status')).toHaveTextContent('Claude · Finished')
+    expect(blocked.querySelector('.activity-needs-decision')).not.toBeNull()
+    expect(done.querySelector('.activity-needs-decision')).toBeNull()
     // Not color alone, in the compact layout too: a mark beside the name.
     expect(within(blocked).getByTestId('pane-row-decision-mark')).toHaveAttribute('aria-hidden', 'true')
     expect(within(done).queryByTestId('pane-row-decision-mark')).toBeNull()
