@@ -84,10 +84,21 @@ function backdropOf(target: Locator): Promise<string> {
   })
 }
 
+const SETTINGS_PAGE_SECTION: Record<string, string> = {
+  devices: 'integrations',
+}
+
 /** Opens Settings and one of its pages by the page's name in the catalog (settings center.pages.<id>.label). */
 async function openSettingsPage(page: Page, id: string): Promise<void> {
   await openSettings(page)
-  const nav = page.getByRole('navigation', { name: cat('settings', 'center.categories') })
+  const settings = page.getByRole('dialog', { name: cat('settings', 'center.title'), exact: true })
+  const nav = settings.getByRole('navigation', { name: cat('settings', 'center.categories') })
+  const section = SETTINGS_PAGE_SECTION[id]
+  if (section) {
+    await nav.getByRole('button', { name: new RegExp(`^${cat('settings', `center.sections.${section}.label`)}\\b`) }).first().click()
+    await settings.getByRole('radiogroup', { name: cat('settings', 'center.sectionPages') }).getByRole('radio', { name: cat('settings', `center.pages.${id}.label`), exact: true }).click()
+    return
+  }
   await nav.getByRole('button', { name: new RegExp(`^${cat('settings', `center.pages.${id}.label`)}\\b`) }).first().click()
 }
 
