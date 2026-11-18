@@ -7,7 +7,7 @@ import { Button } from './Button'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
-export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
+export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'attention'
 
 /** A short label of state or count. Color only reinforces the text; it never carries the meaning alone. */
 /**
@@ -262,7 +262,7 @@ export function Meter({ label, value, max = 100, detail }: { label: ReactNode; v
     <div className={styles.meterHead}><span>{label}</span><span>{detail ?? `${Math.round(ratio * 100)}%`}</span></div>
     {/* A meter's value stays within its range (ARIA): past the limit it is full, and `detail` says by how much. */}
     <div className={styles.meterTrack} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(max, Math.max(0, value))} aria-label={typeof label === 'string' ? label : undefined}>
-      <div className={cx(styles.meterFill, tone)} style={{ width: `${ratio * 100}%` }} />
+      <div className={cx(styles.meterFill, tone)} style={{ '--meter-scale': ratio } as CSSProperties} />
     </div>
   </div>
 }

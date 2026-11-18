@@ -17,6 +17,7 @@
 .badgeIcon { display: inline-flex; flex: none; }
 .badge.success { background: var(--intent-success-bg); border-color: transparent; color: var(--intent-success-fg); }
 .badge.warning { background: var(--intent-warning-bg); border-color: transparent; color: var(--intent-warning-fg); }
+.badge.attention { background: var(--attn-bg); border-color: var(--attn-border); color: var(--attn-fg); }
 .badge.danger { background: var(--intent-danger-bg); border-color: transparent; color: var(--intent-danger-fg); }
 .badge.info { background: var(--intent-info-bg); border-color: transparent; color: var(--intent-info-fg); }
 .badge.accent { background: var(--accent-soft); border-color: transparent; color: var(--tx-accent); }
@@ -25,7 +26,7 @@
 .dot { flex: none; display: inline-block; box-sizing: content-box; width: 8px; height: 8px; min-width: 8px; padding: 0; aspect-ratio: 1; border-radius: 50%; background: var(--tx-disabled); }
 .dot.running { background: var(--intent-info-solid); box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-info-solid) 22%, transparent); }
 .dot.success { background: var(--intent-success-solid); }
-.dot.attention { background: var(--intent-warning-solid); }
+.dot.attention { background: var(--attn); }
 .dot.danger { background: var(--intent-danger-solid); }
 :global([data-motion='full']) .dot.running { --pulse-opacity: 0.55; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
 
@@ -45,8 +46,8 @@
 .empty { display: grid; justify-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; color: var(--tx-secondary); }
 .emptyCompact { padding: var(--space-3) var(--space-2); }
 .emptyCompact .emptyTitle { font-family: inherit; font-size: var(--fs-sm); font-weight: var(--weight-regular); color: var(--tx-muted); }
-.emptyIcon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--tx-accent); }
-.emptyTitle { margin: 0; font-family: var(--font-display); font-size: var(--fs-lg); font-weight: var(--weight-semibold); color: var(--tx-primary); }
+.emptyIcon { display: grid; place-items: center; box-sizing: border-box; width: 40px; height: 40px; border: 1px solid var(--accent-border); border-radius: var(--radius-lg); background: var(--accent-soft); color: var(--tx-accent); }
+.emptyTitle { margin: 0; font-family: var(--font-ui); font-size: var(--fs-lg); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .emptyText { margin: 0; max-width: 46ch; font-size: var(--fs-sm); line-height: var(--leading-normal); }
 .emptyActions { display: flex; gap: var(--space-2); margin-top: var(--space-2); flex-wrap: wrap; justify-content: center; }
 
@@ -149,7 +150,7 @@
 .meter { display: grid; gap: var(--space-1); min-width: 0; }
 .meterHead { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--fs-xs); color: var(--tx-secondary); font-variant-numeric: tabular-nums; }
 .meterTrack { height: 6px; border-radius: var(--radius-full); background: var(--fill-pressed); overflow: hidden; }
-.meterFill { height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--duration-base) var(--ease-standard); }
+.meterFill { width: 100%; height: 100%; border-radius: inherit; background: var(--accent); transform-origin: left center; transform: scaleX(var(--meter-scale)); transition: transform var(--duration-base) var(--ease-standard); }
 .meterFill.warning { background: var(--intent-warning-solid); }
 .meterFill.danger { background: var(--intent-danger-solid); }
 
@@ -158,6 +159,8 @@
 
 /* Toasts */
 .toasts { position: fixed; right: var(--space-4); bottom: calc(var(--statusbar-height) + var(--space-3)); z-index: var(--layer-toast); display: grid; gap: var(--space-2); width: min(380px, calc(100vw - 32px)); }
+/* The notice sets --approval-dock-h (0 when it is gone). The --space-2 gap applies only while a notice is showing. */
+:global(:root:has([data-ui='approval-toast'])) .toasts { bottom: calc(var(--statusbar-height) + var(--space-3) + var(--approval-dock-h, 0px) + var(--space-2)); }
 .toast {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

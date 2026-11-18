@@ -15,7 +15,7 @@
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-sm);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 :where(.input, .select) { height: var(--control-md); padding: 0 var(--space-2); }
 :where(.textarea) { padding: var(--space-2); line-height: var(--leading-normal); resize: vertical; min-height: calc(var(--control-md) * 2); }
@@ -99,10 +99,10 @@
 .switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .switchText { display: grid; gap: 2px; min-width: 0; }
 
-/* The track stays --control-md tall; each option fills it but for a 1 px inset, which keeps it at --target-min or more. */
-.segmented { display: inline-flex; padding: 1px; gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
+/* Padding is --space-0-5 so the segment radius (--radius-sm) plus it equals the track radius (--radius-md). The option fills that inset and stays at least --target-min; the 2px is the track's own border. */
+.segmented { display: inline-flex; padding: var(--space-0-5); gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
 .segment {
-  height: calc(var(--control-md) - 4px);
+  height: max(var(--target-min), calc(var(--control-md) - 2px - 2 * var(--space-0-5)));
   min-block-size: var(--target-min);
   padding: 0 var(--space-3);
   border: 0;
@@ -116,9 +116,10 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .segment:hover { color: var(--tx-primary); }
-.segment[aria-checked='true'] { background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-1); }
+.segment[aria-checked='true'] { background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-1); outline: 1px solid var(--bd-subtle); outline-offset: -1px; }
 .segment[aria-checked='true'][data-tone='danger'] { background: var(--intent-danger-solid); color: var(--tx-on-solid); }
 .segment:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
@@ -171,6 +172,7 @@
   .switch:disabled::after { background: GrayText; }
 
   .segmented { border-color: CanvasText; }
+  .segment { transition: none; }
   .segment:not([aria-checked='true'], :focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .segment[aria-checked='true'], .segment[aria-checked='true'][data-tone='danger'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .segment[aria-checked='true']::before { content: '\2713' / ''; font-weight: var(--weight-semibold); }
