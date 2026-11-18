@@ -102,7 +102,7 @@
 /* Padding is --space-0-5 so the segment radius (--radius-sm) plus it equals the track radius (--radius-md). The option fills that inset and stays at least --target-min; the 2px is the track's own border. */
 .segmented { display: inline-flex; padding: var(--space-0-5); gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
 .segment {
-  height: calc(var(--control-md) - 2px - 2 * var(--space-0-5));
+  height: max(var(--target-min), calc(var(--control-md) - 2px - 2 * var(--space-0-5)));
   min-block-size: var(--target-min);
   padding: 0 var(--space-3);
   border: 0;
