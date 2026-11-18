@@ -103,7 +103,7 @@ describe('folding finished turns', () => {
   it('counts each action of a group as a step and names the duration', () => {
     const folded = foldFinishedTurns(buildThreadTimeline(turn('ask', [draft, tool('a'), tool('b'), tool('c')], [answer, { type: 'completed', status: 'completed' }]), 'normal'), new Set())
     const fold = folded[0].rows.find(row => row.event.type === 'turn-fold')!.event as { steps: number }
-    expect(fold.steps).toBe(4)
+    expect(fold.steps).toBe(3)
     // The fold names what it opens; the turn's closing line says how it ended and for how long.
     expect(turnFoldLabel(4)).toBe('4 steps')
     expect(turnFoldLabel(1)).toBe('1 step')
