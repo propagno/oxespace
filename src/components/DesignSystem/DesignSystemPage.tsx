@@ -162,7 +162,7 @@ function Gallery(): ReactElement {
     <div className={styles.row}><Checkbox label="Run tests after edits" defaultChecked /></div>
     <Switch checked={on} onChange={setOn} label="Notify when an agent needs you" description="Only for conversations you are not watching." />
     <div className={styles.row}>
-      <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="warning">Needs you</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
+      <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="attention">Needs you</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
       <StatusDot status="running" label="Running" /><StatusDot status="success" label="Done" /><StatusDot status="attention" label="Needs you" /><StatusDot status="danger" label="Failed" /><Spinner />
     </div>
     <Meter label="Context" value={62} detail="124k of 200k" /><Meter label="Weekly limit" value={93} />

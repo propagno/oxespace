@@ -17,6 +17,7 @@
 .badgeIcon { display: inline-flex; flex: none; }
 .badge.success { background: var(--intent-success-bg); border-color: transparent; color: var(--intent-success-fg); }
 .badge.warning { background: var(--intent-warning-bg); border-color: transparent; color: var(--intent-warning-fg); }
+.badge.attention { background: var(--attn-bg); border-color: var(--attn-border); color: var(--attn-fg); }
 .badge.danger { background: var(--intent-danger-bg); border-color: transparent; color: var(--intent-danger-fg); }
 .badge.info { background: var(--intent-info-bg); border-color: transparent; color: var(--intent-info-fg); }
 .badge.accent { background: var(--accent-soft); border-color: transparent; color: var(--tx-accent); }
@@ -25,7 +26,7 @@
 .dot { flex: none; display: inline-block; box-sizing: content-box; width: 8px; height: 8px; min-width: 8px; padding: 0; aspect-ratio: 1; border-radius: 50%; background: var(--tx-disabled); }
 .dot.running { background: var(--intent-info-solid); box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-info-solid) 22%, transparent); }
 .dot.success { background: var(--intent-success-solid); }
-.dot.attention { background: var(--intent-warning-solid); }
+.dot.attention { background: var(--attn); }
 .dot.danger { background: var(--intent-danger-solid); }
 :global([data-motion='full']) .dot.running { --pulse-opacity: 0.55; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-standard) infinite; }
 
