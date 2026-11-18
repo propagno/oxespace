@@ -124,8 +124,9 @@ const pbDocker = (...args: string[]): string => pbExec(PB_ENGINE, args, { encodi
 const pbTry = (run: () => unknown): boolean => { try { run(); return true } catch { return false } }
 /** Why this machine cannot run the spec, or null. */
 function noContainerEngine(): string | null {
-  return pbTry(() => pbDocker('info', '--format', '{{.ServerVersion}}')) ? null
-    : `no ${PB_ENGINE} daemon on this machine: this e2e opens New table on a real PostgreSQL container (as tests/live/oxequery-live.test.ts)`
+  try { const os = pbDocker('info', '--format', '{{.OSType}}'); return os === 'linux' ? null : `the ${PB_ENGINE} daemon here runs ${os} containers: this e2e opens New table on a Linux PostgreSQL container (as tests/live/oxequery-live.test.ts)` } catch {
+    return `no ${PB_ENGINE} daemon on this machine: this e2e opens New table on a real PostgreSQL container (as tests/live/oxequery-live.test.ts)`
+  }
 }
 async function pbUntil(label: string, check: () => boolean, ms = 120_000): Promise<void> {
   const end = Date.now() + ms
