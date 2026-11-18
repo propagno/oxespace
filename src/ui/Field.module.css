@@ -172,6 +172,7 @@
   .switch:disabled::after { background: GrayText; }
 
   .segmented { border-color: CanvasText; }
+  .segment { transition: none; }
   .segment:not([aria-checked='true'], :focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .segment[aria-checked='true'], .segment[aria-checked='true'][data-tone='danger'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .segment[aria-checked='true']::before { content: '\2713' / ''; font-weight: var(--weight-semibold); }
