@@ -2168,7 +2168,9 @@
       }
     },
     "toast": {
-      "needsYou": "Needs you: {{title}} · {{agent}}"
+      "needsYou": "Needs you: {{title}} · {{agent}}",
+      "moreInQueue": "+{{count}} in queue",
+      "openConversation": "Open conversation"
     },
     "queue": {
       "listLabel": "Pending approvals",
