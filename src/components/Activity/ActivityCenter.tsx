@@ -5,7 +5,7 @@ import { OPEN_ACTIVITY_CENTER_EVENT } from '../../commands/activity.events'
 import { useKeybindings, withShortcut } from '../../keyboard/keybindings'
 import { unreadActivityCount, useActivityStore } from '../../store/activity.store'
 import { chunk, lazyFrom } from '../../lib/chunk'
-import { Button, LoadingState, Popover, cx } from '../../ui'
+import { Badge, Button, LoadingState, Popover } from '../../ui'
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import type { ActivityView } from './openActivityTarget'
 import styles from './ActivityCenter.module.css'
@@ -23,7 +23,6 @@ export function ActivityCenter({ onSelectView }: { onSelectView: (view: Activity
   const items = useActivityStore(state => state.items)
   const [open, setOpen] = useState(false)
   const unread = unreadActivityCount(items)
-  const waiting = items.some(item => item.kind === 'needs-you' && !item.read)
 
   useKeybindings({ 'activity.open': () => setOpen(value => !value) })
   useEffect(() => {
@@ -37,7 +36,7 @@ export function ActivityCenter({ onSelectView }: { onSelectView: (view: Activity
   return <Popover open={open} onOpenChange={setOpen} align="end" label={title} className={styles.panel}
     trigger={<Button variant="ghost" size="sm" square className={styles.trigger} aria-label={label} title={withShortcut(title, 'activity.open')} data-testid="activity-bell" icon={<Bell size={14} aria-hidden="true" />}
       onPointerEnter={preloadPanel} onFocus={preloadPanel}>
-      {unread > 0 && <span className={cx(styles.count, waiting && styles.urgent)} aria-hidden="true" data-testid="activity-count">{unread > 9 ? '9+' : unread}</span>}
+      {unread > 0 && <span aria-hidden="true"><Badge className={styles.count} data-testid="activity-count">{unread > 9 ? '9+' : unread}</Badge></span>}
     </Button>}>
     {/* A panel that could not load says so here, with Try again; the window stays. */}
     <ErrorBoundary id="title-bar" component="ActivityPanel" compact label={title} onReset={ActivityPanel.retry}>
