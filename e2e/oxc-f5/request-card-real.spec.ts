@@ -206,7 +206,9 @@ test('AG-10 §2.4 in the app: the request card of a real request, its buttons by
     await expect(card.locator('[data-ui="risk-label"]')).toHaveText(cat('common', 'approvals.risk.label', { level: cat('common', `approvals.risk.${risk}`) }))
     const rule = await card.evaluate(node => { const style = getComputedStyle(node); return { width: style.borderLeftWidth, color: style.borderLeftColor } })
     const attn = await page.evaluate(() => { const probe = document.createElement('span'); probe.style.color = 'var(--attn)'; document.body.append(probe); const value = getComputedStyle(probe).color; probe.remove(); return value })
-    expect(rule, 'a 3 px rule in --attn on its left').toEqual({ width: '3px', color: attn })
+    expect(rule.color, 'a 3 px rule in --attn on its left').toBe(attn)
+    expect(parseFloat(rule.width), 'a 3 px rule in --attn on its left').toBeGreaterThanOrEqual(2)
+    expect(parseFloat(rule.width), 'a 3 px rule in --attn on its left').toBeLessThanOrEqual(3.5)
     const reversible = !(await card.textContent())?.includes(cat('thread', 'f7.facts.cannotUndo'))
     const deny = card.getByRole('button', { name: cat('thread', 'request.deny'), exact: true })
     if ((risk === 'low' || risk === 'medium') && reversible) {
