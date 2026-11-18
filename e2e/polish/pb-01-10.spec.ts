@@ -109,7 +109,7 @@ test('PB-01·10 in the app: no section of the design-system viewer forces capita
     const nav = viewer.getByRole('navigation', { name: 'Design system sections' })
     for (const section of ['Brand', 'Color', 'Type', 'Space, shape, depth', 'Motion', 'Components', 'States']) {
       await nav.getByRole('button', { name: section, exact: true }).click()
-      await expect(viewer.getByRole('heading', { level: 2, name: section })).toBeVisible()
+      await expect(viewer.getByRole('heading', { level: 2, name: section, exact: true })).toBeVisible()
       const found = await viewer.locator('main').evaluate(main => {
         const caps: string[] = []
         for (const node of main.querySelectorAll<HTMLElement>('*')) {
