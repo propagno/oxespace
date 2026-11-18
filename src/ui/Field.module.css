@@ -190,7 +190,7 @@
 .kbd {
   display: inline-flex;
   align-items: center;
-  height: 18px;
+  min-height: calc(var(--fs-2xs) + var(--space-2));
   padding: 0 var(--space-1);
   border: 1px solid var(--bd-default);
   border-bottom-width: 2px;
