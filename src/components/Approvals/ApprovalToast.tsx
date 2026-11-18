@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import { Copy, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
@@ -42,8 +42,30 @@ export function ApprovalToast({
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const denyRef = useRef<HTMLButtonElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const programmaticFocus = useRef(false)
   const onCloseRef = useRef(onClose)
+
+  // The toast stack reads --approval-dock-h so it sits --space-2 above this notice, and drops back when the notice leaves.
+  useLayoutEffect(() => {
+    const node = rootRef.current
+    const doc = document.documentElement
+    if (!node) {
+      doc.style.removeProperty('--approval-dock-h')
+      return
+    }
+    const apply = (): void => {
+      doc.style.setProperty('--approval-dock-h', `${node.getBoundingClientRect().height}px`)
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined') return () => doc.style.removeProperty('--approval-dock-h')
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+      doc.style.removeProperty('--approval-dock-h')
+    }
+  }, [modalOpen])
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -91,6 +113,7 @@ export function ApprovalToast({
 
   return (
     <div
+      ref={rootRef}
       data-ui="approval-toast"
       className={styles.toast}
       onMouseEnter={() => setHovered(true)}
