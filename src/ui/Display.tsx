@@ -7,7 +7,7 @@ import { Button } from './Button'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
-export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
+export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'attention'
 
 /** A short label of state or count. Color only reinforces the text; it never carries the meaning alone. */
 /**
