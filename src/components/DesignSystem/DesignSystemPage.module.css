@@ -26,7 +26,7 @@
 /* Light and dark side by side: each column forces its mode with data-mode. */
 .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--space-4); }
 .mode { display: grid; gap: var(--space-4); align-content: start; padding: var(--space-5); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-canvas); color: var(--tx-primary); }
-.modeLabel { font-size: var(--fs-xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--tx-muted); }
+.modeLabel { font-size: var(--fs-xs); font-weight: var(--weight-semibold); letter-spacing: 0; text-transform: none; color: var(--tx-muted); }
 
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .stack { display: grid; gap: var(--space-3); }
