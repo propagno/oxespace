@@ -1124,7 +1124,8 @@
   "plan": {
     "title": "Plan",
     "progress": "{{done}}/{{total}} completed",
-    "inProgress": "In progress"
+    "inProgress": "In progress",
+    "run": "Run plan"
   },
   "projectSettings": {
     "saveFailed": "Could not save project settings.",

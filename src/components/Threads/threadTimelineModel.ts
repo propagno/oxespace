@@ -101,11 +101,11 @@ export function summarizeThreadEvents(events: ThreadEvent[]): ThreadEventSummary
   return summary
 }
 
-/** Rows a fold never hides: what was asked, the answer, and anything that still needs the person. */
+/** Rows a fold never hides: what was asked, the answer, a plan (a decision stays open), and anything that still needs the person. */
 function staysVisible(row: ThreadTimelineRow, finalAnswerKey: string | undefined): boolean {
   const event = row.event
   if (event.type === 'message') return event.role === 'user' || row.key === finalAnswerKey
-  return event.type === 'completed' || event.type === 'turn-fold'
+  return event.type === 'completed' || event.type === 'turn-fold' || event.type === 'plan'
 }
 
 /** Counts the tool steps a fold stands for. Thoughts and messages are not actions. */

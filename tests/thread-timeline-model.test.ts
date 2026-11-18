@@ -79,7 +79,7 @@ describe('folding finished turns', () => {
 
   it('keeps the prompt and the final answer and folds the work between them', () => {
     const keys = keysOf(turn('ask', [draft, tool('a'), plan, tool('b')], [answer, { type: 'completed', status: 'completed' }]))
-    expect(keys).toEqual(['ask:message:ask', 'ask:turn-fold', 'ask:message:answer', 'ask:completed:6'])
+    expect(keys).toEqual(['ask:message:ask', 'ask:turn-fold', 'ask:plan:plan-1', 'ask:message:answer', 'ask:completed:6'])
   })
 
   it('shows every row again, after the fold line, once the turn is opened', () => {

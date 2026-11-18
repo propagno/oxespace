@@ -1153,7 +1153,8 @@
   "plan": {
     "title": "Plano",
     "progress": "{{done}}/{{total}} concluídas",
-    "inProgress": "Em andamento"
+    "inProgress": "Em andamento",
+    "run": "Executar plano"
   },
   "projectSettings": {
     "saveFailed": "Não foi possível salvar as configurações do projeto.",
