@@ -8,7 +8,7 @@ import { create } from 'zustand'
  * It only records and navigates. Nothing here approves, answers or changes what it points at.
  */
 export type ActivityKind = 'needs-you' | 'finished' | 'failed' | 'update' | 'quota'
-export type ActivitySource = 'code' | 'thread' | 'background' | 'quota' | 'update' | 'mcp'
+export type ActivitySource = 'code' | 'thread' | 'background' | 'quota' | 'update' | 'mcp' | 'query'
 
 export type ActivityTarget =
   | { type: 'pane'; workspaceId: string; paneId: string }
@@ -18,6 +18,13 @@ export type ActivityTarget =
   | { type: 'update'; version: string }
   | { type: 'mcp'; serverId: string }
 
+export interface ActivityPlace {
+  project: string
+  mode: 'chat' | 'code' | 'query'
+}
+
+export type ActivityOutcome = 'allowed' | 'denied' | 'answered'
+
 export interface ActivityItem {
   source: ActivitySource
   /** Stable per subject (a thread, a pane, a job), so a newer state replaces the older one. */
@@ -26,6 +33,8 @@ export interface ActivityItem {
   target: ActivityTarget
   title: string
   detail?: string
+  place?: ActivityPlace
+  outcome?: ActivityOutcome
   at: number
   read: boolean
 }
@@ -149,11 +158,12 @@ export function unreadActivityCount(items: ActivityItem[]): number {
   return items.reduce((total, item) => total + (item.read ? 0 : 1), 0)
 }
 
-export type ActivityGroup = 'needs-you' | 'finished' | 'updates'
+export type ActivityGroup = 'needs-you' | 'failed' | 'finished' | 'updates'
 
-/** The three groups the activity center shows: waiting on a person, outcomes, and news about the app or quotas. */
+/** The four groups the activity center shows: waiting on a person, failures, outcomes, and news about the app or quotas. */
 export function activityGroup(kind: ActivityKind): ActivityGroup {
   if (kind === 'needs-you') return 'needs-you'
-  if (kind === 'finished' || kind === 'failed') return 'finished'
+  if (kind === 'failed') return 'failed'
+  if (kind === 'finished') return 'finished'
   return 'updates'
 }

@@ -22,7 +22,7 @@ describe('ActivityCenter', () => {
     // The panel loads on its own chunk the first time.
     await screen.findByTestId('activity-center')
     expect(screen.getByRole('region', { name: 'Needs you' }).textContent).toContain('Fix the login bug')
-    expect(screen.getByRole('region', { name: 'Finished' }).textContent).toContain('Build')
+    expect(screen.getByRole('region', { name: 'Failed' }).textContent).toContain('Build')
     expect(screen.getByRole('region', { name: 'Updates' }).textContent).toContain('OXESpace 1.4.0 is available')
   })
 
