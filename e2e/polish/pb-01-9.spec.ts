@@ -121,7 +121,7 @@ test('PB-01·9 in the app: meters scale with a transform and fields focus withou
       expect(fill.transform, 'drawn with a transform').not.toBe('none')
       expect(fill.scale).toBeCloseTo(fill.ratio, 2)
     }
-    const field = viewer.getByLabel('Branch name')
+    const field = viewer.getByLabel('Branch name').first()
     await field.focus()
     expect(await field.evaluate(el => getComputedStyle(el).transitionProperty)).not.toMatch(/box-shadow|\ball\b/)
   } finally {
