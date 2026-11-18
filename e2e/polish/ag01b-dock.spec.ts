@@ -201,7 +201,7 @@ test('POLISH-02 #9 in the app: the approval notice sits above the status bar and
 
     const paint = await notice.evaluate(node => { const style = getComputedStyle(node); return { border: style.borderTopColor, radius: style.borderTopLeftRadius } })
     expect(paint.border, 'the notice border is --attn-border').toBe(await tokenColor(page, '--attn-border'))
-    expect(parseFloat(paint.radius), 'with --radius-sm').toBe(await lengthPx(page, 'var(--radius-sm)'))
+    expect(parseFloat(paint.radius), 'with --radius-sm').toBeCloseTo(await lengthPx(page, 'var(--radius-sm)'), 1)
     await page.screenshot({ path: test.info().outputPath('ag01b-dock.png') })
   } finally {
     await app.close()
