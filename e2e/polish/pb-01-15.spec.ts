@@ -250,6 +250,7 @@ test('PB-01·15 in the app: dialog footers are 32 px and New table marks its bot
     if (await body.evaluate(el => el.scrollHeight <= el.clientHeight + 1)) {
       expect((await linesAboveFooter(body, subtle)).count, 'the body fits: no line above the footer').toBe(0)
     }
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setMinimumSize(960, 360))
     await layoutAtWidth(app, page, 1100, 420)
     await expect.poll(() => body.evaluate(el => el.scrollHeight > el.clientHeight + 1), { message: 'the short window makes the body overflow', timeout: 10_000 }).toBe(true)
     await expect.poll(() => body.getAttribute('data-overflow'), { timeout: 5_000 }).toMatch(/\bend\b/)
