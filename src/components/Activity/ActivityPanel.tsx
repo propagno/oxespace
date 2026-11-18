@@ -65,7 +65,8 @@ function ActivitySignal({ item }: { item: ActivityItem }): ReactElement {
 
 function ActivityRow({ item, onOpen }: { item: ActivityItem; onOpen: (item: ActivityItem) => void }): ReactElement {
   const { t } = useTranslation()
-  const place = item.place?.project ? `${item.place.project} · ${item.place.mode === 'chat' ? 'OxeChat' : 'OxeCode'}` : null
+  const modeName = item.place?.mode === 'chat' ? 'OxeChat' : item.place?.mode === 'query' ? 'OxeQuery' : 'OxeCode'
+  const place = item.place?.project ? `${item.place.project} · ${modeName}` : null
   return <button type="button" className={cx(styles.item, !item.read && styles.unread)} onClick={() => onOpen(item)} data-testid="activity-item"
     aria-label={t(item.read ? 'activity.itemLabel' : 'activity.itemLabelUnread', { kind: t(`activity.kind.${item.kind}`), title: item.detail ? `${item.title}. ${item.detail}` : item.title })}>
     <ActivitySignal item={item} />

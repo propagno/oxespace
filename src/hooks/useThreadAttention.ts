@@ -91,7 +91,7 @@ const ACTIVITY_KIND: Record<ThreadAttentionKind, ActivityKind> = { 'needs-approv
 const NOTICE_KIND: Record<ThreadAttentionKind, AgentNoticeKind> = { 'needs-approval': 'needs-you', failed: 'other', finished: 'finished' }
 
 /** Where a conversation is: its project's name, else the folder it runs in. */
-function threadPlace(thread: Pick<ConversationThread, 'projectId' | 'rootPath'>): string {
+export function threadPlace(thread: Pick<ConversationThread, 'projectId' | 'rootPath'>): string {
   const project = useThreadStore.getState().projects.find(candidate => candidate.projectId === thread.projectId)
   const named = project?.displayName?.trim() || project?.contexts.find(context => context.rootPath === thread.rootPath)?.label?.trim()
   if (named) return named
