@@ -14,7 +14,6 @@
  *
  * Pure: the caller supplies `realpath`, the file system is never touched here.
  */
-import picomatch from 'picomatch'
 import { posix, win32 } from 'node:path'
 import type { ThreadPermissionRule, ThreadPermissionSuggestion, ThreadRequest, ThreadRequestPolicy } from '../../../../../shared/types/thread'
 import { evaluateShellCommand, suggestRules } from '../shell-command-rules'
@@ -37,8 +36,274 @@ const REASON_FOR: Record<string, string> = {
   invalid: 'is not a valid path'
 }
 
+const MAX_BRACE_EXPANSIONS = 64
+
+type GlobToken =
+  | { kind: 'star' }
+  | { kind: 'any' }
+  | { kind: 'char'; value: string }
+  | { kind: 'class'; negated: boolean; ranges: Array<[string, string]>; chars: string }
+
+function foldCase(ch: string, nocase: boolean): string {
+  return nocase ? ch.toLowerCase() : ch
+}
+
+function tokenizeSegment(pattern: string, nocase: boolean): GlobToken[] {
+  const tokens: GlobToken[] = []
+  let i = 0
+  while (i < pattern.length) {
+    const ch = pattern[i]
+    if (ch === '\\' && i + 1 < pattern.length) {
+      tokens.push({ kind: 'char', value: foldCase(pattern[i + 1], nocase) })
+      i += 2
+      continue
+    }
+    if (ch === '*') {
+      // Collapse consecutive '*' within a segment so matching stays linear.
+      while (i < pattern.length && pattern[i] === '*') i += 1
+      tokens.push({ kind: 'star' })
+      continue
+    }
+    if (ch === '?') {
+      tokens.push({ kind: 'any' })
+      i += 1
+      continue
+    }
+    if (ch === '[') {
+      const parsed = parseCharClass(pattern, i, nocase)
+      if (parsed) {
+        tokens.push(parsed.token)
+        i = parsed.nextIndex
+        continue
+      }
+    }
+    tokens.push({ kind: 'char', value: foldCase(ch, nocase) })
+    i += 1
+  }
+  return tokens
+}
+
+function parseCharClass(
+  pattern: string,
+  start: number,
+  nocase: boolean
+): { token: GlobToken; nextIndex: number } | null {
+  let i = start + 1
+  if (i >= pattern.length) return null
+  let negated = false
+  if (pattern[i] === '!' || pattern[i] === '^') {
+    negated = true
+    i += 1
+  }
+  let chars = ''
+  const ranges: Array<[string, string]> = []
+  const bodyStart = i
+  while (i < pattern.length) {
+    if (pattern[i] === ']' && i > bodyStart) {
+      return { token: { kind: 'class', negated, ranges, chars }, nextIndex: i + 1 }
+    }
+    let ch = pattern[i]
+    if (ch === '\\' && i + 1 < pattern.length) {
+      ch = pattern[i + 1]
+      i += 2
+    } else {
+      i += 1
+    }
+    if (i + 1 < pattern.length && pattern[i] === '-' && pattern[i + 1] !== ']') {
+      let end = pattern[i + 1]
+      if (end === '\\' && i + 2 < pattern.length) {
+        end = pattern[i + 2]
+        i += 3
+      } else {
+        i += 2
+      }
+      const lo = foldCase(ch, nocase)
+      const hi = foldCase(end, nocase)
+      ranges.push(lo <= hi ? [lo, hi] : [hi, lo])
+    } else {
+      chars += foldCase(ch, nocase)
+    }
+  }
+  return null
+}
+
+function matchClass(token: Extract<GlobToken, { kind: 'class' }>, ch: string, nocase: boolean): boolean {
+  const c = foldCase(ch, nocase)
+  let matched = token.chars.includes(c)
+  if (!matched) {
+    for (const [lo, hi] of token.ranges) {
+      if (c >= lo && c <= hi) {
+        matched = true
+        break
+      }
+    }
+  }
+  return token.negated ? !matched : matched
+}
+
+/** Two-pointer linear/polynomial segment matcher (no regex, no exponential backtracking). */
+function matchSegment(tokens: GlobToken[], segment: string, nocase: boolean): boolean {
+  let ti = 0
+  let si = 0
+  let starTi = -1
+  let starSi = -1
+
+  while (si < segment.length) {
+    const token = ti < tokens.length ? tokens[ti] : undefined
+    if (token?.kind === 'star') {
+      starTi = ti
+      starSi = si
+      ti += 1
+      continue
+    }
+    const ch = segment[si]
+    const matched =
+      token !== undefined &&
+      (token.kind === 'any' ||
+        (token.kind === 'char' && foldCase(ch, nocase) === token.value) ||
+        (token.kind === 'class' && matchClass(token, ch, nocase)))
+    if (matched) {
+      ti += 1
+      si += 1
+      continue
+    }
+    if (starTi !== -1) {
+      starSi += 1
+      si = starSi
+      ti = starTi + 1
+      continue
+    }
+    return false
+  }
+
+  while (ti < tokens.length && tokens[ti].kind === 'star') ti += 1
+  return ti === tokens.length
+}
+
+function expandBraces(pattern: string): string[] {
+  const open = findUnescapedBrace(pattern)
+  if (open === -1) return [pattern]
+  const parsed = splitBraceAlternatives(pattern, open)
+  if (!parsed) return [pattern]
+  const prefix = pattern.slice(0, open)
+  const suffix = pattern.slice(parsed.close + 1)
+  const results: string[] = []
+  for (const alt of parsed.alternatives) {
+    for (const expandedAlt of expandBraces(alt)) {
+      for (const expandedSuffix of expandBraces(suffix)) {
+        results.push(prefix + expandedAlt + expandedSuffix)
+        if (results.length >= MAX_BRACE_EXPANSIONS) return results
+      }
+    }
+  }
+  return results
+}
+
+function findUnescapedBrace(pattern: string): number {
+  for (let i = 0; i < pattern.length; i += 1) {
+    if (pattern[i] === '\\') {
+      i += 1
+      continue
+    }
+    if (pattern[i] === '{') return i
+  }
+  return -1
+}
+
+function splitBraceAlternatives(pattern: string, open: number): { alternatives: string[]; close: number } | null {
+  const alternatives: string[] = []
+  let depth = 0
+  let current = ''
+  for (let i = open + 1; i < pattern.length; i += 1) {
+    const ch = pattern[i]
+    if (ch === '\\' && i + 1 < pattern.length) {
+      current += ch + pattern[i + 1]
+      i += 1
+      continue
+    }
+    if (ch === '{') {
+      depth += 1
+      current += ch
+      continue
+    }
+    if (ch === '}') {
+      if (depth === 0) {
+        alternatives.push(current)
+        if (alternatives.length <= 1) return null
+        return { alternatives, close: i }
+      }
+      depth -= 1
+      current += ch
+      continue
+    }
+    if (ch === ',' && depth === 0) {
+      alternatives.push(current)
+      current = ''
+      continue
+    }
+    current += ch
+  }
+  return null
+}
+
+type CompiledSegment = { globstar: true } | { globstar: false; tokens: GlobToken[] }
+
+function compileSingleGlob(pattern: string, nocase: boolean): (candidate: string) => boolean {
+  const rawSegments = pattern.split('/')
+  const compiled: CompiledSegment[] = []
+  for (const seg of rawSegments) {
+    if (seg === '**') {
+      if (compiled.length === 0 || !compiled[compiled.length - 1].globstar) {
+        compiled.push({ globstar: true })
+      }
+    } else {
+      compiled.push({ globstar: false, tokens: tokenizeSegment(seg, nocase) })
+    }
+  }
+
+  return (candidate: string) => {
+    const segs = candidate.split('/')
+    let pi = 0
+    let si = 0
+    let starPi = -1
+    let starSi = -1
+
+    while (si < segs.length) {
+      const pSeg = pi < compiled.length ? compiled[pi] : undefined
+      if (pSeg?.globstar) {
+        starPi = pi
+        starSi = si
+        pi += 1
+        continue
+      }
+      if (pSeg && !pSeg.globstar && matchSegment(pSeg.tokens, segs[si], nocase)) {
+        pi += 1
+        si += 1
+        continue
+      }
+      if (starPi !== -1) {
+        starSi += 1
+        si = starSi
+        pi = starPi + 1
+        continue
+      }
+      return false
+    }
+
+    // Trailing `**` after `/` (e.g. `src/**`) requires at least one child segment, matching picomatch.
+    if (pi === compiled.length - 1 && compiled[pi].globstar && compiled.length > 1) {
+      return false
+    }
+    while (pi < compiled.length && compiled[pi].globstar) pi += 1
+    return pi === compiled.length
+  }
+}
+
 function pathMatcher(pattern: string, windows: boolean): (path: string) => boolean {
-  try { return picomatch(pattern, { dot: true, nocase: windows }) } catch { return () => false }
+  if (!pattern) return () => false
+  const variants = expandBraces(pattern)
+  const matchers = variants.map(variant => compileSingleGlob(variant, windows))
+  return (candidate: string) => matchers.some(match => match(candidate))
 }
 
 function evaluatePaths(paths: string[], rootPath: string, rules: ThreadPermissionRule[], options: PathSafetyOptions) {
