@@ -303,11 +303,8 @@
   right: var(--space-4);
   bottom: var(--space-4);
   z-index: var(--layer-toast);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
   max-width: min(560px, calc(100vw - 32px));
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--intent-warning-border);
@@ -317,13 +314,21 @@
   box-shadow: var(--elevation-3);
 }
 
-.toastBody {
+.toastHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.toastKicker {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
   font-size: var(--fs-sm);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
 }
 
 .toastIcon {
@@ -331,9 +336,62 @@
   color: var(--intent-warning-fg);
 }
 
-.toastActions {
+.toastContext {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-left: auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
+}
+
+.toastConversation {
+  font-weight: var(--weight-medium);
+  color: var(--tx-primary);
+}
+
+.toastPlace {
+  font-family: var(--font-mono);
+}
+
+.toastCommand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.toastCommandCode {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-primary);
+}
+
+.toastCopy {
+  flex: none;
+}
+
+.toastFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.toastActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
