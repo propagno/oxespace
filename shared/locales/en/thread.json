@@ -1191,6 +1191,9 @@
     "hits_one": "{{count}} result",
     "hits_other": "{{count}} results"
   },
+  "steps": {
+    "showMoreLines": "Show {{count}} more lines"
+  },
   "request": {
     "reviewPlan": "Review plan",
     "mcpApproval": "Approve MCP tool request",
@@ -2151,6 +2154,7 @@
   "backgroundShells": {
     "region": "Background shells",
     "running": "Running",
+    "runningOnPort": "Running · port {{port}}",
     "stopped": "Stopped",
     "exitCode": "exit {{code}}",
     "unknownSince": "State unknown since {{time}}",

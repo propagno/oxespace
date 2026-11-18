@@ -1221,6 +1221,9 @@
     "hits_many": "{{count}} achados",
     "hits_other": "{{count}} achados"
   },
+  "steps": {
+    "showMoreLines": "Mostrar mais {{count}} linhas"
+  },
   "request": {
     "reviewPlan": "Revisar o plano",
     "mcpApproval": "Aprovar pedido de ferramenta MCP",
@@ -2219,6 +2222,7 @@
   "backgroundShells": {
     "region": "Shells em segundo plano",
     "running": "Em execução",
+    "runningOnPort": "Rodando · porta {{port}}",
     "stopped": "Parado",
     "exitCode": "saída {{code}}",
     "unknownSince": "Estado desconhecido desde {{time}}",

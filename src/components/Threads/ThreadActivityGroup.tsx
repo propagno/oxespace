@@ -9,9 +9,10 @@ import type { ThreadViewMode } from '../../store/thread-view-mode.store'
 import { useThreadWorkbenchStore } from '../../store/thread-workbench.store'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
-import { Button, Spinner } from '../../ui'
+import { Button, Spinner, StatusSignal } from '../../ui'
 import { useToolOutputCuts } from '../../store/tool-output-cut.store'
-import { cutNote } from './toolOutputCut'
+import { cutNote, stepOutputTail } from './toolOutputCut'
+import { ThreadInlineEvidence } from './ThreadFileActivity'
 import { foldSummaryText } from './foldSummaryText'
 import { PathLink } from './PathLink'
 import { ToolRowView } from './ToolRowView'
@@ -100,7 +101,32 @@ function toolInput(detail: string): Record<string, unknown> | undefined {
 }
 
 function stepState(event: Tool): 'running' | 'failed' | 'done' {
-  return event.state === 'running' ? 'running' : event.state === 'failed' ? 'failed' : 'done'
+  if (event.state === 'running') return 'running'
+  if (event.state === 'failed' || (typeof event.exitCode === 'number' && event.exitCode !== 0)) return 'failed'
+  return 'done'
+}
+
+const BADGED = new Set(['query', 'http', 'other'])
+
+function mcpTitle(name: string): string | undefined {
+  const match = /^mcp__(.+?)__(.+)$/.exec(name)
+  return match ? `${match[1]} · ${match[2]}` : undefined
+}
+
+function httpStatus(output: string | undefined): string {
+  return /HTTP\/\d+(?:\.\d+)?\s+(\d{3}\s+[A-Za-z]+)/.exec(output ?? '')?.[1] ?? ''
+}
+
+function queryTable(output: string | undefined): { columns: string[]; rows: string[][] } | undefined {
+  if (!output?.trim().startsWith('{')) return undefined
+  try {
+    const parsed = JSON.parse(output) as { columns?: unknown; rows?: unknown }
+    if (!Array.isArray(parsed.columns) || !Array.isArray(parsed.rows)) return undefined
+    return {
+      columns: parsed.columns.map(column => String(column)),
+      rows: parsed.rows.map(row => Array.isArray(row) ? row.map(cell => String(cell)) : [])
+    }
+  } catch { return undefined }
 }
 
 function TargetLink({ threadId, raw, turnId }: { threadId?: string; raw: string; turnId?: string }) {
@@ -139,15 +165,50 @@ function ExploreGroup({ events, root, threadId }: { events: Tool[]; root: string
   </div>
 }
 
-/** One tool that is not part of an exploration: an edit carries the file pill. */
-function ActionStep({ event, root, threadId }: { event: Tool; root: string; threadId?: string }) {
+/** One tool that is not part of an exploration: its state signal, and the detail it keeps closed. */
+function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: string; threadId?: string; onDraft?: (text: string) => void }) {
+  const { t } = useTranslation('thread')
   const row = toolRow(event, root)
+  const state = stepState(event)
+  const [open, setOpen] = useState(state === 'failed' && row.kind === 'run')
+  const [allLines, setAllLines] = useState(false)
+  const cut = useToolOutputCuts(store => store.cuts[event.id])
+  const output = cut ? (event.output ?? '').slice(0, cut.keptBytes) : (event.output ?? '')
+  const { shown, hidden } = stepOutputTail(output, allLines)
+  const input = toolInput(event.detail)
+  const status = row.kind === 'http' ? httpStatus(event.output) : ''
+  const table = row.kind === 'query' ? queryTable(event.output) : undefined
+  const mcp = mcpTitle(event.name)
+  const sql = typeof input?.sql === 'string' ? input.sql : ''
+  const headline = row.kind === 'http' ? [row.target, status].filter(Boolean).join(' ')
+    : row.kind === 'other' && mcp ? mcp
+      : row.kind === 'query' ? (sql || row.target || event.name)
+        : row.target || event.name
   const openChanges = () => { if (threadId) useThreadWorkbenchStore.getState().setView(threadId, { panel: 'changes' }) }
-  return <div data-ui="step" data-kind={row.kind} data-state={stepState(event)}>
-    {row.kind === 'edit'
-      ? <Button variant="ghost" size="sm" data-ui="file-pill" onClick={openChanges}>{row.target}</Button>
-      : <span>{row.target || event.name}</span>}
-    {(row.meta.additions || row.meta.deletions) ? <span>+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
+  const artifactId = event.files?.find(file => file.artifactId)?.artifactId
+  return <div data-ui="step" data-kind={row.kind} data-state={state} data-open={open ? 'true' : 'false'}>
+    <div className="thread-step-line">
+      {state === 'running' ? <Spinner size="sm" decorative /> : <StatusSignal state={state === 'failed' ? 'failed' : 'done'} label={t(`activity.state.${state === 'failed' ? 'failed' : 'completed'}`)} size={14} />}
+      {BADGED.has(row.kind) && <span data-ui="kind-badge" data-kind={row.kind}>{t(`fold.kinds.${row.kind}`)}</span>}
+      {row.kind === 'run' ? (
+        <button type="button" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}><code>$ <span>{row.target}</span></code></button>
+      ) : (
+        <button type="button" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>{headline}</button>
+      )}
+      {row.kind === 'edit' && <Button variant="ghost" size="sm" data-ui="file-pill" onClick={openChanges}>{row.target}</Button>}
+      {(row.meta.additions || row.meta.deletions) ? <span>+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
+    </div>
+    {open && row.kind === 'run' && output && <>
+      {cut && <p className="thread-tool-cut-note">{cutNote(cut.keptBytes, cut.totalBytes)}</p>}
+      <pre data-ui="step-output">{shown}</pre>
+      {hidden > 0 && <button type="button" onClick={() => setAllLines(true)}>{t('steps.showMoreLines', { count: hidden })}</button>}
+    </>}
+    {open && row.kind === 'query' && table && <table>
+      <thead><tr>{table.columns.map(column => <th key={column}>{column}</th>)}</tr></thead>
+      <tbody>{table.rows.map((cells, index) => <tr key={index}>{cells.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
+    </table>}
+    {open && (row.kind === 'http' || row.kind === 'other') && output && <pre data-ui="step-output">{output}</pre>}
+    {open && row.kind === 'edit' && threadId && artifactId && <ThreadInlineEvidence threadId={threadId} artifactId={artifactId} onComment={(_line, body) => onDraft?.(body)} />}
   </div>
 }
 
@@ -162,13 +223,13 @@ function segmentTools(events: Tool[]): Array<{ kind: 'explore' | 'other'; events
   return out
 }
 
-export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', threadId, onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; threadId?: string; onResolveInterrupted?: ResolveInterrupted }) {
+export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', threadId, onResolveInterrupted, onDraft }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; threadId?: string; onResolveInterrupted?: ResolveInterrupted; onDraft?: (text: string) => void }) {
   const { t } = useTranslation('thread')
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length, unconfirmed = events.filter(event => event.state === 'unknown').length
   if (mode === 'normal') {
     return <>{segmentTools(events).map(part => part.kind === 'explore'
       ? <ExploreGroup key={part.events[0].id} events={part.events} root={rootPath} threadId={threadId} />
-      : part.events.map(event => <ActionStep key={event.id} event={event} root={rootPath} threadId={threadId} />))}</>
+      : part.events.map(event => <ToolStep key={event.id} event={event} root={rootPath} threadId={threadId} onDraft={onDraft} />))}</>
   }
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
   const reading = events.every(event => ['Read', 'Glob', 'Grep'].includes(event.name))
