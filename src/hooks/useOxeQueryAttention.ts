@@ -49,7 +49,7 @@ function queryTitle(agent: string): string {
   return i18n.t('pane.decisionAnnounce', {
     ns: 'code',
     agent,
-    reason: i18n.t('approvals.title.oxequery', { ns: 'main' })
+    reason: i18n.t('messages.approvals.title.oxequery', { ns: 'main' })
   })
 }
 
