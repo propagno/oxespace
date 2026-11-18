@@ -15,7 +15,7 @@
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-sm);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 :where(.input, .select) { height: var(--control-md); padding: 0 var(--space-2); }
 :where(.textarea) { padding: var(--space-2); line-height: var(--leading-normal); resize: vertical; min-height: calc(var(--control-md) * 2); }
