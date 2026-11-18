@@ -1176,6 +1176,14 @@
     "minutes": "{{minutes}}m {{seconds}}s",
     "seconds": "{{seconds}}s"
   },
+  "explore": {
+    "summary": "Explored {{files}} files and {{searches}} searches · {{duration}}",
+    "read": "Read",
+    "searched": "Searched",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} result",
+    "hits_other": "{{count}} results"
+  },
   "request": {
     "reviewPlan": "Review plan",
     "mcpApproval": "Approve MCP tool request",

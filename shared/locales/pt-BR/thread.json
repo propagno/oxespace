@@ -1205,6 +1205,15 @@
     "minutes": "{{minutes}} min {{seconds}} s",
     "seconds": "{{seconds}} s"
   },
+  "explore": {
+    "summary": "Explorou {{files}} arquivos e {{searches}} buscas · {{duration}}",
+    "read": "Leu",
+    "searched": "Buscou",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} achado",
+    "hits_many": "{{count}} achados",
+    "hits_other": "{{count}} achados"
+  },
   "request": {
     "reviewPlan": "Revisar o plano",
     "mcpApproval": "Aprovar pedido de ferramenta MCP",

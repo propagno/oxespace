@@ -136,7 +136,15 @@
 .thread-tool summary, .thread-approval summary, .thread-turn-error summary { display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; padding: 7px 10px; }
 .thread-tool summary::-webkit-details-marker, .thread-approval summary::-webkit-details-marker, .thread-turn-error summary::-webkit-details-marker { display: none; }
 .thread-tool:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
-.thread-reasoning { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-reasoning, [data-ui="reasoning"] { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); font-family: var(--font-ui); background: transparent; border: none; }
+[data-ui="reasoning"] button { height: var(--row-1); min-height: var(--row-1); }
+.thread-reasoning-preview { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--font-ui); white-space: pre-line; }
+.thread-reasoning-body { margin: 4px 0 0; padding: 0 0 0 var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); color: var(--tx-secondary); font-family: var(--font-ui); }
+.thread-reasoning-body p { margin: 0; }
+[data-ui="explore-group"] [data-ui="step"] { display: flex; align-items: center; box-sizing: border-box; height: var(--control-sm); min-height: var(--control-sm); }
+[data-ui="explore-steps"] { display: flex; flex-direction: column; gap: var(--space-1-5); }
+[data-ui="turn-line"] { height: var(--row-1); min-height: var(--row-1); }
+[data-ui="file-pill"] { font-family: var(--font-mono); }
 .thread-reasoning summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 2px 0; }
 .thread-reasoning summary::-webkit-details-marker { display: none; }
 .thread-reasoning:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
