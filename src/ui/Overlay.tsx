@@ -4,6 +4,7 @@ import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopov
 import { i18n } from '../i18n'
 import { Button, IconButton } from './Button'
 import { cx } from './cx'
+import { Kbd } from './Field'
 import { Toaster } from './Toast'
 import styles from './Overlay.module.css'
 
@@ -222,7 +223,7 @@ export type MenuEntry =
   /** keepOpen: the menu stays open after the choice (steppers such as text size). */
   /** hint: a second, quieter line under the label that says what the choice does (U7). */
   | { type?: 'item'; label: string; hint?: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
-  | { type: 'check'; label: string; checked: boolean; onSelect: () => void; disabled?: boolean }
+  | { type: 'check'; label: string; checked: boolean; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean }
   /** One choice out of several; the chosen option is checked. */
   | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
   | { type: 'label'; label: ReactNode }
@@ -289,9 +290,9 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
         <RadixMenu.ItemIndicator className={styles.menuRadioCheck}><Check size={14} /></RadixMenu.ItemIndicator>
       </RadixMenu.RadioItem>)}
     </RadixMenu.RadioGroup>
-    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {/* A check item has no icon: its left column is the check, drawn only while checked; the slot keeps labels aligned. */}
-      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.label}
+    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} aria-keyshortcuts={item.shortcut} onSelect={item.onSelect}>
+      {/* Left column is the check, drawn only while checked; optional icon and Kbd shortcut follow (PC-04·8, OXE-254). */}
+      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut} aria-hidden="true"><Kbd>{item.shortcut}</Kbd></span>}
     </RadixMenu.CheckboxItem>
     return <MenuActionItem key={index} item={item} />
   })
