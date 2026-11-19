@@ -13,10 +13,10 @@ export function formatTime(timestamp: number): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export function formatRowButtonLabel(row: HttpAuditRow): string {
+export function formatRowButtonLabel(row: HttpAuditRow, noStatusLabel = 'No status'): string {
   const method = row.method || 'GET'
   const path = row.pathTemplate || '/'
-  const status = row.status != null ? String(row.status) : 'No status'
+  const status = row.status != null ? String(row.status) : noStatusLabel
   const agent = formatAgentName(row.agent)
   const time = formatTime(row.at)
   return `${method} ${path}, ${status}, ${agent}, ${time}`
@@ -30,12 +30,16 @@ export function formatBodySize(bytes: number | null): string {
   return bytes != null ? `${bytes} B` : ''
 }
 
-export function formatResponse(status: number | null, durationMs: number | null): string {
+export function formatResponse(
+  status: number | null,
+  durationMs: number | null,
+  noStatusLabel = 'No status'
+): string {
   if (status != null && durationMs != null) {
     return `${status} · ${durationMs} ms`
   }
   if (status != null) {
     return `${status}`
   }
-  return 'No status'
+  return noStatusLabel
 }

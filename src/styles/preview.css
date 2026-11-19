@@ -291,19 +291,22 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-xs);
-  width: 16px;
-  height: 16px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   color: inherit;
   opacity: 0;
   cursor: pointer;
 }
 
 .editor-tab:hover .editor-tab-close,
+.editor-tab:focus-within .editor-tab-close,
+.editor-tab:focus-visible .editor-tab-close,
 .editor-tab.active .editor-tab-close {
   opacity: 0.65;
 }
 
-.editor-tab-close:hover {
+.editor-tab-close:hover,
+.editor-tab-close:focus-visible {
   background: var(--fill-hover, var(--ov-2));
   opacity: 1;
 }
