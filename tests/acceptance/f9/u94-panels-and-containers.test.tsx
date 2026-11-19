@@ -140,7 +140,7 @@ describe('U9.4 · The panels instead of modes', () => {
     await userEvent.click(await screen.findByRole('button', { name: /More actions|⋯/ }))
     await userEvent.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: item as string }))
     const again = await screen.findByRole('dialog')
-    await userEvent.click(within(again).getAllByRole('button').find(button => button.textContent?.trim() !== 'Cancel')!)
+    await userEvent.click(within(again).getAllByRole('button').find(button => Boolean(button.textContent?.trim()) && button.textContent?.trim() !== 'Cancel')!)
     await waitFor(() => expect(opsCalled(call)).toContainEqual([op, expect.objectContaining(input as Row)]))
   })
 
