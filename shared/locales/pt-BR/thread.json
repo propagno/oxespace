@@ -1256,6 +1256,18 @@
     "cancel": "Cancelar",
     "decline": "Recusar",
     "deny": "Negar",
+    "allowMenu": "Mais opções para permitir",
+    "alwaysAllowProject": "Sempre permitir neste projeto…",
+    "allowedOnce": "Permitido uma vez",
+    "denied": "Negado",
+    "otherOption": "Outra opção…",
+    "kind": {
+      "command": "Executar comando no terminal",
+      "db": "Alterar o banco",
+      "file": "Alterar arquivos",
+      "container": "Alterar um contêiner",
+      "push": "Enviar ao remoto"
+    },
     "holdWaiting": "Risco crítico: Aprovar fica disponível em {{seconds}} s. Leia o comando antes.",
     "holdReady": "Aprovar está disponível. Com comando crítico, Enter não aprova; use Espaço ou clique.",
     "guarded": "Arquivo que orienta o agente",

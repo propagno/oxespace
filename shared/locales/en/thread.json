@@ -1226,6 +1226,18 @@
     "cancel": "Cancel",
     "decline": "Decline",
     "deny": "Deny",
+    "allowMenu": "More ways to allow",
+    "alwaysAllowProject": "Always allow in this project…",
+    "allowedOnce": "Allowed once",
+    "denied": "Denied",
+    "otherOption": "Other option…",
+    "kind": {
+      "command": "Run a command in the terminal",
+      "db": "Change the database",
+      "file": "Change files",
+      "container": "Change a container",
+      "push": "Push to the remote"
+    },
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
     "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
     "guarded": "Agent-steering file",

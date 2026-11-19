@@ -299,7 +299,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.request.button.height",
@@ -318,7 +318,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     }
   ]
 }
