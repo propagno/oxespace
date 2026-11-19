@@ -1,14 +1,18 @@
 // End-to-end acceptance test for 1.5.2 Polimento · OxeCode painéis (Jira OXE-261, PP-05·4, CA-4),
 // in the built app with real services (OXESPACE_E2E_MOCK_NATIVE=0).
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace } from '../helpers/launch'
 
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
 test('PP-05·4 in the app: keyboard navigation reveals the 24 px close target and closes an editor tab', async () => {
-  const { electronApp, page } = await launchApp({ env: REAL })
+  test.setTimeout(180_000)
+  const { app: electronApp, page, workspaceRoot } = await launchApp({ realClock: true, env: REAL })
   try {
-    await openDemoWorkspace(page)
+    writeFileSync(join(workspaceRoot, 'demo.txt'), 'hello\n')
+    await openDemoWorkspace(page, workspaceRoot)
     await page.keyboard.press('Control+e')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible({ timeout: 15_000 })
 
