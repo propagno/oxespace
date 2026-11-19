@@ -39,6 +39,8 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
       .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
     const paneId = panes.at(-1)
     if (!paneId) throw new Error('no terminal pane')
+    // OXE-297: focus another pane before signalling paneId so it stays unseen on Windows runners with window focus.
+    if (panes.length > 1) await page.locator(`[data-testid="pane-container"][data-pane-id="${panes[0]}"]`).click()
     await app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), { paneId, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const row = page.locator("[data-ui=sidebar-row][data-lines='2']").first()
     await row.waitFor({ timeout: 10_000 })
