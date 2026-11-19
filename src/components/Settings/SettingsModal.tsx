@@ -1,4 +1,4 @@
-import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette, X } from 'lucide-react'
+import { ArrowUpCircle, Activity, Bell, Bot, Check, ChevronDown, ChevronRight, Download, ExternalLink, Package, Play, Plus, RefreshCw, Settings2, SquareTerminal, Palette } from 'lucide-react'
 import { AgentsFullAccessSetting, NewConversationAccessSetting } from './AccessSettings'; import { ConversationSettings } from './ConversationSettings'
 import { useTranslation } from 'react-i18next'
 import { RichText } from '../../i18n/RichText'; import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
@@ -15,8 +15,8 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { APP_VERSION } from '../../lib/appVersion'
-import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
-import { UpdatePreferences } from './UpdatePreferences'; import { SettingRow, SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
+import { applyWithUndo, Button, EmptyState, SegmentedControl, SettingRow, Slider, Switch, Select } from '../../ui'
+import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
 export interface SettingsModalProps {
@@ -46,14 +46,14 @@ function formatCheckedAgo(ts: number | null, t: TFunction<'settings'>): string |
 export type SettingsSection = 'providers' | 'appearance' | 'terminal' | 'notifications' | 'updates' | 'diagnostics' | 'mcp' | 'privacy' | 'activity' | 'about'
 export function SettingsContent({ section, ...props }: SettingsModalProps & { section: SettingsSection }): ReactElement {
   switch (section) {
-    case 'appearance': return <AppearanceSettingsSection onClose={props.onClose} />
-    case 'terminal': return <TerminalSettingsSection onClose={props.onClose} />
-    case 'notifications': return <NotificationsSettingsSection onClose={props.onClose} />
-    case 'updates': case 'about': return <UpdatesSettingsSection onClose={props.onClose} />
+    case 'appearance': return <AppearanceSettingsSection />
+    case 'terminal': return <TerminalSettingsSection />
+    case 'notifications': return <NotificationsSettingsSection />
+    case 'updates': case 'about': return <UpdatesSettingsSection />
     case 'activity': return <AgentActivitySettings />
     case 'mcp': return <ToolsSettings rootPath="" />
     case 'privacy': return <DataSettings />
-    case 'diagnostics': return <DiagnosticsSettingsSection onClose={props.onClose} />
+    case 'diagnostics': return <DiagnosticsSettingsSection />
     default: return <ProvidersSettingsSection {...props} />
   }
 }
@@ -92,7 +92,7 @@ function SettingsSwitch({ checked, onChange, ariaLabel }: { checked: boolean; on
   return <Switch checked={checked} onChange={onChange} ariaLabel={ariaLabel} />
 }
 
-function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+function DiagnosticsSettingsSection(): ReactElement {
   const { t } = useTranslation('settings')
   const [snapshot, setSnapshot] = useState<import('../../../shared/types/diagnostics').DiagnosticsSnapshot | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -130,7 +130,6 @@ function DiagnosticsSettingsSection({ onClose }: { onClose: () => void }): React
         title={t('diagnostics.title')}
         titleId="settings-diagnostics-title"
         description={t('diagnostics.description')}
-        onClose={onClose}
         actions={
           <Button variant="ghost" onClick={refresh} title={t('diagnostics.refreshTitle')}>
             <RefreshCw size={14} aria-hidden="true" />
@@ -190,17 +189,14 @@ function SettingsContentHeader({
   title,
   titleId,
   description,
-  onClose,
   actions
 }: {
   kicker: string
   title: string
   titleId: string
   description?: string
-  onClose: () => void
   actions?: ReactNode
 }): ReactElement {
-  const { t } = useTranslation('settings')
   return (
     <header className="settings-content-header">
       <div>
@@ -208,12 +204,7 @@ function SettingsContentHeader({
         <SettingsPageTitle id={titleId}>{title}</SettingsPageTitle>
         {description && <p className="settings-content-description">{description}</p>}
       </div>
-      <div className="settings-content-actions">
-        {actions}
-        <Button variant="ghost" size="sm" square aria-label={t('header.close')} title={t('header.closeTitle')} onClick={onClose}>
-          <X size={16} aria-hidden="true" />
-        </Button>
-      </div>
+      {actions ? <div className="settings-content-actions">{actions}</div> : null}
     </header>
   )
 }
@@ -222,7 +213,6 @@ function ProvidersSettingsSection({
   agentProfiles,
   agentReadiness,
   isDiscoveringAgents,
-  onClose,
   onDiscoverAgents,
   onConfigureAgent,
   onNewCustomAgent,
@@ -231,7 +221,6 @@ function ProvidersSettingsSection({
   agentProfiles: AgentProfile[]
   agentReadiness: AgentReadiness[]
   isDiscoveringAgents: boolean
-  onClose: () => void
   onDiscoverAgents: () => void
   onConfigureAgent: (profile: AgentProfile) => void
   onNewCustomAgent: () => void
@@ -415,7 +404,6 @@ function ProvidersSettingsSection({
         title={t('providers.title')}
         titleId="settings-providers-title"
         description={t('providers.description')}
-        onClose={onClose}
         actions={
           <Button
             size="sm"
@@ -548,7 +536,6 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
   return (
     <div className="settings-term-preview" aria-hidden="true">
       <div className="settings-term-preview-chrome">
-        <span /><span /><span />
         <em>{t('terminal.preview')}</em>
       </div>
       <div
@@ -578,17 +565,17 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
   )
 }
 
-function AppearanceSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+function AppearanceSettingsSection(): ReactElement {
   const { t } = useTranslation('settings')
   return (
     <section className="settings-modal-content" aria-labelledby="settings-appearance-title">
-      <SettingsContentHeader kicker={t('appearance.kicker')} title={t('appearance.title')} titleId="settings-appearance-title" description={t('appearance.description')} onClose={onClose} />
+      <SettingsContentHeader kicker={t('appearance.kicker')} title={t('appearance.title')} titleId="settings-appearance-title" description={t('appearance.description')} />
       <div className="settings-content-body settings-form"><AppearanceSettings global /></div>
     </section>
   )
 }
 
-function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+function TerminalSettingsSection(): ReactElement {
   const global = useTerminalPrefsStore((s) => s.global)
   const setGlobal = useTerminalPrefsStore((s) => s.setGlobal)
   const { t } = useTranslation('settings')
@@ -613,7 +600,6 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
         title={t('terminal.title')}
         titleId="settings-terminal-title"
         description={t('terminal.description')}
-        onClose={onClose}
       />
 
       <div className="settings-content-body settings-form">
@@ -631,52 +617,60 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             </Select>
           </label>
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.size')}
-              <em>{global.fontSize}px</em>
-            </span>
-            <input
-              type="range"
-              min={8}
-              max={32}
-              step={1}
-              value={global.fontSize}
-              onChange={(e) => setGlobal({ fontSize: Number(e.target.value) })}
-            />
-            <span className="settings-field-hint">{t('terminal.sizeHint')}</span>
-          </label>
-          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>{t('terminal.resetSize', { size: TERMINAL_PREFS_DEFAULTS.fontSize })}</button>}
+          <SettingRow
+            label={t('terminal.size')}
+            description={t('terminal.sizeHint')}
+            htmlFor="terminal-font-size"
+            control={
+              <Slider
+                id="terminal-font-size"
+                min={8}
+                max={32}
+                step={1}
+                value={global.fontSize}
+                valueLabel={`${global.fontSize}px`}
+                onChange={(fontSize) => setGlobal({ fontSize })}
+              />
+            }
+          >
+            {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && (
+              <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>
+                {t('terminal.resetSize', { size: TERMINAL_PREFS_DEFAULTS.fontSize })}
+              </button>
+            )}
+          </SettingRow>
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.lineHeight')}
-              <em>{global.lineHeight.toFixed(1)}</em>
-            </span>
-            <input
-              type="range"
-              min={1}
-              max={2}
-              step={0.1}
-              value={global.lineHeight}
-              onChange={(e) => setGlobal({ lineHeight: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.lineHeight')}
+            htmlFor="terminal-line-height"
+            control={
+              <Slider
+                id="terminal-line-height"
+                min={1}
+                max={2}
+                step={0.1}
+                value={global.lineHeight}
+                valueLabel={global.lineHeight.toFixed(1)}
+                onChange={(lineHeight) => setGlobal({ lineHeight })}
+              />
+            }
+          />
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.letterSpacing')}
-              <em>{global.letterSpacing}px</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={4}
-              step={0.5}
-              value={global.letterSpacing}
-              onChange={(e) => setGlobal({ letterSpacing: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.letterSpacing')}
+            htmlFor="terminal-letter-spacing"
+            control={
+              <Slider
+                id="terminal-letter-spacing"
+                min={0}
+                max={4}
+                step={0.5}
+                value={global.letterSpacing}
+                valueLabel={`${global.letterSpacing}px`}
+                onChange={(letterSpacing) => setGlobal({ letterSpacing })}
+              />
+            }
+          />
         </div>
 
         <div className="settings-form-group">
@@ -728,38 +722,37 @@ function TerminalSettingsSection({ onClose }: { onClose: () => void }): ReactEle
             />
           </div>}
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.scrollback')}
-              <em>{t('terminal.lines', { lines: formatNumber(global.scrollback) })}</em>
-            </span>
-            <input
-              type="range"
-              min={1000}
-              max={200000}
-              step={1000}
-              value={global.scrollback}
-              onChange={(e) => setGlobal({ scrollback: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.scrollback')}
+            htmlFor="terminal-scrollback"
+            control={
+              <Slider
+                id="terminal-scrollback"
+                min={1000}
+                max={200000}
+                step={1000}
+                value={global.scrollback}
+                valueLabel={t('terminal.lines', { lines: formatNumber(global.scrollback) })}
+                onChange={(scrollback) => setGlobal({ scrollback })}
+              />
+            }
+          />
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.opacity')}
-              <em>
-                {Math.round(global.backgroundOpacity * 100)}%
-                {global.backgroundOpacity < 1 ? ` ${t('terminal.translucent')}` : ''}
-              </em>
-            </span>
-            <input
-              type="range"
-              min={0.6}
-              max={1}
-              step={0.05}
-              value={global.backgroundOpacity}
-              onChange={(e) => setGlobal({ backgroundOpacity: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.opacity')}
+            htmlFor="terminal-opacity"
+            control={
+              <Slider
+                id="terminal-opacity"
+                min={0.6}
+                max={1}
+                step={0.05}
+                value={global.backgroundOpacity}
+                valueLabel={`${Math.round(global.backgroundOpacity * 100)}%${global.backgroundOpacity < 1 ? ` ${t('terminal.translucent')}` : ''}`}
+                onChange={(backgroundOpacity) => setGlobal({ backgroundOpacity })}
+              />
+            }
+          />
         </div>
 
         <div className="settings-callout"><RichText text={t('terminal.globalDefaults')} /></div>
@@ -827,7 +820,7 @@ function AgentHooksSetting(): ReactElement | null {
   )
 }
 
-function NotificationsSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+function NotificationsSettingsSection(): ReactElement {
   const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled)
   const setNotificationsEnabled = useSettingsStore((s) => s.setNotificationsEnabled)
   const { t } = useTranslation('settings')
@@ -847,7 +840,6 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
         title={t('notifications.title')}
         titleId="settings-notifications-title"
         description={t('notifications.description')}
-        onClose={onClose}
       />
 
       <div className="settings-content-body settings-form">
@@ -892,7 +884,7 @@ function NotificationsSettingsSection({ onClose }: { onClose: () => void }): Rea
   )
 }
 
-function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElement {
+function UpdatesSettingsSection(): ReactElement {
   const app = useUpdaterStore((s) => s.app)
   const bootstrap = useUpdaterStore((s) => s.bootstrap)
   const checkAppUpdates = useUpdaterStore((s) => s.checkAppUpdates)
@@ -970,7 +962,6 @@ function UpdatesSettingsSection({ onClose }: { onClose: () => void }): ReactElem
         title={t('center.pages.about.label', { defaultValue: t('updates.title') })}
         titleId="settings-updates-title"
         description={t('updates.description')}
-        onClose={onClose}
       />
 
       <div className="settings-content-body settings-form settings-updates-form">
