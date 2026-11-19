@@ -21,7 +21,9 @@ test('PP-05·10 in the app: MCP builtin notice close button is at least 24 px an
       const syncNote = document.createElement('div')
       syncNote.className = 'mcp-panel-sync-note'
       syncNote.textContent = 'Sync note'
-      const probe = document.createElement('span')
+      const probe = document.createElement('div')
+      probe.style.display = 'inline-block'
+      probe.style.width = '1px'
       probe.style.color = 'var(--intent-info-fg)'
       probe.style.height = 'var(--control-sm)'
 
