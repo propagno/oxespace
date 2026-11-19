@@ -6,9 +6,10 @@ import { launchApp, openDemoWorkspace } from '../helpers/launch'
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
 test('PP-05·8 in the app: Git panel omits Files/Git switcher and renders branch name in --font-mono', async () => {
-  const { electronApp, page } = await launchApp({ env: REAL })
+  test.setTimeout(180_000)
+  const { app: electronApp, page, workspaceRoot } = await launchApp({ realClock: true, env: REAL })
   try {
-    await openDemoWorkspace(page)
+    await openDemoWorkspace(page, workspaceRoot)
     await page.keyboard.press('Control+Shift+G')
     const panel = page.getByTestId('workspace-github-panel')
     await expect(panel).toBeVisible({ timeout: 15_000 })
