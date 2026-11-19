@@ -330,8 +330,8 @@
 .thread-view .thread-command-list button[aria-selected="true"] { background: var(--fill-selected, var(--fill-hover)); }
 .thread-composer .thread-command-popup>footer { display: flex; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--bd-default); color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-command-popup>p { margin: 0; padding: 10px 12px; font-size: var(--fs-xs); color: var(--tx-muted); }
-.thread-composer footer .thread-command-trigger { width: 28px; height: 28px; padding: 0; justify-content: center; color: var(--tx-muted); }
-.thread-composer { padding: 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
+.thread-composer footer .thread-command-trigger { width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; color: var(--tx-muted); }
+.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
 .thread-composer:focus-within { border-color: var(--bd-focus); box-shadow: 0 0 0 1px var(--bd-focus); }
 .thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); line-height: 1.5; }
 .thread-composer textarea::placeholder { color: var(--tx-muted); }
