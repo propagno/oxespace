@@ -8,7 +8,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { attachTerminalContextMenu, terminalContextMenu, type TerminalLike } from '../../../src/components/Terminal/terminalContextMenu'
-import { appendSelectionToDraft, formatSelectionBlock, sendTerminalSelectionToChat } from '../../../src/components/Terminal/terminalToChat'
+import { appendSelectionToDraft, consumePendingNewDraft, formatSelectionBlock, sendTerminalSelectionToChat } from '../../../src/components/Terminal/terminalToChat'
 import { changeLanguage } from '../../../src/i18n'
 import { useThreadStore } from '../../../src/store/thread.store'
 import { useWorkspaceStore } from '../../../src/store/workspace.store'
@@ -151,5 +151,35 @@ describe('OXE-190 · AG-08 terminal selection to OxeChat', () => {
     } finally {
       window.removeEventListener('oxe:open-thread-draft', onOpen)
     }
+  })
+
+  test('new-draft survives thread store reload and transfers to the newly created thread composer', async () => {
+    Object.defineProperty(window, 'oxe', {
+      configurable: true,
+      value: {
+        thread: {
+          list: vi.fn(async () => []),
+          projects: vi.fn(async () => ({ projects: [{ projectId: 'proj-new', displayName: 'Demo', identityLabel: 'Demo', hidden: false, contexts: [{ rootPath: 'C:/repos/demo', label: 'Demo' }] }], unavailable: [] })),
+          addProject: vi.fn(async () => ({ projectId: 'proj-new', displayName: 'Demo', identityLabel: 'Demo', hidden: false, contexts: [{ rootPath: 'C:/repos/demo', label: 'Demo' }] }))
+        }
+      }
+    })
+
+    const result = await sendTerminalSelectionToChat({
+      selection: 'OXE190_BRIDGE_OK',
+      cwd: 'C:\\repos\\demo\\'
+    })
+    expect(result?.target).toMatchObject({ kind: 'new-draft', projectId: 'proj-new' })
+
+    // Simulate OxeChat mounting and reloading the thread list while NewThreadDialog is open.
+    await useThreadStore.getState().load()
+
+    const transferred = consumePendingNewDraft({
+      threadId: 'thread-created-1',
+      projectId: 'proj-new',
+      rootPath: 'C:/repos/demo'
+    })
+    expect(transferred).toContain('```text\nOXE190_BRIDGE_OK\n```')
+    expect(useThreadStore.getState().drafts['thread-created-1']).toBe(transferred)
   })
 })
