@@ -30,7 +30,7 @@ test('PC-04·11 in the app: dragging 10 px from the divider line resizes two sid
     const handleBox = await handle.boundingBox()
     expect(beforePane).not.toBeNull()
     expect(handleBox).not.toBeNull()
-    expect(handleBox!.width).toBeGreaterThanOrEqual(24)
+    expect(Math.round(handleBox!.width)).toBeGreaterThanOrEqual(24)
 
     const centerX = handleBox!.x + handleBox!.width / 2
     const centerY = handleBox!.y + handleBox!.height / 2

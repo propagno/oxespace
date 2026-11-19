@@ -1650,6 +1650,9 @@
 .workspace-editor-resize {
   background: var(--bd-default);
 }
+.workspace-editor-resize::after {
+  content: none;
+}
 
 .workspace-editor-panel {
   display: flex;
