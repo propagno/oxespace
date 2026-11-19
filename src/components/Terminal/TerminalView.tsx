@@ -15,7 +15,6 @@ import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ITheme } from '@xterm/xterm'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
@@ -24,6 +23,8 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { terminalKeyRoute } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
+import { createTerminalWriteScheduler } from './terminalWriteScheduler'
+import { buildTerminalTheme, decodeOsc52ClipboardWrite, searchDecorations } from './terminalViewHelpers'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
@@ -47,92 +48,6 @@ const AGENT_PREVIEW_SCAN_LINES = 300
 // selection briefly so the copy still lands instead of silently turning into a
 // SIGINT. Reset whenever the user actually types into the PTY.
 const RECENT_SELECTION_MS = 2000
-
-// OSC 52 lets a terminal application request a clipboard write. Full-screen
-// TUIs use it when they own mouse selection, so the browser's native `copy`
-// event never fires. Keep this write-only (queries could exfiltrate clipboard
-// contents) and bounded so an untrusted process cannot allocate an arbitrary
-// base64 payload in the renderer.
-const OSC52_MAX_DECODED_BYTES = 4 * 1024 * 1024
-
-function decodeOsc52ClipboardWrite(data: string): string | null {
-  const separator = data.indexOf(';')
-  if (separator < 0) return null
-
-  const selection = data.slice(0, separator)
-  const encoded = data.slice(separator + 1)
-  if (!selection.includes('c') || !encoded || encoded === '?') return null
-  if (encoded.length > Math.ceil(OSC52_MAX_DECODED_BYTES * 4 / 3) + 4) return null
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 === 1) return null
-
-  try {
-    const binary = atob(encoded)
-    if (binary.length > OSC52_MAX_DECODED_BYTES) return null
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return null
-  }
-}
-
-// Search-match highlight colors passed to @xterm/addon-search. The decorations
-// are what make Ctrl+F usable: every match gets a subtle wash, the active one a
-// stronger accent + overview-ruler mark.
-// Built from the active mode's accent each time a search runs.
-function searchDecorations() {
-  const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
-  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#1f6b4a'
-  return { matchBackground: `${accent}33`, matchOverviewRuler: `${accent}66`, activeMatchBackground: `${accent}66`, activeMatchColorOverviewRuler: accent }
-}
-
-/**
- * Build the xterm color theme from the live CSS design tokens. Read at
- * construction AND re-read whenever the workspace theme changes (so switching
- * Midnight → Dracula re-colors open terminals instead of only new ones).
- * With `translucent`, the cell background goes fully transparent so the
- * host's CSS background (color-mix + backdrop blur) shows through.
- *
- * Keep xterm aligned with the terminal content surface. The surrounding
- * PaneContainer owns elevation and focus chrome; xterm remains a flat,
- * uninterrupted canvas inside that card.
- */
-function buildTerminalTheme(translucent: boolean): ITheme {
-  // Terminal colors come from the design tokens of the active light or dark mode.
-  const tok = (name: string, fallback: string): string => {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-    return v || fallback
-  }
-  const darkMode = document.documentElement.dataset.appearance === 'dark'
-  const darkAnsi: Record<string, string> = { black: '#2f3431', white: '#d3d9d5', 'bright-black': '#828883', 'bright-white': '#f0f7f2', red: '#fb8276', 'bright-red': '#ffb5ac', green: '#60c473', 'bright-green': '#8de29a', yellow: '#dc9e12', 'bright-yellow': '#f7c15f', blue: '#60b0ff', 'bright-blue': '#a2cfff', magenta: '#df86d7', 'bright-magenta': '#faabf3', cyan: '#00c2ca', 'bright-cyan': '#3fe4ec' }
-  const ansi = (name: string): string => darkMode ? tok(`--ansi-${name}`, darkAnsi[name] ?? '#808080') : (darkAnsi[name] ?? '#808080')
-  return {
-    background:          translucent ? '#00000000' : tok('--term-bg', '#131714'),
-    foreground:          tok('--term-fg', '#e7efe9'),
-    cursor:              tok('--accent', '#f5a939'),
-    cursorAccent:        tok('--term-bg', '#131714'),
-    selectionBackground: darkMode ? tok('--fill-selected-strong', '#1e422c') : '#1e422c',
-    // xterm 6 draws its own scrollbar: a quiet slider, like the app's thin scrollbars.
-    scrollbarSliderBackground: 'rgba(160, 170, 165, 0.22)',
-    scrollbarSliderHoverBackground: 'rgba(160, 170, 165, 0.38)',
-    scrollbarSliderActiveBackground: 'rgba(160, 170, 165, 0.5)',
-    black:               ansi('black'),
-    red:                 ansi('red'),
-    green:               ansi('green'),
-    yellow:              ansi('yellow'),
-    blue:                ansi('blue'),
-    magenta:             ansi('magenta'),
-    cyan:                ansi('cyan'),
-    white:               ansi('white'),
-    brightBlack:         ansi('bright-black'),
-    brightRed:           ansi('bright-red'),
-    brightGreen:         ansi('bright-green'),
-    brightYellow:        ansi('bright-yellow'),
-    brightBlue:          ansi('bright-blue'),
-    brightMagenta:       ansi('bright-magenta'),
-    brightCyan:          ansi('bright-cyan'),
-    brightWhite:         ansi('bright-white')
-  }
-}
 
 function readAgentPreview(terminal: Terminal): string {
   const buf = terminal.buffer.active
@@ -686,44 +601,54 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const queuedWhileAttaching: string[] = []
 
     const bridge = transport ?? window.oxe.terminal
+    const writeScheduler = createTerminalWriteScheduler({
+      write: (chunk, done) => {
+        if (disposed) {
+          done()
+          return
+        }
+        // Smart scrollback (normal buffer only): when the user has scrolled up to
+        // read history, new streaming output shouldn't yank them to the bottom.
+        // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
+        // the full viewport, have no scrollback, and continuous pin-restore
+        // fights their redraws so the mouse wheel appears broken.
+        //
+        // Same reasoning applies while the user is mid mouse-drag selecting text
+        // at the bottom of an actively streaming terminal: pin the viewport so
+        // new tokens don't fight an in-progress copy.
+        const preBuf = terminal.buffer.active
+        const isAltScreen = preBuf.type === 'alternate'
+        const preViewportY = preBuf.viewportY
+        const recentSelection = lastSelectionRef.current
+        const hasActiveOrRecentSelection =
+          !!terminal.getSelection() ||
+          (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
+        const wasAtBottom =
+          isAltScreen ||
+          (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
+        terminal.write(chunk, () => {
+          if (!disposed && !wasAtBottom && terminal.buffer.active.type === 'normal') {
+            const postBuf = terminal.buffer.active
+            terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
+          }
+          done()
+        })
+        if (transport) return
+        useTerminalStore.getState().updateActivity(paneId, chunk)
+        if (previewTimer) clearTimeout(previewTimer)
+        previewTimer = setTimeout(() => {
+          previewTimer = null
+          const preview = readAgentPreview(terminal)
+          if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
+        }, 300)
+      }
+    })
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
       }
-      // Smart scrollback (normal buffer only): when the user has scrolled up to
-      // read history, new streaming output shouldn't yank them to the bottom.
-      // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
-      // the full viewport, have no scrollback, and continuous pin-restore
-      // fights their redraws so the mouse wheel appears broken.
-      //
-      // Same reasoning applies while the user is mid mouse-drag selecting text
-      // at the bottom of an actively streaming terminal: pin the viewport so
-      // new tokens don't fight an in-progress copy.
-      const preBuf = terminal.buffer.active
-      const isAltScreen = preBuf.type === 'alternate'
-      const preViewportY = preBuf.viewportY
-      const recentSelection = lastSelectionRef.current
-      const hasActiveOrRecentSelection =
-        !!terminal.getSelection() ||
-        (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
-      const wasAtBottom =
-        isAltScreen ||
-        (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
-      terminal.write(event.data, () => {
-        if (!wasAtBottom && terminal.buffer.active.type === 'normal') {
-          const postBuf = terminal.buffer.active
-          terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
-        }
-      })
-      if (transport) return
-      useTerminalStore.getState().updateActivity(paneId, event.data)
-      if (previewTimer) clearTimeout(previewTimer)
-      previewTimer = setTimeout(() => {
-        previewTimer = null
-        const preview = readAgentPreview(terminal)
-        if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
-      }, 300)
+      writeScheduler.enqueue(event.data)
     })
     const unsubscribeExit = bridge.onExit(paneId, (event) => {
       terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
@@ -781,6 +706,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       settleFitTimersRef.current = []
       if (previewTimer) clearTimeout(previewTimer)
       unsubscribeData()
+      writeScheduler.dispose()
       unsubscribeExit()
       resizeObserver.disconnect()
       visibilityObserver?.disconnect()
