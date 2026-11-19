@@ -866,12 +866,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   ])
 
   useEffect(() => {
-    if (!isRunning) return
     const current = useUIStore.getState().activePaneId
-    if (current && current !== paneId) return
     const active = document.activeElement
-    if (active && active !== document.body && active !== document.documentElement) return
-    terminalRef.current?.focus()
+    if (isRunning && (!current || current === paneId) && (!active || active === document.body || active === document.documentElement)) terminalRef.current?.focus()
   }, [isRunning, paneId])
 
   useEffect(() => {
