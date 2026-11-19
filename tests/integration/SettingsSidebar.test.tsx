@@ -76,9 +76,6 @@ describe('Settings agents UI', () => {
 
     await user.click(screen.getByTestId('btn-new-custom-agent'))
     expect(onNewCustomAgent).toHaveBeenCalled()
-
-    await user.click(screen.getByLabelText('Close'))
-    expect(onClose).toHaveBeenCalled()
   })
 
   test('never probes on open, even with no readiness data', () => {

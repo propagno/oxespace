@@ -1152,7 +1152,10 @@
     },
     "review": {
       "back": "Voltar às Alterações",
-      "classic": "Revisão clássica (comentários por linha)"
+      "classic": "Revisão clássica (comentários por linha)",
+      "viewLabel": "Visão de alterações",
+      "changesOption": "Alterações",
+      "classicOption": "Clássico"
     },
     "density": {
       "default": "Padrão do app",
@@ -2602,7 +2605,7 @@
     "empty": "Nenhuma chamada HTTP ainda. Chamadas de curl, wget e HTTPie dos agentes aparecem aqui.",
     "emptyFiltered": "Nada corresponde",
     "clearFilters": "Limpar filtros",
-    "error": "Não deu para ler o registro HTTP"
+    "error": "Não foi possível ler o registro HTTP"
   },
   "agentBrowser": {
     "defaultAgent": "Claude",
