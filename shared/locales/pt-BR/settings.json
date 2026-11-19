@@ -747,7 +747,7 @@
     }
   },
   "tools": {
-    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Tools › Manage MCP servers.",
+    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Ferramentas › Gerenciar servidores MCP.",
     "skillsList": {
       "title": "Skills",
       "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
@@ -994,7 +994,7 @@
     "toggleHint": "Registra hosts de programas que usam HTTP_PROXY. Nunca caminhos, cabeçalhos ou corpos.",
     "turnedOnNotice": "Vale para programas de novos agentes que usam HTTP_PROXY. Alguns, como ssh ou fetch do Node, ignoram.",
     "turnedOffNotice": "Registro parado. Agentes já em execução continuam funcionando até terminarem.",
-    "tryAgain": "Tentar novamente",
+    "tryAgain": "Tentar de novo",
     "filterLabel": "Filtrar hosts",
     "empty": "Nenhuma conexão de saída ainda.",
     "noMatch": "Nenhum host encontrado.",
