@@ -369,7 +369,8 @@ function ProvidersSettingsSection({
                 moment it actually matters. */}
             {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
               <Button
-                variant="primary"
+                variant="secondary"
+                size="sm"
                 aria-label={t('providers.card.useInPaneLabel', { name: profile.name })}
                 title={t('providers.card.bindTitle')}
                 disabled={usingId === profile.agentProfileId}
@@ -507,7 +508,9 @@ function ProvidersSettingsSection({
             state's health check is the one main action. */}
         <SettingsCard title={t('providers.customAgents')} description={t('providers.customAgentsHint')} actions={
           <Button
-            variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
+            variant="secondary"
+            size="md"
+            className="settings-new-agent-btn"
             onClick={onNewCustomAgent}
             data-testid="btn-new-custom-agent"
             icon={<Plus size={14} aria-hidden="true" />}

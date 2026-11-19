@@ -915,11 +915,9 @@
 }
 
 .settings-new-agent-btn {
-  align-self: stretch;
-  width: 100%;
-  min-height: 40px;
+  align-self: flex-start;
+  width: auto;
   margin: 0;
-  border-radius: var(--radius-md);
 }
 
 
