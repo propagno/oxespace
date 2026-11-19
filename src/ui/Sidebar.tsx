@@ -102,7 +102,7 @@ function RowWithActions({ row, actions }: { row: ReactElement; actions: ReactNod
 /** A group row (a workspace, a project): 13/600 name; no card, no tint. The workspace color goes in `lead`. */
 export function SidebarGroup({ lead, title, meta, actions, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: Omit<RowProps, 'detail'>): ReactElement {
   const row = <div {...rest} data-ui="sidebar-group" className={cx(styles.row, styles.group, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
+    aria-label={label} aria-current={selected ? 'page' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
     {meta ? <span className={styles.meta}>{meta}</span> : null}
@@ -113,7 +113,7 @@ export function SidebarGroup({ lead, title, meta, actions, selected = false, onS
 /** An item row (a pane, a conversation), indented under its group. Selected is a fill. Says its line count (data-lines). */
 export function SidebarRow({ lead, title, meta, actions, detail, selected = false, onSelect, onContextMenu, className, 'aria-label': label, ...rest }: RowProps): ReactElement {
   const row = <div {...rest} data-ui="sidebar-row" data-lines={detail ? '2' : '1'} className={cx(styles.row, styles.item, detail ? styles.twoLine : undefined, selected && styles.selected, className)} role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined}
-    aria-label={label} aria-current={selected ? 'true' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
+    aria-label={label} aria-current={selected ? 'page' : undefined} onClick={onSelect} onKeyDown={rowKeys(onSelect)} onContextMenu={onContextMenu}>
     {lead ? <span className={styles.lead}>{lead}</span> : null}
     <span className={styles.rowTitle}>{title}</span>
     {meta ? <span className={styles.meta}>{meta}</span> : null}

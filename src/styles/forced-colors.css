@@ -48,17 +48,17 @@
      colour swatch (data-swatch) keeps its colour and is ringed instead (src/ui/Field.module.css). */
   :root [role='radio']:not([aria-checked='true'], :focus-visible, [data-swatch]) { outline: 1px solid ButtonText; outline-offset: -1px; }
   :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']),
-  :root :is([role='button'][aria-current='true'], button[aria-current='true']) {
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']) {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
     border-color: Highlight;
   }
   :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) *,
-  :root :is([role='button'][aria-current='true'], button[aria-current='true']) * { color: inherit; background-color: transparent; border-color: currentColor; }
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']) * { color: inherit; background-color: transparent; border-color: currentColor; }
   /* The focus ring on a chosen option would vanish into its fill; it takes the text color and stands off. */
   :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']):focus-visible,
-  :root :is([role='button'][aria-current='true'], button[aria-current='true']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
 
   /* The hand-made switch in the thread's configuration (auto-accept edits): a track and thumb drawn with lines, in
      Highlight once on, the thumb on the right. */

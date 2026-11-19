@@ -32,7 +32,7 @@ describe('sidebar anatomy', () => {
       <SidebarRow title="Add a Pix refund endpoint" meta="9m" detail="Asks to run a migration" selected onSelect={select} />
     </>)
     const row = screen.getByRole('button', { name: /Add a Pix refund endpoint/ })
-    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(row).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('Asks to run a migration')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /pix-api/ }))
     fireEvent.keyDown(row, { key: 'Enter' })
