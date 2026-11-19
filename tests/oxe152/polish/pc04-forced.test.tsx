@@ -107,7 +107,7 @@ function cssValue(node: Element, props: string | string[], forced = true): strin
   const hits: Array<{ value: string; important: boolean; layered: boolean; spec: number; order: number }> = []
   for (const rule of RULES) {
     if (rule.forced && !forced) continue
-    let ok = false
+    let ok: boolean
     try {
       ok = node.matches(rule.bare)
     } catch {
