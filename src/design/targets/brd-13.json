@@ -22,8 +22,8 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "the workspace's branch is shown in the mono face; pending: no conformance scene has a git branch yet: OXE-286"
+      "state": "enforced",
+      "note": "the workspace's branch is shown in the mono face"
     },
     {
       "id": "BRD-13.panel-button.height",

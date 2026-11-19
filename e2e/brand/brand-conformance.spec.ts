@@ -11,6 +11,7 @@ import { test, expect, type ElectronApplication, type Page } from '@playwright/t
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor, type Density } from '../helpers/launch'
+import { seedGitRepo } from '../helpers/seed'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
@@ -229,7 +230,7 @@ test.describe.serial('brand conformance (OXE-149)', () => {
     for (const theme of ['light', 'dark'] as const) {
       test(`${density} ${theme}`, async () => {
         test.setTimeout(180_000)
-        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1' } })
+        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1', OXESPACE_E2E_REAL_GIT_BRANCH: '1' } })
         try {
           // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
           await layoutAtWidth(app, page, 1440, 900)
@@ -238,10 +239,13 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
+          // OXE-286 (CA-3): code-workspace opens a real git repo on a named branch so BRD-13.branch.font-family is measured.
+          seedGitRepo(workspaceRoot, { withBranchChanges: false })
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
           await registerThreadProject(app, page, workspaceRoot)
           await openSidePanels(page)
+          await page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] workspace branch did not show'))
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
