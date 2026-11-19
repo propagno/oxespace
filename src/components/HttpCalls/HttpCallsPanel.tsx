@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { HttpAuditRow, HttpAuditView, HttpAuditHostSummary, HttpAuditQuery } from '../../../shared/types/http-audit'
 import { formatRowButtonLabel, formatHeaders, formatBodySize, formatResponse, formatAgentName, formatTime } from './httpCallsModel'
 import { Button } from '../../ui/Button'
@@ -7,19 +8,20 @@ import { useThreadStore } from '../../store/thread.store'
 import './HttpCallsPanel.css'
 
 export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; actor?: string }) {
+  const { t } = useTranslation('code')
   const [view, setView] = useState<HttpAuditView>('all')
   const [filter, setFilter] = useState('')
   const [rows, setRows] = useState<HttpAuditRow[]>([])
   const [hosts, setHosts] = useState<HttpAuditHostSummary[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [hasError, setHasError] = useState(false)
   useEffect(() => { void window.oxe?.featureUsage?.record?.('httpCalls') }, [])
 
   useEffect(() => {
     let active = true
     setLoading(true)
-    setError(null)
+    setHasError(false)
     const query: HttpAuditQuery = {
       workspaceId,
       ...(actor ? { actor } : {}),
@@ -40,7 +42,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
       })
       .catch(() => {
         if (!active) return
-        setError("Couldn't read the HTTP log")
+        setHasError(true)
         setLoading(false)
       })
     return () => { active = false }
@@ -64,6 +66,8 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
   }, [hosts, rows])
 
   const selectedRow = useMemo(() => rows.find(r => r.id === selectedId) || null, [rows, selectedId])
+  const noStatusLabel = t('httpCalls.noStatus')
+  const filterPlaceholder = t('httpCalls.filterPlaceholder')
 
   return (
     <div className="http-calls-panel">
@@ -75,7 +79,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
             aria-pressed={view === 'all'}
             onClick={() => setView('all')}
           >
-            All
+            {t('httpCalls.all')}
           </button>
           <button
             type="button"
@@ -83,7 +87,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
             aria-pressed={view === 'errors'}
             onClick={() => setView('errors')}
           >
-            Errors
+            {t('httpCalls.errors')}
           </button>
           <button
             type="button"
@@ -91,30 +95,30 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
             aria-pressed={view === 'flagged'}
             onClick={() => setView('flagged')}
           >
-            Flagged
+            {t('httpCalls.flagged')}
           </button>
         </div>
         <input
           type="text"
           className="http-calls-filter-input"
-          aria-label="Filter by host or path"
-          placeholder="Filter by host or path"
+          aria-label={filterPlaceholder}
+          placeholder={filterPlaceholder}
           value={filter}
           onChange={e => setFilter(e.target.value)}
         />
       </div>
 
       <div className="http-calls-content">
-        {error ? (
-          <ErrorState title={error} compact />
+        {hasError ? (
+          <ErrorState title={t('httpCalls.error')} compact />
         ) : !loading && rows.length === 0 ? (
           filter.trim() || view !== 'all' ? (
             <EmptyState
-              title="Nothing matches"
-              actions={<Button variant="secondary" size="sm" onClick={() => { setFilter(''); setView('all') }}>Clear filters</Button>}
+              title={t('httpCalls.emptyFiltered')}
+              actions={<Button variant="secondary" size="sm" onClick={() => { setFilter(''); setView('all') }}>{t('httpCalls.clearFilters')}</Button>}
             />
           ) : (
-            <EmptyState title="No HTTP calls yet. curl, wget and HTTPie calls from agents show up here." />
+            <EmptyState title={t('httpCalls.empty')} />
           )
         ) : (
           <div className="http-calls-list">
@@ -122,7 +126,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
               <section key={group.host} className="http-host-section">
                 <div className="http-host-heading-row">
                   <h4 className="http-host-heading">{group.host}</h4>
-                  {group.production && <span className="http-pill-production">production</span>}
+                  {group.production && <span className="http-pill-production">{t('httpCalls.production')}</span>}
                 </div>
                 {group.rows.map(row => (
                   <button
@@ -130,17 +134,17 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
                     type="button"
                     className={`http-call-row ${selectedId === row.id ? 'selected' : ''}`}
                     onClick={() => setSelectedId(row.id)}
-                    aria-label={formatRowButtonLabel(row)}
+                    aria-label={formatRowButtonLabel(row, noStatusLabel)}
                   >
                     <div className="http-call-row-main">
                       <span>{row.method} {row.pathTemplate || '/'}, </span>
-                      <span>{row.status != null ? row.status : 'No status'}</span>
+                      <span>{row.status != null ? row.status : noStatusLabel}</span>
                       <span>, {formatAgentName(row.agent)}, {formatTime(row.at)}</span>
                     </div>
                     {(row.plainHttpExternal || row.insecure) && (
                       <div className="http-call-row-pills">
-                        {row.plainHttpExternal && <span className="http-pill-warning">Not encrypted</span>}
-                        {row.insecure && <span className="http-pill-warning">TLS not checked</span>}
+                        {row.plainHttpExternal && <span className="http-pill-warning">{t('httpCalls.notEncrypted')}</span>}
+                        {row.insecure && <span className="http-pill-warning">{t('httpCalls.tlsNotChecked')}</span>}
                       </div>
                     )}
                   </button>
@@ -159,18 +163,18 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
               <div>{formatBodySize(selectedRow.bodyBytes)}</div>
             )}
             {selectedRow.status != null ? (
-              <div>{formatResponse(selectedRow.status, selectedRow.durationMs)}</div>
+              <div>{formatResponse(selectedRow.status, selectedRow.durationMs, noStatusLabel)}</div>
             ) : (
-              <div>No status</div>
+              <div>{noStatusLabel}</div>
             )}
             {(selectedRow.sourceKind === 'rollout' || selectedRow.agent === 'codex') && (
-              <div>Read after the turn</div>
+              <div>{t('httpCalls.readAfterTurn')}</div>
             )}
             {selectedRow.production && (
-              <div className="http-callout-warning">A production host.</div>
+              <div className="http-callout-warning">{t('httpCalls.productionCallout')}</div>
             )}
             {selectedRow.plainHttpExternal && (
-              <div className="http-callout-warning">Sent without TLS to a host outside this computer.</div>
+              <div className="http-callout-warning">{t('httpCalls.plainHttpCallout')}</div>
             )}
             {selectedRow.commandRedacted && (
               <pre>
@@ -182,7 +186,7 @@ export function HttpCallsPanel({ workspaceId, actor }: { workspaceId: string; ac
                 type="button"
                 onClick={() => void useThreadStore.getState().select(selectedRow.actor.id)}
               >
-                Open the conversation
+                {t('httpCalls.openConversation')}
               </button>
             )}
           </aside>

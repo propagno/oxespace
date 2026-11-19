@@ -1132,24 +1132,11 @@
   gap: 5px;
 }
 
-.settings-term-preview-chrome span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--tx-primary) 14%, transparent);
-}
-
-.settings-term-preview-chrome span:nth-child(1) { background: var(--intent-danger-solid); }
-.settings-term-preview-chrome span:nth-child(2) { background: var(--intent-warning-solid); }
-.settings-term-preview-chrome span:nth-child(3) { background: var(--intent-success-solid); }
-
 .settings-term-preview-chrome em {
-  margin-left: 6px;
   font-style: normal;
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
   color: var(--tx-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .settings-term-preview-body {

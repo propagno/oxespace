@@ -622,7 +622,7 @@
         "dest": "Abrir no editor"
       },
       "skillsManager": {
-        "feature": "Gerenciador de habilidades",
+        "feature": "Gerenciador de skills",
         "dest": "Lista somente leitura, execute com /"
       }
     }
@@ -753,7 +753,7 @@
         "devices": "Abrir as configurações de dispositivos",
         "notifications": "Abrir as configurações de notificações",
         "about": "Procurar atualizações",
-        "mcp": "Abrir as configurações de MCP e habilidades",
+        "mcp": "Abrir as configurações de MCP e skills",
         "privacy": "Abrir as configurações de dados e privacidade",
         "activity": "Abrir as configurações de atividade dos agentes",
         "updates": "Procurar atualizações",
