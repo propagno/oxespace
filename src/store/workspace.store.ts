@@ -4,6 +4,18 @@ import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
+import { useUIStore } from './ui.store'
+
+/** Keeps the UI store's active pane aligned with the grid's focus when a workspace loads or switches. */
+function syncActivePane(workspace: Workspace | undefined): void {
+  if (!workspace) return
+  const currentPaneId = useUIStore.getState().activePaneId
+  if (currentPaneId && workspace.panes.some((pane) => pane.id === currentPaneId)) return
+  const firstPane =
+    workspace.panes.find((pane) => pane.type === 'terminal' && pane.rowIndex >= 0 && pane.columnIndex >= 0) ??
+    workspace.panes[0]
+  if (firstPane) useUIStore.getState().setActivePane(firstPane.id)
+}
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -63,12 +75,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const [workspaces, shellProfiles] = await Promise.all([window.oxe.workspace.list(), window.oxe.workspace.shellProfiles()])
+      const activeWorkspace = workspaces.find((workspace) => workspace.isActive) ?? workspaces[0]
       set({
         workspaces,
         shellProfiles,
-        activeWorkspaceId: workspaces.find((workspace) => workspace.isActive)?.id ?? workspaces[0]?.id ?? null,
+        activeWorkspaceId: activeWorkspace?.id ?? null,
         isLoading: false
       })
+      syncActivePane(activeWorkspace)
     } catch (error) {
       set({ error: toMessage(error), isLoading: false })
     }
@@ -100,6 +114,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       activeWorkspaceId: workspace.id,
       error: null
     }))
+    syncActivePane(workspace)
     return workspace
   },
 
@@ -112,10 +127,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     // restart picks the right active workspace) but the UI doesn't wait.
     const previousActiveId = get().activeWorkspaceId
     if (previousActiveId === id) return
+    const targetWorkspace = get().workspaces.find((workspace) => workspace.id === id)
     set({
       activeWorkspaceId: id,
       error: null
     })
+    syncActivePane(targetWorkspace)
     try {
       // Activation persistence changes only `is_active`; the optimistic state
       // above already contains the complete authoritative result. Replacing
