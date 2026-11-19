@@ -110,7 +110,7 @@ function cssValue(node: Element, props: string | string[]): string | undefined {
   const names = Array.isArray(props) ? props : [props]
   const hits: Array<{ value: string; important: boolean; layered: boolean; spec: number; order: number }> = []
   for (const rule of RULES) {
-    let ok = false
+    let ok: boolean
     try {
       ok = node.matches(rule.bare)
     } catch {
