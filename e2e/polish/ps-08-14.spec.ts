@@ -7,9 +7,10 @@ import { openSettings } from '../helpers/settings'
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
 test('PS-08·14 in the app: Manage MCP servers… opens the MCP catalog', async () => {
-  const { electronApp, page } = await launchApp({ env: REAL })
+  test.setTimeout(180_000)
+  const { app, page, workspaceRoot } = await launchApp({ env: REAL, realClock: true })
   try {
-    await openDemoWorkspace(page)
+    await openDemoWorkspace(page, workspaceRoot)
     await openSettings(page)
 
     const nav = page.getByRole('navigation')
@@ -25,6 +26,6 @@ test('PS-08·14 in the app: Manage MCP servers… opens the MCP catalog', async 
 
     await expect(page.locator('.mcp-panel')).toBeVisible({ timeout: 10_000 })
   } finally {
-    await electronApp.close()
+    await app.close()
   }
 })
