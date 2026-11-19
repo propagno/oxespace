@@ -14,6 +14,7 @@
     "BRD-03.tab.underline",
     "BRD-03.button.height",
     "BRD-03.button.font-size",
+    "BRD-03.button-lg.font-size",
     "BRD-03.button.font-weight",
     "BRD-03.icon-button.height",
     "BRD-06.content.width",
@@ -62,6 +63,7 @@
     "BRD-02.row.radius",
     "BRD-02.archived-band.count",
     "BRD-02.raw-button.count",
+    "BRD-02.attention.radius",
     "BRD-12.title.font-weight"
   ]
 }

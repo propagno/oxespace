@@ -12,6 +12,7 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
+import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -149,6 +150,10 @@ export function App(): ReactElement {
   }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
+  useEffect(() => attachOpenThreadDraftListener({
+    selectThreadMode: () => selectMode('thread'),
+    openNewThread: (projectId, rootPath) => { setNewThreadWorkspaceId(projectId); setNewThreadRootPath(rootPath) }
+  }), [selectMode])
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
   const threadSnapshot = useThreadStore(state => state.snapshot)
   const threadSelection = useThreadStore(state => state.selectedId)

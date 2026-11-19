@@ -1,58 +1,14 @@
 import { MoreHorizontal, X } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ContainerEngine, ContainerPanel, ContainerPanelRow } from '../../../shared/types/oxepod'
 import type { DatabaseEngine } from '../../../shared/types/oxequery'
 import { openExternalLink } from '../../lib/externalLinks'
-import { Avatar, Button, EmptyState, LoadingState, Menu, Notice, StatusDot, ToolPanel, copyText, toast, useModalSurface, type MenuEntry } from '../../ui'
+import { Avatar, Button, ConfirmDialog, EmptyState, LoadingState, Menu, Notice, StatusDot, ToolPanel, copyText, toast, type MenuEntry } from '../../ui'
 import { requestOxeQueryConnect } from '../OxeQuery/oxequery-bridge'
 import './ContainersPanel.css'
 
 const DOCKER_INSTALL_URL = 'https://docs.docker.com/get-docker/'
-
-function ConfirmPrompt({
-  title,
-  description,
-  cancelLabel,
-  confirmLabel,
-  onCancel,
-  onConfirm
-}: {
-  title: string
-  description: string
-  cancelLabel: string
-  confirmLabel: string
-  onCancel: () => void
-  onConfirm: () => void
-}): ReactElement {
-  const surface = useModalSurface<HTMLDivElement>(onCancel)
-  const cancelRef = useRef<HTMLButtonElement>(null)
-  const titleId = useId()
-  const descId = useId()
-  useEffect(() => {
-    cancelRef.current?.focus()
-  }, [])
-  return (
-    <div className="containers-confirm-overlay" role="presentation" onMouseDown={onCancel}>
-      <div
-        className="containers-confirm-box"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        {...surface}
-        onMouseDown={event => event.stopPropagation()}
-      >
-        <h3 id={titleId}>{title}</h3>
-        <p id={descId}>{description}</p>
-        <div className="containers-confirm-actions">
-          <Button ref={cancelRef} variant="secondary" onClick={onCancel}>{cancelLabel}</Button>
-          <Button variant="danger" onClick={onConfirm}>{confirmLabel}</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export interface ContainersPanelProps {
   onOpenConversation?: (id: string) => void
@@ -240,7 +196,12 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
     return (
       <li key={row.id} data-selected={selected?.id === row.id || undefined} onClick={() => setSelectedId(row.id)}>
         <StatusDot status={running ? 'running' : 'idle'} label={running ? t('containers.statusRunning') : t('containers.statusStopped')} />
-        <button type="button" className="containers-row-name" onClick={() => setSelectedId(row.id)}>
+        <button
+          type="button"
+          className="containers-row-name"
+          aria-current={selected?.id === row.id ? 'true' : undefined}
+          onClick={() => setSelectedId(row.id)}
+        >
           <span>{row.name}</span>
         </button>
         {origin?.kind === 'conversation' ? (
@@ -311,7 +272,8 @@ export function ContainersPanel({ onOpenConversation, onClose }: ContainersPanel
         </section>
       )}
       {confirm && (
-        <ConfirmPrompt
+        <ConfirmDialog
+          danger
           title={confirm.kind === 'stack'
             ? t('containers.confirmStopStackTitle', { stack: confirm.row.stack ?? '' })
             : t('containers.confirmRemoveTitle', { name: confirm.row.name })}

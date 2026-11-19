@@ -70,11 +70,9 @@ describe('A5 · Files ↔ Source Control switches in one step (OXE-42)', () => {
   })
 
   test('the Files and Source Control buttons use it', () => {
-    // rigor: source-assertion — the two panels mount Monaco and the GitHub client; the behaviour is proven above on the
-    // store, and this pins that both buttons go through it instead of two awaited calls.
+    // rigor: source-assertion — the editor panel still switches to Git through showRepositoryView;
+    // CR (OXE-264 / PP-05·8, approved 2026-11-17): WorkspaceGitHubPanel removed the duplicate [Files][Git] header switcher.
     const editor = readFileSync(join(process.cwd(), 'src/components/Workspace/WorkspaceEditorPanel.tsx'), 'utf8')
-    const github = readFileSync(join(process.cwd(), 'src/components/Workspace/WorkspaceGitHubPanel.tsx'), 'utf8')
     expect(editor).toMatch(/showRepositoryView\(\s*workspace\.id\s*,\s*'git'\s*\)/)
-    expect(github).toMatch(/showRepositoryView\(\s*workspace\.id\s*,\s*'files'\s*\)/)
   })
 })

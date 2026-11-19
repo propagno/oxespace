@@ -38,7 +38,7 @@ describe('AgentActivitySettings', () => {
       { id: 'http:1', at: 0, actor: 'thread:t1', source: 'http', summary: 'GET https://api.example/v1', decision: 'auto', outcome: 'ok' }
     ])
     await screen.findByText('GET https://api.example/v1')
-    fireEvent.click(screen.getByRole('button', { name: 'HTTP' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'HTTP' }))
     expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ sources: ['http'] }))
   })
 })
