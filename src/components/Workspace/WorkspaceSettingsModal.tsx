@@ -221,7 +221,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
 
           <footer className="modal-actions" data-ui="dialog-footer">
             <p>{t('workspace.settings.footer.default')}</p>
-            <Button variant="secondary" size="sm" onClick={onClose}>{ts('center.backToWork')}</Button>
+            {!embedded ? <Button variant="secondary" size="sm" onClick={onClose}>{ts('center.backToWork')}</Button> : null}
           </footer>
         </div>
       </>

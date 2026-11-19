@@ -52,9 +52,8 @@ describe('OXE-242 · PS-08·15 WorkspaceSettingsModal Switch and SettingsCenter 
 
   test('the WorkspaceSettingsModal footer has the SettingsCenter mould and order of actions', () => {
     const onClose = vi.fn()
-    const { container } = render(
+    render(
       <WorkspaceSettingsModal
-        embedded
         workspace={demoWorkspace}
         shellProfiles={[]}
         onClose={onClose}
@@ -62,7 +61,7 @@ describe('OXE-242 · PS-08·15 WorkspaceSettingsModal Switch and SettingsCenter 
       />
     )
 
-    const footer = container.querySelector('footer.modal-actions[data-ui="dialog-footer"]')
+    const footer = document.querySelector('footer.modal-actions[data-ui="dialog-footer"]')
     expect(footer).not.toBeNull()
 
     const children = Array.from(footer!.children)
@@ -73,5 +72,18 @@ describe('OXE-242 · PS-08·15 WorkspaceSettingsModal Switch and SettingsCenter 
 
     fireEvent.click(backBtn)
     expect(onClose).toHaveBeenCalledTimes(1)
+
+    cleanup()
+    const embeddedRender = render(
+      <WorkspaceSettingsModal
+        embedded
+        workspace={demoWorkspace}
+        shellProfiles={[]}
+        onClose={vi.fn()}
+        onSave={vi.fn(async () => undefined)}
+      />
+    )
+    expect(embeddedRender.container.querySelector('footer.modal-actions[data-ui="dialog-footer"]')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: /Back to work|Voltar ao trabalho/i })).toBeNull()
   })
 })
