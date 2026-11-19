@@ -56,15 +56,13 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const high = report ? percent >= 85 : percent >= 90
   const visible = report?.categories.filter(category => category.kind === 'used' || category.kind === 'deferred') ?? []
   return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label={t('usage.details')}
-    trigger={<button type="button" className="thread-usage-ring" aria-label={t('usage.trigger', { label })} title={label} data-high={high ? 'true' : undefined}>
+    trigger={<Button type="button" variant="ghost" size="sm" square className="thread-usage-ring" aria-label={t('usage.trigger', { label: report ? t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage }) : planLabel })} title={label} data-high={high ? 'true' : undefined}>
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" className="thread-usage-ring-track" />
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" strokeLinecap="round" className="thread-usage-ring-value"
           strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, percent)) / 100)} transform="rotate(-90 9 9)" />
       </svg>
-      {/* The number the ring draws: an empty ring alone read as a radio button. The same figure the name says. */}
-      <span className="thread-usage-ring-number">{report ? report.percentage : Math.round(planPercent)}%</span>
-    </button>}>
+    </Button>}>
     <div className="thread-usage-popover">
       {report && <section aria-label={t('usage.context')}>
         <h4>{t('usage.context')}</h4>

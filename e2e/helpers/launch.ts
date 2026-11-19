@@ -115,6 +115,8 @@ export async function setAppearance(page: Page, appearance: Appearance, density?
 export async function resizeWindow(app: ElectronApplication, width: number, height: number): Promise<void> {
   await app.evaluate(({ BrowserWindow }, [w, h]) => {
     const win = BrowserWindow.getAllWindows()[0]
+    const [minW, minH] = win.getMinimumSize()
+    if (w < minW || h < minH) win.setMinimumSize(Math.min(minW, w), Math.min(minH, h))
     win.setSize(w, h)
     win.center()
   }, [width, height])
