@@ -31,8 +31,14 @@ test('AG-08 in the app: sends terminal selection to matching OxeChat thread draf
     await expect(sendItem).toBeVisible()
     await sendItem.click()
 
-    // App switches to OxeChat (thread view) without sending automatically.
-    await expect(page.locator('[data-mode="thread"], [data-thread-composer="true"]').first()).toBeVisible({ timeout: 15_000 })
+    // App switches to OxeChat (main.thread-shell) and opens the matching conversation composer or new-conversation dialog
+    // with the fenced ```text draft stored (without sending automatically).
+    await expect(page.locator('main.thread-shell')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('#new-thread-form, [data-thread-composer="true"]').first()).toBeVisible({ timeout: 15_000 })
+    await expect.poll(
+      () => page.evaluate(() => localStorage.getItem('oxe.thread-drafts') ?? ''),
+      { timeout: 10_000 }
+    ).toContain('```text')
   } finally {
     await app.close()
   }
