@@ -20,7 +20,6 @@ import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ip
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
-import { useUIStore } from '../../store/ui.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { terminalKeyRoute } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
@@ -864,12 +863,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     prefs.scrollback,
     prefs.backgroundOpacity
   ])
-
-  useEffect(() => {
-    const current = useUIStore.getState().activePaneId
-    const active = document.activeElement
-    if (isRunning && (!current || current === paneId) && (!active || active === document.body || active === document.documentElement)) terminalRef.current?.focus()
-  }, [isRunning, paneId])
 
   useEffect(() => {
     const handler = (e: Event): void => {
