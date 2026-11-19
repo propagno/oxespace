@@ -100,18 +100,53 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
 
   // Needs you: the read-only list every window uses (pendingRequestsAll), one request per waiting conversation.
   const [pending, setPending] = useState<Map<string, ThreadPendingRequestSummary>>(() => new Map())
-  const waitingKey = useMemo(() => threads.filter(thread => thread.status === 'approval').map(thread => thread.id).join(','), [threads])
+  const waitingIds = useMemo(() => new Set(threads.filter(thread => thread.status === 'approval').map(thread => thread.id)), [threads])
+  const waitingKey = useMemo(() => [...waitingIds].join(','), [waitingIds])
+  const waitingIdsRef = useRef(waitingIds)
+  const pendingSeq = useRef(0)
+  const pendingInFlight = useRef(false)
+  const pendingDirty = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const refreshPending = useCallback(() => {
-    const read = window.oxe?.thread?.pendingRequestsAll
-    if (!read) return
-    void Promise.resolve(read()).then(list => {
-      if (!Array.isArray(list)) return
-      const byThread = new Map<string, ThreadPendingRequestSummary>()
-      for (const request of list) if (!byThread.has(request.threadId)) byThread.set(request.threadId, request)
-      setPending(byThread)
-    }).catch(() => undefined)
+    const load = () => {
+      const read = window.oxe?.thread?.pendingRequestsAll
+      if (!read) return
+      if (pendingInFlight.current) { pendingDirty.current = true; return }
+      pendingInFlight.current = true
+      const seq = ++pendingSeq.current
+      void Promise.resolve(read()).then(list => {
+        if (!mounted.current || seq !== pendingSeq.current || !Array.isArray(list)) return
+        const byThread = new Map<string, ThreadPendingRequestSummary>()
+        for (const request of list) if (!byThread.has(request.threadId)) byThread.set(request.threadId, request)
+        setPending(byThread)
+      }).catch(() => undefined).finally(() => {
+        pendingInFlight.current = false
+        if (mounted.current && pendingDirty.current) {
+          pendingDirty.current = false
+          if (waitingIdsRef.current.size > 0) load()
+        }
+      })
+    }
+    load()
   }, [])
-  useEffect(() => { if (waitingKey) refreshPending(); else setPending(new Map()) }, [waitingKey, refreshPending])
+  useEffect(() => {
+    waitingIdsRef.current = waitingIds
+    if (waitingKey) { refreshPending(); return }
+    const seq = ++pendingSeq.current
+    pendingDirty.current = false
+    void Promise.resolve().then(() => {
+      if (mounted.current && seq === pendingSeq.current) setPending(prev => prev.size ? new Map() : prev)
+    })
+  }, [waitingIds, waitingKey, refreshPending])
+  useEffect(() => {
+    const off = window.oxe?.thread?.onChanged?.(event => {
+      if (!waitingIdsRef.current.size) return
+      if (event?.threadId && !waitingIdsRef.current.has(event.threadId)) return
+      refreshPending()
+    })
+    return () => { if (typeof off === 'function') off() }
+  }, [refreshPending])
 
   // Line 2's +N −N: the session view (OXE-170), read again when the list or a conversation's places change.
   const [changes, setChanges] = useState<Map<string, SessionChanges>>(() => new Map())
