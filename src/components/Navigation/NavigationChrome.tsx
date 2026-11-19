@@ -86,7 +86,7 @@ export function SidebarHeaderActions({ actions }: { actions: RailAction[] }) {
  * The bottom of an expanded sidebar on the src/ui anatomy (BRD-01): a SidebarFooter of IconButtons, with the mode's
  * context action (panels), light or dark, settings, and collapse.
  */
-export function SidebarFooterBar({ context, onToggle, className }: { context: RailAction; onToggle: () => void; className?: string }) {
+export function SidebarFooterBar({ context, onToggle, className }: { context: RailAction; onToggle?: () => void; className?: string }) {
   const { t } = useTranslation()
   const openSettings = useUIStore(state => state.toggleSettings)
   const mode = useColorMode()
@@ -98,7 +98,7 @@ export function SidebarFooterBar({ context, onToggle, className }: { context: Ra
     <span className={styles.spacer} />
     <IconButton size="sm" label={themeLabel} title={themeLabel} icon={mode === 'dark' ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />} onClick={() => setAppearance(next)} />
     <IconButton size="sm" label={t('nav.openSettings')} title={t('nav.settings')} icon={<Settings2 size={14} aria-hidden="true" />} onClick={openSettings} />
-    <IconButton size="sm" label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} icon={<ChevronsLeft size={14} aria-hidden="true" />} onClick={onToggle} />
+    {onToggle ? <IconButton size="sm" label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} icon={<ChevronsLeft size={14} aria-hidden="true" />} onClick={onToggle} /> : null}
   </UiSidebarFooter>
 }
 
