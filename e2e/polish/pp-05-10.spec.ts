@@ -6,9 +6,10 @@ import { launchApp, openDemoWorkspace } from '../helpers/launch'
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
 test('PP-05·10 in the app: MCP builtin notice close button is at least 24 px and titles have no uppercase transform', async () => {
-  const { electronApp, page } = await launchApp({ env: REAL })
+  test.setTimeout(180_000)
+  const { app: electronApp, page, workspaceRoot } = await launchApp({ realClock: true, env: REAL })
   try {
-    await openDemoWorkspace(page)
+    await openDemoWorkspace(page, workspaceRoot)
 
     const metrics = await page.evaluate(() => {
       const scope = document.createElement('span')
