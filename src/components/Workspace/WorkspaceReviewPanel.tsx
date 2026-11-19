@@ -1,16 +1,14 @@
 import { ChevronsRight, Maximize2, Minimize2 } from 'lucide-react'
 import { Suspense, useState, type ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Workspace } from '../../../shared/types/workspace'
 import { ReviewPane } from '../Review/ReviewPane'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import { pasteIntoAgentTerminal } from '../../lib/sendToAgent'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
-import { i18n } from '../../i18n'
-import { Button, DockPanel, IconButton, Skeleton } from '../../ui'
+import { DockPanel, IconButton, SegmentedControl, Skeleton } from '../../ui'
 import { lazyFrom } from '../../lib/chunk'
 import { CHANGES_PANEL_CHUNK } from './panelChunks'
-
-const tc = i18n.getFixedT(null, 'code')
 
 // Over the shared chunk the surface warms at idle: once it has arrived, the Changes view opens without a fallback.
 const ChangesPanel = lazyFrom(CHANGES_PANEL_CHUNK, module => module.ChangesPanel)
@@ -25,6 +23,7 @@ interface WorkspaceReviewPanelProps {
 }
 
 export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded, scope, workspace }: WorkspaceReviewPanelProps): ReactElement {
+  const { t: tc } = useTranslation('code')
   // "Changes" is the new branch diff; "Classic" keeps per-line review comments
   // until they are ported to the Monaco diff.
   const [view, setView] = useState<'changes' | 'classic'>('changes')
@@ -36,15 +35,15 @@ export function WorkspaceReviewPanel({ isExpanded, onCollapse, onToggleExpanded,
       title={tc('panels.changes')}
       count={<PanelScopeBadge workspaceId={workspace.id} scope={scope} />}
       actions={<>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-pressed={view === 'classic'}
-          title={view === 'classic' ? tc('workspace.review.back') : tc('workspace.review.classic')}
-          onClick={() => setView(value => value === 'classic' ? 'changes' : 'classic')}
-        >
-          {view === 'classic' ? 'Changes' : 'Classic'}
-        </Button>
+        <SegmentedControl
+          value={view}
+          onChange={setView}
+          label={tc('workspace.review.viewLabel')}
+          options={[
+            { value: 'changes', label: tc('workspace.review.changesOption') },
+            { value: 'classic', label: tc('workspace.review.classicOption') }
+          ]}
+        />
         <IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />
       </>}
       close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
