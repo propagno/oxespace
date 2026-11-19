@@ -558,10 +558,16 @@
 
 .panel-scope-badge svg { flex-shrink: 0; }
 
-/* The un-pinned state shows its pin affordance only on hover, so the resting
-   badge reads as a label rather than as a control competing for attention. */
-.panel-scope-badge .panel-scope-badge-pin-hint { opacity: 0; }
-.panel-scope-badge:hover .panel-scope-badge-pin-hint { opacity: 0.7; }
+/* The un-pinned state collapses its pin affordance at rest so it takes 0 px
+   in the flex row, and reveals it on hover or keyboard focus. */
+.panel-scope-badge .panel-scope-badge-pin-hint {
+  display: none;
+}
+.panel-scope-badge:hover .panel-scope-badge-pin-hint,
+.panel-scope-badge:focus-visible .panel-scope-badge-pin-hint {
+  display: inline-block;
+  opacity: 0.7;
+}
 
 .panel-scope-badge:hover {
   border-color: var(--bd-default);

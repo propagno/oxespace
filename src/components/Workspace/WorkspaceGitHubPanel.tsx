@@ -1,9 +1,8 @@
-import { ChevronsRight, Files, GitBranch, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronsRight, GitBranch, Maximize2, Minimize2 } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
 import type { GitHubPanelTab, Workspace } from '../../../shared/types/workspace'
 import { GitHubPanel } from '../GitHub/GitHubPanel'
 import { GitControlPanel } from '../GitHub/GitControlPanel'
-import { useWorkspaceStore } from '../../store/workspace.store'
 import { PanelScopeBadge } from './PanelScopeBadge'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
 import { i18n } from '../../i18n'
@@ -24,9 +23,6 @@ interface WorkspaceGitHubPanelProps {
 
 export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabChange, onToggleExpanded, scope, workspace }: WorkspaceGitHubPanelProps): ReactElement {
   const [advancedGitHub, setAdvancedGitHub] = useState(false)
-  const openFiles = (): void => {
-    void useWorkspaceStore.getState().showRepositoryView(workspace.id, 'files')
-  }
   const expandLabel = isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')
 
   return (
@@ -36,13 +32,7 @@ export function WorkspaceGitHubPanel({ activeTab, isExpanded, onCollapse, onTabC
       icon={<GitBranch size={14} aria-hidden="true" />}
       title={tc('panels.git')}
       count={<PanelScopeBadge workspaceId={workspace.id} scope={scope} />}
-      actions={<>
-        <span className="repository-view-actions" role="group" aria-label={tc('workspace.panel.repositoryViews')}>
-          <IconButton label={tc('workspace.panel.files')} title={tc('workspace.panel.files')} icon={<Files size={14} aria-hidden="true" />} onClick={openFiles} />
-          <IconButton label={tc('panels.git')} title={tc('panels.git')} aria-pressed icon={<GitBranch size={14} aria-hidden="true" />} />
-        </span>
-        <IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />
-      </>}
+      actions={<IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />}
       close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
     >
       <div className="workspace-editor-content">
