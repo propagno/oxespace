@@ -86,6 +86,13 @@
     "BRD-25.request.rule",
     "BRD-25.request.buttons",
     "BRD-25.request.split",
-    "BRD-25.echo.needs-you"
+    "BRD-25.echo.needs-you",
+    "BRD-04.composer.radius",
+    "BRD-04.composer-toolbar.height",
+    "BRD-04.button.height",
+    "BRD-04.button.font-weight",
+    "BRD-04.icon-button.height",
+    "BRD-25.composer.mode-first",
+    "BRD-25.composer.controls"
   ]
 }
