@@ -7,9 +7,10 @@ import { openSettings } from '../helpers/settings'
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
 test('PS-08·15 in the app: the workspace terminal Switch is saved and back the same on reopen', async () => {
-  const { electronApp, page } = await launchApp({ env: REAL })
+  test.setTimeout(180_000)
+  const { app, page, workspaceRoot } = await launchApp({ env: REAL, realClock: true })
   try {
-    await openDemoWorkspace(page)
+    await openDemoWorkspace(page, workspaceRoot)
     await openSettings(page)
 
     const scopeSeg = page.locator('[data-ui="settings-scope"]')
@@ -31,6 +32,6 @@ test('PS-08·15 in the app: the workspace terminal Switch is saved and back the 
     const swReopened = page.locator('section[aria-labelledby="ws-section-terminal"]').getByRole('switch')
     await expect(swReopened).toHaveAttribute('aria-checked', 'true')
   } finally {
-    await electronApp.close()
+    await app.close()
   }
 })
