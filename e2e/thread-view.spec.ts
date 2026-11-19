@@ -298,7 +298,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The surface draws a 1px frame border, so its content box starts clientTop lower.
     const surfaceTop = await page.locator('.workspace-surface').evaluate(el => el.getBoundingClientRect().top + el.clientTop)
     expect(canvasTop).toBe(surfaceTop)
-    await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
+    await page.getByRole('button', { name: /^Collapse (the )?sidebar/ }).first().click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
@@ -338,8 +338,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
-    // OxeCode's footer is on the src/ui anatomy (BRD-01); OxeChat's follows in BRD-02. Both keep the same actions.
-    expect(threadFooter.length).toBe(codeFooter.length)
+    // OxeCode's footer dropped the duplicate collapse button (OXE-255) and stays aligned on src/ui IconButton heights.
+    expect(codeFooter.length).toBeGreaterThanOrEqual(2)
+    expect(threadFooter.length).toBeGreaterThanOrEqual(2)
+    expect(codeFooter.every(b => b.height === codeFooter[0].height && b.height > 0)).toBe(true)
+    expect(threadFooter.every(b => b.height === threadFooter[0].height && b.height > 0)).toBe(true)
     await expect(page.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)

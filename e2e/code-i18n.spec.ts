@@ -34,7 +34,9 @@ test('Code speaks Brazilian Portuguese end to end', async () => {
     await menu.getByRole('menuitemcheckbox', { name: 'Alterações', exact: true }).click()
     const changes = page.getByTestId('changes-panel')
     await expect(changes.getByRole('button', { name: /^Escopo das alterações/ })).toBeVisible()
-    await expect(changes.getByRole('complementary', { name: 'Arquivos alterados' })).toBeVisible()
+    await expect(changes.getByRole('group', { name: 'Lados comparados' })).toBeVisible()
+    await expect(changes.getByRole('button', { name: 'Atualizar as alterações' })).toBeVisible()
+    await expect(changes.getByRole('complementary', { name: 'Arquivos alterados' })).toHaveCount(0)
 
     await page.locator('[data-testid="btn-open-tools"]:visible').click()
     await page.getByRole('menuitemcheckbox', { name: 'Commit e pull request', exact: true }).click()
