@@ -215,7 +215,7 @@
   "worktree": {
     "detached": "(desanexado)",
     "mainSuffix": "(principal)",
-    "unknown": "worktree desconhecido",
+    "unknown": "worktree desconhecida",
     "paneName": "Painel {{row}}.{{column}}",
     "pickPaneFirst": "Escolha um painel primeiro: clique em um painel da grade e depois escolha a worktree.",
     "activePaneSection": "Worktree do painel ativo",
@@ -223,19 +223,19 @@
     "noActivePane": "Nenhum painel ativo. Clique em um painel para escolhê-lo.",
     "refresh": "Atualizar a lista de worktrees",
     "dismiss": "Dispensar",
-    "onlyMain": "Este repositório só tem a worktree principal. Crie um abaixo para trabalhar em outra branch sem mexer no painel atual.",
-    "none": "Nenhum worktree",
+    "onlyMain": "Este repositório só tem a worktree principal. Crie uma abaixo para trabalhar em outra branch sem mexer no painel atual.",
+    "none": "Nenhuma worktree",
     "noneHint": "Crie uma worktree abaixo para trabalhar em outra branch sem mexer no painel atual.",
     "pickPaneTitle": "Clique em um painel da grade primeiro",
     "alreadyOn": "O painel ativo já está em {{name}}",
-    "useHere": "Abrir o painel ativo neste worktree",
+    "useHere": "Abrir o painel ativo nesta worktree",
     "remove": "Remover worktree",
     "removeLabel": "Remover a worktree {{name}}",
     "tag": {
       "main": "principal",
-      "locked": "bloqueado",
+      "locked": "bloqueada",
       "prunable": "removível",
-      "prunableTitle": "O git perdeu esta pasta de vista; removê-lo só limpa o registro"
+      "prunableTitle": "O git perdeu esta pasta de vista; removê-la só limpa o registro"
     },
     "create": {
       "branch": "Nome da branch",
@@ -244,7 +244,7 @@
       "folder": "Pasta",
       "newHint": "Nova branch a partir de <strong>{{base}}</strong>. Publique depois com <strong>git push -u</strong>.",
       "head": "o HEAD atual",
-      "existingHint": "A branch existente é aberta aqui. Ela não pode estar aberta em outro worktree ao mesmo tempo.",
+      "existingHint": "A branch existente é aberta aqui. Ela não pode estar aberta em outra worktree ao mesmo tempo.",
       "advanced": "Avançado",
       "path": "Caminho personalizado",
       "pathPlaceholder": "Derivado da branch; edite para mudar",
@@ -256,13 +256,13 @@
       "cancel": "Cancelar",
       "creating": "Criando…",
       "submit": "Criar worktree",
-      "open": "Novo worktree"
+      "open": "Nova worktree"
     },
     "hooks": {
       "label": "Scripts do oxe.yaml aguardando aprovação",
       "waiting": {
-        "setup": "O script setup (roda quando uma worktree é criado) aguarda aprovação",
-        "archive": "O script archive (roda antes de uma worktree ser removido) aguarda aprovação"
+        "setup": "O script setup (roda quando uma worktree é criada) aguarda aprovação",
+        "archive": "O script archive (roda antes de uma worktree ser removida) aguarda aprovação"
       },
       "review": "Revisar e aprovar…",
       "failed": "Não foi possível aprovar o script",
@@ -287,13 +287,13 @@
       "title": "Remover {{name}}?",
       "checking": "Verificando o que esta worktree guarda…",
       "clean": "Tudo aqui está commitado e publicado. A pasta é apagada; a branch fica.",
-      "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga esse trabalho de vez.",
-      "losesFolder": "Esta worktree ainda guarda {{losses}}. Removê-lo apaga a pasta; a branch fica.",
+      "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-la apaga esse trabalho de vez.",
+      "losesFolder": "Esta worktree ainda guarda {{losses}}. Removê-la apaga a pasta; a branch fica.",
       "force": "Remover e descartar as alterações"
     },
     "createError": {
       "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria uma worktree onde já há arquivos.",
-      "branchInUse": "Esta branch já está aberta em outro worktree. Escolha outra branch ou remova aquele worktree antes.",
+      "branchInUse": "Esta branch já está aberta em outra worktree. Escolha outra branch ou remova aquela worktree antes.",
       "noStart": "O git não encontrou um ponto de partida para a nova branch. Confira se a branch atual tem pelo menos um commit.",
       "branchMissing": "Branch não encontrada. Digite o nome de uma branch existente, ou desmarque “Usar uma branch existente” para criar uma nova.",
       "notGit": "Este workspace não é um repositório Git. Worktrees só funcionam dentro de um repositório.",
@@ -303,7 +303,7 @@
     },
     "removeError": {
       "archiveHook": "Corrija o script archive no oxe.yaml e tente de novo.",
-      "main": "Este é a worktree principal; ele não pode ser removido pelo app.",
+      "main": "Esta é a worktree principal; ela não pode ser removida pelo app.",
       "folderInUse": "A worktree saiu do git, mas a pasta não pôde ser apagada: algo ainda a mantém aberta (um editor, o explorador de arquivos ou um terminal). Feche e apague a pasta à mão se ela continuar lá.",
       "changed": "Esta worktree mudou desde a verificação e agora tem trabalho não commitado. Abra a remoção de novo para ver o quê e confirme.",
       "generic": "Não foi possível remover a worktree."
@@ -311,22 +311,22 @@
     "cleanup": {
       "title": "Limpar worktrees",
       "activityUnknown": "atividade desconhecida",
-      "activeToday": "ativo hoje",
-      "idleDays_one": "parado há {{count}} dia",
-      "idleDays_many": "parado há {{count}} dias",
-      "idleDays_other": "parado há {{count}} dias",
+      "activeToday": "ativa hoje",
+      "idleDays_one": "parada há {{count}} dia",
+      "idleDays_many": "parada há {{count}} dias",
+      "idleDays_other": "parada há {{count}} dias",
       "scanFailed": "Não foi possível verificar as worktrees",
       "scanning": "Verificando as worktrees…",
-      "none": "Nenhum worktree além do principal.",
+      "none": "Nenhuma worktree além da principal.",
       "select": "Selecionar {{name}}",
       "noReason": "nenhum motivo para remover",
       "reason": {
-        "idle-clean": "parado há mais de 30 dias",
-        "merged": "já mergeado",
+        "idle-clean": "parada há mais de 30 dias",
+        "merged": "já mergeada",
         "missing-directory": "pasta ausente"
       },
       "blocker": {
-        "locked": "bloqueado pelo git",
+        "locked": "bloqueada pelo git",
         "git-status-error": "git status ilegível",
         "dirty-files": "alterações não commitadas",
         "unpushed-commits": "commits não publicados",
@@ -335,23 +335,23 @@
         "running-terminal": "terminal rodando",
         "live-agent": "agente trabalhando"
       },
-      "risky_one": "{{count}} worktree selecionado tem trabalho não salvo ou estado desconhecido; removê-lo descarta esse trabalho.",
-      "risky_many": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
-      "risky_other": "{{count}} worktrees selecionados têm trabalho não salvo ou estado desconhecido; removê-los descarta esse trabalho.",
+      "risky_one": "{{count}} worktree selecionada tem trabalho não salvo ou estado desconhecido; removê-la descarta esse trabalho.",
+      "risky_many": "{{count}} worktrees selecionadas têm trabalho não salvo ou estado desconhecido; removê-las descarta esse trabalho.",
+      "risky_other": "{{count}} worktrees selecionadas têm trabalho não salvo ou estado desconhecido; removê-las descarta esse trabalho.",
       "removed_one": "{{count}} worktree removida.",
-      "removed_many": "{{count}} worktrees removidos.",
-      "removed_other": "{{count}} worktrees removidos.",
-      "partly_one": "{{removed}} removidos; {{count}} recusado:",
-      "partly_many": "{{removed}} removidos; {{count}} recusados:",
-      "partly_other": "{{removed}} removidos; {{count}} recusados:",
+      "removed_many": "{{count}} worktrees removidas.",
+      "removed_other": "{{count}} worktrees removidas.",
+      "partly_one": "{{removed}} removidas; {{count}} recusada:",
+      "partly_many": "{{removed}} removidas; {{count}} recusadas:",
+      "partly_other": "{{removed}} removidas; {{count}} recusadas:",
       "rescan": "Verificar de novo",
-      "remove_one": "Remover {{count}} selecionado",
-      "remove_many": "Remover {{count}} selecionados",
-      "remove_other": "Remover {{count}} selecionados",
+      "remove_one": "Remover {{count}} selecionada",
+      "remove_many": "Remover {{count}} selecionadas",
+      "remove_other": "Remover {{count}} selecionadas",
       "confirmTitle_one": "Descartar o trabalho não salvo de {{count}} worktree?",
       "confirmTitle_many": "Descartar o trabalho não salvo de {{count}} worktrees?",
       "confirmTitle_other": "Descartar o trabalho não salvo de {{count}} worktrees?",
-      "confirmBody": "Estes worktrees têm alterações não commitadas, commits não publicados ou estado desconhecido: {{names}}. Removê-los apaga esse trabalho de vez.",
+      "confirmBody": "Estas worktrees têm alterações não commitadas, commits não publicados ou estado desconhecido: {{names}}. Removê-las apaga esse trabalho de vez.",
       "confirm_one": "Remover {{count}} e descartar",
       "confirm_many": "Remover {{count}} e descartar",
       "confirm_other": "Remover {{count}} e descartar"
@@ -378,12 +378,12 @@
       "changed_other": "{{count}} alteradas",
       "branchChanged": "Branch mudou desde então",
       "missing": "Pasta ausente",
-      "locked": "Bloqueado",
+      "locked": "Bloqueada",
       "dirtyReason": "Faça commit ou descarte as alterações primeiro.",
-      "lockedReason": "O git está com ele bloqueado. Desbloqueie antes.",
+      "lockedReason": "O git está com ela bloqueada. Desbloqueie antes.",
       "remove": "Remover",
       "removeTitle": "Remover a worktree em {{path}}?",
-      "removeBody": "A pasta dele é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
+      "removeBody": "A pasta dela é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
       "deleteBranch": "Apagar também a branch {{branch}}",
       "unmerged": "Não mergeada: os commits ficam só nesta branch.",
       "removedDeleted": "Worktree removida; branch apagada.",
@@ -1184,7 +1184,7 @@
     },
     "scope": {
       "pinned": "Fixado em {{folder}}",
-      "worktree": "Os painéis estão lendo o worktree em {{path}}. Clique para mantê-los aqui mesmo quando outro painel estiver ativo.",
+      "worktree": "Os painéis estão lendo a worktree em {{path}}. Clique para mantê-los aqui mesmo quando outro painel estiver ativo.",
       "root": "Os painéis estão lendo {{path}}. Clique para mantê-los aqui mesmo quando um painel de worktree estiver ativo.",
       "pinAction": "Fixar o escopo",
       "followAction": "Seguir o painel ativo"
@@ -1267,7 +1267,7 @@
       "arguments": "Argumentos",
       "noArguments": "Nenhum argumento adicional",
       "directory": "Pasta",
-      "directoryHint": "O caminho do worktree de um painel tem prioridade.",
+      "directoryHint": "O caminho da worktree de um painel tem prioridade.",
       "installed": "O executável já precisa estar instalado e acessível. Escolher um perfil não o instala nem o inicia.",
       "apply": "Aplicar ao salvar",
       "keep": "Manter os painéis atuais",
@@ -1280,8 +1280,8 @@
       "pages": {
         "general": {
           "label": "Geral",
-          "hint": "Instruções do projeto e preferências do workspace",
-          "description": "Defina instruções padrão, preferências de shell e aparência para este workspace."
+          "hint": "Instruções do projeto e configurações do workspace",
+          "description": "Defina instruções padrão, configurações de shell e aparência para este workspace."
         },
         "projects": {
           "label": "Projetos",
@@ -1306,7 +1306,7 @@
         "delegation": {
           "label": "Delegação de agentes",
           "hint": "Trabalho em paralelo",
-          "description": "Deixe os agentes passarem uma tarefa focada para um worktree novo com terminal próprio."
+          "description": "Deixe os agentes passarem uma tarefa focada para uma nova worktree com terminal próprio."
         },
         "tools": {
           "label": "Ferramentas",
@@ -1318,7 +1318,7 @@
       "shellApplied": "O shell padrão agora é {{name}}",
       "close": "Fechar as configurações do workspace",
       "sections": "Seções das configurações do workspace",
-      "navLabel": "WORKSPACE",
+      "navLabel": "Workspace",
       "scopedTo": "Configurações de",
       "mode": "Modo",
       "modeHint": "Os modos claro e escuro valem para o app inteiro. O padrão do app segue a densidade em Configurações › Aparência; Compacta ou Confortável a substituem neste workspace.",
@@ -1347,7 +1347,7 @@
         "bar": "Barra",
         "underline": "Sublinhado"
       },
-      "usingGlobal": "Usando as preferências globais do terminal (Configurações › Terminal)."
+      "usingGlobal": "Usando as configurações globais do terminal (Configurações › Terminal)."
     },
     "instructions": {
       "title": "Instruções do projeto",
@@ -1401,7 +1401,7 @@
     "betaTitle": "Opcional e ainda em certificação entre provedores e plataformas",
     "working": "Trabalhando…",
     "loading": "Carregando…",
-    "intro": "Conhecimento local compartilhado entre os worktrees deste repositório. Cada agente mantém a própria sessão.",
+    "intro": "Conhecimento local compartilhado entre as worktrees deste repositório. Cada agente mantém a própria sessão.",
     "enabled": "Ligada",
     "capture": "Capturar a atividade do projeto (hooks nativos do OxeCode e eventos suportados do OxeChat)",
     "context": "Fornecer contexto relevante às novas sessões de agentes",
@@ -1561,7 +1561,7 @@
     }
   },
   "delegation": {
-    "intro": "Delegue trabalho em paralelo para um worktree próprio e uma conversa duradoura. Abra Trabalho delegado em qualquer barra lateral para criar, inspecionar e retomar tarefas.",
+    "intro": "Delegue trabalho em paralelo para uma worktree própria e uma conversa duradoura. Abra Trabalho delegado em qualquer barra lateral para criar, inspecionar e retomar tarefas.",
     "allow": "Permitir que os agentes deleguem tarefas neste projeto",
     "privacy": "A delegação inicia uma sessão separada do Claude ou do Codex com a continuação escolhida. Seu login da assinatura e as permissões da conversa continuam valendo.",
     "manage": "Gerenciar destinos autorizados ({{count}})",
@@ -1590,7 +1590,7 @@
     "retry": "Preparar de novo",
     "approveOpen": "Aprovar o resultado…",
     "approveTitle": "Aprovar este resultado?",
-    "approveBody": "Aprovar “{{objective}}” marca a tarefa como concluída e aceita o trabalho no worktree dela. Revise as alterações antes.",
+    "approveBody": "Aprovar “{{objective}}” marca a tarefa como concluída e aceita o trabalho na worktree dela. Revise as alterações antes.",
     "approve": "Aprovar o resultado",
     "cancel": "Cancelar a tarefa",
     "reconnect": "Reconectar o terminal de origem",
@@ -1599,10 +1599,10 @@
     "adoptTitle": "Deixar este terminal controlar a tarefa?",
     "adoptBody": "O agente do terminal escolhido vai receber as atualizações desta tarefa e poderá mandar mensagens e controlá-la.",
     "adoptConfirm": "Autorizar o terminal",
-    "closed": "O terminal foi fechado. Preparar de novo o recria e mantém o worktree e a continuação.",
+    "closed": "O terminal foi fechado. Preparar de novo o recria e mantém a worktree e a continuação.",
     "session": "Sessão nativa",
     "generation": "geração {{value}}",
-    "preparing": "Preparando a branch, o worktree e a continuação…",
+    "preparing": "Preparando a branch, a worktree e a continuação…",
     "threadStarted": "Conversa iniciada e ligada à sessão do provedor.",
     "terminalStarted": "Terminal do agente iniciado. Confira os pedidos de login, confiança ou aceite.",
     "handoff": "Tarefa e continuação"
@@ -2167,14 +2167,14 @@
   },
   "delegate": {
     "title": "Delegar trabalho",
-    "description": "Inicie uma sessão focada em um branch e worktree próprios. Confira o checkout antes de iniciar o agente.",
+    "description": "Inicie uma sessão focada em uma branch e uma worktree próprias. Confira o checkout antes de iniciar o agente.",
     "loadFailed": "Não foi possível carregar as conversas: {{error}}",
     "checkoutFailed": "Não foi possível resolver este checkout.",
     "preview": "Conferir checkout",
     "create": "Criar delegação",
     "agent": "Agente",
     "destination": "Destino",
-    "thisProject": "Este projeto · novo worktree",
+    "thisProject": "Este projeto · nova worktree",
     "mode": "Modo",
     "modeChange": "Implementar alterações",
     "modeAnalysis": "Somente análise",
@@ -2204,11 +2204,11 @@
     "evidencePaths": "Caminhos no repositório, um por linha",
     "evidenceHint": "Só o texto commitado selecionado é transferido. Edições locais ficam neste checkout.",
     "checkout": "Checkout",
-    "checkoutHint": "Escolha o branch do worktree independente.",
+    "checkoutHint": "Escolha a branch da worktree independente.",
     "strategy": "Estratégia de branch",
     "strategies": {
       "existing": "Existente",
-      "create": "Novo branch",
+      "create": "Nova branch",
       "generated": "Gerado"
     },
     "reference": "Referência (opcional)",
@@ -2216,8 +2216,8 @@
     "exactBranch": "Branch exato",
     "baseRef": "Ref base (opcional)",
     "baseRefPlaceholder": "Padrão do repositório",
-    "reuse": "Reusar um worktree limpo que já esteja neste branch",
-    "fetch": "Buscar o remoto antes de criar o worktree",
+    "reuse": "Reusar uma worktree limpa que já esteja nesta branch",
+    "fetch": "Buscar o remoto antes de criar a worktree",
     "remote": "Remoto (opcional)",
     "previewLabel": "Prévia da delegação",
     "ready": "Pronto para delegar",
@@ -2278,12 +2278,12 @@
     "confirmNew": {
       "title": "Iniciar uma nova sessão a partir da passagem de trabalho?",
       "confirm": "Iniciar nova sessão",
-      "description": "Isso inicia uma sessão independente no provedor a partir da passagem salva e do último checkpoint. A conversa e o worktree anteriores são preservados."
+      "description": "Isso inicia uma sessão independente no provedor a partir da passagem salva e do último checkpoint. A conversa e a worktree anteriores são preservadas."
     },
     "confirmCancel": {
       "title": "Cancelar esta tarefa?",
       "keep": "Manter tarefa",
-      "description": "O agente delegado para. O worktree e a conversa são mantidos, para você inspecionar depois."
+      "description": "O agente delegado para. A worktree e a conversa são mantidas, para você inspecionar depois."
     },
     "notice": "Tarefa delegada atualizada",
     "view": "Ver tarefa",
@@ -2512,7 +2512,7 @@
       "description": "Limpa a tela do terminal (mantém a sessão)."
     },
     "new": {
-      "hint": "Reiniciar do zero",
+      "hint": "Começar do zero",
       "description": "Reinicia o terminal com uma sessão limpa (sem retomar)."
     },
     "restart": {
