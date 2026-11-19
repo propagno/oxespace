@@ -174,7 +174,7 @@
 .agent-activity-table .text-muted { color: var(--tx-muted); }
 .agent-activity-table .chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--tx-secondary); font-size: var(--fs-2xs); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .agent-activity-table .chip.tone-success { border-color: var(--intent-success-border); background: var(--intent-success-bg); color: var(--intent-success-fg); }
-.agent-activity-table .chip.tone-attn { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.agent-activity-table .chip.tone-attn { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }
 .agent-activity-table .chip.tone-danger { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 .agent-activity-table .chip.tone-muted { color: var(--tx-muted); background: transparent; }
 .agent-activity-load-more { display: flex; justify-content: flex-start; padding-top: 4px; }
