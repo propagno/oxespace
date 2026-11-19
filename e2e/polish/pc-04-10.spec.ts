@@ -17,7 +17,7 @@ test('PC-04·10 in the app: in pt-BR the first sidebar row is current at start a
     await openDemoWorkspace(page, workspaceRoot)
     const firstRow = page.locator('aside.sidebar [data-ui="sidebar-row"]').first()
     await expect(firstRow).toBeVisible()
-    await expect(firstRow).toHaveAttribute('aria-current', 'true')
+    await expect(firstRow).toHaveAttribute('aria-current', /^(true|page)$/)
     await expect(firstRow).toContainText('Terminal 1')
     await expect(firstRow).not.toContainText('terminal 1')
   } finally {

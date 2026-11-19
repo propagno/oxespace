@@ -181,6 +181,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   applyWorkspace: (workspace) => {
     set((state) => ({ workspaces: replaced(state.workspaces, workspace) }))
+    if (workspace.id === get().activeWorkspaceId) syncActivePane(workspace)
   },
 
   createPane: async (workspaceId) => {
