@@ -16,6 +16,7 @@ import { humanizeError } from '../../utils/humanizeError'
 import { claudeFixedCost, decisionsFor, organizationToolRules, OXESPACE_SERVER, otherServerRules, ruleFor } from './toolsModel'
 import styles from './ToolsSettings.module.css'
 import { SkillsList } from './SkillsList'
+import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 
 /** File, key and product names: the same in every language. */
@@ -221,14 +222,17 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
             </dl>
             <p className={styles.hint}>{t('tools.totals.estimate')}</p>
             {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
-            <h4 className={styles.sectionTitle}>{t('tools.sections.project')}</h4>
+            <h3 className={styles.sectionTitle}>{t('tools.sections.project')}</h3>
             <p className={styles.hint}>{t('tools.rules.intro')}</p>
             <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
-            <h4 className={styles.sectionTitle}>{t('tools.sections.role')}</h4>
+            <h3 className={styles.sectionTitle}>{t('tools.sections.role')}</h3>
             <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
             <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
           </>}
-    <h4 className={styles.sectionTitle}>{t('tools.sections.mcpAndSkills')}</h4>
+    <div className={styles.sectionHeader}>
+      <h3 className={styles.sectionTitle}>{t('tools.sections.mcpAndSkills')}</h3>
+      <Button variant="secondary" size="sm" onClick={() => useUIStore.getState().openMcpPanel()}>{t('tools.manageMcp')}</Button>
+    </div>
     {rules && <Panel className={styles.group} label={t('tools.rules.otherTitle')} title={t('tools.rules.otherTitle')}>
       {others.length ? <ul aria-label={t('tools.rules.otherTitle')} className={styles.list}>{others.map(rule => <RuleRow key={`${rule.server}/${rule.tool}`} rule={rule} busy={busy} onChoose={chooseRule} />)}</ul>
         : <EmptyState compact title={t('tools.rules.otherEmpty')} />}

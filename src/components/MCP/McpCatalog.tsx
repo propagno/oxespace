@@ -2,9 +2,19 @@ import { KeyRound, LogIn, PlugZap, Plus, SlidersHorizontal, Terminal } from 'luc
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { categoryLabel, isDarkBrand, MCP_CATALOG, MCP_CATALOG_CATEGORIES, searchCatalog, type McpCatalogEntry } from './connectorCatalog'
-import { EmptyState, Spinner } from '../../ui'
+import { EmptyState, Spinner, StatusSignal, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import './McpCatalog.css'
+
+function catalogSignalState(health: McpServer['health']): SignalState {
+  switch (health) {
+    case 'healthy': return 'done'
+    case 'starting': return 'working'
+    case 'needs-auth': return 'needs-you'
+    case 'unhealthy': return 'failed'
+    default: return 'unconfirmed'
+  }
+}
 
 export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; size?: number }): ReactElement {
   const color = isDarkBrand(entry.brand.hex) ? 'var(--tx-primary)' : `#${entry.brand.hex}`
@@ -31,7 +41,7 @@ function CatalogRow({ entry, server, busy, onAdd, onTest }: { entry: McpCatalogE
   return <li className="mcp-catalog-row">
     <McpBrandTile entry={entry} />
     <span className="mcp-catalog-text">
-      <strong>{entry.name}{server && <i className={`mcp-catalog-state is-${server.health}`} title={server.healthMessage ?? stateLabel(server.health)}>{waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)}</i>}</strong>
+      <strong>{entry.name}{server && <i className={`mcp-catalog-state is-${server.health}`} title={server.healthMessage ?? stateLabel(server.health)}><StatusSignal state={catalogSignalState(server.health)} label={waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)} size={12} />{waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)}</i>}</strong>
       <small title={server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}>{server && waitingForSignIn(server) ? t('mcp.finishSignIn') : signInByAgent ? t('mcp.agentSignsIn') : server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}</small>
     </span>
     {server && waitingForSignIn(server) && <button type="button" className="mcp-catalog-hint is-action" onClick={() => void window.oxe.mcp.openSignIn(server.id)}><LogIn size={12} aria-hidden="true" />{t('mcp.openSignIn')}</button>}

@@ -723,6 +723,7 @@
   },
   "tools": {
     "whereToAdd": "To add or remove an MCP server, use Tools › Manage MCP servers.",
+    "manageMcp": "Manage MCP servers…",
     "skillsList": {
       "title": "Skills",
       "intro": "Markdown prompts in ~/.oxe/skills and the project's .oxe/skills. The project's wins on a shared name. Run one with /.",
