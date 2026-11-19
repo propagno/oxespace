@@ -59,3 +59,17 @@
 .thread-composer footer .thread-stop { flex: none; width: auto; height: var(--control-sm); gap: var(--space-1-5); padding: 0 var(--space-2); justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-full); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .thread-composer footer .thread-stop:hover:not(:disabled) { background: color-mix(in srgb, var(--intent-danger-fg) 14%, var(--intent-danger-bg)); color: var(--intent-danger-fg); }
 .thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--tx-muted); opacity: 1; }
+
+/* Working-set bar (AG-10 §2.3, OXE-172): joined to the top of the composer card, --bar-sm at rest. */
+.thread-composer [data-ui='working-set'] { margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2); border: 0; border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; background: var(--surface-sunken); height: var(--bar-sm); min-height: var(--bar-sm); overflow: hidden; }
+.thread-composer [data-ui='working-set'][data-open='true'] { height: auto; overflow: visible; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-header { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
+.thread-composer [data-ui='working-set'] button.thread-dock-changes-toggle { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-1); border: 0; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-chevron { margin-left: 0; transform: rotate(-90deg); }
+.thread-composer [data-ui='working-set'][data-open='true'] .thread-dock-changes-chevron { transform: rotate(0deg); }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions { gap: var(--space-1); }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { height: var(--bar-sm); min-height: var(--bar-sm); padding: 0 var(--space-1-5); border: 0; }
+.thread-composer [data-ui='working-set'] ul { padding: var(--space-1) var(--space-2) var(--space-1-5); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
+.thread-working-set-stats { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.thread-working-set-add { color: var(--intent-success-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.thread-working-set-del { color: var(--intent-danger-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }

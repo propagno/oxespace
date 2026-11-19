@@ -81,6 +81,7 @@
     "BRD-04.button.font-weight",
     "BRD-04.icon-button.height",
     "BRD-25.composer.mode-first",
-    "BRD-25.composer.controls"
+    "BRD-25.composer.controls",
+    "BRD-25.working-set.height"
   ]
 }

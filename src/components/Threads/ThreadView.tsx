@@ -449,10 +449,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {errorDetail && onAccounts ? <Button size="sm" onClick={() => { setError(''); setErrorDetail(''); onAccounts() }}>{t('view.connectAgent')}</Button> : null}
         <Button size="sm" variant="ghost" onClick={() => { setError(''); setErrorDetail('') }}>{t('view.dismissError')}</Button></>} /></div>}
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
-      {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
+        workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} /> : undefined}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={stopTurn} />
     </div></div>}
