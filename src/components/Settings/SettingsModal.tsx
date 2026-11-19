@@ -15,7 +15,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { APP_VERSION } from '../../lib/appVersion'
-import { applyWithUndo, Button, EmptyState, SegmentedControl, Switch, Select } from '../../ui'
+import { applyWithUndo, Button, EmptyState, SegmentedControl, SettingRow, Slider, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
@@ -618,52 +618,60 @@ function TerminalSettingsSection(): ReactElement {
             </Select>
           </label>
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.size')}
-              <em>{global.fontSize}px</em>
-            </span>
-            <input
-              type="range"
-              min={8}
-              max={32}
-              step={1}
-              value={global.fontSize}
-              onChange={(e) => setGlobal({ fontSize: Number(e.target.value) })}
-            />
-            <span className="settings-field-hint">{t('terminal.sizeHint')}</span>
-          </label>
-          {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>{t('terminal.resetSize', { size: TERMINAL_PREFS_DEFAULTS.fontSize })}</button>}
+          <SettingRow
+            label={t('terminal.size')}
+            description={t('terminal.sizeHint')}
+            htmlFor="terminal-font-size"
+            control={
+              <Slider
+                id="terminal-font-size"
+                min={8}
+                max={32}
+                step={1}
+                value={global.fontSize}
+                valueLabel={`${global.fontSize}px`}
+                onChange={(fontSize) => setGlobal({ fontSize })}
+              />
+            }
+          >
+            {global.fontSize !== TERMINAL_PREFS_DEFAULTS.fontSize && (
+              <button type="button" className="settings-reset-font" onClick={() => setGlobal({ fontSize: TERMINAL_PREFS_DEFAULTS.fontSize })}>
+                {t('terminal.resetSize', { size: TERMINAL_PREFS_DEFAULTS.fontSize })}
+              </button>
+            )}
+          </SettingRow>
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.lineHeight')}
-              <em>{global.lineHeight.toFixed(1)}</em>
-            </span>
-            <input
-              type="range"
-              min={1}
-              max={2}
-              step={0.1}
-              value={global.lineHeight}
-              onChange={(e) => setGlobal({ lineHeight: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.lineHeight')}
+            htmlFor="terminal-line-height"
+            control={
+              <Slider
+                id="terminal-line-height"
+                min={1}
+                max={2}
+                step={0.1}
+                value={global.lineHeight}
+                valueLabel={global.lineHeight.toFixed(1)}
+                onChange={(lineHeight) => setGlobal({ lineHeight })}
+              />
+            }
+          />
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.letterSpacing')}
-              <em>{global.letterSpacing}px</em>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={4}
-              step={0.5}
-              value={global.letterSpacing}
-              onChange={(e) => setGlobal({ letterSpacing: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.letterSpacing')}
+            htmlFor="terminal-letter-spacing"
+            control={
+              <Slider
+                id="terminal-letter-spacing"
+                min={0}
+                max={4}
+                step={0.5}
+                value={global.letterSpacing}
+                valueLabel={`${global.letterSpacing}px`}
+                onChange={(letterSpacing) => setGlobal({ letterSpacing })}
+              />
+            }
+          />
         </div>
 
         <div className="settings-form-group">
@@ -715,38 +723,37 @@ function TerminalSettingsSection(): ReactElement {
             />
           </div>}
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.scrollback')}
-              <em>{t('terminal.lines', { lines: formatNumber(global.scrollback) })}</em>
-            </span>
-            <input
-              type="range"
-              min={1000}
-              max={200000}
-              step={1000}
-              value={global.scrollback}
-              onChange={(e) => setGlobal({ scrollback: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.scrollback')}
+            htmlFor="terminal-scrollback"
+            control={
+              <Slider
+                id="terminal-scrollback"
+                min={1000}
+                max={200000}
+                step={1000}
+                value={global.scrollback}
+                valueLabel={t('terminal.lines', { lines: formatNumber(global.scrollback) })}
+                onChange={(scrollback) => setGlobal({ scrollback })}
+              />
+            }
+          />
 
-          <label className="settings-field">
-            <span className="settings-field-label-row">
-              {t('terminal.opacity')}
-              <em>
-                {Math.round(global.backgroundOpacity * 100)}%
-                {global.backgroundOpacity < 1 ? ` ${t('terminal.translucent')}` : ''}
-              </em>
-            </span>
-            <input
-              type="range"
-              min={0.6}
-              max={1}
-              step={0.05}
-              value={global.backgroundOpacity}
-              onChange={(e) => setGlobal({ backgroundOpacity: Number(e.target.value) })}
-            />
-          </label>
+          <SettingRow
+            label={t('terminal.opacity')}
+            htmlFor="terminal-opacity"
+            control={
+              <Slider
+                id="terminal-opacity"
+                min={0.6}
+                max={1}
+                step={0.05}
+                value={global.backgroundOpacity}
+                valueLabel={`${Math.round(global.backgroundOpacity * 100)}%${global.backgroundOpacity < 1 ? ` ${t('terminal.translucent')}` : ''}`}
+                onChange={(backgroundOpacity) => setGlobal({ backgroundOpacity })}
+              />
+            }
+          />
         </div>
 
         <div className="settings-callout"><RichText text={t('terminal.globalDefaults')} /></div>
