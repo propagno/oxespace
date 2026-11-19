@@ -25,13 +25,15 @@
 
 .mcp-brand-tile { display: grid; place-items: center; flex: none; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-chrome); overflow: hidden; }
 .mcp-brand-letter { display: grid; place-items: center; width: 100%; height: 100%; color: var(--tx-on-identity); font-weight: 700; }
+.mcp-brand-letter[data-contrast='light'] { color: var(--tx-on-identity); }
+.mcp-brand-letter[data-contrast='dark'] { color: var(--logo-tile); }
 
 /* Added servers: state chip + start/stop in place of the "+" */
 .mcp-catalog-text strong { display: inline-flex; align-items: center; gap: 8px; }
-.mcp-catalog-state { padding: 1px 7px; border-radius: var(--radius-full); background: var(--ov-2); color: var(--tx-muted); font-size: var(--fs-2xs); font-style: normal; font-weight: 600; }
-.mcp-catalog-state.is-healthy { background: color-mix(in srgb, var(--intent-success-solid) 16%, transparent); color: var(--intent-success-solid); }
-.mcp-catalog-state.is-starting { background: color-mix(in srgb, var(--intent-warning-solid) 16%, transparent); color: var(--intent-warning-solid); }
-.mcp-catalog-state.is-unhealthy { background: color-mix(in srgb, var(--intent-danger-solid) 16%, transparent); color: var(--intent-danger-solid); }
+.mcp-catalog-state { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: var(--radius-full); background: var(--surface-raised); color: var(--tx-muted); font-size: var(--fs-2xs); font-style: normal; font-weight: 600; }
+.mcp-catalog-state.is-healthy { background: var(--intent-success-bg); color: var(--intent-success-fg); }
+.mcp-catalog-state.is-starting { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.mcp-catalog-state.is-unhealthy { background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 .mcp-catalog-hint { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 2px 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); color: var(--tx-muted); font-size: var(--fs-2xs); white-space: nowrap; }
 
 button.mcp-catalog-hint.is-action { cursor: pointer; background: transparent; color: var(--tx-primary); }

@@ -55,7 +55,6 @@
 .settings-center .settings-content-kicker { display: none; }
 .settings-center .settings-content-header h2:not([data-ui]), .settings-general h2:not([data-ui]) { margin: 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.5px; line-height: 1.3; }
 .settings-center .settings-content-description, .settings-general > p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.6; }
-.settings-center .settings-content-actions > button[aria-label="Close"] { display: none; }
 .settings-center .settings-content-body { flex: none; min-height: 0; overflow: visible; padding: 0; gap: 16px; }
 .settings-center :is(.settings-btn, .settings-header-action) { min-height: var(--control-lg); padding: 0 12px; border-radius: var(--radius-sm); border-color: var(--bd-default); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .settings-center .settings-btn.primary { color: var(--tx-on-accent); background: var(--accent); }
