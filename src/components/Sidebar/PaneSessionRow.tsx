@@ -2,12 +2,12 @@ import { GitBranch, Hand } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import { AnchoredMenu, copyText, SidebarRow, StatusSignal, type MenuEntry, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
-import type { AgentProfile } from '../../../shared/types/agent'
+import type { AgentProfile, AgentProvider } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
-import { derivePaneDisplayState } from '../../utils/paneDisplay'
+import { compactPreview, derivePaneDisplayState, sanitizeTerminalPreview } from '../../utils/paneDisplay'
 import { AgentProviderIcon } from './AgentProviderIcon'
 
 interface PaneSessionRowProps {
@@ -51,19 +51,22 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const agentProfile = pane.agentProfileId
     ? agentProfiles.find(p => p.agentProfileId === pane.agentProfileId) ?? null
     : null
-  // Prefer the persisted agentName; fall back to the profile's name when the
-  // pane has a profile bound but agentName wasn't recorded (legacy rows /
-  // restored panes whose agentName was lost on a prior write).
-  const resolvedAgentName = pane.agentName ?? agentProfile?.name ?? null
-  const hasAgent = resolvedAgentName !== null
-  const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
-  const label = pane.displayName ?? baseLabel
 
   const { status, lastActivityAt, hasUnread } = terminalState
   const isRunning = status === 'running'
   const isStarting = status === 'starting'
   const canStopTerminal = pane.type === 'terminal' && (isRunning || isStarting)
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
+  const hasAgent = display.providerKey !== 'shell'
+  const taskSummary = hasAgent
+    ? (terminalState.lastIntent?.trim() ? compactPreview(terminalState.lastIntent) : terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null)
+    : null
+  const baseLabel = hasAgent
+    ? (taskSummary && taskSummary !== display.providerLabel ? `${display.providerLabel} · ${taskSummary}` : display.providerLabel)
+    : `${pane.type} ${paneIndex + 1}`
+  const label = pane.displayName?.trim() || baseLabel
+  const providerIconKey: AgentProvider | null = agentProfile?.provider
+    ?? (hasAgent ? (display.providerKey as AgentProvider) : null)
   const needsDecision = display.statusTone === 'needs-decision'
   // Where the status comes from (UX-07), for the detail's tooltip.
   const statusTitle = [display.attentionReason, display.originLabel].filter(Boolean).join(' · ') || undefined
@@ -184,7 +187,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
             onClick={e => e.stopPropagation()}
           />
         ) : <>
-          {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : null}
+          {providerIconKey ? <AgentProviderIcon provider={providerIconKey} size={14} /> : null}
           {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
           <span title={label} onDoubleClick={handleDoubleClick}>{label}</span>
           {/* Shape, not color: a decision is marked beside the name too. The screen-reader text below says it. */}
