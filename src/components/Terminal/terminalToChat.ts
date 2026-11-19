@@ -259,19 +259,27 @@ export async function sendTerminalSelectionToChat(args: {
     return { target, draft: nextDraft }
   }
 
-  const draftKey = newProjectDraftKey(target.projectId ?? target.rootPath)
-  const current = latest.drafts[draftKey] ?? ''
+  let resolvedProjectId = target.projectId
+  if (!resolvedProjectId && target.rootPath && window.oxe?.thread?.addProject) {
+    const added = await window.oxe.thread.addProject(target.rootPath).catch(() => null)
+    if (added?.projectId) resolvedProjectId = added.projectId
+    await useThreadStore.getState().loadProjects().catch(() => undefined)
+  }
+
+  const resolvedTarget: TerminalChatTarget = { kind: 'new-draft', projectId: resolvedProjectId, rootPath: target.rootPath }
+  const draftKey = newProjectDraftKey(resolvedProjectId ?? target.rootPath)
+  const current = useThreadStore.getState().drafts[draftKey] ?? ''
   const nextDraft = appendSelectionToDraft(current, args.selection)
-  latest.setDraft(draftKey, nextDraft)
+  useThreadStore.getState().setDraft(draftKey, nextDraft)
   window.dispatchEvent(
     new CustomEvent('oxe:open-thread-draft', {
       detail: {
         threadId: null,
-        projectId: target.projectId,
+        projectId: resolvedProjectId,
         rootPath: target.rootPath,
         draftLength: nextDraft.length
       }
     })
   )
-  return { target, draft: nextDraft }
+  return { target: resolvedTarget, draft: nextDraft }
 }
