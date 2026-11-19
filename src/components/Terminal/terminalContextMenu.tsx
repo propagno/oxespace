@@ -35,14 +35,29 @@ function TerminalMenu({ point, items, onClose, returnFocus }: {
   </span>
 }
 
-/** The menu's items, in order: Copy (only with a selection), Paste, Select all, Clear. */
-export function terminalContextMenu(terminal: TerminalLike, selection: string): MenuEntry[] {
-  return [
+export interface TerminalContextMenuOptions {
+  /** Optional AG-08 bridge callback: shown only when provided AND the terminal has a non-empty selection. */
+  onSendToChat?: (selection: string) => void
+}
+
+/** The menu's items, in order: Copy (only with a selection), Paste, Select all, Clear (+ optional Send selection to OxeChat). */
+export function terminalContextMenu(
+  terminal: TerminalLike,
+  selection: string,
+  options?: TerminalContextMenuOptions
+): MenuEntry[] {
+  const items: MenuEntry[] = [
     { label: t('terminal.menu.copy'), disabled: selection.length === 0, onSelect: () => { if (selection) void writeClipboard(selection) } },
     { label: t('terminal.menu.paste'), onSelect: () => { void readClipboard().then(text => { if (text) terminal.paste(text); terminal.focus() }) } },
     { label: t('terminal.menu.selectAll'), onSelect: () => { terminal.selectAll() } },
     { label: t('terminal.menu.clear'), onSelect: () => { terminal.clear() } }
   ]
+  if (options?.onSendToChat && selection.length > 0) {
+    const send = options.onSendToChat
+    items.push({ type: 'separator' })
+    items.push({ label: t('terminal.menu.sendToChat'), onSelect: () => { send(selection) } })
+  }
+  return items
 }
 
 /**
@@ -51,7 +66,11 @@ export function terminalContextMenu(terminal: TerminalLike, selection: string): 
  * nothing here. The listener sits on the document so it runs after every listener on the host, whatever order they
  * were added in (the path menu attaches after a lazy import). On close the keyboard goes back to the terminal.
  */
-export function attachTerminalContextMenu(host: HTMLElement, terminal: TerminalLike): { dispose(): void } {
+export function attachTerminalContextMenu(
+  host: HTMLElement,
+  terminal: TerminalLike,
+  options?: TerminalContextMenuOptions
+): { dispose(): void } {
   const doc = host.ownerDocument
   let mount: HTMLDivElement | null = null
   let root: Root | null = null
@@ -68,7 +87,7 @@ export function attachTerminalContextMenu(host: HTMLElement, terminal: TerminalL
     const rect = host.getBoundingClientRect()
     const point = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : { x: rect.left, y: rect.bottom }
     const selection = terminal.hasSelection() ? terminal.getSelection() : ''
-    const items = terminalContextMenu(terminal, selection)
+    const items = terminalContextMenu(terminal, selection, options)
     if (!root) { mount = doc.createElement('div'); doc.body.append(mount); root = createRoot(mount) }
     // A new key per opening: a menu opened again where it stands starts fresh.
     root.render(<TerminalMenu key={Date.now()} point={point} items={items} onClose={close} returnFocus={returnFocus} />)

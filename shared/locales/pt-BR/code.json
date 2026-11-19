@@ -399,7 +399,8 @@
       "copy": "Copiar",
       "paste": "Colar",
       "selectAll": "Selecionar tudo",
-      "clear": "Limpar"
+      "clear": "Limpar",
+      "sendToChat": "Enviar seleção ao OxeChat"
     },
     "agentNotFound": "Agente “{{name}}” não encontrado. Tente: {{options}}…",
     "search": {
