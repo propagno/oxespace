@@ -126,7 +126,7 @@
     },
     {
       "id": "BRD-03.button-lg.font-size",
-      "scene": "code-workspace",
+      "scene": "first-run",
       "select": "[data-ui=button][data-size=lg]",
       "prop": "font-size",
       "expect": {
@@ -141,8 +141,8 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "lg text (dialog footers, a page primary); measured in the first-run scene once #858 (BRD-12) lands, which has lg primaries (MARCA + coordination 15/11)"
+      "state": "enforced",
+      "note": "lg text (dialog footers, a page primary); measured in the first-run scene after #858 (BRD-12) (OXE-275)"
     },
     {
       "id": "BRD-03.button.font-weight",
