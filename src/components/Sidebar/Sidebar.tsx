@@ -291,7 +291,7 @@ export function Sidebar({
           })
         )}
       </nav>
-      <SidebarFooterBar className="nav-rail-footer" context={panelMenu ? railContext : undefined} onToggle={onToggleCollapse} />
+      <SidebarFooterBar className="nav-rail-footer" context={panelMenu ? railContext : undefined} />
       </div>
     </aside>
   )

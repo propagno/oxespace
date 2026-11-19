@@ -59,6 +59,8 @@ export interface DialogProps {
   returnFocusTo?: () => HTMLElement | null
   /** Accessible name of the close button. */
   closeLabel?: string
+  /** Omit the header close IconButton (for confirmations where Escape and Cancel already dismiss). */
+  hideClose?: boolean
   testId?: string
   /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
   onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
@@ -148,7 +150,7 @@ function focusOrigin(active: Element | null): HTMLElement | null {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), hideClose = false, testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
   const previous = useRef(focusOrigin(document.activeElement))
   // The body is portalled: the effect has to follow the node, not a ref read on the first commit.
   const [body, setBody] = useState<HTMLDivElement | null>(null)
@@ -178,7 +180,7 @@ export function Dialog({ title, description, onClose, children, footer, actions,
             <RadixDialog.Title className={styles.dialogTitle}>{title}</RadixDialog.Title>
             {description ? <RadixDialog.Description className={styles.dialogDescription}>{description}</RadixDialog.Description> : null}
           </div>
-          <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
+          {!hideClose ? <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} /> : null}
         </header>
         {children ? <div ref={setBody} className={styles.dialogBody} data-dialog-body=""
           onKeyDown={actions?.primary ? event => {

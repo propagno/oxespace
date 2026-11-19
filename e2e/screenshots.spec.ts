@@ -56,7 +56,7 @@ test('captures all surfaces for design review', async () => {
     await shot(page, '04-workspace-grid-with-sidebar')
 
     // 5. Collapse through the visible navigation control; native terminals own Ctrl+B.
-    await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+    await page.getByRole('button', { name: /^Collapse (the )?sidebar/ }).first().click()
     await expect(page.locator('.app-shell')).toHaveClass(/sidebar-collapsed/)
     await shot(page, '05-sidebar-collapsed')
     await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
