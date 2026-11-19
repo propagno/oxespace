@@ -162,7 +162,7 @@ test('redesign audit', async () => {
     await resize(app, 1440, 900)
 
     await step('sidebar-collapsed', async () => {
-      await page.getByRole('button', { name: 'Collapse sidebar' }).click()
+      await page.getByRole('button', { name: /^Collapse (the )?sidebar/ }).first().click()
       await capture(page, '06-sidebar-collapsed')
       await page.getByRole('button', { name: /^Expand (the )?sidebar/ }).first().click()
     })

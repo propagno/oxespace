@@ -19,7 +19,7 @@ test('Code keeps navigation footer visible while a long workspace list scrolls',
     }, projects)
     await page.reload()
     await expect(page.getByTestId('sidebar-workspace-select')).toHaveCount(projects.length)
-    await expect(page.getByRole('button', { name: 'Collapse sidebar', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Collapse (the )?sidebar/ })).toBeVisible()
     const geometry = await page.evaluate(() => {
       const list = document.querySelector('.ws-group-list') as HTMLElement
       const footer = document.querySelector('.nav-rail-footer') as HTMLElement
