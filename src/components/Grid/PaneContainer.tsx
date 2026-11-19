@@ -296,7 +296,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
           </span>
           {needsDecision && (
             <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">
-              <StatusSignal state="needs-you" label={display.statusLabel} size={12} />
+              <StatusSignal state="needs-you" label="" size={12} />
               {display.statusLabel}
             </span>
           )}

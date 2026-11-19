@@ -163,9 +163,10 @@ describe('PC-04·2 · needs-decision uses --attn tokens and StatusSignal (OXE-25
     const preview = within(row as HTMLElement).getByTestId('pane-row-status')
     const railPip = container.querySelector('[data-testid="rail-pip"]')!
 
-    // StatusSignal state="needs-you" present in both row and chip
+    // StatusSignal state="needs-you" present in both row and chip, without duplicating the chip's textContent
     expect(row.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
     expect(chip.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
+    expect(chip.textContent).toBe('Needs you')
 
     // No Hand icon rendered anywhere in row or pane container
     for (const svg of container.querySelectorAll('svg')) {
