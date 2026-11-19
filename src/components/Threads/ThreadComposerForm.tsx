@@ -43,7 +43,7 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
+export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
   snapshot: ThreadSnapshot | null
   draft: string
   attachments: ThreadAttachment[]
@@ -57,6 +57,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   mentions: { popup: ReactNode; onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean }
   openControl: 'model' | 'effort' | 'permissions' | null
   compactChips?: CompactComposerChipsConfig
+  workingSet?: ReactNode
   onControlClosed: () => void
   onError: (message: string) => void
   onSend: (mode?: 'queue' | 'steer') => void
@@ -113,6 +114,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   return <form ref={formRef} className="thread-composer" data-ui="composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
     {commands.popup}
     {mentions.popup}
+    {workingSet}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
