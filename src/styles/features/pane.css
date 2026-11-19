@@ -87,7 +87,7 @@
   flex-shrink: 0;
   background: var(--tx-disabled);
 }
-.pane-status-dot.running  { background: var(--accent); box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+.pane-status-dot.running  { background: var(--accent); }
 .pane-status-dot.starting { background: var(--intent-warning-solid); }
 .pane-status-dot.error    { background: var(--intent-danger-solid); }
 .pane-status-dot.exited   { background: var(--tx-disabled); }
@@ -268,7 +268,6 @@
 
 .pane-intent-input:focus {
   border-color: var(--bd-focus);
-  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
 }
 
 /* When the sidebar row shows the user's intent instead of raw output we lift

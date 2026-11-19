@@ -44,7 +44,7 @@ describe('Code mode in both languages', () => {
     expect(formatResetIn(now + 90 * 60_000, now)).toBe('1h 30m')
     await changeLanguage('pt-BR')
     expect(formatBytes(1536)).toBe('1,5 KB')
-    expect(relativeAge(now - 86_400_000, now)).toBe('parado há 1 dia')
+    expect(relativeAge(now - 86_400_000, now)).toBe('parada há 1 dia')
     expect(relativeAge(null, now)).toBe('atividade desconhecida')
     expect(formatResetIn(now + 90 * 60_000, now)).toBe('1 h 30 min')
   })
