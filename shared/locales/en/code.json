@@ -383,7 +383,8 @@
       "copy": "Copy",
       "paste": "Paste",
       "selectAll": "Select all",
-      "clear": "Clear"
+      "clear": "Clear",
+      "sendToChat": "Send selection to OxeChat"
     },
     "agentNotFound": "Agent “{{name}}” not found. Try: {{options}}…",
     "search": {
@@ -1104,7 +1105,10 @@
     },
     "review": {
       "back": "Back to Changes",
-      "classic": "Classic review (line comments)"
+      "classic": "Classic review (line comments)",
+      "viewLabel": "Changes view",
+      "changesOption": "Changes",
+      "classicOption": "Classic"
     },
     "density": {
       "default": "App default",

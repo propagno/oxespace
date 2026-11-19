@@ -8,6 +8,7 @@ import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLo
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
 import { attachTerminalContextMenu } from './terminalContextMenu'
+import { sendTerminalSelectionToChat } from './terminalToChat'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -229,7 +230,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     terminal.loadAddon(unicodeAddon)
     terminal.loadAddon(createTerminalLinksAddon())
     const pathLinksDisposable = attachTerminalPaths(terminal, hostRef.current, workspaceId) // F33: project paths
-    const contextMenuDisposable = attachTerminalContextMenu(hostRef.current, terminal) // CODE-8: Copy, Paste, Select all, Clear
+    const contextMenuDisposable = attachTerminalContextMenu(hostRef.current, terminal, {
+      onSendToChat: (selection) => {
+        void sendTerminalSelectionToChat({ selection, workspaceId, paneId })
+      }
+    }) // CODE-8 + AG-08 (OXE-190): Copy, Paste, Select all, Clear, optional Send selection to OxeChat
     terminal.loadAddon(searchAddon)
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))

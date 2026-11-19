@@ -269,6 +269,9 @@ test.describe.serial('brand conformance (OXE-149)', () => {
             try {
               await setThreadState(app, workspaceRoot, state)
               await page.waitForLoadState('domcontentloaded')
+              if (scene === 'chat-approval') {
+                await page.locator('[data-ui=row-attention]').first().waitFor({ timeout: 5_000 })
+              }
             } catch (error) {
               console.log(`[BRAND] could not set the ${state} state: ${(error as Error).message.split('\n')[0]}`)
             }
