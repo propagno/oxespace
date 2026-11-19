@@ -271,8 +271,7 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "pending until the chat-approval scene shows the row's mini card (coordination 15/11, release-blocking bug card)"
+      "state": "enforced"
     }
   ]
 }

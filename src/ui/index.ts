@@ -4,7 +4,7 @@
  * carry their own keyboard and screen-reader behavior.
  */
 export { Button, IconButton, ButtonGroup, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button'
-export { TextField, TextArea, Select, Checkbox, Switch, SegmentedControl, SwatchPicker, Kbd, FieldError } from './Field'
+export { TextField, TextArea, Select, Checkbox, Switch, Slider, SegmentedControl, SwatchPicker, Kbd, FieldError, type SliderProps } from './Field'
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
 export { SectionLabel } from './SectionLabel'
 export { SettingsSection, SettingRow, applyWithUndo } from './Settings'
