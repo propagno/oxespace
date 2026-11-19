@@ -142,7 +142,7 @@ pre {
 */
 
 small {
-  font-size: 80%;
+  font-size: var(--fs-2xs);
 }
 
 /*
