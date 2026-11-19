@@ -80,6 +80,12 @@
     "BRD-25.run-failed.open",
     "BRD-25.run-ok.closed",
     "BRD-25.stderr.bg",
-    "BRD-25.table.vrule"
+    "BRD-25.table.vrule",
+    "BRD-04.request.radius",
+    "BRD-04.request.button.height",
+    "BRD-25.request.rule",
+    "BRD-25.request.buttons",
+    "BRD-25.request.split",
+    "BRD-25.echo.needs-you"
   ]
 }
