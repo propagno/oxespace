@@ -2,6 +2,7 @@
 // in the built app with real services (OXESPACE_E2E_MOCK_NATIVE=0).
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace } from '../helpers/launch'
+import { togglePanel } from '../helpers/panels'
 
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
@@ -10,7 +11,7 @@ test('PP-05·8 in the app: Git panel omits Files/Git switcher and renders branch
   const { app: electronApp, page, workspaceRoot } = await launchApp({ realClock: true, env: REAL })
   try {
     await openDemoWorkspace(page, workspaceRoot)
-    await page.keyboard.press('Control+Shift+G')
+    await togglePanel(page, 'Commit & pull request')
     const panel = page.getByTestId('workspace-github-panel')
     await expect(panel).toBeVisible({ timeout: 15_000 })
 
