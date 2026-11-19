@@ -298,7 +298,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The surface draws a 1px frame border, so its content box starts clientTop lower.
     const surfaceTop = await page.locator('.workspace-surface').evaluate(el => el.getBoundingClientRect().top + el.clientTop)
     expect(canvasTop).toBe(surfaceTop)
-    await page.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
+    await page.getByRole('button', { name: /^Collapse (the )?sidebar/ }).first().click()
     await expect(page.getByRole('navigation', { name: 'Collapsed workspaces' })).toBeVisible()
     await modeButton(page, 'thread').click()
     await modeButton(page, 'code').click()
