@@ -23,6 +23,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { terminalKeyRoute } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
+import { createTerminalWriteScheduler } from './terminalWriteScheduler'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
@@ -681,44 +682,54 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const queuedWhileAttaching: string[] = []
 
     const bridge = transport ?? window.oxe.terminal
+    const writeScheduler = createTerminalWriteScheduler({
+      write: (chunk, done) => {
+        if (disposed) {
+          done()
+          return
+        }
+        // Smart scrollback (normal buffer only): when the user has scrolled up to
+        // read history, new streaming output shouldn't yank them to the bottom.
+        // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
+        // the full viewport, have no scrollback, and continuous pin-restore
+        // fights their redraws so the mouse wheel appears broken.
+        //
+        // Same reasoning applies while the user is mid mouse-drag selecting text
+        // at the bottom of an actively streaming terminal: pin the viewport so
+        // new tokens don't fight an in-progress copy.
+        const preBuf = terminal.buffer.active
+        const isAltScreen = preBuf.type === 'alternate'
+        const preViewportY = preBuf.viewportY
+        const recentSelection = lastSelectionRef.current
+        const hasActiveOrRecentSelection =
+          !!terminal.getSelection() ||
+          (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
+        const wasAtBottom =
+          isAltScreen ||
+          (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
+        terminal.write(chunk, () => {
+          if (!disposed && !wasAtBottom && terminal.buffer.active.type === 'normal') {
+            const postBuf = terminal.buffer.active
+            terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
+          }
+          done()
+        })
+        if (transport) return
+        useTerminalStore.getState().updateActivity(paneId, chunk)
+        if (previewTimer) clearTimeout(previewTimer)
+        previewTimer = setTimeout(() => {
+          previewTimer = null
+          const preview = readAgentPreview(terminal)
+          if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
+        }, 300)
+      }
+    })
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
       }
-      // Smart scrollback (normal buffer only): when the user has scrolled up to
-      // read history, new streaming output shouldn't yank them to the bottom.
-      // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
-      // the full viewport, have no scrollback, and continuous pin-restore
-      // fights their redraws so the mouse wheel appears broken.
-      //
-      // Same reasoning applies while the user is mid mouse-drag selecting text
-      // at the bottom of an actively streaming terminal: pin the viewport so
-      // new tokens don't fight an in-progress copy.
-      const preBuf = terminal.buffer.active
-      const isAltScreen = preBuf.type === 'alternate'
-      const preViewportY = preBuf.viewportY
-      const recentSelection = lastSelectionRef.current
-      const hasActiveOrRecentSelection =
-        !!terminal.getSelection() ||
-        (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
-      const wasAtBottom =
-        isAltScreen ||
-        (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
-      terminal.write(event.data, () => {
-        if (!wasAtBottom && terminal.buffer.active.type === 'normal') {
-          const postBuf = terminal.buffer.active
-          terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
-        }
-      })
-      if (transport) return
-      useTerminalStore.getState().updateActivity(paneId, event.data)
-      if (previewTimer) clearTimeout(previewTimer)
-      previewTimer = setTimeout(() => {
-        previewTimer = null
-        const preview = readAgentPreview(terminal)
-        if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
-      }, 300)
+      writeScheduler.enqueue(event.data)
     })
     const unsubscribeExit = bridge.onExit(paneId, (event) => {
       terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
@@ -776,6 +787,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       settleFitTimersRef.current = []
       if (previewTimer) clearTimeout(previewTimer)
       unsubscribeData()
+      writeScheduler.dispose()
       unsubscribeExit()
       resizeObserver.disconnect()
       visibilityObserver?.disconnect()
