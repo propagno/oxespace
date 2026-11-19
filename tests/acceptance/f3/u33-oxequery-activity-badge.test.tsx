@@ -70,7 +70,7 @@ describe("U3.3 · OxeQuery's agent activity badge", () => {
     render(<AgentActivitySettings />)
     await waitFor(() => expect(api.list).toHaveBeenCalled())
     expect(api.list.mock.calls[0]?.[0]).toMatchObject({ sources: ['databases'], connection: 'c-shop' })
-    expect(screen.getByRole('button', { name: /^Databases/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: /^Databases/ })).toHaveAttribute('aria-checked', 'true')
   })
 
   test('a write waiting for you turns the badge to attention, with the sun', async () => {
