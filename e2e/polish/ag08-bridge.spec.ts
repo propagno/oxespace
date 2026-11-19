@@ -10,6 +10,7 @@ test('AG-08 in the app: sends terminal selection to matching OxeChat thread draf
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({
     appearance: 'light',
+    realClock: true,
     env: { OXESPACE_E2E_MOCK_NATIVE: '0' }
   })
   try {
@@ -32,13 +33,16 @@ test('AG-08 in the app: sends terminal selection to matching OxeChat thread draf
     await sendItem.click()
 
     // App switches to OxeChat (main.thread-shell) and opens the matching conversation composer or new-conversation dialog
-    // with the fenced ```text draft stored (without sending automatically).
+    // with the fenced ```text draft preserved (without sending automatically).
     await expect(page.locator('main.thread-shell')).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('#new-thread-form, [data-thread-composer="true"]').first()).toBeVisible({ timeout: 15_000 })
-    await expect.poll(
-      () => page.evaluate(() => localStorage.getItem('oxe.thread-drafts') ?? ''),
-      { timeout: 10_000 }
-    ).toContain('```text')
+    const newThreadForm = page.locator('#new-thread-form')
+    const composer = page.locator('[data-thread-composer="true"]').first()
+    await expect(newThreadForm.or(composer).first()).toBeVisible({ timeout: 15_000 })
+    if (await newThreadForm.isVisible()) {
+      await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    }
+    await expect(composer).toBeVisible({ timeout: 15_000 })
+    await expect(composer).toHaveValue(/```text/, { timeout: 10_000 })
   } finally {
     await app.close()
   }

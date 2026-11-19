@@ -2,6 +2,7 @@ import { Check, FolderOpen } from 'lucide-react'
 import { THREAD_PROVIDERS, threadProductName } from '../../../shared/threadProviders'
 import { useState } from 'react'
 import type { ThreadProvider } from '../../../shared/types/thread'
+import { consumePendingNewDraft } from '../Terminal/terminalToChat'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useTranslation } from 'react-i18next'
@@ -42,7 +43,9 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
       const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) })
       // Falling back to the project folder is a one-time answer; it does not change what is remembered.
       if (useWorktree === inWorktree) writeThreadWorktreePref(context.projectId, inWorktree)
-      useThreadStore.getState().adopt(snapshot); onClose()
+      useThreadStore.getState().adopt(snapshot)
+      consumePendingNewDraft({ threadId: snapshot.thread.id, projectId: context.projectId, rootPath: context.rootPath })
+      onClose()
     } catch (cause) {
       // A worktree refusal names its cause (branch exists, not a repository…); show it instead of a generic line.
       const parsed = worktree ? parseThreadWorktreeError(cause instanceof Error ? cause.message : String(cause)) : null

@@ -189,6 +189,30 @@ export function attachOpenThreadDraftListener(handlers: {
 
 export const newProjectDraftKey = (projectIdOrPath: string): string => `new:${projectIdOrPath}`
 
+/** Moves any pending AG-08 new-conversation draft for this project/path into the newly created thread. */
+export function consumePendingNewDraft(args: {
+  threadId: string
+  projectId?: string | null
+  rootPath?: string | null
+}): string | null {
+  const store = useThreadStore.getState()
+  const normRoot = normalizePathForMatch(args.rootPath)
+  const candidates = Object.entries(store.drafts).filter(([key, text]) => {
+    if (!key.startsWith('new:') || !text) return false
+    const target = key.slice(4)
+    if (args.projectId && target === args.projectId) return true
+    if (normRoot && normalizePathForMatch(target) === normRoot) return true
+    return false
+  })
+  if (!candidates.length) return null
+  const [matchedKey, pendingText] = candidates[0]
+  const current = store.drafts[args.threadId] ?? ''
+  const merged = current ? `${current}\n\n${pendingText}` : pendingText
+  store.setDraft(args.threadId, merged)
+  store.setDraft(matchedKey, '')
+  return merged
+}
+
 /** Resolves the pane's current working directory and routes the selected text into the OxeChat composer draft. */
 export async function sendTerminalSelectionToChat(args: {
   selection: string
