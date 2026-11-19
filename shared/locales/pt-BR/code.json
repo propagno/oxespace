@@ -2602,7 +2602,7 @@
     "empty": "Nenhuma chamada HTTP ainda. Chamadas de curl, wget e HTTPie dos agentes aparecem aqui.",
     "emptyFiltered": "Nada corresponde",
     "clearFilters": "Limpar filtros",
-    "error": "Não deu para ler o registro HTTP"
+    "error": "Não foi possível ler o registro HTTP"
   },
   "agentBrowser": {
     "defaultAgent": "Claude",
