@@ -58,14 +58,12 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   const labelOf = (label: string): string => known && label.toLowerCase().startsWith(`${known.toLowerCase()} · `) ? label.slice(known.length + 3) : label
   return <section className="thread-usage-card" aria-label={t('failure.providerUsage')}>
     <header><strong>{name}</strong><span>{t('failure.subscriptionLimits')}</span></header>
-    {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => {
-      const percent = Math.max(0, Math.min(100, window.usedPercent))
-      return <div className="thread-usage-window" key={`${window.label}:${index}`}>
-        <div><span>{usageWindowLabel(labelOf(window.label))}</span><strong>{t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}</strong></div>
-        <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={t('failure.windowUsage', { label: usageWindowLabel(window.label) })} value={percent} max={100} />
-        <small>{window.resetsAt ? <>{t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })} · <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · {t('failure.localTime')}</> : t('failure.noReset')}</small>
+    {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => (
+      <div className="thread-usage-window" key={`${window.label}:${index}`}>
+        <span className="thread-usage-window-line">{`${usageWindowLabel(labelOf(window.label))} · ${t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}${window.resetsAt ? ` · ${t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })}` : ''}`}</span>
+        {!window.resetsAt && <small>{t('failure.noReset')}</small>}
       </div>
-    })}</div> : <EmptyState compact title={t('failure.noWindows')} />}
+    ))}</div> : <EmptyState compact title={t('failure.noWindows')} />}
     <footer>{t('failure.checked', { name, time: usageClock(usage.checkedAt) })}</footer>
   </section>
 }
@@ -105,14 +103,17 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
     catch { setRefreshError(t('failure.refreshFailed')) }
     finally { refreshing.current = false; setLoading(false) }
   }
-  return <details className="thread-turn-error thread-failure-card" open={latest}>
+  return <details className="thread-turn-error thread-failure-card" data-ui="failure-card" open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
       {code === 'authentication'
-        ? <Notice intent="danger">{failure ? failureMessage(failure) : t('failure.reconnect')}</Notice>
+        ? <Notice intent="danger">{t('failure.reconnect')}</Notice>
         : <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : event.error ?? t('failure.couldNotFinish')}</p>}
-      {failure?.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
-      {(failure?.providerCode || failure?.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
+      {(failure?.detail || failure?.providerCode || failure?.httpStatus) && <details className="thread-failure-technical">
+        <summary>{t('failure.diagnostic')}</summary>
+        {failure.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
+        {(failure.providerCode || failure.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
+      </details>}
       {usage && <ThreadUsageDetails usage={usage} />}
       {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? t('failure.usageUnavailable') : refreshUsage && failure ? t('failure.checkingUsage') : t('failure.notRecorded')}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">{t('failure.staleUsage')}</p>}

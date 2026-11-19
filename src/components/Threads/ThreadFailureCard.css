@@ -8,7 +8,11 @@
 .thread-failure-body { padding: 0 12px 12px; border-top: 1px solid var(--bd-default); }
 .thread-failure-card .thread-failure-body p { padding: 0; margin: 10px 0; background: transparent; line-height: 1.6; overflow-wrap: anywhere; }
 .thread-failure-diagnostic { padding: 10px; margin: 10px 0; max-height: 200px; overflow: auto; background: var(--surface-canvas); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1.6; }
+.thread-failure-technical { margin-top: var(--space-2); }
+.thread-failure-technical > summary { color: var(--tx-muted); font-size: var(--fs-2xs); cursor: pointer; }
+.thread-failure-technical > summary:hover { color: var(--tx-secondary); }
 .thread-failure-codes { display: flex; flex-wrap: wrap; gap: 8px; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-usage-window-line { color: var(--tx-secondary); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .thread-failure-body>footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .thread-failure-body>footer>button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--bd-default); font-size: var(--fs-2xs); }
 .thread-failure-note { color: var(--tx-muted); font-size: var(--fs-2xs); }

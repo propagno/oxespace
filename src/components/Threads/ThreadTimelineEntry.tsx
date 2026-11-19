@@ -125,13 +125,30 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
   } : null
   const body = (() => {
     if (event.type === 'turn-fold') return <ThreadTurnFoldRow key={key} fold={event} turn={snapshot?.turns?.find(value => value.id === turnId)} events={turnEvents} onToggle={() => onToggleFold?.(turnId)} />
-    if (event.type === 'activity-group') return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} rootPath={snapshot?.thread.rootPath ?? ''} threadId={snapshot?.thread.id} onResolveInterrupted={command => void action(() => runCommand(command))} onDraft={onDraft} />
+    if (event.type === 'activity-group') {
+      if (!event.events.some(item => item.name === 'contextCompaction')) {
+        return <ThreadActivityGroup key={key} events={event.events} mode={viewMode} rootPath={snapshot?.thread.rootPath ?? ''} threadId={snapshot?.thread.id} onResolveInterrupted={command => void action(() => runCommand(command))} onDraft={onDraft} />
+      }
+      const parts: Array<{ kind: 'compaction'; id: string } | { kind: 'tools'; id: string; events: typeof event.events }> = []
+      for (const item of event.events) {
+        if (item.name === 'contextCompaction') parts.push({ kind: 'compaction', id: item.id })
+        else {
+          const last = parts.at(-1)
+          if (last?.kind === 'tools') last.events.push(item)
+          else parts.push({ kind: 'tools', id: item.id, events: [item] })
+        }
+      }
+      return <>{parts.map(part => part.kind === 'compaction'
+        ? <div key={part.id} className="thread-compaction-divider" data-ui="compaction-divider" role="separator">{t('timeline.contextCompacted')}</div>
+        : <ThreadActivityGroup key={part.id} events={part.events} mode={viewMode} rootPath={snapshot?.thread.rootPath ?? ''} threadId={snapshot?.thread.id} onResolveInterrupted={command => void action(() => runCommand(command))} onDraft={onDraft} />)}</>
+    }
     if (event.type === 'plan') return <ThreadPlan key={key} event={event} />
     if (event.type === 'reasoning') return event.text.trim() ? <ThreadReasoning key={key} event={event} running={running && snapshot?.turns?.at(-1)?.id === turnId} /> : null
     if (event.type === 'subagent') return <ThreadSubagentActivity key={key} event={event} compact stopping={pending} onStop={snapshot?.thread.capabilities?.features.subagentLifecycle?.enabled && api?.stopTask && event.receiverThreadIds[0] ? () => void action(() => api.stopTask!(snapshot.thread.id, event.receiverThreadIds[0])) : undefined} />
     if (event.type === 'tool' && event.files?.length) return <ThreadFileActivity key={key} event={event} root={snapshot?.thread.rootPath ?? ''} roots={[snapshot?.thread.observedLocation?.checkoutRoot]} threadId={snapshot!.thread.id} workspaceId={snapshot?.thread.workspaceId} onOpen={openFile} />
     if (event.type === 'message') return <PathScopeContext.Provider key={key} value={pathScope}><ThreadMessageRow event={event} turnEvents={turnEvents} snapshot={snapshot} running={running} pending={pending} copied={copiedMessageId === event.id} action={action} onCopy={onCopy} turnId={turnId}
       quickReplies={event.id === lastMessageId ? quickReplies : []} onQuickReply={onQuickReply} onQuote={onQuote} /></PathScopeContext.Provider>
+    if (event.type === 'tool' && event.name === 'contextCompaction') return <div key={key} className="thread-compaction-divider" data-ui="compaction-divider" role="separator">{t('timeline.contextCompacted')}</div>
     if (event.type === 'tool') return <details key={key} className="thread-tool"><summary><ChevronDown size={12} />{event.state === 'running' ? <Spinner size="sm" decorative /> : event.state === 'failed' ? <AlertCircle size={12} /> : <Check size={12} />}{event.name}<small>{t(`activity.state.${event.state === 'running' || event.state === 'failed' || event.state === 'unknown' ? event.state : 'completed'}`)}</small></summary>{event.detail && <pre>{event.detail}</pre>}</details>
     if (event.type === 'request') {
       const root = snapshot!.thread.rootPath

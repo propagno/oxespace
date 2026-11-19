@@ -690,7 +690,7 @@
     "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
     "reconnect": "Reconnect your native agent account to continue.",
     "couldNotFinish": "The agent could not finish this turn.",
-    "diagnostic": "Provider diagnostic",
+    "diagnostic": "Technical details",
     "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
     "checkingUsage": "Checking current provider usage…",
     "notRecorded": "Usage and reset time were not recorded for this failure.",
@@ -698,7 +698,7 @@
     "compact": "Compact conversation",
     "reviewPermissions": "Review permissions",
     "changeConfiguration": "Change configuration",
-    "retry": "Retry turn",
+    "retry": "Try again",
     "retryGroup": "Retry this turn",
     "changedFiles": "This turn changed files.",
     "undoAndRetry": "Undo its changes and retry",
@@ -759,6 +759,7 @@
     "operations_one": "{{count}} operation",
     "operations_other": "{{count}} operations",
     "undo": "Undo",
+    "undoTurn": "Undo turn",
     "confirmUndo": "Confirm undo",
     "undoGroup": "Confirm undo",
     "undoFailed": "Could not undo these changes.",
@@ -1602,6 +1603,7 @@
     "decline": "Deny",
     "usageUnavailable": "Usage unavailable",
     "interrupted": "Interrupted",
+    "contextCompacted": "Context compacted",
     "noPublicMessages": "No public messages in this section. Continue loading earlier messages if available."
   },
   "turnReview": {
