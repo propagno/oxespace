@@ -19,7 +19,6 @@
   background: var(--intent-success-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
-  box-shadow: 0 0 6px rgba(52, 212, 116, 0.65);
 }
 
 /* Awaiting: agent paused after the user's last intent — solid brand dot.
@@ -27,7 +26,6 @@
 .pane-activity-dot.activity-awaiting,
 .pane-status-dot.activity-awaiting {
   background: var(--accent);
-  box-shadow: 0 0 0 2px rgba(18, 199, 154, 0.18), 0 0 6px rgba(18, 199, 154, 0.65);
 }
 
 /* Idle: nothing happening — flat muted dot, no animation. */
@@ -40,7 +38,6 @@
 .pane-activity-dot.activity-error,
 .pane-status-dot.activity-error {
   background: var(--intent-danger-solid);
-  box-shadow: 0 0 6px rgba(248, 113, 113, 0.65);
 }
 
 .pane-activity-dot.activity-starting,
@@ -48,7 +45,6 @@
   background: var(--intent-warning-solid);
   --pulse-scale: 0.85;
   animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.65);
 }
 
 .pane-activity-dot.activity-exited,
@@ -151,7 +147,7 @@
   flex-shrink: 0;
 }
 
-.workspace-integrations-health.tone-healthy { background: var(--intent-success-solid); box-shadow: 0 0 6px color-mix(in srgb, var(--intent-success-solid) 62%, transparent); }
+.workspace-integrations-health.tone-healthy { background: var(--intent-success-solid); }
 .workspace-integrations-health.tone-attention { background: var(--intent-warning-solid); }
 .workspace-integrations-health.tone-idle { background: var(--tx-muted); opacity: 0.55; }
 
