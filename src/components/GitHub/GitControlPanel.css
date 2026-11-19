@@ -1,21 +1,21 @@
 .git-control { display: flex; flex-direction: column; gap: 12px; min-width: 0; height: 100%; overflow: auto; padding: 14px; color: var(--tx-primary); font-size: var(--fs-xs); }
 .git-control-heading, .git-control-heading > div, .git-control-heading strong, .git-control-file, .git-control-file-name, .git-control-actions, .git-control-actions details > div { display: flex; align-items: center; gap: 8px; }
 .git-control-heading { justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--bd-default); }
-.git-control-heading strong { font-size: var(--fs-sm); }
+.git-control-heading strong { font-size: var(--fs-sm); font-family: var(--font-mono); }
 .git-control-heading small { color: var(--tx-muted); font-variant-numeric: tabular-nums; }
 /* Plain buttons only: the design-system Button (primary actions) keeps its own look. */
 :where(.git-control) button:not([class*="_button_"]) { color: inherit; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: transparent; cursor: pointer; }
 :where(.git-control) button:not([class*="_button_"]):hover:not(:disabled) { background: var(--fill-hover); }
 :where(.git-control) button:not([class*="_button_"]):disabled { cursor: default; opacity: .45; }
 .git-control :is(button, summary, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.git-control-heading > button { width: 27px; height: 27px; display: grid; place-items: center; }
+.git-control-heading > button { width: var(--control-sm); height: var(--control-sm); display: grid; place-items: center; }
 .git-control-group h3 { display: flex; justify-content: space-between; margin: 0 0 5px; padding: 6px 3px; border-bottom: 1px solid var(--bd-default); font-size: var(--fs-2xs); font-weight: 600; color: var(--tx-muted); }
 .git-control-group h3 span { font-variant-numeric: tabular-nums; }
 .git-control-file { min-height: 28px; }
 .git-control-file-name { flex: 1; min-width: 0; padding: 3px 5px; text-align: left; border: 0 !important; }
 .git-control-file-name span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.git-control-file-status { width: 20px; flex: none; text-align: center; color: var(--tx-muted); font-family: monospace; }
-.git-control-file-action { min-height: 26px; padding: 3px 6px; font-size: var(--fs-2xs); }
+.git-control-file-status { width: 20px; flex: none; text-align: center; color: var(--tx-muted); font-family: var(--font-mono); }
+.git-control-file-action { min-height: var(--control-sm); padding: 3px 6px; font-size: var(--fs-2xs); }
 .git-control-actions { flex-wrap: wrap; }
 .git-control-actions > button, .git-control-actions details button, .git-control-commit button:not([type="submit"]) { padding: 6px 10px; }
 .git-control-actions summary { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--tx-muted); }

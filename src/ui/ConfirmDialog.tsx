@@ -23,16 +23,21 @@ export interface ConfirmDialogProps {
   error?: string
   onConfirm: () => void
   onCancel: () => void
+  /** Called on Escape or backdrop click when dismissing differs from clicking the safe button. Defaults to onCancel. */
+  onDismiss?: () => void
+  /** Omit the header close IconButton. */
+  hideClose?: boolean
   children?: ReactNode
   returnFocusTo?: () => HTMLElement | null
   testId?: string
 }
 
 /** Confirm or cancel one action. Replaces `window.confirm` and the hand-built confirmation dialogs. */
-export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = i18n.t('ui.cancel'), danger = false, busy = false, confirmDisabled = false, acknowledge, error, onConfirm, onCancel, children, returnFocusTo, testId }: ConfirmDialogProps): ReactElement {
+export function ConfirmDialog({ title, description, confirmLabel, cancelLabel = i18n.t('ui.cancel'), danger = false, busy = false, confirmDisabled = false, acknowledge, error, onConfirm, onCancel, onDismiss, hideClose = false, children, returnFocusTo, testId }: ConfirmDialogProps): ReactElement {
   const [acknowledged, setAcknowledged] = useState(false)
   const cancel = (): void => { if (!busy) onCancel() }
-  return <Dialog title={title} description={description} size="sm" returnFocusTo={returnFocusTo} testId={testId} onClose={cancel}
+  const dismiss = (): void => { if (!busy) (onDismiss ?? onCancel)() }
+  return <Dialog title={title} description={description} size="sm" hideClose={hideClose} returnFocusTo={returnFocusTo} testId={testId} onClose={dismiss}
     actions={{
       // Busy: Cancel keeps its focus and stays where it is; the dialog only closes once the action is done.
       cancel: { label: cancelLabel, onClick: cancel, focus: true, unavailable: busy },

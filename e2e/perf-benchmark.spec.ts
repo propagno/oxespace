@@ -457,12 +457,7 @@ test('repository: Files ↔ Source Control', async () => {
         '[data-testid="workspace-github-panel"]',
         true
       ))
-      toFiles.push(await timeDomToggle(
-        page,
-        () => page.getByTestId('workspace-github-panel').getByRole('button', { name: 'Files and editor' }).click(),
-        '[data-testid="workspace-editor-panel"]',
-        true
-      ))
+      toFiles.push(await timePanelToggle(page, 'Files', 'workspace-editor-panel', true))
     }
 
     report('repository: Files→Source Control', toSourceControl)

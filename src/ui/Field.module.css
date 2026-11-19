@@ -99,6 +99,21 @@
 .switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .switchText { display: grid; gap: 2px; min-width: 0; }
 
+/* Slider: brand track in --surface-sunken with --bd-control edge, --accent fill, visible focus and mono tabular value. */
+.slider { display: inline-flex; align-items: center; gap: var(--space-3); min-block-size: var(--target-min); }
+.sliderControl { position: relative; display: inline-flex; align-items: center; inline-size: 200px; block-size: var(--target-min); flex: none; }
+.sliderTrack { position: relative; inline-size: 100%; block-size: 6px; border: 1px solid var(--bd-control); border-radius: var(--radius-full); background: var(--surface-sunken); overflow: hidden; pointer-events: none; }
+.sliderFill { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: var(--radius-full); background: var(--accent); }
+.sliderInput { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; margin: 0; appearance: none; background: transparent; cursor: pointer; }
+.sliderInput::-webkit-slider-runnable-track { background: transparent; height: 6px; }
+.sliderInput::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 2px solid var(--accent); border-radius: var(--radius-full); background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--duration-fast) var(--ease-standard); }
+.sliderInput:hover:not(:disabled)::-webkit-slider-thumb { transform: scale(1.08); }
+.sliderInput::-moz-range-track { background: transparent; height: 6px; border: 0; }
+.sliderInput::-moz-range-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: var(--radius-full); background: var(--surface-raised); box-shadow: var(--elevation-1); }
+.sliderInput:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.sliderInput:disabled { opacity: 0.5; cursor: not-allowed; }
+.sliderValue { min-inline-size: 48px; text-align: end; font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--tx-secondary); white-space: nowrap; }
+
 /* Padding is --space-0-5 so the segment radius (--radius-sm) plus it equals the track radius (--radius-md). The option fills that inset and stays at least --target-min; the 2px is the track's own border. */
 .segmented { display: inline-flex; padding: var(--space-0-5); gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
 .segment {
@@ -185,6 +200,11 @@
   .swatch[aria-checked='true']::before { border-color: Canvas; }
   .swatch[aria-checked='true'] { background: Highlight; }
   .swatch:focus-visible { outline-color: CanvasText; }
+
+  .sliderTrack { forced-color-adjust: none; border-color: CanvasText; background: Canvas; }
+  .sliderFill { background: Highlight; }
+  .sliderInput::-webkit-slider-thumb { forced-color-adjust: none; border-color: Highlight; background: Canvas; box-shadow: none; }
+  .sliderInput:focus-visible { outline-color: CanvasText; }
 }
 
 .kbd {

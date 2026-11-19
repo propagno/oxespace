@@ -74,7 +74,7 @@ describe('U3.1 · Settings › Agent activity, one list from every source', () =
     expect(headers).toEqual(expect.arrayContaining(['When', 'Conversation', 'What', 'Result']))
     for (const text of ['src/app.ts', 'SELECT * FROM orders', 'POST api.example.com/v1/charges/:id', 'billing-db']) expect(screen.getAllByText(text).length).toBeGreaterThan(0)
     const calls = api.list.mock.calls.length
-    await userEvent.click(screen.getByRole('button', { name: /^Databases/ }))
+    await userEvent.click(screen.getByRole('radio', { name: /^Databases/ }))
     await waitFor(() => expect(api.list.mock.calls.length).toBe(calls + 1))
     expect(api.list.mock.calls.at(-1)?.[0]).toMatchObject({ sources: ['databases'] })
   })
@@ -100,7 +100,7 @@ describe('U3.1 · Settings › Agent activity, one list from every source', () =
     await renderPage()
     expect(await screen.findByText("Some sources couldn't be read. The rest is up to date.")).toBeInTheDocument()
     expect(screen.getAllByText("Some sources couldn't be read. The rest is up to date.")).toHaveLength(1)
-    expect(screen.getByRole('button', { name: /^HTTP/ }).textContent).toMatch(/—/)
+    expect(screen.getByRole('radio', { name: /^HTTP/ }).textContent).toMatch(/—/)
     expect(tableRows()).toHaveLength(3)
     const calls = api.list.mock.calls.length
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
@@ -183,7 +183,7 @@ describe('U3.1 · Settings › Agent activity, one list from every source', () =
     await renderPage()
     expect(await screen.findByText('No agent activity yet.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: /^Databases/ }))
+    await userEvent.click(screen.getByRole('radio', { name: /^Databases/ }))
     expect(await screen.findByText('Nothing matches these filters.')).toBeInTheDocument()
     const calls = api.list.mock.calls.length
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
