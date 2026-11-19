@@ -60,6 +60,9 @@
   :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']):focus-visible,
   :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
 
+  /* The active terminal pane in OxeCode (PC-04·1, OXE-251): box-shadow inset is dropped in forced colors, so ring the active pane in Highlight. */
+  .pane-container.active { outline: 2px solid Highlight; outline-offset: -2px; }
+
   /* The hand-made switch in the thread's configuration (auto-accept edits): a track and thumb drawn with lines, in
      Highlight once on, the thumb on the right. */
   .thread-config-switch > i { forced-color-adjust: none; box-sizing: border-box; border: 2px solid CanvasText; background: Canvas; }
@@ -95,7 +98,7 @@
   :is([data-status-dot='attention'], [data-status-dot='danger']) { box-sizing: border-box; background: Canvas; border: 2px solid CanvasText; }
   /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. A ring in
      the text color keeps each dot visible on any background the palette forces (the terminal's footer dot was lost). */
-  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-status-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
+  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .workspace-topbar-wsdot, .oq-status-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
 
   /* The first run's current step (PU-03·1): its border and filled number were only colour, so the step is ringed in
      Highlight and its number is drawn in Highlight / HighlightText. */
