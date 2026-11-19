@@ -186,16 +186,16 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
             onKeyDown={handleKeyDown}
             onClick={e => e.stopPropagation()}
           />
-        ) : <>
+        ) : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
           {providerIconKey ? <AgentProviderIcon provider={providerIconKey} size={14} /> : null}
           {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
-          <span title={label} onDoubleClick={handleDoubleClick}>{label}</span>
+          <span title={label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={handleDoubleClick}>{label}</span>
           {/* Shape, not color: a decision is marked beside the name too. The screen-reader text below says it. */}
           {needsDecision && <Hand size={12} className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark" />}
           {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
               visible text failed axe's label-content-name-mismatch). */}
           <span className="sr-only">, {toneLabel}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
-        </>}
+        </span>}
         meta={time || showUnreadDot ? <>
           {showUnreadDot ? <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} /> : null}
           {time}
