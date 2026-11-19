@@ -1152,7 +1152,10 @@
     },
     "review": {
       "back": "Voltar às Alterações",
-      "classic": "Revisão clássica (comentários por linha)"
+      "classic": "Revisão clássica (comentários por linha)",
+      "viewLabel": "Visão de alterações",
+      "changesOption": "Alterações",
+      "classicOption": "Clássico"
     },
     "density": {
       "default": "Padrão do app",
