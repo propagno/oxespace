@@ -313,7 +313,11 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
             requestId: req.id,
             kind: req.kind,
             title: req.title,
-            createdAt: req.createdAt ?? now
+            createdAt: req.createdAt ?? now,
+            generation: req.generation ?? 1,
+            ...(typeof req.command === 'string' && req.command ? { command: req.command } : {}),
+            ...(req.impact ? { impact: req.impact } : {}),
+            ...(req.policy ? { policy: req.policy } : {})
           }
         })
     })
