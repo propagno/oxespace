@@ -1105,7 +1105,10 @@
     },
     "review": {
       "back": "Back to Changes",
-      "classic": "Classic review (line comments)"
+      "classic": "Classic review (line comments)",
+      "viewLabel": "Changes view",
+      "changesOption": "Changes",
+      "classicOption": "Classic"
     },
     "density": {
       "default": "App default",
