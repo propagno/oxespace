@@ -80,6 +80,10 @@
         "label": "Phone and devices",
         "hint": "Phones and paired devices"
       },
+      "github": {
+        "label": "GitHub",
+        "hint": "GitHub CLI authentication and pull request integration"
+      },
       "diagnostics": {
         "label": "Diagnostics",
         "hint": "Application health and troubleshooting"
@@ -548,6 +552,19 @@
     "prompt": "Skill prompt",
     "promptPlaceholder": "You are a Java 8+ expert. Review this code for best practices, performance, and correctness.",
     "command": "Command"
+  },
+  "github": {
+    "title": "GitHub",
+    "intro": "Sign in with the GitHub CLI to create pull requests, check workflow runs and sync repositories.",
+    "section": "Connection",
+    "statusLabel": "GitHub CLI status",
+    "checking": "Checking GitHub CLI…",
+    "connected": "Signed in as @{{user}}",
+    "notConnected": "GitHub CLI is installed, but you are not signed in yet.",
+    "noCli": "GitHub CLI (gh) was not found on this machine.",
+    "disconnectedBadge": "Not connected",
+    "authLabel": "Authenticate in a terminal",
+    "authHint": "Copy and run this command in your terminal to link your GitHub account."
   },
   "devices": {
     "title": "Phone and devices",

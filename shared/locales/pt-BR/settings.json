@@ -80,6 +80,10 @@
         "label": "Celular e dispositivos",
         "hint": "Celulares e dispositivos pareados"
       },
+      "github": {
+        "label": "GitHub",
+        "hint": "Autenticação da CLI do GitHub e integração de pull requests"
+      },
       "diagnostics": {
         "label": "Diagnóstico",
         "hint": "Saúde do aplicativo e solução de problemas"
@@ -573,6 +577,19 @@
     "prompt": "Prompt da skill",
     "promptPlaceholder": "Você é especialista em Java 8+. Revise este código quanto a boas práticas, desempenho e correção.",
     "command": "Comando"
+  },
+  "github": {
+    "title": "GitHub",
+    "intro": "Entre com a CLI do GitHub para criar pull requests, acompanhar workflows e sincronizar repositórios.",
+    "section": "Conexão",
+    "statusLabel": "Status da CLI do GitHub",
+    "checking": "Verificando a CLI do GitHub…",
+    "connected": "Conectado como @{{user}}",
+    "notConnected": "A CLI do GitHub está instalada, mas você ainda não entrou.",
+    "noCli": "A CLI do GitHub (gh) não foi encontrada neste computador.",
+    "disconnectedBadge": "Não conectado",
+    "authLabel": "Autenticar no terminal",
+    "authHint": "Copie e rode este comando no terminal para conectar sua conta do GitHub."
   },
   "devices": {
     "title": "Celular e dispositivos",
