@@ -4,7 +4,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Slider, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
 type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'states'
@@ -140,6 +140,7 @@ function StatesGallery(): ReactElement {
 
 function Gallery(): ReactElement {
   const [on, setOn] = useState(true)
+  const [fontSize, setFontSize] = useState(14)
   const [view, setView] = useState<'all' | 'mine' | 'done'>('all')
   const [tab, setTab] = useState<'changes' | 'files'>('changes')
   return <div className={styles.stack}>
@@ -161,6 +162,7 @@ function Gallery(): ReactElement {
     <TextArea label="Instructions" placeholder="What should the agent do?" rows={3} />
     <div className={styles.row}><Checkbox label="Run tests after edits" defaultChecked /></div>
     <Switch checked={on} onChange={setOn} label="Notify when an agent needs you" description="Only for conversations you are not watching." />
+    <div className={styles.row}><Slider ariaLabel="Terminal font size" min={8} max={32} step={1} value={fontSize} valueLabel={`${fontSize}px`} onChange={setFontSize} /></div>
     <div className={styles.row}>
       <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="attention">Needs you</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
       <StatusDot status="running" label="Running" /><StatusDot status="success" label="Done" /><StatusDot status="attention" label="Needs you" /><StatusDot status="danger" label="Failed" /><Spinner />

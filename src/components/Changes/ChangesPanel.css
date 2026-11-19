@@ -89,21 +89,22 @@
 
 /* Review comments: toolbar summary + Monaco glyphs and zones */
 .changes-review-comments { display: inline-flex; align-items: center; gap: 6px; height: var(--control-md); padding: 0 4px 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); color: var(--tx-secondary); font-size: var(--fs-xs); }
-.changes-review-comments button { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border: 0; border-radius: var(--radius-full); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.changes-review-comments button { display: inline-flex; align-items: center; justify-content: center; min-width: var(--control-sm); min-height: var(--control-sm); height: var(--control-sm); padding: 0 8px; border: 0; border-radius: var(--radius-full); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .changes-review-comments button:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .changes-review-comments button.is-primary { background: var(--accent); color: var(--tx-on-accent); font-weight: 600; }
 .oxe-diff-add-glyph, .oxe-diff-comment-glyph { display: grid; place-items: center; }
-.oxe-diff-add-glyph::before { content: '+'; display: grid; place-items: center; width: 14px; height: 14px; border-radius: var(--radius-xs); background: var(--accent); color: var(--surface-canvas); font: 700 12px/1 var(--font-ui); cursor: pointer; }
+.oxe-diff-add-glyph { min-width: var(--control-sm); min-height: var(--control-sm); }
+.oxe-diff-add-glyph::before { content: '+'; display: grid; place-items: center; width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-xs); background: var(--accent); color: var(--surface-canvas); font: 700 12px/1 var(--font-ui); cursor: pointer; }
 .oxe-diff-comment-glyph::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--intent-warning-solid); }
 .oxe-line-comment { display: flex; flex-direction: column; justify-content: space-between; padding: 8px 10px 4px; overflow: hidden; border: 1px solid var(--bd-default); border-left: 3px solid var(--intent-warning-solid); border-radius: var(--radius-md); background: var(--surface-chrome); color: var(--tx-primary); font: var(--fs-xs)/18px var(--font-ui); }
 .oxe-line-comment p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .oxe-line-comment-footer { display: flex; justify-content: flex-end; }
-.oxe-line-comment-remove { padding: 2px 8px; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--tx-muted); font: inherit; cursor: pointer; }
+.oxe-line-comment-remove { display: inline-flex; align-items: center; justify-content: center; min-width: var(--control-sm); min-height: var(--control-sm); height: var(--control-sm); padding: 2px 8px; border: 0; border-radius: var(--radius-full); background: transparent; color: var(--tx-muted); font: inherit; cursor: pointer; }
 .oxe-line-comment-remove:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .oxe-line-composer { display: grid; gap: 6px; margin: 4px 12px; padding: 8px; border: 1px solid var(--accent); border-radius: var(--radius-md); background: var(--surface-chrome); }
 .oxe-line-composer textarea { width: 100%; height: 52px; resize: none; padding: 6px 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-canvas); color: var(--tx-primary); font: var(--fs-xs)/1.5 var(--font-ui); }
 .oxe-line-composer-actions { display: flex; justify-content: flex-end; gap: 6px; }
-.oxe-line-composer-actions button { height: 24px; padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.oxe-line-composer-actions button { min-height: var(--control-sm); height: var(--control-sm); padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
 .oxe-line-composer-actions button.is-primary { border-color: transparent; background: var(--accent); color: var(--tx-on-accent); font-weight: 600; }
 
 .changes-review-comments { flex: none; white-space: nowrap; }
