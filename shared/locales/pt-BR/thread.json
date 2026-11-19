@@ -703,7 +703,7 @@
     "sessionBusy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
     "reconnect": "Reconecte a conta do seu agente nativo para continuar.",
     "couldNotFinish": "O agente não conseguiu terminar este turno.",
-    "diagnostic": "Diagnóstico do provedor",
+    "diagnostic": "Detalhes técnicos",
     "usageUnavailable": "Não foi possível obter o uso atual. O provedor não confirmou quando o limite renova.",
     "checkingUsage": "Verificando o uso atual no provedor…",
     "notRecorded": "O uso e o horário de renovação não foram registrados nesta falha.",
@@ -711,7 +711,7 @@
     "compact": "Compactar a conversa",
     "reviewPermissions": "Revisar as permissões",
     "changeConfiguration": "Mudar a configuração",
-    "retry": "Tentar o turno de novo",
+    "retry": "Tentar de novo",
     "retryGroup": "Tentar este turno de novo",
     "changedFiles": "Este turno alterou arquivos.",
     "undoAndRetry": "Desfazer as alterações e tentar de novo",
@@ -776,6 +776,7 @@
     "operations_many": "{{count}} operações",
     "operations_other": "{{count}} operações",
     "undo": "Desfazer",
+    "undoTurn": "Desfazer turno",
     "confirmUndo": "Confirmar",
     "undoGroup": "Confirmar desfazer",
     "undoFailed": "Não foi possível desfazer estas alterações.",
@@ -1643,6 +1644,7 @@
     "decline": "Negar",
     "usageUnavailable": "Uso indisponível",
     "interrupted": "Interrompido",
+    "contextCompacted": "Contexto compactado",
     "noPublicMessages": "Nenhuma mensagem pública neste trecho. Continue carregando as mensagens anteriores, se houver."
   },
   "turnReview": {

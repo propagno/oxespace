@@ -186,10 +186,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const idle = snapshot?.thread.status === 'idle'
   const quickReplies = useMemo(() => lastConversationMessage?.role === 'assistant' && idle && !summary.pendingRequests.length
     ? threadQuickReplies(lastConversationMessage.text) : NO_REPLIES, [lastConversationMessage, idle, summary])
-  const authFailure = snapshot?.thread.status === 'failed' && (lastResult?.type === 'completed' && lastResult.errorCode === 'authentication' || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
-  // Only something to act on: a failed sign-in, no account, a missing CLI or another auth method. A check that
-  // merely could not confirm the account ('error'), or is still running, is not shown by default.
-  const needsLogin = Boolean(snapshot && (authFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
+  const cardShowsAuthFailure = lastResult?.type === 'completed' && (lastResult.failure?.code === 'authentication' || lastResult.errorCode === 'authentication')
+  const authFailure = snapshot?.thread.status === 'failed' && (cardShowsAuthFailure || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
+  const legacyAuthFailure = authFailure && !cardShowsAuthFailure
+  // Only something to act on: a legacy failed sign-in (not already owned by the failure card), no account, a missing CLI
+  // or another auth method. A check that merely could not confirm the account ('error'), or is still running, is not shown by default.
+  const needsLogin = Boolean(snapshot && (legacyAuthFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
   const copyMessage = async (id: string, text: string) => {
     let copied = false
