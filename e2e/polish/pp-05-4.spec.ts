@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace } from '../helpers/launch'
+import { togglePanel } from '../helpers/panels'
 
 const REAL = { OXESPACE_E2E_MOCK_NATIVE: '0' }
 
@@ -13,7 +14,7 @@ test('PP-05·4 in the app: keyboard navigation reveals the 24 px close target an
   try {
     writeFileSync(join(workspaceRoot, 'demo.txt'), 'hello\n')
     await openDemoWorkspace(page, workspaceRoot)
-    await page.keyboard.press('Control+e')
+    await togglePanel(page, 'Files')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible({ timeout: 15_000 })
 
     const firstFile = page.locator('.editor-browser-file').first()
