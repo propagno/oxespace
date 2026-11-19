@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, History, Keyboard, KeyRound, Lock, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, GitBranch, History, Keyboard, KeyRound, Lock, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,9 +35,10 @@ const PolicySettings = lazyFrom(SETTINGS_CHUNK, module => module.PolicySettings)
 const AgentPermissionsSettings = lazyFrom(SETTINGS_CHUNK, module => module.AgentPermissionsSettings)
 const KeyboardSettings = lazyFrom(SETTINGS_CHUNK, module => module.KeyboardSettings)
 const DevicesSettings = lazyFrom(SETTINGS_CHUNK, module => module.DevicesSettings)
-const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, AgentPermissionsSettings, KeyboardSettings, DevicesSettings]) page.retry() }
+const GitHubIntegrationSettings = lazyFrom(SETTINGS_CHUNK, module => module.GitHubIntegrationSettings)
+const retryPages = (): void => { for (const page of [SettingsContent, WorkspaceSettingsModal, PolicySettings, AgentPermissionsSettings, KeyboardSettings, DevicesSettings, GitHubIntegrationSettings]) page.retry() }
 
-export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
+export type AppPage = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'github' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 export type SettingsDestination = { scope: 'application'; page: AppPage } | { scope: 'workspace'; workspaceId: string; page: typeof SETTINGS_PAGES[number]['id'] }
 export type Page = { id: string; label: string; hint?: string; keywords?: readonly string[] }
 type NavEntry = Page & { icon: LucideIcon }
@@ -66,6 +67,7 @@ export const APPLICATION_SETTINGS_PAGES = [
   appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.', ['shell', 'scrollback', 'cursor', 'powershell', 'bash', 'zsh']),
   appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.', ['mcp', 'tools', 'skills', 'servers', 'oxe.yaml']),
   appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.', ['phone', 'mobile', 'android', 'mirror', 'qr', 'network', 'pairing']),
+  appPage('github', GitBranch, 'GitHub', 'GitHub CLI authentication and pull request integration.', ['github', 'gh', 'auth', 'login', 'git', 'pr', 'pull request']),
   appPage('privacy', Lock, 'Data and privacy', 'Usage count and data export', ['export', 'privacy', 'usage', 'count']),
   appPage('activity', History, 'Agent activity', 'What agents changed through OXESpace, and what you decided.', ['audit', 'outgoing', 'proxy', 'hosts', 'network', 'changes', 'containers']),
   appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.', ['health', 'logs', 'doctor', 'troubleshooting', 'support']),
@@ -95,7 +97,7 @@ export const APPLICATION_SETTINGS_SECTIONS = [
   appSection('notifications', Bell, ['notifications']),
   appSection('keyboard', Keyboard, ['keyboard']),
   appSection('terminal', SquareTerminal, ['terminal']),
-  appSection('integrations', Wrench, ['mcp', 'devices']),
+  appSection('integrations', Wrench, ['mcp', 'devices', 'github']),
   appSection('data', Activity, ['privacy', 'activity', 'diagnostics']),
   appSection('about', ArrowUpCircle, ['about'])
 ] as const
@@ -319,7 +321,7 @@ export function SettingsCenter(props: SettingsModalProps & {
                 <SegmentedControl<AppPage> label={t('center.sectionPages')} value={destination.page} onChange={page => go({ scope: 'application', page })}
                   options={currentSection.pages.map(id => ({ value: id, label: appPageOf(id).label }))} />
               </div> : null}
-              {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page as SettingsSection} onClose={close} />}
+              {destination.page === 'general' ? <GeneralSettings /> : destination.page === 'policy' ? <PolicySettings workspaceId={scopeWorkspace?.id} scope="application" /> : destination.page === 'agent-permissions' ? <AgentPermissionsSettings workspaceId={scopeWorkspace?.id ?? ''} /> : destination.page === 'keyboard' ? <KeyboardSettings /> : destination.page === 'devices' ? <DevicesSettings /> : destination.page === 'github' ? <GitHubIntegrationSettings /> : destination.page === 'privacy' ? <DataSettings /> : <SettingsContent {...props} section={destination.page as SettingsSection} onClose={close} />}
               <footer className="settings-auto-apply-note" data-risky-count={RISKY_SETTING_ROWS.length}>{t('center.autoApplyNote')}</footer>
             </>}
         </Suspense></ErrorBoundary></div>
