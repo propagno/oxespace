@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { HostsProxyRow, HostsProxyStatus } from '../../../shared/types/ipc'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { Button } from '../../ui/Button'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Badge, EmptyState, Notice } from '../../ui/Display'
 import { Switch, TextField } from '../../ui/Field'
 import { SettingsSection } from '../../ui/Settings'
-import { useModalSurface } from '../../ui/useModalSurface'
 import { formatDate } from '../../utils/formatTime'
 import styles from './HostsProxySettings.module.css'
 
@@ -35,38 +35,17 @@ function ClearHostsDialog({
   onCancel: () => void
   onConfirm: () => void
 }): ReactElement {
-  const surface = useModalSurface<HTMLDivElement>(onCancel)
-  const cancelRef = useRef<HTMLButtonElement>(null)
-  const titleId = useId()
-  const descId = useId()
-
-  useEffect(() => {
-    cancelRef.current?.focus()
-  }, [])
-
   return (
-    <div className={styles.backdrop} role="presentation" onMouseDown={onCancel}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        {...surface}
-        onMouseDown={event => event.stopPropagation()}
-      >
-        <h3 id={titleId} className={styles.dialogTitle}>{title}</h3>
-        <p id={descId} className={styles.dialogBody}>{body}</p>
-        <div className={styles.dialogActions}>
-          <Button ref={cancelRef} variant="secondary" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      title={title}
+      description={body}
+      cancelLabel={cancelLabel}
+      confirmLabel={confirmLabel}
+      danger
+      hideClose
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+    />
   )
 }
 
