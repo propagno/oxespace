@@ -536,7 +536,6 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
   return (
     <div className="settings-term-preview" aria-hidden="true">
       <div className="settings-term-preview-chrome">
-        <span /><span /><span />
         <em>{t('terminal.preview')}</em>
       </div>
       <div
