@@ -11,7 +11,7 @@ import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeM
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
-import { Button, Dialog, PaneHeader } from '../../ui'
+import { Button, Dialog, PaneHeader, StatusSignal } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
 import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
@@ -294,7 +294,12 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             ) : <SquareTerminal size={14} aria-hidden="true" />}
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
-          {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
+          {needsDecision && (
+            <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">
+              <StatusSignal state="needs-you" label="" size={12} />
+              {display.statusLabel}
+            </span>
+          )}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
         </>}

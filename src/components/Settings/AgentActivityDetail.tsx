@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../../ui'
+import { X } from 'lucide-react'
+import { Button, IconButton, useModalSurface } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
 import { changeInWorkingTree, liveContainer } from './agentActivityLive'
 import type { OpenInInput } from '../../../shared/types/open-in'
@@ -12,8 +13,7 @@ interface AgentActivityDetailProps {
 
 export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps): ReactElement {
   const { t } = useTranslation('settings')
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const closeBtnRef = useRef<HTMLButtonElement>(null)
+  const surface = useModalSurface<HTMLDivElement>(onClose)
 
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null)
   const [inWorkingTree, setInWorkingTree] = useState<boolean | null>(null)
@@ -21,10 +21,6 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
 
   const source = String(row.source ?? '')
   const title = String(row.summary ?? '')
-
-  useEffect(() => {
-    closeBtnRef.current?.focus()
-  }, [])
 
   useEffect(() => {
     let active = true
@@ -64,13 +60,6 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
     return () => { active = false }
   }, [source, row])
 
-  const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      onClose()
-    }
-  }
-
   const line = detail?.line ?? row.line
   const path = String(detail?.path ?? row.path ?? row.summary ?? '')
   const workspaceId = String(row.workspaceId ?? '')
@@ -89,28 +78,23 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
         className="modal-content agent-activity-detail-modal"
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        tabIndex={-1}
-        ref={dialogRef}
-        onKeyDown={handleKeyDown}
+        {...surface}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <Button
-            ref={closeBtnRef}
-            variant="ghost"
+          <IconButton
+            label={t('common:close', { defaultValue: 'Close' })}
+            icon={<X size={16} />}
             size="sm"
             onClick={onClose}
-            aria-label={t('common:close', { defaultValue: 'Close' })}
-          >
-            ×
-          </Button>
+          />
         </div>
 
         <div className="modal-body">
