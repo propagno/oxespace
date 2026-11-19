@@ -40,8 +40,6 @@
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .mcp-panel-actions { display: inline-flex; align-items: center; gap: 4px; }
@@ -52,7 +50,7 @@
   background: var(--intent-info-bg);
   border: 1px solid var(--intent-info-border);
   border-radius: var(--radius-md);
-  color: var(--tx-muted);
+  color: var(--intent-info-fg);
   font-size: var(--fs-2xs);
   line-height: 1.5;
 }
@@ -114,10 +112,10 @@
 .mcp-server-row:hover { border-color: var(--bd-default); background: var(--fill-hover); }
 /* Health states keep the semantic accent on the LEFT edge only, instead of
    colouring the entire border. Less neon, still legible. */
-.mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 rgba(52, 212, 116, 0.55); }
-.mcp-server-row.health-unhealthy { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
-.mcp-server-row.health-error { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
-.mcp-server-row.health-idle { box-shadow: inset 3px 0 0 0 rgba(180, 180, 180, 0.35); }
+.mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 var(--intent-success-border); }
+.mcp-server-row.health-unhealthy { box-shadow: inset 3px 0 0 0 var(--intent-danger-border); }
+.mcp-server-row.health-error { box-shadow: inset 3px 0 0 0 var(--intent-danger-border); }
+.mcp-server-row.health-idle { box-shadow: inset 3px 0 0 0 var(--bd-default); }
 .mcp-server-row.expanded { grid-template-columns: 1fr; }
 
 /* Built-in OXESpace server card — auto-started, can't be deleted/edited but
@@ -189,19 +187,6 @@
   color: var(--accent-hover);
   font-size: var(--fs-2xs);
 }
-.mcp-builtin-notice button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-}
-.mcp-builtin-notice button:hover { background: var(--accent-soft); }
 
 /* Tool catalogue — visible when the user expands the built-in card. */
 .mcp-builtin-tools {
@@ -215,8 +200,6 @@
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .mcp-builtin-tools ul {
@@ -291,8 +274,6 @@
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
 }
 
 /* Scope tags share the neutral palette — distinction is in the label text
@@ -442,8 +423,6 @@
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
   margin-bottom: 4px;
 }
 
@@ -518,8 +497,6 @@
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .mcp-create-form input,
