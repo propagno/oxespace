@@ -27,10 +27,8 @@
   flex: 0 0 auto;
   padding: 12px 14px;
   color: var(--tx-muted);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .editor-browser {
@@ -61,7 +59,7 @@
   gap: 8px;
   width: 100%;
   min-width: max-content;
-  height: 26px;
+  height: var(--row-1);
   padding: 0 10px;
   border: 0;
   border-radius: var(--radius-xs);
@@ -116,7 +114,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
+  height: var(--bar-md);
   flex-shrink: 0;
   min-width: 0;
   border-bottom: 1px solid var(--bd-subtle);
@@ -146,10 +144,8 @@
   border-radius: var(--radius-sm);
   padding: 2px 8px;
   color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
+  font-size: var(--fs-xs);
   font-weight: 600;
-  letter-spacing: 0.05em;
   transition: all var(--transition-base);
 }
 
@@ -157,7 +153,6 @@
   border-color: var(--intent-warning-border);
   background: var(--intent-warning-bg);
   color: var(--intent-warning-fg);
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.2);
 }
 
 .editor-body {
