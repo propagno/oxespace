@@ -2488,6 +2488,7 @@
     "search": "Buscar sessões nativas",
     "searchPlaceholder": "Buscar mensagem, modelo ou ID da sessão",
     "loading": "Carregando sessões nativas…",
+    "loadingMore": "Carregando mais sessões…",
     "untitled": "Sessão do {{provider}}",
     "unknownModel": "Modelo desconhecido",
     "meta_one": "{{model}} · Atualizada em {{updated}} · {{count}} requisição",
