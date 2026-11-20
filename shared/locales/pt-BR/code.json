@@ -1071,6 +1071,7 @@
     "designHint": "Modo Design: clique em um elemento da página, ou pressione Esc para cancelar.",
     "capture": "Copiar a prévia para a área de transferência",
     "openExternal": "Abrir no seu navegador",
+    "moreActions": "Mais ações do navegador",
     "access": {
       "title": "Permitir que os agentes inspecionem esta página?",
       "allow": "Permitir acesso",
