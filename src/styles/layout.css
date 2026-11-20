@@ -155,7 +155,6 @@
 .sidebar-search-input:focus {
   background: var(--fill-hover);
   border-color: var(--bd-focus);
-  box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.12);
 }
 
 /* ─── Filter tabs ───────────────────────────────────────────────────────── */
@@ -183,7 +182,6 @@
   width: 3px;
   border-radius: var(--radius-xs);
   background: var(--accent);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
 .ws-group-header {
@@ -234,7 +232,6 @@
   height: 2px;
   background: var(--accent);
   border-radius: var(--radius-xs);
-  box-shadow: 0 0 6px rgba(0, 214, 201, 0.6);
   pointer-events: none;
   z-index: calc(var(--layer-raised) + 4);
 }
@@ -509,7 +506,6 @@
 
 .ws-group-rename-input:focus {
   border-color: var(--bd-focus);
-  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
 }
 
 /* Floating context menu — same visual language as .pane-session-context-menu
@@ -982,7 +978,6 @@
 
 .pane-status-dot.running {
   background: var(--intent-info-solid);
-  box-shadow: 0 0 4px rgba(96, 165, 250, 0.6);
 }
 
 .pane-status-dot.starting {
@@ -1237,7 +1232,7 @@
 }
 
 .sidebar-rail-integration.active > span {
-  box-shadow: inset 0 0 0 1px rgba(0, 214, 201, 0.35);
+  border: 1px solid var(--bd-focus);
 }
 
 .sidebar-rail-integration-member {
@@ -1521,9 +1516,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 34%),
-    var(--surface-canvas);
+  background: var(--surface-canvas);
 }
 
 .workspace-surface-content > [data-panel-group] {
@@ -1618,25 +1611,47 @@
 /* Hairline splits between panes — always slightly visible so splits read
    without per-pane card borders. Stronger on hover/drag for affordance. */
 .resize-handle {
-  background: var(--ov-3);
+  position: relative;
+  background: var(--bd-default);
   transition: background var(--duration-fast) var(--ease-standard);
   z-index: calc(var(--layer-raised) + 1);
 }
 .resize-handle[data-resize-handle-active],
 .resize-handle:hover {
-  background: color-mix(in srgb, var(--accent, var(--accent)) 55%, var(--ov-3));
+  background: var(--accent);
 }
 .resize-handle-vertical {
   width: 1px;
   min-width: 1px;
 }
+.resize-handle-vertical::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 24px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+}
 .resize-handle-horizontal {
   height: 1px;
   min-height: 1px;
 }
+.resize-handle-horizontal::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  height: 24px;
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
 
 .workspace-editor-resize {
   background: var(--bd-default);
+}
+.workspace-editor-resize::after {
+  content: none;
 }
 
 .workspace-editor-panel {

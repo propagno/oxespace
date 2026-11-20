@@ -82,7 +82,7 @@ describe('OXE-177 · Sidebar terminal row uses resolvePaneIdentity', () => {
       />
     )
 
-    expect(screen.getByText('terminal 1')).toBeInTheDocument()
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument()
     expect(container.querySelector('.agent-provider-icon')).toBeNull()
 
     cleanup()

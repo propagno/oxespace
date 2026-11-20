@@ -81,7 +81,10 @@ const DEFAULT_STATE: TerminalStateEntry = {
 
 // Module-level timers so they survive re-renders
 const workingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const workingTimerResetAt = new Map<string, number>()
 const lastActivitySetTime = new Map<string, number>()
+const ACTIVITY_THROTTLE_MS = 250
+const ACTIVITY_TAIL_CHARS = 512
 // One-shot timers that decay the 'awaiting' tone to 'idle'. deriveStatusTone is
 // pure (computed in render), so without a re-render at the window boundary the
 // teal "your turn" dot would linger past its 5-minute life. Must match the
@@ -137,20 +140,19 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   updateActivity: (paneId, rawData) => {
-    // stripTerminalControl is needed on every chunk because `hasOutput` gates
-    // the isWorking timer reset below. The pricier sanitizeTerminalPreview pass,
-    // however, only feeds the throttled set() — so we defer it behind the 100ms
-    // gate. During agent streaming (dozens of chunks/s × up to 16 panes) ~9 of
-    // 10 chunks are throttled, so this skips that second regex on most of them.
-    const stripped = stripTerminalControl(rawData)
+    // Only inspect a bounded tail of the chunk: during multi-pane streaming
+    // (e.g. 8 PTYs × 1 MB/s), chunks reach 32–64 KB, and running global ANSI
+    // regexes over the whole buffer stalls the renderer main thread.
+    const tail = rawData.length > ACTIVITY_TAIL_CHARS ? rawData.slice(-ACTIVITY_TAIL_CHARS) : rawData
+    const stripped = stripTerminalControl(tail)
     const hasOutput = /\S/.test(stripped) // any non-whitespace char (no array alloc)
     if (!hasOutput) return
 
     const now = Date.now()
     const lastTime = lastActivitySetTime.get(paneId) ?? 0
-    if (now - lastTime >= 100) {
+    if (now - lastTime >= ACTIVITY_THROTTLE_MS) {
       lastActivitySetTime.set(paneId, now)
-      const preview = sanitizeTerminalPreview(rawData)
+      const preview = sanitizeTerminalPreview(tail)
       set(state => ({
         panes: {
           ...state.panes,
@@ -165,13 +167,17 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }))
     }
 
-    // Always reset isWorking timer regardless of throttle. New output also
-    // resets any pending awaiting-decay — the window restarts from this touch.
+    // Reset isWorking timer at most once per ACTIVITY_THROTTLE_MS to avoid
+    // churning clearTimeout/setTimeout on every streaming chunk.
+    const lastReset = workingTimerResetAt.get(paneId) ?? 0
+    if (workingTimers.has(paneId) && now - lastReset < ACTIVITY_THROTTLE_MS) return
+    workingTimerResetAt.set(paneId, now)
     const existing = workingTimers.get(paneId)
     if (existing) clearTimeout(existing)
     clearAwaitingTimer(paneId)
     workingTimers.set(paneId, setTimeout(() => {
       workingTimers.delete(paneId)
+      workingTimerResetAt.delete(paneId)
       set(state => ({
         panes: {
           ...state.panes,
@@ -271,6 +277,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const working = workingTimers.get(paneId)
     if (working) clearTimeout(working)
     workingTimers.delete(paneId)
+    workingTimerResetAt.delete(paneId)
     set((state) => {
       const entry = state.panes[paneId]
       if (!entry) return state
@@ -293,6 +300,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const working = workingTimers.get(paneId)
     if (working) clearTimeout(working)
     workingTimers.delete(paneId)
+    workingTimerResetAt.delete(paneId)
     clearAwaitingTimer(paneId)
     lastActivitySetTime.delete(paneId)
     set((state) => {

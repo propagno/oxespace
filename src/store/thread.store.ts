@@ -193,7 +193,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       unreadIds: get().unreadIds.filter(id => valid.has(id)),
       secondaryId: get().secondaryId && valid.has(get().secondaryId!) ? get().secondaryId : null,
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
-      drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id))),
+      drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id) || id.startsWith('new:'))),
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
     // A failed load keeps the copy it has; a fresh list replaces it.

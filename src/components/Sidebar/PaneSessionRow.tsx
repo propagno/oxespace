@@ -61,9 +61,10 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const taskSummary = hasAgent
     ? (terminalState.lastIntent?.trim() ? compactPreview(terminalState.lastIntent) : terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null)
     : null
+  const fallbackTypeLabel = pane.type === 'terminal' ? t('panels.terminal') : pane.type
   const baseLabel = hasAgent
     ? (taskSummary && taskSummary !== display.providerLabel ? `${display.providerLabel} · ${taskSummary}` : display.providerLabel)
-    : `${pane.type} ${paneIndex + 1}`
+    : `${fallbackTypeLabel} ${paneIndex + 1}`
   const label = pane.displayName?.trim() || baseLabel
   const providerIconKey: AgentProvider | null = agentProfile?.provider
     ?? (hasAgent ? (display.providerKey as AgentProvider) : null)

@@ -30,10 +30,11 @@
   align-items: center;
   gap: var(--space-1);
   padding: 2px var(--space-2);
+  border: 1px solid var(--intent-success-border);
   border-radius: var(--radius-full);
   font-size: var(--fs-xs);
-  background: var(--fill-hover);
-  color: var(--intent-success-solid);
+  background: var(--intent-success-bg);
+  color: var(--intent-success-fg);
 }
 
 .android-stage {
@@ -54,6 +55,7 @@
   justify-content: center;
   padding: var(--space-2);
   border: 2px solid var(--bd-default);
+  border-radius: calc(var(--radius-lg) + var(--space-2));
   background: var(--surface-sunken);
   max-width: 100%;
   max-height: 100%;
