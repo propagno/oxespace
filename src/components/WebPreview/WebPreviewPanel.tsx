@@ -1,7 +1,7 @@
 import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, EmptyState, ErrorState, Spinner } from '../../ui'
-import { formatDesignGrabs, type DesignGrabContext } from '../../../shared/types/design-mode'
+import { formatDesignGrab, formatDesignGrabs, previewElementLabel, type DesignGrabContext, type PreviewElementRef } from '../../../shared/types/design-mode'
 import type { DesignGrabSource } from '../../../shared/design-source'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -16,7 +16,6 @@ import { locateDesignSource } from './designSource'
 import { DevServerMenu, useDevServers } from './DevServerMenu'
 import type { DevServerConfig } from '../../../shared/dev-server'
 import { addPreviewProblem, formatPreviewProblems, NO_PREVIEW_PROBLEMS, previewProblemCount, type PreviewProblems } from '../../../shared/preview-problems'
-import type { BrowserPreviewConsoleRow } from '../../../shared/types/browser-preview'
 import { NativePreviewHost } from './NativePreviewHost'
 import { AgentBrowserChrome } from './AgentBrowserChrome'
 import { PreviewEmptyState } from './PreviewEmptyState'
@@ -37,8 +36,8 @@ interface WebPreviewPanelProps {
   onRunCommand?: (command: string) => void
   onClose: () => void
   embedded?: boolean
-  /** The conversation's draft, in OxeChat. The captures of the picked elements go with it as attachments. */
-  onSendToAgent?: (prompt: string, extra?: { images: PreviewAttachment[] }) => void | Promise<void>
+  /** The conversation's draft, in OxeChat. Picked elements travel as structured removable chips. */
+  onSendToAgent?: (prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }) => void | Promise<void>
   /** Shows a file of the project (where a picked element is written). Without it the Files panel of OxeCode opens. */
   onOpenFile?: (relativePath: string, line?: number) => void
 }
@@ -192,7 +191,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       if (event.tabId !== activeTabId) return
       if (event.type === 'ready') { readyTabs.current.add(event.tabId); setGuestReady(true) }
       if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false); setProblems(NO_PREVIEW_PROBLEMS) }
-      if (event.type === 'page-error' && event.row) { const row = event.row as BrowserPreviewConsoleRow; setProblems(current => addPreviewProblem(current, row)); return }
+      if ((event.type === 'page-error' || event.type === 'console' || event.type === 'network') && event.row) {
+        setProblems(current => addPreviewProblem(current, event.row!))
+        return
+      }
       if (event.type === 'cancel') {
         setDesignMode(false)
         setDesignKeep(false)
@@ -246,15 +248,21 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const sendGrabToAgent = useCallback(
     async (note: string): Promise<void> => {
       if (grabs.length === 0) return
-      const prompt = formatDesignGrabs(grabs.map(item => ({ payload: item.payload, context: onSendToAgent ? { ...item.context, screenshotPath: null } : item.context })), note)
       if (onSendToAgent) {
-        // In a conversation the captures travel as attachments; their paths are for agents in a terminal.
-        const images = grabs.flatMap((item, index) => item.screenshot ? [{ name: `element-${index + 1}.png`, dataUrl: item.screenshot }] : [])
-        await onSendToAgent(prompt, { images })
+        // In a conversation, each picked element attaches as a removable structured chip rather than raw text + image.
+        const elements: PreviewElementRef[] = grabs.map((item, index) => ({
+          id: item.id,
+          label: previewElementLabel(item.payload, item.context),
+          selector: item.payload.selector,
+          prompt: formatDesignGrab(item.payload, '', { ...item.context, screenshotPath: null }),
+          ...(item.screenshot ? { image: { name: `element-${index + 1}.png`, dataUrl: item.screenshot } } : {})
+        }))
+        await onSendToAgent(note.trim(), { elements })
         closeGrabs()
         setCaptureNotice(tc('preview.addedToDraft'))
         return
       }
+      const prompt = formatDesignGrabs(grabs.map(item => ({ payload: item.payload, context: item.context })), note)
       const result = await pasteIntoAgentTerminal(workspace.id, prompt)
       closeGrabs()
       setCaptureNotice(result.message)
