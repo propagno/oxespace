@@ -30,12 +30,20 @@ const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }>
 export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProps): ReactElement {
   const config = PROVIDER_TOKENS[provider] ?? PROVIDER_TOKENS.custom
   return (
-    <div
+    <span
       className="agent-provider-icon"
-      style={{ backgroundColor: config.bg, width: size, height: size, flexShrink: 0 }}
+      style={{
+        backgroundColor: config.bg,
+        width: size,
+        height: size,
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
       aria-hidden="true"
     >
       {config.icon}
-    </div>
+    </span>
   )
 }

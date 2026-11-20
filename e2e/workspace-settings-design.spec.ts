@@ -79,7 +79,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(page.locator('.workspace-topbar-breadcrumb')).toBeHidden()
     await expect(page.locator('.app-statusbar')).toBeVisible()
     const initialPaneId = await page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')
-    await page.locator('.sidebar').getByText('Terminal 2', { exact: true }).click()
+    await page.locator('.sidebar').getByTestId('pane-session-row').nth(1).click()
     await expect.poll(() => page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')).not.toBe(initialPaneId)
     await expect(page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane')).toBeVisible()
     await page.screenshot({ path: info.outputPath('600-Code-Dark.png') })
