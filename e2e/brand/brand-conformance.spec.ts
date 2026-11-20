@@ -71,12 +71,18 @@ const SCENE_ROOT: Record<string, string> = { 'needs-you-queue': '[data-ui=needs-
  * tab measures report "no element", which is the honest result for that build.
  */
 async function openSidePanels(page: Page): Promise<void> {
-  for (const name of [/^Changes$/, /^Browser$/]) {
+  const bar = page.locator('[data-ui="panel-group"]').first()
+  for (const [buttonName, menuName] of [[/^Changes\b/, /^Changes$/], [/^Browser$/, /^Browser$/]] as const) {
     try {
-      await page.getByTestId('btn-open-tools').click({ timeout: 10_000 })
-      await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name }).click({ timeout: 10_000 })
+      const direct = bar.getByRole('button', { name: buttonName }).first()
+      if (await direct.isVisible().catch(() => false)) {
+        await direct.click({ timeout: 10_000 })
+      } else {
+        await page.getByTestId('btn-open-tools').click({ timeout: 10_000 })
+        await page.getByRole('menu', { name: 'Panels' }).getByRole('menuitemcheckbox', { name: menuName }).click({ timeout: 10_000 })
+      }
     } catch (error) {
-      console.log(`[BRAND] could not open the ${name.source} panel: ${(error as Error).message.split('\n')[0]}`)
+      console.log(`[BRAND] could not open the ${menuName.source} panel: ${(error as Error).message.split('\n')[0]}`)
       await page.keyboard.press('Escape').catch(() => {})
     }
   }

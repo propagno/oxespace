@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { PanelsTopLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
+import { shortcutLabel } from '../../keyboard/keybindings'
 import { Button, IconButton, Menu, type MenuEntry } from '../../ui'
 import { WORKBENCH_PANELS, panelTitle, type WorkbenchPanelId } from './panelCatalog'
 
@@ -20,7 +21,23 @@ export interface WorkbenchPanelItem {
 /** Menu entries for panels: checked when open, so several can be stacked in Code. Without a workspace, a line says why it is empty. */
 export function panelMenuEntries(items: WorkbenchPanelItem[]): MenuEntry[] {
   if (!items.length) return [{ type: 'label', label: i18n.t('panels.needsWorkspace', { ns: 'code' }) }]
-  return [{ type: 'label', label: i18n.t('panels.menu', { ns: 'code' }) }, ...items.map(item => ({ type: 'check' as const, label: WORKBENCH_PANELS[item.id].label, checked: item.active, disabled: item.disabled, onSelect: item.onToggle }))]
+  return [
+    { type: 'label', label: i18n.t('panels.menu', { ns: 'code' }) },
+    ...items.map(item => {
+      const meta = WORKBENCH_PANELS[item.id]
+      const Icon = meta.icon
+      const shortcut = meta.keybinding ? shortcutLabel(meta.keybinding) : undefined
+      return {
+        type: 'check' as const,
+        label: meta.label,
+        icon: <Icon size={14} aria-hidden="true" />,
+        shortcut: shortcut || undefined,
+        checked: item.active,
+        disabled: item.disabled,
+        onSelect: item.onToggle
+      }
+    })
+  ]
 }
 
 /**

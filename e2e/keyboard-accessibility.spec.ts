@@ -1,10 +1,12 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 test('primary Code navigation works by keyboard and restores focus after dialogs', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-keyboard-'))
+  const workspaceRoot = join(root, 'demo')
+  mkdirSync(workspaceRoot, { recursive: true })
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
     ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
   } })
@@ -14,6 +16,22 @@ test('primary Code navigation works by keyboard and restores focus after dialogs
     await app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus() })
     await page.setViewportSize({ width: 900, height: 650 })
     await page.locator('button[data-app-mode="code"]').click()
+
+    const create = page.getByTestId('btn-new-workspace')
+    await create.focus()
+    await expect(create).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('wizard-dir-input')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('wizard-dir-input')).not.toBeVisible()
+    await expect(create).toBeFocused()
+
+    // OXE-254: the single Panels menu trigger lives in the workspace topbar once a workspace is open.
+    await create.click()
+    await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
+    await page.getByTestId('wizard-launch-btn').click()
+    await expect(page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()).toBeVisible()
+
     const tools = page.getByTestId('btn-open-tools')
     await tools.focus()
     await expect(tools).toBeFocused()
@@ -24,14 +42,5 @@ test('primary Code navigation works by keyboard and restores focus after dialogs
     await page.keyboard.press('Escape')
     await expect(menu).not.toBeVisible()
     await expect(tools).toBeFocused()
-
-    const create = page.getByTestId('btn-new-workspace')
-    await create.focus()
-    await expect(create).toBeFocused()
-    await page.keyboard.press('Enter')
-    await expect(page.getByTestId('wizard-dir-input')).toBeVisible()
-    await page.keyboard.press('Escape')
-    await expect(page.getByTestId('wizard-dir-input')).not.toBeVisible()
-    await expect(create).toBeFocused()
   } finally { await app.close() }
 })

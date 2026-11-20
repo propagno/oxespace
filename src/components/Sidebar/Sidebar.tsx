@@ -291,7 +291,7 @@ export function Sidebar({
           })
         )}
       </nav>
-      <SidebarFooterBar className="nav-rail-footer" context={railContext} />
+      <SidebarFooterBar className="nav-rail-footer" context={panelMenu ? railContext : undefined} />
       </div>
     </aside>
   )
