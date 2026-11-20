@@ -12,6 +12,7 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
+import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -82,6 +83,7 @@ import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { SchedulesHost } from './components/Schedules/SchedulesHost'
 import { NextAttentionHost } from './components/Attention/NextAttentionHost'
+import { registerAttentionSummaryLoad } from './store/activity.feed'
 import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
@@ -148,6 +150,10 @@ export function App(): ReactElement {
   }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
+  useEffect(() => attachOpenThreadDraftListener({
+    selectThreadMode: () => selectMode('thread'),
+    openNewThread: (projectId, rootPath) => { setNewThreadWorkspaceId(projectId); setNewThreadRootPath(rootPath) }
+  }), [selectMode])
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
   const threadSnapshot = useThreadStore(state => state.snapshot)
   const threadSelection = useThreadStore(state => state.selectedId)
@@ -341,7 +347,7 @@ export function App(): ReactElement {
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
 
   useEffect(() => {
-    void bootstrap()
+    registerAttentionSummaryLoad(bootstrap())
   }, [bootstrap])
 
   useEffect(() => {
@@ -865,7 +871,6 @@ export function App(): ReactElement {
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
       <SchedulesHost onOpenThread={openScheduledThread} />
-      <NextAttentionHost selectView={selectMode} />
       {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
         onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
       {slashPane ? (
@@ -979,6 +984,7 @@ export function App(): ReactElement {
       </Suspense>
       </ErrorBoundary>
       </main>
+      <NextAttentionHost selectView={selectMode} />
       <RemotePairingHost />
       <Toaster />
       </TooltipProvider>

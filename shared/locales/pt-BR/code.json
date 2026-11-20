@@ -383,12 +383,12 @@
       "lockedReason": "O git está com ela bloqueada. Desbloqueie antes.",
       "remove": "Remover",
       "removeTitle": "Remover a worktree em {{path}}?",
-      "removeBody": "A pasta dela é apagada. Os commits da branch continuam no repositório, a menos que você apague a branch também.",
-      "deleteBranch": "Apagar também a branch {{branch}}",
+      "removeBody": "A pasta dela é apagada. Os commits da branch continuam no repositório, a menos que você exclua a branch também.",
+      "deleteBranch": "Excluir também a branch {{branch}}",
       "unmerged": "Não mergeada: os commits ficam só nesta branch.",
-      "removedDeleted": "Worktree removida; branch apagada.",
+      "removedDeleted": "Worktree removida; branch excluída.",
       "removedKept": "Worktree removida; a branch continua.",
-      "removedNotDeleted": "Worktree removida; não foi possível apagar a branch, que foi mantida.",
+      "removedNotDeleted": "Worktree removida; não foi possível excluir a branch, que foi mantida.",
       "removeOpen": "Remover…"
     }
   },
@@ -399,7 +399,8 @@
       "copy": "Copiar",
       "paste": "Colar",
       "selectAll": "Selecionar tudo",
-      "clear": "Limpar"
+      "clear": "Limpar",
+      "sendToChat": "Enviar seleção ao OxeChat"
     },
     "agentNotFound": "Agente “{{name}}” não encontrado. Tente: {{options}}…",
     "search": {

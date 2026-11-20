@@ -1,4 +1,4 @@
-import { GitBranch, Hand } from 'lucide-react'
+import { GitBranch } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
 import { AnchoredMenu, copyText, SidebarRow, StatusSignal, type MenuEntry, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
@@ -56,7 +56,8 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   // restored panes whose agentName was lost on a prior write).
   const resolvedAgentName = pane.agentName ?? agentProfile?.name ?? null
   const hasAgent = resolvedAgentName !== null
-  const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
+  const fallbackTypeLabel = pane.type === 'terminal' ? t('panels.terminal') : pane.type
+  const baseLabel = hasAgent ? resolvedAgentName! : `${fallbackTypeLabel} ${paneIndex + 1}`
   const label = pane.displayName ?? baseLabel
 
   const { status, lastActivityAt, hasUnread } = terminalState
@@ -187,8 +188,8 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : null}
           {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
           <span title={label} onDoubleClick={handleDoubleClick}>{label}</span>
-          {/* Shape, not color: a decision is marked beside the name too. The screen-reader text below says it. */}
-          {needsDecision && <Hand size={12} className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark" />}
+          {/* Shape, not color: a decision is marked beside the name too (PC-04·2, StatusSignal instead of Hand). */}
+          {needsDecision && <span className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark"><StatusSignal state="needs-you" label="" size={12} /></span>}
           {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
               visible text failed axe's label-content-name-mismatch). */}
           <span className="sr-only">, {toneLabel}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
@@ -197,7 +198,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           {showUnreadDot ? <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} /> : null}
           {time}
         </> : undefined}
-        detail={needsDecision ? <span data-testid="pane-row-status" title={statusTitle}>{display.attentionReason ?? display.subtitle}</span> : undefined}
+        detail={needsDecision ? <span className="pane-row-preview is-decision" data-testid="pane-row-status" title={statusTitle}>{display.attentionReason ?? display.subtitle}</span> : undefined}
         selected={isActive}
         onSelect={handleClick}
         onContextMenu={handleContextMenu}

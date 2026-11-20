@@ -12,6 +12,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useEditorStore } from '../../store/editor.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { GitHubAuthCommandRow } from './GitHubAuthCommandRow'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
 import { humanizeError } from '../../utils/humanizeError'
 import { RichText } from '../../i18n/RichText'
@@ -1556,7 +1557,7 @@ function formatAgo(iso: string): string {
   return Number.isNaN(new Date(iso).getTime()) ? iso : formatRelative(iso)
 }
 
-function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, onRefresh }: {
+export function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, onRefresh }: {
   status: GitHubWorkspaceStatus | null
   rootPath: string
   connectedRepositories: GitHubConnectedRepository[]
@@ -1597,10 +1598,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
           ) : (
             <div className="github-not-connected-row">
               <span>{cli?.available ? tc('github.settings.notSignedIn') : tc('github.settings.noCli')}</span>
-              <Button variant="ghost" onClick={() => onRunCommand('gh auth login')}>
-                <Terminal size={12} aria-hidden="true" />
-                gh auth login
-              </Button>
+              <GitHubAuthCommandRow onRunCommand={onRunCommand} runVariant="ghost" />
             </div>
           )}
 
@@ -1633,7 +1631,7 @@ function SettingsTab({ status, rootPath, connectedRepositories, onRunCommand, on
 
 // ─── CLI Setup ─────────────────────────────────────────────────────────────
 
-function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; onRunCommand: (cmd: string) => void }): ReactElement {
+export function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; onRunCommand: (cmd: string) => void }): ReactElement {
   const isMissing = !cli?.available
   const isWin = navigator.platform.toLowerCase().includes('win')
   const isMac = navigator.platform.toLowerCase().includes('mac')
@@ -1670,13 +1668,7 @@ function GitHubCliSetup({ cli, onRunCommand }: { cli: GitHubCliStatus | null; on
 
       <div className="github-setup-block">
         <span className="github-setup-block-label">{tc('github.setup.authenticate')}</span>
-        <div className="github-setup-cmd-row">
-          <code>gh auth login</code>
-          <Button variant="primary" onClick={() => onRunCommand('gh auth login')}>
-            <Terminal size={12} aria-hidden="true" />
-            {tc('github.setup.run')}
-          </Button>
-        </div>
+        <GitHubAuthCommandRow onRunCommand={onRunCommand} runVariant="primary" />
       </div>
     </div>
   )

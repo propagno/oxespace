@@ -11,6 +11,7 @@ import { test, expect, type ElectronApplication, type Page } from '@playwright/t
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor, type Density } from '../helpers/launch'
+import { seedGitRepo } from '../helpers/seed'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 import { openSettings } from '../helpers/settings'
 
@@ -39,9 +40,20 @@ async function seedNeedsDecision(app: ElectronApplication, page: Page): Promise<
       .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
     const paneId = panes.at(-1)
     if (!paneId) throw new Error('no terminal pane')
+    // OXE-297: focus another pane before signalling paneId so it stays unseen on Windows runners with window focus.
+    if (panes.length > 1) await page.locator(`[data-testid="pane-container"][data-pane-id="${panes[0]}"]`).click()
     await app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), { paneId, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const row = page.locator("[data-ui=sidebar-row][data-lines='2']").first()
     await row.waitFor({ timeout: 10_000 })
+    // Wait for finite CSS transitions (e.g. pane-header focus background) to settle so measureScene reads final token colors, not mid-transition interpolations.
+    await page.evaluate(async () => {
+      const transitions = document.getAnimations().filter(a => typeof CSSTransition !== 'undefined' && a instanceof CSSTransition)
+      await Promise.race([
+        Promise.all(transitions.map(a => a.finished.catch(() => undefined))),
+        new Promise<void>(resolve => setTimeout(resolve, 400))
+      ])
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    })
     // DIAG (#854, BRD-01.row-two-line.height): the row's box and each child's, to read a height over --row-2.
     console.log(`[BRAND] two-line row: ${await row.evaluate(node => [node, ...node.children].map(child => `${child === node ? 'row' : (child.getAttribute('class') ?? child.tagName)}=${Math.round(child.getBoundingClientRect().height * 10) / 10}`).join(' '))}`)
     console.log(`[BRAND] two-line title: ${await row.evaluate(node => { const title = node.children[1] as HTMLElement | undefined; if (!title) return 'none'; const cs = getComputedStyle(title); return `display=${cs.display} lh=${cs.lineHeight} fs=${cs.fontSize} ws=${cs.whiteSpace} :: ` + [...title.childNodes].map(child => child.nodeType === 3 ? `text(${(child.textContent ?? '').length})` : (() => { const el = child as HTMLElement; const c = getComputedStyle(el); return `${el.tagName.toLowerCase()}.${el.getAttribute('class') ?? ''}[${c.display},${c.position},h=${Math.round(el.getBoundingClientRect().height * 10) / 10}]` })()).join(' ') })}`)
@@ -224,7 +236,7 @@ test.describe.serial('brand conformance (OXE-149)', () => {
     for (const theme of ['light', 'dark'] as const) {
       test(`${density} ${theme}`, async () => {
         test.setTimeout(180_000)
-        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1' } })
+        const { app, page, workspaceRoot } = await launchApp({ appearance: theme, density, env: { OXESPACE_E2E_AGENT_STATE: '1', OXESPACE_E2E_REAL_GIT_BRANCH: '1' } })
         try {
           // 1440 CSS px on every runner: a screen narrower than that clamps the window, so the page is zoomed out to fit.
           await layoutAtWidth(app, page, 1440, 900)
@@ -233,10 +245,13 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
+          // OXE-286 (CA-3): code-workspace opens a real git repo on a named branch so BRD-13.branch.font-family is measured.
+          seedGitRepo(workspaceRoot, { withBranchChanges: false })
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
           await registerThreadProject(app, page, workspaceRoot)
           await openSidePanels(page)
+          await page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] workspace branch did not show'))
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
