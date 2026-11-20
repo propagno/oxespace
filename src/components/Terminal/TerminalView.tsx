@@ -21,7 +21,7 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
-import { terminalKeyRoute } from '../../keyboard/terminalFocus'
+import { runWithTerminalAutoFocus, terminalKeyRoute } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
 import { buildTerminalTheme, decodeOsc52ClipboardWrite, searchDecorations } from './terminalViewHelpers'
@@ -796,7 +796,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   ])
 
   useEffect(() => {
-    if (isRunning) terminalRef.current?.focus()
+    if (isRunning) runWithTerminalAutoFocus(() => terminalRef.current?.focus())
   }, [isRunning])
 
   useEffect(() => {
