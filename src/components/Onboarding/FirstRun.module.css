@@ -44,13 +44,6 @@
   }
 }
 
-.heroLead {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--tx-secondary);
-  line-height: 1.5;
-}
-
 .steps {
   display: flex;
   flex-direction: column;
