@@ -798,28 +798,28 @@ function AgentHooksSetting(): ReactElement | null {
   }
 
   return (
-    <div className="settings-form-group">
-      <h3 className="settings-form-group-title">{t('hooks.title')}</h3>
-      <div className="settings-callout"><RichText text={t('hooks.callout')} /></div>
+    <SettingsCard title={t('hooks.title')} description={<RichText text={t('hooks.callout')} />}>
       {statuses.map((status) => (
-        <div className="settings-toggle-row" key={status.agent}>
-          <span>
-            <strong>{AGENT_HOOK_LABEL[status.agent]}</strong>
-            <small>
-              {status.state === 'installed' && t('hooks.installed')}
-              {status.state === 'partial' && t('hooks.partial', { missing: status.missing.join(', ') })}
-              {status.state === 'not_installed' && t('hooks.notInstalled')}
-              {status.state === 'error' && t('hooks.error', { detail: status.detail ?? t('hooks.unknownError') })}
-            </small>
-          </span>
-          <SettingsSwitch
-            checked={status.state === 'installed' || status.state === 'partial'}
-            onChange={() => { if (busy === null) void toggle(status) }}
-            ariaLabel={t('hooks.switchLabel', { agent: AGENT_HOOK_LABEL[status.agent] })}
-          />
-        </div>
+        <SettingRow
+          key={status.agent}
+          label={AGENT_HOOK_LABEL[status.agent]}
+          description={
+            status.state === 'installed' ? t('hooks.installed')
+              : status.state === 'partial' ? t('hooks.partial', { missing: status.missing.join(', ') })
+                : status.state === 'not_installed' ? t('hooks.notInstalled')
+                  : status.state === 'error' ? t('hooks.error', { detail: status.detail ?? t('hooks.unknownError') })
+                    : undefined
+          }
+          control={
+            <SettingsSwitch
+              checked={status.state === 'installed' || status.state === 'partial'}
+              onChange={() => { if (busy === null) void toggle(status) }}
+              ariaLabel={t('hooks.switchLabel', { agent: AGENT_HOOK_LABEL[status.agent] })}
+            />
+          }
+        />
       ))}
-    </div>
+    </SettingsCard>
   )
 }
 
@@ -846,29 +846,38 @@ function NotificationsSettingsSection(): ReactElement {
       />
 
       <div className="settings-content-body settings-form">
-        <div className="settings-toggle-row featured">
-          <span>
-            <strong>{t('notifications.notify')}</strong>
-            <small>{t('notifications.notifyHint')}</small>
-          </span>
-          <SettingsSwitch
-            checked={notificationsEnabled}
-            onChange={setNotificationsEnabled}
-            ariaLabel={t('notifications.notify')}
+        <SettingsCard title={t('center.pages.notifications.hint')}>
+          <SettingRow
+            label={t('notifications.notify')}
+            description={t('notifications.notifyHint')}
+            control={
+              <SettingsSwitch
+                checked={notificationsEnabled}
+                onChange={setNotificationsEnabled}
+                ariaLabel={t('notifications.notify')}
+              />
+            }
+          >
+            <div className="settings-callout"><RichText text={t('notifications.onlyUnwatched')} /></div>
+          </SettingRow>
+
+          <SettingRow
+            label={t('notifications.sendTest')}
+            description={t('notifications.testBody')}
+            control={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={sendTest}
+                disabled={!notificationsEnabled}
+                data-testid="btn-test-notification"
+              >
+                <Bell size={14} aria-hidden="true" />
+                {t('notifications.sendTest')}
+              </Button>
+            }
           />
-        </div>
-
-        <div className="settings-callout"><RichText text={t('notifications.onlyUnwatched')} /></div>
-
-        <Button
-          variant="ghost"
-          onClick={sendTest}
-          disabled={!notificationsEnabled}
-          data-testid="btn-test-notification"
-        >
-          <Bell size={14} aria-hidden="true" />
-          {t('notifications.sendTest')}
-        </Button>
+        </SettingsCard>
 
         <AgentHooksSetting />
 
