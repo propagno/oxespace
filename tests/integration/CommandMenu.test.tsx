@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { CommandMenu } from '../../src/components/CommandMenu/CommandMenu'
+import { clearFileListCache, LIST_FILES_CACHE_TTL_MS } from '../../src/components/CommandMenu/fileListCache'
 
 const workspace = createWorkspace()
 
@@ -14,6 +15,7 @@ class ResizeObserverStub {
 
 describe('CommandMenu', () => {
   beforeEach(() => {
+    clearFileListCache()
     vi.stubGlobal('ResizeObserver', ResizeObserverStub)
     Element.prototype.scrollIntoView = vi.fn()
     window.oxe = {
@@ -167,9 +169,254 @@ describe('CommandMenu', () => {
     await user.click(screen.getByText('App.tsx'))
     await waitFor(() => expect(useEditorStore.getState().openFile).toHaveBeenCalled())
   })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  test('reuses cached file list within 30s TTL across consecutive reopens of the same rootPath without re-invoking listFiles', async () => {
+    const user = userEvent.setup()
+    let now = 1_000_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+
+    const listFiles = vi.fn().mockResolvedValue({ files: ['src/App.tsx', 'src/main.tsx'], truncated: false })
+    window.oxe = {
+      ...window.oxe,
+      search: {
+        listFiles,
+        run: vi.fn().mockResolvedValue({ files: [], totalMatches: 0, truncated: false })
+      },
+      semantic: { query: vi.fn().mockResolvedValue([]) }
+    } as never
+
+    const view = render(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspace}
+        actions={[]}
+        workspaces={[workspace]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    await waitFor(() => expect(listFiles).toHaveBeenCalledTimes(1))
+    const input = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(input, 'App')
+    await waitFor(() => expect(screen.getByText('App.tsx')).toBeInTheDocument())
+
+    // Close and reopen twice within the 30s TTL: zero additional IPC calls.
+    now += 10_000
+    view.rerender(
+      <CommandMenu
+        open={false}
+        onOpenChange={vi.fn()}
+        workspace={workspace}
+        actions={[]}
+        workspaces={[workspace]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+    view.rerender(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspace}
+        actions={[]}
+        workspaces={[workspace]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    const reopenedInput = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(reopenedInput, 'main')
+    expect(screen.getByText('main.tsx')).toBeInTheDocument()
+    expect(listFiles).toHaveBeenCalledTimes(1)
+
+    now += LIST_FILES_CACHE_TTL_MS - 10_001
+    view.rerender(
+      <CommandMenu
+        open={false}
+        onOpenChange={vi.fn()}
+        workspace={workspace}
+        actions={[]}
+        workspaces={[workspace]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+    view.rerender(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspace}
+        actions={[]}
+        workspaces={[workspace]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    const thirdInput = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(thirdInput, 'App')
+    expect(screen.getByText('App.tsx')).toBeInTheDocument()
+    expect(listFiles).toHaveBeenCalledTimes(1)
+  })
+
+  test('revalidates file list in background after 30s TTL and isolates cache entries per rootPath', async () => {
+    const user = userEvent.setup()
+    let now = 2_000_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+
+    const workspaceA = createWorkspace({ id: 'workspace-a', name: 'repo-a', rootPath: 'C:/repo-a' })
+    const workspaceB = createWorkspace({ id: 'workspace-b', name: 'repo-b', rootPath: 'C:/repo-b' })
+
+    let resolveRevalidate!: (value: { files: string[]; truncated: boolean }) => void
+    let resolveWorkspaceB!: (value: { files: string[]; truncated: boolean }) => void
+    const listFiles = vi
+      .fn()
+      .mockResolvedValueOnce({ files: ['src/alpha.ts'], truncated: false })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRevalidate = resolve }))
+      .mockRejectedValueOnce(new Error('rg failed'))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveWorkspaceB = resolve }))
+
+    window.oxe = {
+      ...window.oxe,
+      search: {
+        listFiles,
+        run: vi.fn().mockResolvedValue({ files: [], totalMatches: 0, truncated: false })
+      },
+      semantic: { query: vi.fn().mockResolvedValue([]) }
+    } as never
+
+    const view = render(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspaceA}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    await waitFor(() => expect(listFiles).toHaveBeenCalledTimes(1))
+    await user.type(await screen.findByPlaceholderText(/Search files and commands/i), 'alpha')
+    await waitFor(() => expect(screen.getByText('alpha.ts')).toBeInTheDocument())
+
+    // Expire TTL (> 30s) and reopen: stale list renders immediately while 1 background revalidation runs.
+    now += LIST_FILES_CACHE_TTL_MS + 1
+    view.rerender(
+      <CommandMenu
+        open={false}
+        onOpenChange={vi.fn()}
+        workspace={workspaceA}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+    view.rerender(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspaceA}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    expect(listFiles).toHaveBeenCalledTimes(2)
+    const staleInput = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(staleInput, 'alpha')
+    expect(screen.getByText('alpha.ts')).toBeInTheDocument()
+
+    // Background revalidation resolves and updates the displayed list.
+    await act(async () => {
+      resolveRevalidate({ files: ['src/alpha.ts', 'src/beta.ts'], truncated: false })
+    })
+    await user.clear(staleInput)
+    await user.type(staleInput, 'beta')
+    await waitFor(() => expect(screen.getByText('beta.ts')).toBeInTheDocument())
+
+    // Failed background revalidation preserves the existing valid cache (RT-2).
+    now += LIST_FILES_CACHE_TTL_MS + 1
+    view.rerender(
+      <CommandMenu
+        open={false}
+        onOpenChange={vi.fn()}
+        workspace={workspaceA}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+    view.rerender(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspaceA}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    await waitFor(() => expect(listFiles).toHaveBeenCalledTimes(3))
+    const retryInput = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(retryInput, 'beta')
+    expect(screen.getByText('beta.ts')).toBeInTheDocument()
+
+    // Switching to another rootPath clears workspaceA's list immediately and isolates cache entries.
+    view.rerender(
+      <CommandMenu
+        open={false}
+        onOpenChange={vi.fn()}
+        workspace={workspaceB}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+    view.rerender(
+      <CommandMenu
+        open
+        onOpenChange={vi.fn()}
+        workspace={workspaceB}
+        actions={[]}
+        workspaces={[workspaceA, workspaceB]}
+        onSelectWorkspace={() => undefined}
+        onSelectPane={() => undefined}
+      />
+    )
+
+    expect(listFiles).toHaveBeenCalledTimes(4)
+    expect(listFiles).toHaveBeenLastCalledWith({ workspaceId: 'workspace-b', rootPath: 'C:/repo-b' })
+    const wsBInput = await screen.findByPlaceholderText(/Search files and commands/i)
+    await user.type(wsBInput, 'beta')
+    expect(screen.queryByText('beta.ts')).not.toBeInTheDocument()
+
+    await act(async () => {
+      resolveWorkspaceB({ files: ['src/gamma.ts'], truncated: false })
+    })
+    await user.clear(wsBInput)
+    await user.type(wsBInput, 'gamma')
+    await waitFor(() => expect(screen.getByText('gamma.ts')).toBeInTheDocument())
+    expect(screen.queryByText('beta.ts')).not.toBeInTheDocument()
+  })
 })
 
-function createWorkspace(): Workspace {
+function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
   return {
     id: 'workspace-1',
     name: 'repo',
@@ -213,6 +460,7 @@ function createWorkspace(): Workspace {
         modelOverride: null,
         rootPath: null
       }
-    ]
+    ],
+    ...overrides
   }
 }
