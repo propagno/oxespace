@@ -2194,6 +2194,8 @@
         "failed": "Failed",
         "working": "Working"
       },
+      "groupHeading": "{{label}} · {{count}}",
+      "nextShortcut": "Next",
       "more": "+{{rest}} more",
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",
