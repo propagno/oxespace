@@ -1406,6 +1406,7 @@
     "width": "Largura da barra lateral do OxeChat",
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
+    "filterPlaceholder": "Filtrar…",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
@@ -2265,6 +2266,8 @@
         "failed": "Falhou",
         "working": "Trabalhando"
       },
+      "groupHeading": "{{label}} · {{count}}",
+      "nextShortcut": "Próximo",
       "more": "+{{rest}} mais",
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",

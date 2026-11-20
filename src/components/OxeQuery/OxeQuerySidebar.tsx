@@ -43,7 +43,6 @@ export function OxeQuerySidebar(): ReactElement {
         <div className="oq-active-conn-top">
           <span className="oq-status-dot" data-env={activeConnection.environment} aria-hidden="true" />
           <strong className="oq-active-conn-name">{activeConnection.name}</strong>
-          <span className="oq-env-pill" data-env={activeConnection.environment}>{t(`environment.short.${activeConnection.environment}`)}</span>
         </div>
         <div className="oq-active-conn-sub">
           <span>{activeConnection.engine} · {activeConnection.host}:{activeConnection.port}{activeConnection.database ? `/${activeConnection.database}` : ''}</span>

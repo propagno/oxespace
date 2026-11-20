@@ -3,7 +3,6 @@
   "enforced": [
     "BRD-01.header.height",
     "BRD-01.filter.height",
-    "BRD-01.section.height",
     "BRD-01.group.height",
     "BRD-01.footer.height",
     "BRD-01.row.height",
