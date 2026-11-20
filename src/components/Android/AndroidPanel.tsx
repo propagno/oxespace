@@ -535,7 +535,7 @@ export function AndroidPanel(): ReactElement {
           nonReady
         ) : isLive ? (
           <>
-            <div className="android-phone-frame" style={{ borderRadius: '34px' }}>
+            <div className="android-phone-frame">
               <canvas
                 ref={canvasRef}
                 role="img"

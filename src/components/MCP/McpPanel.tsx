@@ -1,6 +1,6 @@
-import { Activity, ChevronDown, ChevronRight, Circle, CircleDot, KeyRound, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, TextField, Select, TextArea, toast } from '../../ui'
+import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, IconButton, StatusSignal, TextField, Select, TextArea, toast } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 
@@ -368,9 +368,13 @@ function McpBuiltinCard({ status, busy, notice, toolCount, onRegenerate, onDismi
       {notice ? (
         <div className="mcp-builtin-notice" role="status">
           <span>{notice}</span>
-          <button type="button" onClick={onDismissNotice} aria-label={tc('worktree.dismiss')} title={tc('worktree.dismiss')}>
-            <X size={12} aria-hidden="true" />
-          </button>
+          <IconButton
+            size="sm"
+            label={tc('worktree.dismiss')}
+            title={tc('worktree.dismiss')}
+            icon={<X size={12} aria-hidden="true" />}
+            onClick={onDismissNotice}
+          />
         </div>
       ) : null}
     </div>
@@ -511,16 +515,16 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
 function HealthIndicator({ status }: { status: McpHealthStatus }): ReactElement {
   switch (status) {
     case 'healthy':
-      return <CircleDot size={12} className="status-healthy" role="img" aria-label={tc('mcp.indicator.healthy')} />
+      return <StatusSignal state="done" label={tc('mcp.indicator.healthy')} size={14} />
     case 'starting':
-      return <CircleDot size={12} className="bg-jobs-pulse status-running" role="img" aria-label={tc('mcp.indicator.starting')} />
+      return <StatusSignal state="working" label={tc('mcp.indicator.starting')} size={14} />
     case 'needs-auth':
-      return <KeyRound size={12} className="status-running" role="img" aria-label={tc('mcp.indicator.needsAuth')} />
+      return <StatusSignal state="needs-you" label={tc('mcp.indicator.needsAuth')} size={14} />
     case 'unhealthy':
-      return <Circle size={12} className="status-failed" role="img" aria-label={tc('mcp.indicator.unhealthy')} />
+      return <StatusSignal state="failed" label={tc('mcp.indicator.unhealthy')} size={14} />
     case 'unknown':
     default:
-      return <Circle size={12} className="status-killed" role="img" aria-label={tc('mcp.indicator.unknown')} />
+      return <StatusSignal state="unconfirmed" label={tc('mcp.indicator.unknown')} size={14} />
   }
 }
 

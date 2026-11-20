@@ -11,13 +11,14 @@ import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeM
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
-import { Button, Dialog, PaneHeader } from '../../ui'
+import { Button, Dialog, PaneHeader, StatusSignal } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
 import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
 import { PanePhoneHeaderMark, PanePhoneMenuItems } from './PanePhoneWrite'
+import { isAutoFocusingTerminal } from '../../keyboard/terminalFocus'
 
 const tc = i18n.getFixedT(null, 'code')
 const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
@@ -269,7 +270,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
 
   return (
-    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
+    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => { if (!isAutoFocusingTerminal()) onActivate?.(pane.id) }} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
       <PaneHeader
         className="pane-header"
         focused={focused}
@@ -294,7 +295,12 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             ) : <SquareTerminal size={14} aria-hidden="true" />}
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
-          {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
+          {needsDecision && (
+            <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">
+              <StatusSignal state="needs-you" label="" size={12} />
+              {display.statusLabel}
+            </span>
+          )}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
         </>}

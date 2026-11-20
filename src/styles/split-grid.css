@@ -5,9 +5,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 18% 0%, color-mix(in srgb, var(--accent) 4%, transparent), transparent 36%),
-    var(--surface-canvas);
+  background: var(--surface-canvas);
   overflow: hidden;
 }
 
@@ -54,16 +52,35 @@
 .split-resize-handle {
   position: absolute;
   z-index: calc(var(--layer-raised) + 4);
-  background: color-mix(in srgb, var(--tx-muted) 18%, transparent);
-  transition: background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  background: transparent;
   touch-action: none;
 }
 
-.split-resize-handle:hover,
-.split-resize-handle:focus-visible,
-.split-resize-handle:active {
-  background: color-mix(in srgb, var(--accent) 52%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 34%, transparent);
+.split-resize-handle::before {
+  content: "";
+  position: absolute;
+  background: var(--bd-default);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.split-resize-handle[aria-orientation="vertical"]::before {
+  inset-block: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+}
+
+.split-resize-handle[aria-orientation="horizontal"]::before {
+  inset-inline: 0;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-50%);
+}
+
+.split-resize-handle:hover::before,
+.split-resize-handle:focus-visible::before,
+.split-resize-handle:active::before {
+  background: var(--accent);
 }
 
 /* Drag-to-split: top-center grip per pane. Subtle at rest, lights on hover. */

@@ -1,7 +1,8 @@
 import { Check, FolderOpen } from 'lucide-react'
 import { THREAD_PROVIDERS, threadProductName } from '../../../shared/threadProviders'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ThreadProvider } from '../../../shared/types/thread'
+import { consumePendingNewDraft } from '../Terminal/terminalToChat'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { useTranslation } from 'react-i18next'
@@ -20,8 +21,12 @@ function ipcErrorText(cause: unknown): string | null {
 export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: { initialProjectId: string | null; initialRootPath?: string; onClose: () => void }) {
   const { t } = useTranslation('thread')
   const projects = useThreadStore(state => state.projects)
-  const choices = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ ...context, projectId: project.projectId, projectName: project.displayName })))
-  const [unique] = useState(() => choices.filter((c, i) => choices.findIndex(other => other.rootPath === c.rootPath) === i))
+  const unique = useMemo(() => {
+    const choices = projects
+      .filter(project => !project.hidden)
+      .flatMap(project => project.contexts.map(context => ({ ...context, projectId: project.projectId, projectName: project.displayName })))
+    return choices.filter((c, i) => choices.findIndex(other => other.rootPath === c.rootPath) === i)
+  }, [projects])
   const [choice, setChoice] = useState(() => Math.max(0, unique.findIndex(c => initialRootPath ? c.rootPath === initialRootPath : c.projectId === initialProjectId)))
   const [choosingProject, setChoosingProject] = useState(false)
   const [projectQuery, setProjectQuery] = useState('')
@@ -42,7 +47,9 @@ export function NewThreadDialog({ initialProjectId, initialRootPath, onClose }: 
       const snapshot = await window.oxe.thread!.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) })
       // Falling back to the project folder is a one-time answer; it does not change what is remembered.
       if (useWorktree === inWorktree) writeThreadWorktreePref(context.projectId, inWorktree)
-      useThreadStore.getState().adopt(snapshot); onClose()
+      useThreadStore.getState().adopt(snapshot)
+      consumePendingNewDraft({ threadId: snapshot.thread.id, projectId: context.projectId, rootPath: context.rootPath })
+      onClose()
     } catch (cause) {
       // A worktree refusal names its cause (branch exists, not a repository…); show it instead of a generic line.
       const parsed = worktree ? parseThreadWorktreeError(cause instanceof Error ? cause.message : String(cause)) : null
