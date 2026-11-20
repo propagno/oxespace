@@ -1,4 +1,4 @@
-import { Suspense, lazy, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, IconButton, Menu, Tabs } from '../../ui'
@@ -18,7 +18,14 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 import { useChangedFilesCount } from '../../hooks/useChangedFilesCount'
 import { lazyFrom } from '../../lib/chunk'
-import { CHANGES_PANEL_CHUNK, preloadPanels, WORKSPACE_PANEL_CHUNKS } from './panelChunks'
+import {
+  CHANGES_PANEL_CHUNK,
+  INTEGRATIONS_STATUS_CHIPS_CHUNK,
+  preloadPanels,
+  WORKSPACE_ANDROID_PANEL_CHUNK,
+  WORKSPACE_HTTP_CALLS_PANEL_CHUNK,
+  WORKSPACE_PANEL_CHUNKS
+} from '../../lib/panelChunks'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
@@ -30,8 +37,8 @@ const WorkspaceGitHubPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.github, (m) => m.Wo
 const WorkspaceIntegrationPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.integration, (m) => m.WorkspaceIntegrationPanel)
 const WorkspaceReviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.review, (m) => m.WorkspaceReviewPanel)
 const WorkspaceSearchPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.search, (m) => m.WorkspaceSearchPanel)
-const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
-const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
+const WorkspaceHttpCallsPanel = lazyFrom(WORKSPACE_HTTP_CALLS_PANEL_CHUNK, (m) => m.WorkspaceHttpCallsPanel)
+const WorkspaceAndroidPanel = lazyFrom(WORKSPACE_ANDROID_PANEL_CHUNK, (m) => m.WorkspaceAndroidPanel)
 const WorkspaceContainersPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.containers, (m) => m.WorkspaceContainersPanel)
 const WorkspaceWebPreviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.webPreview, (m) => m.WorkspaceWebPreviewPanel)
 const WorkspaceWorktreePanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.worktree, (m) => m.WorkspaceWorktreePanel)
@@ -66,7 +73,7 @@ function prefetchPanelChunks(): void {
   }
 }
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
-const IntegrationsStatusChips = lazy(() => import('./IntegrationsStatusChips').then(module => ({ default: module.IntegrationsStatusChips })))
+const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
