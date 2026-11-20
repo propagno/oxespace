@@ -39,7 +39,7 @@ test('the shortcut guide lists the registry and Settings › Keyboard rebinds a 
     await expect(keyboard).toBeHidden()
 
     // The old chord does nothing, the new one toggles the sidebar.
-    await page.locator('[data-testid="btn-open-tools"]:visible').focus()
+    await page.getByRole('button', { name: 'Open settings', exact: true }).focus()
     const collapsed = await page.locator('.sidebar.sidebar-collapsed').count()
     await page.keyboard.press('Control+b')
     await page.waitForTimeout(300)

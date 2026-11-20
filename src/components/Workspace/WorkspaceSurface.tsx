@@ -3,7 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, IconButton, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
-import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
+import { CODE_BAR_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
@@ -636,8 +636,9 @@ function WorkspaceSurfaceComponent({
         }
         return <WorkbenchPanelToggle key={item.id} item={changes} iconOnly className="workspace-topbar-action" />
       })}
-      {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
-        trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
+      {/* Single Panels menu trigger in OxeCode (PC-04·8, OXE-254): carries the btn-open-tools hook and all workspace panels. */}
+      {panels && <WorkbenchPanelMenu items={panels} testId="workspace-panels-menu"
+        trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} data-testid="btn-open-tools" icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
       <IconButton size="md" className="workspace-topbar-action" label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp"
         icon={<>
           <PlugZap size={14} aria-hidden="true" />
