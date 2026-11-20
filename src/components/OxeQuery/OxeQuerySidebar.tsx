@@ -1,10 +1,10 @@
 import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, RefreshCw, Settings, ShieldCheck } from 'lucide-react'
-import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { NavigationRail, RailItems, SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
-import { Splitter } from '../../ui/Splitter'
+import { IconButton, SidebarHeader, SidebarRow, Splitter } from '../../ui'
 import { ConnectionList } from './ConnectionList'
 import { useOxeQueryCatalog } from './catalog'
 import { useOxeQueryStore } from './oxequery.store'
@@ -38,21 +38,43 @@ export function OxeQuerySidebar(): ReactElement {
         onSelect: () => useOxeQueryStore.getState().openConnection(connection) }))} />
     </NavigationRail>}
     {!collapsed && <div className="oq-sidebar-content">
-      <header><strong>OxeQuery</strong><SidebarActions actions={railPrimary} /><button type="button" className="oq-icon" data-oq-action="settings" aria-label={t('sidebar.settings')} title={t('sidebar.settings')} onClick={() => setSettings(true)}><Settings size={13} aria-hidden="true" /></button></header>
-      {activeConnection && <div className="oq-active-conn" data-testid="oq-active-connection">
-        <div className="oq-active-conn-top">
-          <span className="oq-status-dot" data-env={activeConnection.environment} aria-hidden="true" />
-          <strong className="oq-active-conn-name">{activeConnection.name}</strong>
-          <span className="oq-env-pill" data-env={activeConnection.environment}>{t(`environment.short.${activeConnection.environment}`)}</span>
-        </div>
-        <div className="oq-active-conn-sub">
-          <span>{activeConnection.engine} · {activeConnection.host}:{activeConnection.port}{activeConnection.database ? `/${activeConnection.database}` : ''}</span>
-        </div>
-      </div>}
-      <ConnectionList activeTab={activeTab} />
-      <button type="button" className="oq-nav-item" aria-current={activeTab === 'activity' ? 'page' : undefined} onClick={() => useOxeQueryStore.getState().openActivity()}>
-        <ShieldCheck size={14} aria-hidden="true" /><span>{t('activity.label')}</span></button>
-      <SidebarFooter context={railContext} onToggle={toggleCollapse} />
+      <header className="oq-sidebar-header">
+        <SidebarHeader
+          title="OxeQuery"
+          actions={<>
+            <SidebarHeaderActions actions={railPrimary} />
+            <IconButton
+              size="sm"
+              data-oq-action="settings"
+              label={t('sidebar.settings')}
+              title={t('sidebar.settings')}
+              icon={<Settings size={14} aria-hidden="true" />}
+              onClick={() => setSettings(true)}
+            />
+          </>}
+        />
+      </header>
+      <div className="oq-sidebar-body">
+        {activeConnection && <div className="oq-active-conn" data-testid="oq-active-connection">
+          <div className="oq-active-conn-top">
+            <span className="oq-status-dot" data-env={activeConnection.environment} aria-hidden="true" />
+            <strong className="oq-active-conn-name">{activeConnection.name}</strong>
+            <span className="oq-env-pill" data-env={activeConnection.environment}>{t(`environment.short.${activeConnection.environment}`)}</span>
+          </div>
+          <div className="oq-active-conn-sub">
+            <span>{activeConnection.engine} · {activeConnection.host}:{activeConnection.port}{activeConnection.database ? `/${activeConnection.database}` : ''}</span>
+          </div>
+        </div>}
+        <ConnectionList activeTab={activeTab} />
+        <SidebarRow
+          className="oq-activity-row"
+          selected={activeTab === 'activity'}
+          lead={<ShieldCheck size={14} aria-hidden="true" />}
+          title={t('activity.label')}
+          onSelect={() => useOxeQueryStore.getState().openActivity()}
+        />
+      </div>
+      <SidebarFooterBar context={railContext} onToggle={toggleCollapse} />
     </div>}
     <Suspense fallback={null}>{settings && <PreferencesDialog onClose={() => setSettings(false)} />}</Suspense>
     {!collapsed && <Splitter orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}

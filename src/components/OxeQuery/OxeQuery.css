@@ -4,20 +4,18 @@
 .oq-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 
 .oq-sidebar { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; border-right: 1px solid var(--bd-subtle); background: var(--surface-chrome); color: var(--tx-primary); }
-.oq-sidebar-content { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 8px 16px; display: grid; align-content: start; gap: 14px; }
-.oq-sidebar-content header { padding: 2px 8px; font-size: var(--fs-sm); }
-.oq-sidebar-content h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; padding: 0 8px; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: var(--weight-semibold); }
-.oq-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 8px; border: 0; border-radius: var(--radius-sm, 6px); color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.oq-nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-sidebar-content { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.oq-sidebar-header { flex: none; }
+.oq-sidebar-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+.oq-activity-row { padding-left: var(--space-1-5); }
+.oq-connection-item { padding-left: var(--space-3); }
+.oq-connection-meta { display: inline-flex; align-items: center; gap: var(--space-1); }
+.oq-fav-on { color: var(--intent-warning-solid, var(--accent)); }
 /* A bare <small> is 0.8em: 9.6px inside this product's 12px text, under its 11px floor. Zero specificity, so a rule
    that names a size still wins. */
 :where([class^='oq-'], [class*=' oq-']) small { font-size: var(--fs-2xs); }
-.oq-nav-item small { color: var(--tx-muted); }
-.oq-nav-item:hover, .oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
-.oq-nav-item[aria-current='page'] { background: var(--fill-selected); }
-.oq-connection-row { display: flex; align-items: center; gap: 2px; }
-.oq-connection-row .oq-icon { opacity: 0; }
-.oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }
+.oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
+.oq-connection-row { min-width: 0; }
 .oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-icon svg { flex: none; }
 .oq-prod { color: var(--intent-danger-fg); }
@@ -372,13 +370,10 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-rules textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; }
 
 /* Connection list: groups, colors, favorites, search. A color is one of the identity tokens. */
-.oq-h3-actions { display: inline-flex; align-items: center; gap: 2px; }
-.oq-conn-search { display: flex; align-items: center; gap: 6px; margin: 0 8px 6px; padding: 0 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); }
-.oq-conn-search:focus-within { border-color: var(--bd-focus); }
-.oq-conn-search input {flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--tx-primary); background: transparent; font: inherit; font-size: var(--fs-xs); }
-.oq-conn-heading { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 8px; border: 0; color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); font-weight: var(--weight-semibold); cursor: pointer; }
-.oq-conn-heading small { margin-left: auto; }
-.oq-connection-row .oq-icon[data-on] { opacity: 1; color: var(--intent-warning-solid, var(--accent)); }
+.oq-h3-actions { display: inline-flex; align-items: center; gap: var(--space-0-5); }
+.oq-conn-search { margin: 0 0 var(--space-1); }
+.oq-conn-heading { min-height: var(--bar-sm); font-size: var(--fs-xs); color: var(--tx-secondary); }
+.oq-connection-row [data-on] { color: var(--intent-warning-solid, var(--accent)); }
 .oq-color-dot { display: inline-block; flex: none; width: 10px; height: 10px; margin: 0 2px; border-radius: 50%; background: var(--avatar-1); }
 .oq-color-dot[data-color='violet'] { background: var(--avatar-2); }
 .oq-color-dot[data-color='pink'] { background: var(--avatar-3); }
@@ -409,7 +404,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-ask-menu > button { text-align: left; }
 .oq-ask-menu form { display: flex; gap: 4px; }
 .oq-ask-menu input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--fs-xs); }
-.oq-sidebar-content > header { display: flex; align-items: center; justify-content: space-between; }
 .oq-library-folder { padding: 6px 8px 2px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 
 /* ---- Polish: layout that holds at any width ---------------------------------------------------- */
@@ -445,9 +439,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Only an open filter or an open editor needs the full width; collapsed, they stay chips in the row. */
 .oq-extras > form:not(:has(select, input)), .oq-extras > .oq-editor-bar:not(:has(.oq-edit-form, .oq-staged)) { flex-basis: auto; }
 .oq-extras > form:not(:has(select, input)) { border: 0; background: transparent; padding: 0; }
-/* The sidebar's one column may not grow past the sidebar: a long connection row shrinks its name instead. */
-.oq-sidebar-content { grid-template-columns: minmax(0, 1fr); }
-.oq-connection-row > .oq-nav-item { flex: 1 1 0; min-width: 0; }
 /* Row editing is a quiet chip like Structure, Filter and Definition. */
 .oq-extras .oq-editor-bar-row button { padding: 2px 0; border: 0; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .oq-extras .oq-editor-bar-row button[aria-pressed='true'] { color: var(--accent); }
@@ -455,13 +446,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-library, .oq-ask-menu { left: 0; right: auto; }
 .oq-library[data-side='right'], .oq-ask-menu[data-side='right'] { left: auto; right: 0; }
 .oq-library { max-width: min(420px, calc(100vw - 24px)); }
-/* Connection actions float over the row on hover, so a name keeps the whole width. */
-.oq-connection-row { position: relative; }
-.oq-connection-row > .oq-icon { position: absolute; top: 50%; transform: translateY(-50%); background: var(--surface-chrome); box-shadow: -6px 0 6px -2px var(--surface-chrome); }
-.oq-connection-row > .oq-icon:nth-last-child(1) { right: 2px; }
-.oq-connection-row > .oq-icon:nth-last-child(2) { right: 28px; }
-.oq-connection-row > .oq-icon:nth-last-child(3) { right: 54px; }
-.oq-connection-row > .oq-icon:nth-last-child(4) { right: 80px; }
 .oq-library li > button:first-child { align-items: flex-start; text-align: left; }
 .oq-library li > button:first-child strong { font-weight: 600; }
 .oq-dialog-form { display: flex; flex-direction: column; gap: 10px; }
@@ -556,7 +540,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Narrow panes: the containers table keeps its actions in view by dropping the image column and the button labels. */
 @container (max-width: 860px) {
 }
-.oq-nav-item { min-height: var(--control-md); }
 
 /* A failed statement: headline and next step first, the engine's own words collapsed. */
 .oq-query-error { display: grid; gap: var(--space-2); }
