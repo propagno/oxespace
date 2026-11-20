@@ -1095,20 +1095,6 @@
   border-color: var(--ov-2);
 }
 
-.settings-progress {
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--ov-2);
-  overflow: hidden;
-}
-
-.settings-progress-bar {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent, var(--accent)), var(--intent-info-solid));
-  transition: width var(--duration-fast) var(--ease-standard);
-}
-
 .settings-inline-actions {
   display: flex;
   flex-wrap: wrap;
