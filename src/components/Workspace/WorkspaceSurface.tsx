@@ -194,6 +194,7 @@ function WorkspaceSurfaceComponent({
   // focused pane works somewhere else is actively misleading — so the panels
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] ?? null)
+  const isSidebarCollapsed = useUIStore((s) => s.isSidebarCollapsed)
   const openConnections = useUIStore((s) => s.openMcpPanel)
   const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
   const quarantinedMcp = quarantinedCount(workspaceMcp)
@@ -550,14 +551,16 @@ function WorkspaceSurfaceComponent({
   const toolbar = (
     <div className="workspace-topbar-host" data-ui="workspace-bar">
     <header className="workspace-topbar" data-ui="workspace-header" aria-label={tc('workspace.topbar.label')}>
-      <span
-        className="workspace-topbar-wschip"
-        {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
-        title={workspace.rootPath}
-      >
-        <span className="workspace-topbar-wsdot" aria-hidden="true" />
-        <span className="workspace-topbar-wschip-name">{workspace.name}</span>
-      </span>
+      {isSidebarCollapsed ? (
+        <span
+          className="workspace-topbar-wschip"
+          {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
+          title={workspace.rootPath}
+        >
+          <span className="workspace-topbar-wsdot" aria-hidden="true" />
+          <span className="workspace-topbar-wschip-name">{workspace.name}</span>
+        </span>
+      ) : null}
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
       {branchLabel ? <span className="workspace-topbar-branch" data-ui="workspace-branch" title={branchLabel}>{branchLabel}</span> : null}
       {onSplitPane && splitTargetPaneId ? (

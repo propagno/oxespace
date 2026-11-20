@@ -14,6 +14,8 @@ test('BRD-13 in the app: the workspace header is the workspace, the panel group 
     await openDemoWorkspace(page, workspaceRoot)
     const header = page.locator('[data-ui="workspace-header"]')
     await expect(header).toHaveCount(1)
+    // liberação de teste congelado: coordenação 20/11 (OXE-279 / POLISH-09 #2(b)), 'demo-repo' no workspace-header é verificado com a lateral recolhida; nenhuma outra asserção do BRD-13 muda
+    await page.getByRole('button', { name: /Collapse the sidebar/i }).click()
     await expect(header).toContainText('demo-repo')
     await expect(header).not.toContainText(/\d+\s+(panes?|painéis|painel)/i)
     await expect(header).not.toContainText(/OxeCode\s*·/)
