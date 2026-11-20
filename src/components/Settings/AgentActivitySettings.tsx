@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, EmptyState } from '../../ui'
+import { Badge, Button, EmptyState, SegmentedControl } from '../../ui'
 import { formatClock, formatDate } from '../../utils/formatTime'
 import { resultChip } from './agentActivityModel'
 import { AgentActivityDetail } from './AgentActivityDetail'
@@ -182,25 +182,17 @@ export function AgentActivitySettings(): ReactElement {
       <h2>{t('activity.title')}</h2>
       <p>{t('activity.hint')}</p>
 
-      <div className="agent-activity-sources" role="toolbar" aria-label={t('activity.sources.all')}>
-        {SOURCES.map(({ key, labelKey, defaultLabel }) => {
-          const isSelected = key === 'all' ? selectedSource === null : selectedSource === key
-          const isFailed = key !== 'all' && failedSources.includes(key)
-          const baseLabel = t(labelKey, { defaultValue: defaultLabel })
-          const label = isFailed ? `${baseLabel} —` : baseLabel
-
-          return (
-            <Button
-              key={key}
-              variant={isSelected ? 'primary' : 'ghost'}
-              size="sm"
-              aria-pressed={isSelected}
-              onClick={() => handleSourceClick(key)}
-            >
-              {label}
-            </Button>
-          )
-        })}
+      <div className="agent-activity-sources">
+        <SegmentedControl
+          label={t('activity.sources.all')}
+          value={selectedSource ?? 'all'}
+          onChange={handleSourceClick}
+          options={SOURCES.map(({ key, labelKey, defaultLabel }) => {
+            const isFailed = key !== 'all' && failedSources.includes(key)
+            const baseLabel = t(labelKey, { defaultValue: defaultLabel })
+            return { value: key, label: isFailed ? `${baseLabel} —` : baseLabel }
+          })}
+        />
       </div>
 
       {failedSources.length > 0 && (
@@ -249,7 +241,19 @@ export function AgentActivitySettings(): ReactElement {
                       <code>{String(row.summary ?? '')}</code>
                     </td>
                     <td>
-                      <span className={`chip tone-${chip.tone}`}>{chip.label}</span>
+                      <Badge
+                        intent={
+                          chip.tone === 'attn'
+                            ? 'attention'
+                            : chip.tone === 'success'
+                              ? 'success'
+                              : chip.tone === 'danger'
+                                ? 'danger'
+                                : 'neutral'
+                        }
+                      >
+                        {chip.label}
+                      </Badge>
                     </td>
                   </tr>
                 )

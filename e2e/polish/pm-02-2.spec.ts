@@ -12,12 +12,12 @@ import { launchApp, layoutAtWidth, openDemoWorkspace } from '../helpers/launch'
 type HookInput = { paneId: string; state: 'working' | 'waiting' | 'done' | 'ended'; agent?: 'claude' | 'codex'; hookEvent?: string }
 const setAgentState = (app: ElectronApplication, input: HookInput): Promise<unknown> =>
   app.evaluate((_electron, value) => (globalThis as unknown as { __oxeE2eAgentState?: (input: unknown) => unknown }).__oxeE2eAgentState?.(value), input)
-/** The workspace's last terminal pane, as main lists it. */
-const firstTerminal = async (page: Page): Promise<string> => {
+/** The workspace's terminal panes, as main lists them. */
+const terminals = async (page: Page): Promise<string[]> => {
   const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
     .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
-  expect(panes.length, 'a terminal pane').toBeGreaterThan(0)
-  return panes.at(-1) as string
+  expect(panes.length, 'two terminal panes: one to focus, one to signal').toBeGreaterThan(1)
+  return panes
 }
 const tokenColor = (page: Page, token: string): Promise<string> => page.evaluate(name => {
   const probe = document.createElement('div')
@@ -34,7 +34,10 @@ test('PM-02·2 in the app: the waiting count sits inside its tab and the title b
   try {
     await layoutAtWidth(app, page, 1440, 900)
     await openDemoWorkspace(page, workspaceRoot)
-    await setAgentState(app, { paneId: await firstTerminal(page), state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
+    // CR OXE-297 (17/11): focus another pane before signalling panes.at(-1) so the signalled pane is not already seen on Windows.
+    const panes = await terminals(page)
+    await page.locator(`[data-testid="pane-container"][data-pane-id="${panes[0]}"]`).click()
+    await setAgentState(app, { paneId: panes.at(-1)!, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const tabs = page.locator('[data-ui="tabs"][role="tablist"]').filter({ has: page.locator('[data-app-mode]') })
     await tabs.locator('[data-app-mode="thread"]').click()
     const code = tabs.locator('[data-app-mode="code"]')

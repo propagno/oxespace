@@ -33,7 +33,9 @@ test('BRD-09 in the app: mode tabs with the needs-you count, the pill only when 
 
     const panes = await page.evaluate(() => (window as unknown as { oxe: { workspace: { list(): Promise<Array<{ panes: Array<{ id: string; type: string }> }>> } } }).oxe.workspace.list()
       .then(list => list.flatMap(workspace => workspace.panes).filter(pane => pane.type === 'terminal').map(pane => pane.id)))
-    expect(panes.length).toBeGreaterThan(0)
+    expect(panes.length).toBeGreaterThan(1)
+    // CR OXE-297 (17/11): focus another pane before signalling panes.at(-1) so the signalled pane is not already seen on Windows.
+    await page.locator(`[data-testid="pane-container"][data-pane-id="${panes[0]}"]`).click()
     await setAgentState(app, { paneId: panes.at(-1)!, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     await expect(tabs.locator('[data-app-mode="code"]')).toContainText('1')
     await expect(page.getByTestId('needs-you-pill')).toContainText('1 needs you')

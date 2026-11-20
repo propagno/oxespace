@@ -42,6 +42,9 @@ function threadLive(): Record<string, LiveAttention> {
 }
 
 let connected = false
+let syncAll: (() => void) | null = null
+let pendingSummary: Promise<void> | null = null
+let pendingGeneration = 0
 
 /** Idempotent; the subscriptions live as long as the stores do. */
 export function connectAttentionFeed(): void {
@@ -49,9 +52,58 @@ export function connectAttentionFeed(): void {
   connected = true
   const syncCode = (): void => useActivityStore.getState().setLive('code', codeLive())
   const syncThread = (): void => useActivityStore.getState().setLive('thread', threadLive())
+  syncAll = () => { syncCode(); syncThread() }
   useTerminalStore.subscribe((state, previous) => { if (state.panes !== previous.panes) syncCode() })
   useWorkspaceStore.subscribe((state, previous) => { if (state.workspaces !== previous.workspaces) syncCode() })
   useThreadStore.subscribe((state, previous) => { if (state.threads !== previous.threads || state.unreadIds !== previous.unreadIds) syncThread() })
-  syncCode()
-  syncThread()
+  syncAll()
+}
+
+/**
+ * Registers an in-flight startup load that feeds the attention summary (OXE-287).
+ * While it is pending, `NextAttentionHost` waits for it instead of dropping or
+ * answering early on the first `Ctrl+Shift+U` press; failure still settles ready.
+ */
+export function registerAttentionSummaryLoad(load: Promise<unknown>): void {
+  const gen = ++pendingGeneration
+  const previous = pendingSummary
+  const combined = Promise.all([
+    previous ?? Promise.resolve(),
+    Promise.resolve(load).catch(() => undefined)
+  ]).then(() => {
+    if (gen === pendingGeneration) {
+      pendingSummary = null
+      syncAll?.()
+    }
+  })
+  pendingSummary = combined
+}
+
+/** True when no startup attention summary load is currently in flight. */
+export function isAttentionSummaryReady(): boolean {
+  return pendingSummary === null
+}
+
+/** Resolves once the startup attention summary load settles, or after `timeoutMs` so a stalled source never hangs Ctrl+Shift+U. */
+export function whenAttentionSummaryReady(timeoutMs = 3_000): Promise<void> {
+  const current = pendingSummary
+  if (!current) return Promise.resolve()
+  if (timeoutMs <= 0) return current
+  return new Promise<void>(resolve => {
+    let settled = false
+    const finish = (): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(finish, timeoutMs)
+    void current.then(finish, finish)
+  })
+}
+
+/** Test-only helper to clear any registered startup summary load between cases. */
+export function resetAttentionSummaryLoadForTests(): void {
+  pendingGeneration += 1
+  pendingSummary = null
 }

@@ -338,11 +338,12 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
     const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
-    // OxeCode's footer dropped the duplicate collapse button (OXE-255) and stays aligned on src/ui IconButton heights.
+    // OxeCode's footer dropped the duplicate Panels and collapse triggers (OXE-254 + OXE-255) and stays aligned on src/ui IconButton heights.
     expect(codeFooter.length).toBeGreaterThanOrEqual(2)
     expect(threadFooter.length).toBeGreaterThanOrEqual(2)
     expect(codeFooter.every(b => b.height === codeFooter[0].height && b.height > 0)).toBe(true)
     expect(threadFooter.every(b => b.height === threadFooter[0].height && b.height > 0)).toBe(true)
+    expect(threadFooter[0].height).toBeCloseTo(codeFooter[0].height, 0)
     await expect(page.getByRole('heading', { name: 'Start your first conversation' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'OxeChat projects' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)

@@ -7,7 +7,7 @@ import type { ThreadProvider } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { Button, IconButton } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Badge, EmptyState, Notice } from '../../ui/Display'
+import { Badge, EmptyState, LoadingState, Notice } from '../../ui/Display'
 import { Checkbox, Select, Switch, TextArea, TextField } from '../../ui/Field'
 import { Dialog } from '../../ui/Overlay'
 import { toast } from '../../ui/Toast'
@@ -149,31 +149,34 @@ export function SchedulesDialog({ onClose, onOpenThread }: { onClose: () => void
       <Button variant="primary" size="sm" disabled={!openProjects.length} title={openProjects.length ? undefined : t('schedules.needProject')} onClick={() => { setError(null); setForm(newScheduleForm(openProjects[0] ? { projectId: openProjects[0].projectId, rootPath: openProjects[0].contexts[0].rootPath } : null, Date.now())) }}>{t('schedules.new')}</Button>
     </div>
     {state?.paused && <Notice intent="warning">{t('schedules.pausedNotice')}</Notice>}
-    {state && schedules.length === 0 && <EmptyState icon={<CalendarClock size={20} />} title={t('schedules.emptyTitle')}>{openProjects.length ? t('schedules.emptyDetail') : t('schedules.needProject')}</EmptyState>}
-    <ul className={styles.list} aria-label={t('schedules.title')}>
-      {schedules.map(schedule => {
-        const last = lastRuns[schedule.id]
-        return <li key={schedule.id} className={styles.item} data-testid="schedule-row">
-          <div className={styles.head}>
-            <strong>{schedule.name}</strong>
-            {schedule.pausedReason === 'failures' ? <Badge intent="danger">{t('schedules.stoppedAfterFailures')}</Badge> : !schedule.enabled ? <Badge>{schedule.rule.kind === 'once' && schedule.lastRunAt ? t('schedules.done') : t('schedules.off')}</Badge> : null}
-            <span className={styles.spacer} />
-            <Switch ariaLabel={t('schedules.enabledLabel', { name: schedule.name })} checked={schedule.enabled} onChange={enabled => void setEnabled(schedule, enabled)} />
-            <IconButton size="sm" label={t('schedules.runNow', { name: schedule.name })} icon={<Play size={14} />} onClick={() => void runNow(schedule)} />
-            <IconButton size="sm" label={t('schedules.edit', { name: schedule.name })} icon={<Pencil size={14} />} onClick={() => { setError(null); setForm(formOf(schedule, Date.now())) }} />
-            <IconButton size="sm" label={t('schedules.remove', { name: schedule.name })} icon={<Trash2 size={14} />} onClick={() => setRemoving(schedule)} />
-          </div>
-          <p className={styles.meta}>{ruleText(schedule.rule)} · {threadAgentName(schedule.provider)} · {projectName(schedule)} · {schedule.access === 'workspace-write' ? t('schedules.accessWrite') : t('schedules.accessRead')}</p>
-          <p className={styles.meta}>
-            {schedule.enabled && schedule.nextRunAt ? t('schedules.next', { when: formatDateTime(schedule.nextRunAt, WHEN) }) : t('schedules.noNext')}
-            {last && <> · {t('schedules.last', { when: formatDateTime(last.at, WHEN), outcome: outcomeText(last) })}</>}
-            {last?.threadId && <> · <Button variant="link" size="sm" onClick={() => { onOpenThread(last.threadId!); onClose() }}>{t('schedules.openConversation')}</Button></>}
-            {last && <> · <Button variant="link" size="sm" onClick={() => { void window.oxe.schedules!.runs(schedule.id).then(runs => setHistory({ schedule, runs })) }}>{t('schedules.history')}</Button></>}
-          </p>
-          {schedule.pausedReason === 'failures' && <Notice intent="danger">{t('schedules.stoppedDetail', { count: schedule.failures })}</Notice>}
-        </li>
-      })}
-    </ul>
+    {state === null
+      ? <LoadingState />
+      : schedules.length === 0
+        ? <EmptyState icon={<CalendarClock size={20} />} title={t('schedules.emptyTitle')}>{openProjects.length ? t('schedules.emptyDetail') : t('schedules.needProject')}</EmptyState>
+        : <ul className={styles.list} aria-label={t('schedules.title')}>
+          {schedules.map(schedule => {
+            const last = lastRuns[schedule.id]
+            return <li key={schedule.id} className={styles.item} data-testid="schedule-row">
+              <div className={styles.head}>
+                <strong>{schedule.name}</strong>
+                {schedule.pausedReason === 'failures' ? <Badge intent="danger">{t('schedules.stoppedAfterFailures')}</Badge> : !schedule.enabled ? <Badge>{schedule.rule.kind === 'once' && schedule.lastRunAt ? t('schedules.done') : t('schedules.off')}</Badge> : null}
+                <span className={styles.spacer} />
+                <Switch ariaLabel={t('schedules.enabledLabel', { name: schedule.name })} checked={schedule.enabled} onChange={enabled => void setEnabled(schedule, enabled)} />
+                <IconButton size="sm" label={t('schedules.runNow', { name: schedule.name })} icon={<Play size={14} />} onClick={() => void runNow(schedule)} />
+                <IconButton size="sm" label={t('schedules.edit', { name: schedule.name })} icon={<Pencil size={14} />} onClick={() => { setError(null); setForm(formOf(schedule, Date.now())) }} />
+                <IconButton size="sm" label={t('schedules.remove', { name: schedule.name })} icon={<Trash2 size={14} />} onClick={() => setRemoving(schedule)} />
+              </div>
+              <p className={styles.meta}>{ruleText(schedule.rule)} · {threadAgentName(schedule.provider)} · {projectName(schedule)} · {schedule.access === 'workspace-write' ? t('schedules.accessWrite') : t('schedules.accessRead')}</p>
+              <p className={styles.meta}>
+                {schedule.enabled && schedule.nextRunAt ? t('schedules.next', { when: formatDateTime(schedule.nextRunAt, WHEN) }) : t('schedules.noNext')}
+                {last && <> · {t('schedules.last', { when: formatDateTime(last.at, WHEN), outcome: outcomeText(last) })}</>}
+                {last?.threadId && <> · <Button variant="link" size="sm" onClick={() => { onOpenThread(last.threadId!); onClose() }}>{t('schedules.openConversation')}</Button></>}
+                {last && <> · <Button variant="link" size="sm" onClick={() => { void window.oxe.schedules!.runs(schedule.id).then(runs => setHistory({ schedule, runs })) }}>{t('schedules.history')}</Button></>}
+              </p>
+              {schedule.pausedReason === 'failures' && <Notice intent="danger">{t('schedules.stoppedDetail', { count: schedule.failures })}</Notice>}
+            </li>
+          })}
+        </ul>}
     <p className={styles.note}>{t('schedules.footnote')}</p>
     {removing && <ConfirmDialog danger title={t('schedules.removeTitle', { name: removing.name })} description={t('schedules.removeDetail')} confirmLabel={t('schedules.removeConfirm')}
       onConfirm={() => { const id = removing.id; setRemoving(null); void window.oxe.schedules!.remove(id).then(load) }} onCancel={() => setRemoving(null)} />}
