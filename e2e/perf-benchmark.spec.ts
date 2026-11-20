@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
-import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
+import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput, WORKSPACE_LAUNCH_DONE_CHECKS } from './helpers/input-timer'
 import { launchForPerf } from './helpers/perf-launch'
 
 const REPEATS = 6
@@ -31,6 +31,7 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   'boot: launch→firstWindow': 5_000,
   'boot: firstWindow→interactive': 2_000,
   'workspace: create→grid (w/ input)': 3_000,
+  'workspace: launch→grid (in-window)': 1_500,
   'shell: create split pane': 1_500,
   'terminal: split→PTY running': 2_000,
   // Modal surfaces perform a full settings-tree mount. Their CI p95 baseline
@@ -153,18 +154,22 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   }
   return false
 }
-async function createWorkspace(page: Page, requestedRoot?: string): Promise<void> {
+async function createWorkspace(page: Page, requestedRoot?: string): Promise<{ totalMs: number; inWindowMs: number }> {
+  const tStart = performance.now()
   const root = requestedRoot ?? join(tmpdir(), `oxe-ws-${Date.now()}`, 'repo')
   mkdirSync(root, { recursive: true })
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(root)
   await page.getByTestId('wizard-layout-card-1').click()
+  await armInputTimerUntil(page, WORKSPACE_LAUNCH_DONE_CHECKS)
   await page.getByTestId('wizard-launch-btn').click()
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', {
     state: 'visible'
   })
   // The terminal starts and takes focus a moment later; measurements begin after that settles.
   await page.locator('[data-testid="terminal-pane"]').first().waitFor({ state: 'visible' })
+  const inWindowMs = await readInputTimer(page)
+  return { totalMs: performance.now() - tStart, inWindowMs }
 }
 async function timePanelToggle(
   page: Page,
@@ -226,9 +231,11 @@ test('boot + workspace create', async () => {
     const tInteractive = performance.now()
     report('boot: launch→firstWindow', [tFirst - tLaunch])
     report('boot: firstWindow→interactive', [tInteractive - tFirst])
-    const tC = performance.now()
-    await createWorkspace(page)
-    report('workspace: create→grid (w/ input)', [performance.now() - tC])
+    const { totalMs, inWindowMs } = await createWorkspace(page)
+    report('workspace: create→grid (w/ input)', [totalMs])
+    report('workspace: launch→grid (in-window)', [inWindowMs])
+    expect(inWindowMs, 'in-window workspace launch→grid is positive').toBeGreaterThan(0)
+    expect(inWindowMs, 'in-window workspace launch→grid excludes wizard input overhead').toBeLessThan(totalMs)
     const processMetrics = await app.evaluate(({ app }) => app.getAppMetrics())
     const workingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.workingSetSize, 0) / 1024
     const peakWorkingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.peakWorkingSetSize, 0) / 1024
