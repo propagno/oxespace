@@ -178,7 +178,7 @@ describe('PB-01·3 · the sidebar selection in forced colours', () => {
     </>)
     for (const name of ['Workspace oxespace', 'Pane Terminal 1']) {
       const row = screen.getByRole('button', { name })
-      expect(row).toHaveAttribute('aria-current', 'true')
+      expect(row).toHaveAttribute('aria-current', 'page')
       expect(css(row, 'forced-color-adjust', forced), name).toBe('none')
       expect(fill(row), name).toBe('Highlight')
       expect(css(row, 'color', forced), name).toBe('HighlightText')
