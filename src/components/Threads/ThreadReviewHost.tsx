@@ -5,6 +5,7 @@ import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { ThreadChangesPanel } from './ThreadChangesPanel'
+import type { PlacesSend } from './PlacesChanges'
 import { clampToolPanelWidth, ToolPanelSplitter } from './threadToolPanels'
 
 /**
@@ -20,7 +21,7 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   workbench: RefObject<HTMLDivElement | null>
   onClose: () => void
   onReturnFocus: () => void
-  onSendToConversation: (prompt: string) => void
+  onSendToConversation: PlacesSend
   /** Runs /compact in the conversation, for the session panel. */
   onCompact?: () => void
 }) {
