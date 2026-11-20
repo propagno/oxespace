@@ -389,6 +389,7 @@
 .web-preview-external-toggle {
   display: inline-flex;
   align-items: center;
+  min-block-size: var(--target-min);
   gap: 5px;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -478,8 +479,8 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 8px 12px;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--bd-subtle);
   color: var(--tx-muted);
   background: var(--surface-raised);

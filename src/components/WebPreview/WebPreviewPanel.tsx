@@ -338,7 +338,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       }
   )
   const overflowItems: MenuEntry[] = [
-    { type: 'label', label: `${t('preview.zoom')} · ${zoom}%` },
+    { type: 'label', label: t('preview.zoomLevel', { zoom }) },
     { label: t('preview.zoomOut'), icon: <Minus size={14} aria-hidden="true" />, keepOpen: true, onSelect: zoomOut },
     { label: t('preview.zoomIn'), icon: <Plus size={14} aria-hidden="true" />, keepOpen: true, onSelect: zoomIn },
     { type: 'separator' },

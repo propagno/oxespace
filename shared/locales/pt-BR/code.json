@@ -1058,6 +1058,7 @@
     "externalTitle": "Permitir sites fora deste computador; eles mantêm os próprios cabeçalhos de segurança de frame",
     "external": "Externo",
     "zoom": "Zoom",
+    "zoomLevel": "Zoom · {{zoom}}%",
     "zoomOut": "Diminuir o zoom",
     "zoomIn": "Aumentar o zoom",
     "viewport": {

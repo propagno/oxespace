@@ -1010,6 +1010,7 @@
     "externalTitle": "Allow sites outside this computer; they keep their own frame security headers",
     "external": "External",
     "zoom": "Zoom",
+    "zoomLevel": "Zoom · {{zoom}}%",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
     "viewport": {
