@@ -1366,6 +1366,7 @@
     "width": "OxeChat sidebar width",
     "conversations": "Conversations",
     "filter": "Filter conversations",
+    "filterPlaceholder": "Filter…",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
