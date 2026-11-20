@@ -1,7 +1,7 @@
 import type { OnMount } from '@monaco-editor/react'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
-import { Button } from '../../ui/Button'
+import { Button, IconButton } from '../../ui/Button'
 import { Kbd } from '../../ui/Field'
 import { formatChord } from '../../keyboard/chords'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
@@ -32,7 +32,7 @@ import { registerSqlExtras } from './sql-snippets'
 import { CellViewer, FilterBar, ParamsBar, TxBar } from './WorkbenchPanels'
 import { MAX_TABS, completeFilters, looksLikeLostConnection, newTab, outputError, outputsFromScript, restoreWorkspace, serializeWorkspace, type Browse, type Output, type ParamValue, type QueryTab } from './workbench-model'
 import { Select, TextField } from '../../ui/Field'
-import { EmptyState, ErrorState, LoadingState } from '../../ui/Display'
+import { EmptyState, ErrorState, LoadingState, Tabs } from '../../ui/Display'
 import { copyText, formatMs, tq } from './catalog'
 import { Splitter } from '../../ui/Splitter'
 import { useOxeQueryStore } from './oxequery.store'
@@ -368,9 +368,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       <div className="oq-qtabs" ref={tabsBar} role="tablist" aria-label={t('workbench.queries')}>
         {tabs.map(tab => <span key={tab.id} className="oq-qtab" data-active={tab.id === active.id}>
           <button type="button" role="tab" aria-selected={tab.id === active.id} onClick={() => { setActiveId(tab.id); setSelectedRow(null); setCell(null) }}>{tab.title}</button>
-          <button type="button" className="oq-tab-close" aria-label={t('view.closeTab', { name: tab.title })} onClick={() => closeTab(tab.id)}><X size={11} aria-hidden="true" /></button>
+          <IconButton size="sm" variant="ghost" className="oq-tab-close" label={t('view.closeTab', { name: tab.title })} title={t('view.closeTab', { name: tab.title })} icon={<X size={11} aria-hidden="true" />} onClick={() => closeTab(tab.id)} />
         </span>)}
-        <button type="button" className="oq-qtab-add" data-oq-action="newQuery" aria-label={t('workbench.newQuery')} title={t('workbench.newQueryTitle')} disabled={tabs.length >= MAX_TABS} onClick={() => addTab('')}><Plus size={13} aria-hidden="true" /></button>
+        <IconButton size="sm" variant="ghost" className="oq-qtab-add" data-oq-action="newQuery" label={t('workbench.newQuery')} title={t('workbench.newQueryTitle')} disabled={tabs.length >= MAX_TABS} icon={<Plus size={13} aria-hidden="true" />} onClick={() => addTab('')} />
         <span className="oq-spacer" />
         <AgentActivityBadge connectionId={connection.id} />
         <span className="oq-badge" data-readonly={safety.readOnly} data-policy={safety.readOnlyBy === 'policy' ? 'true' : undefined} title={safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicyTitle') : safety.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{safety.readOnlyBy === 'policy' ? t('workbench.readOnlyPolicy') : safety.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
@@ -428,17 +428,20 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
           onKeyDown={event => { if (event.key === 'Enter' && nameMatches(typedName, connection.name)) { event.preventDefault(); confirmPending() } }} />}
       </ConfirmDialog>}
       <div className="oq-results">
-        {active.outputs.length > 1 && <div className="oq-output-tabs" role="tablist" aria-label={t('workbench.results')}>
-          {active.outputs.map((entry, index) => <button key={entry.id} type="button" role="tab" aria-selected={index === active.outputIndex} data-error={entry.error ? 'true' : undefined}
-            title={entry.text} onClick={() => { patch(active.id, { outputIndex: index }); setSelectedRow(null); setCell(null) }}>{index + 1}. {entry.error ? '✕ ' : ''}{entry.label}</button>)}
-        </div>}
+        {active.outputs.length > 1 && <Tabs className="oq-output-tabs" label={t('workbench.results')} value={String(active.outputIndex)}
+          onChange={value => { patch(active.id, { outputIndex: Number(value) }); setSelectedRow(null); setCell(null) }}
+          tabs={active.outputs.map((entry, index) => ({
+            value: String(index),
+            title: entry.text,
+            label: entry.error ? <span data-error="true">{`${index + 1}. ✕ ${entry.label}`}</span> : `${index + 1}. ${entry.label}`
+          }))} />}
         <div className="oq-results-bar">
           {active.browse && <span className="oq-results-title"><Table2 size={13} aria-hidden="true" /> {active.browse.schema}.{active.browse.table}</span>}
           <span className="oq-muted">{running ? t('workbench.running') : result ? summary(result, active.browse) : error ? t('workbench.noResult') : t('workbench.resultsHere')}</span>
           <span className="oq-spacer" />
-          {active.browse && <><button type="button" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>{t('common.previous')}</button>
-            <button type="button" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>{t('common.next')}</button></>}
-          {!active.browse && result?.pageId && <button type="button" disabled={running} onClick={() => void loadMore()}>{t('workbench.loadMore', { count: maxRows, formatted: formatNumber(maxRows) })}</button>}
+          {active.browse && <><Button size="sm" disabled={running || active.browse.offset === 0} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: Math.max(0, active.browse!.offset - PAGE) })}>{t('common.previous')}</Button>
+            <Button size="sm" disabled={running || !result?.truncated} onClick={() => void openTable({ schema: active.browse!.schema, name: active.browse!.table, kind: 'table' }, { offset: active.browse!.offset + PAGE })}>{t('common.next')}</Button></>}
+          {!active.browse && result?.pageId && <Button size="sm" disabled={running} onClick={() => void loadMore()}>{t('workbench.loadMore', { count: maxRows, formatted: formatNumber(maxRows) })}</Button>}
           {(active.browse || (result && columns.length > 0 && executedText?.trim())) && <ExportButton connection={connection}
             source={active.browse ? { kind: 'table', schema: active.browse.schema, table: active.browse.table } : { kind: 'sql', sql: executedText ?? '' }}
             label={active.browse ? t('export.table') : t('export.query')} />}
@@ -468,7 +471,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
               : !error && <div className="oq-placeholder"><EmptyState compact title={<Trans t={t} i18nKey="workbench.emptyHint" components={{ kbd: <kbd /> }} />} /></div>}
           {cell && <CellViewer cell={cell} onCopy={copy} onClose={() => setCell(null)} />}
           {row && !cell && <aside className="oq-row-detail" aria-label={t('workbench.rowDetails')}>
-            <header><strong>{t('workbench.row', { number: selectedRow! + 1 })}</strong><button type="button" aria-label={t('workbench.closeRowDetails')} onClick={() => setSelectedRow(null)}><X size={13} aria-hidden="true" /></button></header>
+            <header><strong>{t('workbench.row', { number: selectedRow! + 1 })}</strong><IconButton size="sm" variant="ghost" label={t('workbench.closeRowDetails')} title={t('workbench.closeRowDetails')} icon={<X size={13} aria-hidden="true" />} onClick={() => setSelectedRow(null)} /></header>
             <dl>{columns.map((name, index) => <div key={`${name}:${index}`}><dt>{name}<small>{types[index]}</small></dt><dd className={row[index] === null ? 'is-null' : undefined} onDoubleClick={() => copy(displayCell(row[index]))} title={t('workbench.doubleClickCopy')}>{displayCell(row[index])}</dd></div>)}</dl>
           </aside>}
         </div>

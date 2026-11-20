@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Database, Plus, X } from 'lucide-react'
 import { EmptyState } from '../../ui/Display'
-import { Button } from '../../ui/Button'
+import { Button, IconButton } from '../../ui/Button'
 import { ConnectionDialog } from './ConnectionDialog'
 import { ActivityPanel } from './ActivityPanel'
 import { MongoWorkbench } from './MongoWorkbench'
@@ -38,7 +38,7 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
         {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
           data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
           <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}>{titleOf(tab)}</button>
-          <button type="button" aria-label={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>
+          <IconButton size="sm" variant="ghost" label={t('view.closeTab', { name: titleOf(tab) })} title={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" icon={<X size={12} aria-hidden="true" />} onClick={() => closeTab(tab.id)} />
         </span>)}
       </div>
       {activeConnection && <div className="oq-view-meta">
