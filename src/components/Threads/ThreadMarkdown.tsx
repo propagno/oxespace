@@ -1,4 +1,4 @@
-import { Children, Suspense, createContext, isValidElement, lazy, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
+import { Children, Suspense, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
@@ -15,9 +15,13 @@ import { useThreadStore } from '../../store/thread.store'
 
 const REMARK_PLUGINS = [remarkGfm]
 
+import { chunk, lazyFrom } from '../../lib/chunk'
+
 // Formulas and diagrams are drawn by libraries far larger than this file: each loads only for an answer that has one.
-const MathView = lazy(() => import('./ThreadMath').then(module => ({ default: module.MathView })))
-const MermaidDiagram = lazy(() => import('./ThreadMermaid').then(module => ({ default: module.MermaidDiagram })))
+export const THREAD_MATH_CHUNK = chunk(() => import('./ThreadMath'))
+export const THREAD_MERMAID_CHUNK = chunk(() => import('./ThreadMermaid'))
+const MathView = lazyFrom(THREAD_MATH_CHUNK, module => module.MathView)
+const MermaidDiagram = lazyFrom(THREAD_MERMAID_CHUNK, module => module.MermaidDiagram)
 
 type Highlighter = typeof import('./codeHighlight')
 let highlighter: Highlighter | null = null

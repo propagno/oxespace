@@ -727,7 +727,7 @@
     "hint": "Hint: {{hint}}",
     "unknown": {
       "headline": "The statement could not run",
-      "recovery": "Read the technical details below, or ask the agent to explain them."
+      "recovery": "Review the statement, or ask the agent to explain the error."
     },
     "sqlState": {
       "23502": {
@@ -752,7 +752,7 @@
       },
       "42601": {
         "headline": "The statement has a syntax error",
-        "recovery": "Check the spelling near the position shown under Technical details, or ask the agent to fix it."
+        "recovery": "Check the statement syntax, or ask the agent to fix it."
       },
       "42703": {
         "headline": "A column in the statement does not exist",
