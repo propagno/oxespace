@@ -21,7 +21,7 @@ export const isContainerTool = (tool: string): boolean => /^oxespace_containers?
  * What agents asked to do and how each request ended; read-only, kept 90 days. One audit records both kinds:
  * OxeQuery shows the database requests, OxePod the container ones.
  */
-export function ActivityPanel({ active, scope = 'database' }: { active: boolean; scope?: 'database' | 'containers' }): ReactElement {
+export function ActivityPanel({ active, scope = 'database', hideHeading = false }: { active: boolean; scope?: 'database' | 'containers'; hideHeading?: boolean }): ReactElement {
   const { t } = useTranslation('oxequery')
   const [entries, setEntries] = useState<OxeQueryAuditEntry[]>([])
   const [error, setError] = useState('')
@@ -71,7 +71,7 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
   return <section className="oq-activity" aria-label={t('activity.label')}>
     <header className="oq-activity-head">
       <ShieldCheck size={15} aria-hidden="true" />
-      <strong>{t('activity.label')}</strong>
+      {!hideHeading && <strong>{t('activity.label')}</strong>}
       <span className="oq-muted">{t(scope === 'containers' ? 'activity.introContainers' : 'activity.intro')}</span>
       <span className="oq-spacer" />
       <div role="group" aria-label={t('activity.filter')} className="oq-segment">
