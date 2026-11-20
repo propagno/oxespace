@@ -19,6 +19,7 @@ import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionMo
 import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { ShellCwdScanner } from './terminal/shell-cwd'
+import { ShellCommandOscScanner } from './terminal/shell-command-osc'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
 import { SizeLeases } from './terminal/size-lease'; import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
 import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
@@ -189,8 +190,8 @@ export class TerminalManager {
   private readonly ringCapacityBytes?: number
   private readonly exitedSessions = new Map<string, ExitedSession>()
   private readonly outputListeners = new Set<(paneId: string) => void>()
-  /** A18 (T79) · Each pane's passive shell cwd, read from OSC 7/633/9;9/1337 in its output. */
-  private readonly shellCwds = new Map<string, { scanner: ShellCwdScanner; cwd: string | null }>()
+  /** A18 (T79) / OXE-272 · Each pane's passive shell cwd + OSC 633/133 command state. */
+  private readonly shellCwds = new Map<string, { scanner: ShellCwdScanner; command: ShellCommandOscScanner; cwd: string | null }>()
   /** A18 (T73) · Each pane's branch and the branch it started on. */
   private readonly branches = new PaneBranchTracker()
   private readonly emitBranchChanged: (event: TerminalBranchChangedEvent) => void
@@ -558,14 +559,12 @@ export class TerminalManager {
    *   two replies.
    */
   private receive(session: TerminalSession, chunk: string): void {
-    // A18 (T79) · One indexOf per chunk while nothing is pending; a new cwd moves the pane's branch.
     const shell = this.shellCwds.get(session.paneId)
     if (shell) {
       const cwd = shell.scanner.push(chunk)
-      if (cwd && cwd !== shell.cwd) {
-        shell.cwd = cwd
-        void this.refreshBranch(session.paneId, cwd)
-      }
+      if (cwd && cwd !== shell.cwd) { shell.cwd = cwd; void this.refreshBranch(session.paneId, cwd) }
+      const cmd = shell.command.push(chunk)
+      if (cmd) this.emitActivity({ paneId: session.paneId, at: Date.now(), bytes: 0, command: cmd })
     }
     const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
     for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
@@ -716,7 +715,7 @@ export class TerminalManager {
   }
 
   private trackBranch(paneId: string, cwd: string): void {
-    this.shellCwds.set(paneId, { scanner: new ShellCwdScanner(this.platform), cwd: null })
+    this.shellCwds.set(paneId, { scanner: new ShellCwdScanner(this.platform), command: new ShellCommandOscScanner(), cwd: null })
     void this.branches.track(paneId, cwd).then(view => {
       if (this.branches.isTracked(paneId)) this.emitBranchChanged({ paneId, ...view })
     }).catch(() => undefined)
@@ -745,7 +744,8 @@ export class TerminalManager {
     const agentResume = resumed ? { agentResume: resumed } : {}
     const agentSession = this.agentSessionOf(paneId, session?.executable, resumed)
     if (!session) return { running: false, seq: 0, altScreen: false, ...agentResume, ...agentSession }
-    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...agentResume, ...agentSession }
+    const command = this.shellCwds.get(paneId)?.command.current()
+    return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...(command ? { command } : {}), ...agentResume, ...agentSession }
   }
 
   /**

@@ -853,6 +853,10 @@
       "heuristic": "Estimated from terminal activity"
     },
     "decisionAnnounce": "{{agent}} needs your decision: {{reason}}",
+    "commandRunning": "Command running for {{duration}}",
+    "commandSucceeded": "Command succeeded in {{duration}}",
+    "commandFailed": "Command failed (exit {{code}}) in {{duration}}",
+    "commandFinished": "Command finished in {{duration}}",
     "decisionNotice": {
       "place": "Needs you · {{workspace}}",
       "body": "{{workspace}}: the agent stopped and is waiting for your approval or answer."

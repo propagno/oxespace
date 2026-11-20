@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, CircleHelp, History, Info, Keyboard, LayoutGrid, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleHelp, History, Info, Keyboard, LayoutGrid, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
 import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
@@ -52,7 +52,8 @@ const EMPTY_TERMINAL_STATE = {
   lastIntent: null,
   lastIntentAt: null,
   isWorking: false,
-  hasUnread: false
+  hasUnread: false,
+  shellCommand: null
 }
 
 /** How long the agent has been in its state, short: 45s, 12m, 1h 05m. */
@@ -111,8 +112,9 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   // BRD-14: the focused pane's header is the primitive's `focused`; the grid says which, else the terminal store.
   const storeActive = useTerminalStore((s) => s.activePaneId === pane.id)
   const focused = isActive ?? storeActive
-  // CA-4: an agent pane shows how long its agent has been in its state (main's PaneAgentState.since); a shell has none.
+  // CA-4: an agent pane shows how long its agent has been in its state (main's PaneAgentState.since); a shell uses OSC 633/133 (OXE-272).
   const hasAgent = Boolean(pane.agentProfileId || agentProfile)
+  const setShellCommand = useTerminalStore((s) => s.setShellCommand)
   const [agentSince, setAgentSince] = useState<number | null>(null)
   useEffect(() => {
     setAgentSince(null)
@@ -130,14 +132,68 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
     })
     return () => { live = false; off?.() }
   }, [hasAgent, pane.id, workspace.id])
+  useEffect(() => {
+    if (!isTerminalPane || hasAgent) return
+    let live = true
+    if (terminalState.status === 'running' && window.oxe?.terminal?.status) {
+      void Promise.resolve(window.oxe.terminal.status(pane.id)).then(status => {
+        if (live && status?.command) setShellCommand(pane.id, status.command)
+      }).catch(() => undefined)
+    }
+    const off = window.oxe?.terminal?.onActivity?.(pane.id, event => {
+      if (live && event.command) setShellCommand(pane.id, event.command)
+    })
+    return () => { live = false; off?.() }
+  }, [hasAgent, isTerminalPane, pane.id, setShellCommand, terminalState.status])
+  const shellCommand = !hasAgent ? (terminalState.shellCommand ?? null) : null
+  const shellCommandRunning = Boolean(shellCommand?.running)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (agentSince === null) return
+    if (agentSince === null && !shellCommandRunning) return
     setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), 15_000)
+    const timer = setInterval(() => setNow(Date.now()), shellCommandRunning ? 1_000 : 15_000)
     return () => clearInterval(timer)
-  }, [agentSince])
+  }, [agentSince, shellCommandRunning])
   const runningTime = hasAgent && agentSince !== null ? elapsedLabel(now - agentSince) : null
+  const shellDuration = shellCommand
+    ? elapsedLabel((shellCommand.running ? now : (shellCommand.finishedAt ?? shellCommand.startedAt)) - shellCommand.startedAt)
+    : null
+  const shellOutcome: 'running' | 'success' | 'failure' | 'finished' | null = !shellCommand
+    ? null
+    : shellCommand.running
+      ? 'running'
+      : shellCommand.exitCode === 0
+        ? 'success'
+        : typeof shellCommand.exitCode === 'number'
+          ? 'failure'
+          : 'finished'
+  const shellLabel = !shellOutcome || !shellDuration
+    ? ''
+    : shellOutcome === 'running'
+      ? tc('pane.commandRunning', { duration: shellDuration })
+      : shellOutcome === 'success'
+        ? tc('pane.commandSucceeded', { duration: shellDuration })
+        : shellOutcome === 'failure'
+          ? tc('pane.commandFailed', { code: shellCommand!.exitCode, duration: shellDuration })
+          : tc('pane.commandFinished', { duration: shellDuration })
+  const headerMeta = runningTime
+    ? <span data-ui="pane-running-time">{runningTime}</span>
+    : shellCommand && shellOutcome && shellDuration
+      ? (
+        <span
+          className="pane-command-meta"
+          data-ui="pane-running-time"
+          data-testid="pane-command-status"
+          data-state={shellOutcome}
+          data-exit-code={typeof shellCommand.exitCode === 'number' ? String(shellCommand.exitCode) : undefined}
+          title={shellLabel}
+          aria-label={shellLabel}
+        >
+          {shellOutcome === 'success' ? <Check size={12} aria-hidden="true" /> : shellOutcome === 'failure' ? <X size={12} aria-hidden="true" /> : null}
+          {shellDuration}
+        </span>
+      )
+      : null
   const terminalCanRestart = terminalState.status !== 'starting'
 
 
@@ -305,7 +361,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
         </>}
         branch={isTerminalPane ? <PaneBranchBadge paneId={pane.id} workspace={workspace} pane={pane} /> : null}
-        meta={runningTime ? <span data-ui="pane-running-time">{runningTime}</span> : null}
+        meta={headerMeta}
         title={renaming ? (
             <input
               ref={renameInputRef}

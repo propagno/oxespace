@@ -333,14 +333,18 @@ export function App(): ReactElement {
   }, [])
 
   const notePaneActivity = useTerminalStore((state) => state.noteBackgroundActivity)
+  const setPaneShellCommand = useTerminalStore((state) => state.setShellCommand)
   useEffect(() => {
     const unsubscribes = workspaces.flatMap((workspace) =>
       workspace.panes.map((pane) =>
-        window.oxe.terminal.onActivity?.(pane.id, (event) => notePaneActivity(pane.id, event.at)) ?? (() => undefined)
+        window.oxe.terminal.onActivity?.(pane.id, (event) => {
+          if (event.command) setPaneShellCommand(pane.id, event.command)
+          if (event.bytes > 0) notePaneActivity(pane.id, event.at)
+        }) ?? (() => undefined)
       )
     )
     return () => { for (const off of unsubscribes) off() }
-  }, [notePaneActivity, workspaces])
+  }, [notePaneActivity, setPaneShellCommand, workspaces])
   const activePane = activeWorkspace?.panes.find((pane) => pane.id === activePaneId) ?? activeWorkspace?.panes[0] ?? null
   const slashPane = slashOverlayPaneId ? activeWorkspace?.panes.find((pane) => pane.id === slashOverlayPaneId) ?? null : null
   const skills = useSkillStore((s) => s.skills)
