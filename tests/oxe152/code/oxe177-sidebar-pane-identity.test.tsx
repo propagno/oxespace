@@ -53,6 +53,8 @@ describe('OXE-177 · Sidebar terminal row uses resolvePaneIdentity', () => {
 
     cleanup()
     const launcherPane = makePane({ id: 'pane-launcher', shellProfileId: 'builtin-claude' })
+    useTerminalStore.getState().setStatus('pane-launcher', 'running')
+    useTerminalStore.getState().setAgentState('pane-launcher', 'working', 'screen')
     render(
       <PaneSessionRow
         pane={launcherPane}

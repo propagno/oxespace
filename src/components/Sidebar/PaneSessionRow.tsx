@@ -57,7 +57,17 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const isStarting = status === 'starting'
   const canStopTerminal = pane.type === 'terminal' && (isRunning || isStarting)
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
-  const hasAgent = display.providerKey !== 'shell'
+  const hasBoundOrRuntimeAgent = Boolean(
+    agentProfile || pane.agentName?.trim() || terminalState.agentName?.trim()
+  )
+  const hasActiveLauncherAgent =
+    display.providerKey !== 'shell' &&
+    (Boolean(terminalState.agentState) ||
+      Boolean(terminalState.hookState) ||
+      terminalState.isWorking ||
+      Boolean(terminalState.lastIntent?.trim()) ||
+      Boolean(terminalState.lastOutput?.trim()))
+  const hasAgent = hasBoundOrRuntimeAgent || hasActiveLauncherAgent
   const taskSummary = hasAgent
     ? (terminalState.lastIntent?.trim() ? compactPreview(terminalState.lastIntent) : terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null)
     : null
