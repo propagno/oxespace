@@ -1212,5 +1212,29 @@
     "textSaved": "Choose a connection on the left, or add one.",
     "newDatabase": "New local database",
     "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it"
+  },
+  "contextMenu": {
+    "connectionLabel": "Connection actions for {{name}}",
+    "tabLabel": "Tab actions for {{name}}",
+    "cellLabel": "Cell actions for {{column}}",
+    "sqlEditorLabel": "SQL editor menu",
+    "open": "Open",
+    "copyName": "Copy name",
+    "copiedName": "name",
+    "copiedNameDone": "Name copied",
+    "closeOthers": "Close others",
+    "closeToRight": "Close to the right",
+    "sortColumn": "Sort",
+    "copyColumnName": "Copy column name",
+    "fitColumnWidth": "Fit width",
+    "copyValue": "Copy value",
+    "copyRowJson": "Copy row (JSON)",
+    "viewDetail": "View detail",
+    "viewStructure": "View structure",
+    "openDefinition": "Open definition",
+    "runQuery": "Run query",
+    "runSelection": "Run selection",
+    "cut": "Cut",
+    "paste": "Paste"
   }
 }

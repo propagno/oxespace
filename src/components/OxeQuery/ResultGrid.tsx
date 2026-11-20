@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pin, X } from 'lucide-react'
+import { ArrowUpDown, Columns3, Copy, Eye, FileJson, Pin, X } from 'lucide-react'
 import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, type CellRange, type CopyFormat } from './grid-format'
 import { EMPTY_FILTER, autoColumnWidth, isFiltering, pinColumns, pinOffsets, viewOrder, type GridFilter } from './grid-model'
+import { copyText } from './catalog'
 import { Select } from '../../ui/Field'
 import { AnchoredMenu, type MenuEntry } from '../../ui'
 
@@ -110,10 +111,36 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   // Too narrow for the actions and a readable name: no hover actions there (the header menu has them).
   const narrow = (index: number): boolean => room !== null && widthOf(index) < room.actions + room.name
   const [headerMenu, setHeaderMenu] = useState<number | null>(null)
+  const [cellMenu, setCellMenu] = useState<{ position: number; columnPosition: number; rowIndex: number; columnIndex: number } | null>(null)
+  const copyPlain = (text: string, format?: CopyFormat): void => {
+    if (onCopy) onCopy(text, format)
+    else void copyText(text, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone'))
+  }
   const headerItems = (index: number): MenuEntry[] => {
-    const items: MenuEntry[] = [{ label: t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] }), icon: <Pin size={14} aria-hidden="true" />, onSelect: () => setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }]
+    const items: MenuEntry[] = [
+      { label: t('contextMenu.sortColumn'), icon: <ArrowUpDown size={14} aria-hidden="true" />, onSelect: () => toggleSort(index) },
+      { label: t('contextMenu.copyColumnName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => copyPlain(columns[index]) },
+      { label: t('contextMenu.fitColumnWidth'), icon: <Columns3 size={14} aria-hidden="true" />, onSelect: () => setOverrides(current => { const next = { ...current }; delete next[index]; return next }) },
+      { type: 'separator' },
+      { label: t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] }), icon: <Pin size={14} aria-hidden="true" />, onSelect: () => setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }
+    ]
     if (visible.length > 1) items.push({ label: t('grid.hideNamed', { name: columns[index] }), icon: <X size={14} aria-hidden="true" />, onSelect: () => setHidden(current => new Set([...current, index])) })
     return items
+  }
+  const cellItems = (rowIndex: number, columnIndex: number): MenuEntry[] => {
+    const value = rows[rowIndex]?.[columnIndex]
+    return [
+      { label: t('contextMenu.copyValue'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => copyPlain(plainCell(value)) },
+      { label: t('contextMenu.copyRowJson'), icon: <FileJson size={14} aria-hidden="true" />, onSelect: () => copyPlain(formatRows('json', columns, [rows[rowIndex]], tableName), 'json') },
+      {
+        label: t('contextMenu.viewDetail'),
+        icon: <Eye size={14} aria-hidden="true" />,
+        onSelect: () => {
+          if (onOpenCell) onOpenCell({ column: columns[columnIndex], ...(types?.[columnIndex] ? { type: types[columnIndex] } : {}), value, row: rowIndex })
+          else onSelect?.(rowIndex)
+        }
+      }
+    ]
   }
   const order = useMemo(() => viewOrder(rows, filter, onSort ? null : sort), [rows, filter, sort, onSort])
   const count = order ? order.length : rows.length
@@ -158,6 +185,16 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (count === 0 || visible.length === 0) return
     const current = focus ?? { row: 0, column: 0 }
+    if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+      event.preventDefault()
+      const rowIndex = order ? order[current.row] : current.row
+      const columnIndex = visible[current.column]
+      if (rowIndex !== undefined && columnIndex !== undefined) {
+        setHeaderMenu(null)
+        setCellMenu({ position: current.row, columnPosition: current.column, rowIndex, columnIndex })
+      }
+      return
+    }
     const extend = event.shiftKey
     const ctrl = event.ctrlKey || event.metaKey
     const handled = ((): boolean => {
@@ -228,7 +265,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
         {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" className={[pinned.has(index) ? 'is-pinned' : '', numeric[index] ? 'is-number' : ''].filter(Boolean).join(' ') || undefined} style={stickyStyle(index, widthOf(index))}
           title={t('grid.sortTitle', { column: types?.[index] ? `${columns[index]} · ${types[index]}` : columns[index] })}
           aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}
-          data-narrow={narrow(index) || undefined} onContextMenu={event => { event.preventDefault(); setHeaderMenu(index) }}>
+          data-narrow={narrow(index) || undefined} onContextMenu={event => { event.preventDefault(); setCellMenu(null); setHeaderMenu(index) }}>
           <span className="oq-grid-name">{columns[index]}</span>{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
           <button type="button" className={`oq-grid-pin${pinned.has(index) ? ' is-on' : ''}`} aria-pressed={pinned.has(index)} aria-label={t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] })} title={t('grid.pinTitle')}
             onClick={event => { event.stopPropagation(); setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }}><Pin size={11} aria-hidden="true" /></button>
@@ -253,8 +290,19 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
               className={classes || undefined} style={stickyStyle(column, widthOf(column))} title={value === null || value === undefined ? t('grid.nullTitle') : plainCell(value).slice(0, 500)}
               onMouseDown={event => startDrag({ row: position, column: columnPosition }, event)}
               onMouseEnter={() => { if (dragging.current) setFocus({ row: position, column: columnPosition }) }}
+              onContextMenu={event => {
+                event.preventDefault()
+                setFocus({ row: position, column: columnPosition })
+                setAnchor({ row: position, column: columnPosition })
+                setHeaderMenu(null)
+                setCellMenu({ position, columnPosition, rowIndex: index, columnIndex: column })
+              }}
               onDoubleClick={() => onOpenCell ? onOpenCell({ column: columns[column], ...(types?.[column] ? { type: types[column] } : {}), value, row: index }) : onCopy?.(plainCell(value))}>{shown(value)}</span>
           })}
+          {cellMenu?.position === position && <AnchoredMenu open onOpenChange={open => { if (!open) setCellMenu(null) }}
+            label={t('contextMenu.cellLabel', { column: columns[cellMenu.columnIndex] ?? '' })}
+            items={cellItems(cellMenu.rowIndex, cellMenu.columnIndex)}
+            returnFocus={() => scroller.current} />}
         </div>
       })}
     </div>
