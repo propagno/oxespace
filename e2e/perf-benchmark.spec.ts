@@ -32,6 +32,8 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   'boot: firstWindow→interactive': 2_000,
   'workspace: create→grid (w/ input)': 3_000,
   'shell: create split pane': 1_500,
+  // Warm command menu open uses the per-rootPath fileList cache (OXE-41), aligned to the 100 ms perceptible budget.
+  'shell: command menu open': 100,
   'terminal: split→PTY running': 2_000,
   // Modal surfaces perform a full settings-tree mount. Their CI p95 baseline
   // is ~570 ms on Linux runners; keep this explicit instead of weakening the
