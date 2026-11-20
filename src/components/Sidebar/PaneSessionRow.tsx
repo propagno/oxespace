@@ -56,7 +56,8 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   // restored panes whose agentName was lost on a prior write).
   const resolvedAgentName = pane.agentName ?? agentProfile?.name ?? null
   const hasAgent = resolvedAgentName !== null
-  const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
+  const fallbackTypeLabel = pane.type === 'terminal' ? t('panels.terminal') : pane.type
+  const baseLabel = hasAgent ? resolvedAgentName! : `${fallbackTypeLabel} ${paneIndex + 1}`
   const label = pane.displayName ?? baseLabel
 
   const { status, lastActivityAt, hasUnread } = terminalState

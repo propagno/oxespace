@@ -57,7 +57,7 @@
 
 /* What a phone can and cannot do. */
 .scope { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
-.scope h4 { margin: 0 0 var(--space-2); font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--tx-primary); }
+.scope h3 { margin: 0 0 var(--space-2); font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .scope ul { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); font-size: var(--fs-sm); color: var(--tx-secondary); }
 
 /* 1.4.3 P1: the exact PowerShell line Allow or Remove runs, shown before the person confirms. */

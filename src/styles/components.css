@@ -915,11 +915,9 @@
 }
 
 .settings-new-agent-btn {
-  align-self: stretch;
-  width: 100%;
-  min-height: 40px;
+  align-self: flex-start;
+  width: auto;
   margin: 0;
-  border-radius: var(--radius-md);
 }
 
 
@@ -1095,20 +1093,6 @@
   color: var(--tx-muted);
   background: var(--ov-1);
   border-color: var(--ov-2);
-}
-
-.settings-progress {
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--ov-2);
-  overflow: hidden;
-}
-
-.settings-progress-bar {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent, var(--accent)), var(--intent-info-solid));
-  transition: width var(--duration-fast) var(--ease-standard);
 }
 
 .settings-inline-actions {

@@ -15,7 +15,7 @@ import { useSettingsStore } from '../../store/settings.store'
 import { TERMINAL_PREFS_DEFAULTS, useTerminalPrefsStore, type TerminalCursorStyle, type TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useUpdaterStore } from '../../store/updater.store'
 import { APP_VERSION } from '../../lib/appVersion'
-import { applyWithUndo, Button, EmptyState, SegmentedControl, SettingRow, Slider, Switch, Select } from '../../ui'
+import { applyWithUndo, Button, EmptyState, Meter, SegmentedControl, SettingRow, Slider, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
 import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
@@ -358,7 +358,8 @@ function ProvidersSettingsSection({
                 moment it actually matters. */}
             {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
               <Button
-                variant="primary"
+                variant="secondary"
+                size="sm"
                 aria-label={t('providers.card.useInPaneLabel', { name: profile.name })}
                 title={t('providers.card.bindTitle')}
                 disabled={usingId === profile.agentProfileId}
@@ -495,7 +496,9 @@ function ProvidersSettingsSection({
             state's health check is the one main action. */}
         <SettingsCard title={t('providers.customAgents')} description={t('providers.customAgentsHint')} actions={
           <Button
-            variant={agentProfiles.length > 0 ? 'primary' : 'secondary'} className="settings-new-agent-btn"
+            variant="secondary"
+            size="md"
+            className="settings-new-agent-btn"
             onClick={onNewCustomAgent}
             data-testid="btn-new-custom-agent"
             icon={<Plus size={14} aria-hidden="true" />}
@@ -986,8 +989,8 @@ function UpdatesSettingsSection(): ReactElement {
             </div>
             <p className="settings-update-status">{appStatusLabel}</p>
             {app.status === 'downloading' && app.progress != null ? (
-              <div className="settings-progress" role="progressbar" aria-label={t('updates.downloadingLabel')} aria-valuenow={app.progress} aria-valuemin={0} aria-valuemax={100}>
-                <div className="settings-progress-bar" style={{ width: `${app.progress}%` }} />
+              <div className="settings-progress">
+                <Meter label={t('updates.downloadingLabel')} value={app.progress} detail={`${Math.round(app.progress)}%`} />
               </div>
             ) : null}
             {app.error && app.status === 'error' ? (
