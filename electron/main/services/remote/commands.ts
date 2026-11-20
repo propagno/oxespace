@@ -213,7 +213,7 @@ export class RemoteCommands {
     if (request.generation !== args.generation) return { ok: false, code: 'stale-generation' }
     const { decision, answers } = args.response
     // As the phone was shown it: a request it saw cut offers no accept, and a question it saw cut is the desktop's alone.
-    const shown = toPendingRequest(listed, desktop.roots())
+    const shown = toPendingRequest(listed, desktop.roots(), desktop.language?.())
     if (!shown.answerable) return { ok: false, code: 'forbidden' }
     if (decision !== undefined && !shown.decisions.includes(decision)) return { ok: false, code: 'forbidden' }
     if (request.kind === 'approval' && (answers !== undefined || decision === undefined)) return { ok: false, code: 'malformed' }
