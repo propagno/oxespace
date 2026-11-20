@@ -176,7 +176,7 @@ describe('OXE-166 OXC-1 sidebar (A10)', () => {
 
   it('marks one selection: only the selected conversation is aria-current="true"', async () => {
     await renderSidebar()
-    expect(rowOf('Fix the login bug')).toHaveAttribute('aria-current', 'true')
+    expect(rowOf('Fix the login bug')).toHaveAttribute('aria-current', 'page')
     expect(all('[aria-current]').filter(element => element.getAttribute('aria-current') !== 'false'), 'one current element in the sidebar').toHaveLength(1)
   })
 

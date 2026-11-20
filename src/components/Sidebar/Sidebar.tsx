@@ -9,7 +9,7 @@ import { deriveStatusTone } from '../../utils/paneDisplay'
 import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { CodeRail } from './CodeRail'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
-import { Button, EmptyState, IconButton, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
+import { Button, EmptyState, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -171,7 +171,16 @@ export function Sidebar({
   const railPrimary: RailAction[] = [
     { id: 'new-workspace', label: t('sidebar.newWorkspace'), icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
     ...(onDelegations ? [{ id: 'delegated-work', label: t('background.delegated'), icon: Waypoints, onClick: onDelegations }] : []),
-    { id: 'search', label: t('sidebar.search', { shortcut: shortcutLabel('palette.search') }), ariaLabel: t('sidebar.searchLabel'), icon: Search, onClick: onOpenSearch }
+    { id: 'search', label: t('sidebar.search', { shortcut: shortcutLabel('palette.search') }), ariaLabel: t('sidebar.searchLabel'), icon: Search, onClick: onOpenSearch },
+    ...(workspaces.length > 0 && !searchQuery ? [{
+      id: 'toggle-all',
+      label: t('sidebar.toggleAll'),
+      icon: ChevronDown,
+      onClick: () => {
+        const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
+        workspaces.forEach(w => setExpanded(w.id, shouldExpand))
+      }
+    }] : [])
   ]
   const railContext: RailAction = { id: 'panels', label: t('panels.menu'), ariaLabel: t('sidebar.openPanels'), icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
@@ -205,7 +214,7 @@ export function Sidebar({
           bar whenever the pointer rested on any empty part of the sidebar. */}
       <div className="nav-panel" data-version={appVersion}>
       <SidebarHeader title={t('sidebar.workspaces')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="code" />} />
-      <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')}
+      <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
         value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={tc('nav.clearSearch')} autoComplete="off" spellCheck={false} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
@@ -229,13 +238,6 @@ export function Sidebar({
             ))}
           </section>
         ) : null}
-
-        <SidebarSection label={t('sidebar.workspaces')} action={workspaces.length > 0 && !searchQuery
-          ? <IconButton size="sm" label={t('sidebar.toggleAll')} title={t('sidebar.toggleAll')} icon={<ChevronDown size={12} aria-hidden="true" />} onClick={() => {
-            const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
-            workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }} />
-          : undefined} />
 
         {filtered.length === 0 ? (
           searchQuery

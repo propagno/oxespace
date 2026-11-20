@@ -1,17 +1,19 @@
 import { Bot, Orbit, Sparkles } from 'lucide-react'
-import { Suspense, lazy, useEffect, type ReactElement } from 'react'
+import { Suspense, useEffect, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { Popover, cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
 import { i18n } from '../../i18n'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import type { UsageProvider } from './usageProviders'
 
 const tc = i18n.getFixedT(null, 'code')
 
-// Loaded when the detail first opens: the status bar is in the first bundle, the detail is not.
-const UsagePopover = lazy(() => import('./UsagePopover').then(module => ({ default: module.UsagePopover })))
+// Loaded on pointer/focus intent or when the detail first opens: the status bar is in the first bundle, the detail is not.
+export const USAGE_POPOVER_CHUNK = chunk(() => import('./UsagePopover'))
+const UsagePopover = lazyFrom(USAGE_POPOVER_CHUNK, module => module.UsagePopover)
 
 /** How often the status bar reads the provider's usage while the window is visible. */
 export const USAGE_POLL_MS = 60_000
@@ -113,8 +115,10 @@ export function UsageStatus({ provider }: { provider: UsageProvider }): ReactEle
   const { short, detail, peak } = usageText(snapshot, Date.now())
   const Icon = PROVIDER_ICONS[provider]
   const clampedPeak = Math.min(100, Math.max(0, Math.round(peak)))
+  const warmPopover = (): void => { void USAGE_POPOVER_CHUNK.load().catch(() => undefined) }
   return <Popover label={tc('workspace.usage.label')} side="top" align="end" trigger={<button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}
-    title={`${detail}\n${tc('workspace.usage.click')}`} aria-label={`${providerName(provider)} ${clampedPeak}%, ${tc('workspace.usage.aria', { name: providerName(provider), value: short })}`} aria-busy={loading || undefined} data-testid="usage-status">
+    title={`${detail}\n${tc('workspace.usage.click')}`} aria-label={`${providerName(provider)} ${clampedPeak}%, ${tc('workspace.usage.aria', { name: providerName(provider), value: short })}`} aria-busy={loading || undefined} data-testid="usage-status"
+    onMouseEnter={warmPopover} onFocus={warmPopover}>
     <Icon size={11} aria-hidden="true" />
     <span>{providerName(provider)} {clampedPeak}%</span>
     <span className={styles.usageBar} aria-hidden="true"><i style={{ width: `${clampedPeak}%` }} /></span>
