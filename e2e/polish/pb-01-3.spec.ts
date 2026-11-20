@@ -112,14 +112,14 @@ test('PB-01·3 in the app: in forced colours the selected OxeCode sidebar row is
     await expect(rows.first(), 'the OxeCode sidebar shows its rows').toBeVisible({ timeout: 30_000 })
     await page.emulateMedia({ forcedColors: 'active' })
     await rows.first().click()
-    const selected = page.locator('[data-ui="sidebar-row"][aria-current="true"], [data-ui="sidebar-group"][aria-current="true"]').first()
+    const selected = page.locator('[data-ui="sidebar-row"][aria-current="page"], [data-ui="sidebar-group"][aria-current="page"]').first()
     await expect(selected).toBeVisible()
     const colors = await systemColors(page)
     const paint = (target: Locator) => target.evaluate(el => ({ fill: getComputedStyle(el).backgroundColor, ink: getComputedStyle(el).color }))
     const chosen = await paint(selected)
     expect(chosen.fill, 'the selected row is filled with Highlight').toBe(colors.highlight)
     expect(chosen.ink, 'and its text is HighlightText').toBe(colors.highlightText)
-    const others = page.locator('[data-ui="sidebar-row"][role="button"]:not([aria-current="true"]), [data-ui="sidebar-group"][role="button"]:not([aria-current="true"])')
+    const others = page.locator('[data-ui="sidebar-row"][role="button"]:not([aria-current="page"]), [data-ui="sidebar-group"][role="button"]:not([aria-current="page"])')
     for (const other of (await others.all()).slice(0, 4)) {
       if (!(await other.isVisible())) continue
       expect((await paint(other)).fill, 'a row not selected keeps the system colours').not.toBe(colors.highlight)
