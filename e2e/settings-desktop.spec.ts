@@ -106,7 +106,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send('app:update-state', { status: 'downloading', currentVersion: '0.13.0', availableVersion: '0.14.0', progress: 42, error: null, lastCheckedAt: Date.now() })
     })
-    await expect(settings.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
+    await expect(settings.getByRole('meter')).toHaveAttribute('aria-valuenow', '42')
     await settings.screenshot({ path: test.info().outputPath('1280-updates-downloading.png') })
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send('app:update-state', { status: 'downloaded', currentVersion: '0.13.0', availableVersion: '0.14.0', progress: 100, error: null, lastCheckedAt: Date.now() })

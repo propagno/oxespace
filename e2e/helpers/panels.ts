@@ -3,12 +3,20 @@ import type { Locator, Page } from '@playwright/test'
 /** Shared panel names (src/components/Workbench/panelCatalog.ts). */
 export type PanelLabel = 'Changes' | 'Browser' | 'Commit & pull request' | 'Files' | 'Find in files' | 'Worktrees'
 
-/** Opens or closes a Code panel through the rail's Panels menu, which lists every panel. */
+/** Opens or closes a Code panel through the workspace bar toggle or the single Panels menu. */
 export async function togglePanel(page: Page, label: PanelLabel): Promise<void> {
+  if (label === 'Changes' || label === 'Browser') {
+    const barButton = page.locator('[data-ui="panel-group"]').getByRole('button', { name: label === 'Changes' ? /^Changes\b/ : /^Browser$/ }).first()
+    if (await barButton.isVisible().catch(() => false)) {
+      await barButton.click()
+      return
+    }
+  }
   const item = page.getByRole('menuitemcheckbox', { name: label, exact: true })
+  const trigger = page.locator('[data-testid="btn-open-tools"]:visible, [data-ui="panel-group"] button[aria-label="More panels"]:visible').first()
   // A click that lands while the previous menu is still closing does not open a new one; open it again then.
   for (let attempt = 0; attempt < 3; attempt++) {
-    await page.locator('[data-testid="btn-open-tools"]:visible').click()
+    await trigger.click()
     if (await item.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false)) break
   }
   await item.click()

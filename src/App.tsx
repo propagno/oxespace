@@ -14,7 +14,7 @@ const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNo
 import { useTranslation } from 'react-i18next'
 import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
-import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
+import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
 import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
 import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
@@ -749,7 +749,6 @@ export function App(): ReactElement {
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={collapsedSidebars.code}
         onToggleCollapse={() => toggleSidebar('code')}
-        panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
         onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
