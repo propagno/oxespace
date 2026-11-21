@@ -446,7 +446,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(message).toBeVisible()
     await modelPicker.getByRole('button', { name: /Native model Native catalog model/ }).click()
     await message.fill('Keep this draft')
-    // OXE-172 (A12, the composer bar): the effort is chosen inside the Model chip, which names only the model.
     await page.getByRole('button', { name: /^Model: / }).click()
     await page.getByRole('button', { name: 'High', exact: true }).click()
     await expect(message).toHaveValue('Keep this draft')
@@ -679,7 +678,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // T57: Stop is a labelled pill, wider than the round Send, and its word is on screen.
     expect(runningActions.stopWidth).toBeGreaterThan(runningActions.sendWidth)
     await expect(page.locator('.thread-stop')).toContainText('Stop')
-    // OXE-172 (A12, MARCA 15/11): Send and Stop are at least 24px; Send is --control-sm in the composer bar.
     expect(runningActions.sendWidth).toBeGreaterThanOrEqual(24)
     await expectReadingAnchor()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsent draft')
@@ -786,8 +784,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // OXE-167 (A5, AG-10/11 approved 15/11): one column on the --measure-chat token, 800 px, centred, however wide the window is
-    // (880 px from 13/11 until the AG-10/11 conversation).
     expect(Math.abs(wideGeometry.readingWidth - 800)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
@@ -973,7 +969,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
-    // OXE-167 (A5, the prompt card): a prompt offers Copy, and Edit only on the latest prompt; nothing else.
     await expect(latestMessage.getByRole('button', { name: 'Copy prompt', exact: true })).toHaveCount(1)
     expect(await latestMessage.getByRole('button').count()).toBeLessThanOrEqual(2)
     await expect(latestResponse).toHaveClass(/is-final-response/)
