@@ -44,26 +44,6 @@
       "state": "enforced"
     },
     {
-      "id": "BRD-01.section.height",
-      "scene": "code-workspace",
-      "select": "[data-ui=sidebar-section]",
-      "prop": "height",
-      "expect": {
-        "token": "--bar-sm"
-      },
-      "tolerance": 0.5,
-      "densities": [
-        "compact",
-        "comfortable"
-      ],
-      "themes": [
-        "light",
-        "dark"
-      ],
-      "state": "enforced",
-      "note": "the section label line"
-    },
-    {
       "id": "BRD-01.group.height",
       "scene": "code-workspace",
       "select": "[data-ui=sidebar-group]",

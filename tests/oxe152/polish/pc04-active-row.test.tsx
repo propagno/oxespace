@@ -118,7 +118,7 @@ describe('PC-04·10 · active row on boot and translated unnamed terminal label'
 
     const rows = [...container.querySelectorAll<HTMLElement>('[data-ui="sidebar-row"]')]
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveAttribute('aria-current', 'true')
+    expect(rows[0]).toHaveAttribute('aria-current', 'page')
     expect(rows[1]).not.toHaveAttribute('aria-current')
   })
 

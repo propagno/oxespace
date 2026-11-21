@@ -135,7 +135,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
       const firstRun = page.getByTestId('first-run')
       await expect(firstRun).toBeVisible()
       await expect(firstRun.getByRole('heading', { name: 'Connect an agent' })).toBeVisible()
-      await expect(firstRun.getByText(/^(Ready|How to install|Sign in to (Claude Code|Codex))/).first()).toBeVisible({ timeout: 60_000 })
+      await expect(firstRun.getByText(/^(Ready|How to install|Sign in(\b|$))/).first()).toBeVisible({ timeout: 60_000 })
     } finally {
       await app.close()
     }

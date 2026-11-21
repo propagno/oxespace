@@ -27,6 +27,7 @@
     "test:coverage": "vitest run --coverage --maxWorkers=1",
     "test:coverage:oxequery": "node scripts/test-electron.mjs tests/unit/oxequery tests/unit/oxepod tests/oxequery tests/oxepod tests/integration/oxequery tests/integration/oxepod --coverage --coverage.reporter=text-summary --coverage.reporter=json-summary --coverage.include=\"electron/main/services/oxequery/**\" --coverage.include=\"electron/main/services/oxepod/**\" --coverage.include=\"src/components/OxeQuery/**\" --coverage.include=\"src/components/OxePod/**\" --coverage.include=\"shared/**/oxequery*\" --coverage.include=\"shared/**/oxepod*\" --coverage.thresholds.lines=60 --coverage.thresholds.statements=60 --coverage.thresholds.branches=60 --coverage.thresholds.functions=60",
     "test:e2e": "playwright test",
+    "test:e2e:acceptance": "playwright test --config playwright.acceptance.config.ts",
     "bench:cpu": "vitest bench --run tests/bench/hotpaths.bench.ts",
     "bench:services": "vitest bench --run tests/bench/services.bench.ts",
     "bench:ui": "playwright test --config playwright.tools.config.ts perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts",

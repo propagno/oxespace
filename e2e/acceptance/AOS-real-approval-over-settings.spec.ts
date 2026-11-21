@@ -179,7 +179,8 @@ test('approval over Settings: a policy change raised by opening Settings › Too
     await page.locator('[cmdk-item]', { hasText: 'Workspace settings' }).first().click()
     const settings = settingsDialog(page)
     await expect(settings).toBeVisible({ timeout: 10_000 })
-    const entry = settings.locator('nav[aria-label="Settings categories"] button', { hasText: /^Tools/ }).first()
+    // CR OXE-296 (17/11): BRD-23 workspace settings categories are General, Projects, Policy (Tools moved to App › Integrations).
+    const entry = settings.locator('nav[aria-label="Settings categories"] button', { hasText: /^Policy/ }).first()
     await entry.click()
     // Where the person is: the Tools entry they just pressed, its page, its top.
     const before = { ...(await place(page, settings)), focus: await entry.evaluate(node => `${node.tagName.toLowerCase()}|${node.getAttribute('role') ?? ''}|${node.getAttribute('aria-label') ?? ''}|${(node.textContent ?? '').trim().slice(0, 40)}`), focusInSettings: true }
