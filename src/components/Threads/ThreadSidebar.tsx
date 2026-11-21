@@ -43,8 +43,8 @@ import sectionStyles from './sections/ThreadSections.module.css'
 const THREAD_ROWS_PER_PROJECT = 8
 
 /** The chips under the filter, in this order; Unread is a condition, last (OXE-187 RN-2). */
-const STATE_CHIPS: ReadonlyArray<{ filter: StateFilter; label: 'status.attention' | 'status.running' | 'status.failed' | 'sidebar.filterUnread' }> = [
-  { filter: 'needs-you', label: 'status.attention' }, { filter: 'working', label: 'status.running' }, { filter: 'failed', label: 'status.failed' }, { filter: 'unread', label: 'sidebar.filterUnread' }
+const STATE_CHIPS: ReadonlyArray<{ filter: StateFilter; labelKey: 'status.attention' | 'status.running' | 'status.failed' | 'sidebar.filterUnread' }> = [
+  { filter: 'needs-you', labelKey: 'status.attention' }, { filter: 'working', labelKey: 'status.running' }, { filter: 'failed', labelKey: 'status.failed' }, { filter: 'unread', labelKey: 'sidebar.filterUnread' }
 ]
 
 function relativeTime(timestamp: number): string {
@@ -272,7 +272,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       {(filterFocused || stateFilter) && <div ref={chipsRef} role="group" aria-label={t('sidebar.filterByState')} data-ui="thread-state-chips" className={styles.stateChips}
         onBlur={event => { const next = event.relatedTarget as Node | null; if (next !== search.current && !event.currentTarget.contains(next)) setFilterFocused(false) }}>
         {STATE_CHIPS.map(chip => <Button key={chip.filter} size="sm" variant={stateFilter === chip.filter ? 'secondary' : 'ghost'} aria-pressed={stateFilter === chip.filter}
-          onClick={() => setStateFilter(value => value === chip.filter ? null : chip.filter)}>{t(chip.label)}</Button>)}
+          onClick={() => setStateFilter(value => value === chip.filter ? null : chip.filter)}>{t(chip.labelKey)}</Button>)}
       </div>}
       <nav ref={attachList} onKeyDown={onListKeyDown} className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
         {coldSkeleton
