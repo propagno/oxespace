@@ -10,7 +10,7 @@ describe('Thread failure card', () => {
   it('opens the latest failure with actual provider diagnostic and local reset times for each usage window', () => {
     const { container } = render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest />)
     expect(screen.getByText('Usage allowance exhausted').closest('details')).toHaveAttribute('open')
-    expect(screen.getByLabelText('Technical details')).toHaveTextContent(failure.detail!)
+    expect(screen.getByLabelText('Provider diagnostic')).toHaveTextContent(failure.detail!)
     expect(screen.getByText('usageLimitExceeded')).toBeVisible()
     expect(screen.getByText('100% used')).toBeVisible()
     expect(screen.getByText('62% used')).toBeVisible()
@@ -33,7 +33,7 @@ describe('Thread failure card', () => {
     expect(screen.getByText(/Current usage could not be retrieved/)).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Refresh usage' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('provider has not confirmed a reset time')
-    expect(screen.getByLabelText('Technical details')).toHaveTextContent(failure.detail!)
+    expect(screen.getByLabelText('Provider diagnostic')).toHaveTextContent(failure.detail!)
     expect(screen.queryByLabelText('Provider usage')).not.toBeInTheDocument()
   })
   it('supports old saved failures and missing reset fields without inventing information', () => {

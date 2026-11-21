@@ -39,7 +39,7 @@ describe('WorktreeCreationNotices', () => {
 
     await act(async () => { await changeLanguage('pt-BR') })
     rerender(<WorktreeCreationNotices notices={[created, copied]} onDismiss={onDismiss} />)
-    expect(screen.getByText('Worktree criada em /repo-wt (branch feature/x a partir de origin/main).')).toBeTruthy()
+    expect(screen.getByText('Worktree criado em /repo-wt (branch feature/x a partir de origin/main).')).toBeTruthy()
     expect(screen.getByRole('status')).toBeTruthy()
   })
 
