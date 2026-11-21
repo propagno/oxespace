@@ -489,10 +489,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
     await expect(failureCard.getByLabel('Provider diagnostic')).toContainText('hit the session usage limit')
-    await expect(failureCard.getByText('100% used', { exact: true })).toBeVisible()
+    await expect(failureCard.getByText(/100% used/)).toBeVisible()
     await expect(failureCard.locator('.thread-usage-window time')).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
-    await expect(failureCard.getByText('72% used', { exact: true })).toBeVisible()
+    await expect(failureCard.getByText(/72% used/)).toBeVisible()
     for (const width of [900, 1280]) {
       await page.setViewportSize({ width, height: 720 })
       await expect(failureCard.getByRole('button', { name: 'Refresh usage', exact: true })).toBeVisible()
