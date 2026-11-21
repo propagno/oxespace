@@ -7,6 +7,7 @@ import { AGENT_SOURCES, type AgentKey, type AgentSourceStatus, type AgentsOvervi
 import type {
   ConversationThread, ThreadDelta, ThreadHistoryPage, ThreadPendingRefusal, ThreadRequest, ThreadRequestResponse, ThreadSnapshot, ThreadSyncCursor
 } from '../../../../shared/types/thread'
+import type { DesktopImpactLanguage } from './impact-summary'
 
 /**
  * What the gateway may read from and do on the desktop (B9 · M4–M5), and nothing more. The gateway is given this
@@ -66,6 +67,8 @@ export interface RemoteDesktop {
   markAgentSeen(key: AgentKey): boolean
   /** Main's words for a C3 message, in English: the fallback beside the code the phone words itself. */
   messageText(message: MainMessage): string
+  /** Current desktop language for desktop-authored impact summaries (OXE-164); defaults to English when omitted. */
+  language?(): DesktopImpactLanguage
 }
 
 // ---- The production adapter --------------------------------------------------------------------------------------
@@ -100,7 +103,7 @@ export interface RemoteAgentsHost {
   text(message: MainMessage): string
 }
 
-export interface RemoteDesktopHosts { db: AppDatabase; threads: RemoteThreadHost; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost }
+export interface RemoteDesktopHosts { db: AppDatabase; threads: RemoteThreadHost; terminals: RemoteTerminalHost; agentState: RemoteAgentStateHost; agents?: RemoteAgentsHost; language?: () => DesktopImpactLanguage }
 
 /** Without the read model (tests, a failed start): every source unavailable, never an empty "nothing running". */
 const NO_AGENTS = (): AgentsOverview => ({
@@ -205,7 +208,8 @@ export function createRemoteDesktop(hosts: RemoteDesktopHosts): RemoteDesktop {
     },
     messageText(message) {
       return agents ? agents.text(message) : message.code
-    }
+    },
+    ...(hosts.language ? { language: hosts.language } : {})
   }
 }
 
