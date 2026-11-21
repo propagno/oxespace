@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchReal, mode, openRepo, quitReal, realProfile } from './real-app'
+import { launchReal, openRepo, quitReal, realProfile } from './real-app'
 
 /**
  * Batch 2c on main, black box on the REAL app (no doubles), throwaway profile:
@@ -10,7 +10,8 @@ import { launchReal, mode, openRepo, quitReal, realProfile } from './real-app'
  *   it, `allow` refused on a confirm-level tool, and an unreadable policy.json refused with nothing written.
  * - #286 (F25 caveat 3) quarantine: a trusted stdio server whose config is edited is quarantined, and what the app
  *   remembers as trusted holds the env KEYS and no secret, from env, flags or a URL argument.
- * - #173 (F1) OxePod with no reachable engine: an ErrorState with a level-2 heading and "Check again", no page error.
+ * - #173 (F1) containers with no reachable engine: since 1.5.0 the OxePod mode is the Containers panel (Tools ›
+ *   Containers, #754), which says the engine by name and offers what to do (Try again, or How to install), no page error.
  */
 type Rule = { server: string; tool: string; decision: string; source: string; editable: boolean; allowedDecisions: string[]; confirmLevel: boolean; scope: string | null }
 const oxe = <T>(page: Page, expression: string) => page.evaluate(expression) as Promise<T>
@@ -86,10 +87,11 @@ test('#208 per-tool rules: written with what was there, enforced on an agent, li
       expect.soft(refused.refused, 'allow refused at confirm level').toMatch(/mcp\.toolRule\.confirmLevel/)
       expect.soft(readFileSync(policyPath, 'utf8'), 'nothing written').toBe(textBefore)
     }
-    // A policy.json that is not a policy: refused, untouched.
+    // A policy.json that is not a policy: refused, untouched. Since B7.4 (#359) a policy.json changed outside the app is a
+    // change waiting for the person's answer, so the write is refused as pending before the file is even parsed.
     writeFileSync(policyPath, '{ this is not json')
     const invalid = await set('deny', notify!) as unknown as { refused?: string }
-    expect.soft(invalid.refused, 'an unreadable policy is refused').toMatch(/mcp\.toolRule\.invalidPolicy/)
+    expect.soft(invalid.refused, 'an unreadable policy is refused').toMatch(/mcp\.toolRule\.invalidPolicy|policy\.change\.pending/)
     expect.soft(readFileSync(policyPath, 'utf8'), 'and left as it was').toBe('{ this is not json')
     // Another project's path is not a registered project.
     const foreign = await oxe<{ refused?: string }>(page, `window.oxe.mcpInternal.setToolRule(${JSON.stringify({ rootPath: join(root, 'not-a-project'), server: notify!.server, tool: notify!.tool, decision: 'deny' })}).then(() => ({}), e => ({ refused: String(e && e.message) }))`)
@@ -127,7 +129,7 @@ test('#286 an edited trusted server is quarantined, and what was trusted holds n
   } finally { await quitReal(app) }
 })
 
-test('#173 OxePod with no reachable engine: an error state with a heading and Check again', async () => {
+test('#173 Containers with no reachable engine: the panel names the engine and says what to do', async () => {
   test.setTimeout(120_000)
   const bogus = process.platform === 'win32' ? 'npipe:////./pipe/oxespace_hml_no_engine' : 'unix:///tmp/oxespace-hml-no-engine.sock'
   const profile = realProfile('f1pod', { OXESPACE_LOCALE: 'en-US', DOCKER_HOST: bogus, CONTAINER_HOST: bogus })
@@ -136,14 +138,18 @@ test('#173 OxePod with no reachable engine: an error state with a heading and Ch
   page.on('pageerror', e => errors.push(e.message))
   try {
     await app.evaluate(({ dialog }) => { dialog.showMessageBox = (() => new Promise(() => undefined)) as typeof dialog.showMessageBox; dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync })
-    await mode(page, 'pods')
-    const heading = page.getByRole('heading', { level: 2, name: /Docker|Podman|engine|container/i }).first()
-    await expect(heading, 'a level-2 heading names the problem').toBeVisible({ timeout: 20_000 })
-    const again = page.getByRole('button', { name: /Check again|Checking/i }).first()
-    await expect.soft(again, '"Check again" is offered').toBeVisible()
-    console.log('F1-POD', JSON.stringify({ heading: await heading.innerText(), text: (await heading.locator('xpath=ancestor::*[1]').innerText().catch(() => '')).slice(0, 300) }))
-    await again.click()
-    await expect.soft(heading, 'still explained after checking again').toBeVisible({ timeout: 15_000 })
+    await page.locator('.app-menubar-inline').getByRole('button', { name: 'Tools' }).click()
+    await page.getByRole('menuitem', { name: 'Containers' }).click()
+    const notice = page.locator('.containers-panel-notice').first()
+    await expect(notice, 'the panel explains the engine problem').toBeVisible({ timeout: 20_000 })
+    await expect.soft(notice, 'it names the engine').toContainText(/Docker|Podman/)
+    const action = notice.getByRole('button', { name: /Try again|How to install/ }).first()
+    await expect.soft(action, 'and offers what to do').toBeVisible()
+    console.log('F1-POD', JSON.stringify({ text: (await notice.innerText().catch(() => '')).slice(0, 300) }))
+    if (/Try again/.test(await action.innerText().catch(() => ''))) {
+      await action.click()
+      await expect.soft(notice, 'still explained after trying again').toBeVisible({ timeout: 15_000 })
+    }
     expect.soft(errors, 'no page error').toEqual([])
   } finally { await quitReal(app) }
 })

@@ -3,7 +3,8 @@ import { basename } from 'node:path'
 /** Executable names (lower case, without extension) and the detection manifest they use. */
 const EXECUTABLES: Record<string, string> = {
   claude: 'claude', codex: 'codex', copilot: 'copilot', 'cursor-agent': 'cursor', gemini: 'gemini', grok: 'grok',
-  opencode: 'opencode', qwen: 'qwen', kimi: 'kimi', amp: 'amp', droid: 'droid'
+  opencode: 'opencode', qwen: 'qwen', kimi: 'kimi', amp: 'amp', droid: 'droid',
+  agy: 'antigravity', antigravity: 'antigravity'
 }
 
 /** The agent an executable or command line starts, if it is one we can read. */
