@@ -485,11 +485,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.workbench-titlebar')).not.toContainText('Authentication flow')
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
-    // OXE-167 (AG-11 6.2): the provider's codes sit in the card's closed "Technical details"; open it to read them.
     await failureCard.locator('.thread-failure-technical > summary').click()
     await expect(failureCard.getByLabel('Technical details', { exact: true })).toContainText('hit the session usage limit')
     await expect(failureCard.getByText(/100% used/)).toBeVisible()
-    // OXE-167 (AG-11 6.2): each window says when it resets in its own line.
     await expect(failureCard.locator('.thread-usage-window-line', { hasText: 'Resets in' })).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
     await expect(failureCard.getByText(/72% used/)).toBeVisible()
@@ -508,7 +506,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    // OXE-167 (AG-11 6.2): the failure card owns a failed sign-in and its Reconnect opens the agent accounts.
     const authCard = page.locator('[data-ui="failure-card"]').last()
     await expect(authCard).toContainText('Reconnect your native agent account to continue.')
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })
@@ -787,8 +784,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // OXE-167 (A5, AG-10/11 approved 15/11): one column on the --measure-chat token, 800 px, centred, however wide the window is
-    // (880 px from 13/11 until the AG-10/11 conversation).
     expect(Math.abs(wideGeometry.readingWidth - 800)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
@@ -974,7 +969,6 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
-    // OXE-167 (A5, the prompt card): a prompt offers Copy, and Edit only on the latest prompt; nothing else.
     await expect(latestMessage.getByRole('button', { name: 'Copy prompt', exact: true })).toHaveCount(1)
     expect(await latestMessage.getByRole('button').count()).toBeLessThanOrEqual(2)
     await expect(latestResponse).toHaveClass(/is-final-response/)
