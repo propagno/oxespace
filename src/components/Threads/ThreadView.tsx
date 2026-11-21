@@ -1,6 +1,7 @@
 import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
 import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
+import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
 import { threadAgentName, threadProductName } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
@@ -32,6 +33,7 @@ const NO_REPLIES: ReturnType<typeof threadQuickReplies> = []
 const NO_REQUESTS: import('../../../shared/types/thread').ThreadRequest[] = []
 // A stable empty list: a fresh [] per store read makes zustand 5 re-render forever.
 const NO_ATTACHMENTS: import('../../../shared/types/thread').ThreadAttachment[] = []
+const NO_PREVIEW_ELEMENTS: PreviewElementRef[] = []
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
@@ -91,6 +93,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const drawer = availableWidth > 0 && availableWidth < CONVERSATION_MIN_WIDTH + REVIEW_MIN_WIDTH
   const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
   const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
+  const previewElements = useThreadStore(state => snapshot ? state.previewElements[snapshot.thread.id] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   // What the person can't act on (a code from main), shown under Details; cleared with the error.
   const [errorDetail, setErrorDetail] = useState('')
@@ -138,12 +141,19 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
-  // `extra.images`: captures that come with the text (a Design Mode selection in the Browser), attached like a pasted image.
-  const appendToConversation = (prompt: string, extra?: { images: PreviewAttachment[] }) => {
+  // `extra.elements`: Web Preview element references rendered as structured removable chips in the composer (OXE-10).
+  // `extra.images`: captures that come with plain text, attached like a pasted image.
+  const appendToConversation = (prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }) => {
     if (!snapshot) return
-    const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
-    useThreadStore.getState().setDraft(snapshot.thread.id, current ? `${current}\n\n${prompt}` : prompt)
-    if (extra?.images.length) void uploadFiles(extra.images.flatMap(image => attachmentFile(image) ?? []))
+    if (prompt.trim()) {
+      const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
+      useThreadStore.getState().setDraft(snapshot.thread.id, current ? `${current}\n\n${prompt}` : prompt)
+    }
+    if (extra?.elements?.length) {
+      const store = useThreadStore.getState()
+      for (const element of extra.elements) store.addPreviewElement(snapshot.thread.id, element)
+    }
+    if (extra?.images?.length) void uploadFiles(extra.images.flatMap(image => attachmentFile(image) ?? []))
     if (drawer) closeReview()
     else requestAnimationFrame(() => textarea.current?.focus())
   }
@@ -289,28 +299,66 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const id = snapshot.thread.id
     await action(async () => { await api.removeAttachment!(id, attachmentId); useThreadStore.getState().removeAttachment(id, attachmentId) })
   }
+  const attachPreviewElementImages = async (id: string, elements: readonly PreviewElementRef[], existingCount: number): Promise<string[]> => {
+    if (!api?.attach) return []
+    const files = elements.flatMap(element => (element.image ? attachmentFile(element.image) ?? [] : []))
+    if (!files.length) return []
+    const ids: string[] = []
+    for (const file of files.slice(0, Math.max(0, 8 - existingCount))) {
+      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) continue
+      const uploaded = await api.attach(id, {
+        name: file.name,
+        mimeType: file.type as import('../../../shared/types/thread').ThreadAttachment['mimeType'],
+        data: await file.arrayBuffer()
+      })
+      ids.push(uploaded.id)
+    }
+    return ids
+  }
   const send = (mode: 'queue' | 'steer' = 'queue') => {
-    if (!snapshot || pending || actionInFlight.current || (!draft.trim() && !attachments.length)) return
+    if (!snapshot || pending || actionInFlight.current || (!draft.trim() && !attachments.length && !previewElements.length)) return
     const command = draft.trim().match(/^\/([\w:-]+)/)?.[1]
     if (command && hasDesktopCommand(snapshot.thread.provider, command) && api?.command) { void action(() => runCommand(draft)); return }
     if (commands.executeLocal(draft)) return
     if (snapshot.thread.cliActive) { setError(t('view.cliOwns')); return }
     const text = draft, id = snapshot.thread.id
+    const keptElements = previewElements
     const attachmentIds = attachments.map(value => value.id)
-    const message = text || t('view.inspectImage')
+    const composed = composeMessageWithElements(text, keptElements)
+    const message = composed || t('view.inspectImage')
+    const dispatchSend = (): Promise<unknown> => {
+      const hasElementImages = keptElements.some(element => Boolean(element.image)) && Boolean(api?.attach)
+      if (!hasElementImages) {
+        return mode === 'steer' ? api!.steer!(id, message, attachmentIds) : api!.send(id, message, attachmentIds)
+      }
+      return (async () => {
+        const elementAttachmentIds = await attachPreviewElementImages(id, keptElements, attachments.length)
+        const allIds = [...attachmentIds, ...elementAttachmentIds]
+        if (mode === 'steer') await api!.steer!(id, message, allIds)
+        else await api!.send(id, message, allIds)
+      })()
+    }
     if (/^\s*\//.test(text)) {
-      void action(async () => { if (mode === 'steer') await api!.steer!(id, message, attachmentIds); else await api!.send(id, message, attachmentIds); if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, ''); useThreadStore.getState().clearAttachments(id); scrollEnd() })
+      void action(async () => {
+        await dispatchSend()
+        if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
+        useThreadStore.getState().clearAttachments(id)
+        useThreadStore.getState().clearPreviewElements(id)
+        scrollEnd()
+      })
       return
     }
     setOutgoing({ threadId: id, text: message, attachments, knownEvents: new Set(snapshot.events.map(event => event.type === 'message' ? event.id : '')) })
     useThreadStore.getState().setDraft(id, '')
     useThreadStore.getState().clearAttachments(id)
+    useThreadStore.getState().clearPreviewElements(id)
     requestAnimationFrame(scrollEnd)
-    void action(() => mode === 'steer' ? api!.steer!(id, message, attachmentIds) : api!.send(id, message, attachmentIds), sent => {
+    void action(dispatchSend, sent => {
       if (!sent) {
         const store = useThreadStore.getState()
         if (!store.drafts[id]) store.setDraft(id, text)
         for (const attachment of attachments) store.addAttachment(id, attachment)
+        for (const element of keptElements) store.addPreviewElement(id, element)
       }
       setOutgoing(null)
       if (sent) requestAnimationFrame(scrollEnd)
@@ -451,9 +499,9 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
-      <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
+      <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} previewElements={previewElements} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
-        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={stopTurn} />
+        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInsertMention={insertMention} onInterrupt={stopTurn} />
     </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
