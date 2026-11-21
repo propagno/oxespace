@@ -5,7 +5,7 @@ import type { ThreadCommandContext } from './commands/thread.commands'
 import { useDeferredModule } from './app/useDeferredModule'
 import { firstRunGate } from './app/firstRunGate'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
-import { useViewSwitch } from './app/viewSwitch'
+import { useViewSwitch } from './app/viewSwitch'; import { useOpenThreadListener } from './app/openThread'
 import { setShownView } from './app/shownView'
 import { hasRememberedAppView, rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
@@ -128,7 +128,7 @@ export function App(): ReactElement {
     if (mode === applicationView) { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode) }
     rawSelectMode(mode)
   }, [applicationView, hasOpenedThread, rawSelectMode])
-  useModeActions(selectMode)
+  useModeActions(selectMode); useOpenThreadListener(selectMode)
   // A schedule's run opened a conversation: the way to it from the notice and from the Schedules dialog.
   const openScheduledThread = useCallback((threadId: string) => { selectMode('thread'); void useThreadStore.getState().load().then(() => useThreadStore.getState().select(threadId)) }, [selectMode])
   // A conversation's Terminal tab opens one of its panes here: OxeCode, the pane's workspace, the pane focused.

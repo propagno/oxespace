@@ -203,6 +203,13 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     })
   }
 
+  // OXE-332: the request opens with its conversation (so the host can load it uncached) and the queue closes.
+  const seeImpact = (item: QueueItem): void => {
+    if (item.kind !== 'request') return
+    openRequest(item.request.requestId, item.row.id)
+    onClose(false)
+  }
+
   const focusedIndex = (): number => itemRefs.current.findIndex(item => item?.contains(document.activeElement) ?? false)
   const move = (index: number): void => {
     if (!items.length) return
@@ -231,7 +238,7 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     // Enter on the item itself (a button keeps its own Enter): the impact of a request the queue cannot decide.
     if (key === 'Enter' && event.target === itemRefs.current[index] && item.kind === 'request' && !decidable(item)) {
       event.preventDefault()
-      openRequest(item.request.requestId)
+      seeImpact(item)
     }
   }
 
@@ -297,7 +304,7 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
                       <Button size="md" variant="primary" onClick={() => decide(item, 'accept')}>{t('f7.card.allowOnce')}</Button>
                     </>
                   ) : (
-                    <Button size="md" variant="secondary" onClick={() => openRequest(item.request.requestId)}>{t('f7.card.seeImpact')}</Button>
+                    <Button size="md" variant="secondary" onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
                   )}
                 </div>
               </div>
