@@ -49,9 +49,9 @@ export function turnFoldLabel(steps: number): string {
 export function ThreadTurnFoldRow({ fold, turn, events, onToggle }: { fold: ThreadTurnFold; turn?: ThreadTurn; events?: readonly ThreadEvent[]; onToggle: () => void }) {
   const { t } = useTranslation('thread')
   return <button type="button" className="thread-turn-fold" aria-expanded={fold.expanded} onClick={onToggle}
-    title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold">
+    title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold" data-ui="turn-line">
     <ChevronRight size={14} aria-hidden="true" className="thread-turn-fold-chevron" />
     <ListChecks size={14} aria-hidden="true" />
-    <span>{turnFoldLabel(fold.steps)}</span>
+    <span>{t('turnTiming.actions', { count: fold.steps })}</span>
   </button>
 }

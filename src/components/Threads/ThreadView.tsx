@@ -49,6 +49,7 @@ import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
+import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
@@ -400,7 +401,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell}
       activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
-      onTogglePanel={togglePanel} onCloseCell={onCloseCell}
+      onTogglePanel={togglePanel} onCloseCell={onCloseCell} onOpenInCode={requestThreadOpenInCode}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
@@ -410,7 +411,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" hidden={showingToolTab} role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
-      <div ref={scroll.content} className="thread-reading-column">
+      <div ref={scroll.content} className="thread-reading-column" data-ui="chat-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}

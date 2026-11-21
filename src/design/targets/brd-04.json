@@ -22,7 +22,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.tabs.count",
@@ -87,7 +87,7 @@
       "select": "[data-ui=chat-column]",
       "prop": "width",
       "expect": {
-        "px": 800
+        "token": "--measure-chat"
       },
       "tolerance": 0.5,
       "densities": [
@@ -98,7 +98,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.user-message.radius",
@@ -117,7 +117,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.user-message.font-size",
@@ -136,7 +137,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.turn-line.font-size",
@@ -155,7 +157,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.composer.radius",
@@ -296,7 +299,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.request.button.height",
@@ -315,7 +318,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     }
   ]
 }
