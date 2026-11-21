@@ -213,12 +213,12 @@
     },
     "linear": {
       "worktree": {
-        "exists": "Já existe um worktree para {{issue}} em {{path}}."
+        "exists": "Já existe uma worktree para {{issue}} em {{path}}."
       }
     },
     "worktree": {
-      "created": "Worktree criado em {{path}} (branch {{branch}}).",
-      "createdFrom": "Worktree criado em {{path}} (branch {{branch}} a partir de {{base}}).",
+      "created": "Worktree criada em {{path}} (branch {{branch}}).",
+      "createdFrom": "Worktree criada em {{path}} (branch {{branch}} a partir de {{base}}).",
       "setup": {
         "notApproved": "O hook de setup do oxe.yaml não foi aprovado e não rodou.",
         "complete": "Hook de setup concluído.",
@@ -226,7 +226,7 @@
         "unverified": "O hook de setup não terminou de um jeito que dê para conferir."
       },
       "cleanup": {
-        "notRemovable": "Este não é um worktree removível deste repositório.",
+        "notRemovable": "Esta não é uma worktree removível deste repositório.",
         "blocked": "Bloqueado: {{reasons}}.",
         "needsConfirmation": "Precisa de confirmação: {{reasons}}."
       },
@@ -236,30 +236,30 @@
         "overLimit": "Worktree criada, nada copiado: o worktree.copyFiles achou {{files}} arquivos ({{megabytes}} MB), acima de {{maxFiles}} arquivos ou {{maxMegabytes}} MB.",
         "tooComplex": "Padrões do worktree.copyFiles recusados, porque têm pastas ou ** demais para comparar com segurança: {{patterns}}.",
         "excludeReserved": "Padrões que começam com ! ficam reservados para uma versão futura; nada foi copiado para eles: {{patterns}}.",
-        "ignoreCheckFailed": "O Git não conseguiu dizer quais arquivos ignora no worktree novo, então nada do worktree.copyFiles foi copiado.",
-        "notIgnored": "Não copiados, porque o Git não os ignora no worktree novo e eles poderiam ir para um commit: {{paths}}.",
-        "searchTooLarge": "O worktree.copyFiles percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; o worktree foi criado. Use padrões mais específicos.",
-        "notOverwritten": "Já estavam no worktree novo e ficaram como estão: {{paths}}.",
-        "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou do worktree: {{paths}}.",
+        "ignoreCheckFailed": "O Git não conseguiu dizer quais arquivos ignora na worktree nova, então nada do worktree.copyFiles foi copiado.",
+        "notIgnored": "Não copiados, porque o Git não os ignora na worktree nova e eles poderiam ir para um commit: {{paths}}.",
+        "searchTooLarge": "O worktree.copyFiles percorreu mais de {{limit}} itens sem terminar. Nada foi copiado; a worktree foi criada. Use padrões mais específicos.",
+        "notOverwritten": "Já estavam na worktree nova e ficaram como estão: {{paths}}.",
+        "notFollowed": "Não copiados, por serem links ou levarem para fora do repositório ou da worktree: {{paths}}.",
         "failed": "Não foi possível copiar: {{paths}}."
       },
       "remove": {
-        "notFound": "Este não é um worktree removível deste repositório.",
-        "busy": "Este worktree está em uso ({{reason}}). Feche os painéis dele ou espere a conversa terminar.",
-        "locked": "Este worktree está bloqueado: {{reason}}. Desbloqueie antes de remover.",
+        "notFound": "Esta não é uma worktree removível deste repositório.",
+        "busy": "Esta worktree está em uso ({{reason}}). Feche os painéis dela ou espere a conversa terminar.",
+        "locked": "Esta worktree está bloqueada: {{reason}}. Desbloqueie antes de remover.",
         "dirty": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
         "dirty_one": "{{count}} alteração não commitada. Faça commit ou descarte primeiro.",
         "dirty_many": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
         "dirty_other": "{{count}} alterações não commitadas. Faça commit ou descarte primeiro.",
-        "failed": "Não foi possível remover o worktree. Ele continua na lista; tente de novo quando nada estiver usando.",
+        "failed": "Não foi possível remover a worktree. Ela continua na lista; tente de novo quando nada estiver usando.",
         "defaultBranch": "A branch {{branch}} é a branch padrão e nunca é apagada.",
-        "branchInUse": "A branch {{branch}} está em uso em outro worktree e não é apagada.",
+        "branchInUse": "A branch {{branch}} está em uso em outra worktree e não é apagada.",
         "unmergedBranch": "A branch {{branch}} tem commits não mesclados. Confirme para apagá-la mesmo assim."
       },
-      "removed": "Worktree removido de {{path}}.",
+      "removed": "Worktree removida de {{path}}.",
       "archive": {
         "notApproved": "O hook de archive do oxe.yaml não foi aprovado e foi pulado.",
-        "failedDismissed": "O hook de archive do oxe.yaml falhou, e o worktree foi removido mesmo assim."
+        "failedDismissed": "O hook de archive do oxe.yaml falhou, e a worktree foi removida mesmo assim."
       },
       "branch": {
         "deleted": "Branch {{branch}} apagada.",
@@ -366,7 +366,7 @@
           "deleted": "{{file}} foi excluído. Permitir remove as regras deste arquivo. Até você decidir, as regras aceitas continuam valendo.",
           "invalid": "{{file}} tem um erro, então não pode ser aplicado. As regras aceitas continuam valendo.",
           "tooLarge": "{{file}} passa de {{max}}, então não pode ser aplicado. As regras aceitas continuam valendo.",
-          "worktree": "Worktree {{worktree}} tem {{file}} próprio, permitindo mais do que você aceitou. Até decidir, vale o aceito.",
+          "worktree": "A worktree {{worktree}} tem {{file}} próprio, permitindo mais do que você aceitou. Até decidir, vale o aceito.",
           "partial": "{{file}} mudou fora do OXESpace. As regras mais rígidas já valem; as que permitem mais esperam por você."
         },
         "policyFirstSight": "Regras novas, que permitem mais que o padrão do OXESpace. Até você decidir, só vale o que negam.",
