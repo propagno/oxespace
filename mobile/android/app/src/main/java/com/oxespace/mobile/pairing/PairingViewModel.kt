@@ -9,6 +9,7 @@ import com.oxespace.mobile.notify.SessionService
 import com.oxespace.mobile.protocol.pairing.PairingClient
 import com.oxespace.mobile.protocol.session.RemoteConnection
 import com.oxespace.mobile.protocol.session.TokenHolder
+import com.oxespace.mobile.ui.LocalNetworkAccess
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,8 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
         // The app is on screen while pairing, so the foreground service may start here.
         onPaired = { SessionService.start(application) },
         probe = SessionPairingProbe(linkFor = { target, keys -> RemoteConnection(target, keys::sign, TokenHolder(), probeScheduler) }),
+        // A15 (MOB-1): asked at step 2, after the scan and before the phone first talks to the computer.
+        localNetworkGranted = { LocalNetworkAccess.granted(application) },
     )
 
     val state: StateFlow<PairingState> = flow.state
@@ -34,6 +37,9 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
     fun onScanned(text: String) = flow.onScanned(text)
 
     fun scanAgain() = flow.scanAgain()
+
+    /** A15: Android granted local network access; the held code goes on to the computer. */
+    fun onLocalNetworkGranted() = flow.onLocalNetworkGranted()
 
     private companion object {
         /** The name the person gave the phone, else its model: what the desktop asks "Pair …?" about. */
