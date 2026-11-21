@@ -47,7 +47,7 @@ describe('ConnectionDialog', () => {
     const dialog = await screen.findByRole('dialog', { name: 'New connection' })
     fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: 'scratch' } })
     fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'pw' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Connect without saving' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open without saving this connection' }))
     await waitFor(() => expect(api.callsOf('connections.connectEphemeral')).toHaveLength(1))
     expect(api.callsOf('connections.connectEphemeral')[0]).toMatchObject({ name: 'scratch', password: 'pw', engine: 'postgres' })
     expect(api.callsOf('connections.save')).toHaveLength(0)
@@ -59,7 +59,7 @@ describe('ConnectionDialog', () => {
     render(<ConnectionDialog />)
     openDialog(connection({ id: 'x' }))
     const dialog = await screen.findByRole('dialog', { name: 'Edit connection' })
-    expect(within(dialog).queryByRole('button', { name: 'Connect without saving' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Open without saving this connection' })).toBeNull()
   })
 
   it('uses the SSH agent without asking for a key or a password', async () => {

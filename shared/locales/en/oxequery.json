@@ -154,7 +154,7 @@
     "test": "Test",
     "testLabel": "Test connection",
     "connectOnce": "Open without saving",
-    "connectOnceLabel": "Connect without saving",
+    "connectOnceLabel": "Open without saving this connection",
     "connectOnceTitle": "Nothing is saved: the connection, its password, history and tabs are gone when you close the app",
     "saveOpen": "Save and open",
     "engineHint": {

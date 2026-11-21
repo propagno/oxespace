@@ -101,7 +101,7 @@ describe('OXE-283 · PE-09·F OxeQuery says each thing once', () => {
         modeAria: 'Conectar por',
         footerTexts: ['Testar', 'Abrir sem salvar', 'Cancelar', 'Salvar e abrir'],
         testAria: 'Testar conexão',
-        connectOnceAria: 'Conectar sem salvar'
+        connectOnceAria: 'Abrir sem salvar esta conexão'
       },
       {
         lang: 'en',
@@ -110,7 +110,7 @@ describe('OXE-283 · PE-09·F OxeQuery says each thing once', () => {
         modeAria: 'Connect by',
         footerTexts: ['Test', 'Open without saving', 'Cancel', 'Save and open'],
         testAria: 'Test connection',
-        connectOnceAria: 'Connect without saving'
+        connectOnceAria: 'Open without saving this connection'
       }
     ]
 

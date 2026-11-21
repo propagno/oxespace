@@ -160,7 +160,7 @@
     "test": "Testar",
     "testLabel": "Testar conexão",
     "connectOnce": "Abrir sem salvar",
-    "connectOnceLabel": "Conectar sem salvar",
+    "connectOnceLabel": "Abrir sem salvar esta conexão",
     "connectOnceTitle": "Nada é salvo: a conexão, a senha, o histórico e as abas somem quando você fecha o aplicativo",
     "saveOpen": "Salvar e abrir",
     "engineHint": {
