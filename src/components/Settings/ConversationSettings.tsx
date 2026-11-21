@@ -19,7 +19,7 @@ function SendKeySetting(): ReactElement {
   const { t } = useTranslation('settings')
   const sendKey = useThreadPrefs(state => state.sendKey)
   const setSendKey = useThreadPrefs(state => state.setSendKey)
-  return <SettingsSection plain title={t('sendKey.title')}>
+  return <SettingsSection title={t('sendKey.title')}>
     <SettingRow label={t('sendKey.label')} description={t('sendKey.hint')}
       control={<SegmentedControl<SendKeyMode> label={t('sendKey.label')} value={sendKey} onChange={setSendKey} options={SEND_KEY_MODES.map(mode => ({ value: mode, label: sendKeyLabel(mode) }))} />} />
   </SettingsSection>

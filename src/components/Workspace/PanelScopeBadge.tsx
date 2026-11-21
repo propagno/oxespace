@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { useGitBranch } from '../../hooks/useGitBranch'
 import { useUIStore } from '../../store/ui.store'
 import type { WorkspaceScope } from '../../utils/workspaceScope'
-import { gitBranchLabel } from '../../utils/paneGitContext'
+import { scopeBadgeLabel } from '../../utils/paneGitContext'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
@@ -23,17 +23,17 @@ interface PanelScopeBadgeProps {
  * disclosure that makes following the pane acceptable at all, and it renders
  * on every scope, worktree or not.
  *
- * Clicking it pins the panels to the workspace root and back, for the case
- * where someone wants to read main while a worktree pane has focus.
+ * Clicking it pins the panels to the scope it shows and back, for the case
+ * where someone wants to keep reading one checkout while another pane has focus.
  */
 export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): ReactElement {
-  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] === true)
+  const pinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspaceId] !== undefined) || scope.pinned
   const togglePin = useUIStore((s) => s.togglePanelScopePin)
   const branch = useGitBranch(workspaceId, scope.rootPath)
 
-  const label = gitBranchLabel(branch)
+  const label = scopeBadgeLabel(branch, scope.folderName)
   const title = pinned
-    ? tc('workspace.scope.pinned', { path: scope.rootPath })
+    ? tc('workspace.scope.pinned', { folder: scope.folderName })
     : scope.isWorktree
       ? tc('workspace.scope.worktree', { path: scope.rootPath })
       : tc('workspace.scope.root', { path: scope.rootPath })
@@ -42,7 +42,9 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
     <button
       type="button"
       className={`panel-scope-badge${scope.isWorktree ? ' is-worktree' : ''}${pinned ? ' is-pinned' : ''}`}
-      onClick={() => togglePin(workspaceId)}
+      onClick={() => togglePin(workspaceId, scope.rootPath)}
+      aria-pressed={pinned}
+      aria-label={`${pinned ? tc('workspace.scope.followAction') : tc('workspace.scope.pinAction')}: ${label}`}
       title={title}
       data-testid="panel-scope-badge"
     >

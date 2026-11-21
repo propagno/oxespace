@@ -4,7 +4,8 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject, setT
 import { expectSurface } from '../helpers/visual'
 
 const THEMES: Appearance[] = ['light', 'dark']
-const STATES = Object.keys(THREAD_STATES) as ThreadStateName[]
+// 'anatomy' is the brand conformance scene (BRD-25), not a visual baseline.
+const STATES = (Object.keys(THREAD_STATES) as ThreadStateName[]).filter(state => state !== 'anatomy')
 
 for (const theme of THEMES) {
   test(`thread states — ${theme}`, async () => {

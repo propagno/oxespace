@@ -49,16 +49,17 @@ describe("U3.3 · OxeQuery's agent activity badge", () => {
     expect(api.badge).toHaveBeenCalledWith({ connectionId: 'c-shop' })
   })
 
-  test('clicking it opens Agent activity with Databases and this connection selected', async () => {
+  // Released for OXE-220 (1.5.2, coordination 15/11): the click opens OxeQuery's own Activity tab, no longer Settings.
+  test('clicking it opens the Activity tab of OxeQuery, not Settings', async () => {
     mockActivity({ today: 3, waiting: false })
     const { useUIStore } = await import('../../../src/store/ui.store')
+    const { useOxeQueryStore } = await import('../../../src/components/OxeQuery/oxequery.store')
     const openSettingsPage = vi.fn()
     useUIStore.setState({ openSettingsPage })
     await renderBadge()
     await userEvent.click(await screen.findByRole('button', { name: /^3 agent actions today/ }))
-    expect(openSettingsPage).toHaveBeenCalledWith('activity')
-    const { useAgentActivityFilter } = await load<FilterStore>('src/store/agent-activity-filter.store')
-    expect(useAgentActivityFilter.getState().filter).toMatchObject({ sources: ['databases'], connection: 'c-shop' })
+    expect(useOxeQueryStore.getState().activeTab).toBe('activity')
+    expect(openSettingsPage).not.toHaveBeenCalled()
   })
 
   test('the Agent activity page opens on the filter the badge set, and asks main for it', async () => {
@@ -69,7 +70,7 @@ describe("U3.3 · OxeQuery's agent activity badge", () => {
     render(<AgentActivitySettings />)
     await waitFor(() => expect(api.list).toHaveBeenCalled())
     expect(api.list.mock.calls[0]?.[0]).toMatchObject({ sources: ['databases'], connection: 'c-shop' })
-    expect(screen.getByRole('button', { name: /^Databases/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('radio', { name: /^Databases/ })).toHaveAttribute('aria-checked', 'true')
   })
 
   test('a write waiting for you turns the badge to attention, with the sun', async () => {

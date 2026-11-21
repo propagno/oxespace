@@ -1,6 +1,6 @@
 {
   "brd": "BRD-06",
-  "card": null,
+  "card": "OXE-67",
   "title": "Settings (VIS-24)",
   "platform": "desktop",
   "source": "artifact JpDiD9nKrPrMXdcnkED4US (interface) and 5gGKCM8fi824tqd5MRsb5E (scale); .brand-audit/BRD-lote-1.md (13/11)",
@@ -8,7 +8,7 @@
     {
       "id": "BRD-06.content.width",
       "scene": "settings-general",
-      "select": "[data-ui=settings-section]",
+      "select": "[data-ui=settings-page]",
       "prop": "width",
       "expect": {
         "px": 720
@@ -22,16 +22,16 @@
         "light",
         "dark"
       ],
-      "state": "pending",
+      "state": "enforced",
       "note": "centred content column"
     },
     {
       "id": "BRD-06.title.font-size",
       "scene": "settings-general",
-      "select": "h1",
+      "select": "[data-ui=settings-page-title]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xl"
+        "token": "--fs-xl"
       },
       "tolerance": 0.5,
       "densities": [
@@ -42,12 +42,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-06.title.font-family",
       "scene": "settings-general",
-      "select": "h1",
+      "select": "[data-ui=settings-page-title]",
       "prop": "font-family",
       "expect": {
         "token": "--font-display"
@@ -61,7 +61,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-06.nav.height",
@@ -80,12 +80,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-06.option.count",
       "scene": "settings-general",
-      "select": "[data-ui=settings-section] > :not([data-ui=setting-row]):not(h2):not(header)",
+      "select": "[data-ui=settings-section] > :not(header) > :not([data-ui=setting-row])",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -99,8 +99,8 @@
         "light",
         "dark"
       ],
-      "state": "pending",
-      "note": "every option is a SettingRow"
+      "state": "enforced",
+      "note": "every option is a SettingRow: the section's rows hold nothing else"
     }
   ]
 }

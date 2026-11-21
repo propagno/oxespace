@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { forwardRef, useId, type CSSProperties, type InputHTMLAttributes, type KeyboardEvent, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cx } from './cx'
 import styles from './Field.module.css'
@@ -48,10 +49,13 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement>, Fi
 /** A native select: the platform's own list, keyboard and screen-reader behavior. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ label, hint, error, options, className, id, children, ...rest }, ref) {
   const auto = useId(), inputId = id ?? auto
-  const select = <select ref={ref} id={inputId} className={cx(styles.select, className)} aria-invalid={error ? true : undefined} aria-describedby={described(inputId, { hint, error })} {...rest}>
-    {options?.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
-    {children}
-  </select>
+  const select = <span className={styles.selectWrap}>
+    <select ref={ref} id={inputId} className={cx(styles.select, className)} aria-invalid={error ? true : undefined} aria-describedby={described(inputId, { hint, error })} {...rest}>
+      {options?.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+      {children}
+    </select>
+    <ChevronDown size={12} className={styles.selectChevron} aria-hidden="true" />
+  </span>
   return label || hint || error ? <Field id={inputId} label={label} hint={hint} error={error}>{select}</Field> : select
 })
 
@@ -85,6 +89,74 @@ export function Switch({ checked, onChange, label, description, ariaLabel, disab
   </div>
 }
 
+export interface SliderProps {
+  id?: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  onChange: (value: number) => void
+  /** Formatted value shown next to the track in --font-mono tabular-nums. Defaults to String(value). */
+  valueLabel?: ReactNode
+  ariaLabel?: string
+  disabled?: boolean
+  className?: string
+}
+
+/** Continuous or stepped range slider with a brand track, accent fill, visible focus ring and mono tabular readout. */
+export const Slider = forwardRef<HTMLInputElement, SliderProps>(function Slider(
+  { id, value, min, max, step = 1, onChange, valueLabel, ariaLabel, disabled, className },
+  ref
+): ReactElement {
+  const auto = useId()
+  const inputId = id ?? auto
+  const span = max - min
+  const pct = span > 0 ? Math.min(100, Math.max(0, ((value - min) / span) * 100)) : 0
+  const precision = (String(step).split('.')[1] ?? '').length
+  const clampStep = (raw: number): number => {
+    const clamped = Math.min(max, Math.max(min, raw))
+    return precision > 0 ? Number(clamped.toFixed(precision)) : Math.round(clamped)
+  }
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (disabled) return
+    let next: number | null = null
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = clampStep(value + step)
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = clampStep(value - step)
+    else if (event.key === 'Home') next = min
+    else if (event.key === 'End') next = max
+    if (next === null) return
+    event.preventDefault()
+    if (next !== value) onChange(next)
+  }
+  return (
+    <div data-ui="slider" className={cx(styles.slider, className)}>
+      <div className={styles.sliderControl}>
+        <div className={styles.sliderTrack} aria-hidden="true">
+          <div className={styles.sliderFill} style={{ width: `${pct}%` }} />
+        </div>
+        <input
+          ref={ref}
+          id={inputId}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          aria-valuetext={typeof valueLabel === 'string' ? valueLabel : undefined}
+          className={styles.sliderInput}
+          onChange={event => onChange(Number(event.currentTarget.value))}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
+      <output htmlFor={inputId} className={styles.sliderValue}>
+        {valueLabel ?? value}
+      </output>
+    </div>
+  )
+})
+
 /** Arrow keys move the choice of a radio group to the next option and focus it (roving tab stop). */
 function radioKeys<T extends string>(options: Array<{ value: T }>, onChange: (value: T) => void) {
   return (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -103,7 +175,7 @@ export interface SegmentedControlProps<T extends string> {
   value: T | null
   onChange: (value: T) => void
   /** `tone: 'danger'` paints the option red while it is chosen (a production environment). */
-  options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger' }>
+  options: Array<{ value: T; label: ReactNode; icon?: ReactNode; tone?: 'danger'; /** Turns this one option off (a choice not available yet); arrow keys pass over it. */ disabled?: boolean }>
   label: string
   className?: string
   /** Off while a change saves: the options read as unavailable instead of ignoring a click. */
@@ -112,9 +184,11 @@ export interface SegmentedControlProps<T extends string> {
 
 /** A few mutually exclusive choices shown side by side; arrow keys move between them. Each option is a 24 px target at least. */
 export function SegmentedControl<T extends string>({ value, onChange, options, label, className, disabled = false }: SegmentedControlProps<T>): ReactElement {
-  const move = radioKeys(options, onChange)
+  const enabled = options.filter(option => !option.disabled)
+  const keys = radioKeys(enabled, onChange)
+  const move = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => { const at = enabled.indexOf(options[index]); if (at >= 0) keys(event, at) }
   return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? index === 0 : option.value === value) ? 0 : -1} disabled={disabled}
+    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? option === enabled[0] : option.value === value) ? 0 : -1} disabled={disabled || option.disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
   </div>
 }

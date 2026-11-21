@@ -4,6 +4,13 @@
  */
 .oxe-splash { position: fixed; inset: 0; display: grid; place-items: center; background: var(--surface-canvas); }
 .oxe-splash-tile { fill: var(--logo-tile); }
+/* Dark theme only (OXE-208): a 1-unit inner outline so the tile reads on the dark canvas. The stroke is 2 wide and clipped
+   to the tile's own shape (rx 11, as in index.html), so only its inner half shows. */
+:root[data-mode='dark'] .oxe-splash-tile { stroke: var(--bd-subtle); stroke-width: 2; clip-path: inset(0 round 11px) fill-box; }
 .oxe-splash g { fill: var(--logo-mark); }
 .oxe-splash-arm { transform-box: view-box; transform-origin: 24px 29px; --pulse-scale: 0.2; --pulse-opacity: 0.35; animation: oxe-pulse var(--duration-pulse) var(--ease-in-out) infinite; }
 .oxe-splash-arm-late { transform-origin: 24px 22px; animation-delay: calc(var(--duration-pulse) / -2); }
+:root[data-motion='reduce'] .oxe-splash-arm { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .oxe-splash-arm { animation: none; }
+}

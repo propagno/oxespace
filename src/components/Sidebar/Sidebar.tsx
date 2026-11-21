@@ -1,19 +1,17 @@
 import { ChevronDown, FolderOpen, PanelsTopLeft, Plus, Search, Waypoints } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { IntegrationGroup } from '../../../shared/types/integration'
 import type { Workspace } from '../../../shared/types/workspace'
-import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useIntegrationStore } from '../../store/integration.store'
 import { rootPathKey } from '../../../shared/utils/path'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { deriveStatusTone } from '../../utils/paneDisplay'
-import { SidebarActions, SidebarFooter, type RailAction } from '../Navigation/NavigationChrome'
+import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { CodeRail } from './CodeRail'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
-import { Button, EmptyState, Splitter, type MenuEntry } from '../../ui'
+import { Button, EmptyState, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
-import { SearchField } from '../Navigation/SearchField'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 import { PaneSessionRow } from './PaneSessionRow'
@@ -65,6 +63,7 @@ export function Sidebar({
   workspaces,
 }: SidebarProps): ReactElement {
   const { t } = useTranslation('code')
+  const { t: tc } = useTranslation('common')
   const [searchQuery, setSearchQuery] = useState('')
   const width = useNavigationPrefs(s => s.width)
   const expanded = useNavigationPrefs(s => s.expanded)
@@ -164,8 +163,7 @@ export function Sidebar({
     void reorderWorkspaces(next)
   }
 
-  // Clicking a workspace card in the sidebar activates it. Pane-level
-  // navigation lives in the grid; per-pane state reads from the status dot.
+  // Clicking a workspace row in the sidebar activates it.
   const handleSelectWorkspace = (workspaceId: string): void => {
     onSelectWorkspace(workspaceId)
   }
@@ -173,7 +171,16 @@ export function Sidebar({
   const railPrimary: RailAction[] = [
     { id: 'new-workspace', label: t('sidebar.newWorkspace'), icon: Plus, testId: 'btn-new-workspace', onClick: onNewWorkspace },
     ...(onDelegations ? [{ id: 'delegated-work', label: t('background.delegated'), icon: Waypoints, onClick: onDelegations }] : []),
-    { id: 'search', label: t('sidebar.search', { shortcut: shortcutLabel('palette.search') }), ariaLabel: t('sidebar.searchLabel'), icon: Search, onClick: onOpenSearch }
+    { id: 'search', label: t('sidebar.search', { shortcut: shortcutLabel('palette.search') }), ariaLabel: t('sidebar.searchLabel'), icon: Search, onClick: onOpenSearch },
+    ...(workspaces.length > 0 && !searchQuery ? [{
+      id: 'toggle-all',
+      label: t('sidebar.toggleAll'),
+      icon: ChevronDown,
+      onClick: () => {
+        const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
+        workspaces.forEach(w => setExpanded(w.id, shouldExpand))
+      }
+    }] : [])
   ]
   const railContext: RailAction = { id: 'panels', label: t('panels.menu'), ariaLabel: t('sidebar.openPanels'), icon: PanelsTopLeft, testId: 'btn-open-tools', disabled: !panelMenu, menu: panelMenu }
 
@@ -206,16 +213,15 @@ export function Sidebar({
       {/* The version is in the status bar and in About. As a title on this whole panel it opened a tooltip over the menu
           bar whenever the pointer rested on any empty part of the sidebar. */}
       <div className="nav-panel" data-version={appVersion}>
-      <div className="nav-panel-title"><strong>{t('sidebar.workspaces')}</strong><SidebarActions actions={railPrimary} /><SidebarCollapseButton mode="code" /></div>
-      <SearchField className="sidebar-search-wrap" inputClassName="sidebar-search-input" ref={searchInputRef} label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={searchQuery} onChange={setSearchQuery} shortcut="/" />
+      <SidebarHeader title={t('sidebar.workspaces')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="code" />} />
+      <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
+        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={tc('nav.clearSearch')} autoComplete="off" spellCheck={false} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 
         {integrationGroups.length > 0 ? (
           <section className="sidebar-integration-list" aria-label={t('sidebar.integrationGroups')}>
-            <div className="sidebar-section-header">
-              <span>{t('sidebar.integrations')}</span>
-            </div>
+            <SidebarSection label={t('sidebar.integrations')} />
             {integrationGroups.map((group) => (
               <SidebarIntegrationRow
                 key={group.id}
@@ -233,66 +239,61 @@ export function Sidebar({
           </section>
         ) : null}
 
-        <div className="sidebar-section-header">
-          <span>{t('sidebar.workspaces')}</span>
-          {workspaces.length > 0 && !searchQuery && <button type="button" className="sidebar-section-action-btn" aria-label={t('sidebar.toggleAll')} title={t('sidebar.toggleAll')} onClick={() => {
-            const shouldExpand = workspaces.some(w => !(expanded[w.id] ?? w.id === activeWorkspaceId))
-            workspaces.forEach(w => setExpanded(w.id, shouldExpand))
-          }}><ChevronDown size={12} aria-hidden="true" /></button>}
-
-        </div>
-
         {filtered.length === 0 ? (
           searchQuery
             ? <EmptyState compact title={t('sidebar.noMatch')} />
             : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
-          filtered.map((ws) => (
-            <section
-              key={ws.id}
-              className={`sidebar-workspace-tree${ws.id === activeWorkspaceId ? ' active' : ''}`}
-              {...(typeof ws.color !== 'string' ? workspaceColorAttrs({ id: ws.id, color: ws.color ?? null }) : undefined)}
-            >
-            <WorkspaceGroup
-              key={ws.id}
-              workspace={ws}
-              isActive={ws.id === activeWorkspaceId}
-              duplicate={duplicateRoots.get(ws.id) ?? null}
-              onSelect={handleSelectWorkspace}
-              onClose={onCloseWorkspace}
-              terminalsExpanded={Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)}
-              terminalCount={ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).length}
-              onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
-              isDragging={dragSourceId === ws.id}
-              dropPosition={dragOverId === ws.id ? dropPosition : null}
-              onDragStart={() => setDragSourceId(ws.id)}
-              onDragOver={(position) => {
-                setDragOverId(ws.id)
-                setDropPosition(position)
-              }}
-              onDragLeave={() => {
-                if (dragOverId === ws.id) {
-                  setDragOverId(null)
-                  setDropPosition(null)
-                }
-              }}
-              onDrop={() => handleDropOnWorkspace(ws.id)}
-              onDragEnd={() => {
-                setDragSourceId(null)
-                setDragOverId(null)
-                setDropPosition(null)
-              }}
-            />
-            {(searchQuery || (expanded[ws.id] ?? ws.id === activeWorkspaceId)) && <div className="sidebar-terminal-children">
-              {ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0).map((pane, index) =>
-                <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
-                  isActive={ws.id === activeWorkspaceId && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
-            </div>}
-            </section>
-          ))
+          filtered.map((ws) => {
+            const terminals = ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0)
+            const open = Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)
+            const isActive = ws.id === activeWorkspaceId
+            // One selection at a time (brand 14/11): the workspace row is the selection only while none of its terminals
+            // is. The 1.4 structure stays: each workspace's terminal rows come right after its row.
+            const terminalSelected = isActive && open && terminals.some(p => p.id === activePaneId)
+            return (
+              <Fragment key={ws.id}>
+                <WorkspaceGroup
+                  workspace={ws}
+                  isActive={isActive}
+                  selected={isActive && !terminalSelected}
+                  duplicate={duplicateRoots.get(ws.id) ?? null}
+                  onSelect={handleSelectWorkspace}
+                  onClose={onCloseWorkspace}
+                  terminalsExpanded={open}
+                  terminalCount={terminals.length}
+                  onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
+                  isDragging={dragSourceId === ws.id}
+                  dropPosition={dragOverId === ws.id ? dropPosition : null}
+                  onDragStart={() => setDragSourceId(ws.id)}
+                  onDragOver={(position) => {
+                    setDragOverId(ws.id)
+                    setDropPosition(position)
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverId === ws.id) {
+                      setDragOverId(null)
+                      setDropPosition(null)
+                    }
+                  }}
+                  onDrop={() => handleDropOnWorkspace(ws.id)}
+                  onDragEnd={() => {
+                    setDragSourceId(null)
+                    setDragOverId(null)
+                    setDropPosition(null)
+                  }}
+                />
+                {open && terminals.length > 0 ? <div>
+                  {terminals.map((pane, index) =>
+                    <PaneSessionRow key={pane.id} pane={pane} paneIndex={index} workspace={ws} agentProfiles={profiles}
+                      isActive={isActive && pane.id === activePaneId} onClick={() => {}} onActivatePane={id => { void activatePane(ws.id, id) }} />)}
+                </div> : null}
+              </Fragment>
+            )
+          })
         )}
       </nav>
-      <SidebarFooter context={railContext} onToggle={onToggleCollapse} />
+      <SidebarFooterBar className="nav-rail-footer" context={panelMenu ? railContext : undefined} />
       </div>
     </aside>
   )

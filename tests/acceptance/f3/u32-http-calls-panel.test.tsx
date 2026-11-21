@@ -151,7 +151,7 @@ describe('U3.2 · the HTTP calls panel and the Network tab', () => {
     Object.assign(window, { oxe: { ...(window as unknown as { oxe?: object }).oxe, agentActivity: activity } })
     const { AgentActivitySettings } = await import('../../../src/components/Settings/AgentActivitySettings')
     render(<AgentActivitySettings />)
-    await userEvent.click(await screen.findByRole('button', { name: /^HTTP/ }))
+    await userEvent.click(await screen.findByRole('radio', { name: /^HTTP/ }))
     await waitFor(() => expect(activity.list.mock.calls.at(-1)?.[0]).toMatchObject({ sources: ['http'] }))
     expect(await screen.findByText('POST api.stripe.test/v1/x')).toBeInTheDocument()
     expect(screen.getByText('POST api.stripe.test/v1/y')).toBeInTheDocument()

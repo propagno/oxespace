@@ -5,7 +5,7 @@ import { useUIStore } from '../../store/ui.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { useColorMode } from '../../design/useColorMode'
 import './NavigationChrome.css'
-import { cx, Menu, type MenuEntry } from '../../ui'
+import { cx, IconButton, Menu, SidebarFooter as UiSidebarFooter, type MenuEntry } from '../../ui'
 import styles from './NavigationRail.module.css'
 
 export interface RailAction {
@@ -67,6 +67,41 @@ export function SidebarFooter({ context, onToggle, children }: { context: RailAc
   </footer>
 }
 
+/** One sidebar action as a src/ui IconButton (BRD-01): the same names, titles and test ids as ActionButton. */
+function ActionIconButton({ action, returnFocus }: { action: RailAction; returnFocus?: boolean }) {
+  const Icon = action.icon
+  const button = <IconButton size="sm" label={action.ariaLabel ?? action.label} title={action.label} icon={<Icon size={14} aria-hidden="true" />}
+    data-testid={action.testId} data-dialog-return={returnFocus ? '' : undefined} disabled={action.disabled} onClick={action.menu ? undefined : action.onClick} />
+  return action.menu ? <Menu label={action.label} items={action.menu} trigger={button} /> : button
+}
+
+/** The actions of a src/ui SidebarHeader (new workspace, delegated work, search…), as IconButtons. */
+export function SidebarHeaderActions({ actions }: { actions: RailAction[] }) {
+  const { t } = useTranslation()
+  // The header's actions are the sidebar's primary navigation landmark, as SidebarActions was before BRD-01.
+  return <nav className="sidebar-header-nav" aria-label={t('nav.primary')}>{actions.map((action, index) => <ActionIconButton key={action.id} action={action} returnFocus={index === 0} />)}</nav>
+}
+
+/**
+ * The bottom of an expanded sidebar on the src/ui anatomy (BRD-01): a SidebarFooter of IconButtons, with the mode's
+ * context action (panels), light or dark, settings, and collapse.
+ */
+export function SidebarFooterBar({ context, onToggle, className }: { context?: RailAction; onToggle?: () => void; className?: string }) {
+  const { t } = useTranslation()
+  const openSettings = useUIStore(state => state.toggleSettings)
+  const mode = useColorMode()
+  const setAppearance = useSettingsStore(state => state.setAppearance)
+  const next = mode === 'dark' ? 'light' : 'dark'
+  const themeLabel = next === 'light' ? t('nav.switchToLight') : t('nav.switchToDark')
+  return <UiSidebarFooter className={className}>
+    {context ? <ActionIconButton action={context} /> : null}
+    <span className={styles.spacer} />
+    <IconButton size="sm" label={themeLabel} title={themeLabel} icon={mode === 'dark' ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />} onClick={() => setAppearance(next)} />
+    <IconButton size="sm" label={t('nav.openSettings')} title={t('nav.settings')} icon={<Settings2 size={14} aria-hidden="true" />} onClick={openSettings} />
+    {onToggle ? <IconButton size="sm" label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} icon={<ChevronsLeft size={14} aria-hidden="true" />} onClick={onToggle} /> : null}
+  </UiSidebarFooter>
+}
+
 /** One thing the sidebar lists (a conversation, a connection, a container), as the collapsed rail shows it. */
 export interface RailItem {
   id: string
@@ -109,6 +144,7 @@ export function NavigationRail({ mode, primary, context, onToggle, children }: {
     <span className={styles.spacer} />
     <footer className={cx('nav-rail-footer', styles.group)}>
       <ActionButton action={context} />
+      <ThemeButton />
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.openSettings')} title={t('nav.settings')} onClick={openSettings}><Settings2 size={16} aria-hidden="true" /></button>
       <button type="button" className={cx('nav-rail-btn', styles.button)} aria-label={t('nav.expandSidebar')} title={t('nav.expandSidebar')} onClick={onToggle}><ChevronsRight size={16} aria-hidden="true" /></button>
     </footer>

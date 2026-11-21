@@ -93,11 +93,11 @@ export function DevicesSettings(): ReactElement {
       <PhoneTyping panes={status.phoneWritePanes} />
       <Panel title={t('devices.scope.title')} label={t('devices.scope.title')}>
         <div className={styles.scope}>
-          <div><h4>{t('devices.scope.can')}</h4><ul data-testid="devices-scope-can">
+          <div><h3>{t('devices.scope.can')}</h3><ul data-testid="devices-scope-can">
             {REMOTE_SUBSCRIPTIONS.map(id => <li key={id}>{t(`devices.scope.subscriptions.${id}`)}</li>)}
             {REMOTE_COMMANDS.map(id => <li key={id}>{t(`devices.scope.commands.${COMMAND_KEYS[id]}`)}</li>)}
           </ul></div>
-          <div><h4>{t('devices.scope.cannot')}</h4><ul data-testid="devices-scope-cannot">
+          <div><h3>{t('devices.scope.cannot')}</h3><ul data-testid="devices-scope-cannot">
             {REMOTE_FORBIDDEN.map(id => <li key={id}>{t(`devices.scope.forbidden.${FORBIDDEN_KEYS[id]}`)}</li>)}
           </ul><p className={styles.meta}>{t('devices.scope.deskOnly')}</p></div>
         </div>

@@ -3,7 +3,7 @@
   align-items: center;
   gap: 0.4em;
   line-height: 1;
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .word {
@@ -19,16 +19,23 @@
   align-items: center;
   gap: var(--space-3);
   line-height: 1.1;
-  color: var(--text-primary);
+  color: var(--tx-primary);
 }
 
 .tagline {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  color: var(--tx-muted);
 }
 
 .mark { flex: none; display: block; }
 /* The app icon's colors come from the --logo-* tokens (src/design/tokens/palette.ts › LOGO); inline, the cactus takes the text color. */
 .tile { fill: var(--logo-tile); }
+/* Dark theme only (OXE-208): a 1-unit inner outline so the tile reads on the dark canvas. The stroke is 2 wide and clipped
+   to the tile's own shape (rx = TILE_RADIUS, src/design/brand.ts), so only its inner half shows. */
+:global(:root[data-mode='dark']) .tile {
+  stroke: var(--bd-subtle);
+  stroke-width: 2;
+  clip-path: inset(0 round 11px) fill-box;
+}
 .onTile { fill: var(--logo-mark); }
 .inline { fill: currentColor; }

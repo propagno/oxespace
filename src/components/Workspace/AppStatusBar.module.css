@@ -8,20 +8,22 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: var(--statusbar-height);
+  /* BRD-09: the status bar is the small bar, 24 px in both densities. */
+  height: var(--bar-sm);
   padding: 0 var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--bd-subtle);
   background: var(--surface-sunken);
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-family: var(--font-ui);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
 }
 
 .group { display: flex; align-items: center; gap: var(--space-3); min-width: 0; overflow: hidden; }
 
 .item { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.strong { min-width: 0; color: var(--text-primary); }
-.branchName { font-family: var(--font-mono); font-weight: var(--weight-semibold); color: var(--text-primary); }
+.strong { min-width: 0; color: var(--tx-primary); }
+.branchName { font-family: var(--font-mono); font-weight: var(--weight-semibold); color: var(--tx-primary); }
+.workspaceName { overflow: hidden; max-width: 24ch; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .path { overflow: hidden; max-width: 36ch; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .connected { color: var(--intent-success-fg); }
 /* No network: says so where every view looks last, and stays until the connection is back. */
@@ -32,7 +34,7 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--ws, var(--accent)) 12%, transparent);
   /* The workspace colour is the tint and the dot. Its text colour on this tint measured 4.42:1 at 11 px (axe, light). */
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font-weight: var(--weight-medium);
 }
 
@@ -44,25 +46,9 @@
   flex-shrink: 0;
 }
 
-.agentDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  flex-shrink: 0;
-}
-.agentDotLive {
-  background: var(--accent);
-}
-
-.version {
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  white-space: nowrap;
-}
-
 /* Shells kept alive for workspaces that are not open: normal, but worth noticing. */
 .action {
+  min-height: var(--target-min);
   padding: 1px var(--space-1);
   border: 0;
   border-radius: var(--radius-sm);
@@ -92,12 +78,13 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font: inherit;
   font-variant-numeric: tabular-nums;
+  min-height: var(--target-min);
   cursor: pointer;
 }
-.usage:hover { background: var(--fill-hover); color: var(--text-primary); }
+.usage:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .usage:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .usageWarning { color: var(--intent-warning-fg); }
 .usageCritical { color: var(--intent-danger-fg); }
@@ -106,7 +93,7 @@
   width: 28px;
   height: 4px;
   border-radius: var(--radius-full);
-  background: var(--border-subtle);
+  background: var(--bd-subtle);
   overflow: hidden;
   flex-shrink: 0;
 }

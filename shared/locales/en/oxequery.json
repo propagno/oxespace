@@ -33,6 +33,7 @@
     "rowsUnknown": "– rows",
     "notRun": "not run",
     "failedCode": "failed ({{code}})",
+    "loadMore": "Load more",
     "introContainers": "Every container request an AI agent made, and what you decided.",
     "emptyContainers": "Agents only reach a container when you turn on agent access for a connection to it in OxeQuery. Every request they make appears here, with what you decided.",
     "detail": {
@@ -265,7 +266,7 @@
     "keyChanged": "<strong>The SSH server's host key changed.</strong> This can mean the server was rebuilt, or that someone is intercepting the connection. Do not continue until you have confirmed it with whoever runs the server.",
     "trusted": "trusted: {{fingerprint}}",
     "now": "now: {{fingerprint}}",
-    "testFailed": "The connection test failed",
+    "testFailed": "The connection could not be tested",
     "fromContainerDraft": "From the container {{name}}: host and port are filled in.",
     "containerPassword": "Type the password. OxeQuery never reads it from the container.",
     "source": "Connection source",
@@ -297,7 +298,8 @@
     "filterClear": "Clear filter",
     "pin": "Pin column {{name}}",
     "unpin": "Unpin column {{name}}",
-    "pinTitle": "Pin to the left"
+    "pinTitle": "Pin to the left",
+    "columnMenu": "Actions for column {{name}}"
   },
   "library": {
     "saved": "Query saved",
@@ -716,16 +718,16 @@
     "unavailable": "The clipboard is not available."
   },
   "queryError": {
-    "title": "Query failed",
+    "title": "The query could not run",
     "copy": "Copy error",
     "copied": "error message",
     "copiedDone": "Error message copied",
-    "technical": "Technical detail",
+    "technical": "Technical details",
     "position": "position {{position}}",
     "hint": "Hint: {{hint}}",
     "unknown": {
       "headline": "The statement could not run",
-      "recovery": "Read the technical detail below, or ask the agent to explain it."
+      "recovery": "Review the statement, or ask the agent to explain the error."
     },
     "sqlState": {
       "23502": {
@@ -750,7 +752,7 @@
       },
       "42601": {
         "headline": "The statement has a syntax error",
-        "recovery": "Check the spelling near the position shown under Technical detail, or ask the agent to fix it."
+        "recovery": "Check the statement syntax, or ask the agent to fix it."
       },
       "42703": {
         "headline": "A column in the statement does not exist",
@@ -795,7 +797,7 @@
         "recovery": "Turn read-only off in the connection settings to change data."
       },
       "connect": {
-        "headline": "The connection to the database failed",
+        "headline": "Could not connect to the database",
         "recovery": "Check that the server is running and that the host, port and credentials are right."
       },
       "tunnel": {
@@ -887,7 +889,7 @@
     "finished": "Import finished",
     "finishedText_one": "{{formatted}} row imported, {{rejected}} rejected.",
     "finishedText_other": "{{formatted}} rows imported, {{rejected}} rejected.",
-    "failed": "The import failed",
+    "failed": "The data could not be imported",
     "title": "Import into {{destination}}",
     "dryRun": "Dry run",
     "howRead": "How the file is read",
@@ -1151,6 +1153,7 @@
     "pin": "Pin to the top",
     "unpin": "Unpin",
     "browse": "Browse {{name}}",
+    "actionsFor": "Actions for {{name}}",
     "newTable": "New table",
     "newTableIn": "New table in {{schema}}",
     "newTableTitle": "Create a table",
@@ -1209,5 +1212,29 @@
     "textSaved": "Choose a connection on the left, or add one.",
     "newDatabase": "New local database",
     "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it"
+  },
+  "contextMenu": {
+    "connectionLabel": "Connection actions for {{name}}",
+    "tabLabel": "Tab actions for {{name}}",
+    "cellLabel": "Cell actions for {{column}}",
+    "sqlEditorLabel": "SQL editor menu",
+    "open": "Open",
+    "copyName": "Copy name",
+    "copiedName": "name",
+    "copiedNameDone": "Name copied",
+    "closeOthers": "Close others",
+    "closeToRight": "Close to the right",
+    "sortColumn": "Sort",
+    "copyColumnName": "Copy column name",
+    "fitColumnWidth": "Fit width",
+    "copyValue": "Copy value",
+    "copyRowJson": "Copy row (JSON)",
+    "viewDetail": "View detail",
+    "viewStructure": "View structure",
+    "openDefinition": "Open definition",
+    "runQuery": "Run query",
+    "runSelection": "Run selection",
+    "cut": "Cut",
+    "paste": "Paste"
   }
 }

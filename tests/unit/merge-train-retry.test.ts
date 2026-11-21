@@ -2,7 +2,7 @@
 // OXE-141: a car or a batch broken only by E2E shards gets its failed jobs re-run once before it leaves the queue.
 import { describe, expect, it } from 'vitest'
 // @ts-expect-error -- a plain ES module script without type declarations
-import { CI_WORKFLOW, retryableFailure, step } from '../../scripts/merge-train.mjs'
+import { CI_WORKFLOW, CONTAINER_CHECK, retryableFailure, step } from '../../scripts/merge-train.mjs'
 
 const NOW = Date.parse('2026-10-31T12:00:00Z')
 const HEAD = 'a'.repeat(40)
@@ -33,6 +33,20 @@ describe('the train re-runs flaky E2E jobs once (OXE-141)', () => {
     expect(step(input({ checks: unit, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 1 })] })).type).toBe('unlabel')
     // A run with no id (an older listing) is never re-run: the old behaviour.
     expect(step(input({ checks: e2e, runs: [ciRun({ conclusion: 'failure' })] })).type).toBe('unlabel')
+  })
+
+  it('repeats once an OxeQuery live job whose containers did not come up, like an E2E shard (OXE-288, #859)', () => {
+    const live = { name: 'OxeQuery live tests (PostgreSQL 17-alpine, MongoDB 8.0)', conclusion: 'failure' }
+    expect(CONTAINER_CHECK.test(live.name)).toBe(true)
+    expect(CONTAINER_CHECK.test('OxeQuery live tests (sqlite; PostgreSQL, MongoDB, SSH, TLS)')).toBe(true)
+    expect(retryableFailure([live, { name: 'CI result', conclusion: 'failure' }])).toBe(true)
+    expect(retryableFailure([live, { name: 'E2E and native tests (linux-x64, 2/3)', conclusion: 'failure' }, { name: 'CI result', conclusion: 'failure' }])).toBe(true)
+    // With a real answer beside it (unit, lint), nothing is repeated.
+    expect(retryableFailure([live, { name: 'Quick checks (linux-x64)', conclusion: 'failure' }])).toBe(false)
+    // The second failure still takes the car out: the retry is once, by run attempt, as for the E2E shards.
+    const checks = [...greenChecks(), check(live.name, { conclusion: 'failure' })]
+    expect(step(input({ checks, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 2 })] })).type).toBe('unlabel')
+    expect(step(input({ checks, runs: [ciRun({ conclusion: 'failure', id: 41, runAttempt: 1 })] })).type).toBe('rerun')
   })
 
   it('counts a job the runner cancelled or timed out as infrastructure, and the unit merge job that failed on it (car #816)', () => {

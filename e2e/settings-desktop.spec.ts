@@ -2,7 +2,7 @@ import { _electron as electron, expect, test } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openSettings } from './helpers/settings'
+import { openSettings, openSettingsPage } from './helpers/settings'
 
 test('Settings stays usable in short windows and renders updater states', async () => {
   test.setTimeout(90000)
@@ -26,7 +26,8 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Agents/ }).click()
     await expect(settings.getByTestId('provider-contract-claude')).toHaveText('Newer than checked')
     await expect(settings.getByTestId('provider-contract-claude')).toHaveAttribute('title', /newer than 2\.1\.306/)
-    const categories = [['general', 'General'], ['providers', 'Agents'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['about', 'About'], ['diagnostics', 'Diagnostics']]
+    // BRD-23 (OXE-100): the nav lists sections; Diagnostics is a page of Data & diagnostics.
+    const categories = [['general', 'General'], ['providers', 'Agents & permissions'], ['terminal', 'Terminal'], ['notifications', 'Notifications'], ['about', 'About'], ['diagnostics', 'Data & diagnostics', 'Diagnostics']]
     for (const width of [1440, 1280, 900, 600]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : width === 1280 ? 720 : 600 })
       if (width === 600) {
@@ -39,9 +40,10 @@ test('Settings stays usable in short windows and renders updater states', async 
         expect(layout.navHeight).toBeLessThan(150)
         expect(layout.mainTop).toBeGreaterThanOrEqual(layout.navBottom)
       }
-      for (const [id, label] of categories) {
+      for (const [id, label, pageName] of categories) {
         if (width < 900) await settings.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true }).click()
         else await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: new RegExp(`^${label}`) }).click()
+        if (pageName) await settings.getByRole('radiogroup', { name: 'Pages in this section' }).getByRole('radio', { name: pageName, exact: true }).click()
         expect(await settings.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
         const scroller = settings.locator('.settings-center-content')
         expect(await scroller.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
@@ -72,7 +74,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await settings.getByRole('searchbox', { name: 'Search settings' }).fill('health')
     const nav = settings.getByRole('navigation', { name: 'Settings categories' })
     await expect(nav.getByRole('button')).toHaveCount(1)
-    await expect(nav.getByRole('button', { name: /^Diagnostics/ })).toBeVisible()
+    await expect(nav.getByRole('button', { name: /^Data & diagnostics/ })).toBeVisible()
     await settings.getByRole('searchbox', { name: 'Search settings' }).clear()
     await nav.getByRole('button', { name: /^About/ }).click()
     // How the app updates is the person's choice, and it is saved.
@@ -104,7 +106,7 @@ test('Settings stays usable in short windows and renders updater states', async 
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send('app:update-state', { status: 'downloading', currentVersion: '0.13.0', availableVersion: '0.14.0', progress: 42, error: null, lastCheckedAt: Date.now() })
     })
-    await expect(settings.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
+    await expect(settings.getByRole('meter')).toHaveAttribute('aria-valuenow', '42')
     await settings.screenshot({ path: test.info().outputPath('1280-updates-downloading.png') })
     await app.evaluate(({ BrowserWindow }) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send('app:update-state', { status: 'downloaded', currentVersion: '0.13.0', availableVersion: '0.14.0', progress: 100, error: null, lastCheckedAt: Date.now() })
@@ -143,7 +145,7 @@ test('Settings shows the policy files that apply, their rules and a file set asi
     })
     await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Approvals and safety/ }).click()
+    await openSettingsPage(settings, 'Agents & permissions', 'Approvals and safety')
     const policy = settings.getByTestId('policy-settings')
     await expect(policy.getByRole('heading', { name: 'Managed · Acme' })).toBeVisible()
     await expect(policy.getByRole('list', { name: 'Managed rules' })).toContainText('integration.use · db:prod*')

@@ -49,7 +49,10 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     for (let i = 0; i < 2 && await page.getByRole('dialog', { name: 'Settings', exact: true }).isVisible().catch(() => false); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300) }
     await palette(page, 'Workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Tools/ }).click()
+    // CR OXE-296 (17/11): BRD-23 moved Tools (MCP servers and skills) to App › Integrations.
+    const appScope = modal.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio', { name: 'App' })
+    if (await appScope.count()) await appScope.click()
+    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Integrations/ }).click()
     const tools = modal.getByTestId('tools-settings')
     await expect(tools).toBeVisible({ timeout: 10_000 })
     return tools
@@ -157,8 +160,9 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     // Notes: Ctrl+4 → OxePod, Ctrl+5 → OxePost, Ctrl+Shift+A → activity center.
     await page.locator('body').click({ position: { x: 5, y: 300 } }).catch(() => undefined)
     await page.keyboard.press('Control+4'); await page.waitForTimeout(800)
-    out.ctrl4 = await page.locator('button[data-app-mode="pods"]').first().getAttribute('aria-pressed').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
-        await page.keyboard.press('Control+Shift+A'); await page.waitForTimeout(800)
+    out.ctrl4 = await page.locator('button[data-app-mode="pods"]').first().getAttribute('aria-selected').catch(() => null) ?? await page.locator('main').first().innerText().then(t => t.slice(0, 40))
+    // CR OXE-296 (17/11): Ctrl+Shift+A moved to Open approval queue; open Activity center via the titlebar bell.
+    await page.getByTestId('activity-bell').click(); await page.waitForTimeout(800)
     out.activity = await page.getByTestId('activity-center').isVisible().catch(() => false)
     await page.keyboard.press('Escape')
     // Help › Report a problem, in the app menu.
@@ -188,10 +192,20 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
       out.agentsEmpty = await settings.getByRole('button', { name: /Run health check|Health check|Check again/i }).count()
       out.agentsText = (await settings.innerText()).replace(/\s+/g, ' ').slice(0, 300)
     }
-    for (const [name, key] of [['Devices', 'devices'], ['Updates', 'updates'], ['Appearance', 'appearance'], ['Keyboard', 'keyboard']] as const) {
-      const button = nav.getByRole('button', { name: new RegExp(`^${name}`) })
+    // CR OXE-296 (17/11): BRD-23 grouped Devices under Integrations › Phone and devices and Updates under About.
+    for (const [section, subpage, key] of [
+      ['Integrations', 'Phone and devices', 'devices'],
+      ['About', null, 'updates'],
+      ['Appearance', null, 'appearance'],
+      ['Keyboard', null, 'keyboard']
+    ] as const) {
+      const button = nav.getByRole('button', { name: new RegExp(`^${section}`) })
       if (!(await button.count())) { out[key] = 'missing'; continue }
       await button.first().click(); await page.waitForTimeout(1_000)
+      if (subpage) {
+        const pageToggle = settings.getByRole('radiogroup', { name: 'Pages in this section' }).getByRole('radio', { name: subpage })
+        if (await pageToggle.count()) { await pageToggle.click(); await page.waitForTimeout(800) }
+      }
       out[key] = (await settings.innerText()).replace(/\s+/g, ' ').slice(0, 4000)
     }
     // A filter with no match: an empty state, not a blank list.
@@ -202,7 +216,7 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
     }
     console.log('B3B', JSON.stringify(out))
     expect.soft(out.threadColdMs as number, 'OxeChat cold switch').toBeLessThan(1_500)
-    expect.soft(out.activity, 'Ctrl+Shift+A opens the activity center').toBe(true)
+    expect.soft(out.activity, 'Activity bell opens the activity center (CR OXE-296: Ctrl+Shift+A moved to approvals queue)').toBe(true)
     expect.soft(JSON.stringify([out.menu, out.helpMenu, out.paletteReport]), 'Help › Report a problem').toMatch(/Report a problem/)
     expect.soft(out.categories, 'Settings › Keyboard exists').toContain('Keyboard')
     expect.soft(String(out.devices), 'phone connection off by default').toMatch(/off|Turn on|not on/i)

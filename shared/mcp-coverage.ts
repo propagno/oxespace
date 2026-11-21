@@ -180,7 +180,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'git.read': {
     label: 'Status, branch, diffs, files at a ref, checkpoints',
     tools: each('oxespace_git', 'read', ['status', 'branch', 'diff_summary', 'diff', 'file_at_ref', 'checkpoints']),
-    ipc: ['git.getBranch', 'git.getStatus', 'git.getDiff', 'git.getDiffSummary', 'git.getFileOriginal', 'git.getFileAtRef', 'github.listCheckpoints', 'thread.projectDiff']
+    ipc: ['git.getBranch', 'git.getStatus', 'git.changedCount', 'git.getDiff', 'git.getDiffSummary', 'git.getFileOriginal', 'git.getFileAtRef', 'github.listCheckpoints', 'thread.projectDiff']
   },
   'git.change': {
     label: 'Stage, commit, branch, fetch, pull, push, checkpoints',
@@ -238,6 +238,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
       'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
   },
+  'thread.sessions': {
+    label: 'Sessions and their parallel chats: list, read, create a chat, open a chat (OXE-170)',
+    excluded: 'The person\'s window, like the conversation list: which chats a session holds and which one is open. Agents create and drive Threads with oxespace_thread_create and send.',
+    ipc: ['thread.sessions', 'thread.session', 'thread.createChat', 'thread.openChat']
+  },
   'thread.side_chat': { label: 'A side chat about a conversation', excluded: 'The person\'s read-only scratch copy of a conversation; agents ask in their own.', ipc: ['thread.sideOpen', 'thread.sideSend', 'thread.sideClose'] },
   'thread.drive': {
     label: 'Create Threads, send, steer, stop, set the model, rename, archive',
@@ -252,7 +257,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Undo a turn\'s edits, export, import, recover, attach files, slash commands',
     excluded: 'Rewrites or acts inside another conversation\'s session; the person does it. Agents drive Threads with send and steer.',
     ipc: ['thread.undoTurnFile', 'thread.undoTurnHunk', 'thread.exportPortable', 'thread.importPortable', 'thread.recover',
-      'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish']
+      'thread.attach', 'thread.removeAttachment', 'thread.command', 'thread.observe', 'thread.debugEvents', 'thread.worktreeInspect', 'thread.worktreeFinish',
+      // Run plan (OXE-167): the person's choice to leave Plan; an agent never runs a plan on the person's behalf.
+      'thread.executePlan', 'thread.editPrompt']
   },
   'thread.project_admin': {
     label: 'Add, relink or hide Thread projects; idle suspension; the access a new conversation starts with; shell check',
@@ -450,7 +457,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'agent_activity.read': {
     label: 'List, detail and badge of agent activity',
     excluded: "The person's review of what agents did across changes, databases, containers and HTTP.",
-    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge']
+    ipc: ['agentActivity.list', 'agentActivity.detail', 'agentActivity.badge', 'agentActivity.changed']
   },
   'code.pane_conversation': {
     label: "A terminal agent's conversation on the desktop (A53)",

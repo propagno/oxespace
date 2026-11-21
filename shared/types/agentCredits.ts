@@ -26,6 +26,11 @@ export interface CreditsWindow {
   usedPct: number
   /** When the window resets (epoch ms), or null if unknown. */
   resetsAtMs: number | null
+  /**
+   * The group of models the window counts, when the provider splits its quota (Antigravity: 'gemini' or 'claude-gpt',
+   * else the provider's own name for the group). Absent: one quota for every model.
+   */
+  group?: string
 }
 
 /** Account-wide quota snapshot for one provider. */

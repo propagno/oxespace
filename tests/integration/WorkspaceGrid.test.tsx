@@ -91,7 +91,10 @@ describe('WorkspaceGrid', () => {
     expect(screen.getByTestId('pane-actions-menu')).toBeInTheDocument()
     expect(screen.queryByText('Not started')).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Details' })).toBeEnabled()
-    expect(screen.getByRole('menuitem', { name: /Clear terminal/i })).toBeDisabled()
+    // BRD-16 (OXE-85): an unavailable item is hidden, not disabled; a pane that has not started cannot be cleared.
+    expect(screen.queryByRole('menuitem', { name: /Clear terminal/i })).toBeNull()
+    // BRD-16 (OXE-85): for an agent that can resume, New session sits in the "Agent session" submenu.
+    await user.click(screen.getByRole('menuitem', { name: 'Agent session' }))
     expect(screen.getByRole('menuitem', { name: /New session/i })).toBeEnabled()
     expect(screen.getByRole('menuitem', { name: /Split pane right/i })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: /Split pane down/i })).toBeInTheDocument()

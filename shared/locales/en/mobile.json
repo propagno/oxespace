@@ -81,7 +81,11 @@
       "connect": "Connect",
       "confirm": "Confirm",
       "done": "Done"
-    }
+    },
+    "back": "Back",
+    "cancel": "Cancel",
+    "codeExpiresIn": "The code expires in {{time}}.",
+    "waitingComputer": "Waiting for the computer…"
   },
   "live": {
     "tabs": {
@@ -105,8 +109,6 @@
       "interrupted": "Stopped",
       "failed": "Failed"
     },
-    "pendingCount_one": "Needs you ({{count}})",
-    "pendingCount_other": "Needs you ({{count}})",
     "back": "Back",
     "menu": "More options",
     "jobs": "Background jobs",
@@ -269,8 +271,9 @@
       "minutes": "{{minutes}} min",
       "hours": "{{hours}} h"
     },
-    "nowNeedsYou": "Needs you: {{title}}",
-    "review": "Review"
+    "review": "Review",
+    "stepCollapsed": "Collapsed",
+    "stepExpanded": "Expanded"
   },
   "terminal": {
     "redacted_one": "{{count}} secret value hidden by your computer.",
@@ -373,7 +376,8 @@
       "permissions": "Permission request"
     },
     "noUndo": "No undo.",
-    "allowIn": "in {{seconds}} s"
+    "allowIn": "in {{seconds}} s",
+    "holdToAllow": "Press and hold to allow"
   },
   "action": {
     "offline": "Not connected to your computer. Nothing was sent.",
@@ -428,14 +432,15 @@
     "needed": "OXESpace talks to your computer directly over your Wi-Fi, so Android asks whether it may use the local network. It connects only to the computer you pair with, never to other devices.",
     "allow": "Allow local network access",
     "denied": "Local network access is off for OXESpace, so Android blocks every connection to your computer. Turn on \"Local network access\" for OXESpace in the app's settings (Permissions), then come back.",
-    "openSettings": "Open app settings"
+    "openSettings": "Open app settings",
+    "next": "Android will show its own prompt next."
   },
   "settings": {
     "title": "Settings",
     "back": "Back",
     "theme": {
-      "title": "Theme",
-      "system": "Same as the phone",
+      "title": "Appearance",
+      "system": "System",
       "light": "Light",
       "dark": "Dark"
     },
@@ -447,13 +452,42 @@
     },
     "computer": {
       "title": "Computer",
-      "unpair": "Unpair this phone"
+      "unpair": "Unpair this phone",
+      "paired": "paired {{date}}"
     },
     "about": {
       "title": "About",
       "app": "OXESpace for Android",
       "version": "Version {{version}}",
       "sameWifi": "Works while this phone and your computer are on the same Wi-Fi."
+    },
+    "answers": {
+      "title": "Answers",
+      "presence": "Fingerprint or screen lock",
+      "presenceBody": "Asked on every answer. A safety rule.",
+      "always": "Always",
+      "critical": "Critical requests",
+      "criticalBody": "Allow unlocks after {{seconds, number}} s."
+    },
+    "cantConnect": {
+      "title": "Can't connect?"
+    },
+    "typing": {
+      "title": "Typing in terminals"
     }
+  },
+  "needsYou": {
+    "agent": "The agent",
+    "allowed": "Allowed",
+    "asksApproval": "{{agent}} needs your approval",
+    "asksQuestion": "{{agent}} needs your answer",
+    "asksRun": "{{agent}} needs your approval",
+    "denied": "Denied",
+    "kindCommand": "Approve command",
+    "kindQuestions_one": "{{count}} question",
+    "kindQuestions_other": "{{count}} questions",
+    "offline": "Not connected to your computer. Answer once it is back.",
+    "reply": "Reply",
+    "title": "Needs you"
   }
 }

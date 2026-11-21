@@ -17,7 +17,7 @@
   /* The editor panel is often docked narrow, so the gutter has to shrink with it. */
   padding: 20px clamp(14px, 4%, 28px) 56px;
   color: var(--tx-primary);
-  font-size: var(--fs-base);
+  font-size: var(--fs-md);
   line-height: 1.7;
   word-wrap: break-word;
 }
@@ -39,7 +39,7 @@
 .markdown-preview h3 { font-size: var(--fs-xl); }
 .markdown-preview h4 { font-size: var(--fs-lg); }
 .markdown-preview h5,
-.markdown-preview h6 { font-size: var(--fs-base); color: var(--tx-muted); }
+.markdown-preview h6 { font-size: var(--fs-md); color: var(--tx-muted); }
 
 .markdown-preview h1,
 .markdown-preview h2 {
@@ -171,7 +171,7 @@
   justify-content: center;
   min-height: 0;
   border: none;
-  background: repeating-conic-gradient(color-mix(in srgb, var(--text-primary) 4%, transparent) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--tx-primary) 4%, transparent) 0% 25%, transparent 0% 50%) 50% / 20px 20px;
   padding: 20px;
   overflow: auto;
   cursor: zoom-in;
@@ -291,19 +291,22 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-xs);
-  width: 16px;
-  height: 16px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   color: inherit;
   opacity: 0;
   cursor: pointer;
 }
 
 .editor-tab:hover .editor-tab-close,
+.editor-tab:focus-within .editor-tab-close,
+.editor-tab:focus-visible .editor-tab-close,
 .editor-tab.active .editor-tab-close {
   opacity: 0.65;
 }
 
-.editor-tab-close:hover {
+.editor-tab-close:hover,
+.editor-tab-close:focus-visible {
   background: var(--fill-hover, var(--ov-2));
   opacity: 1;
 }

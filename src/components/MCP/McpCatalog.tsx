@@ -2,16 +2,26 @@ import { KeyRound, LogIn, PlugZap, Plus, SlidersHorizontal, Terminal } from 'luc
 import { useMemo, type ReactElement } from 'react'
 import type { McpServer } from '../../../shared/types/mcp'
 import { categoryLabel, isDarkBrand, MCP_CATALOG, MCP_CATALOG_CATEGORIES, searchCatalog, type McpCatalogEntry } from './connectorCatalog'
-import { EmptyState, Spinner } from '../../ui'
+import { EmptyState, Spinner, StatusSignal, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import './McpCatalog.css'
 
+function catalogSignalState(health: McpServer['health']): SignalState {
+  switch (health) {
+    case 'healthy': return 'done'
+    case 'starting': return 'working'
+    case 'needs-auth': return 'needs-you'
+    case 'unhealthy': return 'failed'
+    default: return 'unconfirmed'
+  }
+}
+
 export function McpBrandTile({ entry, size = 40 }: { entry: McpCatalogEntry; size?: number }): ReactElement {
-  const color = isDarkBrand(entry.brand.hex) ? 'var(--text-primary)' : `#${entry.brand.hex}`
+  const color = isDarkBrand(entry.brand.hex) ? 'var(--tx-primary)' : `#${entry.brand.hex}`
   return <span className="mcp-brand-tile" style={{ width: size, height: size }} aria-hidden="true">
     {entry.brand.icon
       ? <svg viewBox="0 0 24 24" width={size * 0.55} height={size * 0.55}><path d={entry.brand.icon.path} fill={color} /></svg>
-      : <span className="mcp-brand-letter" style={{ background: `#${entry.brand.hex}`, color: readableOn(entry.brand.hex), fontSize: size * 0.48 }}>{entry.name.slice(0, 1).toUpperCase()}</span>}
+      : <span className="mcp-brand-letter" data-contrast={contrastTone(entry.brand.hex)} style={{ background: `#${entry.brand.hex}`, fontSize: size * 0.48 }}>{entry.name.slice(0, 1).toUpperCase()}</span>}
   </span>
 }
 
@@ -31,7 +41,7 @@ function CatalogRow({ entry, server, busy, onAdd, onTest }: { entry: McpCatalogE
   return <li className="mcp-catalog-row">
     <McpBrandTile entry={entry} />
     <span className="mcp-catalog-text">
-      <strong>{entry.name}{server && <i className={`mcp-catalog-state is-${server.health}`} title={server.healthMessage ?? stateLabel(server.health)}>{waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)}</i>}</strong>
+      <strong>{entry.name}{server && <i className={`mcp-catalog-state is-${server.health}`} title={server.healthMessage ?? stateLabel(server.health)}><StatusSignal state={catalogSignalState(server.health)} label={waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)} size={12} />{waitingForSignIn(server) ? t('mcp.signingIn') : stateLabel(server.health)}</i>}</strong>
       <small title={server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}>{server && waitingForSignIn(server) ? t('mcp.finishSignIn') : signInByAgent ? t('mcp.agentSignsIn') : server?.health === 'unhealthy' && server.healthMessage ? server.healthMessage : entry.description}</small>
     </span>
     {server && waitingForSignIn(server) && <button type="button" className="mcp-catalog-hint is-action" onClick={() => void window.oxe.mcp.openSignIn(server.id)}><LogIn size={12} aria-hidden="true" />{t('mcp.openSignIn')}</button>}
@@ -78,9 +88,9 @@ export function McpCatalog({ servers, query, busyId, onAdd, onTest }: {
   </div>
 }
 
-/** White or near-black lettering, whichever reads better on a brand color (WCAG relative luminance). */
-function readableOn(hex: string): string {
+/** Light or dark lettering tone, whichever reads better on a brand color (WCAG relative luminance). */
+function contrastTone(hex: string): 'light' | 'dark' {
   const [r, g, b] = [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16) / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-  return (1.05 / (luminance + 0.05)) >= ((luminance + 0.05) / 0.05) ? '#ffffff' : '#111111'
+  return (1.05 / (luminance + 0.05)) >= ((luminance + 0.05) / 0.05) ? 'light' : 'dark'
 }

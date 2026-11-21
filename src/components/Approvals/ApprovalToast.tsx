@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { Sun } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
+import { Copy, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
-import { Button } from '../../ui'
+import { Badge, Button, copyText, IconButton } from '../../ui'
+import { threadApprovalRisk } from '../Threads/threadApprovalRisk'
+import { ImpactFacts } from './ImpactFacts'
 import styles from './Approvals.module.css'
+import { focusIsEditable } from './typingFocus'
 
 const TOAST_MS = 12_000
 
@@ -15,23 +18,54 @@ function hasOpenModal(): boolean {
 export function ApprovalToast({
   request,
   agent,
+  conversation,
+  place,
+  queued = 0,
   onRespond,
   onSeeImpact,
+  onOpenConversation,
   onClose
 }: {
   request: ThreadRequest
   agent: string
+  conversation?: string
+  place?: string
+  queued?: number
   onRespond: (response: ThreadRequestResponse) => Promise<void>
   onSeeImpact: () => void
+  onOpenConversation?: () => void
   onClose: () => void
 }): ReactElement | null {
   const { t } = useTranslation('thread')
+  const { t: tCommon } = useTranslation('common')
   const [modalOpen, setModalOpen] = useState<boolean>(hasOpenModal)
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const denyRef = useRef<HTMLButtonElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const programmaticFocus = useRef(false)
   const onCloseRef = useRef(onClose)
+
+  // The toast stack reads --approval-dock-h so it sits --space-2 above this notice, and drops back when the notice leaves.
+  useLayoutEffect(() => {
+    const node = rootRef.current
+    const doc = document.documentElement
+    if (!node) {
+      doc.style.removeProperty('--approval-dock-h')
+      return
+    }
+    const apply = (): void => {
+      doc.style.setProperty('--approval-dock-h', `${node.getBoundingClientRect().height}px`)
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined') return () => doc.style.removeProperty('--approval-dock-h')
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => {
+      observer.disconnect()
+      doc.style.removeProperty('--approval-dock-h')
+    }
+  }, [modalOpen])
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -53,6 +87,8 @@ export function ApprovalToast({
 
   useEffect(() => {
     if (modalOpen) return
+    // OXE-175: someone typing keeps their focus; the polite status announces the toast and Ctrl+Shift+A reaches it.
+    if (focusIsEditable()) return
     programmaticFocus.current = true
     denyRef.current?.focus()
     programmaticFocus.current = false
@@ -68,12 +104,17 @@ export function ApprovalToast({
 
   if (modalOpen) return null
 
-  const reversible = request.impact?.reversible === true
+  const impact = request.impact
+  const impactRisk = impact?.risk ?? 'low'
+  const policyRisk = threadApprovalRisk(request, false)
+  const level = policyRisk === 'critical' ? 'critical' : impactRisk
+  const canAllow = Boolean(impact?.reversible) && (level === 'low' || level === 'medium')
+  const riskIntent = level === 'medium' ? 'warning' : level === 'high' || level === 'critical' ? 'danger' : 'neutral'
 
   return (
     <div
-      role="status"
-      aria-live="polite"
+      ref={rootRef}
+      data-ui="approval-toast"
       className={styles.toast}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -85,18 +126,66 @@ export function ApprovalToast({
         if (!next || !event.currentTarget.contains(next)) setFocused(false)
       }}
     >
-      <span className={styles.toastBody}>
-        <Sun size={15} aria-hidden="true" className={styles.toastIcon} />
-        <span>{t('f7.toast.needsYou', { title: request.title, agent })}</span>
+      <span role="status" aria-live="polite" className={styles.srOnly}>
+        {t('f7.toast.needsYou', { title: request.title, agent })}
       </span>
+      <div className={styles.toastHeader}>
+        <span className={styles.toastKicker}>
+          <Sun size={15} aria-hidden="true" className={styles.toastIcon} />
+          <span>{t('f7.card.needsApproval', { agent })}</span>
+        </span>
+        {queued >= 1 ? (
+          <Badge data-ui="approval-toast-queue" intent="neutral">
+            {t('f7.toast.moreInQueue', { count: queued })}
+          </Badge>
+        ) : null}
+      </div>
+      {conversation || place ? (
+        <div className={styles.toastContext}>
+          {conversation ? <span data-ui="approval-toast-conversation" className={styles.toastConversation}>{conversation}</span> : null}
+          {place ? <span data-ui="approval-toast-place" className={styles.toastPlace}>{place}</span> : null}
+        </div>
+      ) : null}
+      {impact ? (
+        <div data-ui="approval-toast-command" className={styles.toastCommand}>
+          <code className={styles.toastCommandCode}>{impact.text}</code>
+          <IconButton
+            className={styles.toastCopy}
+            label={t('approvalDetails.copyExact')}
+            icon={<Copy size={14} aria-hidden="true" />}
+            onClick={() => {
+              if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(impact.text)
+              else void copyText(impact.text, t('f7.card.copyWhat'))
+            }}
+          />
+        </div>
+      ) : null}
+      <div className={styles.toastFacts}>
+        {impact ? <ImpactFacts impact={impact} layout="chips" /> : null}
+        <Badge
+          data-ui="risk-label"
+          data-risk={level}
+          intent={riskIntent}
+          className={level === 'critical' ? styles.critical : undefined}
+        >
+          {tCommon('approvals.risk.label', { level: tCommon(`approvals.risk.${level}`) })}
+        </Badge>
+      </div>
       <div className={styles.toastActions}>
         <Button ref={denyRef} variant="secondary" size="sm" onClick={() => void onRespond({ decision: 'decline' })}>
           {t('request.deny')}
         </Button>
-        {reversible ? (
-          <Button variant="primary" size="sm" onClick={() => void onRespond({ decision: 'accept' })}>
-            {t('f7.card.allow')}
-          </Button>
+        {canAllow ? (
+          <>
+            {onOpenConversation ? (
+              <Button variant="secondary" size="sm" onClick={onOpenConversation}>
+                {t('f7.toast.openConversation')}
+              </Button>
+            ) : null}
+            <Button variant="primary" size="sm" onClick={() => void onRespond({ decision: 'accept' })}>
+              {t('f7.card.allowOnce')}
+            </Button>
+          </>
         ) : (
           <Button variant="secondary" size="sm" onClick={onSeeImpact}>
             {t('f7.card.seeImpact')}

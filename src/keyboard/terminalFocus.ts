@@ -77,3 +77,7 @@ export function terminalKeyRoute(event: KeyboardEvent, paneId: string, nativeCli
 export function terminalPaneOf(element: Element | null): string | null {
   return element?.closest<HTMLElement>('[data-terminal-pane]')?.dataset.terminalPane ?? null
 }
+
+let autoFocusing = false
+export const isAutoFocusingTerminal = (): boolean => autoFocusing
+export const runWithTerminalAutoFocus = (fn: () => void): void => { autoFocusing = true; try { fn() } finally { autoFocusing = false } }

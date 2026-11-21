@@ -22,21 +22,21 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  color: var(--tx-primary);
 }
 
 .table th {
   text-align: left;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .table td {
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .numCell {
@@ -47,58 +47,17 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
 }
 
 .convLink {
   display: inline-flex;
   align-items: center;
   min-block-size: var(--target-min);
-  color: var(--text-link);
+  color: var(--tx-link);
   text-decoration: underline;
 }
 
 .mutedText {
-  color: var(--text-secondary);
-}
-
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--layer-modal);
-  background: var(--scrim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-}
-
-.dialog {
-  width: min(420px, 100%);
-  background: var(--surface-overlay);
-  color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.dialogTitle {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-
-.dialogBody {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.dialogActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
+  color: var(--tx-secondary);
 }

@@ -3,7 +3,7 @@ import { exportConnections, parseConnectionsFile, readImportFile, writeExportFil
 import type { AppDatabase } from '../../db'
 import type { ContainerEngine } from '../../../../shared/types/oxepod'
 import type {
-  OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
+  OxeQueryAuditPage, OxeQueryConnection, OxeQueryConnectionInput, OxeQueryErrorInfo, OxeQueryEvent, OxeQueryOp, OxeQueryOps, OxeQueryResponse,
   SqlBrowseInput, SqlFilter, SqlFilterOp, SqlScriptResult
 } from '../../../../shared/types/oxequery'
 import { ConnectionInputError, ConnectionStore, type SecretCipher } from './connection-store'
@@ -18,7 +18,7 @@ import { LibraryInputError, QueryLibrary } from './query-library'
 import { WorkspaceInputError, WorkspaceStore } from './workspace-store'
 import { AgentGateway } from './agent-gateway'
 import { ApprovalBroker, type ApprovalPrompter } from '../agent-actions/approval-broker'
-import { AuditLog } from './audit-log'
+import { AuditLog, auditActorNames, auditWritten, type AuditPosition } from './audit-log'
 import { integrationBlocked, policyStore } from '../policy'
 import { capRows, checkMongoWrite, checkWrite, guardConnection, type Guarded } from './oxequery-guard'
 import type { ExportFormat } from '../../../../shared/types/oxequery'
@@ -123,6 +123,8 @@ export interface OxeQueryServiceOptions {
   pickImportPath?: () => Promise<string | null>
   /** How a person is asked to approve an agent's request. Without one, every approval is denied. */
   approvalPrompter?: ApprovalPrompter
+  /** Who acted, by name (`thread:<id>` → the conversation's title, `pane:<id>` → the pane's name). Main wires it; falls back to `auditActorNames`. */
+  actorLabel?: (actor: string) => string | null | undefined
 }
 
 /** Validates every operation, resolves secrets, and routes to the database worker (or, for a container, to OxePod). */
@@ -144,6 +146,9 @@ export class OxeQueryService {
   /** Files the person chose to import, by opaque id; the page never sees a path. */
   private readonly imports = new Map<string, { path: string; format: 'csv' | 'ndjson' | 'json'; expires: number }>()
   private readonly emit: (event: OxeQueryEvent) => void
+  private readonly actorLabel?: OxeQueryServiceOptions['actorLabel']
+  /** The deferred, then daily, audit retention prune. */
+  private pruneTimer?: ReturnType<typeof setTimeout>
 
   constructor(options: OxeQueryServiceOptions) {
     this.connections = new ConnectionStore(options.db, options.cipher, this.picked)
@@ -155,11 +160,29 @@ export class OxeQueryService {
     this.pickSavePath = options.pickSavePath
     this.pickImportPath = options.pickImportPath
     this.emit = options.emit
+    this.actorLabel = options.actorLabel
     this.loadPod = options.pod
     this.worker = options.worker
     this.auditLog = new AuditLog(options.db)
-    this.auditLog.prune(this.preferences.get().auditRetentionDays)
+    // Retention runs off the startup path: shortly after start, then daily. Neither timer keeps the process alive.
+    this.pruneTimer = setTimeout(() => {
+      this.auditLog.prune(this.preferences.get().auditRetentionDays)
+      this.pruneTimer = setInterval(() => this.auditLog.prune(this.preferences.get().auditRetentionDays), 86_400_000)
+      this.pruneTimer.unref?.()
+    }, 30_000)
+    this.pruneTimer.unref?.()
     this.approvals = new ApprovalBroker(options.approvalPrompter)
+    // PQ-07·7: an approval for a connection pushes agentActivity:changed when it is asked and when it is answered.
+    {
+      const broker = this.approvals
+      const require = broker.require.bind(broker)
+      const changed = (connectionId: string): void => { try { auditWritten.notify?.({ connectionId }) } catch { /* a push never breaks the request */ } }
+      broker.require = async (executionKey, scope, request, waitMs, onAsked) => {
+        const state = await require(executionKey, scope, request, waitMs, approvalId => { changed(scope); onAsked?.(approvalId) })
+        if (state.state !== 'pending') changed(scope)
+        return state
+      }
+    }
     this.agent = new AgentGateway({
       list: () => this.connections.list(),
       ceiling: environment => this.preferences.get().agentCeiling[environment],
@@ -198,6 +221,40 @@ export class OxeQueryService {
   /** The connection as the environment's limits and the organization's policy leave it (see oxequery-guard.ts). */
   private guarded(id: string): Guarded {
     return guardConnection(this.connections.resolve(id), this.connections.get(id).name, this.preferences.get().environmentLimits, policyStore())
+  }
+
+  /** One page of the audit, newest first, each entry named by who acted; the cursor is `<ts>.<id>` of the last entry. */
+  private auditPage(input: Record<string, unknown>): OxeQueryAuditPage {
+    const cursor = optionalString(input.cursor, 64)
+    let before: AuditPosition | undefined
+    if (cursor !== undefined) {
+      const match = /^(\d{1,16})\.(\d{1,16})$/.exec(cursor)
+      if (!match) throw new OxeQueryError('invalid', 'Invalid audit cursor.')
+      before = { ts: Number(match[1]), id: Number(match[2]) }
+    }
+    const page = this.auditLog.page({
+      ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}),
+      limit: optionalInt(input.limit, 1, 500), ...(before ? { before } : {})
+    })
+    const resolve = this.actorLabel ?? auditActorNames.resolve
+    const names = new Map<string, string | null>()
+    const label = (actor: string): string | null => {
+      if (!resolve) return null
+      const known = names.get(actor)
+      if (known !== undefined) return known
+      let value: string | null
+      try {
+        const named = resolve(actor)
+        value = typeof named === 'string' && named.trim() ? named.trim().slice(0, 200) : null
+      } catch { value = null }
+      names.set(actor, value)
+      return value
+    }
+    return {
+      entries: page.entries.map(entry => ({ ...entry, actorLabel: label(entry.actor) })),
+      hasMore: page.next !== null,
+      cursor: page.next ? `${page.next.ts}.${page.next.id}` : null
+    }
   }
 
   private async dispatch(op: string, rawInput: unknown): Promise<unknown> {
@@ -331,7 +388,7 @@ export class OxeQueryService {
       // An unsaved connection keeps no workspace, saved queries or history: those belong to saved connections.
       case 'workspace.load': { const id = this.resolve(input.connectionId).id; return { state: this.connections.isEphemeral(id) ? null : this.workspaces.load(id) } }
       case 'workspace.save': { const id = this.resolve(input.connectionId).id; if (!this.connections.isEphemeral(id)) this.workspaces.save(id, input.state); return { ok: true } }
-      case 'audit.list': return this.auditLog.list({ ...(typeof input.connectionId === 'string' ? { connectionId: input.connectionId.slice(0, 64) } : {}), limit: optionalInt(input.limit, 1, 500) })
+      case 'audit.list': return this.auditPage(input)
       case 'library.list': { const id = this.resolve(input.connectionId).id; return this.connections.isEphemeral(id) ? { saved: [], history: [] } : this.library.list(id) }
       case 'library.save': if (this.connections.isEphemeral(this.resolve(input.connectionId).id)) throw new OxeQueryError('invalid', 'Save this connection to keep queries.'); return this.library.save({
         connectionId: this.resolve(input.connectionId).id, name: str(input.name, 'Name', 120), sql: str(input.sql, 'SQL', 100_000),
@@ -662,6 +719,7 @@ export class OxeQueryService {
   }
 
   async dispose(): Promise<void> {
+    if (this.pruneTimer) clearTimeout(this.pruneTimer)
     await this.worker.close()
   }
 }

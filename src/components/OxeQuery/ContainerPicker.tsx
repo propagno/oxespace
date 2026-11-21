@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SegmentedControl, Select } from '../../ui/Field'
 
 export interface ContainerOption {
   id: string
@@ -98,56 +99,37 @@ export function ContainerPicker({ source, onSourceChange, selectedId, onSelect }
 
   return (
     <div className="oq-container-picker-section">
-      <div className="oq-source-radiogroup" role="radiogroup" aria-label={t('form.source')}>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={source === 'details'}
-          className="oq-source-radio"
-          data-selected={source === 'details'}
-          onClick={() => onSourceChange('details')}
-        >
-          {t('form.sourceDetails')}
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={source === 'container'}
-          disabled={!canUseContainers}
-          className="oq-source-radio"
-          data-selected={source === 'container'}
-          onClick={() => { if (canUseContainers) onSourceChange('container') }}
-        >
-          {t('form.sourceContainer')}
-        </button>
-      </div>
+      <SegmentedControl<'details' | 'container'>
+        label={t('form.source')}
+        value={source}
+        onChange={next => { if (next === 'details' || canUseContainers) onSourceChange(next) }}
+        options={[
+          { value: 'details', label: t('form.sourceDetails') },
+          { value: 'container', label: t('form.sourceContainer'), disabled: !canUseContainers }
+        ]}
+      />
 
       {disabledReason && (
         <p className="oq-container-picker-reason">{disabledReason}</p>
       )}
 
       {source === 'container' && (
-        <div className="oq-form-group">
-          <label htmlFor="oq-container-select" className="oq-form-wide">
-            {t('form.containerLabel')}
-            <select
-              id="oq-container-select"
-              aria-label={t('form.containerLabel')}
-              value={selectedId}
-              onChange={event => {
-                const target = containers.find(c => c.id === event.target.value)
-                if (target) onSelect(target)
-              }}
-            >
-              <option value="">{t('form.containerSelectPlaceholder')}</option>
-              {containers.map(c => (
-                <option key={c.id} value={c.id}>
-                  {t('form.containerPort', { name: c.name, engine: c.engineLabel, port: c.port })}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <Select
+          id="oq-container-select"
+          label={t('form.containerLabel')}
+          value={selectedId}
+          onChange={event => {
+            const target = containers.find(c => c.id === event.target.value)
+            if (target) onSelect(target)
+          }}
+        >
+          <option value="">{t('form.containerSelectPlaceholder')}</option>
+          {containers.map(c => (
+            <option key={c.id} value={c.id}>
+              {t('form.containerPort', { name: c.name, engine: c.engineLabel, port: c.port })}
+            </option>
+          ))}
+        </Select>
       )}
     </div>
   )

@@ -8,7 +8,7 @@
 //   open                                 → Em revisão
 //   open, CI result and pr:ready green on its head → Testado
 //   labelled `na-fila`                   → Na fila
-//   merged                               → Na main
+//   merged, "Fecha OXE-N" in the body       → Na main; "Parte de OXE-N" → a comment only; neither → a warning (OXE-277)
 //   branch release/X.Y.Z, or `stage X.Y.Z homologacao` → the version's items in Na main → Em homologação
 //   `stage X.Y.Z homologado`             → the version's items in Em homologação → Homologado
 //   release vX.Y.Z                       → the Jira version X.Y.Z is released and its items in Na main, Em homologação
@@ -87,13 +87,49 @@ export function versionOfTag(tag) {
   return match ? match[1] : null
 }
 
-/** Pull requests touching several items move each; two PRs on one item: the furthest state wins. */
+/**
+ * What a pull request says it does to each item (OXE-277), from its body and title: "Fecha OXE-N" (or "Closes") when
+ * it delivers the whole item, "Parte de OXE-N" (or "Part of") when it is one piece of it. Several keys may follow one
+ * word, separated by commas. Only a "Fecha" moves the item to Na main on merge.
+ */
+export function declarationsOf(pr) {
+  const text = `${pr.title ?? ''}\n${pr.body ?? ''}`
+  const read = (pattern) => {
+    const keys = new Set()
+    for (const match of text.matchAll(pattern)) for (const key of match[1].matchAll(KEY_PATTERN)) keys.add(`${key[1].toUpperCase()}-${Number(key[2])}`)
+    return keys
+  }
+  const closes = read(/\b(?:Fecha|Closes)\s+((?:OXE-\d+)(?:\s*,\s*OXE-\d+)*)/gi)
+  const parts = read(/\b(?:Parte de|Part of)\s+((?:OXE-\d+)(?:\s*,\s*OXE-\d+)*)/gi)
+  for (const key of closes) parts.delete(key)
+  return { closes: [...closes], parts: [...parts] }
+}
+
+/**
+ * The items a merged pull request names but does not close (OXE-277): each "Parte de" gets a comment with the PR's
+ * link and stays where it is; a key named without either word does not move, and the run warns, because a card
+ * delivered over several PRs used to land in Na main on its first one.
+ */
+export function mergeNotes(prs) {
+  const comments = [], warnings = []
+  for (const pr of prs) {
+    if (!pr.merged) continue
+    const { closes, parts } = declarationsOf(pr)
+    for (const key of parts) comments.push({ key, pr: pr.number, url: pr.url ?? null })
+    for (const key of keysOf(pr)) if (!closes.includes(key) && !parts.includes(key)) warnings.push({ key, pr: pr.number })
+  }
+  return { comments, warnings }
+}
+
+/** Pull requests touching several items move each; two PRs on one item: the furthest state wins. A merged PR moves only what it closes. */
 export function plan(prs) {
   const wanted = new Map()
   for (const pr of prs) {
     const target = targetOf(pr)
     if (!target) continue
-    for (const key of keysOf(pr)) {
+    // Merged: only the items the PR closes ("Fecha OXE-N") move to Na main (OXE-277); open PRs keep moving every key.
+    const keys = pr.merged ? declarationsOf(pr).closes : keysOf(pr)
+    for (const key of keys) {
       const before = wanted.get(key)
       if (!before || STATES.indexOf(target) > STATES.indexOf(before.target)) wanted.set(key, { target, pr: pr.number })
     }
@@ -122,6 +158,14 @@ function jiraClient(env) {
     },
     async version(project, name) { return (await call('GET', `/rest/api/3/project/${project}/versions`)).find(each => each.name === name) ?? null },
     async release(id) { await call('PUT', `/rest/api/3/version/${id}`, { released: true, releaseDate: new Date().toISOString().slice(0, 10) }) },
+    /** Whether the item already has a comment that names `text` (a PR link), so a run never comments twice. */
+    async hasComment(key, text) {
+      const { comments } = await call('GET', `/rest/api/3/issue/${key}/comment?maxResults=100`)
+      return (comments ?? []).some(each => JSON.stringify(each.body ?? '').includes(text))
+    },
+    async comment(key, text) {
+      await call('POST', `/rest/api/3/issue/${key}/comment`, { body: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } })
+    },
     async keysIn(project, version, status) {
       const jql = encodeURIComponent(`project = ${project} AND fixVersion = "${version}" AND status = "${status}"`)
       return (await call('GET', `/rest/api/3/search/jql?jql=${jql}&maxResults=200&fields=status`)).issues.map(each => each.key)
@@ -137,7 +181,7 @@ async function github(env, path) {
   return response.json()
 }
 
-const prOf = pr => ({ number: pr.number, title: pr.title, branch: pr.head?.ref, state: pr.state, merged: Boolean(pr.merged_at), labels: (pr.labels ?? []).map(each => each.name) })
+const prOf = pr => ({ number: pr.number, title: pr.title, body: pr.body ?? '', url: pr.html_url ?? null, branch: pr.head?.ref, state: pr.state, merged: Boolean(pr.merged_at), labels: (pr.labels ?? []).map(each => each.name) })
 
 /** Moves the version's items from one state to another (a stage, or a release landing them). */
 async function moveVersion(jira, project, version, from, to, why, { dry, log }) {
@@ -183,6 +227,17 @@ export async function reconcile(env = process.env, log = console.log) {
       moved += 1
     } catch (error) { failed += 1; log(`::warning::jira-sync: ${key}: ${error.message}`) }
   }
+  // A merged PR that is one piece of an item leaves a comment there, once; a key with no "Fecha"/"Parte de" warns.
+  const notes = mergeNotes(closed.map(prOf))
+  for (const { key, pr, url } of notes.comments) {
+    const link = url ?? `#${pr}`
+    try {
+      if (await jira.hasComment(key, link)) continue
+      log(`jira-sync: ${key} part delivered by #${pr}, comment only${dry ? ' [dry run]' : ''}`)
+      if (!dry) await jira.comment(key, `Parte entregue na main por ${link}. O card segue aberto até o PR que o fecha ("Fecha ${key}").`)
+    } catch (error) { failed += 1; log(`::warning::jira-sync: ${key}: ${error.message}`) }
+  }
+  for (const { key, pr } of notes.warnings) log(`::warning::jira-sync: #${pr} names ${key} without "Fecha ${key}" or "Parte de ${key}" in its body; the card was not moved`)
   const project = env.JIRA_PROJECT ?? 'OXE'
   // Release branches: release/X.Y.Z cut means the version is in homologation.
   try {

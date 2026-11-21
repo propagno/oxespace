@@ -1,0 +1,21 @@
+{
+  "brd": "BRD-16",
+  "card": "OXE-85",
+  "title": "Short, ordered menus: the terminal's ⋯ menu and the sidebar row's, at most 8 items of the src/ui primitives, nothing disabled in view, destructive alone last, no More",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-16), M1-api-e-criterios.md (Menu) and the card OXE-85 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-16.menu-item.height",
+      "scene": "code-menu",
+      "select": "[data-testid=pane-actions-menu] [data-ui=button][role^=menuitem]",
+      "prop": "height",
+      "expect": { "token": "--row-1" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "every item of the terminal's ⋯ menu is one row (28, 32 comfortable)"
+    }
+  ]
+}

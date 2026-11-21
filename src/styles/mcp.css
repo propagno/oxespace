@@ -8,7 +8,7 @@
   min-height: 0;
   overflow: hidden;
   /* Was teal-gradient with inner glow — now a clean Claude-flavor dialog. */
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   background: var(--surface-overlay);
   box-shadow: var(--elevation-4);
@@ -31,17 +31,15 @@
   color: var(--tx-secondary);
 }
 
-.mcp-panel-title strong { color: var(--tx-primary); font-size: var(--fs-base); font-weight: 600; }
+.mcp-panel-title strong { color: var(--tx-primary); font-size: var(--fs-md); font-weight: 600; }
 
 .mcp-panel-scope {
   padding: 2px 10px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .mcp-panel-actions { display: inline-flex; align-items: center; gap: 4px; }
@@ -52,7 +50,7 @@
   background: var(--intent-info-bg);
   border: 1px solid var(--intent-info-border);
   border-radius: var(--radius-md);
-  color: var(--tx-muted);
+  color: var(--intent-info-fg);
   font-size: var(--fs-2xs);
   line-height: 1.5;
 }
@@ -71,7 +69,7 @@
   gap: 6px;
   margin: 10px 14px 6px;
   padding: 10px;
-  border: 1px dashed var(--bd-base);
+  border: 1px dashed var(--bd-default);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-secondary);
@@ -84,7 +82,7 @@
 
 .mcp-panel-add:hover {
   background: var(--fill-hover);
-  border-color: var(--bd-input-focus);
+  border-color: var(--bd-focus);
   color: var(--tx-primary);
 }
 
@@ -105,19 +103,19 @@
   align-items: stretch;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   overflow: hidden;
   transition: border-color var(--transition-base), background var(--transition-base);
   flex: 0 0 auto;
 }
 
-.mcp-server-row:hover { border-color: var(--bd-base); background: var(--fill-hover); }
+.mcp-server-row:hover { border-color: var(--bd-default); background: var(--fill-hover); }
 /* Health states keep the semantic accent on the LEFT edge only, instead of
    colouring the entire border. Less neon, still legible. */
-.mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 rgba(52, 212, 116, 0.55); }
-.mcp-server-row.health-unhealthy { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
-.mcp-server-row.health-error { box-shadow: inset 3px 0 0 0 rgba(248, 113, 113, 0.55); }
-.mcp-server-row.health-idle { box-shadow: inset 3px 0 0 0 rgba(180, 180, 180, 0.35); }
+.mcp-server-row.health-healthy { box-shadow: inset 3px 0 0 0 var(--intent-success-border); }
+.mcp-server-row.health-unhealthy { box-shadow: inset 3px 0 0 0 var(--intent-danger-border); }
+.mcp-server-row.health-error { box-shadow: inset 3px 0 0 0 var(--intent-danger-border); }
+.mcp-server-row.health-idle { box-shadow: inset 3px 0 0 0 var(--bd-default); }
 .mcp-server-row.expanded { grid-template-columns: 1fr; }
 
 /* Built-in OXESpace server card — auto-started, can't be deleted/edited but
@@ -151,7 +149,7 @@
   font-family: var(--font-mono);
 }
 .mcp-builtin-status.off {
-  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--tx-primary) 12%, transparent);
   color: var(--tx-muted);
 }
 
@@ -162,7 +160,7 @@
   padding: 5px 10px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -173,7 +171,7 @@
 .mcp-builtin-regen:hover:not(:disabled) {
   background: var(--fill-hover);
   color: var(--tx-primary);
-  border-color: var(--bd-base);
+  border-color: var(--bd-default);
 }
 .mcp-builtin-regen:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -189,19 +187,6 @@
   color: var(--accent-hover);
   font-size: var(--fs-2xs);
 }
-.mcp-builtin-notice button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-}
-.mcp-builtin-notice button:hover { background: var(--accent-soft); }
 
 /* Tool catalogue — visible when the user expands the built-in card. */
 .mcp-builtin-tools {
@@ -215,8 +200,6 @@
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .mcp-builtin-tools ul {
@@ -287,18 +270,16 @@
 .mcp-server-tag {
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
 }
 
 /* Scope tags share the neutral palette — distinction is in the label text
    itself ("workspace" / "global") rather than competing accent colors. */
 .mcp-server-tag.scope-ws,
-.mcp-server-tag.scope-global { background: var(--surface-quiet); color: var(--tx-secondary); }
+.mcp-server-tag.scope-global { background: var(--ov-1); color: var(--tx-secondary); }
 
 /* Quarantined: changed after trust. Alert colour and an icon, so it does not read as one more neutral tag. */
 .mcp-server-tag.is-quarantined,
@@ -357,7 +338,7 @@
 .mcp-server-actions .primary-btn {
   background: var(--accent);
   border: 0;
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
 }
 
 .mcp-server-actions .primary-btn:hover:not(:disabled) { background: var(--accent); }
@@ -374,7 +355,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .mcp-server-trust-box,
@@ -416,7 +397,7 @@
 .mcp-inline-confirm .primary-btn {
   border: 0;
   background: var(--accent);
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
 }
 
 .mcp-server-config {
@@ -439,11 +420,9 @@
 }
 
 .mcp-server-tools-header {
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
   margin-bottom: 4px;
 }
 
@@ -455,7 +434,7 @@
   margin-bottom: 4px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
 }
 
 .mcp-tool-card strong {
@@ -478,7 +457,7 @@
 .mcp-panel-footer {
   padding: 10px 16px;
   border-top: 1px solid var(--bd-subtle);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
   line-height: 1.5;
@@ -505,7 +484,7 @@
   overflow-y: auto;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   flex: 0 0 auto;
 }
 
@@ -515,11 +494,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
 }
 
 .mcp-create-form input,
@@ -561,7 +538,7 @@
 .mcp-create-actions .primary-btn {
   background: var(--accent);
   border: 0;
-  color: var(--text-on-accent);
+  color: var(--tx-on-accent);
 }
 
 .mcp-create-actions .primary-btn:disabled { opacity: 0.4; cursor: default; }
@@ -582,7 +559,7 @@
   padding: 3px;
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
-  background: var(--surface-quiet);
+  background: var(--ov-1);
   gap: 2px;
 }
 
@@ -629,7 +606,7 @@
   margin: 12px 20px 0;
   padding: 0 10px;
   min-height: 34px;
-  border: 1px solid var(--bd-base);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-sm);
   color: var(--tx-muted);
   background: var(--surface-raised);
@@ -645,11 +622,11 @@
   font: inherit;
 }
 
-.mcp-create-note { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--ov-1); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
+.mcp-create-note { margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--ov-1); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.5; }
 
-.mcp-import { display: grid; gap: 8px; padding: 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.mcp-import { display: grid; gap: 8px; padding: 8px; border: 1px solid var(--bd-default); border-radius: 6px; }
 .mcp-import p { margin: 0; font-size: 12px; }
-.mcp-import fieldset { display: grid; gap: 4px; margin: 0; padding: 6px 8px; border: 1px solid var(--bd-base); border-radius: 6px; }
+.mcp-import fieldset { display: grid; gap: 4px; margin: 0; padding: 6px 8px; border: 1px solid var(--bd-default); border-radius: 6px; }
 .mcp-import-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; }
 .mcp-import-row code { overflow-wrap: anywhere; font-size: 12px; }
 .mcp-import-row small { grid-column: 2; opacity: 0.75; }

@@ -6,6 +6,8 @@ import { i18n } from '../../i18n'
 import { useKeybindings } from '../../keyboard/keybindings'
 import { useThreadStore } from '../../store/thread.store'
 import { usePendingView } from '../../app/viewSwitch'
+import { useGitBranch } from '../../hooks/useGitBranch'
+import { scopeBadgeLabel } from '../../utils/paneGitContext'
 import { approvalsApi } from './approvalsApi'
 import { handBackAll, OPEN_APPROVAL_QUEUE_EVENT, schedulePreload, startApprovals } from './approvalsBoot'
 import { ApprovalToast } from './ApprovalToast'
@@ -16,6 +18,9 @@ export { OPEN_APPROVAL_HISTORY_EVENT, OPEN_APPROVAL_QUEUE_EVENT } from './approv
 
 interface OpenedThreadApproval {
   threadId: string
+  workspaceId: string
+  rootPath: string
+  ownedWorktreeBranch: string | null
   request: ThreadRequest
   agent: string
   conversation: string
@@ -43,7 +48,15 @@ function findPendingThreadApproval(
       if (event.type === 'request' && event.request.id === requestId && event.request.state === 'pending') {
         const agent = threadAgentName(snap.thread.provider)
         const conversation = snap.thread.title || i18n.t('thread:notify.untitled')
-        return { threadId: snap.thread.id, request: event.request, agent, conversation }
+        return {
+          threadId: snap.thread.id,
+          workspaceId: snap.thread.workspaceId,
+          rootPath: snap.thread.rootPath,
+          ownedWorktreeBranch: snap.thread.ownedWorktree?.branch ?? null,
+          request: event.request,
+          agent,
+          conversation
+        }
       }
     }
   }
@@ -68,7 +81,15 @@ function findBackgroundToastApproval(
       if (!event.request.impact) continue
       if (dismissedIds.has(event.request.id) || event.request.id === openedRequestId) continue
       if (!best || event.request.createdAt < best.request.createdAt) {
-        best = { threadId: snap.thread.id, request: event.request, agent, conversation }
+        best = {
+          threadId: snap.thread.id,
+          workspaceId: snap.thread.workspaceId,
+          rootPath: snap.thread.rootPath,
+          ownedWorktreeBranch: snap.thread.ownedWorktree?.branch ?? null,
+          request: event.request,
+          agent,
+          conversation
+        }
       }
     }
   }
@@ -82,7 +103,7 @@ function findBackgroundToastApproval(
  */
 function ApprovalsUnavailable(): ReactElement {
   useEffect(() => { handBackAll() }, [])
-  return <p role="status" data-testid="approvals-unavailable" style={{ position: 'fixed', insetInline: 0, bottom: 0, margin: 0, padding: 'var(--space-2) var(--space-3)', background: 'var(--intent-warning-bg)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', zIndex: 'var(--layer-toast)' }}>
+  return <p role="status" data-testid="approvals-unavailable" style={{ position: 'fixed', insetInline: 0, bottom: 0, margin: 0, padding: 'var(--space-2) var(--space-3)', background: 'var(--intent-warning-bg)', color: 'var(--tx-primary)', fontSize: 'var(--fs-sm)', zIndex: 'var(--layer-toast)' }}>
     {i18n.t('approvals.unavailableWindow')}
   </p>
 }
@@ -126,6 +147,51 @@ export function ApprovalsHost(): ReactElement | null {
     () => findBackgroundToastApproval(snapshot, snapshotCache, visibleThreadIds, dismissedToastIds, openedRequestId),
     [snapshot, snapshotCache, visibleThreadIds, dismissedToastIds, openedRequestId]
   )
+  const [approvalsQueueLength, setApprovalsQueueLength] = useState<number | null>(null)
+  const hasToastTarget = Boolean(toastTarget)
+  useEffect(() => {
+    if (!hasToastTarget) return
+    let alive = true
+    let unsubscribe: (() => void) | undefined
+    void import('./approvals.store')
+      .then(mod => {
+        if (!alive) return
+        setApprovalsQueueLength(mod.useApprovalsStore.getState().queue.length)
+        unsubscribe = mod.useApprovalsStore.subscribe(state => {
+          if (alive) setApprovalsQueueLength(state.queue.length)
+        })
+      })
+      .catch(() => {
+        if (alive) setApprovalsQueueLength(0)
+      })
+    return () => {
+      alive = false
+      unsubscribe?.()
+    }
+  }, [hasToastTarget])
+  const queuedCount = useMemo(() => {
+    if (!toastTarget || approvalsQueueLength === null) return 0
+    let pending = approvalsQueueLength
+    for (const snap of collectSnapshots(snapshot, snapshotCache).values()) {
+      for (const event of snap.events) {
+        if (event.type === 'request' && event.request.kind === 'approval' && event.request.state === 'pending') pending += 1
+      }
+    }
+    return Math.max(0, pending - 1)
+  }, [toastTarget, approvalsQueueLength, snapshot, snapshotCache])
+  const needsBranchLookup = Boolean(toastTarget && !toastTarget.ownedWorktreeBranch)
+  const gitBranchStatus = useGitBranch(
+    toastTarget?.workspaceId ?? '',
+    needsBranchLookup ? (toastTarget?.rootPath ?? null) : null,
+    needsBranchLookup
+  )
+  const toastPlace = useMemo(() => {
+    if (!toastTarget) return undefined
+    if (toastTarget.ownedWorktreeBranch) return toastTarget.ownedWorktreeBranch
+    const folderName = toastTarget.rootPath.replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() ?? toastTarget.rootPath
+    if (!gitBranchStatus) return folderName
+    return scopeBadgeLabel(gitBranchStatus, folderName) || folderName
+  }, [toastTarget, gitBranchStatus])
 
   useKeybindings({
     'approvals.queue': () => window.dispatchEvent(new CustomEvent(OPEN_APPROVAL_QUEUE_EVENT))
@@ -194,7 +260,7 @@ export function ApprovalsHost(): ReactElement | null {
 
   const showPreview = Boolean(needsImpactPreview && openedTarget && PreviewModal && !queueOpen)
   const showCenter = Boolean(Center && !queueOpen)
-  const showToast = Boolean(toastTarget && !queueOpen && !showPreview)
+  const showToast = Boolean(toastTarget && !queueOpen && !showPreview && approvalsQueueLength !== null)
 
   if (!showCenter && !(queueOpen && QueueModal) && !showPreview && !showToast) return null
   return <>
@@ -219,7 +285,14 @@ export function ApprovalsHost(): ReactElement | null {
       <ApprovalToast
         request={toastTarget.request}
         agent={toastTarget.agent}
+        conversation={toastTarget.conversation}
+        place={toastPlace}
+        queued={queuedCount}
         onClose={() => setDismissedToastIds(prev => new Set(prev).add(toastTarget.request.id))}
+        onOpenConversation={() => {
+          setDismissedToastIds(prev => new Set(prev).add(toastTarget.request.id))
+          void useThreadStore.getState().select(toastTarget.threadId)
+        }}
         onSeeImpact={() => {
           setDismissedToastIds(prev => new Set(prev).add(toastTarget.request.id))
           if (toastTarget.request.impact && !toastTarget.request.impact.reversible) {

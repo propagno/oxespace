@@ -1,0 +1,67 @@
+{
+  "brd": "BRD-09",
+  "card": "OXE-72",
+  "title": "The title bar: mode tabs with the needs-you count, the pill only when something waits, the command field at md",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-09) and the card OXE-72 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-09.mode-tab.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab][data-app-mode=code]",
+      "prop": "height",
+      "expect": { "token": "--bar-md" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the mode tabs are the Tabs primitive's tabs"
+    },
+    {
+      "id": "BRD-09.mode-tab.font-size",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab][data-app-mode=code]",
+      "prop": "font-size",
+      "expect": { "token": "--fs-xs" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-09.mode-tab.font-weight",
+      "scene": "code-workspace",
+      "select": "[data-ui=tabs] [role=tab][data-app-mode=code]",
+      "prop": "font-weight",
+      "expect": { "token": "--weight-medium" },
+      "tolerance": 0,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced"
+    },
+    {
+      "id": "BRD-09.command-field.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=button][aria-keyshortcuts]",
+      "prop": "height",
+      "expect": { "token": "--control-md" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the title bar's command field is the md control"
+    },
+    {
+      "id": "BRD-09.statusbar.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=status-bar]",
+      "prop": "height",
+      "expect": { "token": "--bar-sm" },
+      "tolerance": 0.5,
+      "densities": ["compact", "comfortable"],
+      "themes": ["light", "dark"],
+      "state": "enforced",
+      "note": "the status bar is the small bar: the workspace, the branch, and Claude and Codex usage"
+    }
+  ]
+}

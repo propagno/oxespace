@@ -465,6 +465,13 @@ data class RemoteErrorFrame(
 data class RemoteAuthResult(
     val accessToken: String,
     val expiresInMs: Long,
+    /**
+     * 1.5.2 (OXE-179): the OS this desktop runs on ("Windows 11", "macOS 15", "Ubuntu 24.04", "Linux"), at most 64
+     * characters, never a "·", never the host name or the user. Only after sign-in; `hello` never carries it.
+     */
+    val desktopOs: String? = null,
+    /** 1.5.2 (OXE-179): when this phone paired, epoch ms on the desktop's clock (the device record's `pairedAt`). */
+    val pairedAt: Long? = null,
 )
 
 /** What the QR carries. `fp` is the SHA-256 of the certificate's DER, as 64 lowercase hex characters. */
@@ -478,6 +485,11 @@ data class RemotePairingQr(
     val code: String,
     /** The desktop's display name ("OXESpace" or the person's choice), never the host name, an account or a path. */
     val name: String? = null,
+    /**
+     * 1.5.2 (OXE-179): when the one-time code expires, epoch ms on the desktop's clock, a non-negative integer. It only
+     * tells the phone; the desktop alone decides whether a code is still valid. An older desktop's QR has none.
+     */
+    val exp: Long? = null,
 )
 
 @Serializable

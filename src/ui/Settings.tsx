@@ -5,20 +5,27 @@ import { toast } from './Toast'
 import styles from './Settings.module.css'
 
 /**
- * One group of settings on a page (U2, X3): a card with a sentence-case title, an optional line under it, and its
- * rows. `actions` sits in the header (Send a test, Add) instead of floating in the page.
+ * The title of a Settings page (BRD-06): 20 px in both densities, weight 600, in the display face at the title stretch.
+ * Found by [data-ui=settings-page-title], never by its heading level.
  */
-export function SettingsSection({ title, description, actions, children, className, plain = false }: {
+export function SettingsPageTitle({ id, children, className }: { id?: string; children: ReactNode; className?: string }): ReactElement {
+  return <h2 id={id} data-ui="settings-page-title" className={cx(styles.pageTitle, className)}>{children}</h2>
+}
+
+/**
+ * One group of settings on a page (U2, X3, BRD-23): the one mould, a raised card (--radius-lg, a subtle border) with a
+ * sentence-case title at 14/600, an optional line under it, and its rows. `actions` sits in the header (Send a test,
+ * Add, Custom agent) instead of floating in the page. There is no variant.
+ */
+export function SettingsSection({ title, description, actions, children, className }: {
   title: ReactNode
   description?: ReactNode
   actions?: ReactNode
   children: ReactNode
   className?: string
-  /** No card: the title and the rows sit on the page itself (no border, no background). */
-  plain?: boolean
 }): ReactElement {
   const id = useId()
-  return <section data-ui="settings-section" data-variant={plain ? 'plain' : undefined} className={cx(styles.section, plain && styles.plain, className)} aria-labelledby={`${id}-title`}>
+  return <section data-ui="settings-section" className={cx(styles.section, className)} aria-labelledby={`${id}-title`}>
     <header className={styles.sectionHeader}>
       <div>
         <h3 id={`${id}-title`} className={styles.sectionTitle}>{title}</h3>
@@ -35,7 +42,7 @@ export function SettingsSection({ title, description, actions, children, classNa
  * the text, for a list, a text area or a preview. `htmlFor` names the control by the label; without it the control
  * names itself (a switch or a select with its own label).
  */
-export function SettingRow({ label, description, control, htmlFor, wide = false, children }: {
+export function SettingRow({ label, description, control, htmlFor, wide = false, children, testId }: {
   label: ReactNode
   description?: ReactNode
   control?: ReactNode
@@ -43,8 +50,10 @@ export function SettingRow({ label, description, control, htmlFor, wide = false,
   wide?: boolean
   /** More of the row under the text and the control: a note, an error, a list the control edits. */
   children?: ReactNode
+  /** A test hook on the row itself, for the tests and e2e that read a setting by id. */
+  testId?: string
 }): ReactElement {
-  return <div data-ui="setting-row" className={cx(styles.row, wide && styles.wide)}>
+  return <div data-ui="setting-row" data-testid={testId} className={cx(styles.row, wide && styles.wide)}>
     <div className={styles.text}>
       {htmlFor ? <label htmlFor={htmlFor} className={styles.label}>{label}</label> : <span className={styles.label}>{label}</span>}
       {description ? <p className={styles.description}>{description}</p> : null}

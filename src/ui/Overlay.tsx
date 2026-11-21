@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
 import { Button, IconButton } from './Button'
 import { cx } from './cx'
+import { Kbd } from './Field'
 import { Toaster } from './Toast'
 import styles from './Overlay.module.css'
 
@@ -58,6 +59,8 @@ export interface DialogProps {
   returnFocusTo?: () => HTMLElement | null
   /** Accessible name of the close button. */
   closeLabel?: string
+  /** Omit the header close IconButton (for confirmations where Escape and Cancel already dismiss). */
+  hideClose?: boolean
   testId?: string
   /** Called before Escape closes the dialog; preventDefault keeps it open (e.g. an Escape typed somewhere else). */
   onEscapeKeyDown?: (event: globalThis.KeyboardEvent) => void
@@ -108,6 +111,32 @@ function DialogFooter({ actions, onClose }: { actions: DialogActions; onClose: (
   </footer>
 }
 
+/** A pixel of slack: fractional layout can leave a hair of overflow at the end of the scroll. */
+const OVERFLOW_EPS = 1
+
+/**
+ * Which edges of the dialog body hide content. `data-overflow` is "start", "end", or "start end", and absent when
+ * the body fits. Measured on mount, scroll, and resize (ResizeObserver when the runtime has one).
+ */
+function useDialogOverflow(body: HTMLDivElement | null, content: ReactNode): void {
+  useLayoutEffect(() => {
+    if (!body) return
+    const apply = (): void => {
+      const start = body.scrollTop > OVERFLOW_EPS
+      const end = body.scrollHeight - body.scrollTop - body.clientHeight > OVERFLOW_EPS
+      const value = [start ? 'start' : '', end ? 'end' : ''].filter(Boolean).join(' ')
+      if (value) body.setAttribute('data-overflow', value)
+      else body.removeAttribute('data-overflow')
+    }
+    apply()
+    body.addEventListener('scroll', apply, { passive: true })
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(apply)
+    observer?.observe(body)
+    for (const child of Array.from(body.children)) observer?.observe(child)
+    return () => { body.removeEventListener('scroll', apply); observer?.disconnect() }
+  }, [body, content])
+}
+
 /**
  * Where a dialog gives focus back: what had it when the dialog opened, or, when that was an item of a menu (which is
  * gone once the menu closes), the button that opened the menu (WAI-ARIA dialog pattern). Radix links a menu to its
@@ -121,8 +150,11 @@ function focusOrigin(active: Element | null): HTMLElement | null {
 }
 
 /** A modal dialog: title, optional description, body, and footer actions. Escape and the scrim close it. */
-export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
+export function Dialog({ title, description, onClose, children, footer, actions, size, className, returnFocusTo, closeLabel = i18n.t('ui.close'), hideClose = false, testId, onEscapeKeyDown, toasts = false }: DialogProps): ReactElement {
   const previous = useRef(focusOrigin(document.activeElement))
+  // The body is portalled: the effect has to follow the node, not a ref read on the first commit.
+  const [body, setBody] = useState<HTMLDivElement | null>(null)
+  useDialogOverflow(body, children)
   return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}>
     <RadixDialog.Portal>
       <RadixDialog.Overlay className={styles.scrim} />
@@ -148,9 +180,9 @@ export function Dialog({ title, description, onClose, children, footer, actions,
             <RadixDialog.Title className={styles.dialogTitle}>{title}</RadixDialog.Title>
             {description ? <RadixDialog.Description className={styles.dialogDescription}>{description}</RadixDialog.Description> : null}
           </div>
-          <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} />
+          {!hideClose ? <IconButton label={closeLabel} icon={<X size={16} />} size="sm" onClick={onClose} /> : null}
         </header>
-        {children ? <div className={styles.dialogBody} data-dialog-body=""
+        {children ? <div ref={setBody} className={styles.dialogBody} data-dialog-body=""
           onKeyDown={actions?.primary ? event => {
             const primary = actions.primary!
             if (!submitsOnEnter(event) || primary.disabled || primary.loading) return
@@ -193,7 +225,7 @@ export type MenuEntry =
   /** keepOpen: the menu stays open after the choice (steppers such as text size). */
   /** hint: a second, quieter line under the label that says what the choice does (U7). */
   | { type?: 'item'; label: string; hint?: string; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean; danger?: boolean; keepOpen?: boolean }
-  | { type: 'check'; label: string; checked: boolean; onSelect: () => void; disabled?: boolean }
+  | { type: 'check'; label: string; checked: boolean; icon?: ReactNode; shortcut?: string; onSelect: () => void; disabled?: boolean }
   /** One choice out of several; the chosen option is checked. */
   | { type: 'radio'; value: string; options: MenuRadioOption[]; onValueChange: (value: string) => void }
   | { type: 'label'; label: ReactNode }
@@ -260,9 +292,9 @@ function menuEntries(entries: MenuEntry[]): ReactNode {
         <RadixMenu.ItemIndicator className={styles.menuRadioCheck}><Check size={14} /></RadixMenu.ItemIndicator>
       </RadixMenu.RadioItem>)}
     </RadixMenu.RadioGroup>
-    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} onSelect={item.onSelect}>
-      {/* A check item has no icon: its left column is the check, drawn only while checked; the slot keeps labels aligned. */}
-      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.label}
+    if (item.type === 'check') return <RadixMenu.CheckboxItem key={index} className={styles.menuItem} checked={item.checked} disabled={item.disabled} aria-keyshortcuts={item.shortcut} onSelect={item.onSelect}>
+      {/* Left column is the check, drawn only while checked; optional icon and Kbd shortcut follow (PC-04·8, OXE-254). */}
+      <span className={styles.menuCheckSlot} aria-hidden="true"><RadixMenu.ItemIndicator className={styles.menuCheck}><Check size={14} /></RadixMenu.ItemIndicator></span>{item.icon}{item.label}{item.shortcut && <span className={styles.menuShortcut} aria-hidden="true"><Kbd>{item.shortcut}</Kbd></span>}
     </RadixMenu.CheckboxItem>
     return <MenuActionItem key={index} item={item} />
   })

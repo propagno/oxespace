@@ -110,7 +110,10 @@
   "activityCenter": {
     "nothingToRead": "Nothing to mark as read",
     "nothingToReadText": "Every activity item is already read.",
-    "allRead": "All activity marked as read"
+    "allRead": "All activity marked as read",
+    "nothingWaiting": "Nothing waiting for you",
+    "arrived": "{{name}} needs you: {{request}}",
+    "threadRequest": "an approval is waiting"
   },
   "report": {
     "title": "Report a problem",
@@ -157,6 +160,9 @@
       },
       "approvals": {
         "queue": "Open approval queue"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "code": {
         "changes": "Changes",
@@ -418,23 +424,23 @@
     "copy": "Copy command",
     "markDone": "Mark as done",
     "v2": {
-      "folderStep": "Open a project folder",
+      "folderStep": "Project folder",
       "chooseFolder": "Choose folder",
+      "change": "Change",
       "agentStep": "Connect an agent",
       "howToInstall": "How to install",
+      "notInstalled": "Not installed",
       "signIn": "Sign in to {{provider}}",
+      "signInShort": "Sign in",
       "waiting": "Waiting for sign-in in your browser…",
       "cancel": "Cancel",
       "readyModel": "Ready · {{model}}",
       "ready": "Ready",
-      "conversationStep": "Start your first conversation",
+      "conversationStep": "First conversation",
       "newConversation": "New conversation",
-      "connectFirst": "Connect an agent first",
-      "openModeAlone": "Or open a mode on its own",
-      "heroTitle": "Agents that work in your code, and show you every step",
-      "heroLead": "Pick a project folder, connect Claude Code or Codex, and start working with full visibility.",
-      "modeDescCode": "Terminals and agents side by side",
-      "modeDescQuery": "Inspect tables and run SQL safely"
+      "waitsForAgent": "Opens once an agent is connected",
+      "openAlone": "Or open <code>OxeCode</code> or <query>OxeQuery</query> on their own",
+      "heroTitle": "Agents that work in your code and show every step"
     }
   },
   "usage": {
@@ -477,8 +483,14 @@
     "emptyHint": "Finished turns, requests that need you and updates show up here.",
     "group": {
       "needs-you": "Needs you",
+      "failed": "Failed",
       "finished": "Finished",
       "updates": "Updates"
+    },
+    "outcome": {
+      "allowed": "Allowed",
+      "denied": "Denied",
+      "answered": "Answered"
     },
     "kind": {
       "needs-you": "Needs you",
@@ -633,11 +645,13 @@
     "trigger": "Ask, run or go to…",
     "dialogLabel": "Command bar",
     "inputLabel": "Ask, run or go to",
+    "hintsLine": "Type > for commands, ? for examples, @ to ask an agent, / to run a command",
     "groups": {
       "commands": "Commands",
       "skills": "Skills",
       "agents": "Agents",
-      "workspaces": "Workspaces"
+      "workspaces": "Workspaces",
+      "panes": "Panes"
     },
     "hints": {
       "agent": "start or delegate",
@@ -710,6 +724,9 @@
       "activity": {
         "open": "Open activity center",
         "markAllRead": "Mark all as read"
+      },
+      "attention": {
+        "next": "Go to the next one that needs you"
       },
       "help": {
         "shortcuts": "Show keyboard shortcuts",

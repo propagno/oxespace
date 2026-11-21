@@ -116,6 +116,30 @@ describe('approval dialog', () => {
     await waitFor(() => expect(hook.responses).toEqual([{ id: 'r1', optionId: 'deny', generation: 1 }]))
   })
 
+  // OXE-292: an early click on a way to allow was dropped without a sign; now the option says it is not ready yet.
+  it('an allow option is disabled until it arms, then a click answers', async () => {
+    const user = userEvent.setup()
+    request({ id: 'arm', risk: 'low' })
+    await mount(300)
+    const session = within(dialog()).getByRole('button', { name: 'Allow reads on this connection for this run' })
+    expect(session).toBeDisabled()
+    expect(within(dialog()).getByRole('button', { name: 'Allow once' })).toBeDisabled()
+    expect(within(dialog()).getByRole('button', { name: 'Deny' })).toBeEnabled()
+    await waitFor(() => expect(session).toBeEnabled(), { timeout: 2_000 })
+    await user.click(session)
+    await waitFor(() => expect(hook.responses).toEqual([{ id: 'arm', optionId: 'allow-session', generation: 1 }]))
+  })
+
+  it('Deny answers immediately', async () => {
+    const user = userEvent.setup()
+    request({ id: 'now' })
+    await mount(10_000)
+    const deny = within(dialog()).getByRole('button', { name: 'Deny' })
+    expect(deny).toBeEnabled()
+    await user.click(deny)
+    await waitFor(() => expect(hook.responses).toEqual([{ id: 'now', optionId: 'deny', generation: 1 }]))
+  })
+
   it('Escape closes as a deny', async () => {
     const user = userEvent.setup()
     request({ id: 'esc' })

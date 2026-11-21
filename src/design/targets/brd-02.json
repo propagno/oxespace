@@ -22,7 +22,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.filter.height",
@@ -41,7 +41,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.section.height",
@@ -60,7 +60,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.group.height",
@@ -79,7 +79,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.footer.height",
@@ -98,7 +98,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row2.height",
@@ -117,7 +117,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row1.height",
@@ -144,7 +144,7 @@
       "select": "[data-ui=sidebar-row] [data-ui=row-title]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-sm"
+        "token": "--fs-sm"
       },
       "tolerance": 0.5,
       "densities": [
@@ -155,7 +155,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row-title.font-weight",
@@ -174,7 +174,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row-meta.font-size",
@@ -182,7 +182,7 @@
       "select": "[data-ui=sidebar-row] [data-ui=row-meta]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xs"
+        "token": "--fs-xs"
       },
       "tolerance": 0.5,
       "densities": [
@@ -193,7 +193,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row.radius",
@@ -212,7 +212,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.archived-band.count",
@@ -233,7 +233,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.raw-button.count",
@@ -252,7 +252,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.attention.radius",
@@ -271,7 +271,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     }
   ]
 }

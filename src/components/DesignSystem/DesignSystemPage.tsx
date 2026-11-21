@@ -4,7 +4,7 @@ import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Slider, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
 type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'states'
@@ -16,7 +16,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
 /** Renders `children` twice, once per mode, using data-mode subtrees. */
 function BothModes({ children }: { children: () => ReactNode }): ReactElement {
   return <div className={styles.modes}>
-    {(['light', 'dark'] as const).map(mode => <div key={mode} className={styles.mode} data-mode={mode}><span className={styles.modeLabel}>{mode}</span>{children()}</div>)}
+    {(['light', 'dark'] as const).map(mode => <div key={mode} className={styles.mode} data-mode={mode}><span className={styles.modeLabel}>{mode === 'light' ? 'Light' : 'Dark'}</span>{children()}</div>)}
   </div>
 }
 
@@ -69,12 +69,12 @@ function TypeSection(): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Families</h2>
     <div className={styles.stack}>
-      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-display)', fontWeight: 700 }}>Instrument Sans</span></div>
-      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontSize: 'var(--text-lg)' }}>IBM Plex Sans · The agent finished and changed 3 files.</span></div>
-      <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
+      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-display)', fontWeight: 700 }}>Instrument Sans</span></div>
+      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--fs-lg)' }}>Instrument Sans · The agent finished and changed 3 files.</span></div>
+      <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
     </div>
     <h2 className={styles.sectionTitle}>Scale</h2>
-    <div className={styles.stack}>{sizes.map(([name, px]) => <div key={name} className={styles.typeRow}><code>--text-{name} · {px}px</code><span style={{ fontSize: `var(--text-${name})`, fontFamily: name === 'display' ? 'var(--font-display)' : undefined, fontWeight: name === 'display' || name === 'xl' ? 600 : undefined }}>Review the changes before you commit</span></div>)}</div>
+    <div className={styles.stack}>{sizes.map(([name, px]) => <div key={name} className={styles.typeRow}><code>--fs-{name} · {px}px</code><span style={{ fontSize: `var(--fs-${name})`, fontFamily: name === 'display' ? 'var(--font-display)' : undefined, fontWeight: name === 'display' || name === 'xl' ? 600 : undefined }}>Review the changes before you commit</span></div>)}</div>
   </>
 }
 
@@ -112,7 +112,7 @@ function MotionSection(): ReactElement {
 function StatesGallery(): ReactElement {
   return <div className={styles.stack}>
     <h2 className={styles.sectionTitle}>Empty</h2>
-    <Panel title="Recent conversations"><EmptyState icon={<Bell size={16} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
+    <Panel title="Recent conversations"><EmptyState icon={<Bell size={20} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
     <Panel title="Branches"><EmptyState compact title="No branches match this filter." /></Panel>
     <h2 className={styles.sectionTitle}>Loading</h2>
     <Panel title="Pull requests"><Skeleton lines={3} label="Loading pull requests" /></Panel>
@@ -125,9 +125,7 @@ function StatesGallery(): ReactElement {
     <Panel title="A whole view"><ErrorState brand title="Something went wrong while showing OxeQuery." message="The rest of OXESpace keeps working. Try again, and if it happens again, report it from the Help menu." detail="TypeError: rows is undefined" onRetry={() => {}} /></Panel>
     <h2 className={styles.sectionTitle}>Succeeded</h2>
     <Panel title="Worktree"><SuccessState title="Worktree created" message="feat/login-redirect is ready in its own folder." actions={<Button size="sm" variant="primary">Open it</Button>} /></Panel>
-    <Panel title="Connection"><SuccessState compact title="Connected to production-db." /></Panel>
     <h2 className={styles.sectionTitle}>Offline</h2>
-    <Panel title="Pull requests"><OfflineState onRetry={() => {}} /></Panel>
     <Panel title="Issues"><OfflineState compact /></Panel>
     <h2 className={styles.sectionTitle}>Notices</h2>
     <Notice intent="warning" title="2 worktrees have uncommitted changes">Removing them discards those changes.</Notice>
@@ -142,6 +140,7 @@ function StatesGallery(): ReactElement {
 
 function Gallery(): ReactElement {
   const [on, setOn] = useState(true)
+  const [fontSize, setFontSize] = useState(14)
   const [view, setView] = useState<'all' | 'mine' | 'done'>('all')
   const [tab, setTab] = useState<'changes' | 'files'>('changes')
   return <div className={styles.stack}>
@@ -163,13 +162,14 @@ function Gallery(): ReactElement {
     <TextArea label="Instructions" placeholder="What should the agent do?" rows={3} />
     <div className={styles.row}><Checkbox label="Run tests after edits" defaultChecked /></div>
     <Switch checked={on} onChange={setOn} label="Notify when an agent needs you" description="Only for conversations you are not watching." />
+    <div className={styles.row}><Slider ariaLabel="Terminal font size" min={8} max={32} step={1} value={fontSize} valueLabel={`${fontSize}px`} onChange={setFontSize} /></div>
     <div className={styles.row}>
-      <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="warning">Needs you</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
+      <Badge>Draft</Badge><Badge intent="accent">Running</Badge><Badge intent="success">Merged</Badge><Badge intent="attention">Needs you</Badge><Badge intent="danger">Failed</Badge><Badge intent="info">3 files</Badge>
       <StatusDot status="running" label="Running" /><StatusDot status="success" label="Done" /><StatusDot status="attention" label="Needs you" /><StatusDot status="danger" label="Failed" /><Spinner />
     </div>
     <Meter label="Context" value={62} detail="124k of 200k" /><Meter label="Weekly limit" value={93} />
     <Tabs label="Example tabs" value={tab} onChange={setTab} tabs={[{ value: 'changes', label: <><GitBranch size={14} />Changes</>, content: <p>3 files changed</p> }, { value: 'files', label: 'Files', content: <p>src/auth/session.ts</p> }]} />
-    <Panel title="Recent conversations" actions={<IconButton label="Close" icon={<X size={14} />} size="sm" />}><EmptyState icon={<Bell size={16} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
+    <Panel title="Recent conversations" actions={<IconButton label="Close" icon={<X size={14} />} size="sm" />}><EmptyState icon={<Bell size={20} />} title="No conversations yet" actions={<Button variant="primary" size="sm">Start one</Button>}>Start a conversation to work on this project with an agent.</EmptyState></Panel>
     <div className={styles.row}><Button size="sm" onClick={() => toast({ title: 'Committed 3 files', intent: 'success', description: 'feat/login-redirect' })}>Show success toast</Button><Button size="sm" onClick={() => toast({ title: 'Push failed', intent: 'danger', description: 'The remote rejected the branch.', action: { label: 'Retry', run: () => {} } })}>Show failure toast</Button></div>
   </div>
 }

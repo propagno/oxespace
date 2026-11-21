@@ -18,7 +18,7 @@ test('OxeQuery runs the main query flow in Brazilian Portuguese', async () => {
   try {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pt-BR')
     await openDemoWorkspace(page, workspaceRoot)
-    await page.getByRole('navigation', { name: 'Visão do aplicativo' }).getByRole('button', { name: 'OxeQuery' }).click()
+    await page.getByRole('tablist', { name: 'Visão do aplicativo' }).getByRole('tab', { name: 'OxeQuery' }).click()
     const view = page.locator('.oq-view')
     await view.waitFor()
 

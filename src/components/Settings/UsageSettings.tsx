@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FeatureUsageStatus } from '../../../shared/feature-usage'
 import { i18n } from '../../i18n'
 import { Button } from '../../ui/Button'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { EmptyState } from '../../ui/Display'
 import { Switch } from '../../ui/Field'
 import { SettingsSection } from '../../ui/Settings'
-import { useModalSurface } from '../../ui/useModalSurface'
 import { formatDate } from '../../utils/formatTime'
 import styles from './UsageSettings.module.css'
 
@@ -32,38 +32,18 @@ function PromptDialog({
   onConfirm: () => void
   onDismiss: () => void
 }): ReactElement {
-  const surface = useModalSurface<HTMLDivElement>(onDismiss)
-  const safeRef = useRef<HTMLButtonElement>(null)
-  const titleId = useId()
-  const descId = useId()
-
-  useEffect(() => {
-    safeRef.current?.focus()
-  }, [])
-
   return (
-    <div className={styles.backdrop} role="presentation" onMouseDown={onDismiss}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
-        {...surface}
-        onMouseDown={event => event.stopPropagation()}
-      >
-        <h3 id={titleId} className={styles.dialogTitle}>{title}</h3>
-        <p id={descId} className={styles.dialogBody}>{body}</p>
-        <div className={styles.dialogActions}>
-          <Button ref={safeRef} variant="secondary" onClick={onSafe}>
-            {safeLabel}
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog
+      title={title}
+      description={body}
+      cancelLabel={safeLabel}
+      confirmLabel={confirmLabel}
+      danger
+      hideClose
+      onCancel={onSafe}
+      onConfirm={onConfirm}
+      onDismiss={onDismiss}
+    />
   )
 }
 

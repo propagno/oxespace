@@ -3,16 +3,16 @@
   align-items: center;
   gap: var(--space-2);
   flex: 0 1 260px;
-  height: 26px;
-  min-height: 26px;
+  height: var(--control-md);
+  min-height: var(--control-md);
   min-width: 96px;
   max-width: 260px;
   padding: 0 var(--space-2-5, 10px);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-base);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-regular);
   overflow: hidden;
   cursor: pointer;
@@ -21,14 +21,14 @@
 
 .trigger:hover {
   background: var(--surface-raised);
-  border-color: var(--border-default);
-  color: var(--text-primary);
+  border-color: var(--bd-default);
+  color: var(--tx-primary);
 }
 
 .prompt {
   color: var(--accent);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--fs-sm);
   font-weight: var(--weight-bold);
   line-height: 1;
   flex-shrink: 0;
@@ -44,9 +44,9 @@
 }
 
 .hint {
-  color: var(--text-muted);
+  color: var(--tx-muted);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
   flex-shrink: 0;
 }
 

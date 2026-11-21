@@ -125,7 +125,7 @@ describe('OXE-13 · "Show every tool call" says that it is on', () => {
     }
     const row = block('menuItem')
     expect(row).toMatch(/min-height:\s*var\(--(row-1|control-md)\)/)
-    expect(row).toMatch(/font-size:\s*var\(--text-sm\)/)
+    expect(row).toMatch(/font-size:\s*var\(--fs-sm\)/)
     expect(row).toMatch(/border-radius:\s*var\(--radius-sm\)/)
     const check = block('menuCheck')
     expect(check).toMatch(/color:\s*var\(--accent\)/)

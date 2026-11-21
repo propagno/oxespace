@@ -32,7 +32,7 @@ describe('sidebar anatomy', () => {
       <SidebarRow title="Add a Pix refund endpoint" meta="9m" detail="Asks to run a migration" selected onSelect={select} />
     </>)
     const row = screen.getByRole('button', { name: /Add a Pix refund endpoint/ })
-    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(row).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('Asks to run a migration')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /pix-api/ }))
     fireEvent.keyDown(row, { key: 'Enter' })
@@ -83,10 +83,10 @@ describe('stable markers for frozen tests', () => {
 describe('the primitives read the 1.5.2 scale', () => {
   const css = (name: string): string => readFileSync(join(__dirname, '..', 'src', 'ui', name), 'utf8')
   it('tabs sit in a --bar-md bar with a 12px label; buttons are 12px at sm and md, 13px at lg', () => {
-    expect(css('Display.module.css')).toMatch(/\.tab \{[^}]*height: var\(--bar-md\)[^}]*font-size: var\(--text-xs\)/)
+    expect(css('Display.module.css')).toMatch(/\.tab \{[^}]*height: var\(--bar-md\)[^}]*font-size: var\(--fs-xs\)/)
     const button = css('Button.module.css')
-    expect(button).toMatch(/\.button \{[^}]*font-size: var\(--text-xs\)/)
-    expect(button).toMatch(/\.button:where\(\[data-size='lg'\]\) \{[^}]*font-size: var\(--text-sm\)/)
+    expect(button).toMatch(/\.button \{[^}]*font-size: var\(--fs-xs\)/)
+    expect(button).toMatch(/\.button:where\(\[data-size='lg'\]\) \{[^}]*font-size: var\(--fs-sm\)/)
   })
   it('sidebar rows are --row-1 and its bars --bar-lg; the pane header is --bar-md', () => {
     const sidebar = css('Sidebar.module.css')

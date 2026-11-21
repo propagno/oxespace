@@ -1,42 +1,67 @@
 @layer oxe-reset, base, oxe-legacy;
 .field { display: grid; gap: var(--space-1); min-width: 0; }
-.label { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-primary); }
-.hint { font-size: var(--text-xs); color: var(--text-muted); }
-.error { font-size: var(--text-xs); color: var(--intent-danger-fg); }
+.label { font-size: var(--fs-sm); font-weight: var(--weight-medium); color: var(--tx-primary); }
+.hint { font-size: var(--fs-xs); color: var(--tx-muted); }
+.error { font-size: var(--fs-xs); color: var(--intent-danger-fg); }
 
 /* Same layer as the legacy stylesheets: a wrapper that frames its own input (a search box with an icon) still wins by specificity. */
 @layer oxe-legacy {
 :where(.input, .textarea, .select) {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-sm);
   background: var(--surface-base);
-  color: var(--text-primary);
+  color: var(--tx-primary);
   font: inherit;
-  font-size: var(--text-sm);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  font-size: var(--fs-sm);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 :where(.input, .select) { height: var(--control-md); padding: 0 var(--space-2); }
 :where(.textarea) { padding: var(--space-2); line-height: var(--leading-normal); resize: vertical; min-height: calc(var(--control-md) * 2); }
-:where(.input, .textarea)::placeholder { color: var(--text-muted); }
-:where(.input, .textarea, .select):hover { border-color: var(--text-muted); }
-:where(.input, .textarea, .select):focus-visible { outline: 2px solid transparent; border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
+:where(.input, .textarea)::placeholder { color: var(--tx-muted); }
+:where(.input, .textarea, .select):hover { border-color: var(--tx-muted); }
+:where(.input, .textarea, .select):focus-visible { outline: 2px solid transparent; border-color: var(--bd-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
 :where(.input, .textarea, .select)[aria-invalid='true'] { border-color: var(--intent-danger-solid); }
 :where(.input, .textarea, .select):disabled { opacity: 0.55; cursor: not-allowed; }
 .mono { font-family: var(--font-mono); }
 
-.select { appearance: none; padding-right: var(--space-6); cursor: pointer;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%), linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
-  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
-  background-size: 4px 4px;
-  background-repeat: no-repeat;
-}
+.selectWrap { position: relative; display: inline-flex; align-items: center; width: 100%; min-width: 0; }
+.select { appearance: none; padding-right: var(--space-6); cursor: pointer; }
+.selectChevron { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--tx-secondary); }
 }
 
 /* The box stays 16 px; the label around it is the target, so it is never shorter than --target-min (WCAG 2.5.8). */
-.check { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--target-min); font-size: var(--text-sm); color: var(--text-primary); cursor: pointer; }
-.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.check { display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: var(--target-min); font-size: var(--fs-sm); color: var(--tx-primary); cursor: pointer; }
+.check input {
+  position: relative;
+  flex: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--bd-control);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+.check input:checked { border-color: var(--accent); }
+.check input:checked::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.check input:checked::after {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  background: var(--tx-on-accent);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
 .check input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .check:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
 .check:hover:not(:has(input:disabled)) input { filter: brightness(0.94); }
@@ -44,19 +69,20 @@
 .switch {
   position: relative;
   flex: none;
+  box-sizing: border-box;
   width: 40px;
   height: 24px;
-  border: 0;
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-full);
-  background: var(--border-strong);
+  background: var(--surface-sunken);
   cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 .switch::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -64,36 +90,52 @@
   box-shadow: var(--elevation-1);
   transition: transform var(--duration-fast) var(--ease-standard);
 }
-.switch:hover:not(:disabled) { background: var(--text-muted); }
-.switch[aria-checked='true'] { background: var(--accent); }
-.switch[aria-checked='true']:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text-primary)); }
+.switch:hover:not(:disabled) { border-color: var(--tx-muted); }
+.switch[aria-checked='true'] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked='true']:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--tx-primary)); }
 .switch[aria-checked='true']::after { transform: translateX(16px); }
 .switch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .switch:disabled { opacity: 0.5; cursor: not-allowed; }
 .switchRow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .switchText { display: grid; gap: 2px; min-width: 0; }
 
-/* The track stays --control-md tall; each option fills it but for a 1 px inset, which keeps it at --target-min or more. */
-.segmented { display: inline-flex; padding: 1px; gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--border-subtle); }
+/* Slider: brand track in --surface-sunken with --bd-control edge, --accent fill, visible focus and mono tabular value. */
+.slider { display: inline-flex; align-items: center; gap: var(--space-3); min-block-size: var(--target-min); }
+.sliderControl { position: relative; display: inline-flex; align-items: center; inline-size: 200px; block-size: var(--target-min); flex: none; }
+.sliderTrack { position: relative; inline-size: 100%; block-size: 6px; border: 1px solid var(--bd-control); border-radius: var(--radius-full); background: var(--surface-sunken); overflow: hidden; pointer-events: none; }
+.sliderFill { position: absolute; inset-block: 0; inset-inline-start: 0; border-radius: var(--radius-full); background: var(--accent); }
+.sliderInput { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; margin: 0; appearance: none; background: transparent; cursor: pointer; }
+.sliderInput::-webkit-slider-runnable-track { background: transparent; height: 6px; }
+.sliderInput::-webkit-slider-thumb { appearance: none; width: 16px; height: 16px; margin-top: -5px; border: 2px solid var(--accent); border-radius: var(--radius-full); background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--duration-fast) var(--ease-standard); }
+.sliderInput:hover:not(:disabled)::-webkit-slider-thumb { transform: scale(1.08); }
+.sliderInput::-moz-range-track { background: transparent; height: 6px; border: 0; }
+.sliderInput::-moz-range-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: var(--radius-full); background: var(--surface-raised); box-shadow: var(--elevation-1); }
+.sliderInput:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.sliderInput:disabled { opacity: 0.5; cursor: not-allowed; }
+.sliderValue { min-inline-size: 48px; text-align: end; font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--tx-secondary); white-space: nowrap; }
+
+/* Padding is --space-0-5 so the segment radius (--radius-sm) plus it equals the track radius (--radius-md). The option fills that inset and stays at least --target-min; the 2px is the track's own border. */
+.segmented { display: inline-flex; padding: var(--space-0-5); gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
 .segment {
-  height: calc(var(--control-md) - 4px);
+  height: max(var(--target-min), calc(var(--control-md) - 2px - 2 * var(--space-0-5)));
   min-block-size: var(--target-min);
   padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font: inherit;
-  font-size: var(--text-xs);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-medium);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
-.segment:hover { color: var(--text-primary); }
-.segment[aria-checked='true'] { background: var(--surface-raised); color: var(--text-primary); box-shadow: var(--elevation-1); }
-.segment[aria-checked='true'][data-tone='danger'] { background: var(--intent-danger-solid); color: var(--text-on-solid); }
+.segment:hover { color: var(--tx-primary); }
+.segment[aria-checked='true'] { background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-1); outline: 1px solid var(--bd-subtle); outline-offset: -1px; }
+.segment[aria-checked='true'][data-tone='danger'] { background: var(--intent-danger-solid); color: var(--tx-on-solid); }
 .segment:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 /* SwatchPicker: an 18 px dot drawn inside a 24×24 button, so the dots keep their size and the target meets 2.5.8. */
@@ -120,8 +162,8 @@
   border-radius: 50%;
   background: var(--swatch-color, transparent);
 }
-.swatch[data-empty]::before { border-color: var(--border-default); }
-.swatch[aria-checked='true']::before { border-color: var(--text-primary); }
+.swatch[data-empty]::before { border-color: var(--bd-default); }
+.swatch[aria-checked='true']::before { border-color: var(--tx-primary); }
 .swatch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -1px; }
 
 /*
@@ -131,8 +173,11 @@
  * its track and thumb with CanvasText lines, and in Highlight once on, with the thumb on the right.
  */
 @media (forced-colors: active) {
-  .check input { accent-color: ButtonText; }
-  .check input:checked { accent-color: Highlight; }
+  .check input { forced-color-adjust: none; border-color: ButtonText; background: Canvas; }
+  .check input:checked { border-color: Highlight; }
+  .check input:checked::before { background: Highlight; }
+  .check input:checked::after { background: HighlightText; }
+  .check input:disabled { border-color: GrayText; background: Canvas; }
 
   .switch, .switch:hover:not(:disabled) { forced-color-adjust: none; border: 2px solid CanvasText; background: Canvas; }
   .switch::after { top: 1px; left: 1px; background: CanvasText; box-shadow: none; }
@@ -142,6 +187,7 @@
   .switch:disabled::after { background: GrayText; }
 
   .segmented { border-color: CanvasText; }
+  .segment { transition: none; }
   .segment:not([aria-checked='true'], :focus-visible) { outline: 1px solid ButtonText; outline-offset: -1px; }
   .segment[aria-checked='true'], .segment[aria-checked='true'][data-tone='danger'] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .segment[aria-checked='true']::before { content: '\2713' / ''; font-weight: var(--weight-semibold); }
@@ -149,22 +195,29 @@
   .segment[aria-checked='true']:focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
 
   .swatch[data-empty]::before { border-color: ButtonText; }
+  .selectChevron { color: CanvasText; }
+
   .swatch[aria-checked='true']::before { border-color: Canvas; }
   .swatch[aria-checked='true'] { background: Highlight; }
   .swatch:focus-visible { outline-color: CanvasText; }
+
+  .sliderTrack { forced-color-adjust: none; border-color: CanvasText; background: Canvas; }
+  .sliderFill { background: Highlight; }
+  .sliderInput::-webkit-slider-thumb { forced-color-adjust: none; border-color: Highlight; background: Canvas; box-shadow: none; }
+  .sliderInput:focus-visible { outline-color: CanvasText; }
 }
 
 .kbd {
   display: inline-flex;
   align-items: center;
-  height: 18px;
+  min-height: calc(var(--fs-2xs) + var(--space-2));
   padding: 0 var(--space-1);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-bottom-width: 2px;
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--fs-2xs);
   line-height: 1;
 }

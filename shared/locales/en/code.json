@@ -3,6 +3,9 @@
     "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
+    "changesCount_one": "Changes, {{count}} file",
+    "changesCount_other": "Changes, {{count}} files",
+    "changesCountTitle": "Counts the files git reports changed in {{folder}}",
     "browser": "Browser",
     "git": "Commit & pull request",
     "files": "Files",
@@ -380,7 +383,8 @@
       "copy": "Copy",
       "paste": "Paste",
       "selectAll": "Select all",
-      "clear": "Clear"
+      "clear": "Clear",
+      "sendToChat": "Send selection to OxeChat"
     },
     "agentNotFound": "Agent “{{name}}” not found. Try: {{options}}…",
     "search": {
@@ -482,6 +486,10 @@
       "sent_one": "{{count}} comment sent",
       "sent_other": "{{count}} comments sent",
       "notSent": "Could not deliver the comments",
+      "sendCount_one": "Send {{count}} comment to the agent",
+      "sendCount_other": "Send {{count}} comments to the agent",
+      "retry": "Try again",
+      "sentAt": "Sent · {{time}}",
       "remove": "Remove",
       "removeLabel": "Remove comment on line {{line}}",
       "glyph": "Review comment",
@@ -936,6 +944,7 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
     "toggleAll": "Toggle all workspace terminals",
@@ -959,6 +968,7 @@
       },
       "copy": "Copy context",
       "stop": "Stop terminal",
+      "menu": "Terminal actions",
       "close": "Close terminal"
     },
     "version": "OXESpace v{{version}}"
@@ -1096,7 +1106,10 @@
     },
     "review": {
       "back": "Back to Changes",
-      "classic": "Classic review (line comments)"
+      "classic": "Classic review (line comments)",
+      "viewLabel": "Changes view",
+      "changesOption": "Changes",
+      "classicOption": "Classic"
     },
     "density": {
       "default": "App default",
@@ -1123,9 +1136,11 @@
       "outside": "The agent reports working outside this repository: {{path}}"
     },
     "scope": {
-      "pinned": "Panels pinned to the workspace root ({{path}}). Click to follow the active pane again.",
-      "worktree": "Panels are reading the worktree at {{path}}. Click to pin them to the workspace root.",
-      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active."
+      "pinned": "Pinned to {{folder}}",
+      "worktree": "Panels are reading the worktree at {{path}}. Click to keep them here even when another pane is active.",
+      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active.",
+      "pinAction": "Pin the scope",
+      "followAction": "Follow the active pane"
     },
     "systems": {
       "title": "Systems",
@@ -1159,6 +1174,10 @@
       "weekShort": "wk",
       "session": "5-hour window",
       "weekly": "Weekly window",
+      "groupGemini": "Gemini",
+      "groupClaudeGpt": "Claude and GPT",
+      "groupOther": "Other models",
+      "groupOtherN": "Other models {{n}}",
       "line": "{{name}}: {{pct}}% used",
       "lineReset": "{{name}}: {{pct}}% used, resets in {{reset}}",
       "staleSeconds": "Last known reading, {{age}}s old (the provider is not answering now)",
@@ -1951,6 +1970,9 @@
     "phoneWriteBadgeTitle": "A paired phone can type in this terminal. Turn it off in the ⋯ menu.",
     "phoneWriteFailed": "Could not change typing from the phone",
     "whyStatus": "Why this status?",
+    "sessionGroup": "Agent session",
+    "keysGroup": "Keys and typing",
+    "arrange": "Arrange panes",
     "explain": {
       "description": "What OXESpace read to decide this pane's status.",
       "shown": "Shown",

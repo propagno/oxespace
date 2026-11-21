@@ -398,7 +398,7 @@ export interface ThreadSubagent {
   status: 'pending' | 'running' | 'interrupted' | 'completed' | 'failed' | 'closed' | 'not-found' | 'unknown'
   message?: string
 }
-export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[] }
+export interface ThreadTurn { id: string; operationId?: string; nativeId?: string; sequence: number; startedAt?: number; completedAt?: number; status: 'running' | 'completed' | 'failed' | 'interrupted'; configuration: ThreadConfiguration; attachmentIds?: string[]; /** Set when the person edited this turn's prompt: the id of the turn that sent the edited text (OXE-167). */ editedInto?: string }
 
 /** A worktree created for one conversation; the record that lets archiving clean it up. */
 export interface OwnedThreadWorktree {
@@ -476,6 +476,12 @@ export interface ConversationThread {
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean
+  /** OXE-170: on a parallel chat, the id of its session's main chat; absent on a main chat (every older conversation). The sections list reads it too (a child follows its parent's section). */
+  parentThreadId?: string
+  /** OXE-170: a parallel chat's place in its session, in the order of creation. */
+  childOrder?: number
+  /** OXE-170: on a main chat, the chat of its session the window shows; absent means the main chat. */
+  openChatId?: string
   generation?: number
   queue?: ThreadQueuedInput[]
   /** Set when a turn ended without completing while input was queued; the next item waits for the user. */
@@ -520,7 +526,7 @@ export type ThreadEvent =
   | { type: 'connection-closed'; at: number }
   | { type: 'turn-accepted'; nativeTurnId: string; at: number }
   | { type: 'activity'; id: string; phase: 'preparing' | 'connecting' | 'reasoning' | 'responding'; at: number; summary?: string }
-  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string }
+  | { type: 'message'; id: string; role: 'user' | 'assistant'; text: string; historicalQuestions?: { title: string; options: string[] | null }[]; attachments?: Omit<ThreadAttachment, 'path'>[]; context?: { path: string; bytes: number; truncated?: boolean }[]; brief?: string; /** Set when the prompt came from Run plan (OXE-167). */ origin?: 'execute-plan' }
   | { type: 'delta'; id: string; text: string }
   /** The agent's visible reasoning (Claude thinking, Codex summaries), re-emitted whole as it grows. */
   | { type: 'reasoning'; id: string; text: string; startedAt: number; completedAt?: number }
@@ -624,7 +630,11 @@ export interface ThreadProjectCatalog {
   unavailable: string[]
 }
 
-/** One request still waiting for a person, without its command or arguments: enough to point at it, not to act on it. */
+/**
+ * One request still waiting for a person: enough to point at it and, for a plain permission, to answer it once. It
+ * carries the command an approval would run and the permission rules' verdict (OXE-166, the sidebar's mini card), never
+ * the tool's other arguments. Desktop IPC only; the phone's protocol does not read it.
+ */
 export interface ThreadPendingRequestSummary {
   threadId: string
   workspaceId: string
@@ -637,6 +647,10 @@ export interface ThreadPendingRequestSummary {
   generation: number
   /** F7 impact summary when main assessed the request; absent otherwise. */
   impact?: { risk: ThreadRequestImpactRisk; reversible: boolean }
+  /** The command an approval would run, when the provider said. */
+  command?: string
+  /** What OXESpace's permission rules said: the verdict, its risk and level, and whether it is guarded. */
+  policy?: Pick<ThreadRequestPolicy, 'decision' | 'risk' | 'level' | 'guarded'>
 }
 
 /** An answer to a request listed by `pendingRequestsAll`, from any window or device. */
@@ -723,6 +737,14 @@ export interface ThreadApi {
   sections?(workspaceId: string): Promise<import('./thread-sections').ThreadSections>
   /** F13: replaces the whole state; returns what was stored, or a C3 refusal that stored nothing. */
   saveSections?(workspaceId: string, state: import('./thread-sections').ThreadSections): Promise<import('./thread-sections').ThreadSectionsSaveResult>
+  /** OXE-170: every session (a main chat and its parallel chats), archived ones too. The person's window only. */
+  sessions?(): Promise<import('./thread-session').SessionView[]>
+  /** OXE-170: one session, by its main chat's id. */
+  session?(sessionId: string): Promise<import('./thread-session').SessionView>
+  /** OXE-170: a parallel chat in the session's folder or worktree, with any installed agent; the checkout never changes. */
+  createChat?(sessionId: string, input: { provider: ThreadProvider }): Promise<ThreadSnapshot>
+  /** OXE-170: records the chat the window shows; returns the session with it open. */
+  openChat?(sessionId: string, chatId: string): Promise<import('./thread-session').SessionView>
   permissionRules?(id: string): Promise<ThreadPermissionRule[]>
   addPermissionRule?(id: string, rule: { kind: ThreadPermissionRule['kind']; pattern: string; decision: ThreadPermissionRule['decision']; scope: 'project' | 'global' }): Promise<ThreadPermissionRule>
   removePermissionRule?(id: string, ruleId: string): Promise<void>
@@ -744,6 +766,10 @@ export interface ThreadApi {
   cancelWork?(id: string, runId: string): Promise<import('./work').WorkRun>
   /** Sends a finished turn's prompt again, after undoing that turn's file changes when `restoreFiles` is set. */
   retryTurn?(id: string, turnId: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
+  /** Edits the latest prompt (OXE-167): the edited text as the next turn; the edited turn gets `editedInto`. */
+  editPrompt?(id: string, turnId: string, text: string, options?: { restoreFiles?: boolean }): Promise<{ restoredFiles: number }>
+  /** Runs the plan of the latest Plan turn (OXE-167): Plan → Agent, then the run text as the next turn. */
+  executePlan?(id: string, turnId: string): Promise<void>
   readSince?(id: string, cursor: ThreadSyncCursor): Promise<ThreadDelta>
   resumeQueue?(id: string): Promise<void>
   sendQueuedNow?(id: string, itemId: string): Promise<void>

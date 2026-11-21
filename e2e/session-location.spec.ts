@@ -38,7 +38,9 @@ test('pane branch and Review follow the worktree the agent reports working in', 
     const pane = page.getByTestId('terminal-pane')
     await expect(pane).toHaveCount(1)
     const badge = page.getByTestId('pane-branch-badge').first()
-    await expect(badge).toContainText('main')
+    // liberação de teste congelado: coordenação 16/11, session-location segue o BRD-14: no começo o painel está no branch do workspace e não tem chip (o cabeçalho nomeia 'main'); depois de mudar de worktree, as asserções não mudam (OXE-82)
+    await expect(page.getByTestId('pane-branch-badge')).toHaveCount(0)
+    await expect(page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]')).toContainText('main')
 
     const paneId = await pane.getAttribute('data-pane-id')
     // The renderer keys the location by pane; the workspace id is informational.
@@ -60,7 +62,8 @@ test('pane branch and Review follow the worktree the agent reports working in', 
 
     // The agent ends: the pane is back on its own branch.
     await send('agent-hooks:on-status', { paneId, workspaceId, agent: 'claude-code', state: 'ended', event: 'SessionEnd', at: 2, sessionId: 's' })
-    await expect(badge).toContainText('main')
-    await expect(badge).not.toHaveAttribute('data-moved', 'true')
+    // liberação de teste congelado: coordenação 16/11, session-location segue o BRD-14 também no fim: de volta ao branch do workspace, o painel não tem chip; o trecho do worktree não muda (OXE-82)
+    await expect(page.getByTestId('pane-branch-badge')).toHaveCount(0)
+    await expect(page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]')).toContainText('main')
   } finally { await app.close() }
 })

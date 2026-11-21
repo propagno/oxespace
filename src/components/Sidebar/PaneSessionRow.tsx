@@ -1,14 +1,13 @@
-import { GitBranch, Hand, SquareTerminal } from 'lucide-react'
+import { GitBranch } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactElement } from 'react'
-import { copyText } from '../../ui'
+import { AnchoredMenu, copyText, SidebarRow, StatusSignal, type MenuEntry, type SignalState } from '../../ui'
 import { useTranslation } from 'react-i18next'
-import type { AgentProfile } from '../../../shared/types/agent'
+import type { AgentProfile, AgentProvider } from '../../../shared/types/agent'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
-import { derivePaneDisplayState } from '../../utils/paneDisplay'
-import { ActivityDot } from '../Indicators/ActivityDot'
+import { compactPreview, derivePaneDisplayState, sanitizeTerminalPreview } from '../../utils/paneDisplay'
 import { AgentProviderIcon } from './AgentProviderIcon'
 
 interface PaneSessionRowProps {
@@ -21,8 +20,23 @@ interface PaneSessionRowProps {
   onActivatePane: (paneId: string) => void
 }
 
-const RECENT_MS = 15 * 60 * 1000
+/** The pane's tone as the brand's state signal (src/ui StatusSignal): the same shape for the same state everywhere. */
+const SIGNAL: Record<string, SignalState> = {
+  'needs-decision': 'needs-you',
+  thinking: 'working',
+  awaiting: 'done',
+  idle: 'waiting',
+  error: 'failed',
+  exited: 'interrupted',
+  starting: 'unconfirmed'
+}
 
+/**
+ * A terminal in the OxeCode sidebar (BRD-01, OXE-60): a src/ui SidebarRow, one line, led by its status signal, its
+ * state words in its accessible name. A terminal that needs a decision gets the row's second line, saying what is asked.
+ * Its right-click menu is the src/ui AnchoredMenu (BRD-16, OXE-85): Rename, Copy context, Stop terminal while there is
+ * one to stop, then Close terminal alone in the last group.
+ */
 export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProfiles, onClick, onActivatePane }: PaneSessionRowProps): ReactElement {
   const { t } = useTranslation('code')
   const markRead = useTerminalStore(s => s.markRead)
@@ -37,27 +51,37 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const agentProfile = pane.agentProfileId
     ? agentProfiles.find(p => p.agentProfileId === pane.agentProfileId) ?? null
     : null
-  // Prefer the persisted agentName; fall back to the profile's name when the
-  // pane has a profile bound but agentName wasn't recorded (legacy rows /
-  // restored panes whose agentName was lost on a prior write).
-  const resolvedAgentName = pane.agentName ?? agentProfile?.name ?? null
-  const hasAgent = resolvedAgentName !== null
-  const baseLabel = hasAgent ? resolvedAgentName! : `${pane.type} ${paneIndex + 1}`
-  const label = pane.displayName ?? baseLabel
 
   const { status, lastActivityAt, hasUnread } = terminalState
   const isRunning = status === 'running'
   const isStarting = status === 'starting'
   const canStopTerminal = pane.type === 'terminal' && (isRunning || isStarting)
-  const isExited = status === 'exited'
-  const isError = status === 'error'
-  const isRecent = lastActivityAt !== null && Date.now() - lastActivityAt < RECENT_MS
   const display = derivePaneDisplayState({ pane, workspace, terminal: terminalState, profile: agentProfile, paneIndex })
-  const hasTopContext = editing
+  const hasBoundOrRuntimeAgent = Boolean(
+    agentProfile || pane.agentName?.trim() || terminalState.agentName?.trim()
+  )
+  const hasActiveLauncherAgent =
+    display.providerKey !== 'shell' &&
+    (Boolean(terminalState.agentState) ||
+      Boolean(terminalState.hookState) ||
+      terminalState.isWorking ||
+      Boolean(terminalState.lastIntent?.trim()) ||
+      Boolean(terminalState.lastOutput?.trim()))
+  const hasAgent = hasBoundOrRuntimeAgent || hasActiveLauncherAgent
+  const taskSummary = hasAgent
+    ? (terminalState.lastIntent?.trim() ? compactPreview(terminalState.lastIntent) : terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null)
+    : null
+  const fallbackTypeLabel = pane.type === 'terminal' ? t('panels.terminal') : pane.type
+  const baseLabel = hasAgent
+    ? (taskSummary && taskSummary !== display.providerLabel ? `${display.providerLabel} · ${taskSummary}` : display.providerLabel)
+    : `${fallbackTypeLabel} ${paneIndex + 1}`
+  const label = pane.displayName?.trim() || baseLabel
+  const providerIconKey: AgentProvider | null = agentProfile?.provider
+    ?? (hasAgent ? (display.providerKey as AgentProvider) : null)
   const needsDecision = display.statusTone === 'needs-decision'
-  // Where the status comes from (UX-07), for the row's tooltip; an estimate is drawn weaker.
+  // Where the status comes from (UX-07), for the detail's tooltip.
   const statusTitle = [display.attentionReason, display.originLabel].filter(Boolean).join(' · ') || undefined
-  const dotClass = `pane-activity-dot activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`
+  const toneLabel = t(`sidebar.session.tone.${display.statusTone}`)
 
   // Mark read when the row becomes active
   useEffect(() => {
@@ -140,136 +164,68 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
     void copyText(context, t('sidebar.session.context'), t('sidebar.session.contextCopied'))
   }
 
-  useEffect(() => {
-    if (!menu) return
-    const close = (): void => setMenu(null)
-    window.addEventListener('click', close)
-    window.addEventListener('keydown', close)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('keydown', close)
-    }
-  }, [menu])
+  /** The row the menu belongs to: the keyboard goes back there when the menu closes. */
+  function rowElement(): HTMLElement | null {
+    return [...document.querySelectorAll<HTMLElement>('[data-testid="pane-session-row"]')].find(el => el.dataset.paneId === pane.id) ?? null
+  }
+
+  // BRD-16: nothing unavailable is shown (Stop only while there is a shell to stop); Close is danger, so the src/ui
+  // menu puts it last, alone, after a separator (orderMenuEntries).
+  const menuItems: MenuEntry[] = [
+    { label: t('sidebar.renameItem'), onSelect: startRename },
+    { label: t('sidebar.session.copy'), onSelect: copyContext },
+    ...(canStopTerminal ? [{ label: t('sidebar.session.stop'), onSelect: () => { void stopTerminal() } }] : []),
+    { label: t('sidebar.session.close'), danger: true, onSelect: () => { void closeTerminal() } }
+  ]
 
   const showUnreadDot = hasUnread && !isActive && isRunning
+  const time = lastActivityAt && !editing ? <span className="pane-row-time">{formatActivityTime(lastActivityAt)}</span> : null
 
   return (
-    <div
-      className={`pane-session-row${isActive ? ' active' : ''}${isExited ? ' exited' : ''}`}
-      role="button"
-      tabIndex={0}
-      data-list-item
-      aria-current={isActive ? 'true' : undefined}
-      data-testid="pane-session-row"
-      data-pane-id={pane.id}
-      data-tone={display.statusTone}
-      onClick={handleClick}
-      onContextMenu={handleContextMenu}
-      onKeyDown={e => { if (!editing && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleClick() } }}
-    >
-      {/* Left status indicator — pure activity dot.
-          Previously rendered "✓" or a 1-based pane index, which read as a
-          checkbox/selection affordance and competed with the agent provider
-          icon shown later in the row. A dot communicates "this pane is in
-          state X" without implying an action. */}
-      <div className={`pane-row-icon${isExited ? ' dimmed' : ''}`} aria-hidden="true">
-        <span className={dotClass} data-testid="pane-row-dot" data-origin={display.statusOrigin ?? undefined} />
-      </div>
-
-      {/* Body */}
-      <div className={`pane-session-body${hasTopContext ? '' : ' compact'}`}>
-        {hasTopContext ? (
-          <div className="pane-row-top">
-            {editing ? (
-              <input
-                ref={inputRef}
-                className="pane-session-rename"
-                value={draft}
-                autoFocus
-                onChange={e => setDraft(e.target.value)}
-                onBlur={handleSave}
-                onKeyDown={handleKeyDown}
-                onClick={e => e.stopPropagation()}
-              />
-            ) : null}
-            {lastActivityAt && !editing ? (
-              <span className={`pane-row-time${isRecent ? ' recent' : ''}`}>
-                {formatActivityTime(lastActivityAt)}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="pane-row-title-line">
-          {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : <SquareTerminal size={12} aria-hidden="true" />}
+    <>
+      <SidebarRow
+        lead={<StatusSignal state={SIGNAL[display.statusTone] ?? 'unconfirmed'} label={toneLabel} size={12} />}
+        title={editing ? (
+          <input
+            ref={inputRef}
+            className="pane-session-rename"
+            value={draft}
+            autoFocus
+            aria-label={t('sidebar.renameItem')}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            onClick={e => e.stopPropagation()}
+          />
+        ) : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, maxWidth: '100%' }}>
+          {providerIconKey ? <AgentProviderIcon provider={providerIconKey} size={14} /> : null}
           {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
-          <span
-            className="pane-row-title"
-            title={label}
-            onDoubleClick={handleDoubleClick}
-          >
-            {label}
-          </span>
-          {/* Shape, not color: the compact row hides the state line, so a decision is marked beside the name. The
-              screen-reader text below already says it. */}
-          {needsDecision && <Hand size={12} className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark" />}
-          {lastActivityAt && !editing && !hasTopContext ? (
-            <span className={`pane-row-time title-time${isRecent ? ' recent' : ''}`}>
-              {formatActivityTime(lastActivityAt)}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="pane-row-bottom">
-          {/* Status indicator — 3-tier activity (thinking/awaiting/idle).
-              Starting and error keep their dedicated cues so they aren't
-              conflated with the 3 normal states. */}
-          {(isRunning || isStarting) && !isError && (
-            <span className="pane-row-status-indicator">
-              {isStarting
-                ? <span className="session-starting-dot" />
-                : <ActivityDot level={display.statusTone} ariaLabel={t(`sidebar.session.tone.${display.statusTone}`)} estimated={display.statusEstimated} />}
-            </span>
-          )}
-          {isError && (
-            <span className="pane-row-status-indicator session-error-dot" />
-          )}
-
-          {agentProfile ? <AgentProviderIcon provider={agentProfile.provider} /> : null}
-
-          {/* Preview text */}
-          <span className={`pane-row-preview${needsDecision ? ' is-decision' : ''}`} title={statusTitle} data-testid="pane-row-status">{display.subtitle}</span>
-
-          {/* Unread dot */}
-          {showUnreadDot && <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} />}
-        </div>
-      </div>
-      {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
-          visible text failed axe's label-content-name-mismatch). */}
-      <span className="sr-only">, {t(`sidebar.session.tone.${display.statusTone}`)}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
+          <span title={label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={handleDoubleClick}>{label}</span>
+          {/* Shape, not color: a decision is marked beside the name too (PC-04·2, StatusSignal instead of Hand). */}
+          {needsDecision && <span className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark"><StatusSignal state="needs-you" label="" size={12} /></span>}
+          {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
+              visible text failed axe's label-content-name-mismatch). */}
+          <span className="sr-only">, {toneLabel}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
+        </span>}
+        meta={time || showUnreadDot ? <>
+          {showUnreadDot ? <span className="pane-unread-dot" role="img" aria-label={t('sidebar.session.unread')} /> : null}
+          {time}
+        </> : undefined}
+        detail={needsDecision ? <span className="pane-row-preview is-decision" data-testid="pane-row-status" title={statusTitle}>{display.attentionReason ?? display.subtitle}</span> : undefined}
+        selected={isActive}
+        onSelect={handleClick}
+        onContextMenu={handleContextMenu}
+        data-list-item
+        data-testid="pane-session-row"
+        data-pane-id={pane.id}
+        data-tone={display.statusTone}
+        data-origin={display.statusOrigin ?? undefined}
+      />
       {menu ? (
-        <div
-          className="pane-session-context-menu"
-          style={{ left: menu.x, top: menu.y }}
-          role="menu"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button type="button" role="menuitem" onClick={startRename}>
-            {t('sidebar.renameItem')}
-          </button>
-          <button type="button" role="menuitem" onClick={copyContext}>
-            {t('sidebar.session.copy')}
-          </button>
-          {canStopTerminal ? (
-            <button type="button" role="menuitem" onClick={() => void stopTerminal()}>
-              {t('sidebar.session.stop')}
-            </button>
-          ) : null}
-          <button type="button" role="menuitem" className="danger" onClick={() => void closeTerminal()}>
-            {t('sidebar.session.close')}
-          </button>
-        </div>
+        <span style={{ position: 'fixed', left: menu.x, top: menu.y, width: 0, height: 0 }}>
+          <AnchoredMenu open onOpenChange={open => { if (!open) setMenu(null) }} side="bottom" label={t('sidebar.session.menu')} returnFocus={rowElement} items={menuItems} />
+        </span>
       ) : null}
-    </div>
+    </>
   )
 }

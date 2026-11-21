@@ -11,7 +11,7 @@
       "select": "[data-ui=chat-title]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-lg"
+        "token": "--fs-lg"
       },
       "tolerance": 0.5,
       "densities": [
@@ -68,7 +68,7 @@
       "select": "[data-ui=new-conversation-title]",
       "prop": "font-size",
       "expect": {
-        "token": "--text-xl"
+        "token": "--fs-xl"
       },
       "tolerance": 0.5,
       "densities": [

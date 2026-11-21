@@ -31,7 +31,7 @@ function files(dir: string, match: (path: string) => boolean): string[] {
 
 const RULES: Array<{ name: string; pattern: RegExp }> = [
   { name: 'color literal (use a --surface/--text/--border/--intent token)', pattern: /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch)\(/i },
-  { name: 'pixel font size (use --text-*)', pattern: /font-size:\s*[\d.]+px/ },
+  { name: 'pixel font size (use --fs-*)', pattern: /font-size:\s*[\d.]+px/ },
   { name: 'numeric z-index (use --layer-*)', pattern: /z-index:\s*-?\d/ },
   { name: '!important', pattern: /!important/ },
   { name: 'pixel radius (use --radius-*)', pattern: /border-radius:\s*(?:[3-9]|\d\d+)px/ }
@@ -53,7 +53,7 @@ export function violations(css: string): Array<{ line: number; rule: string; tex
 describe('design lint', () => {
   it('catches literal values and respects the exemption markers', () => {
     expect(violations('.a { color: #fff; font-size: 12px; z-index: 3; border-radius: 6px; }').map(item => item.rule)).toHaveLength(4)
-    expect(violations('.a { color: var(--text-primary); border-radius: 50%; z-index: var(--layer-modal); }')).toEqual([])
+    expect(violations('.a { color: var(--tx-primary); border-radius: 50%; z-index: var(--layer-modal); }')).toEqual([])
     expect(violations('/* design-lint-disable */\n.a { color: #fff; }\n/* design-lint-enable */\n.b { color: red; }')).toEqual([])
   })
 
@@ -175,8 +175,18 @@ describe('design lint', () => {
       expect(own.length).toBeLessThanOrEqual(LIMIT_SELECTED)
     })
     it('raw <button> outside the primitives does not grow; use <Button> or <IconButton> (FE-M-03)', () => {
-      // OXE-149 (CA-5): 500 on main at 14/11; lower it as screens move to the primitives, never raise it.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(500)
+      // OXE-149 (CA-5): 500 on main at 14/11, 498 after BRD-01 chrome, 494 after the BRD-01 tree (OXE-60), 485 after the
+      // workspace bar and the collapsed rail moved to Button/IconButton (OXE-63, BRD-03), 484 with main at 15/11 (one raw button fewer there); lower it as screens move to the primitives, never raise it.
+      // OXE-215: the SchemaTree row actions are src/ui IconButtons, 480 with this change.
+      // OXE-214 + OXE-215 together (ContainerPicker and the SchemaTree actions on the primitives): 478.
+      // Promote PR of OXE-229: the count on main after this task, 477.
+      // This PR, merged with main: the count on main after this task, 466.
+      // OXE-84 (#884 after main): the nine panels on DockPanel, 442.
+      // OXE-85 (F6 T35, short ordered menus): 429.
+      // OXE-100 (#908 after main): the nine Settings sections, 428.
+      // OXE-166 (#906 after #908): the OxeChat sidebar, 416.
+      // OXE-265 (#963): .mcp-builtin-notice dismiss button migrated to IconButton, 415.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(415)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
@@ -194,7 +204,8 @@ describe('design lint', () => {
       expect(fixed.length).toBeLessThanOrEqual(2)
     })
     it('reduced motion is read from data-motion, so the Motion setting can override the operating system', () => {
-      const report = css.flatMap(path => /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
+      // o splash pinta antes de qualquer script, sem data-motion; a preferência do sistema é o único sinal ali (OXE-207)
+      const report = css.flatMap(path => relative(ROOT, path).replace(/\\/g, '/') !== 'src/styles/splash.css' && /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
       expect(report).toEqual([])
     })
   })

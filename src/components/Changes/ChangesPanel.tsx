@@ -11,7 +11,7 @@ import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes
 import './ChangesPanel.css'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { TextField, EmptyState, ErrorState, LoadingState, Menu, Spinner } from '../../ui'
+import { Button, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
@@ -26,15 +26,15 @@ function StatusIcon({ file }: { file: GitDiffSummaryFile }): ReactElement {
 }
 
 const KIND: Record<string, [string, string]> = {
-  ts: ['TS', '#3b82f6'], tsx: ['TSX', '#38bdf8'], js: ['JS', '#eab308'], jsx: ['JSX', '#eab308'], mjs: ['JS', '#eab308'], cjs: ['JS', '#eab308'],
-  json: ['{}', '#a3a3a3'], md: ['MD', '#94a3b8'], css: ['CSS', '#a78bfa'], html: ['<>', '#f97316'], py: ['PY', '#22c55e'], rs: ['RS', '#f97316'],
-  go: ['GO', '#22d3ee'], yml: ['YML', '#f43f5e'], yaml: ['YML', '#f43f5e'], sh: ['SH', '#84cc16'], sql: ['SQL', '#06b6d4']
+  ts: ['TS', 'var(--intent-info-fg)'], tsx: ['TSX', 'var(--intent-info-fg)'], js: ['JS', 'var(--intent-warning-fg)'], jsx: ['JSX', 'var(--intent-warning-fg)'], mjs: ['JS', 'var(--intent-warning-fg)'], cjs: ['JS', 'var(--intent-warning-fg)'],
+  json: ['{}', 'var(--tx-muted)'], md: ['MD', 'var(--tx-muted)'], css: ['CSS', 'var(--intent-info-fg)'], html: ['<>', 'var(--intent-warning-fg)'], py: ['PY', 'var(--intent-success-fg)'], rs: ['RS', 'var(--intent-warning-fg)'],
+  go: ['GO', 'var(--intent-info-fg)'], yml: ['YML', 'var(--intent-danger-fg)'], yaml: ['YML', 'var(--intent-danger-fg)'], sh: ['SH', 'var(--intent-success-fg)'], sql: ['SQL', 'var(--intent-info-fg)']
 }
 
 /** Small language chip so the tree reads like a file explorer, not a list of statuses. */
 function KindBadge({ path }: { path: string }): ReactElement {
   const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  const [label, color] = KIND[extension] ?? ['•', '#8a8a8f']
+  const [label, color] = KIND[extension] ?? ['•', 'var(--tx-muted)']
   return <span className="changes-kind" style={{ ['--kind' as string]: color }} aria-hidden="true">{label}</span>
 }
 
@@ -120,8 +120,17 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const addComment = useDiffCommentsStore(state => state.add)
   const removeComment = useDiffCommentsStore(state => state.remove)
   const clearComments = useDiffCommentsStore(state => state.clear)
+  const markSent = useDiffCommentsStore(state => state.markSent)
   const workspaceComments = useMemo(() => allComments.filter(comment => comment.workspaceId === workspaceId), [allComments, workspaceId])
-  const [sendNotice, setSendNotice] = useState('')
+  // A comment already sent is kept (its card says so) but is no longer pending.
+  const pendingComments = useMemo(() => workspaceComments.filter(comment => comment.sentAt == null), [workspaceComments])
+  const [sendNotice, setSendNotice] = useState<{ kind: 'sent' | 'failed'; text: string } | null>(null)
+  const [sending, setSending] = useState(false)
+  useEffect(() => {
+    if (sendNotice?.kind !== 'sent') return
+    const timer = window.setTimeout(() => setSendNotice(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [sendNotice])
   const effectiveBase = scope === 'uncommitted' ? 'HEAD' : base
   // `current` reads `detached@<sha>` for a detached HEAD, which is a label, not a ref.
   const thisTree: CompareHead = { kind: 'worktree', path: rootPath, branch: current?.startsWith('detached@') ? null : current }
@@ -247,11 +256,15 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, effectiveMode])
 
   const sendComments = async (): Promise<void> => {
-    if (!onSendComments || !workspaceComments.length) return
-    const count = workspaceComments.length
-    const delivered = await onSendComments(formatDiffComments(workspaceComments))
-    if (delivered) { clearComments(workspaceId); setSendNotice(t('changes.comments.sent', { count })) } else setSendNotice(t('changes.comments.notSent'))
-    window.setTimeout(() => setSendNotice(''), 5000)
+    if (!onSendComments || !pendingComments.length || sending) return
+    const batch = pendingComments
+    setSending(true)
+    let delivered: boolean
+    try { delivered = await onSendComments(formatDiffComments(batch)) } catch { delivered = false } finally { setSending(false) }
+    if (delivered) {
+      markSent(batch.map(item => item.id), Date.now())
+      setSendNotice({ kind: 'sent', text: t('changes.comments.sent', { count: batch.length }) })
+    } else setSendNotice({ kind: 'failed', text: t('changes.comments.notSent') })
   }
   const go = (offset: number): void => { const next = ordered[index + offset]; if (next) setSelectedPath(next.path) }
   const swapped = effectiveBase ? swapSides(effectiveBase, head.kind === 'worktree' && head.path === rootPath ? thisTree : head) : null
@@ -278,7 +291,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
         { type: 'check', label: t('changes.scope.mergeBase'), checked: mode === 'merge-base', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'merge-base' }) },
         { type: 'check', label: t('changes.scope.direct'), checked: mode === 'direct', disabled: scope === 'uncommitted', onSelect: () => choose({ mode: 'direct' }) }
       ]} />
-      {summary && <span className="changes-totals" role="img" aria-label={t('changes.totals', { additions: formatCount(summary.additions), deletions: formatCount(summary.deletions) })}><span className="is-add" aria-hidden="true">+{formatCount(summary.additions)}</span><span className="is-del" aria-hidden="true">−{formatCount(summary.deletions)}</span></span>}
+      {summary && (summary.additions > 0 || summary.deletions > 0) && <span className="changes-totals" role="img" aria-label={t('changes.totals', { additions: formatCount(summary.additions), deletions: formatCount(summary.deletions) })}><span className="is-add" aria-hidden="true">+{formatCount(summary.additions)}</span><span className="is-del" aria-hidden="true">−{formatCount(summary.deletions)}</span></span>}
       <span className="changes-sides" role="group" aria-label={t('changes.sides')}>
         <RefPicker label={t('changes.base')} value={effectiveBase ?? '…'} branches={branches} selected={`ref:${effectiveBase ?? ''}`} disabled={scope === 'uncommitted'} onPickRef={ref => choose({ base: ref })} />
         <button type="button" className="changes-icon" aria-label={t('changes.swap')} title={swapped ? t('changes.swap') : t('changes.swapDetached')} disabled={scope === 'uncommitted' || !swapped} onClick={() => { if (swapped) choose({ base: swapped.base, head: swapped.head }) }}><ArrowLeftRight size={14} aria-hidden="true" /></button>
@@ -287,21 +300,23 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
           onPickWorktree={tree => choose({ head: samePath(tree.path, rootPath) ? null : { kind: 'worktree', path: tree.path, branch: tree.branch } })} />
       </span>
       <span className="changes-toolbar-spacer" />
-      {workspaceComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
-        <span><b>{workspaceComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: workspaceComments.length })}</span></span>
-        {onSendComments && <button type="button" className="is-primary" aria-label={t('changes.comments.sendLabel')} title={t('changes.comments.sendTitle')} onClick={() => void sendComments()}>{t('changes.comments.send')}</button>}
+      {pendingComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
+        {/* The send button already says the count; the separate count shows only when there is no send button. */}
+        {!onSendComments && <span><b>{pendingComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: pendingComments.length })}</span></span>}
         <button type="button" aria-label={t('changes.comments.discard')} title={t('changes.comments.discardTitle')} onClick={() => clearComments(workspaceId)}><X size={14} aria-hidden="true" /></button>
       </span>}
+      {pendingComments.length > 0 && onSendComments && <Button variant="primary" size="sm" loading={sending} title={t('changes.comments.sendTitle')} onClick={() => void sendComments()}>{t('changes.comments.sendCount', { count: pendingComments.length })}</Button>}
       <button type="button" className="changes-icon" aria-label={t('changes.refresh')} title={t('changes.refresh')} onClick={() => void load()} disabled={loading}>{loading ? <Spinner size="sm" decorative /> : <RefreshCw size={14} aria-hidden="true" />}</button>
       {onClose && <button type="button" className="changes-icon" aria-label={t('changes.close')} title={t('changes.close')} onClick={onClose}><X size={14} aria-hidden="true" /></button>}
     </header>
     {large && <div className="changes-banner" role="note"><Info size={14} aria-hidden="true" /><span>{t('changes.large')}</span>
       <span className="changes-banner-nav"><button type="button" aria-label={t('changes.previousFile')} onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} aria-hidden="true" /></button><button type="button" aria-label={t('changes.nextFile')} onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={14} aria-hidden="true" /></button></span></div>}
     {error && <ErrorState compact title={t('changes.readFailed')} message={error} onRetry={() => void load()} />}
-    {sendNotice && <p role="status" className="changes-note">{sendNotice}</p>}
+    {sendNotice && <div role="status" className="changes-note changes-send-notice"><span>{sendNotice.text}</span>{sendNotice.kind === 'failed' && <Button variant="secondary" size="sm" loading={sending} onClick={() => void sendComments()}>{t('changes.comments.retry')}</Button>}</div>}
     <div className="changes-body">
       <div className="changes-diff">
-        {!summary && loading ? <div className="changes-state"><LoadingState label={t('changes.loading')} /></div>
+        {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
+        {!summary && !error && (loading || !ready) ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
           : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">
@@ -323,11 +338,13 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
             </div>
           </>}
       </div>
-      <aside className="changes-files" aria-label={t('changes.files')}>
-        <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label={t('changes.filter')} placeholder={t('changes.filterPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} /></label>
-        <ul className="changes-tree" role="tree" aria-label={t('changes.files')} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
-        {!!summary?.files.length && <footer className="changes-files-footer">{t('changes.viewedCount', { viewed: viewedCount, total: summary.files.length })}</footer>}
-      </aside>
+      {((summary?.files.length ?? 0) > 0 || query.trim().length > 0) && (
+        <aside className="changes-files" aria-label={t('changes.files')}>
+          <label className="changes-filter"><Search size={14} aria-hidden="true" /><TextField aria-label={t('changes.filter')} placeholder={t('changes.filterPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} /></label>
+          <ul className="changes-tree" role="tree" aria-label={t('changes.files')} ref={treeNav.ref} onKeyDown={treeNav.onKeyDown}>{tree.map(node => <TreeNode key={`${node.kind}:${node.path}`} node={node} depth={0} selected={selected?.path ?? null} collapsed={collapsed} viewed={viewed} onToggle={toggleDir} onSelect={setSelectedPath} />)}</ul>
+          {!!summary?.files.length && <footer className="changes-files-footer">{t('changes.viewedCount', { viewed: viewedCount, total: summary.files.length })}</footer>}
+        </aside>
+      )}
     </div>
   </section>
 }

@@ -15,6 +15,7 @@ import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
 import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import { registerThreadPlacesIpc } from './thread-places.ipc'
+import { registerThreadSessionsIpc } from './thread-sessions.ipc'
 import { forwardPlacesChanged } from './thread-places-changed'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
@@ -133,8 +134,8 @@ export function registerThreadIpc(
     if (typeof hidden !== 'boolean') throw Error('Invalid project visibility'); threadProjects.setHidden(string(projectId), hidden)
   })
   ipcMain.handle(IPC_CHANNELS.thread.list, event => manager.then(service => service.list()))
-  // Read-only summary for the activity center; answering a request stays in the conversation.
-  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsAll()))
+  // Read-only summary for the window (activity center, the sidebar's mini card): with the command and the policy verdict.
+  ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsForWindow()))
   // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
   let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
   const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
@@ -147,9 +148,14 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.sideSend, (event, sideId: unknown, text: unknown) => sides().then(chats => chats.send(sideId, text)))
   ipcMain.handle(IPC_CHANNELS.thread.sideClose, (event, sideId: unknown) => sides().then(chats => chats.close(sideId)))
   ipcMain.handle(IPC_CHANNELS.thread.read, (event, id: unknown) => manager.then(service => service.readForRenderer(string(id))))
+  ipcMain.handle(IPC_CHANNELS.thread.executePlan, (event, id: unknown, turnId: unknown) => manager.then(service => service.executePlan(string(id), string(turnId))))
   ipcMain.handle(IPC_CHANNELS.thread.retryTurn, (event, id: unknown, turnId: unknown, options: unknown) => {
     const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
     return manager.then(service => service.retryTurn(string(id), string(turnId), { restoreFiles }))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.editPrompt, (event, id: unknown, turnId: unknown, text: unknown, options: unknown) => {
+    const restoreFiles = Boolean(options && typeof options === 'object' && (options as Record<string, unknown>).restoreFiles === true)
+    return manager.then(service => service.editPrompt(string(id), string(turnId), message(text), { restoreFiles }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.readSince, (event, id: unknown, cursor: unknown) => {
     const input = cursor && typeof cursor === 'object' ? cursor as Record<string, unknown> : {}
@@ -377,6 +383,7 @@ export function registerThreadIpc(
   registerThreadWorktreeIpc({ db, manager, threadProjects, worktrees, id: string })
   registerThreadSectionsIpc({ db })
   registerThreadPlacesIpc({ manager })
+  registerThreadSessionsIpc({ manager })
   forwardPlacesChanged({ manager })
   const cockpit = registerThreadCockpitIpc(manager, background)
   return { manager, projects: threadProjects, stop: async () => { cockpit.stop(); await sideChats?.then(chats => chats.stop()).catch(() => {}); await (await accounts).stop(); await (await manager).stop() } }

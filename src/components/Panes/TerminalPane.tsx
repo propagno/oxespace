@@ -18,6 +18,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
+import { resolvePaneIdentity } from '../../utils/paneDisplay'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
@@ -211,7 +212,9 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (char === '\r' || char === '\n') {
         const command = typedCommandRef.current.trim()
         typedCommandRef.current = ''
-        const matchedProfile = inferAgentProfile(command, allProfiles)
+        const runtimeAgent = state.agentName ?? getStatus(pane.id).agentName
+        const hasBoundAgent = Boolean(pane.agentProfileId) || resolvePaneIdentity({ pane, profile: null, agent: runtimeAgent }).key !== 'shell'
+        const matchedProfile = hasBoundAgent ? null : inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
           if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
         } else if (command) {
@@ -221,7 +224,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       }
       if (char >= ' ') typedCommandRef.current += char
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent, setLastIntent])
+  }, [allProfiles, getStatus, pane, setPaneAgent, setLastIntent, state.agentName])
 
   useEffect(() => {
     if (!autoStart || state.status !== 'idle') return
@@ -404,27 +407,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         {/* The header says what the terminal is doing; the footer names the process only when it is not simply running. */}
         <span className={`statusbar-text${state.status === 'running' ? ' sr-only' : ''}`} data-testid="terminal-status-label">{tc(`terminalPane.status.${state.status}`)}</span>
 
-        {state.status === 'running' && !pane.agentProfileId ? (
-          <div className="terminal-cmd-inline">
-            <span className="terminal-cmd-prompt" aria-hidden="true">❯</span>
-            <input
-              type="text"
-              className="terminal-cmd-input"
-              aria-label={tc('terminalPane.commandPlaceholder', { defaultValue: 'Type a command and press Enter' })}
-              placeholder={tc('terminalPane.commandPlaceholder', { defaultValue: 'Type a command and press Enter' })}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter') return
-                const value = event.currentTarget.value
-                if (!value.trim()) return
-                event.preventDefault()
-                event.currentTarget.value = ''
-                void window.oxe?.terminal?.write?.({ paneId: pane.id, data: `${value}\r` })
-              }}
-            />
-          </div>
-        ) : (
-          <div className="terminal-statusbar-spacer" />
-        )}
+        {/* BRD-14: no command-line footer; the terminal itself takes the input, and Ctrl+/ opens the commands. */}
+        <div className="terminal-statusbar-spacer" />
 
         <Suspense fallback={null}>
           {contextProvider ? <ContextUsageStatus provider={contextProvider} rootPath={effectiveRootPath} paneId={contextProvider === 'claude' || contextProvider === 'codex' ? pane.id : undefined} /> : null}
@@ -482,17 +466,17 @@ function toMessage(error: unknown): string {
   return humanizeError(error, tc('terminalPane.error'))
 }
 
-function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {
+export function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {
   if (!command) return null
   const match = command.match(/^(?:&\s*)?(?:"([^"]+)"|'([^']+)'|([^\s]+))/)
-  const first = match?.[1] ?? match?.[2] ?? match?.[3]
-    ?? ''
+  const first = match?.[1] ?? match?.[2] ?? match?.[3] ?? ''
   const normalized = first.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
   if (!normalized) return null
 
   return profiles.find((profile) => {
     const profileCommand = profile.command.trim().split(/\s+/)[0]
+    if (!profileCommand) return false
     const profileExecutable = profileCommand.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
-    return profileExecutable === normalized || profile.provider === normalized || profile.parentProvider === normalized
+    return profileExecutable === normalized
   }) ?? null
 }

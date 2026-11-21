@@ -25,7 +25,7 @@ async function seedConversations(app: ElectronApplication, rootPath: string): Pr
 
 /** The conversation mode's button, under its current name or the OxeChat one. */
 async function openConversations(page: Page): Promise<void> {
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: /^(Thread|OxeChat)$/ }).click()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: /^(Thread|OxeChat)$/ }).click()
   await expect(page.locator('.thread-project-group', { hasText: 'demo-repo' })).toBeVisible()
   await expect(page.locator('.thread-navigation-item').first()).toBeVisible()
 }

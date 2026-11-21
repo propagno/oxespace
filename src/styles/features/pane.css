@@ -13,7 +13,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-lg);
   background: var(--surface-base);
   box-shadow: var(--pane-shadow);
@@ -21,35 +21,23 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-base), transform var(--transition-base);
 }
 .pane-container:focus-within {
-  border-color: var(--border-focus);
+  border-color: var(--bd-focus);
 }
 .pane-container.active {
-  border-color: var(--border-focus) !important;
-  box-shadow: inset 0 2px 0 var(--border-focus) !important;
+  border-color: var(--bd-focus) !important;
+  box-shadow: inset 0 2px 0 var(--bd-focus) !important;
 }
+/* The focused pane's header tint and border are the PaneHeader primitive's (`focused`, BRD-14). */
 .pane-container.active > .pane-header {
-  background: var(--surface-chrome);
-  border-bottom-color: var(--border-default);
   box-shadow: none;
-}
-.pane-container.active > .pane-header .pane-header-left {
-  border-color: transparent;
-  background: transparent;
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: none;
 }
 
+/* The header is the src/ui PaneHeader (height, padding, surface and border); this class is the hook and the extras. */
 .pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 36px;
-  padding: 4px 8px 4px 10px;
-  background: var(--surface-chrome);
-  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
-  gap: 8px;
   transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
@@ -85,6 +73,9 @@
   white-space: nowrap;
 }
 .pane-header .pane-branch-badge { max-width: 35%; flex-shrink: 1; }
+/* OXE-128: the pane that needs the person wears a 2 px ring inside its header. An outline, so the workspace color
+   stripe (box-shadow, src/design/workspace-color.css) stays and the header keeps its height; it survives forced colors. */
+.pane-container > .pane-header[data-attention='true'] { outline: 2px solid var(--attn); outline-offset: -2px; }
 /* The pane left the branch it started on (U4.4): "switched from X". */
 .pane-branch-badge.is-moved { color: var(--accent); }
 .pane-branch-badge[data-tone='warning']:not(.is-moved) { color: var(--intent-warning-fg); }
@@ -94,17 +85,17 @@
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--dot-gray);
+  background: var(--tx-disabled);
 }
-.pane-status-dot.running  { background: var(--accent); box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
-.pane-status-dot.starting { background: var(--dot-yellow); }
-.pane-status-dot.error    { background: var(--dot-red); }
-.pane-status-dot.exited   { background: var(--dot-gray); }
+.pane-status-dot.running  { background: var(--accent); }
+.pane-status-dot.starting { background: var(--intent-warning-solid); }
+.pane-status-dot.error    { background: var(--intent-danger-solid); }
+.pane-status-dot.exited   { background: var(--tx-disabled); }
 
 .pane-title {
   font-size: var(--fs-xs);
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--tx-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -120,9 +111,9 @@
   height: 24px;
   padding: 0 8px 0 5px;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-primary) 8%, transparent);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--tx-primary) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tx-primary) 8%, transparent);
+  color: var(--tx-primary);
   font-size: var(--fs-2xs);
   font-weight: 620;
   letter-spacing: 0.01em;
@@ -151,7 +142,7 @@
 .pane-agent-chip.provider-copilot {
   background: var(--accent-soft);
   border-color: var(--accent-border);
-  color: var(--text-accent);
+  color: var(--tx-accent);
 }
 .pane-agent-chip.provider-antigravity {
   background: var(--intent-info-bg);
@@ -161,7 +152,7 @@
 .pane-agent-chip.provider-codex {
   background: var(--accent-soft);
   border-color: var(--accent-border);
-  color: var(--text-accent);
+  color: var(--tx-accent);
 }
 .pane-agent-chip.provider-cursor {
   background: var(--intent-info-bg);
@@ -170,13 +161,13 @@
 }
 .pane-agent-chip.provider-grok {
   background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
-  border-color: color-mix(in srgb, var(--text-primary) 35%, transparent);
-  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--tx-primary) 35%, transparent);
+  color: var(--tx-primary);
 }
 .pane-agent-chip.provider-custom {
   background: color-mix(in srgb, var(--surface-sunken) 15%, transparent);
   border-color: color-mix(in srgb, var(--surface-sunken) 30%, transparent);
-  color: var(--text-secondary);
+  color: var(--tx-secondary);
 }
 .pane-agent-chip.provider-shell,
 .pane-agent-chip.provider-local {
@@ -218,9 +209,9 @@
 .pane-intent {
   min-width: min(8ch, 100%);
   flex: 1;
-  color: var(--tx-secondary);
+  color: inherit;
   font-size: var(--fs-xs);
-  font-weight: 480;
+  font-weight: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -276,8 +267,7 @@
 }
 
 .pane-intent-input:focus {
-  border-color: var(--bd-input-focus);
-  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
+  border-color: var(--bd-focus);
 }
 
 /* When the sidebar row shows the user's intent instead of raw output we lift
@@ -313,7 +303,7 @@
   z-index: calc(var(--layer-dropdown) + 20);
   min-width: 176px;
   background: var(--surface-sunken);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-3);
   padding: 4px;
@@ -379,26 +369,26 @@
   padding: 0;
   cursor: pointer;
 }
-.tile-btn:hover:not(:disabled) { color: var(--text-primary); background: var(--ov-2); }
-.tile-btn.active { color: var(--text-primary); background: var(--ov-3); }
+.tile-btn:hover:not(:disabled) { color: var(--tx-primary); background: var(--ov-2); }
+.tile-btn.active { color: var(--tx-primary); background: var(--ov-3); }
 .tile-btn:disabled {
   opacity: 0.35;
   cursor: default;
 }
-.tile-btn.close:hover:not(:disabled) { color: var(--dot-red); }
+.tile-btn.close:hover:not(:disabled) { color: var(--intent-danger-solid); }
 
 .tile-btn.pane-editor-button {
   width: auto;
   min-width: 70px;
   padding: 0 9px;
   gap: 5px;
-  color: var(--text-primary);
+  color: var(--tx-primary);
   background: var(--surface-canvas);
   border: 1px solid var(--intent-info-solid);
 }
 
 .tile-btn.pane-editor-button:hover {
-  color: var(--text-on-solid);
+  color: var(--tx-on-solid);
   background: var(--intent-info-solid);
   border-color: var(--intent-info-solid);
 }

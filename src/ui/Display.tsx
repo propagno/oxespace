@@ -3,10 +3,11 @@ import { AlertTriangle, CheckCircle2, Info, Sun, WifiOff } from 'lucide-react'
 import { Tabs as RadixTabs } from 'radix-ui'
 import { i18n } from '../i18n'
 import { BrandLoader, BrandMark } from './BrandLoader'
+import { Button } from './Button'
 import { cx } from './cx'
 import styles from './Display.module.css'
 
-export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent'
+export type Intent = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'attention'
 
 /** A short label of state or count. Color only reinforces the text; it never carries the meaning alone. */
 /**
@@ -87,7 +88,7 @@ export function ErrorState({ title, message, detail, detailLabel = i18n.t('ui.de
     {children && <div className={styles.errorFix}>{children}</div>}
     {detail && <details className={styles.errorDetail}><summary>{detailLabel}</summary><code lang={detailLang}>{detail}</code></details>}
     {(onRetry || actions) && <div className={styles.errorActions}>
-      {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+      {onRetry && <Button variant="secondary" onClick={onRetry}>{retryLabel}</Button>}
       {actions}
     </div>}
   </div>
@@ -117,7 +118,7 @@ export function OfflineState({ title = i18n.t('ui.offline.title'), message = i18
     {compact ? <WifiOff size={14} aria-hidden="true" className={styles.offlineIcon} /> : <BrandLoader decorative />}
     <p className={styles.offlineTitle}>{title}</p>
     {message && !compact && <p className={styles.offlineText}>{message}</p>}
-    {onRetry && <button type="button" className={styles.errorRetry} onClick={onRetry}>{retryLabel}</button>}
+    {onRetry && <Button variant="secondary" onClick={onRetry}>{retryLabel}</Button>}
   </div>
 }
 
@@ -219,10 +220,25 @@ export function Separator({ orientation = 'horizontal' }: { orientation?: 'horiz
   return <span className={styles.separator} role="separator" aria-orientation={orientation} data-orientation={orientation} />
 }
 
+export interface TabItem<T extends string> {
+  value: T
+  label: ReactNode
+  /**
+   * The tab's panel. Leave it out when the caller keeps its panels mounted itself (the workspace panel stack keeps
+   * each tool's state while switching): the primitive then draws only the list, and `controls` names the panel.
+   */
+  content?: ReactNode
+  /** The accessible name, when the visible label can shrink to an icon. */
+  ariaLabel?: string
+  title?: string
+  /** The id of the panel this tab shows, for a list-only use. */
+  controls?: string
+}
+
 export interface TabsProps<T extends string> {
   value: T
   onChange: (value: T) => void
-  tabs: Array<{ value: T; label: ReactNode; content: ReactNode }>
+  tabs: Array<TabItem<T>>
   label: string
   className?: string
 }
@@ -231,9 +247,10 @@ export interface TabsProps<T extends string> {
 export function Tabs<T extends string>({ value, onChange, tabs, label, className }: TabsProps<T>): ReactElement {
   return <RadixTabs.Root value={value} onValueChange={next => onChange(next as T)} className={className}>
     <RadixTabs.List data-ui="tabs" className={styles.tabList} aria-label={label}>
-      {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className={styles.tab}>{tab.label}</RadixTabs.Trigger>)}
+      {tabs.map(tab => <RadixTabs.Trigger key={tab.value} value={tab.value} className={styles.tab} aria-label={tab.ariaLabel} title={tab.title}
+        {...(tab.controls ? { 'aria-controls': tab.controls } : {})}>{tab.label}</RadixTabs.Trigger>)}
     </RadixTabs.List>
-    {tabs.map(tab => <RadixTabs.Content key={tab.value} value={tab.value} className={styles.tabPanel}>{tab.content}</RadixTabs.Content>)}
+    {tabs.filter(tab => tab.content !== undefined).map(tab => <RadixTabs.Content key={tab.value} value={tab.value} className={styles.tabPanel}>{tab.content}</RadixTabs.Content>)}
   </RadixTabs.Root>
 }
 
@@ -245,7 +262,7 @@ export function Meter({ label, value, max = 100, detail }: { label: ReactNode; v
     <div className={styles.meterHead}><span>{label}</span><span>{detail ?? `${Math.round(ratio * 100)}%`}</span></div>
     {/* A meter's value stays within its range (ARIA): past the limit it is full, and `detail` says by how much. */}
     <div className={styles.meterTrack} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={Math.min(max, Math.max(0, value))} aria-label={typeof label === 'string' ? label : undefined}>
-      <div className={cx(styles.meterFill, tone)} style={{ width: `${ratio * 100}%` }} />
+      <div className={cx(styles.meterFill, tone)} style={{ '--meter-scale': ratio } as CSSProperties} />
     </div>
   </div>
 }
