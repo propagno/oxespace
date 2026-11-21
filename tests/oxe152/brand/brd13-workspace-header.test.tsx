@@ -24,6 +24,7 @@ import type { Workspace } from '../../../shared/types/workspace'
 import { WorkspaceSurface } from '../../../src/components/Workspace/WorkspaceSurface'
 import type { WorkbenchPanelItem } from '../../../src/components/Workbench/WorkbenchPanelMenu'
 import { changeLanguage, i18n } from '../../../src/i18n'
+import { useUIStore } from '../../../src/store/ui.store'
 
 const mocks = vi.hoisted(() => ({ branch: 'feat/pix-webhook' as string | null }))
 vi.mock('../../../src/hooks/useGitBranch', () => ({ useGitBranch: () => ({ branch: mocks.branch, detached: false, shortSha: null, error: mocks.branch ? null : 'unavailable' }) }))
@@ -85,11 +86,19 @@ const header = (): HTMLElement => {
   return found[0]
 }
 
-afterEach(async () => { cleanup(); vi.restoreAllMocks(); mocks.branch = 'feat/pix-webhook'; await changeLanguage('en') })
+afterEach(async () => {
+  cleanup()
+  vi.restoreAllMocks()
+  mocks.branch = 'feat/pix-webhook'
+  useUIStore.setState({ isSidebarCollapsed: false, collapsedSidebars: { ...useUIStore.getState().collapsedSidebars, code: false } })
+  await changeLanguage('en')
+})
 
 describe('OXE-79 BRD-13 the OxeCode workspace header (A29)', () => {
   it.each(['en', 'pt-BR'])('the title (%s) is the workspace: dot, name and the branch in mono; no "OxeCode ·" nor pane count', async locale => {
     await changeLanguage(locale)
+    // liberação de teste congelado: coordenação 20/11 (OXE-279 / POLISH-09 #2(b)), 'demo-repo' no workspace-header é verificado com a lateral recolhida (isSidebarCollapsed: true); nenhuma outra asserção do BRD-13 muda
+    useUIStore.setState({ isSidebarCollapsed: true, collapsedSidebars: { ...useUIStore.getState().collapsedSidebars, code: true } })
     renderSurface()
     expect(header()).toHaveAccessibleName(tc('workspace.topbar.label'))
     expect(header()).toHaveTextContent('demo-repo')

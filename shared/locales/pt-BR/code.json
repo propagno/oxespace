@@ -996,6 +996,7 @@
     "width": "Largura da barra lateral",
     "workspaces": "Workspaces",
     "filter": "Filtrar workspaces",
+    "filterPlaceholder": "Filtrar…",
     "integrationGroups": "Grupos de integração",
     "integrations": "Integrações",
     "toggleAll": "Mostrar ou ocultar os terminais de todos os workspaces",

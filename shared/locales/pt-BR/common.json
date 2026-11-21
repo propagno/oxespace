@@ -438,6 +438,7 @@
       "howToInstall": "Como instalar",
       "notInstalled": "Não instalado",
       "signIn": "Entrar no {{provider}}",
+      "signInShort": "Entrar",
       "waiting": "Aguardando o login no navegador…",
       "cancel": "Cancelar",
       "readyModel": "Pronto · {{model}}",
@@ -446,8 +447,7 @@
       "newConversation": "Nova conversa",
       "waitsForAgent": "Abre quando um agente estiver conectado",
       "openAlone": "Ou abra o <code>OxeCode</code> ou o <query>OxeQuery</query> sozinhos",
-      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
-      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa."
+      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo"
     }
   },
   "usage": {

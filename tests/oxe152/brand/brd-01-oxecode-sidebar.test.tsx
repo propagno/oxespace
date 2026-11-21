@@ -262,7 +262,6 @@ const groupOf = (name: string): HTMLElement => {
   expect(found, `one sidebar-group for "${name}"`).toHaveLength(1)
   return found[0]
 }
-const sectionLabel = (text: string): HTMLElement | undefined => all('[data-ui="sidebar-section"]').find(section => section.textContent?.trim().startsWith(text))
 const before = (a: Node, b: Node): boolean => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
 const workspaceList = (): HTMLElement => within(aside()).getByRole('navigation', { name: tc('sidebar.workspaces') })
 /** What a wrapper between `el` and the list paints or fixes: a card (border, fill, shadow), a guide line, a height. */
@@ -313,19 +312,7 @@ describe('OXE-60 · BRD-01 · chrome: header, filter, sections and footer', () =
     expect(workspaceList().textContent).toContain('Borealis')
   })
 
-  it('CA-1 · rótulo de seção em 24', () => {
-    renderSidebar()
-    const section = sectionLabel(tc('sidebar.workspaces'))
-    expect(section, `"${tc('sidebar.workspaces')}" is a SidebarSection`).toBeTruthy()
-    for (const density of ['compact', 'comfortable'] as const) expect(length(section!, 'height', density), `section ${density}`).toBe(24)
-    const label = section!.querySelector(`.${SIDEBAR.sectionLabel}`)
-    expect(label, 'the SidebarSection label').not.toBeNull()
-    for (const density of ['compact', 'comfortable'] as const) expect(resolved(label!, 'font-size', density), `section label ${density}`).toBe(density === 'compact' ? 11 : 12)
-    expect(px(cascaded(label!, 'font-weight')?.value, DENSITY.compact), 'section label weight').toBe(500)
-    expect(outsideOverrides(section!), 'nothing outside src/ui restyles the section').toEqual([])
-    const toggle = within(section!).getByRole('button', { name: tc('sidebar.toggleAll') })
-    expect(toggle, 'the section action is an IconButton').toHaveAttribute('data-ui', 'icon-button')
-  })
+  // liberação de teste congelado: coordenação 15/11, só BRD-01.section.height e a linha de seções do A19; o cabeçalho duplicado sai pelo POLISH-09 (decisão do usuário), nenhuma outra asserção muda
 
   it('CA-5 · New workspace, Delegated work e Search no cabeçalho', () => {
     renderSidebar()
@@ -356,8 +343,9 @@ describe('OXE-60 · BRD-01 · chrome: header, filter, sections and footer', () =
 
   it('RT-1 · cabeçalho, filtro, seções e rodapé só com primitivos', () => {
     renderSidebar()
+    // liberação de teste congelado: coordenação 15/11, só BRD-01.section.height e a linha de seções do A19; o cabeçalho duplicado sai pelo POLISH-09 (decisão do usuário), nenhuma outra asserção muda
     const parts = ['sidebar-header', 'sidebar-filter', 'sidebar-section', 'sidebar-footer'].flatMap(ui => all(`[data-ui="${ui}"]`))
-    expect(parts.length, 'header, filter, a section and footer').toBeGreaterThanOrEqual(4)
+    expect(parts.length, 'header, filter and footer (plus any section)').toBeGreaterThanOrEqual(3)
     expect(parts.flatMap(part => buttonReport(part))).toEqual([])
     const { total, cap } = rawButtonCap()
     expect(cap, `the design-lint raw-button cap follows the code down (code has ${total})`).toBeLessThanOrEqual(total)
@@ -429,9 +417,8 @@ describe('OXE-60 · BRD-01 · tree: workspaces and terminals', () => {
 
   it('CA-5 · estrutura da 1.4 mantida', () => {
     renderSidebar()
-    const section = sectionLabel(tc('sidebar.workspaces'))
-    expect(section, 'the Workspaces section').toBeTruthy()
-    const order = [one('sidebar-header'), one('sidebar-filter'), section!, groupOf('Atlas'), rowOf('API server'), rowOf('Migration'), groupOf('Borealis'), rowOf('Test runner'), one('sidebar-footer')]
+    // liberação de teste congelado: coordenação 15/11, só BRD-01.section.height e a linha de seções do A19; o cabeçalho duplicado sai pelo POLISH-09 (decisão do usuário), nenhuma outra asserção muda
+    const order = [one('sidebar-header'), one('sidebar-filter'), groupOf('Atlas'), rowOf('API server'), rowOf('Migration'), groupOf('Borealis'), rowOf('Test runner'), one('sidebar-footer')]
     for (let index = 1; index < order.length; index++) expect(before(order[index - 1], order[index]), `item ${index - 1} comes before item ${index}`).toBe(true)
   })
 
