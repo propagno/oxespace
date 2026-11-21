@@ -784,9 +784,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // The conversation canvas is 880 px wide (780 until 1.5.2, widened on the user's request), centred, however wide the window is.
-    expect(wideGeometry.readingWidth).toBeGreaterThan(800)
-    expect(wideGeometry.readingWidth).toBeLessThanOrEqual(880)
+    // OXE-167 (A5, AG-10/11 approved 15/11): one column on the --measure-chat token, 800 px, centred, however wide the window is
+    // (880 px from 13/11 until the AG-10/11 conversation).
+    expect(Math.abs(wideGeometry.readingWidth - 800)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)
