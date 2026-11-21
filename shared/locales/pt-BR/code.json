@@ -889,6 +889,10 @@
       "heuristic": "Estimado pela atividade do terminal"
     },
     "decisionAnnounce": "{{agent}} precisa da sua decisão: {{reason}}",
+    "commandRunning": "Comando em execução há {{duration}}",
+    "commandSucceeded": "Comando concluído com sucesso em {{duration}}",
+    "commandFailed": "Comando falhou (código {{code}}) em {{duration}}",
+    "commandFinished": "Comando encerrado em {{duration}}",
     "decisionNotice": {
       "place": "Precisa de você · {{workspace}}",
       "body": "{{workspace}}: o agente parou e está esperando sua aprovação ou resposta."
