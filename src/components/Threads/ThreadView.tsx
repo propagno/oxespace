@@ -223,7 +223,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     setError(''); setErrorDetail('')
     void interrupt(id).then(() => useThreadStore.getState().refresh(id)).catch(cause => setError(threadError(cause))).finally(() => { stopInFlight.current = false })
   }
-  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onError: setError })
+  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onRunCommand: text => { void action(() => runCommand(text)) }, onError: setError })
   const [caret, setCaret] = useState(0)
   const mentions = useFileMentions({
     workspaceId: snapshot?.thread.workspaceId, rootPath: snapshot?.thread.rootPath, draft, caret, enabled: Boolean(snapshot) && !pending,
