@@ -20,13 +20,21 @@ export function authText(text: string): boolean { return /^Failed to authenticat
 
 const kilobytes = (bytes: number): string => i18n.t('thread:message.kilobytes', { size: formatNumber(Math.ceil(bytes / 1024)) })
 
-export function ThreadMessageBody({ text, role }: { text: string; role: 'user' | 'assistant' }) {
+/** The answer still arriving: this is the turn's latest assistant message, and the turn runs. */
+function answerStreaming(event: Extract<ThreadEvent, { type: 'message' }>, turnEvents: ThreadEvent[], running: boolean): boolean {
+  if (!running || event.role !== 'assistant') return false
+  let latest: string | undefined
+  for (const item of turnEvents) if (item.type === 'message' && item.role === 'assistant') latest = item.id
+  return latest === event.id
+}
+
+export function ThreadMessageBody({ text, role, streaming = false }: { text: string; role: 'user' | 'assistant'; streaming?: boolean }) {
   const { t } = useTranslation('thread')
   const [expanded, setExpanded] = useState(false)
   const longPrompt = role === 'user' && (text.length > 800 || text.split('\n').length > 12)
-  if (!longPrompt) return <ThreadMarkdown text={text} />
+  if (!longPrompt) return <ThreadMarkdown text={text} streaming={streaming} />
   return <div className="thread-long-prompt">
-    {expanded ? <ThreadMarkdown text={text} /> : <p className="thread-long-prompt-preview">{text.replace(/\s+/g, ' ').slice(0, 240).trimEnd()}…</p>}
+    {expanded ? <ThreadMarkdown text={text} streaming={streaming} /> : <p className="thread-long-prompt-preview">{text.replace(/\s+/g, ' ').slice(0, 240).trimEnd()}…</p>}
     <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? t('message.showLess') : t('message.showFull')}</button>
   </div>
 }
@@ -116,7 +124,7 @@ export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running,
       </div>
     )}
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{kilobytes(attachment.bytes)}</small></li>)}</ul> : null}
-    <ThreadMessageBody text={displayText} role={event.role} />
+    <ThreadMessageBody text={displayText} role={event.role} streaming={answerStreaming(event, turnEvents, running)} />
     {event.role === 'user' && event.origin === 'execute-plan' && <p className="thread-prompt-origin">{t('plan.run')}</p>}
     {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label={t('message.context')}>{event.context.map(file => <li key={file.path} title={t(file.truncated ? 'message.bytesTruncated' : 'message.bytes', { bytes: formatNumber(file.bytes) })}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>{t('message.truncated')}</small>}</li>)}</ul> : null}
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>{t('message.brief')}</summary><pre>{event.brief}</pre></details> : null}

@@ -359,7 +359,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
 
   const content = (
     <>
-      <header className="web-preview-header">
+      {/* A plain bar, not a <header>: inside the dock the DockPanel's header is the panel's one header (BRD-15). */}
+      <div className="web-preview-header">
         <div className="web-preview-title">
           <MonitorPlay size={14} aria-hidden="true" />
           <strong>{t('panels.browser')}</strong>
@@ -372,7 +373,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
             </Button>
           ) : null}
         </div>
-      </header>
+      </div>
 
       <div className="web-preview-tabs" role="group" aria-label={t('preview.tabs')}>
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>

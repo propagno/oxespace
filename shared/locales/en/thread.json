@@ -931,8 +931,17 @@
     "image": "[Image]",
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
+    "diagramBuilding": "Building the diagram…",
+    "diagramFailed": "Couldn't draw this diagram",
+    "enlarge": "Enlarge",
     "showCode": "Show code",
-    "showDiagram": "Show diagram"
+    "showDiagram": "Show diagram",
+    "alert": {
+      "note": "Note",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Starts now.",
