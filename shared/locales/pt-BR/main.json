@@ -385,6 +385,7 @@
         "deny": "Negar",
         "allowOnce": "Permitir uma vez",
         "allowSessionReads": "Permitir leituras nesta conexão nesta execução",
+        "allowSessionWorkspaceReads": "Permitir leituras deste workspace nesta sessão",
         "closeTab": "Fechar aba",
         "restart": "Reiniciar",
         "keepWorking": "Continuar trabalhando",
@@ -409,7 +410,11 @@
         },
         "agent": {
           "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
-          "turnStopped": "O turno em andamento é interrompido antes."
+          "turnStopped": "O turno em andamento é interrompido antes.",
+          "unknownState": "O OXESpace não lê a tela desse agente; confirme que ele está pronto para um prompt, sem diálogo aberto."
+        },
+        "workspace": {
+          "crossRead": "Leitura entre workspaces: permite que \"{{source}}\" leia painéis de \"{{target}}\" apenas durante esta sessão do app."
         },
         "thread": {
           "actsOnMessage": "A outra conversa vai agir sobre esta mensagem com o próprio acesso."
