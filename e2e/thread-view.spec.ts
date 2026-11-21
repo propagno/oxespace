@@ -499,7 +499,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       expect(await failureCard.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
       await page.screenshot({ path: `test-results/thread-failure-usage-${width}.png` })
     }
-    await failureCard.locator('summary').click()
+    await failureCard.locator(':scope > summary').click()
     await expect(failureCard).not.toHaveAttribute('open')
     await expect(native).toHaveCount(0)
     await page.setViewportSize({ width: 1440, height: 900 })
