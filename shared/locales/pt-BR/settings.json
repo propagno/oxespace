@@ -130,7 +130,7 @@
       "count_other": "{{count}} sites lembrados.",
       "count_many": "{{count}} sites lembrados.",
       "clear": "Limpar lista",
-      "clearLabel": "Limpar sites que você abriu",
+      "clearLabel": "Limpar lista de sites que você abriu",
       "cleared_one": "{{count}} site esquecido",
       "cleared_other": "{{count}} sites esquecidos",
       "cleared_many": "{{count}} sites esquecidos"

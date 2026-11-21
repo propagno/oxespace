@@ -129,8 +129,8 @@ describe('OXE-281 PE-09·D Settings once & Clear list', () => {
 
   test('renders Clear list button label with full accessible aria-label in SeenSitesSetting', async () => {
     for (const [locale, visibleLabel, accessibleLabel] of [
-      ['pt-BR', 'Limpar lista', 'Limpar sites que você abriu'],
-      ['en', 'Clear list', "Clear sites you've opened"]
+      ['pt-BR', 'Limpar lista', 'Limpar lista de sites que você abriu'],
+      ['en', 'Clear list', "Clear list of sites you've opened"]
     ] as const) {
       await changeLanguage(locale)
       localStorage.setItem(SEEN_HOSTS_KEY, JSON.stringify(['example.com']))

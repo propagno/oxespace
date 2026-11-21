@@ -129,7 +129,7 @@
       "count_one": "{{count}} site remembered.",
       "count_other": "{{count}} sites remembered.",
       "clear": "Clear list",
-      "clearLabel": "Clear sites you've opened",
+      "clearLabel": "Clear list of sites you've opened",
       "cleared_one": "Forgot {{count}} site",
       "cleared_other": "Forgot {{count}} sites"
     },
