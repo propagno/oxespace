@@ -49,6 +49,7 @@ import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
+import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
@@ -400,7 +401,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell}
       activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
-      onTogglePanel={togglePanel} onCloseCell={onCloseCell}
+      onTogglePanel={togglePanel} onCloseCell={onCloseCell} onOpenInCode={requestThreadOpenInCode}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
@@ -410,7 +411,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" hidden={showingToolTab} role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
-      <div ref={scroll.content} className="thread-reading-column">
+      <div ref={scroll.content} className="thread-reading-column" data-ui="chat-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}
@@ -448,10 +449,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {errorDetail && onAccounts ? <Button size="sm" onClick={() => { setError(''); setErrorDetail(''); onAccounts() }}>{t('view.connectAgent')}</Button> : null}
         <Button size="sm" variant="ghost" onClick={() => { setError(''); setErrorDetail('') }}>{t('view.dismissError')}</Button></>} /></div>}
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
-      {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
+        workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} /> : undefined}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onInsertMention={insertMention} onInterrupt={stopTurn} />
     </div></div>}

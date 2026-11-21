@@ -4,9 +4,9 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  height: auto;
-  min-height: 62px;
-  padding: 10px var(--chrome-inset) 8px;
+  height: var(--bar-lg);
+  min-height: var(--bar-lg);
+  padding: 0 var(--chrome-inset);
   border-bottom: 1px solid var(--bd-subtle);
   background: var(--surface-canvas);
   gap: 0;
@@ -71,25 +71,33 @@
 .thread-heading h1 {
   margin: 0;
   color: var(--tx-primary);
-  font-family: var(--font-display);
-  font-size: 22px;
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-family: var(--font-ui);
+  font-size: var(--fs-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  line-height: 1.25;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.thread-grid.is-split .thread-view .thread-heading h1 {
-  font-size: 17px;
-}
-
-@container (max-width: 760px) {
-  .thread-view .thread-heading h1 {
-    font-size: 17px;
-  }
+/* The conversation's own worktree, the one thing beside the title (AG-10 §2.6). */
+.thread-heading-worktree {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  max-width: 40%;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-full);
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .thread-heading-actions {

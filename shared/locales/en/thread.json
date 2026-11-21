@@ -388,6 +388,7 @@
     "commandsTitle": "Commands & skills · Ctrl+/",
     "add": "Add to prompt",
     "addTitle": "Attach, mention a file or connect tools",
+    "context": "Context",
     "attach": "Attach image",
     "mention": "Mention a file",
     "steer": "Steer active turn",
@@ -409,6 +410,7 @@
     "applyFailed": "Could not apply configuration",
     "refreshModels": "Refresh models",
     "label": "Conversation configuration",
+    "turnSettings": "Turn settings",
     "mode": "Mode",
     "modeTitle": "Plan: the agent plans first and changes nothing until you approve. Agent: it works on the task.",
     "plan": "Plan",
@@ -427,7 +429,15 @@
     "searchModels": "Search models…",
     "noModels": "No models available.",
     "selectEffort": "Select effort",
-    "effortLevel": { "none": "None", "minimal": "Minimal", "low": "Low", "medium": "Medium", "high": "High", "xhigh": "Extra high", "max": "Max" },
+    "effortLevel": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Max"
+    },
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
@@ -979,7 +989,11 @@
     "copyResponse": "Copy response",
     "copied": "Copied",
     "copy": "Copy",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copy prompt",
+    "editPrompt": "Edit prompt",
+    "undoTurnChanges": "Undo this turn's changes",
+    "promptEdited": "Edited · resent below"
   },
   "modelPicker": {
     "title": "Choose model",
@@ -2107,7 +2121,9 @@
     "forkCodexOnly": "Fork is available for Codex conversations",
     "export": "Export",
     "archive": "Archive",
-    "delete": "Delete…"
+    "delete": "Delete…",
+    "openInCode": "Open in OxeCode",
+    "openWorktreeInCode": "Open the worktree in OxeCode"
   },
   "composerModel": {
     "idle": "Ask, or type / for commands",
