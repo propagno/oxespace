@@ -411,7 +411,7 @@
         "agent": {
           "actsOnPrompt": "Esse agente vai agir sobre este prompt com o próprio acesso.",
           "turnStopped": "O turno em andamento é interrompido antes.",
-          "unknownState": "O OXESpace não consegue ler o estado da tela desse agente; confirme que ele está pronto para um prompt e não está exibindo um diálogo."
+          "unknownState": "O OXESpace não lê a tela desse agente; confirme que ele está pronto para um prompt, sem diálogo aberto."
         },
         "workspace": {
           "crossRead": "Leitura entre workspaces: permite que \"{{source}}\" leia painéis de \"{{target}}\" apenas durante esta sessão do app."
