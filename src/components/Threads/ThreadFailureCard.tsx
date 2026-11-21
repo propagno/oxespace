@@ -68,7 +68,7 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
+export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
   refreshUsage?: () => Promise<ThreadUsage>
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
@@ -79,6 +79,8 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
   onCompact?: () => void
   /** Offered when the sandbox or the configuration blocked the turn. */
   onPermissions?: () => void
+  /** A failed sign-in: opens the agent accounts, where the person signs in again. */
+  onReconnect?: () => void
   disabled?: boolean
 }) {
   const { t } = useTranslation('thread')
@@ -118,7 +120,9 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
       {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? t('failure.usageUnavailable') : refreshUsage && failure ? t('failure.checkingUsage') : t('failure.notRecorded')}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">{t('failure.staleUsage')}</p>}
       {refreshError && <ErrorState compact title={refreshError} />}
-      {/* A sign-in failure is acted on in the account notice above the composer, which follows the account state; repeating Reconnect here doubled it. */}
+      {/* The card is a failed sign-in's one owner (no strip above the composer, AG-11 6.2), so its way back is here: Reconnect
+          opens the agent accounts. It offers no retry. */}
+      {code === 'authentication' && onReconnect && <footer><Button size="sm" variant="primary" disabled={disabled} onClick={onReconnect}>{t('view.reconnect')}</Button></footer>}
       {code !== 'session-busy' && code !== 'authentication' && (refreshUsage || retry || compact || permissions) && <footer>
         {compact && <Button size="sm" disabled={disabled} onClick={compact}>{t('failure.compact')}</Button>}
         {permissions && <Button size="sm" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? t('failure.reviewPermissions') : t('failure.changeConfiguration')}</Button>}

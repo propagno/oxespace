@@ -508,9 +508,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    await expect(page.getByText('Sign in to Claude Code', { exact: true })).toBeVisible()
+    // OXE-167 (AG-11 6.2): the failure card owns a failed sign-in and its Reconnect opens the agent accounts.
+    const authCard = page.locator('[data-ui="failure-card"]').last()
+    await expect(authCard).toContainText('Reconnect your native agent account to continue.')
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })
-    await page.getByRole('button', { name: 'Reconnect', exact: true }).click()
+    await authCard.getByRole('button', { name: 'Reconnect', exact: true }).click()
     const accountsDialog = page.getByRole('dialog', { name: 'Agent accounts' })
     await expect(accountsDialog).toBeVisible()
     await expect.poll(() => accountsDialog.locator('.thread-account-heading .agent-provider-icon').first().evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(28)
