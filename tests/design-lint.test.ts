@@ -186,7 +186,8 @@ describe('design lint', () => {
       // OXE-100 (#908 after main): the nine Settings sections, 428.
       // OXE-166 (#906 after #908): the OxeChat sidebar, 416.
       // OXE-265 (#963): .mcp-builtin-notice dismiss button migrated to IconButton, 415.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(415)
+      // OXE-167 (F5 T3–T13, program branch after main 21/11): the diagram switch and copy and the conversation on Button, 406.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(406)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
