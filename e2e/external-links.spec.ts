@@ -126,7 +126,7 @@ test('links ask before leaving, remember the site, and Settings clears what was 
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^General\b|^Application: General/ }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('2 sites remembered.')
-    await settings.getByRole('button', { name: "Clear sites you've opened" }).click()
+    await settings.getByRole('button', { name: "Clear list of sites you've opened" }).click()
     await expect(settings.getByTestId('seen-sites-count')).toHaveText('0 sites remembered.')
     expect(await page.evaluate(() => localStorage.getItem('oxe.externalLinks.seenHosts'))).toBeNull()
     expect(consoleErrors.filter(error => error.startsWith('pageerror'))).toEqual([])
