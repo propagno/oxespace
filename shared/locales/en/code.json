@@ -2414,6 +2414,7 @@
     "search": "Search native sessions",
     "searchPlaceholder": "Search message, model or session ID",
     "loading": "Loading native sessions…",
+    "loadingMore": "Loading more sessions…",
     "untitled": "{{provider}} session",
     "unknownModel": "Unknown model",
     "meta_one": "{{model}} · Updated {{updated}} · {{count}} request",

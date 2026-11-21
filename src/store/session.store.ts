@@ -3,6 +3,8 @@ import type { AgentProvider } from '../../shared/types/agent'
 import type { ForkSessionInput, SessionSummary } from '../../shared/types/session'
 
 const key = (workspaceId: string, provider: AgentProvider): string => `${workspaceId}|${provider}`
+let sessionStoreRequestSeq = 0
+const activeLoadByKey = new Map<string, string>()
 
 interface SessionStoreState {
   byKey: Record<string, SessionSummary[]>
@@ -19,18 +21,29 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
   load: async (workspaceId, workspaceRootPath, provider) => {
     const k = key(workspaceId, provider)
+    const requestId = `session-store:${++sessionStoreRequestSeq}:${provider}`
+    activeLoadByKey.set(k, requestId)
     set((s) => ({ loading: { ...s.loading, [k]: true } }))
+    const unsubscribe = window.oxe.session.onPartial?.((event) => {
+      if (event.requestId !== requestId || activeLoadByKey.get(k) !== requestId) return
+      set((s) => ({ byKey: { ...s.byKey, [k]: event.sessions } }))
+    })
     try {
-      const sessions = await window.oxe.session.list({ workspaceId, workspaceRootPath, provider })
+      const sessions = await window.oxe.session.list({ workspaceId, workspaceRootPath, provider, requestId })
+      if (activeLoadByKey.get(k) !== requestId) return
       set((s) => ({
         byKey: { ...s.byKey, [k]: sessions },
         loading: { ...s.loading, [k]: false }
       }))
     } catch {
+      if (activeLoadByKey.get(k) !== requestId) return
       set((s) => ({
         byKey: { ...s.byKey, [k]: [] },
         loading: { ...s.loading, [k]: false }
       }))
+    } finally {
+      unsubscribe?.()
+      if (activeLoadByKey.get(k) === requestId) activeLoadByKey.delete(k)
     }
   },
 

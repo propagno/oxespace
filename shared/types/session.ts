@@ -25,6 +25,21 @@ export interface SessionSummary {
   workspaceRootPath?: string | null
 }
 
+export interface SessionListInput {
+  workspaceId: string
+  workspaceRootPath: string
+  provider: AgentProvider
+  requestId?: string
+}
+
+export interface SessionListPartialEvent {
+  requestId: string
+  workspaceId: string
+  workspaceRootPath: string
+  provider: AgentProvider
+  sessions: SessionSummary[]
+}
+
 export interface ForkSessionInput {
   workspaceId: string
   workspaceRootPath: string
