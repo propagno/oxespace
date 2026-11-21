@@ -55,6 +55,7 @@
   --layer-toast: 400;
   --layer-tooltip: 500;
   --statusbar-height: 24px;
+  --measure-chat: 800px;
   --duration-fast: 120ms;
   --duration-base: 200ms;
   --duration-slow: 320ms;
@@ -109,6 +110,7 @@
   --bd-subtle: #dedeea;
   --bd-default: #d3d3e2;
   --bd-strong: #c3c3d5;
+  --bd-control: #7d7d98;
   --bd-focus: #007044;
   --accent: #007044;
   --accent-hover: #00603a;
@@ -133,6 +135,7 @@
   --intent-danger-border: #ffaca4;
   --intent-danger-solid: #c92f33;
   --intent-danger-fg: #aa2b2c;
+  --intent-danger-solid-hover: #b42027;
   --intent-info-bg: #e4f2ff;
   --intent-info-bg-hover: #d6ecff;
   --intent-info-border: #99cbf6;
@@ -238,6 +241,7 @@
   --bd-subtle: #2a284a;
   --bd-default: #34315b;
   --bd-strong: #413e71;
+  --bd-control: #736dc3;
   --bd-focus: #44b77e;
   --accent: #44b77e;
   --accent-hover: #5dc68e;
@@ -262,6 +266,7 @@
   --intent-danger-border: #7a2121;
   --intent-danger-solid: #f05653;
   --intent-danger-fg: #ffa59e;
+  --intent-danger-solid-hover: #fe6b66;
   --intent-info-bg: #0d202f;
   --intent-info-bg-hover: #0e283c;
   --intent-info-border: #154970;
@@ -368,6 +373,7 @@
     --bd-subtle: #2a284a;
     --bd-default: #34315b;
     --bd-strong: #413e71;
+    --bd-control: #736dc3;
     --bd-focus: #44b77e;
     --accent: #44b77e;
     --accent-hover: #5dc68e;
@@ -392,6 +398,7 @@
     --intent-danger-border: #7a2121;
     --intent-danger-solid: #f05653;
     --intent-danger-fg: #ffa59e;
+    --intent-danger-solid-hover: #fe6b66;
     --intent-info-bg: #0d202f;
     --intent-info-bg-hover: #0e283c;
     --intent-info-border: #154970;

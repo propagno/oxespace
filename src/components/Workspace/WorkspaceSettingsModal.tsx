@@ -11,13 +11,14 @@ import './WorkspaceSettingsModal.css'
 import { DefaultShellSettings } from './DefaultShellSettings'
 import { ProjectInstructionsRow } from './ProjectInstructionsRow'
 import { PolicySettings } from '../Settings/PolicySettings'
-import { applyWithUndo, Button, ErrorState, Select } from '../../ui'
+import { applyWithUndo, Button, ErrorState, Select, SettingRow, Switch } from '../../ui'
 import { formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
+const ts = i18n.getFixedT(null, 'settings')
 import { SETTINGS_PAGES } from './workspaceSettingsPages'
 export { SETTINGS_PAGES }
 
@@ -218,8 +219,9 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
           {error ? <ErrorState compact title={t('workspace.settings.saveFailed')} message={error} /> : null}
           {saved && !error ? <div className="ws-settings-saved" role="status"><Check size={14} aria-hidden="true" />{t('workspace.settings.saved')}</div> : null}
 
-          <footer className="modal-actions">
+          <footer className="modal-actions" data-ui="dialog-footer">
             <p>{t('workspace.settings.footer.default')}</p>
+            {!embedded ? <Button variant="secondary" size="sm" onClick={onClose}>{ts('center.backToWork')}</Button> : null}
           </footer>
         </div>
       </>
@@ -295,6 +297,7 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
   const toggleCustomize = (on: boolean): void => {
     setCustomize(on)
     if (!on) clearOverrides(workspaceId)
+    else if (!override || Object.keys(override).length === 0) setOverride(workspaceId, 'fontSize', global.fontSize)
   }
 
   return (
@@ -304,10 +307,11 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
         <h3 id="ws-section-terminal">{tc('panels.terminal')}</h3>
       </header>
 
-      <label className="checkbox-field">
-        <input type="checkbox" checked={customize} onChange={(e) => toggleCustomize(e.currentTarget.checked)} />
-        <span>{tc('workspace.settings.customize')}</span>
-      </label>
+      <SettingRow
+        label={tc('workspace.settings.customize')}
+        description={customize ? undefined : tc('workspace.settings.usingGlobal')}
+        control={<Switch checked={customize} onChange={toggleCustomize} ariaLabel={tc('workspace.settings.customize')} />}
+      />
 
       {customize ? (
         <div className="ws-terminal-overrides">
@@ -334,9 +338,7 @@ function TerminalOverrideSection({ workspaceId }: { workspaceId: string }): Reac
             </Select>
           </label>
         </div>
-      ) : (
-        <p className="ws-settings-hint">{tc('workspace.settings.usingGlobal')}</p>
-      )}
+      ) : null}
     </section>
   )
 }

@@ -3,6 +3,7 @@ import { useMemo, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { WorktreePanelBody } from '../Worktree/WorktreePanelBody'
 import { i18n } from '../../i18n'
+import { DockPanel, IconButton } from '../../ui'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -15,10 +16,7 @@ interface WorkspaceWorktreePanelProps {
 }
 
 /**
- * Side-dock wrapper for the Worktree feature. Mirrors WorkspaceBackgroundPanel
- * 1:1 — same header chrome (title + expand + close) and content slot — so the
- * Worktree panel sits in the same visual rhythm as the other repo-scoped
- * dock panels (Background, Review, GitHub, Editor).
+ * Side-dock wrapper for the Worktree feature, on the src/ui DockPanel like the other OxeCode panels (BRD-15).
  *
  * The wrapper resolves the active pane (from workspace.panes) by id and hands
  * the resolved object to the body. Keeps the body free of store-coupling for
@@ -35,29 +33,17 @@ export function WorkspaceWorktreePanel({
     if (!activePaneId) return null
     return workspace.panes.find((pane) => pane.id === activePaneId) ?? null
   }, [workspace.panes, activePaneId])
+  const expandLabel = isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')
 
   return (
-    <section className="workspace-editor-panel workspace-worktree-panel" data-testid="workspace-worktree-panel">
-      <header className="workspace-editor-header">
-        <div className="workspace-editor-title">
-          <FolderTree size={12} aria-hidden="true" />
-          <span>{tc('panels.worktrees')}</span>
-        </div>
-        <div className="workspace-editor-actions" aria-label={tc('workspace.panel.actions')}>
-          <button
-            type="button"
-            className="tile-btn"
-            aria-label={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            title={isExpanded ? tc('workspace.panel.restore') : tc('workspace.panel.expand')}
-            onClick={onToggleExpanded}
-          >
-            {isExpanded ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />}
-          </button>
-          <button type="button" className="tile-btn" aria-label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} onClick={onCollapse}>
-            <ChevronsRight size={14} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+    <DockPanel
+      testId="workspace-worktree-panel"
+      className="workspace-editor-panel workspace-worktree-panel"
+      icon={<FolderTree size={14} aria-hidden="true" />}
+      title={tc('panels.worktrees')}
+      actions={<IconButton label={expandLabel} title={expandLabel} icon={isExpanded ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleExpanded} />}
+      close={<IconButton label={tc('workspace.panel.collapse')} title={tc('workspace.panel.collapse')} icon={<ChevronsRight size={14} aria-hidden="true" />} onClick={onCollapse} />}
+    >
       <div className="workspace-editor-content">
         <WorktreePanelBody
           activePane={activePane}
@@ -65,6 +51,6 @@ export function WorkspaceWorktreePanel({
           workspaceRootPath={workspace.rootPath}
         />
       </div>
-    </section>
+    </DockPanel>
   )
 }

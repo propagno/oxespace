@@ -41,6 +41,7 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { changedFiles, planRelatedTests } from './related-tests.mjs'
+import { isTrainUpdate } from './merge-train.mjs'
 
 /** Gate tests every PR passes, whatever it changes. */
 export const ALWAYS_TESTS = ['tests/design-lint.test.ts', 'tests/design-lint-target-size.test.ts', 'tests/integration/fs-allowlist.test.ts']
@@ -104,11 +105,12 @@ export function oxeCcCommand(env = process.env) {
 /**
  * The brand fidelity gate (OXE-148; the user's rule of 14/11: the release is faithful to the rebranding end to end,
  * and an interface PR enters only with the conformance test and MARCA green). A PR that touches the interface needs
- * these commit statuses green on its exact head: `marca/conformidade`, posted by CI's brand conformance job (the built
- * app measured against src/design/targets; OXE-149), and `marca/fidelidade`, posted by MARCA after the side-by-side
- * check against the approved target, for what the test does not measure.
+ * `marca/conformidade` green on its exact head, posted by CI's brand conformance job (the built app measured against
+ * src/design/targets; OXE-149). Since 15/11 (the user's decision, OXE-285) MARCA's manual side-by-side, the
+ * `marca/fidelidade` status, is no longer asked of each PR: it runs in blocks, in the daily homologation, where each
+ * deviation becomes a bug, and in the release candidate's fidelity walk, which still blocks the tag.
  */
-export const BRAND_CONTEXTS = ['marca/conformidade', 'marca/fidelidade']
+export const BRAND_CONTEXTS = ['marca/conformidade']
 const INTERFACE_PATHS = [
   /^src\/.+\.(tsx|css)$/,
   /^src\/(design|styles|ui)\//,
@@ -131,12 +133,35 @@ export function brandEvidence(statuses, contexts = BRAND_CONTEXTS) {
 }
 
 /**
+ * The brand evidence across the train's own updates (OXE-276). When the merge train brings a car up to date it adds a
+ * merge of main on top of the head MARCA approved; a car that then leaves the queue (say, an infrastructure failure)
+ * comes back with that merge as its head and no marca/fidelidade on it. `chain` is the head first, then each parent
+ * reached through train updates only (`isTrainUpdate`), each `{ sha, statuses }`. For each context the newest commit
+ * that carries it decides: the CI's marca/conformidade of the merge head, MARCA's marca/fidelidade of the head it
+ * approved. Any other commit after the approved head (a change of the author's) ends the chain, so it fails.
+ */
+export function brandEvidenceAcross(chain, contexts = BRAND_CONTEXTS) {
+  const found = new Map()
+  for (const link of chain ?? []) {
+    const latest = new Map()
+    for (const status of link.statuses ?? []) if (!latest.has(status.context)) latest.set(status.context, status)
+    for (const context of contexts) if (!found.has(context) && latest.has(context)) found.set(context, { status: latest.get(context), sha: link.sha })
+  }
+  const missing = contexts.filter(context => found.get(context)?.status.state !== 'success').map(context => {
+    const entry = found.get(context)
+    return entry ? `${context} is ${entry.status.state}${entry.status.description ? ` (${entry.status.description})` : ''}` : `${context} has not been posted`
+  })
+  const via = contexts.map(context => found.get(context)?.sha).filter(Boolean)
+  return { ok: missing.length === 0, missing, from: [...new Set(via)] }
+}
+
+/**
  * The steps for a change: the origin gate first when the checkout has an oxe.config.json, and the brand gate last
  * (a GitHub step, read fresh) when the change touches the interface.
  */
 export function buildSteps({ origin = false, base = 'origin/main', ...rest }) {
   const steps = changeSteps({ base, ...rest })
-  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand fidelity: ${BRAND_CONTEXTS.join(', ')} green on this head (CI and MARCA)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
+  if (touchesInterface(rest.files ?? [])) steps.push({ name: `brand conformance: ${BRAND_CONTEXTS.join(', ')} green on this head (CI)`, kind: 'brand', args: [...BRAND_CONTEXTS] })
   return origin ? [{ name: `origin of every commit since the cut (oxe-cc ship check-origin ${base}..HEAD)`, kind: 'origin', args: [`${base}..HEAD`] }, ...steps] : steps
 }
 
@@ -390,17 +415,25 @@ function ciStep(step, sha) {
 }
 
 function brandStep(step, sha) {
-  let statuses
+  const chain = []
   try {
     const repo = gh(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim()
-    statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${sha}/statuses?per_page=100`])).flat()
+    let current = sha
+    // The head, then back through the train's own update merges only (OXE-276), at most 10 of them.
+    for (let hop = 0; hop <= 10 && current; hop++) {
+      const statuses = JSON.parse(gh(['api', '--paginate', '--slurp', `repos/${repo}/commits/${current}/statuses?per_page=100`])).flat()
+      chain.push({ sha: current, statuses })
+      const commit = JSON.parse(gh(['api', `repos/${repo}/commits/${current}`, '--jq', '{message: .commit.message, parents: [.parents[].sha]}']))
+      current = isTrainUpdate(commit) ? commit.parents[0] : null
+    }
   } catch (error) {
     return readFailed('the brand statuses', sha, error)
   }
-  const evidence = brandEvidence(statuses, step.args)
+  const evidence = brandEvidenceAcross(chain, step.args)
+  const via = evidence.from.filter(from => from !== sha).map(from => from.slice(0, 8))
   return evidence.ok
-    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}` }
-    : { ok: false, detail: `${evidence.missing.join('; ')}. An interface change needs MARCA's side-by-side check against the target (oxespace-3d posts marca/fidelidade on the exact head)` }
+    ? { ok: true, detail: `${step.args.join(', ')} green on ${sha.slice(0, 8)}${via.length ? ` (approved on ${via.join(', ')}, before the train's merge of main)` : ''}` }
+    : { ok: false, detail: `${evidence.missing.join('; ')}. An interface change needs the brand conformance job green on this head (the enforced measures of src/design/targets); MARCA's side-by-side runs in the daily homologation` }
 }
 
 function visualStep(step, sha) {

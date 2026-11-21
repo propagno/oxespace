@@ -1,114 +1,67 @@
-/* The Thread sidebar: pinned and project groups of conversations, two-line Cockpit hierarchy, and summary strip. */
-.search { display: grid; gap: var(--space-2); padding: var(--space-2) var(--space-3) var(--space-3); }
-
+/* The OxeChat sidebar (BRD-02, OXE-166) on the src/ui sidebar anatomy, OxeCode's mould. This file only places what the
+   primitives leave to the caller: a conversation row's two lines, its mini card, its hover actions and the groups. */
 .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 var(--space-2) var(--space-3); }
-.list h2 { margin: var(--space-2) var(--space-3); font-size: var(--fs-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.04em; color: var(--tx-muted); }
-.listHeading { display: flex; align-items: center; justify-content: space-between; padding-right: var(--space-1); }
-.listHeading button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; color: var(--tx-secondary); border-radius: var(--radius-sm); }
-.listHeading button[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
 
 /* ── Project group ── */
-.group { margin: 0 0 var(--space-2); }
-.heading { display: flex; align-items: center; min-width: 0; min-height: 30px; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
-/* A project is a plain heading with a chevron; only conversations are selected. */
-.group.active > .heading { background: transparent; }
-.toggle { flex: 1; min-width: 0; min-height: 30px; width: 100%; padding: 4px 7px; color: var(--tx-primary); font-size: var(--fs-xs); font-weight: var(--weight-semibold); text-align: left; }
-.toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toggle small { margin-left: auto; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: var(--weight-regular); }
-.toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
-.name { flex: 1; }
-.projectDot { flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--ws, var(--accent)); }
-.count { flex: none; margin-left: auto; color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
-.children { margin: 2px 0 var(--space-1) 13px; padding-left: var(--space-2); border-left: 2px solid color-mix(in srgb, var(--ws, var(--bd-subtle)) 45%, transparent); }
-.rows { display: grid; gap: 2px; }
+.group { margin: 0; }
+.groupRow { color: var(--tx-primary); }
+.chevron { flex: none; color: var(--tx-muted); transition: transform var(--duration-fast) var(--ease-standard); }
+.groupRow[aria-expanded='false'] .chevron { transform: rotate(-90deg); }
+.name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projectDot { display: inline-block; flex: none; width: var(--space-2); height: var(--space-2); margin-inline-end: var(--space-2); border-radius: 2px; background: var(--ws, var(--accent)); vertical-align: middle; }
+.dupPath { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: var(--weight-regular); }
+.count { color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; }
+.children { display: grid; }
+.rows { display: grid; gap: var(--space-0-5); }
 
-/* ── Conversation row ── */
-.row { position: relative; display: flex; align-items: center; min-width: 0; min-height: 40px; border-radius: var(--radius-md); }
-.row:has(.item[aria-current='page']) { background: var(--fill-selected); }
-.attentionRow:not(:has(.item[aria-current='page'])) { background: var(--intent-warning-bg); }
-.item { flex: 1; width: 100%; min-width: 0; min-height: 40px; margin: 0; padding: 6px var(--space-2); display: flex; align-items: flex-start; gap: 8px; border-radius: var(--radius-md); text-align: left; font-size: var(--fs-sm); }
-.item[aria-current='page'] { background: transparent; }
-.item > svg { flex-shrink: 0; color: var(--tx-secondary); }
-
-.unreadMark { position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; flex: none; border-radius: var(--radius-sm); background: var(--accent); }
-.unread .title { font-weight: var(--weight-bold); }
-
-.indicator { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-top: 1px; overflow: visible; color: var(--tx-muted); }
+/* ── Conversation row: a SidebarRow of two lines, then its mini card and its hover actions ── */
+.row { position: relative; min-width: 0; }
+.row > .item { border-radius: var(--radius-md); }
+.indicator { display: inline-flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); color: var(--tx-muted); }
 .indicator svg { flex-shrink: 0; color: currentColor; }
 .indicator[data-status='running'] { color: var(--intent-success-solid); }
-.indicator[data-status='running']::before { content: ''; display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--intent-success-solid); box-shadow: 0 0 0 3px color-mix(in srgb, var(--intent-success-solid) 20%, transparent); }
+.indicator[data-status='running']::before { content: ''; display: block; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--intent-success-solid); }
 .indicator[data-status='ready'] { color: var(--intent-info-solid); }
 .indicator[data-status='completed'] { color: var(--intent-success-solid); }
 .indicator[data-status='attention'] { color: var(--intent-warning-solid); }
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
 :global([data-motion='full']) .indicator[data-status='running']::before { --pulse-opacity: 0.4; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }
 
-.content { display: grid; flex: 1; min-width: 0; gap: 2px; container-type: inline-size; }
-.title { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; line-height: 1.3; color: var(--tx-primary); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
-.meta { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.25; }
-.time { flex: none; align-self: flex-start; margin-top: 2px; color: var(--tx-muted); font-size: var(--fs-2xs); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta > small { flex-shrink: 0; margin-left: auto; color: var(--tx-secondary); font-size: var(--fs-2xs); }
-.provider { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--tx-secondary); }
-.provider :global(.agent-provider-icon) { border-radius: var(--radius-sm); }
-.provider :global(.agent-provider-icon) svg { width: 9px; height: 9px; }
-.state { flex: none; color: var(--tx-muted); }
-.state[data-status='ready'], .state[data-status='completed'] { color: var(--tx-muted); }
+.title { color: var(--tx-primary); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
+.unread .title { font-weight: var(--weight-bold); }
+.unreadMark { position: absolute; inset-inline-start: 0; inset-block: var(--space-2); width: 3px; border-radius: var(--radius-sm); background: var(--accent); }
+.meta { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); font-size: var(--fs-xs); }
+.branch { font-family: var(--font-mono); }
+.changes { font-variant-numeric: tabular-nums; }
+.added { color: var(--intent-success-fg); }
+.deleted { color: var(--intent-danger-fg); }
 .state[data-status='running'] { color: var(--intent-success-fg); }
 .state[data-status='attention'] { color: var(--intent-warning-fg); font-weight: var(--weight-medium); }
 .state[data-status='failed'] { color: var(--intent-danger-fg); }
+.time { color: var(--tx-muted); font-size: var(--fs-2xs); }
 
-/* Row actions appear on hover and focus; on touch they are always there. */
-.action { flex-shrink: 0; width: 28px; height: 28px; padding: 5px; justify-content: center; color: var(--tx-muted); }
-.action:hover { color: var(--tx-primary); }
-.action:disabled { opacity: 0.3; cursor: default; }
-.row .action { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
-.row:hover .action, .row:focus-within .action { opacity: 1; }
-@media (hover: none) { .row .action { opacity: 1; } }
-.rows .row > .action { position: absolute; top: 4px; right: 34px; background: var(--fill-selected); }
-.rows .row > .action:last-child { right: var(--space-1); }
-.rows .row:hover > .action, .rows .row:focus-within > .action { background: var(--fill-hover); }
-.rows .row:hover .time, .rows .row:focus-within .time { visibility: hidden; }
+/* Row actions sit over the row's right edge, on hover and focus; on touch they are always there. The age gives way. */
+.actions { position: absolute; inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.row:hover > .actions, .row:focus-within > .actions { opacity: 1; }
+.row:hover .time, .row:focus-within .time { visibility: hidden; }
+@media (hover: none) { .actions { opacity: 1; } }
 
-/* The sidebar's own density, set on its <aside>; compact collapses rows to a single line. */
-:global(.thread-navigation)[data-density='compact'] .rows .row,
-:global(.thread-navigation)[data-density='compact'] .rows .item { min-height: 28px; align-items: center; }
-:global(.thread-navigation)[data-density='compact'] .rows .item { padding-top: var(--space-1); padding-bottom: var(--space-1); }
-:global(.thread-navigation)[data-density='compact'] .indicator { margin-top: 0; }
-:global(.thread-navigation)[data-density='compact'] .content { gap: 0; }
-:global(.thread-navigation)[data-density='compact'] .content .meta { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-:global(.thread-navigation)[data-density='compact'] .title { display: block; -webkit-line-clamp: none; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
-:global(.thread-navigation)[data-density='compact'] .rows .row > .action { top: 0; }
+/* ── Needs you: the mini card under the waiting conversation ── */
+.attention { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-0-5) 0 var(--space-1) var(--space-5); padding: var(--space-1-5) var(--space-2); border: 1px solid var(--intent-warning-border, var(--bd-subtle)); border-radius: var(--radius-md); background: var(--intent-warning-bg); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.attentionText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attentionCommand { font-family: var(--font-mono); color: var(--tx-primary); }
+.attentionRisk { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }
 
-.showMore { width: 100%; height: 28px; margin: 2px 0 var(--space-2); padding: 0 var(--space-2) 0 30px; justify-content: flex-start; border: 0; background: transparent; color: var(--tx-muted); font-size: var(--fs-xs); }
-.showMore:hover { color: var(--tx-primary); }
-
-/* ── Bottom summary strip (Archived · N / N conversations) ── */
-.summaryStrip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 6px var(--space-3);
-  border-top: 1px solid var(--bd-subtle);
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── Archived and hidden ── */
-.section { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--bd-subtle); }
-.archivedRow .item { color: var(--tx-secondary); }
-.restore { width: 100%; display: flex; align-items: center; gap: var(--space-2); min-height: 34px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); color: var(--tx-secondary); text-align: left; font-size: var(--fs-xs); }
-.restore:hover, .restore:focus-visible { background: var(--fill-hover); color: var(--tx-primary); }
-.restore span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.restore small { margin-left: auto; color: var(--tx-muted); }
-
-@container (max-width: 195px) { .provider > span { display: none; } }
-
-.archivedRow .item { display: flex; align-items: center; gap: var(--space-2); min-width: 0; min-height: 32px; }
-.archivedRow .item > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.archivedRow .item > small { flex: none; color: var(--tx-muted); font-size: var(--fs-2xs); }
-/* Where the filter matched inside the conversation: two quiet lines under the title, the match itself in the text colour. */
-.snippet { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.35; }
+/* Where the filter matched inside the conversation: two quiet lines under the row, the match itself in the text colour. */
+.snippet { display: -webkit-box; margin-inline-start: var(--space-5); overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.35; }
 .snippet mark { background: var(--accent-soft); color: var(--tx-primary); border-radius: 2px; padding: 0 1px; }
+
+.showMore { justify-content: flex-start; width: 100%; padding-inline-start: var(--space-5); color: var(--tx-muted); }
+
+/* ── Archived and removed projects ── */
+.archivedSection { margin-top: var(--space-3); }
+.archivedRow > .item { color: var(--tx-secondary); }
+.restore { justify-content: flex-start; width: 100%; color: var(--tx-secondary); }
+.restore small { margin-inline-start: auto; color: var(--tx-muted); }
+
+.spacer { flex: 1; }

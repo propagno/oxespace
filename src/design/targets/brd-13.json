@@ -1,0 +1,69 @@
+{
+  "brd": "BRD-13",
+  "card": "OXE-79",
+  "title": "The OxeCode workspace header: dot, name and branch in mono; the panel group as icon buttons",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-13) and the card OXE-79 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-13.branch.font-family",
+      "scene": "code-workspace",
+      "select": "[data-ui=workspace-header] [data-ui=workspace-branch]",
+      "prop": "font-family",
+      "expect": {
+        "token": "--font-mono"
+      },
+      "tolerance": 0,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the workspace's branch is shown in the mono face"
+    },
+    {
+      "id": "BRD-13.panel-button.height",
+      "scene": "code-workspace",
+      "select": "[data-ui=workspace-header] [data-ui=panel-group] [data-ui=icon-button]",
+      "prop": "height",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the panel group's icon buttons are the md control (28, 32 comfortable)"
+    },
+    {
+      "id": "BRD-13.panel-button.width",
+      "scene": "code-workspace",
+      "select": "[data-ui=workspace-header] [data-ui=panel-group] [data-ui=icon-button]",
+      "prop": "width",
+      "expect": {
+        "token": "--control-md"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "square: as wide as tall"
+    }
+  ]
+}

@@ -89,6 +89,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       create: input => ipc.invoke(IPC_CHANNELS.thread.create, input) as ReturnType<import('../../shared/types/thread').ThreadApi['create']>,
       read: id => ipc.invoke(IPC_CHANNELS.thread.read, id) as ReturnType<import('../../shared/types/thread').ThreadApi['read']>,
       retryTurn: (id, turnId, options) => ipc.invoke(IPC_CHANNELS.thread.retryTurn, id, turnId, options) as Promise<{ restoredFiles: number }>,
+      editPrompt: (id, turnId, text, options) => ipc.invoke(IPC_CHANNELS.thread.editPrompt, id, turnId, text, options) as Promise<{ restoredFiles: number }>,
+      executePlan: (id, turnId) => ipc.invoke(IPC_CHANNELS.thread.executePlan, id, turnId) as Promise<void>,
       readSince: (id, cursor) => ipc.invoke(IPC_CHANNELS.thread.readSince, id, cursor) as Promise<import('../../shared/types/thread').ThreadDelta>,
       history: (id, before, limit) => ipc.invoke(IPC_CHANNELS.thread.history, id, before, limit) as Promise<import('../../shared/types/thread').ThreadHistoryPage>,
       attach: (id, input) => ipc.invoke(IPC_CHANNELS.thread.attach, id, input) as Promise<import('../../shared/types/thread').ThreadAttachment>,
@@ -286,6 +288,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
       getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
       getFileAtRef: (input) => ipc.invoke(IPC_CHANNELS.git.getFileAtRef, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
+      changedCount: (input) => ipc.invoke(IPC_CHANNELS.git.changedCount, input) as Promise<number | null>,
       onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
     },
     search: {
@@ -608,7 +611,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
       detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,
-      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>
+      badge: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.badge, query) as Promise<import('../../shared/types/agent-activity').AgentActivityBadge>,
+      onChanged: listener => subscribe<import('../../shared/types/agent-activity').AgentActivityChange>(ipc, IPC_CHANNELS.agentActivity.changed, listener)
     },
     paneConversation: {
       has: paneId => ipc.invoke(IPC_CHANNELS.paneConversation.has, paneId) as Promise<boolean>,

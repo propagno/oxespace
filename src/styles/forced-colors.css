@@ -17,8 +17,8 @@
   /* Separators that resize panels draw their focus as a fill; give them the ring too. */
   :root [role='separator'][tabindex]:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
   /* A search box that draws its own frame rings the frame, not the field inside it. */
-  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find):focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
-  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find) input:focus-visible { outline-style: none; }
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find, .oq-tree-search, .oq-conn-search):focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
+  :root :is(.desktop-search, .changes-filter, .changes-menu-search, .settings-search, .mcp-panel-search, .scripts-panel-search, .skills-browser-search, .desktop-provider-session-search, .path-input, .thread-find, .oq-tree-search, .oq-conn-search) input:focus-visible { outline-style: none; }
   .thread-composer:focus-within { border-color: Highlight; }
   /* OxeQuery fields draw focus as a border tint and a shadow, at a weight the general rule above does not reach. */
   :root :is(.oq-view, .oq-scope) :is(input:not([type='checkbox'], [type='radio']), textarea):focus-visible { outline-color: Highlight; }
@@ -47,15 +47,21 @@
      chosen keep a ButtonText edge, so a row of them still reads as choices. The primitives in src/ui carry their own; a
      colour swatch (data-swatch) keeps its colour and is ringed instead (src/ui/Field.module.css). */
   :root [role='radio']:not([aria-checked='true'], :focus-visible, [data-swatch]) { outline: 1px solid ButtonText; outline-offset: -1px; }
-  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) {
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']),
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']) {
     forced-color-adjust: none;
     background: Highlight;
     color: HighlightText;
     border-color: Highlight;
   }
-  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) * { color: inherit; background-color: transparent; border-color: currentColor; }
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']) *,
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']) * { color: inherit; background-color: transparent; border-color: currentColor; }
   /* The focus ring on a chosen option would vanish into its fill; it takes the text color and stands off. */
-  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+  :root :is([role='radio'][aria-checked='true']:not([data-swatch]), button[aria-pressed='true'], nav button[aria-current='page'], nav a[aria-current='page']):focus-visible,
+  :root :is([role='button'][aria-current='true'], button[aria-current='true'], [role='button'][aria-current='page'], button[aria-current='page']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
+  /* The active terminal pane in OxeCode (PC-04·1, OXE-251): box-shadow inset is dropped in forced colors, so ring the active pane in Highlight. */
+  .pane-container.active { outline: 2px solid Highlight; outline-offset: -2px; }
 
   /* The hand-made switch in the thread's configuration (auto-accept edits): a track and thumb drawn with lines, in
      Highlight once on, the thumb on the right. */
@@ -65,6 +71,19 @@
   .thread-config-switch[aria-checked='true'] > i::after { background: HighlightText; }
   /* The active tab is marked by a colored bar; an underline survives the palette. */
   [role='tab'][aria-selected='true'] { text-decoration: underline 2px; text-underline-offset: 4px; }
+
+  /* The primary Button (src/ui): its fill was the only thing telling it from Cancel beside it, and the palette turns
+     both into ButtonFace. An enabled one keeps its own colours as Highlight on HighlightText; a disabled or busy one
+     falls through to the disabled rule below. */
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']) {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']) * { color: inherit; border-color: currentColor; }
+  /* Its focus ring would vanish into the fill; it takes the text color and stands off. */
+  :root button[data-variant='primary']:not(:disabled, [aria-disabled='true']):focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
 
   /* Disabled controls read as disabled. */
   :is(button, input, select, textarea):disabled,
@@ -79,7 +98,12 @@
   :is([data-status-dot='attention'], [data-status-dot='danger']) { box-sizing: border-box; background: Canvas; border: 2px solid CanvasText; }
   /* Older dots keep their own colors: each one carries a label, and the colors are what the user learned. A ring in
      the text color keeps each dot visible on any background the palette forces (the terminal's footer dot was lost). */
-  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .oq-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
+  :is(.pane-status-dot, .pane-activity-dot, .pane-unread-dot, .session-error-dot, .session-starting-dot, .thread-terminal-dot, .thread-subagent-dot, .oxe-health-dot, .app-update-dot, .ws-group-dot, .workspace-topbar-wsdot, .oq-status-dot, .statusbar-dot) { forced-color-adjust: none; outline: 1px solid CanvasText; }
+
+  /* The first run's current step (PU-03·1): its border and filled number were only colour, so the step is ringed in
+     Highlight and its number is drawn in Highlight / HighlightText. */
+  [data-ui='first-run-step'][aria-current='step'] { outline: 2px solid Highlight; outline-offset: -1px; }
+  [data-ui='first-run-step'][aria-current='step'] [data-ui='first-run-step-num'] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: Highlight; }
 
   /* Charts: meters, usage bars and the usage ring draw the filled part in the highlight color on an outlined track. */
   [role='meter'], .thread-usage-bar { outline: 1px solid CanvasText; }
@@ -87,4 +111,10 @@
   .thread-usage-ring-track { stroke: GrayText; }
   .thread-usage-ring-value { stroke: Highlight; }
   .thread-usage-ring[data-high='true'] .thread-usage-ring-value { stroke: CanvasText; }
+
+  /* StatusSignal (src/ui/StatusSignal.tsx): keep own colors so the disc stays currentColor and the inner mark
+     stays Canvas; working and done are Highlight, all other states CanvasText. */
+  :root svg[data-ui='status-signal'] { forced-color-adjust: none; color: CanvasText; }
+  :root svg[data-ui='status-signal'][data-state='working'],
+  :root svg[data-ui='status-signal'][data-state='done'] { color: Highlight; }
 }

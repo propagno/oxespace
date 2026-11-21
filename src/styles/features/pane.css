@@ -27,29 +27,17 @@
   border-color: var(--bd-focus) !important;
   box-shadow: inset 0 2px 0 var(--bd-focus) !important;
 }
+/* The focused pane's header tint and border are the PaneHeader primitive's (`focused`, BRD-14). */
 .pane-container.active > .pane-header {
-  background: var(--surface-chrome);
-  border-bottom-color: var(--bd-default);
   box-shadow: none;
-}
-.pane-container.active > .pane-header .pane-header-left {
-  border-color: transparent;
-  background: transparent;
 }
 .pane-container.active > .pane-header .pane-status-dot {
   box-shadow: none;
 }
 
+/* The header is the src/ui PaneHeader (height, padding, surface and border); this class is the hook and the extras. */
 .pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 36px;
-  padding: 4px 8px 4px 10px;
-  background: var(--surface-chrome);
-  border-bottom: 1px solid var(--bd-default);
   flex-shrink: 0;
-  gap: 8px;
   transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
@@ -99,7 +87,7 @@
   flex-shrink: 0;
   background: var(--tx-disabled);
 }
-.pane-status-dot.running  { background: var(--accent); box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+.pane-status-dot.running  { background: var(--accent); }
 .pane-status-dot.starting { background: var(--intent-warning-solid); }
 .pane-status-dot.error    { background: var(--intent-danger-solid); }
 .pane-status-dot.exited   { background: var(--tx-disabled); }
@@ -221,9 +209,9 @@
 .pane-intent {
   min-width: min(8ch, 100%);
   flex: 1;
-  color: var(--tx-secondary);
+  color: inherit;
   font-size: var(--fs-xs);
-  font-weight: 480;
+  font-weight: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -280,7 +268,6 @@
 
 .pane-intent-input:focus {
   border-color: var(--bd-focus);
-  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.18);
 }
 
 /* When the sidebar row shows the user's intent instead of raw output we lift

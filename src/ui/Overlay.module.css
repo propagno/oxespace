@@ -34,7 +34,13 @@
 .dialogTitle { margin: 0; font-size: var(--fs-lg); font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
 .dialogDescription { margin: 0; font-size: var(--fs-sm); color: var(--tx-secondary); line-height: var(--leading-snug); }
 .dialogBody { padding: 0 var(--space-5) var(--space-4); overflow: auto; min-height: 0; }
-.dialogFooter { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--bd-subtle); }
+/* One hairline under the header, only while content is hidden above. An inset shadow does not add a second border. */
+.dialogBody[data-overflow~='start'] { box-shadow: inset 0 1px 0 var(--bd-subtle); }
+.dialogFooter { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid transparent; }
+/* The footer's top border is the bottom hairline, and only while there is more below. */
+.dialogBody[data-overflow~='end'] + .dialogFooter { border-top-color: var(--bd-subtle); }
+/* Every footer button is lg (32 px, 13 px type), whatever size it was given. A link keeps its own size. */
+[data-dialog-footer] [data-ui='button']:not([data-variant='link']) { --button-h: var(--control-lg); padding: 0 var(--space-4); font-size: var(--fs-sm); }
 /* A secondary action (Delete, Preview) sits at the start of the footer, away from the primary one. */
 .dialogFooter > [data-align='start'] { margin-right: auto; }
 /* U1: the footer's `extra` slot holds one or more secondary actions at the start. */

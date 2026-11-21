@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import { Button } from '../../ui/Button'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
@@ -178,8 +179,8 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
         </label>
       })}</div>
       <footer>
-        {inserting ? <button type="button" className="oq-primary" onClick={stageInsert}>{t('rows.stageInsert')}</button>
-          : <><button type="button" className="oq-primary" onClick={stageUpdate}>{t('rows.stageUpdate')}</button>
+        {inserting ? <Button size="sm" variant="primary" onClick={stageInsert}>{t('rows.stageInsert')}</Button>
+          : <><Button size="sm" variant="primary" onClick={stageUpdate}>{t('rows.stageUpdate')}</Button>
             <button type="button" className="oq-danger" onClick={stageDelete}><Trash2 size={13} aria-hidden="true" />{t('rows.stageDelete')}</button></>}
       </footer>
     </div>}
@@ -199,7 +200,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
       <div className="oq-staged-actions">
         <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />{t('rows.viewSql')}</button>
         <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>{t('rows.discardAll')}</button>
-        <button type="button" className="oq-primary" disabled={busy} onClick={() => void apply(false)}>{t('rows.applyCount', { count: staged.length })}</button>
+        <Button size="sm" variant="primary" disabled={busy} onClick={() => void apply(false)}>{t('rows.applyCount', { count: staged.length })}</Button>
       </div>
     </div>}
     {enabled && staged.length === 0 && error && <ErrorState compact title={error} />}

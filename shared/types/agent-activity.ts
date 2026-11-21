@@ -59,8 +59,15 @@ export interface AgentActivitySummary {
   failedSources: AgentActivitySource[]
 }
 
+/** What changed: the connection it concerns, when there is one (PQ-07·7). */
+export interface AgentActivityChange {
+  connectionId?: string
+}
+
 export interface AgentActivityApi {
   list(query?: AgentActivityQuery): Promise<AgentActivityPage>
   detail(id: string): Promise<Record<string, unknown> | null>
   badge(query: AgentActivityBadgeQuery): Promise<AgentActivityBadge>
+  /** main -> renderer push on agentActivity:changed; returns the unsubscribe. */
+  onChanged(listener: (change: AgentActivityChange) => void): () => void
 }

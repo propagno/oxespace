@@ -1641,9 +1641,84 @@ jobs:
           gh workflow run merge-train.yml --ref "${{ github.event.repository.default_branch }}" -f wait_for_run="$RUN_ID" \
             || echo "::warning title=Merge train not woken::the dispatch failed; the train's cron will pick this run up"
 
+  # OXE-296: acceptance E2E gate before creating/publishing a release tag. Never runs on PRs or merge-train.
+  acceptance-release:
+    name: Acceptance e2e (release gate)
+    needs: [quick]
+    if: needs.quick.outputs.should_release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.quick.outputs.sha }}
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Linux system dependencies
+        run: |
+          sudo apt-get update
+          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
+            libxshmfence1 libnotify4
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          key: electron-Linux-${{ steps.electron.outputs.version }}
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Prepare native modules for Electron
+        run: npm run fix:native
+
+      - name: No live OXESpace env reaches the run
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
+            echo "::error::live OXESpace variables are set on the runner"; exit 1
+          fi
+
+      - name: Run acceptance suite (Linux)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts --trace retain-on-failure
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-release-${{ github.run_id }}-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
+
   release:
     name: Publish GitHub Release
-    needs: [quick, unit, e2e, package, oxequery-live, oxequery-live-versions]
+    needs: [quick, unit, e2e, acceptance-release, package, oxequery-live, oxequery-live-versions]
     if: needs.quick.outputs.should_release == 'true'
     # Publishing waits for a person: the `release` environment has the release owner as required reviewer, so a
     # dispatch with publish_release=true (by anyone, or by an agent session using their token) builds and verifies

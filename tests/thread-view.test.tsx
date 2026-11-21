@@ -159,8 +159,9 @@ describe('Thread workspace UI', () => {
     const base = useThreadStore.getState().threads[0]
     useThreadStore.setState({ threads: [{ ...base, id: 'older', title: 'Older conversation', createdAt: 1 }, { ...base, id: 'newer', title: 'Newer conversation', createdAt: 2 }], selectedId: 'older' })
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
-    const older = screen.getByText('Older conversation').closest('button')!
-    const newer = screen.getByText('Newer conversation').closest('button')!
+    // BRD-02 (OXE-166): each conversation is a src/ui SidebarRow, a [role=button] element with the same roving tab stop.
+    const older = screen.getByText('Older conversation').closest('[role="button"]') as HTMLElement
+    const newer = screen.getByText('Newer conversation').closest('[role="button"]') as HTMLElement
     await waitFor(() => expect(older.tabIndex).toBe(0))
     expect(newer.tabIndex).toBe(-1)
     expect(screen.getByRole('button', { name: 'Open Older conversation side by side' }).tabIndex).toBe(-1)
@@ -265,16 +266,11 @@ describe('Thread workspace UI', () => {
     act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, status: 'idle', lastTurnStatus: 'completed' }] }))
     expect(status()).toHaveTextContent('Finished')
   })
-  it('uses the Code mode provider symbols for Claude Code and Codex threads', () => {
+  it('leads each conversation row with its state, not the provider (BRD-02)', () => {
     const f = fixture()
     render(<ThreadSidebar workspaces={[f.workspace]} onCreate={vi.fn()} />)
-    const row = screen.getByText('Auth investigation').closest('button')!
-    const icon = () => row.querySelector('.thread-session-provider .agent-provider-icon') as HTMLElement
-    expect(icon()).toHaveStyle({ backgroundColor: 'var(--provider-claude)' })
-    expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Claude Code')
-    act(() => useThreadStore.setState({ threads: [{ ...f.snapshot.thread, provider: 'codex' }] }))
-    expect(icon()).toHaveStyle({ backgroundColor: 'var(--provider-codex)' })
-    expect(row.querySelector('.thread-session-provider')).toHaveTextContent('Codex')
+    // BRD-02 (OXE-166, frozen oxc-1-sidebar:167): no provider product name or symbol on the row; the lead is the state.
+    const row = screen.getByText('Auth investigation').closest('[data-ui="sidebar-row"]') as HTMLElement
     expect(row.querySelector('.thread-session-indicator')).toHaveAttribute('data-status', 'ready')
   })
   it('ignores a late catalog from the previously selected thread', async () => {
@@ -656,6 +652,19 @@ describe('Thread workspace UI', () => {
     // The status line repeats the answer's first sentence ("Done. Found the cause."), so the text is on screen twice.
     await screen.findAllByText('Found the cause.')
     expect(document.querySelectorAll('.thread-agent-label')).toHaveLength(1)
+  })
+  it('names the agent inside the open conversation, now that the sidebar row shows the state instead (BRD-02)', async () => {
+    const f = fixture()
+    f.snapshot.events = [{ type: 'message', id: 'question', role: 'user', text: 'Investigate this' }, { type: 'message', id: 'answer', role: 'assistant', text: 'Found the cause.' }]
+    const { unmount } = render(<ThreadView workspace={f.workspace} />)
+    await screen.findAllByText('Found the cause.')
+    expect(document.querySelector('.thread-agent-name')).toHaveTextContent(/Claude/)
+    unmount()
+    f.snapshot.thread = { ...f.snapshot.thread, provider: 'codex' }
+    act(() => useThreadStore.setState({ snapshot: f.snapshot, threads: [f.snapshot.thread] }))
+    render(<ThreadView workspace={f.workspace} />)
+    await screen.findAllByText('Found the cause.')
+    expect(document.querySelector('.thread-agent-name')).toHaveTextContent(/Codex/)
   })
   it('groups and filters conversations without changing Code selection', async () => {
     const f = fixture()

@@ -3,6 +3,7 @@ import { sayAddProjectFirst } from './commands/thread.events'
 import type { CodeCommandContext } from './commands/code.commands'
 import type { ThreadCommandContext } from './commands/thread.commands'
 import { useDeferredModule } from './app/useDeferredModule'
+import { firstRunGate } from './app/firstRunGate'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'
 import { setShownView } from './app/shownView'
@@ -11,8 +12,9 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
+import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
-import { panelMenuEntries, type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
+import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
 import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
 import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
@@ -81,6 +83,7 @@ import './components/Threads/ThreadView.css'
 import { AppStatusBar } from './components/Workspace/AppStatusBar'
 import { SchedulesHost } from './components/Schedules/SchedulesHost'
 import { NextAttentionHost } from './components/Attention/NextAttentionHost'
+import { registerAttentionSummaryLoad } from './store/activity.feed'
 import { isUsageProvider } from './components/Workspace/usageProviders'
 import { UpdateChips } from './app/UpdateChips'
 import { useAgentStore } from './store/agent.store'
@@ -147,6 +150,10 @@ export function App(): ReactElement {
   }, [selectMode])
   const [newThreadWorkspaceId, setNewThreadWorkspaceId] = useState<string | null | undefined>(undefined)
   const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
+  useEffect(() => attachOpenThreadDraftListener({
+    selectThreadMode: () => selectMode('thread'),
+    openNewThread: (projectId, rootPath) => { setNewThreadWorkspaceId(projectId); setNewThreadRootPath(rootPath) }
+  }), [selectMode])
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
   const threadSnapshot = useThreadStore(state => state.snapshot)
   const threadSelection = useThreadStore(state => state.selectedId)
@@ -340,7 +347,7 @@ export function App(): ReactElement {
   const dispatchSlashCommand = useSlashDispatcher({ workspace: activeWorkspace ?? null, pane: slashPane })
 
   useEffect(() => {
-    void bootstrap()
+    registerAttentionSummaryLoad(bootstrap())
   }, [bootstrap])
 
   useEffect(() => {
@@ -582,13 +589,16 @@ export function App(): ReactElement {
   }
 
   const threadProjects = useThreadStore(state => state.projects)
+  const threadProjectsState = useThreadStore(state => state.projectsState)
   const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
   // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
   // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
   const firstRunStarted = useRef(false)
   const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView() && workspaces.length === 0
-  if (!isLoading && firstRunOpen && threadProjects.length === 0) firstRunStarted.current = true
-  const showFirstRun = !isLoading && firstRunOpen && (threadProjects.length === 0 || firstRunStarted.current)
+  // A restart is not an empty profile until the project catalog is read as empty (OXE-77).
+  const firstRun = firstRunGate({ isLoading, firstRunOpen, projectsState: threadProjectsState, projectCount: threadProjects.length, started: firstRunStarted.current })
+  if (firstRun.start) firstRunStarted.current = true
+  const showFirstRun = firstRun.show
   const openContainerConversation = useCallback((id: string): void => {
     setContainersOpen(false)
     setFirstRunExited(true)
@@ -739,7 +749,6 @@ export function App(): ReactElement {
         onCloseWorkspace={handleCloseWorkspace}
         isCollapsed={collapsedSidebars.code}
         onToggleCollapse={() => toggleSidebar('code')}
-        panelMenu={panelMenuEntries(codePanelItems)}
         onOpenJobs={toggleBackgroundPanel}
         onOpenSearch={openCommandMenu}
         integrationGroups={integrationGroups}
@@ -752,7 +761,7 @@ export function App(): ReactElement {
             <Button variant="ghost" size="sm" onClick={() => setAppNotice(null)}>{t('ui.dismiss')}</Button>
           </div>
         ) : null}
-        {isLoading ? (
+        {isLoading || firstRun.pending ? (
           <div className="empty-state">
             <h3>{t('app.loadingWorkspaces')}</h3>
           </div>
@@ -862,7 +871,6 @@ export function App(): ReactElement {
       />
       <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
       <SchedulesHost onOpenThread={openScheduledThread} />
-      <NextAttentionHost selectView={selectMode} />
       {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
         onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
       {slashPane ? (
@@ -976,6 +984,7 @@ export function App(): ReactElement {
       </Suspense>
       </ErrorBoundary>
       </main>
+      <NextAttentionHost selectView={selectMode} />
       <RemotePairingHost />
       <Toaster />
       </TooltipProvider>

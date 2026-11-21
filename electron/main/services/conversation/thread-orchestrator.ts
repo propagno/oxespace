@@ -14,7 +14,9 @@ import type { ThreadAccess } from '../../../../shared/threadAccess'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 import { ThreadHistory, type ThreadHistoryWriteOptions } from './thread-history'
 import { ThreadSnapshotCache } from './thread-snapshot-cache'
-import { retryTurn, settleLegacyRewinds, type RetryHost } from './thread-retry'
+import { editPrompt, retryTurn, settleLegacyRewinds, type RetryHost } from './thread-retry'
+import { executePlan, type PlanExecuteHost } from './thread-plan-execute'
+import { mainLanguage } from '../../i18n'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
@@ -484,7 +486,7 @@ export class ThreadOrchestrator {
 
   async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> { return projectDiffAt(this.readThread(id), () => { this.readThread(id) }) }
 
-  async send(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
+  async send(id: string, text: string, attachmentIds: string[] = [], origin?: 'execute-plan'): Promise<void> {
     if (this.stopping) throw new Error('Application is shutting down')
     assertThreadMessage(text)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
@@ -494,7 +496,7 @@ export class ThreadOrchestrator {
     if (!queue) this.starting.add(id)
     let done = false
     try {
-      await this.sendReserved(id, text, attachmentIds, queue)
+      await this.sendReserved(id, text, attachmentIds, queue, origin)
       done = true
     } finally {
       if (!queue) {
@@ -506,7 +508,7 @@ export class ThreadOrchestrator {
     }
   }
 
-  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean): Promise<void> {
+  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean, origin?: 'execute-plan'): Promise<void> {
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
     recordRuntime('turn-submit', { thread: id, kind: 'thread' })
     if (queue) {
@@ -553,7 +555,7 @@ export class ThreadOrchestrator {
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
       await this.preflight?.(snapshot.thread)
       // `@file` mentions become attached content; the stored message keeps the text as typed.
-      if (!text.trim().startsWith('/')) {
+      if (!origin && !text.trim().startsWith('/')) { // Run plan (OXE-167) sends exactly the card's text: nothing is appended
         mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
         input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
         // The first message of a conversation carries a short orientation to the project.
@@ -572,7 +574,7 @@ export class ThreadOrchestrator {
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}) })
+    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}), ...(origin ? { origin } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
@@ -730,6 +732,9 @@ export class ThreadOrchestrator {
     return retryTurn(this.retryHost(), id, turnId, options)
   }
 
+  /** Edits the latest prompt: the text goes as the next turn and the edited turn is marked (OXE-167, see thread-retry). */
+  editPrompt(id: string, turnId: string, text: string, options: { restoreFiles?: boolean } = {}): Promise<{ restoredFiles: number }> { return editPrompt(this.retryHost(), id, turnId, text, options) }
+
   private retryHost(): RetryHost {
     return {
       checkpoints: this.checkpoints,
@@ -740,7 +745,25 @@ export class ThreadOrchestrator {
       read: id => this.read(id),
       changed: id => this.changed(id),
       audit: (id, entry) => this.audit(id, entry),
-      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds)
+      send: (id, text, attachmentIds) => this.send(id, text, attachmentIds),
+      saveTurns: (snapshot, turnsFrom) => { this.history.write(snapshot, { eventsFrom: snapshot.events.length, turnsFrom }); this.changed(snapshot.thread.id) }
+    }
+  }
+
+  /** Runs the plan of the latest Plan turn: Plan → Agent, then the run text as the next turn (see thread-plan-execute). */
+  executePlan(id: string, turnId: string): Promise<void> {
+    return executePlan(this.planHost(), id, turnId)
+  }
+
+  private planHost(): PlanExecuteHost {
+    const retry = this.retryHost()
+    return {
+      isStopping: retry.isStopping, isActive: retry.isActive, isFinalizing: retry.isFinalizing, settleFinalization: retry.settleFinalization,
+      read: id => this.read(id),
+      configure: (id, input, revision) => this.configure(id, input, revision),
+      audit: (id, entry) => this.audit(id, entry),
+      send: (id, text, origin) => this.send(id, text, [], origin),
+      language: () => mainLanguage()
     }
   }
 
@@ -806,8 +829,9 @@ export class ThreadOrchestrator {
       if (this.busy.has(id)) snapshot.thread.pendingConfiguration = configuration
       else {
         const adapter = this.adapters.get(id)
-        if (adapter && !adapter.configure) throw Error('The provider cannot apply this configuration')
-        await adapter?.configure?.(configuration)
+        // An idle process that cannot change its configuration in place is closed; the next turn resumes it with the new one.
+        if (adapter && !adapter.configure) { this.adapters.delete(id); await adapter.dispose().catch(() => {}) }
+        else await adapter?.configure?.(configuration)
         snapshot = this.read(id)
         Object.assign(snapshot.thread, configuration)
         delete snapshot.thread.pendingConfiguration

@@ -56,10 +56,19 @@ describe('activity store', () => {
 
   it('groups kinds into Needs you, Finished and Updates', () => {
     expect(activityGroup('needs-you')).toBe('needs-you')
-    expect(activityGroup('failed')).toBe('finished')
+    expect(activityGroup('failed')).toBe('failed')
     expect(activityGroup('finished')).toBe('finished')
     expect(activityGroup('quota')).toBe('updates')
     expect(activityGroup('update')).toBe('updates')
+  })
+
+  it('stores place and outcome and clears outcome on a new record without one', () => {
+    const { record } = useActivityStore.getState()
+    record({ ...thread('a', 'needs-you', 1), place: { project: 'shop', mode: 'chat' }, outcome: 'allowed', read: true })
+    expect(useActivityStore.getState().items[0]).toMatchObject({ place: { project: 'shop', mode: 'chat' }, outcome: 'allowed', read: true })
+    record({ ...thread('a', 'needs-you', 2), place: { project: 'shop', mode: 'chat' } })
+    expect(useActivityStore.getState().items[0].outcome).toBeUndefined()
+    expect(useActivityStore.getState().items[0].read).toBe(false)
   })
 })
 

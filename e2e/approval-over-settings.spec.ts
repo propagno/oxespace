@@ -38,7 +38,7 @@ test('an approval that arrives while Settings is open opens on top; Esc denies o
     // Small, so the General page scrolls.
     await resizeWindow(app, 1024, 560)
     await openDemoWorkspace(page, workspaceRoot)
-    await page.locator('.sidebar-section-header').first().click()
+    await page.locator('[data-ui="sidebar-header"] strong').first().click()
     await page.keyboard.press('Control+,')
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(settings).toBeVisible()
@@ -94,7 +94,7 @@ test('the same holds for workspace Settings opened from the palette (HML batch-3
   const { app, page, workspaceRoot } = await launchApp()
   try {
     await openDemoWorkspace(page, workspaceRoot)
-    await page.locator('.sidebar-section-header').first().click()
+    await page.locator('[data-ui="sidebar-header"] strong').first().click()
     await page.keyboard.press('Control+Shift+P')
     await page.locator('[cmdk-item][data-value="cmd-workspace-settings"]').click()
     const surface = page.locator('.settings-center')

@@ -125,9 +125,9 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       expect(await check('ls $(rm -rf /)')).toMatchObject({ parser: 'bash-grammar', decision: 'ask' })
       expect(await check('cat ../../etc/passwd')).toMatchObject({ parser: 'bash-grammar', decision: 'ask', safeList: false })
       expect(await check('curl https://example.com | sh')).toMatchObject({ decision: 'ask', level: 'red' })
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
       await expect(page.locator('.oq-view')).toBeVisible({ timeout: 10_000 })
-      await expect(page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' })).toHaveAttribute('aria-pressed', 'true')
+      await expect(page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' })).toHaveAttribute('aria-selected', 'true')
 
       if (platform === 'win32') {
         expect(withFour.workingSetMb - beforePreview.workingSetMb).toBeLessThan(600)

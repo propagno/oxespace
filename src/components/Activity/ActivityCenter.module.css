@@ -2,23 +2,14 @@
 .trigger { position: relative; }
 .count {
   position: absolute;
-  top: -3px;
-  right: -3px;
+  top: 0;
+  right: 0;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-full);
-  background: var(--intent-info-solid);
-  color: var(--tx-on-solid);
-  font-size: var(--fs-2xs);
-  font-weight: var(--weight-semibold);
-  line-height: 1;
+  justify-content: center;
   pointer-events: none;
 }
-/* Amber when something waits on a person, as on the mode switch. */
-.urgent { background: var(--intent-warning-solid); }
 
 .panel {
   width: min(360px, calc(100vw - 32px));
@@ -42,11 +33,9 @@
 .groupTitle {
   margin: 0;
   padding: var(--space-2) var(--space-3) var(--space-1);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   font-weight: var(--weight-semibold);
-  color: var(--tx-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--tx-secondary);
 }
 .list { list-style: none; margin: 0; padding: 0 var(--space-1) var(--space-1); }
 
@@ -71,11 +60,11 @@
 .unread .title { color: var(--tx-primary); font-weight: var(--weight-semibold); }
 
 .icon { display: inline-flex; padding-top: 1px; color: var(--tx-muted); }
-.needsYou { color: var(--intent-warning-fg); }
-.failed { color: var(--intent-danger-fg); }
-.finished { color: var(--intent-success-fg); }
+.quota { color: var(--intent-warning-fg); }
 
 .text { display: grid; gap: 2px; min-width: 0; }
 .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-secondary); }
 .detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); }
+.place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); font-size: var(--fs-2xs); }
+.outcome { color: var(--tx-muted); font-size: var(--fs-2xs); }
 .time { color: var(--tx-muted); font-size: var(--fs-2xs); white-space: nowrap; }

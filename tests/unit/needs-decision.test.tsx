@@ -73,10 +73,12 @@ describe('the sidebar row and the pane header', () => {
       <PaneSessionRow pane={ws.panes[1]} paneIndex={1} workspace={ws} isActive={false} agentProfiles={[]} onClick={() => undefined} onActivatePane={() => undefined} />
     </>)
     const [blocked, done] = [...container.querySelectorAll('[data-testid="pane-session-row"]')] as HTMLElement[]
-    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Claude · Needs you')
-    expect(within(done).getByTestId('pane-row-status')).toHaveTextContent('Claude · Finished')
-    expect(blocked.querySelector('.activity-needs-decision')).not.toBeNull()
-    expect(done.querySelector('.activity-needs-decision')).toBeNull()
+    // BRD-01: only the row that needs a decision has a second line, and it says what is asked.
+    expect(within(blocked).getByTestId('pane-row-status')).toHaveTextContent('Needs your approval or answer')
+    expect(within(done).queryByTestId('pane-row-status')).toBeNull()
+    expect(done).toHaveTextContent('finished')
+    expect(blocked.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
+    expect(done.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).toBeNull()
     // Not color alone, in the compact layout too: a mark beside the name.
     expect(within(blocked).getByTestId('pane-row-decision-mark')).toHaveAttribute('aria-hidden', 'true')
     expect(within(done).queryByTestId('pane-row-decision-mark')).toBeNull()
@@ -194,12 +196,12 @@ describe('notifications for a decision', () => {
     expect(notify.mock.calls[1][0]).toMatchObject({ title: 'Claude', body: 'Needs you · demo', paneId: 'p1', workspaceId: 'ws-1', silent: false })
     expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', title: 'Claude', detail: 'demo: the agent stopped and is waiting for your approval or answer.' })
 
-    // Held, it does not ping again; answered, the request leaves the list.
+    // Held, it does not ping again; answered, the entry stays read with outcome 'answered'.
     tick(6000)
     expect(notify).toHaveBeenCalledTimes(2)
     setState('working')
     tick()
-    expect(useActivityStore.getState().items.some(item => item.kind === 'needs-you')).toBe(false)
+    expect(useActivityStore.getState().items[0]).toMatchObject({ kind: 'needs-you', id: 'p1', read: true, outcome: 'answered' })
   })
 
   it('names an unnamed pane after the agent its shell launches, not a generic word', () => {

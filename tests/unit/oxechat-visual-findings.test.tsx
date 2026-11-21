@@ -33,32 +33,28 @@ describe('VIS-14 · what the app says is in the person\'s language', () => {
   })
 })
 
-describe('VIS-08 · the pill keeps the room of "Nothing waiting" when something starts waiting', () => {
+describe('VIS-08 · BRD-09: the pill is there only while something waits', () => {
   beforeEach(() => {
     useWorkspaceStore.setState({ workspaces: [] })
     useThreadStore.setState({ threads: [], unreadIds: [] })
   })
 
-  it('with nothing waiting there is one text, the button\'s', () => {
+  it('with nothing waiting there is no pill and no "Nothing waiting" text', () => {
     render(<NeedsYouPill />)
-    expect(screen.getAllByText('Nothing waiting')).toHaveLength(1)
-    expect(screen.getByRole('button')).toHaveTextContent('Nothing waiting')
+    expect(screen.queryByTestId('needs-you-pill')).toBeNull()
+    expect(screen.queryByText('Nothing waiting')).toBeNull()
   })
 
-  it('with something waiting, the old text only holds the width: not read, not clickable, and the button says the count', () => {
-    useThreadStore.setState({ threads: [{ id: 'a', status: 'approval' }] as never })
+  it('with something waiting, one button says the count and nothing else holds a width', async () => {
+    // BRD-10 / OXE-176: the count is the queue's pending rows, from main's agents overview.
+    const sources = { panes: { ok: true }, threads: { ok: true }, delegations: { ok: true }, work: { ok: true } }
+    const agents = [{ kind: 'pane', id: 'pane-1', state: 'needs-you', provider: 'claude', mode: 'code', title: 'Claude', workspaceId: null, since: 1, seenAt: null, session: null, worktree: null, cost: null, requests: [] }]
+    ;(window as unknown as { oxe: unknown }).oxe = { agents: { overview: async () => ({ agents, sources }), onChanged: () => () => undefined, markSeen: async () => undefined } }
     render(<NeedsYouPill />)
-    const button = screen.getByTestId('needs-you-pill')
+    const button = await screen.findByTestId('needs-you-pill')
     expect(button).toHaveTextContent('1 needs you')
-    expect(button).not.toHaveTextContent('Nothing waiting')
-    const sizer = screen.getByText('Nothing waiting').closest('[aria-hidden="true"]')
-    expect(sizer).not.toBeNull()
-    expect(sizer!.tagName).toBe('SPAN')
-    expect(sizer!.contains(button)).toBe(false)
-    // One button only: the sizer is not a second way in.
+    expect(screen.queryByText('Nothing waiting')).toBeNull()
     expect(screen.getAllByRole('button')).toHaveLength(1)
-    // Both sit in the same slot, which is what keeps the width.
-    expect(sizer!.parentElement).toBe(button.parentElement)
   })
 })
 

@@ -17,12 +17,18 @@ const dialog = (name: string | RegExp): Check => async page => { await expect(pa
 const testId = (id: string): Check => async page => { await expect(page.getByTestId(id).first()).toBeVisible() }
 // The mode's id, not a role or its name: a modal hides the rest of the page from the accessibility tree.
 const view = (shell: AppMode): Check => async page => {
-  await expect(modeButton(page, shell)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, shell)).toHaveAttribute('aria-selected', 'true')
 }
 const both = (...checks: Check[]): Check => async page => { for (const check of checks) await check(page) }
 const toast = (title: string | RegExp): Check => async page => { await expect(page.locator('[data-toast], [role="status"], [role="alert"]').filter({ hasText: title }).first()).toBeVisible() }
 const settingsPage = (label: string): Check => both(dialog('Settings'), async page => {
-  await expect(page.locator('.settings-center nav[aria-label="Settings categories"] [aria-current="page"]')).toContainText(label)
+  // BRD-23 (OXE-100): a section of several pages marks the page as the checked radio of "Pages in this section"; a
+  // section of one page is the current nav entry. Either way the deep link landed on that page.
+  const center = page.locator('.settings-center')
+  await expect.poll(async () => {
+    const checked = center.locator('[role="radiogroup"][aria-label="Pages in this section"] [role="radio"][aria-checked="true"]')
+    return await checked.count() ? await checked.textContent() : await center.locator('nav[aria-label="Settings categories"] [aria-current="page"]').textContent()
+  }).toContain(label)
 })
 const rootData = (key: 'mode' | 'density', value: string): Check => async page => {
   await expect.poll(() => page.evaluate(name => document.documentElement.dataset[name], key)).toBe(value)
@@ -178,7 +184,7 @@ async function dismiss(page: Page): Promise<void> {
 async function selectView(page: Page, mode: AppMode): Promise<void> {
   await modeButton(page, mode).click()
   // F7.2: the current view stays until the next one is in; wait for the switch to land before using the new view.
-  await expect(modeButton(page, mode)).toHaveAttribute('aria-pressed', 'true')
+  await expect(modeButton(page, mode)).toHaveAttribute('aria-selected', 'true')
   await expect(modeButton(page, mode)).not.toHaveAttribute('aria-busy', 'true')
 }
 
@@ -216,7 +222,7 @@ test.describe('offer audit', () => {
       for (const id of ids) {
         if (NATIVE_DIALOG.has(id)) continue
         await dismiss(page)
-        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
+        if (id.startsWith('split-')) { if (await modeButton(page, 'code').getAttribute('aria-selected') !== 'true') await selectView(page, 'code'); await closeSidePanels(page) }
         const errorsBefore = pageErrors(launched).length
         const panesBefore = await paneCount(page)
         // A command that needs Code's workspace is offered there; come back to Code when the last command left it.
@@ -269,7 +275,7 @@ test.describe('offer audit', () => {
       const THREAD_EFFECTS: Record<string, Check> = {
         'thread.new': both(view('thread'), dialog('New conversation')),
         'thread.add-project': both(view('thread'), dialog('Add project')),
-        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current="page"]')).toContainText('Offer audit') }),
+        'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current]')).toContainText('Offer audit') }),
         'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),
         'thread.events': sent('/events'), 'thread.rules': sent('/rules'),
         'thread.undo-last-turn': toast('Nothing to undo'),
@@ -424,7 +430,7 @@ test.describe('offer audit', () => {
           await dismiss(page)
           if (label === 'Toggle sidebar' || label === 'Toggle split layout' || label.startsWith('Maximize')) await runCommand(page, label === 'Toggle sidebar' ? 'toggle-sidebar' : label.startsWith('Maximize') ? 'maximize-pane' : 'toggle-split-layout')
           if (label.startsWith('Split pane')) await runCommand(page, 'layout-2')
-          if (await modeButton(page, 'code').getAttribute('aria-pressed') !== 'true') await selectView(page, 'code')
+          if (await modeButton(page, 'code').getAttribute('aria-selected') !== 'true') await selectView(page, 'code')
           await dismiss(page)
         }
       }
@@ -439,14 +445,14 @@ test.describe('offer audit', () => {
     const { app, page } = launched
     try {
       const row = page.getByTestId('sidebar-workspace-item').first()
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       const menu = page.locator('.ws-group-context-menu')
       await expect(menu.getByRole('menuitem', { name: 'Move up' })).toBeDisabled()
       await expect(menu.getByRole('menuitem', { name: 'Move down' })).toBeDisabled()
       await menu.getByRole('menuitem', { name: 'Workspace settings' }).click()
       await dialog('Settings')(page)
       await dismiss(page)
-      await row.locator('.ws-group-header').click({ button: 'right' })
+      await row.locator('[data-ui="sidebar-group"]').click({ button: 'right' })
       await menu.getByRole('menuitem', { name: 'Rename' }).click()
       await expect(page.getByRole('textbox', { name: /Rename workspace/ })).toBeFocused()
       await page.keyboard.press('Escape')

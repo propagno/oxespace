@@ -1,0 +1,73 @@
+/* BRD-10 (OXE-73): the needs-you queue under the title-bar pill. Fixed, so the title bar's clipping never cuts it. */
+.queue {
+  position: fixed;
+  z-index: var(--layer-dropdown);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(26rem, calc(100vw - 2 * var(--space-4)));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+}
+
+.group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+
+.heading {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--tx-secondary);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+}
+.item:focus { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.head, .row { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+
+.where { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.risk { margin-left: auto; flex: none; color: var(--intent-danger-fg); font-weight: var(--weight-semibold); }
+
+.command {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--tx-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+
+.detail { margin-right: auto; color: var(--tx-secondary); }
+
+.more { margin: 0; color: var(--tx-secondary); }
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--bd-subtle);
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+}

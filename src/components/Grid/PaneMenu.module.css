@@ -1,13 +1,14 @@
-/* A pane-menu item drawn with <Button variant="ghost">. It looks like the menu's other items
-   (.pane-actions-popover-item, src/styles/features/pane.css). That file is in the oxe-legacy layer, and an unlayered
-   module wins over any layer, so these rules sit here, one class deeper than the primitive's. */
+/* A pane-menu item drawn with <Button variant="ghost"> (BRD-16, OXE-85): every item of the ⋯ menu is the primitive,
+   one row of the 1.5.2 scale (--row-1: 28, 32 comfortable). The popover (.pane-actions-popover, src/styles/features/pane.css)
+   is in the oxe-legacy layer, and an unlayered module wins over any layer, so these rules sit here, one class deeper than
+   the primitive's. */
 :global(.pane-actions-popover) .item {
   flex-shrink: 0;
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
-  height: 30px;
-  padding: 0 10px;
+  height: var(--row-1);
+  padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -25,4 +26,22 @@
 :global(.pane-actions-popover) .item:disabled {
   opacity: 0.4;
   cursor: default;
+}
+/* The destructive group is last and alone (BRD-16): Close pane. */
+:global(.pane-actions-popover) .item.danger {
+  color: var(--intent-danger-fg);
+}
+:global(.pane-actions-popover) .item.danger:hover:not(:disabled) {
+  background: var(--intent-danger-bg);
+  color: var(--intent-danger-fg);
+}
+/* A named group (Keys and typing, Arrange panes, Agent session) opens under its trigger, indented. */
+.chevron {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+:global(.pane-actions-popover) .submenu {
+  display: flex;
+  flex-direction: column;
+  padding-inline-start: var(--space-3);
 }

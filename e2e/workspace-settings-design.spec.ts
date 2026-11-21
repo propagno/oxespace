@@ -25,7 +25,7 @@ test('workspace settings navigation and responsive visual review', async () => {
       for (const label of ['General', 'Projects', 'Policy']) {
         if (width < 900) {
           // Application and workspace pages share one list since 1.5; a workspace page is named "<workspace>: <page>".
-          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: new RegExp(`: ${label}$`) })
+          const category = modal.getByRole('group', { name: 'Settings category' }).getByRole('button', { name: label, exact: true })
           await category.click()
           await expect(category).toHaveAttribute('aria-pressed', 'true')
         } else {
@@ -79,7 +79,7 @@ test('workspace settings navigation and responsive visual review', async () => {
     await expect(page.locator('.workspace-topbar-breadcrumb')).toBeHidden()
     await expect(page.locator('.app-statusbar')).toBeVisible()
     const initialPaneId = await page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')
-    await page.locator('.sidebar').getByText('terminal 2', { exact: true }).click()
+    await page.locator('.sidebar').getByTestId('pane-session-row').nth(1).click()
     await expect.poll(() => page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane').getAttribute('data-pane-id')).not.toBe(initialPaneId)
     await expect(page.locator('.split-pane-slot[data-compact-active]').getByTestId('terminal-pane')).toBeVisible()
     await page.screenshot({ path: info.outputPath('600-Code-Dark.png') })

@@ -130,20 +130,40 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const dirs = scratch('first-run')
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.locator('button[data-app-mode="code"]').click()
-      const card = page.getByRole('region', { name: 'Before you start' })
-      await expect(card).toBeVisible()
-      // The first launch checks the machine once; wait for that check to finish.
-      await expect(card).not.toContainText('Checking for agent CLIs', { timeout: 60_000 })
-      await expect(card).toContainText(/(is|are) ready|No agent CLI found|found but not ready|not checked yet/)
-      await expect(card).toContainText('gh auth login')
-      if (/No agent CLI found/.test(await card.innerText())) {
-        await expect(card.getByRole('button', { name: 'Install Claude Code' })).toBeVisible()
-        await expect(card.getByRole('button', { name: 'Check again' })).toBeVisible()
-      }
-      await card.getByRole('button', { name: 'Agent settings' }).click()
-      // The providers page of the settings center, not just any settings screen.
-      await expect(page.getByTestId('btn-discover-agents')).toBeVisible()
+      // BRD-12 (OXE-77): a fresh profile opens on the first run; its agents step says, for each agent CLI, whether it
+      // is ready, missing (How to install) or needs a sign-in. The first launch checks the machine once.
+      const firstRun = page.getByTestId('first-run')
+      await expect(firstRun).toBeVisible()
+      await expect(firstRun.getByRole('heading', { name: 'Connect an agent' })).toBeVisible()
+      await expect(firstRun.getByText(/^(Ready|How to install|Sign in(\b|$))/).first()).toBeVisible({ timeout: 60_000 })
+    } finally {
+      await app.close()
+    }
+  })
+
+  // The "gh auth login" hint lives where OXE-211 puts it: the GitHub / Commit & PR panel while not connected, and the
+  // Integrations page.
+  test(`${label}: the gh auth login hint shows in the GitHub panel while not connected and on the Integrations page (OXE-211)`, async () => {
+    test.setTimeout(120_000)
+    guard()
+    const dirs = scratch('gh-auth-hint')
+    seed(dirs.workspace)
+    const { app, page } = await boot(options, dirs.database)
+    try {
+      await page.getByTestId('btn-new-workspace').click()
+      await page.getByTestId('wizard-dir-input').fill(dirs.workspace)
+      await page.getByTestId('wizard-layout-card-1').click()
+      await page.getByTestId('wizard-launch-btn').click()
+      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+
+      // Open Settings › Integrations › GitHub and verify the "gh auth login" command and copy button.
+      await page.getByRole('button', { name: /Open settings/i }).first().click()
+      await page.getByRole('button', { name: /^Integrations/i }).click()
+      await page.getByRole('radio', { name: 'GitHub' }).click()
+      const ghPage = page.getByTestId('settings-github-page')
+      await expect(ghPage).toBeVisible()
+      await expect(ghPage).toContainText('gh auth login')
+      await expect(ghPage.getByRole('button', { name: /Copy.*gh auth login/i })).toBeVisible()
     } finally {
       await app.close()
     }
@@ -199,7 +219,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const dirs = scratch('oxequery')
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.getByRole('navigation', { name: 'Application view' }).getByRole('button', { name: 'OxeQuery' }).click()
+      await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab', { name: 'OxeQuery' }).click()
       await expect(page.locator('.oq-view')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByRole('complementary', { name: 'OxeQuery sidebar' })).toBeVisible()
 

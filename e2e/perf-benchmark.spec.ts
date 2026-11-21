@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
-import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput } from './helpers/input-timer'
+import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput, WORKSPACE_LAUNCH_DONE_CHECKS } from './helpers/input-timer'
 import { launchForPerf } from './helpers/perf-launch'
 
 const REPEATS = 6
@@ -31,7 +31,10 @@ const PERF_BUDGETS_MS: Record<string, number> = {
   'boot: launch→firstWindow': 5_000,
   'boot: firstWindow→interactive': 2_000,
   'workspace: create→grid (w/ input)': 3_000,
+  'workspace: launch→grid (in-window)': 1_500,
   'shell: create split pane': 1_500,
+  // Warm command menu open uses the per-rootPath fileList cache (OXE-41), aligned to the 100 ms perceptible budget.
+  'shell: command menu open': 100,
   'terminal: split→PTY running': 2_000,
   // Modal surfaces perform a full settings-tree mount. Their CI p95 baseline
   // is ~570 ms on Linux runners; keep this explicit instead of weakening the
@@ -153,18 +156,22 @@ async function waitForProcessExit(pid: number, timeoutMs: number): Promise<boole
   }
   return false
 }
-async function createWorkspace(page: Page, requestedRoot?: string): Promise<void> {
+async function createWorkspace(page: Page, requestedRoot?: string): Promise<{ totalMs: number; inWindowMs: number }> {
+  const tStart = performance.now()
   const root = requestedRoot ?? join(tmpdir(), `oxe-ws-${Date.now()}`, 'repo')
   mkdirSync(root, { recursive: true })
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(root)
   await page.getByTestId('wizard-layout-card-1').click()
+  await armInputTimerUntil(page, WORKSPACE_LAUNCH_DONE_CHECKS)
   await page.getByTestId('wizard-launch-btn').click()
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', {
     state: 'visible'
   })
   // The terminal starts and takes focus a moment later; measurements begin after that settles.
   await page.locator('[data-testid="terminal-pane"]').first().waitFor({ state: 'visible' })
+  const inWindowMs = await readInputTimer(page)
+  return { totalMs: performance.now() - tStart, inWindowMs }
 }
 async function timePanelToggle(
   page: Page,
@@ -212,7 +219,7 @@ async function timeDomToggle(
 async function pressShellShortcut(page: Page, shortcut: string): Promise<void> {
   // Focus has to be on the shell, not in a terminal, for a shell shortcut. The mode switch is on screen in every
   // state; the Panels button this used is not in the collapsed sidebar of 1.5, so the expand step never got its key.
-  await page.getByRole('navigation', { name: 'Application view' }).getByRole('button').first().focus()
+  await page.getByRole('tablist', { name: 'Application view' }).getByRole('tab').first().focus()
   await page.keyboard.press(shortcut)
 }
 
@@ -226,9 +233,11 @@ test('boot + workspace create', async () => {
     const tInteractive = performance.now()
     report('boot: launch→firstWindow', [tFirst - tLaunch])
     report('boot: firstWindow→interactive', [tInteractive - tFirst])
-    const tC = performance.now()
-    await createWorkspace(page)
-    report('workspace: create→grid (w/ input)', [performance.now() - tC])
+    const { totalMs, inWindowMs } = await createWorkspace(page)
+    report('workspace: create→grid (w/ input)', [totalMs])
+    report('workspace: launch→grid (in-window)', [inWindowMs])
+    expect(inWindowMs, 'in-window workspace launch→grid is positive').toBeGreaterThan(0)
+    expect(inWindowMs, 'in-window workspace launch→grid excludes wizard input overhead').toBeLessThan(totalMs)
     const processMetrics = await app.evaluate(({ app }) => app.getAppMetrics())
     const workingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.workingSetSize, 0) / 1024
     const peakWorkingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.peakWorkingSetSize, 0) / 1024
@@ -254,7 +263,7 @@ test('shell: sidebar, command menu, tools and split renderer', async () => {
   const { app, page, pid } = await launchApp({ mockNative: false })
   try {
     await createWorkspace(page)
-    await page.locator('.sidebar-section-header').last().click()
+    await page.locator('[data-ui="sidebar-header"] strong').last().click()
     if (await page.locator('.sidebar.sidebar-collapsed').count()) {
       await pressShellShortcut(page, 'Control+b')
       await page.locator('.sidebar.sidebar-collapsed').waitFor({ state: 'detached' })
@@ -341,7 +350,7 @@ test('workspace transition: mounted native terminals', async () => {
     for (let i = 0; i < REPEATS; i++) {
       const label = i % 2 === 0 ? 'alpha-repo' : 'beta-repo'
       const target = page.getByTestId('sidebar-workspace-item').filter({ hasText: label })
-      await armInputTimerUntil(page, [{ selector: '.ws-group.active', text: label }])
+      await armInputTimerUntil(page, [{ selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label }])
       await target.getByTestId('sidebar-workspace-select').click()
       switchTimes.push(await readInputTimer(page))
     }
@@ -422,7 +431,7 @@ test('workspace transition: returning to an evicted workspace', async () => {
       // Ends on a live terminal in the shown workspace, not merely a painted shell: a blank-but-fast terminal would be
       // a failed fix.
       await armInputTimerUntil(page, [
-        { selector: '.ws-group.active', text: label },
+        { selector: '[data-testid="sidebar-workspace-item"][data-active]', text: label },
         { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-status-label"]', text: 'running' }
       ])
       await target.getByTestId('sidebar-workspace-select').click()
@@ -457,12 +466,7 @@ test('repository: Files ↔ Source Control', async () => {
         '[data-testid="workspace-github-panel"]',
         true
       ))
-      toFiles.push(await timeDomToggle(
-        page,
-        () => page.getByTestId('workspace-github-panel').getByRole('button', { name: 'Files and editor' }).click(),
-        '[data-testid="workspace-editor-panel"]',
-        true
-      ))
+      toFiles.push(await timePanelToggle(page, 'Files', 'workspace-editor-panel', true))
     }
 
     report('repository: Files→Source Control', toSourceControl)
@@ -525,7 +529,7 @@ test('modal surfaces: agents, MCP, workspace settings and usage', async () => {
     for (let i = 0; i < modalRepeats; i++) {
       // Settings restores terminal focus; move to navigation before an app shortcut. Finding the command is setup;
       // the measured interaction is choosing it.
-      await page.locator('.sidebar-section-header').last().click()
+      await page.locator('[data-ui="sidebar-header"] strong').last().click()
       await page.keyboard.press('Control+Shift+P')
       const input = page.locator('input[placeholder="Search files and commands…"]')
       await input.fill('usage')
@@ -612,7 +616,7 @@ async function timeModeSwitch(page: Page, mode: 'code' | 'thread' | 'data'): Pro
     const started = performance.now()
     button.click()
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    if (button.getAttribute('aria-pressed') !== 'true') throw new Error(`${name} did not become the active view`)
+    if (button.getAttribute('aria-selected') !== 'true') throw new Error(`${name} did not become the active view`)
     return performance.now() - started
   }, mode)
 }
@@ -627,10 +631,10 @@ test('mode switch: Code ↔ Thread ↔ OxeQuery', async () => {
   const { app, page, pid } = await launchApp()
   try {
     await createWorkspace(page)
-    const nav = page.getByRole('navigation', { name: 'Application view' })
+    const nav = page.getByRole('tablist', { name: 'Application view' })
     await modeButton(page, 'thread').click()
     await page.locator('.thread-host').waitFor({ state: 'visible' })
-    await nav.getByRole('button', { name: 'OxeQuery', exact: true }).click()
+    await nav.getByRole('tab', { name: 'OxeQuery', exact: true }).click()
     await page.locator('.oq-host').waitFor({ state: 'visible' })
     await modeButton(page, 'code').click()
     await page.waitForTimeout(250)
@@ -944,7 +948,7 @@ test('memory: main process with 10 Threads open', async () => {
       if (await page.locator('.thread-show-more').count()) await page.locator('.thread-show-more').click()
       await page.locator('.thread-navigation-item').nth(index).click()
       await page.locator('.thread-timeline').waitFor()
-      await expect(page.locator('.thread-navigation-item[aria-current="page"]')).toHaveCount(1)
+      await expect(page.locator('.thread-navigation-item[aria-current]')).toHaveCount(1)
     }
     await expect(page.locator('.thread-navigation-item')).toHaveCount(THREAD_COUNT)
     await page.waitForTimeout(1_500)

@@ -11,6 +11,19 @@
     "category": "Categoria",
     "categoryGroup": "Categoria das configurações",
     "categories": "Categorias das configurações",
+    "scopeApp": "Aplicativo",
+    "sectionPages": "Páginas desta seção",
+    "sections": {
+      "general": { "label": "Geral", "hint": "Navegação, caches de workspace e editor externo" },
+      "appearance": { "label": "Aparência", "hint": "Modo, escala, densidade e idioma" },
+      "agents": { "label": "Agentes e permissões", "hint": "CLIs de agentes, aprovações e o que os agentes podem fazer" },
+      "notifications": { "label": "Notificações", "hint": "Alertas e sons na área de trabalho" },
+      "keyboard": { "label": "Teclado", "hint": "Atalhos e combinações de teclas" },
+      "terminal": { "label": "Terminal", "hint": "Fonte, cursor, rolagem e comportamento" },
+      "integrations": { "label": "Integrações", "hint": "Servidores MCP, skills e dispositivos pareados" },
+      "data": { "label": "Dados e diagnóstico", "hint": "Uso, atividade dos agentes e diagnóstico" },
+      "about": { "label": "Sobre", "hint": "Versão, atualizações e licenças" }
+    },
     "noMatch": "Nenhuma configuração encontrada",
     "appliesAcross": "Vale para todos os workspaces",
     "backToWork": "Voltar ao trabalho",
@@ -66,6 +79,10 @@
       "devices": {
         "label": "Celular e dispositivos",
         "hint": "Celulares e dispositivos pareados"
+      },
+      "github": {
+        "label": "GitHub",
+        "hint": "Autenticação da CLI do GitHub e integração de pull requests"
       },
       "diagnostics": {
         "label": "Diagnóstico",
@@ -268,7 +285,9 @@
     "notInstalled_many": "{{count}} não instalados",
     "notInstalled_other": "{{count}} não instalados",
     "missingHint": "guias de instalação · corrigir caminhos",
-    "newCustomAgent": "Novo agente personalizado",
+    "newCustomAgent": "Agente personalizado",
+    "customAgents": "Agentes personalizados",
+    "customAgentsHint": "Um comando seu, iniciado como um agente embutido.",
     "installDoc": {
       "install": "Instalar {{product}}",
       "docs": "Documentação do {{product}}"
@@ -326,7 +345,7 @@
   "terminal": {
     "title": "Terminal",
     "description": "Defina a fonte, o cursor e o comportamento padrão de todos os workspaces. Os ajustes de cada workspace continuam independentes.",
-    "preview": "prévia do terminal",
+    "preview": "Prévia do terminal",
     "font": "Fonte",
     "family": "Família",
     "size": "Tamanho",
@@ -559,6 +578,19 @@
     "promptPlaceholder": "Você é especialista em Java 8+. Revise este código quanto a boas práticas, desempenho e correção.",
     "command": "Comando"
   },
+  "github": {
+    "title": "GitHub",
+    "intro": "Entre com a CLI do GitHub para criar pull requests, acompanhar workflows e sincronizar repositórios.",
+    "section": "Conexão",
+    "statusLabel": "Status da CLI do GitHub",
+    "checking": "Verificando a CLI do GitHub…",
+    "connected": "Conectado como @{{user}}",
+    "notConnected": "A CLI do GitHub está instalada, mas você ainda não entrou.",
+    "noCli": "A CLI do GitHub (gh) não foi encontrada neste computador.",
+    "disconnectedBadge": "Não conectado",
+    "authLabel": "Autenticar no terminal",
+    "authHint": "Copie e rode este comando no terminal para conectar sua conta do GitHub."
+  },
   "devices": {
     "title": "Celular e dispositivos",
     "intro": "Use o OXESpace pelo seu celular Android na mesma rede: acompanhe conversas, responda pedidos e veja terminais. O celular fala só com este computador, pela sua rede local, nunca pela internet.",
@@ -732,7 +764,8 @@
     }
   },
   "tools": {
-    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Tools › Manage MCP servers.",
+    "whereToAdd": "Para adicionar ou remover um servidor MCP, use Ferramentas › Gerenciar servidores MCP.",
+    "manageMcp": "Gerenciar servidores MCP…",
     "skillsList": {
       "title": "Skills",
       "intro": "Prompts Markdown de ~/.oxe/skills e do .oxe/skills do projeto, que vence se o nome se repete. Rode com /.",
@@ -979,7 +1012,7 @@
     "toggleHint": "Registra hosts de programas que usam HTTP_PROXY. Nunca caminhos, cabeçalhos ou corpos.",
     "turnedOnNotice": "Vale para programas de novos agentes que usam HTTP_PROXY. Alguns, como ssh ou fetch do Node, ignoram.",
     "turnedOffNotice": "Registro parado. Agentes já em execução continuam funcionando até terminarem.",
-    "tryAgain": "Tentar novamente",
+    "tryAgain": "Tentar de novo",
     "filterLabel": "Filtrar hosts",
     "empty": "Nenhuma conexão de saída ainda.",
     "noMatch": "Nenhum host encontrado.",

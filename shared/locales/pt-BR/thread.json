@@ -1406,6 +1406,7 @@
     "width": "Largura da barra lateral do OxeChat",
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
+    "filterPlaceholder": "Filtrar…",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
@@ -2238,7 +2239,9 @@
       }
     },
     "toast": {
-      "needsYou": "Precisa de você: {{title}} · {{agent}}"
+      "needsYou": "Precisa de você: {{title}} · {{agent}}",
+      "moreInQueue": "+{{count}} na fila",
+      "openConversation": "Abrir conversa"
     },
     "queue": {
       "listLabel": "Aprovações pendentes",
@@ -2256,7 +2259,19 @@
       "allClearTitle": "Tudo em dia",
       "approvalRules": "Regras de aprovação",
       "openTask": "Abrir a conversa",
-      "closeQueue": "Fechar aprovações"
+      "closeQueue": "Fechar aprovações",
+      "panelLabel": "O que precisa de você",
+      "group": {
+        "needsYou": "Precisa de você",
+        "failed": "Falhou",
+        "working": "Trabalhando"
+      },
+      "groupHeading": "{{label}} · {{count}}",
+      "nextShortcut": "Próximo",
+      "more": "+{{rest}} mais",
+      "deny": "Negar",
+      "paneWaiting": "Esperando você no terminal",
+      "goToPane": "Ir ao terminal"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

@@ -1,7 +1,7 @@
-/* U2 (X3): the anatomy of every Settings page. A section is a card; a row is the setting's words on the left and its
-   control on the right, or under the words when wide. Body text is 14 px. */
+/* U2 (X3, BRD-23): the anatomy of every Settings page. A section is a card, the one mould (no variant); a row is the
+   setting's words on the left and its control on the right, or under the words when wide. Body text is 14 px. */
+.pageTitle { margin: 0; color: var(--tx-primary); font-family: var(--font-display); font-stretch: var(--stretch-title); font-size: var(--fs-xl); font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
 .section { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); font-size: var(--fs-sm); }
-.section.plain { padding: 0; border: 0; border-radius: 0; background: none; }
 .sectionHeader { display: flex; align-items: flex-start; gap: var(--space-3); }
 .sectionHeader > div { flex: 1; min-width: 0; display: grid; gap: var(--space-1); }
 .sectionTitle { margin: 0; font-size: var(--fs-md); font-weight: var(--weight-semibold); line-height: var(--leading-tight); color: var(--tx-primary); }

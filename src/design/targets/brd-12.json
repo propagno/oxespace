@@ -1,0 +1,69 @@
+{
+  "brd": "BRD-12",
+  "card": "OXE-77",
+  "title": "First use: one start in three steps",
+  "platform": "desktop",
+  "source": "oxespace-152-brand/.brand-audit/BRD-lote-1.md (BRD-12) and the card OXE-77 spec-v1 (15/11)",
+  "measures": [
+    {
+      "id": "BRD-12.title.font-size",
+      "scene": "first-run",
+      "select": "[data-ui=first-run-title]",
+      "prop": "font-size",
+      "expect": {
+        "token": "--fs-display"
+      },
+      "tolerance": 0.5,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the display title, 28 px"
+    },
+    {
+      "id": "BRD-12.title.font-family",
+      "scene": "first-run",
+      "select": "[data-ui=first-run-title]",
+      "prop": "font-family",
+      "expect": {
+        "token": "--font-display"
+      },
+      "tolerance": 0,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the display face"
+    },
+    {
+      "id": "BRD-12.title.font-weight",
+      "scene": "first-run",
+      "select": "[data-ui=first-run-title]",
+      "prop": "font-weight",
+      "expect": {
+        "token": "--weight-bold"
+      },
+      "tolerance": 0,
+      "densities": [
+        "compact",
+        "comfortable"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "state": "enforced",
+      "note": "the display title is bold (PU-03·5, OXE-209)"
+    }
+  ]
+}

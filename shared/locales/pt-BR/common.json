@@ -309,8 +309,8 @@
     "close": "Fechar",
     "dismiss": "Dispensar",
     "toast": {
-      "region": "Notificações",
-      "dismiss": "Dispensar notificação",
+      "region": "Avisos",
+      "dismiss": "Dispensar aviso",
       "repeated_one": "Repetida {{count}} vez",
       "repeated_other": "Repetida {{count}} vezes",
       "repeated_many": "Repetida {{count}} vezes"
@@ -431,23 +431,23 @@
     "copy": "Copiar comando",
     "markDone": "Marcar como concluído",
     "v2": {
-      "folderStep": "Abra uma pasta de projeto",
+      "folderStep": "Pasta do projeto",
       "chooseFolder": "Escolher pasta",
-      "agentStep": "Conecte um agente",
+      "change": "Trocar",
+      "agentStep": "Conectar um agente",
       "howToInstall": "Como instalar",
+      "notInstalled": "Não instalado",
       "signIn": "Entrar no {{provider}}",
+      "signInShort": "Entrar",
       "waiting": "Aguardando o login no navegador…",
       "cancel": "Cancelar",
       "readyModel": "Pronto · {{model}}",
       "ready": "Pronto",
-      "conversationStep": "Comece sua primeira conversa",
+      "conversationStep": "Primeira conversa",
       "newConversation": "Nova conversa",
-      "connectFirst": "Conecte um agente primeiro",
-      "openModeAlone": "Ou abra um modo sozinho",
-      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo",
-      "heroLead": "Escolha uma pasta de projeto, conecte o Claude Code ou o Codex e trabalhe vendo cada etapa.",
-      "modeDescCode": "Terminais e agentes lado a lado",
-      "modeDescQuery": "Tabelas e consultas SQL com segurança"
+      "waitsForAgent": "Abre quando um agente estiver conectado",
+      "openAlone": "Ou abra o <code>OxeCode</code> ou o <query>OxeQuery</query> sozinhos",
+      "heroTitle": "Agentes que trabalham no seu código e mostram cada passo"
     }
   },
   "usage": {
@@ -490,8 +490,14 @@
     "emptyHint": "Turnos concluídos, pedidos que precisam de você e atualizações aparecem aqui.",
     "group": {
       "needs-you": "Precisa de você",
+      "failed": "Falhou",
       "finished": "Concluídos",
       "updates": "Atualizações"
+    },
+    "outcome": {
+      "allowed": "Permitido",
+      "denied": "Negado",
+      "answered": "Respondido"
     },
     "kind": {
       "needs-you": "Precisa de você",
@@ -616,7 +622,7 @@
         "dest": "Abrir no editor"
       },
       "skillsManager": {
-        "feature": "Gerenciador de habilidades",
+        "feature": "Gerenciador de skills",
         "dest": "Lista somente leitura, execute com /"
       }
     }
@@ -747,7 +753,7 @@
         "devices": "Abrir as configurações de dispositivos",
         "notifications": "Abrir as configurações de notificações",
         "about": "Procurar atualizações",
-        "mcp": "Abrir as configurações de MCP e habilidades",
+        "mcp": "Abrir as configurações de MCP e skills",
         "privacy": "Abrir as configurações de dados e privacidade",
         "activity": "Abrir as configurações de atividade dos agentes",
         "updates": "Procurar atualizações",
