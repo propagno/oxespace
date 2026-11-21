@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
-import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Quote } from 'lucide-react'
+import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Pencil, Quote } from 'lucide-react'
+import { Button, Checkbox, IconButton, TextArea } from '../../ui'
+import { editablePrompt } from '../../../shared/threadPromptEdit'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
@@ -29,9 +31,57 @@ export function ThreadMessageBody({ text, role }: { text: string; role: 'user' |
   </div>
 }
 
-/** One user or assistant message of the timeline, with its attachments, delivery state and actions. */
-export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending, copied, quickReplies, action, onCopy, onQuickReply, onQuote }: {
+/**
+ * The prompt card's own parts (AG-10 §2.1, OXE-167): Copy prompt on every prompt and Edit prompt on the one
+ * editablePrompt names, shown under the pointer or with focus inside; the editor in the card; and, once edited, the
+ * "Edited · resent below" line in place of Edit (the old turn and its changes stay where they are).
+ */
+function PromptCardTools({ event, turnId, turnEvents, snapshot, running, copied, text, action, onCopy }: {
   event: Extract<ThreadEvent, { type: 'message' }>
+  turnId: string
+  turnEvents: ThreadEvent[]
+  snapshot: ThreadSnapshot | null
+  running: boolean
+  copied: boolean
+  text: string
+  action: (run: () => Promise<unknown>) => Promise<void>
+  onCopy: (id: string, text: string) => void
+}) {
+  const { t } = useTranslation('thread')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [restoreFiles, setRestoreFiles] = useState(false)
+  const api = window.oxe?.thread
+  const edited = Boolean(snapshot?.turns?.find(turn => turn.id === turnId)?.editedInto)
+  const canEdit = !edited && !running && Boolean(api?.editPrompt) && editablePrompt(snapshot)?.messageId === event.id
+  const changedFiles = turnEvents.some(value => value.type === 'tool' && Boolean(value.files?.length))
+  if (editing !== null && snapshot && canEdit) {
+    const send = (): void => {
+      const value = editing
+      void action(() => api!.editPrompt!(snapshot.thread.id, turnId, value, { restoreFiles })).then(() => setEditing(null))
+    }
+    return <div className="thread-prompt-editor">
+      <TextArea label={t('message.editPrompt')} value={editing} rows={3} onChange={changed => setEditing(changed.target.value)} />
+      {changedFiles && <Checkbox label={t('message.undoTurnChanges')} checked={restoreFiles} onChange={changed => setRestoreFiles(changed.target.checked)} />}
+      <div className="thread-prompt-editor-actions">
+        <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>{t('common.cancel')}</Button>
+        <Button size="sm" variant="primary" disabled={!editing.trim()} onClick={send}>{t('composer.send')}</Button>
+      </div>
+    </div>
+  }
+  return <>
+    {edited && <p className="thread-prompt-edited">{t('message.promptEdited')}</p>}
+    <div className="thread-prompt-actions">
+      <IconButton label={t('message.copyPrompt')} icon={copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />} onClick={() => onCopy(event.id, text)} />
+      {canEdit && <IconButton label={t('message.editPrompt')} icon={<Pencil size={14} />} onClick={() => { setRestoreFiles(false); setEditing(text) }} />}
+    </div>
+  </>
+}
+
+/** One user or assistant message of the timeline, with its attachments, delivery state and actions. */
+export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running, pending, copied, quickReplies, action, onCopy, onQuickReply, onQuote }: {
+  event: Extract<ThreadEvent, { type: 'message' }>
+  /** The turn this message belongs to (the prompt's turn shares its id). */
+  turnId?: string
   turnEvents: ThreadEvent[]
   snapshot: ThreadSnapshot | null
   running: boolean
@@ -56,7 +106,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
   const final = event.role === 'assistant' && threadTurnPresentation(turnEvents).finalMessageId === event.id
   const showAvatar = event.role === 'assistant' && (final || turnEvents.find(value => value.type === 'message' && value.role === 'assistant') === event)
   const provider = snapshot?.thread.provider ?? 'claude'
-  return <article className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`}>
+  return <article className={`thread-message thread-message-${event.role}${final ? ' is-final-response' : ''}`} data-ui={event.role === 'user' ? 'prompt-card' : undefined}>
     {showAvatar && (
       <div className="thread-agent-label">
         <span className="thread-agent-avatar" aria-hidden="true">
@@ -73,6 +123,7 @@ export function ThreadMessageRow({ event, turnEvents, snapshot, running, pending
     {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
     {event.role === 'assistant' && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label={t('message.suggested')}><small>{t('message.suggestedHint')}</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => onQuickReply(option.value)}>{option.label}</button>)}</div></div>}
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}
+    {event.role === 'user' && <PromptCardTools event={event} turnId={turnId ?? event.id} turnEvents={turnEvents} snapshot={snapshot} running={running} copied={copied} text={displayText} action={action} onCopy={onCopy} />}
     {event.role === 'assistant' && <div className="thread-message-actions">
       <button type="button" aria-label={t('message.quote')} title={t('message.quote')} onClick={() => onQuote(copyText)}><Quote size={14} /></button>
       <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}</button>

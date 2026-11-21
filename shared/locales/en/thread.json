@@ -427,7 +427,15 @@
     "searchModels": "Search models…",
     "noModels": "No models available.",
     "selectEffort": "Select effort",
-    "effortLevel": { "none": "None", "minimal": "Minimal", "low": "Low", "medium": "Medium", "high": "High", "xhigh": "Extra high", "max": "Max" },
+    "effortLevel": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Max"
+    },
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
@@ -979,7 +987,11 @@
     "copyResponse": "Copy response",
     "copied": "Copied",
     "copy": "Copy",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copy prompt",
+    "editPrompt": "Edit prompt",
+    "undoTurnChanges": "Undo this turn's changes",
+    "promptEdited": "Edited · resent below"
   },
   "modelPicker": {
     "title": "Choose model",
@@ -1163,6 +1175,17 @@
     "thoughtFor": "Thought for {{duration}}",
     "minutes": "{{minutes}}m {{seconds}}s",
     "seconds": "{{seconds}}s"
+  },
+  "explore": {
+    "summary": "Explored {{files}} files and {{searches}} searches · {{duration}}",
+    "read": "Read",
+    "searched": "Searched",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} result",
+    "hits_other": "{{count}} results"
+  },
+  "steps": {
+    "showMoreLines": "Show {{count}} more lines"
   },
   "request": {
     "reviewPlan": "Review plan",
@@ -2107,7 +2130,9 @@
     "forkCodexOnly": "Fork is available for Codex conversations",
     "export": "Export",
     "archive": "Archive",
-    "delete": "Delete…"
+    "delete": "Delete…",
+    "openInCode": "Open in OxeCode",
+    "openWorktreeInCode": "Open the worktree in OxeCode"
   },
   "composerModel": {
     "idle": "Ask, or type / for commands",
@@ -2123,6 +2148,7 @@
   "backgroundShells": {
     "region": "Background shells",
     "running": "Running",
+    "runningOnPort": "Running · port {{port}}",
     "stopped": "Stopped",
     "exitCode": "exit {{code}}",
     "unknownSince": "State unknown since {{time}}",

@@ -592,7 +592,7 @@ describe('Thread workspace UI', () => {
     release()
     await waitFor(() => expect(input).toHaveValue(''))
   })
-  it('keeps what the user sent clean: attachments as chips, no copy or edit buttons', async () => {
+  it('keeps what the user sent clean: attachments as chips, Copy prompt without edit when unavailable', async () => {
     const f = fixture()
     f.snapshot.thread.provider = 'codex'
     f.snapshot.events = [
@@ -601,7 +601,7 @@ describe('Thread workspace UI', () => {
     render(<ThreadView workspace={f.workspace} />)
     const sent = screen.getByText('Can you read the image?').closest('article') as HTMLElement
     expect(within(sent).getByLabelText('Message attachments')).toHaveTextContent('screenshot.png')
-    expect(within(sent).queryByRole('button', { name: /copy/i })).toBeNull()
+    expect(within(sent).getByRole('button', { name: 'Copy prompt' })).toBeInTheDocument()
     expect(within(sent).queryByRole('button', { name: /edit/i })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit and retry this message' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Copy (final )?response/ }))

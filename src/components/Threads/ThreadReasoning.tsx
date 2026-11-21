@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { Brain, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
+import { Button } from '../../ui'
 
 type Reasoning = Extract<ThreadEvent, { type: 'reasoning' }>
 
@@ -15,9 +15,15 @@ export function reasoningLabel(event: Reasoning, streaming: boolean): string {
   return i18n.t('thread:reasoning.thoughtFor', { duration })
 }
 
+/** The latest lines of a thought, the ones still on screen while it streams. */
+function previewLines(text: string): string {
+  return text.split('\n').filter(line => line.trim()).slice(-3).join('\n')
+}
+
 /**
  * The agent's reasoning, open while it streams so the person can follow it and
  * collapsed once done; a choice the person makes by toggling it is kept.
+ * The root stays a details element so a saved choice (the toggle event) is kept.
  */
 export function ThreadReasoning({ event, running }: { event: Reasoning; running: boolean }) {
   // Subscribes to the language, so the label follows a switch.
@@ -25,15 +31,14 @@ export function ThreadReasoning({ event, running }: { event: Reasoning; running:
   const streaming = running && event.completedAt === undefined
   const [chosen, setChosen] = useState<boolean | null>(null)
   const open = chosen ?? streaming
-  const body = useRef<HTMLPreElement>(null)
-  useEffect(() => {
-    // Follows the latest thought while it streams, unless the person scrolled up to read.
-    const element = body.current
-    if (streaming && element && element.scrollHeight - element.scrollTop - element.clientHeight < 48) element.scrollTop = element.scrollHeight
-  }, [event.text, streaming])
-  return <details className={`thread-reasoning${streaming ? ' is-streaming' : ''}`} open={open} data-testid="thread-reasoning"
+  const paragraphs = event.text.split('\n').map(line => line.trim()).filter(Boolean)
+  return <details className={`thread-reasoning${streaming ? ' is-streaming' : ''}`} open={open} data-testid="thread-reasoning" data-ui="reasoning" data-state={streaming ? 'streaming' : 'done'}
     onToggle={element => { const next = (element.currentTarget as HTMLDetailsElement).open; if (next !== open) setChosen(next) }}>
-    <summary><ChevronDown size={12} aria-hidden="true" /><Brain size={12} aria-hidden="true" />{reasoningLabel(event, streaming)}</summary>
-    <pre ref={body}>{event.text}</pre>
+    <summary onClick={event => event.preventDefault()}>
+      {streaming && <span className="thread-reasoning-pulse" data-ui="reasoning-pulse" aria-hidden="true" />}
+      <Button variant="ghost" size="sm" aria-expanded={open} onClick={click => { click.preventDefault(); setChosen(!open) }}>{reasoningLabel(event, streaming)}</Button>
+    </summary>
+    {streaming && <div className="thread-reasoning-preview">{previewLines(event.text)}</div>}
+    {open && !streaming && <div className="thread-reasoning-body">{paragraphs.map((line, index) => <p key={index}>{line}</p>)}</div>}
   </details>
 }
