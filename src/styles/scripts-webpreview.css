@@ -386,6 +386,19 @@
     display: none;
   }
 }
+
+/* OXE-353: a 960x720 window with the sidebar, the grid and the Browser leaves the panel about 271px. Back, Forward,
+   Reload, the address and "⋯" must fit: the address gives way first, and Go leaves (Enter in the address opens). */
+@container web-preview (max-width: 340px) {
+  .web-preview-address-input {
+    flex: 1 1 96px;
+    min-width: 96px;
+  }
+
+  .web-preview-go-button {
+    display: none;
+  }
+}
 .web-preview-external-toggle {
   display: inline-flex;
   align-items: center;
