@@ -70,13 +70,13 @@
     "BRD-05.title.font-size",
     "BRD-05.title.font-weight",
     "BRD-05.title.font-family",
-    "BRD-25.fold.height",
-    "BRD-25.step.height",
-    "BRD-25.reasoning.font",
     "BRD-25.column.width",
     "BRD-25.prompt.align",
     "BRD-25.prompt.radius",
     "BRD-25.turn-gap",
-    "BRD-25.header.meta"
+    "BRD-25.header.meta",
+    "BRD-25.fold.height",
+    "BRD-25.step.height",
+    "BRD-25.reasoning.font"
   ]
 }
