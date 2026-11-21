@@ -292,6 +292,9 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           try {
             await setThreadState(app, workspaceRoot, 'anatomy')
             await page.waitForLoadState('domcontentloaded')
+            // thread:changed is applied on a 100ms timer, then the snapshot is read. Measuring in that gap still
+            // sees the previous state (an empty conversation) and counts 0 alerts. The four alerts are one answer.
+            await page.locator('[data-ui=alert]').nth(3).waitFor({ state: 'visible', timeout: 10_000 })
           } catch (error) {
             console.log(`[BRAND] could not set the anatomy state: ${(error as Error).message.split('\n')[0]}`)
           }
