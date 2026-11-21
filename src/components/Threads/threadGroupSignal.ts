@@ -21,6 +21,18 @@ function signalOf(thread: ConversationThread, unread: ReadonlySet<string>): Grou
   return null
 }
 
+/** The state chips under the OxeChat filter (OXE-187 CA-3): three states, then Unread, a condition. */
+export type StateFilter = 'needs-you' | 'working' | 'failed' | 'unread'
+
+/** Whether a conversation is listed while the chip `filter` is on. */
+export function matchesStateFilter(thread: ConversationThread, filter: StateFilter, unreadIds: readonly string[]): boolean {
+  if (filter === 'unread') return unreadIds.includes(thread.id)
+  const kind = threadNavigationStatus(thread).kind
+  if (filter === 'needs-you') return kind === 'attention'
+  if (filter === 'working') return kind === 'running'
+  return kind === 'failed'
+}
+
 /** The StatusSignal state of a group's most urgent conversation; null when none needs saying. */
 export function dominantGroupSignal(threads: readonly ConversationThread[], unreadIds: readonly string[]): GroupSignal | null {
   const unread = new Set(unreadIds)

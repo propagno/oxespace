@@ -22,7 +22,7 @@ import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDT
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
-import { GROUP_SIGNAL_WORD, dominantGroupSignal } from './threadGroupSignal'
+import { GROUP_SIGNAL_WORD, dominantGroupSignal, matchesStateFilter, type StateFilter } from './threadGroupSignal'
 import { StatusSignal } from '../../ui/StatusSignal'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { threadConfirmationText } from './threadConfirmationText'
@@ -41,6 +41,11 @@ import sectionStyles from './sections/ThreadSections.module.css'
 
 /** Threads shown per project before "Show more" (a search or the selected thread always shows). */
 const THREAD_ROWS_PER_PROJECT = 8
+
+/** The chips under the filter, in this order; Unread is a condition, last (OXE-187 RN-2). */
+const STATE_CHIPS: ReadonlyArray<{ filter: StateFilter; label: 'status.attention' | 'status.running' | 'status.failed' | 'sidebar.filterUnread' }> = [
+  { filter: 'needs-you', label: 'status.attention' }, { filter: 'working', label: 'status.running' }, { filter: 'failed', label: 'status.failed' }, { filter: 'unread', label: 'sidebar.filterUnread' }
+]
 
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
@@ -95,6 +100,10 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const collapsed = useUIStore(s => s.collapsedSidebars.thread), toggleCollapse = useCallback(() => useUIStore.getState().toggleSidebar('thread'), [])
   const [query, setQuery] = useState('')
   const search = useRef<HTMLInputElement>(null)
+  // OXE-187: one state chip at a time; the strip shows while the filter has focus or a chip is on.
+  const [stateFilter, setStateFilter] = useState<StateFilter | null>(null)
+  const [filterFocused, setFilterFocused] = useState(false)
+  const chipsRef = useRef<HTMLDivElement>(null)
   // Arrows and j/k move through conversations and projects; one tab stop for the whole list.
   const { ref: attachList, onKeyDown: onListKeyDown } = useListKeyboard<HTMLElement>()
   useNavigationSearch(search, collapsed, toggleCollapse)
@@ -170,7 +179,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   // Also matches by conversation content (native transcript index), not just title/path.
   const contentMatches = useThreadContentMatches(query)
   const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentMatches.has(thread.nativeSessionId), [contentMatches])
-  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread))
+  const matches = (thread: ConversationThread, name: string) => !thread.archived && !hiddenProjects.includes(thread.projectId) && (`${name} ${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)) && (!stateFilter || matchesStateFilter(thread, stateFilter, unreadIds))
   const groups = useMemo(() => {
     const catalog = new Map(projects.map(p => [p.projectId, { id: p.projectId, name: p.displayName, path: p.identityLabel, rootPath: p.contexts[0]?.rootPath, threads: [] as ConversationThread[] }]))
     for (const thread of threads) {
@@ -181,10 +190,10 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     }
     // Order by creation, not activity: every streamed event bumps updatedAt, and rows that jumped to the top
     // while an agent worked moved the conversation the person was about to click.
-    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${displayThreadTitle(t.title)} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t))).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)) }))
-      .filter(g => !hiddenProjects.includes(g.id) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
+    return [...catalog.values()].map(g => ({ ...g, threads: g.threads.filter(t => !t.pinned && (`${g.name} ${displayThreadTitle(t.title)} ${t.provider} ${t.rootPath}`.toLowerCase().includes(query.toLowerCase()) || contentHit(t)) && (!stateFilter || matchesStateFilter(t, stateFilter, unreadIds))).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id)) }))
+      .filter(g => !hiddenProjects.includes(g.id) && (!stateFilter || g.threads.length > 0) && (!query || g.threads.length || g.name.toLowerCase().includes(query.toLowerCase())))
       .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-  }, [projects, threads, query, hiddenProjects, contentHit])
+  }, [projects, threads, query, hiddenProjects, contentHit, stateFilter, unreadIds])
   const archived = useMemo(() => threads.filter(thread => thread.archived && !hiddenProjects.includes(thread.projectId)
     && (`${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
@@ -258,7 +267,13 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     {!collapsed && <div className="nav-panel">
       <SidebarHeader title={t('sidebar.conversations')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="thread" />} />
       <SidebarFilter ref={search} className="thread-nav-search" icon={<Search size={14} />} hint={query ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
-        value={query} onChange={event => setQuery(event.target.value)} onClear={() => setQuery('')} clearLabel={i18n.t('common:nav.clearSearch')} autoComplete="off" spellCheck={false} />
+        value={query} onChange={event => setQuery(event.target.value)} onClear={() => setQuery('')} clearLabel={i18n.t('common:nav.clearSearch')} autoComplete="off" spellCheck={false}
+        onFocus={() => setFilterFocused(true)} onBlur={event => { if (!chipsRef.current?.contains(event.relatedTarget as Node | null)) setFilterFocused(false) }} />
+      {(filterFocused || stateFilter) && <div ref={chipsRef} role="group" aria-label={t('sidebar.filterByState')} data-ui="thread-state-chips" className={styles.stateChips}
+        onBlur={event => { const next = event.relatedTarget as Node | null; if (next !== search.current && !event.currentTarget.contains(next)) setFilterFocused(false) }}>
+        {STATE_CHIPS.map(chip => <Button key={chip.filter} size="sm" variant={stateFilter === chip.filter ? 'secondary' : 'ghost'} aria-pressed={stateFilter === chip.filter}
+          onClick={() => setStateFilter(value => value === chip.filter ? null : chip.filter)}>{t(chip.label)}</Button>)}
+      </div>}
       <nav ref={attachList} onKeyDown={onListKeyDown} className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
         {coldSkeleton
           // motion.md rule 3 (OXE-343): no placeholder before 300 ms, so a list that arrives sooner never flashes one; the
@@ -277,7 +292,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         </>} />}
         {groups.map(group => {
           const matchedColor = workspaces.find(w => w.rootPath === group.rootPath)?.color ?? null
-          const open = query ? true : expanded[group.id] ?? true
+          const open = query || stateFilter ? true : expanded[group.id] ?? true
           const unavailable = unavailableProjects.includes(group.id)
           const duplicate = groups.filter(g => g.name === group.name).length > 1
           // OXE-187: a collapsed project says its most urgent conversation; an open one shows its rows instead.
@@ -303,17 +318,17 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
               </>} />
             {open && <div className={cx('thread-project-children', styles.children)}>{(() => {
               const split = groupBySection(group.threads, sections.sectionsOf(group.id), sections.sectionOf)
-              const limit = query || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
+              const limit = query || stateFilter || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
               const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
               return <>
-                {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
+                {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query || !!stateFilter} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
                 {split.sections.length > 0 && <SidebarSection label={t('sections.none')} />}
                 <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <Button variant="ghost" size="sm" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</Button>}</div>
               </>
             })()}</div>}
           </section>
         })}
-        {archived.length > 0 && <section className={cx('thread-archived-section', styles.archivedSection)} aria-label={t('sidebar.archivedRegion')}>
+        {archived.length > 0 && !stateFilter && <section className={cx('thread-archived-section', styles.archivedSection)} aria-label={t('sidebar.archivedRegion')}>
           <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={query ? true : showArchived} aria-label={`${t('sidebar.archived')} ${archived.length}`}
             lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />} title={t('sidebar.archived')} meta={<span className={styles.count}>{archived.length}</span>} onSelect={() => setShowArchived(value => !value)} />
           {(query || showArchived) && <div className={styles.rows}>{archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
@@ -326,8 +341,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         {/* Moves and deletes are said here, politely, as they happen. */}
         <p className="sr-only" role="status" aria-live="polite" data-testid="thread-sections-announcer">{sections.announcement}</p>
         {sections.error && <Notice intent="danger" actions={<Button size="sm" variant="ghost" onClick={sections.clearError}>{t('common.close')}</Button>}>{sections.error}</Notice>}
-        {!loading && !coldSkeleton && !groups.length && <EmptyState compact title={query ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')}
-          actions={!query && onAddProject ? <Button size="sm" variant="secondary" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onAddProject}>{t('sidebar.addProject')}</Button> : undefined} />}
+        {!loading && !coldSkeleton && !groups.length && <EmptyState compact title={query || stateFilter ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')}
+          actions={!query && !stateFilter && onAddProject ? <Button size="sm" variant="secondary" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onAddProject}>{t('sidebar.addProject')}</Button> : undefined} />}
         {hiddenProjects.length > 0 && <section data-ui="thread-hidden-section" aria-label={t('sidebar.removedProjects')}>
           <SidebarSection label={t('sidebar.removedProjects')} />
           {hiddenProjects.map(id => {

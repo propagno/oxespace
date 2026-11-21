@@ -1416,6 +1416,8 @@
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
     "filterPlaceholder": "Filtrar…",
+    "filterUnread": "Não lidas",
+    "filterByState": "Filtrar por estado",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
