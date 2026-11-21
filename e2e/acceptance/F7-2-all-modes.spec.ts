@@ -2,14 +2,14 @@ import { expect, test, type Page } from '@playwright/test'
 import { launchReal, openRepo, quitReal, realProfile } from './real-app'
 
 /**
- * F7.2 · #363, black box on the REAL app (no doubles), every mode, cold and warm, by click and by Ctrl+1..3:
+ * F7.2 · #363, black box on the REAL app (no doubles), every mode, cold and warm, by click and by Ctrl+1..5:
  * - the mode button reads pressed in the first frame after the press;
  * - the old view stays until the new one is up, never dimmed, with no brand loader, bare spinner or early skeleton
  *   (before 300 ms);
  * - with reduced motion, no fade.
  * #363's own spec (f7-2-view-switch) covers the OxeQuery cold switch frame by frame, keys in flight and the slow CPU.
  */
-// The three modes the app has (OxePod and OxePost left in #754 and R14).
+// The OxePod mode left in 1.5.0 (#754: containers are a panel); the three modes are the ones the title bar has.
 const MODES = [['thread', 'Control+2'], ['data', 'Control+3'], ['code', 'Control+1']] as const
 type Sample = { t: number; pressed: boolean; oldUp: boolean; newUp: boolean; skeleton: boolean; brand: boolean; dimmed: boolean; fading: boolean }
 
