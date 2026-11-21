@@ -682,7 +682,7 @@
     "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
     "reconnect": "Reconnect your native agent account to continue.",
     "couldNotFinish": "The agent could not finish this turn.",
-    "diagnostic": "Provider diagnostic",
+    "diagnostic": "Technical details",
     "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
     "checkingUsage": "Checking current provider usage…",
     "notRecorded": "Usage and reset time were not recorded for this failure.",
