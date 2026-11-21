@@ -254,7 +254,7 @@
 
 /* Settings inside the window frame (cycle V): the title bar stays in view, and navigation and content sit on the
    window as two panels, like the sidebars and the work surface. Still a modal: focus is kept inside and Escape closes. */
-.settings-center { top: 36px; padding: 0 var(--frame-gap) var(--frame-gap); column-gap: var(--frame-gap); background: var(--surface-sunken); }
+.settings-center { top: var(--bar-lg); padding: 0 var(--frame-gap) var(--frame-gap); column-gap: var(--frame-gap); background: var(--surface-sunken); }
 .settings-center > .settings-center-nav, .settings-center > .settings-center-main { border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); background: var(--surface-base); }
 .settings-center > .settings-center-nav { border-right: 1px solid var(--bd-subtle); }
 /* The scrim still takes clicks outside the dialog, but no longer dims the title bar that stays in view. */
