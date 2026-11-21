@@ -21,11 +21,11 @@ function gitRepo(root: string): string {
   execFileSync('git', ['-c', 'user.email=e2e@example.invalid', '-c', 'user.name=e2e', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: root })
   return realpathSync.native(root)
 }
-/** The palette as e2e/palette-labels.spec.ts opens it in pt-BR. */
+/** The palette by its global shortcut, as e2e/command-palette.spec.ts opens it: OxeChat has no palette button (CR-32). */
 async function openPalette(page: Page): Promise<void> {
   const input = page.getByPlaceholder('Buscar arquivos e comandos…')
   for (let attempt = 0; attempt < 3 && !(await input.isVisible()); attempt++) {
-    await page.getByRole('button', { name: 'Arquivos e comandos' }).first().click()
+    await page.locator('body').press('Control+Shift+P')
     await input.waitFor({ timeout: 2_000 }).catch(() => undefined)
   }
   await expect(input).toBeVisible()
