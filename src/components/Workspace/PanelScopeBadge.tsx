@@ -44,6 +44,7 @@ export function PanelScopeBadge({ scope, workspaceId }: PanelScopeBadgeProps): R
       className={`panel-scope-badge${scope.isWorktree ? ' is-worktree' : ''}${pinned ? ' is-pinned' : ''}`}
       onClick={() => togglePin(workspaceId, scope.rootPath)}
       aria-pressed={pinned}
+      aria-label={`${pinned ? tc('workspace.scope.followAction') : tc('workspace.scope.pinAction')}: ${label}`}
       title={title}
       data-testid="panel-scope-badge"
     >

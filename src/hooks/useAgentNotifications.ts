@@ -94,9 +94,25 @@ export function useAgentNotifications(): void {
           const label = noticeLabel(pane, shellProfiles.find(profile => profile.id === (pane.shellProfileId ?? ws.defaultShellProfileId))?.name ?? null)
           const errorBody = (): string => tc('pane.notice.errorBody', { workspace: ws.name, error: agentErrorDetail(entry.error, tc('pane.notice.errorFallback')) })
           const target = { type: 'pane' as const, workspaceId: ws.id, paneId: pane.id }
+          const place = { project: ws.name, mode: 'code' as const }
           // Don't ping about the pane the user is actively looking at.
           const isViewing = windowFocused && activePaneId === pane.id
-          const recordDecision = (): void => activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.decisionNotice.body', { workspace: ws.name }), read: isViewing })
+          const recordDecision = (): void => activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.decisionNotice.body', { workspace: ws.name }), place, read: isViewing })
+          const keepAnswered = (detail: string): void => {
+            const current = activity.items.find(item => item.source === 'code' && item.id === pane.id)
+            activity.record({
+              source: 'code',
+              id: pane.id,
+              kind: current?.kind ?? 'needs-you',
+              target,
+              title: current?.title ?? label,
+              detail: current?.detail ?? detail,
+              place,
+              outcome: 'answered',
+              at: now,
+              read: true
+            })
+          }
           // First sighting — record state, never notify (avoids a burst on load).
           if (!existing) {
             // A request already waiting at load is listed (never pinged): it still needs the person.
@@ -121,7 +137,7 @@ export function useAgentNotifications(): void {
             }
           } else if (existing.recordedDecision) {
             existing.recordedDecision = false
-            activity.resolve('code', pane.id)
+            keepAnswered(tc('pane.decisionNotice.body', { workspace: ws.name }))
           }
 
           if (tone === 'awaiting') {
@@ -132,7 +148,7 @@ export function useAgentNotifications(): void {
             // Same stability gate as the ping, so token gaps do not fill the list.
             if (!existing.recordedAwaiting && existing.awaitingSince !== null && now - existing.awaitingSince >= AWAITING_STABLE_MS) {
               existing.recordedAwaiting = true
-              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.notice.finishedBody', { workspace: ws.name }), read: isViewing })
+              activity.record({ source: 'code', id: pane.id, kind: 'needs-you', target, title: label, detail: tc('pane.notice.finishedBody', { workspace: ws.name }), place, read: isViewing })
             }
             if (
               !existing.notifiedAwaiting &&
@@ -148,15 +164,15 @@ export function useAgentNotifications(): void {
             existing.awaitingSince = null
             existing.notifiedAwaiting = false
             // A decision just took the same entry's place; resolving would drop it.
-            if (existing.recordedAwaiting && tone !== 'needs-decision') activity.resolve('code', pane.id)
+            if (existing.recordedAwaiting && tone !== 'needs-decision') keepAnswered(tc('pane.notice.finishedBody', { workspace: ws.name }))
             existing.recordedAwaiting = false
           }
 
           // exited / error fire once on the transition into that tone.
           if (tone !== existing.tone && (tone === 'exited' || tone === 'error')) {
             activity.record(tone === 'exited'
-              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: tc('pane.notice.endedBody', { workspace: ws.name }), read: isViewing }
-              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: errorBody(), read: isViewing })
+              ? { source: 'code', id: pane.id, kind: 'finished', target, title: label, detail: tc('pane.notice.endedBody', { workspace: ws.name }), place, read: isViewing }
+              : { source: 'code', id: pane.id, kind: 'failed', target, title: label, detail: errorBody(), place, read: isViewing })
           }
           if (tone !== existing.tone && !isViewing) {
             if (tone === 'exited') {

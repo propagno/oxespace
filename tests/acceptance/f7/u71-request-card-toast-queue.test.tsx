@@ -116,7 +116,7 @@ describe('U7.1 · A request comes to you', () => {
     const toast = await renderToast(REVERSIBLE)
     const status = await screen.findByText('Needs you: Run npm publish · Claude')
     expect(status.closest('[aria-live]')).toHaveAttribute('aria-live', 'polite')
-    expect(actionButtons()).toEqual(['Deny', 'Allow'])
+    expect(actionButtons()).toEqual(['', 'Deny', 'Allow once'])
     expect(screen.getByRole('button', { name: /^Deny/ })).toHaveFocus()
     await userEvent.click(screen.getByRole('button', { name: /^Allow/ }))
     expect(toast.onRespond).toHaveBeenCalledTimes(1)
@@ -125,7 +125,7 @@ describe('U7.1 · A request comes to you', () => {
 
   test('an irreversible toast offers only Deny and See impact; See impact opens the preview and answers nothing', async () => {
     const toast = await renderToast(IRREVERSIBLE)
-    expect(actionButtons()).toEqual(['Deny', 'See impact'])
+    expect(actionButtons()).toEqual(['', 'Deny', 'See impact'])
     await userEvent.click(screen.getByRole('button', { name: 'See impact' }))
     expect(toast.onSeeImpact).toHaveBeenCalledTimes(1)
     expect(toast.onRespond).not.toHaveBeenCalled()
@@ -165,7 +165,7 @@ describe('U7.1 · A request comes to you', () => {
     await changeLanguage('pt-BR')
     await renderToast(IRREVERSIBLE)
     expect(await screen.findByText('Precisa de você: Run npm publish · Claude')).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Negar', 'Ver impacto'])
+    expect(actionButtons()).toEqual(['', 'Negar', 'Ver impacto'])
   })
 
   async function renderQueue() {

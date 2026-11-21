@@ -38,11 +38,11 @@ describe('WorkspaceSplitGrid', () => {
     // Drag-to-split affordance: one grip per pane when there are 2+ panes.
     expect(screen.getAllByTestId('split-drag-grip')).toHaveLength(2)
 
-    // Cards keep a 10px outer gutter and a 10px visual gap between siblings.
+    // Cards keep a var(--space-2) (8px) outer gutter and visual gap between siblings.
     const slotA = screen.getByTestId('pane-pane-a').parentElement
     const slotB = screen.getByTestId('pane-pane-b').parentElement
-    expect(slotA).toHaveStyle({ left: 'calc(0% + 10px)', width: 'calc(50% - 15px)' })
-    expect(slotB).toHaveStyle({ left: 'calc(50% + 5px)', width: 'calc(50% - 15px)' })
+    expect(slotA).toHaveStyle({ left: 'calc(0% + var(--space-2))', width: 'calc(50% - var(--space-2) - calc(var(--space-2) / 2))' })
+    expect(slotB).toHaveStyle({ left: 'calc(50% + calc(var(--space-2) / 2))', width: 'calc(50% - calc(var(--space-2) / 2) - var(--space-2))' })
   })
 
   // Space and Shift+F10 are checked in e2e/drag-alternatives.spec.ts: jsdom keeps Radix state between menus in one file.

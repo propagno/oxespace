@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, CircleHelp, History, Info, Keyboard, LayoutGrid, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
-import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { Suspense, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
@@ -11,20 +11,26 @@ import { AgentSessionDetails, EnableResumeMenuItem, PaneHooksNotice, PaneResumeM
 import { PaneContent } from '../Panes/PaneContent'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
-import { Button, Dialog, PaneHeader } from '../../ui'
+import { Button, Dialog, PaneHeader, StatusSignal } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
 import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
 import { PanePhoneHeaderMark, PanePhoneMenuItems } from './PanePhoneWrite'
+import { isAutoFocusingTerminal } from '../../keyboard/terminalFocus'
+
+import { chunk, lazyFrom } from '../../lib/chunk'
 
 const tc = i18n.getFixedT(null, 'code')
 const detailRows = (items: string[][]): Array<{ label: string; detail: string }> => items.map(([label, detail]) => ({ label, detail }))
-// Opened on request only, so it stays out of the startup bundle.
-const ProviderSessionFinder = lazy(() => import('./ProviderSessionFinder').then(module => ({ default: module.ProviderSessionFinder })))
-const StatusExplainDialog = lazy(() => import('./StatusExplainDialog').then(module => ({ default: module.StatusExplainDialog })))
-const TerminalFocusMenuItems = lazy(() => import('./TerminalFocusMenuItems').then(module => ({ default: module.TerminalFocusMenuItems })))
+// Opened on request only, so they stay out of the startup bundle; ProviderSessionFinder warms on pointer/focus intent.
+export const PROVIDER_SESSION_FINDER_CHUNK = chunk(() => import('./ProviderSessionFinder'))
+export const STATUS_EXPLAIN_DIALOG_CHUNK = chunk(() => import('./StatusExplainDialog'))
+export const TERMINAL_FOCUS_MENU_ITEMS_CHUNK = chunk(() => import('./TerminalFocusMenuItems'))
+const ProviderSessionFinder = lazyFrom(PROVIDER_SESSION_FINDER_CHUNK, module => module.ProviderSessionFinder)
+const StatusExplainDialog = lazyFrom(STATUS_EXPLAIN_DIALOG_CHUNK, module => module.StatusExplainDialog)
+const TerminalFocusMenuItems = lazyFrom(TERMINAL_FOCUS_MENU_ITEMS_CHUNK, module => module.TerminalFocusMenuItems)
 
 interface PaneContainerProps {
   pane: WorkspacePane
@@ -269,7 +275,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
 
   return (
-    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => onActivate?.(pane.id)} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
+    <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => { if (!isAutoFocusingTerminal()) onActivate?.(pane.id) }} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
       <PaneHeader
         className="pane-header"
         focused={focused}
@@ -294,7 +300,12 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
             ) : <SquareTerminal size={14} aria-hidden="true" />}
             <span className="pane-agent-chip-label">{display.providerLabel}</span>
           </span>
-          {needsDecision && <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">{display.statusLabel}</span>}
+          {needsDecision && (
+            <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">
+              <StatusSignal state="needs-you" label="" size={12} />
+              {display.statusLabel}
+            </span>
+          )}
           {isTerminalPane && <PanePhoneHeaderMark paneId={pane.id} />}
           {isTerminalPane && resume && <PaneResumeMarker paneId={pane.id} outcome={resume} />}
         </>}
@@ -430,7 +441,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
           [tc('workspace.shell.directory'), pane.rootPath ?? workspace.rootPath],
           ...(terminalState.error ? [[tc('paneMenu.error'), terminalState.error]] : [])
         ])} />
-        <Button size="sm" className="terminal-provider-session-action" onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>{tc('paneMenu.findSessions')}</Button>
+        <Button size="sm" className="terminal-provider-session-action" onMouseEnter={() => { void PROVIDER_SESSION_FINDER_CHUNK.load().catch(() => undefined) }} onFocus={() => { void PROVIDER_SESSION_FINDER_CHUNK.load().catch(() => undefined) }} onClick={() => { setDetailsOpen(false); setProviderSessionsOpen(true) }}>{tc('paneMenu.findSessions')}</Button>
         <details className="terminal-technical-details"><summary>{tc('paneMenu.internal')}</summary><DetailList rows={detailRows([
           [tc('paneMenu.ptyId'), sessionDetails?.sessionId ?? (sessionDetailsError || (sessionDetails ? tc('paneMenu.noSession') : tc('paneMenu.reading')))],
           [tc('paneMenu.paneId'), pane.id],

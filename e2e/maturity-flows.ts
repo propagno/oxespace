@@ -135,15 +135,39 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
       const firstRun = page.getByTestId('first-run')
       await expect(firstRun).toBeVisible()
       await expect(firstRun.getByRole('heading', { name: 'Connect an agent' })).toBeVisible()
-      await expect(firstRun.getByText(/^(Ready|How to install|Sign in to (Claude Code|Codex))/).first()).toBeVisible({ timeout: 60_000 })
+      await expect(firstRun.getByText(/^(Ready|How to install|Sign in(\b|$))/).first()).toBeVisible({ timeout: 60_000 })
     } finally {
       await app.close()
     }
   })
 
   // The "gh auth login" hint lives where OXE-211 puts it: the GitHub / Commit & PR panel while not connected, and the
-  // Integrations page. Kept here as a todo until OXE-211 lands, so the coverage is not lost.
-  test.fixme(`${label}: the gh auth login hint shows in the GitHub panel while not connected and on the Integrations page (OXE-211)`, async () => {})
+  // Integrations page.
+  test(`${label}: the gh auth login hint shows in the GitHub panel while not connected and on the Integrations page (OXE-211)`, async () => {
+    test.setTimeout(120_000)
+    guard()
+    const dirs = scratch('gh-auth-hint')
+    seed(dirs.workspace)
+    const { app, page } = await boot(options, dirs.database)
+    try {
+      await page.getByTestId('btn-new-workspace').click()
+      await page.getByTestId('wizard-dir-input').fill(dirs.workspace)
+      await page.getByTestId('wizard-layout-card-1').click()
+      await page.getByTestId('wizard-launch-btn').click()
+      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+
+      // Open Settings › Integrations › GitHub and verify the "gh auth login" command and copy button.
+      await page.getByRole('button', { name: /Open settings/i }).first().click()
+      await page.getByRole('button', { name: /^Integrations/i }).click()
+      await page.getByRole('radio', { name: 'GitHub' }).click()
+      const ghPage = page.getByTestId('settings-github-page')
+      await expect(ghPage).toBeVisible()
+      await expect(ghPage).toContainText('gh auth login')
+      await expect(ghPage.getByRole('button', { name: /Copy.*gh auth login/i })).toBeVisible()
+    } finally {
+      await app.close()
+    }
+  })
 
   test(`${label}: the file tree is a keyboard-navigable ARIA tree`, async () => {
     test.setTimeout(120_000)

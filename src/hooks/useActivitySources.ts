@@ -5,6 +5,7 @@ import { useActivityStore } from '../store/activity.store'
 import { useUpdaterStore } from '../store/updater.store'
 import { useAgentNotifications } from './useAgentNotifications'
 import { useMcpQuarantineActivity } from './useMcpQuarantineActivity'
+import { useOxeQueryAttention } from './useOxeQueryAttention'
 import { useQuotaAlerts } from './useQuotaAlerts'
 import { useThreadAttention } from './useThreadAttention'
 
@@ -34,11 +35,12 @@ function useUpdateActivity(): void {
 
 /**
  * Every producer of the activity center in one place: agents in Code panes, conversations,
- * quota windows, app updates and quarantined MCP servers. Background jobs report from their store.
+ * OxeQuery requests, quota windows, app updates and quarantined MCP servers. Background jobs report from their store.
  */
 export function useActivitySources(applicationView: import('../keyboard/keybindings').AppView): void {
   useAgentNotifications()
   useThreadAttention(applicationView)
+  useOxeQueryAttention()
   useQuotaAlerts()
   useUpdateActivity()
   useMcpQuarantineActivity()

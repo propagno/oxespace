@@ -1,9 +1,9 @@
-import { Suspense, lazy, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
 import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, IconButton, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
-import { CODE_BAR_PANELS, CODE_MENU_PANELS, WORKBENCH_PANELS } from '../Workbench/panelCatalog'
+import { CODE_BAR_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
@@ -16,8 +16,16 @@ import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
+import { useChangedFilesCount } from '../../hooks/useChangedFilesCount'
 import { lazyFrom } from '../../lib/chunk'
-import { CHANGES_PANEL_CHUNK, preloadPanels, WORKSPACE_PANEL_CHUNKS } from './panelChunks'
+import {
+  CHANGES_PANEL_CHUNK,
+  INTEGRATIONS_STATUS_CHIPS_CHUNK,
+  preloadPanels,
+  WORKSPACE_ANDROID_PANEL_CHUNK,
+  WORKSPACE_HTTP_CALLS_PANEL_CHUNK,
+  WORKSPACE_PANEL_CHUNKS
+} from '../../lib/panelChunks'
 // Side panels are lazy-loaded: they only mount when the user opens them, so
 // keeping them out of the initial bundle cuts first-paint parse/exec time. The
 // Editor pulls in Monaco (the single heaviest dep), so its split matters most.
@@ -29,8 +37,8 @@ const WorkspaceGitHubPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.github, (m) => m.Wo
 const WorkspaceIntegrationPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.integration, (m) => m.WorkspaceIntegrationPanel)
 const WorkspaceReviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.review, (m) => m.WorkspaceReviewPanel)
 const WorkspaceSearchPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.search, (m) => m.WorkspaceSearchPanel)
-const WorkspaceHttpCallsPanel = lazy(() => import('./WorkspaceHttpCallsPanel').then((m) => ({ default: m.WorkspaceHttpCallsPanel })))
-const WorkspaceAndroidPanel = lazy(() => import('./WorkspaceAndroidPanel').then((m) => ({ default: m.WorkspaceAndroidPanel })))
+const WorkspaceHttpCallsPanel = lazyFrom(WORKSPACE_HTTP_CALLS_PANEL_CHUNK, (m) => m.WorkspaceHttpCallsPanel)
+const WorkspaceAndroidPanel = lazyFrom(WORKSPACE_ANDROID_PANEL_CHUNK, (m) => m.WorkspaceAndroidPanel)
 const WorkspaceContainersPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.containers, (m) => m.WorkspaceContainersPanel)
 const WorkspaceWebPreviewPanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.webPreview, (m) => m.WorkspaceWebPreviewPanel)
 const WorkspaceWorktreePanel = lazyFrom(WORKSPACE_PANEL_CHUNKS.worktree, (m) => m.WorkspaceWorktreePanel)
@@ -65,7 +73,7 @@ function prefetchPanelChunks(): void {
   }
 }
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
-const IntegrationsStatusChips = lazy(() => import('./IntegrationsStatusChips').then(module => ({ default: module.IntegrationsStatusChips })))
+const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
@@ -186,6 +194,7 @@ function WorkspaceSurfaceComponent({
   // focused pane works somewhere else is actively misleading — so the panels
   // follow the active pane, and each header names what it is reading.
   const scopePinned = useUIStore((s) => s.panelScopePinnedByWorkspace[workspace.id] ?? null)
+  const isSidebarCollapsed = useUIStore((s) => s.isSidebarCollapsed)
   const openConnections = useUIStore((s) => s.openMcpPanel)
   const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
   const quarantinedMcp = quarantinedCount(workspaceMcp)
@@ -198,6 +207,9 @@ function WorkspaceSurfaceComponent({
     () => resolveWorkspaceScope(workspace, activePaneId, scopePinned, activeLocation),
     [workspace, activePaneId, scopePinned, activeLocation]
   )
+  // OXE-185 (AG-04d): the Changes button counts the files git reports changed in the panel scope's folder, from main's
+  // one counter (the same N the panel reads), without opening the panel. OxeChat's count is its own (OXC-4).
+  const changedFiles = useChangedFilesCount(panelScope.rootPath)
 
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
@@ -539,14 +551,16 @@ function WorkspaceSurfaceComponent({
   const toolbar = (
     <div className="workspace-topbar-host" data-ui="workspace-bar">
     <header className="workspace-topbar" data-ui="workspace-header" aria-label={tc('workspace.topbar.label')}>
-      <span
-        className="workspace-topbar-wschip"
-        {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
-        title={workspace.rootPath}
-      >
-        <span className="workspace-topbar-wsdot" aria-hidden="true" />
-        <span className="workspace-topbar-wschip-name">{workspace.name}</span>
-      </span>
+      {isSidebarCollapsed ? (
+        <span
+          className="workspace-topbar-wschip"
+          {...(typeof workspace.color !== 'string' ? workspaceColorAttrs({ id: workspace.id, color: workspace.color ?? null }) : undefined)}
+          title={workspace.rootPath}
+        >
+          <span className="workspace-topbar-wsdot" aria-hidden="true" />
+          <span className="workspace-topbar-wschip-name">{workspace.name}</span>
+        </span>
+      ) : null}
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
       {branchLabel ? <span className="workspace-topbar-branch" data-ui="workspace-branch" title={branchLabel}>{branchLabel}</span> : null}
       {onSplitPane && splitTargetPaneId ? (
@@ -621,9 +635,20 @@ function WorkspaceSurfaceComponent({
       <div className="workspace-topbar-spacer" />
       {/* The bar's icon actions are src/ui IconButtons at md (BRD-03): the name is the accessible name and the tooltip. */}
       <div className="workspace-topbar-panel-group" data-ui="panel-group" role="group" aria-label={tc('workspace.topbar.panels')}>
-      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />)}
-      {panels && <WorkbenchPanelMenu items={panels.filter(item => CODE_MENU_PANELS.includes(item.id))} testId="workspace-panels-menu"
-        trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
+      {panels?.filter(item => CODE_BAR_PANELS.includes(item.id)).map(item => {
+        if (item.id !== 'changes') return <WorkbenchPanelToggle key={item.id} item={item} iconOnly className="workspace-topbar-action" />
+        const counted = typeof changedFiles === 'number' && changedFiles > 0 ? changedFiles : 0
+        const changes: WorkbenchPanelItem = {
+          ...item,
+          label: counted > 0 ? tc('panels.changesCount', { count: counted }) : item.label,
+          badge: counted > 0 ? (counted > 99 ? '99+' : String(counted)) : undefined,
+          title: [panelTitle('changes'), tc('panels.changesCountTitle', { folder: panelScope.folderName })].join(' · ')
+        }
+        return <WorkbenchPanelToggle key={item.id} item={changes} iconOnly className="workspace-topbar-action" />
+      })}
+      {/* Single Panels menu trigger in OxeCode (PC-04·8, OXE-254): carries the btn-open-tools hook and all workspace panels. */}
+      {panels && <WorkbenchPanelMenu items={panels} testId="workspace-panels-menu"
+        trigger={<IconButton size="md" className="workspace-topbar-action" label={tc('panels.more')} title={tc('panels.more')} data-testid="btn-open-tools" icon={<PanelsTopLeft size={14} aria-hidden="true" />} />} />}
       <IconButton size="md" className="workspace-topbar-action" label={quarantinedMcp > 0 ? tc('workspace.topbar.mcpQuarantined', { count: quarantinedMcp }) : tc('workspace.topbar.mcp')} title={tc('tools.mcp.detail')} onClick={openConnections} onPointerEnter={preloadMcpPanel} onFocus={preloadMcpPanel} data-testid="workspace-topbar-mcp"
         icon={<>
           <PlugZap size={14} aria-hidden="true" />

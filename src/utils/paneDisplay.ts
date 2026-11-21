@@ -34,6 +34,8 @@ export interface PaneDisplayTerminalState {
   agentState?: import('../../shared/types/agent-state').AgentLifecycleState | null
   /** What the lifecycle state was read from, as the agent-state event names it ('hook', 'screen', ...). */
   agentSource?: string | null
+  /** Manifest id of the agent reported at runtime (e.g. 'claude', 'codex', 'gemini'). */
+  agentName?: string | null
 }
 
 export interface PaneDisplayState {
@@ -151,7 +153,7 @@ export function derivePaneDisplayState(input: {
   shellProfileName?: string | null
 }): PaneDisplayState {
   const { pane, workspace, terminal, profile, paneIndex, shellProfileName } = input
-  const identity = resolvePaneIdentity({ pane, profile, shellProfileName })
+  const identity = resolvePaneIdentity({ pane, profile, shellProfileName, agent: terminal.agentName })
   // An agent runs here when the pane is bound to one, or its lifecycle or hooks report one. A plain shell is not
   // "awaiting" anyone after a command ends, and its last command is not what it is: both are guesses made for agents.
   const agentPane = identity.key !== 'shell' || Boolean(terminal.hookState || (terminal.agentState && terminal.agentState !== 'unknown'))
@@ -208,8 +210,10 @@ export function resolvePaneIdentity(input: {
   pane: WorkspacePane
   profile: AgentProfile | null
   shellProfileName?: string | null
+  /** Runtime agent id reported by AgentStateService (PaneAgentState.agent). */
+  agent?: string | null
 }): { label: string; key: string } {
-  const { pane, profile, shellProfileName } = input
+  const { pane, profile, shellProfileName, agent } = input
   if (profile) {
     return {
       label: profile.name?.trim() || titleCase(profile.provider),
@@ -218,6 +222,18 @@ export function resolvePaneIdentity(input: {
   }
   if (pane.agentName?.trim()) {
     return { label: pane.agentName.trim(), key: 'custom' }
+  }
+
+  const runtimeAgent = agent?.trim()
+  if (runtimeAgent) {
+    const lower = runtimeAgent.toLowerCase()
+    if (lower.includes('claude')) return { label: 'Claude', key: 'claude' }
+    if (lower.includes('copilot')) return { label: 'Copilot', key: 'copilot' }
+    if (lower.includes('codex')) return { label: 'Codex', key: 'codex' }
+    if (lower.includes('cursor')) return { label: 'Cursor', key: 'cursor' }
+    if (lower.includes('grok')) return { label: 'Grok', key: 'grok' }
+    if (lower.includes('antigravity') || lower === 'agy') return { label: 'Antigravity', key: 'antigravity' }
+    return { label: titleCase(runtimeAgent), key: 'custom' }
   }
 
   const shellId = (pane.shellProfileId ?? '').toLowerCase()
@@ -322,7 +338,7 @@ function fallbackForStatus(tone: PaneDisplayTone, pane: WorkspacePane, paneIndex
   return pane.displayName ?? `${pane.type === 'terminal' ? tc('panels.terminal') : pane.type} ${paneIndex + 1}`
 }
 
-function compactPreview(value: string): string {
+export function compactPreview(value: string): string {
   const singleLine = value.replace(/\s+/g, ' ').trim()
   return singleLine.length > 92 ? `${singleLine.slice(0, 89)}...` : singleLine
 }

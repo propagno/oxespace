@@ -19,7 +19,7 @@
   overflow-y: auto;
   padding: 14px 12px 12px;
   scrollbar-width: thin;
-  scrollbar-color: var(--ov-3) transparent;
+  scrollbar-color: var(--bd-default) transparent;
 }
 
 .github-tab-header {
@@ -34,14 +34,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--gh-text);
+  color: var(--tx-primary);
   font-size: var(--fs-sm);
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
 }
 
 .github-tab-header-title svg {
-  color: var(--gh-muted);
+  color: var(--tx-muted);
   opacity: 0.9;
 }
 
@@ -54,7 +54,7 @@
 /* Separator is optional noise — keep very subtle when used */
 .github-tab-sep {
   height: 1px;
-  background: var(--ov-1);
+  background: var(--bd-subtle);
   margin: 0;
   flex-shrink: 0;
   opacity: 0.7;
@@ -64,8 +64,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -92,20 +92,20 @@
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-card-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   min-width: 0;
 }
 
 .github-stat-label {
-  color: var(--gh-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
 }
 
 .github-stat-value {
-  color: var(--gh-text);
+  color: var(--tx-primary);
   font-size: var(--fs-md);
   font-weight: 700;
   overflow: hidden;
@@ -141,8 +141,8 @@
   margin: 0 0 4px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--gh-card-border);
-  background: var(--gh-card-bg);
+  border: 1px solid var(--bd-default);
+  background: var(--surface-raised);
 }
 
 .github-sync-card.state-no-remote {
@@ -206,7 +206,7 @@
   height: 36px;
   border-radius: var(--radius-lg);
   flex-shrink: 0;
-  background: var(--ov-1);
+  background: var(--surface-raised);
   color: var(--tx-muted);
 }
 
@@ -302,7 +302,7 @@
 .github-changes-total {
   margin-left: auto;
   font-size: var(--fs-2xs);
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
   font-family: var(--font-mono);
   color: var(--tx-muted);
 }
@@ -335,7 +335,7 @@
 
 .github-change-file {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px 26px;
+  grid-template-columns: minmax(0, 1fr) 22px var(--control-sm);
   align-items: center;
   min-height: 34px;
   border-radius: var(--radius-sm);
@@ -393,8 +393,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -431,7 +431,7 @@
   gap: 8px;
   flex-shrink: 0;
   padding: 12px;
-  border-top: 1px solid var(--ov-1);
+  border-top: 1px solid var(--bd-subtle);
   background: var(--surface-raised);
 }
 
@@ -465,15 +465,15 @@
   width: 100%;
   min-height: 36px;
   padding: 8px 10px;
-  border: 1px solid var(--gh-card-border);
+  border: 1px solid var(--bd-default);
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-sunken) 25%, transparent);
-  color: var(--gh-text);
+  color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-xs);
 }
 
-.github-checkpoints-footer input::placeholder { color: var(--gh-muted); }
+.github-checkpoints-footer input::placeholder { color: var(--tx-muted); }
 
 /* Empty centered state */
 .github-empty-center {
@@ -486,15 +486,15 @@
   min-height: 140px;
   margin: 8px 0;
   padding: 20px 16px;
-  color: var(--gh-muted);
+  color: var(--tx-muted);
   text-align: center;
-  border: 1px dashed var(--ov-2);
+  border: 1px dashed var(--bd-default);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--tx-primary) 2%, transparent);
 }
 
 .github-empty-center svg { opacity: 0.28; width: 28px; height: 28px; }
-.github-empty-center strong { color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: 650; }
+.github-empty-center strong { color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
 .github-empty-center span { font-size: var(--fs-2xs); line-height: 1.4; max-width: 240px; }
 
 /* Repos tab */
@@ -503,21 +503,19 @@
   flex-direction: column;
   gap: 5px;
   padding: 12px 13px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-card-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
 }
 
 .github-repo-dir-label {
-  color: var(--gh-muted);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
+  font-weight: var(--weight-semibold);
+  }
 
 .github-repo-dir-path {
-  color: var(--gh-text);
+  color: var(--tx-primary);
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
@@ -529,9 +527,9 @@
   flex-direction: column;
   gap: 7px;
   padding: 12px 13px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-card-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
 }
 
 .github-git-status-title {
@@ -561,11 +559,11 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-card-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   font-size: var(--fs-xs);
-  color: var(--gh-text);
+  color: var(--tx-primary);
 }
 
 .github-gitignore-exists {
@@ -587,7 +585,7 @@
   margin-left: auto;
 }
 
-.github-edit-btn { min-height: 26px; padding: 0 8px; font-size: var(--fs-2xs); }
+.github-edit-btn { min-height: var(--control-sm); padding: 0 8px; font-size: var(--fs-2xs); }
 
 .github-connected-header {
   display: flex;
@@ -653,14 +651,14 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-row-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   transition: background var(--duration-fast), border-color var(--duration-fast);
 }
 
 .github-branch-row:hover {
-  background: var(--gh-card-hover);
+  background: var(--fill-selected);
   border-color: color-mix(in srgb, var(--tx-primary) 9%, transparent);
 }
 
@@ -724,7 +722,7 @@
   font-weight: 700;
 }
 
-.github-branch-action-btn { min-height: 26px; font-size: var(--fs-2xs); }
+.github-branch-action-btn { min-height: var(--control-sm); font-size: var(--fs-2xs); }
 
 /* Filter tabs (PRs) */
 .github-filter-tabs {
@@ -736,20 +734,20 @@
 .github-filter-tab {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
+  min-height: var(--control-sm);
   padding: 0 11px;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
-  background: var(--ov-1);
-  color: var(--gh-muted);
+  background: var(--surface-raised);
+  color: var(--tx-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
   transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
 }
 
 .github-filter-tab:hover {
-  color: var(--gh-text);
-  background: var(--ov-2);
+  color: var(--tx-primary);
+  background: var(--fill-hover);
 }
 
 .github-filter-tab.active {
@@ -765,16 +763,16 @@
   gap: 10px;
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid var(--gh-card-border);
-  border-radius: var(--gh-radius);
-  background: var(--gh-row-bg);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
   text-align: left;
   transition: background var(--duration-fast), border-color var(--duration-fast);
 }
 
 .github-pr-row:hover {
-  border-color: var(--ov-3);
-  background: var(--gh-card-hover);
+  border-color: var(--bd-strong);
+  background: var(--fill-selected);
 }
 
 .github-pr-icon { color: var(--intent-info-fg); flex-shrink: 0; margin-top: 1px; }

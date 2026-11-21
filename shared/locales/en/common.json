@@ -431,6 +431,7 @@
       "howToInstall": "How to install",
       "notInstalled": "Not installed",
       "signIn": "Sign in to {{provider}}",
+      "signInShort": "Sign in",
       "waiting": "Waiting for sign-in in your browser…",
       "cancel": "Cancel",
       "readyModel": "Ready · {{model}}",
@@ -439,8 +440,7 @@
       "newConversation": "New conversation",
       "waitsForAgent": "Opens once an agent is connected",
       "openAlone": "Or open <code>OxeCode</code> or <query>OxeQuery</query> on their own",
-      "heroTitle": "Agents that work in your code and show every step",
-      "heroLead": "Pick a project folder, connect Claude Code or Codex, and work seeing every step."
+      "heroTitle": "Agents that work in your code and show every step"
     }
   },
   "usage": {
@@ -483,8 +483,14 @@
     "emptyHint": "Finished turns, requests that need you and updates show up here.",
     "group": {
       "needs-you": "Needs you",
+      "failed": "Failed",
       "finished": "Finished",
       "updates": "Updates"
+    },
+    "outcome": {
+      "allowed": "Allowed",
+      "denied": "Denied",
+      "answered": "Answered"
     },
     "kind": {
       "needs-you": "Needs you",

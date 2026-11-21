@@ -1414,6 +1414,7 @@
     "width": "OxeChat sidebar width",
     "conversations": "Conversations",
     "filter": "Filter conversations",
+    "filterPlaceholder": "Filter…",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
@@ -2220,7 +2221,9 @@
       }
     },
     "toast": {
-      "needsYou": "Needs you: {{title}} · {{agent}}"
+      "needsYou": "Needs you: {{title}} · {{agent}}",
+      "moreInQueue": "+{{count}} in queue",
+      "openConversation": "Open conversation"
     },
     "queue": {
       "listLabel": "Pending approvals",
@@ -2244,6 +2247,8 @@
         "failed": "Failed",
         "working": "Working"
       },
+      "groupHeading": "{{label}} · {{count}}",
+      "nextShortcut": "Next",
       "more": "+{{rest}} more",
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",

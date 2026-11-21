@@ -37,7 +37,7 @@
 .button:where([data-variant='primary']) { background: var(--accent); color: var(--tx-on-accent); }
 .button:where([data-variant='primary']):hover:not(:disabled) { background: var(--accent-hover); }
 
-.button:where([data-variant='secondary']) { background: var(--surface-raised); color: var(--tx-primary); border-color: var(--bd-strong); }
+.button:where([data-variant='secondary']) { background: var(--surface-raised); color: var(--tx-primary); border-color: var(--bd-control); }
 .button:where([data-variant='secondary']):hover:not(:disabled) { background: var(--fill-hover); }
 .button:where([data-variant='secondary']):active:not(:disabled) { background: var(--fill-pressed); }
 
@@ -47,7 +47,7 @@
 .button:where([data-variant='ghost'])[aria-pressed='true'], .button:where([data-variant='ghost'])[data-state='open'] { background: var(--fill-selected); color: var(--tx-primary); }
 
 .button:where([data-variant='danger']) { background: var(--intent-danger-solid); color: var(--tx-on-solid); }
-.button:where([data-variant='danger']):hover:not(:disabled) { filter: brightness(0.94); }
+.button:where([data-variant='danger']):hover:not(:disabled) { background: var(--intent-danger-solid-hover); }
 
 .button:where([data-variant='link']) { height: auto; min-width: 0; padding: 0; background: none; color: var(--tx-link); text-decoration: underline; text-underline-offset: 2px; }
 

@@ -216,7 +216,7 @@ describe('CR-F4-D1 to D8 · DESIGN\'s pass on the F4 place UI, the Pull request 
     await userEvent.click(within(unmerged).getByRole('button', { name: /feat\/c/ }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Remover a worktree em /repo-trees/c?')).toBeInTheDocument()
-    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Apagar também a branch feat/c' }))
+    await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Excluir também a branch feat/c' }))
     expect(within(dialog).getByText('Não mergeada: os commits ficam só nesta branch.')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\bo worktree\b|\bos worktrees\b|\bdo worktree\b|\bum worktree\b|worktree removido|mesclad/i)
 

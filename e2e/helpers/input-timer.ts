@@ -1,7 +1,19 @@
 import type { Page } from '@playwright/test'
 
 /** What ends a timed interaction: every check holds in the same frame. */
-export interface DoneCheck { selector: string; present?: boolean; text?: string; countAbove?: number }
+export interface DoneCheck { selector: string; present?: boolean; text?: string; countAbove?: number; visible?: boolean }
+
+/** Composite stop condition for workspace creation: modal closed + active grid and first terminal pane visible. */
+export const WORKSPACE_LAUNCH_DONE_CHECKS: DoneCheck[] = [
+  { selector: '[data-testid="wizard-launch-btn"]', present: false },
+  {
+    selector:
+      '.workspace-host:not(.workspace-host-hidden) [data-testid="workspace-grid"], ' +
+      '.workspace-host:not(.workspace-host-hidden) [data-testid="workspace-split-grid"]',
+    visible: true
+  },
+  { selector: '.workspace-host:not(.workspace-host-hidden) [data-testid="terminal-pane"]', visible: true }
+]
 
 /** The single-selector form: ends when `selector` is present, or gone when `wantPresent` is false. */
 export async function armInputTimer(page: Page, selector: string, wantPresent: boolean): Promise<void> {
@@ -27,9 +39,18 @@ export async function armInputTimerUntil(page: Page, checks: DoneCheck[]): Promi
       timer.start = event.timeStamp
     }
     let frame = 0
+    const isVisible = (node: Element): boolean => {
+      const style = window.getComputedStyle(node)
+      if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false
+      const rect = node.getBoundingClientRect()
+      return rect.width > 0 && rect.height > 0
+    }
     const check = (): void => {
-      const holds = checks.every(({ selector, present = true, text, countAbove }) => {
-        const found = Array.from(document.querySelectorAll(selector)).filter(node => text === undefined || (node.textContent ?? '').includes(text))
+      const holds = checks.every(({ selector, present = true, text, countAbove, visible }) => {
+        const found = Array.from(document.querySelectorAll(selector)).filter(node => (
+          (text === undefined || (node.textContent ?? '').includes(text)) &&
+          (!visible || isVisible(node))
+        ))
         return countAbove !== undefined ? found.length > countAbove : (found.length > 0) === present
       })
       if (timer.start !== null && holds) { timer.done = performance.now(); timer.stop(); return }

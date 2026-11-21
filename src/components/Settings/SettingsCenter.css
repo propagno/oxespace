@@ -55,7 +55,6 @@
 .settings-center .settings-content-kicker { display: none; }
 .settings-center .settings-content-header h2:not([data-ui]), .settings-general h2:not([data-ui]) { margin: 0; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.5px; line-height: 1.3; }
 .settings-center .settings-content-description, .settings-general > p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.6; }
-.settings-center .settings-content-actions > button[aria-label="Close"] { display: none; }
 .settings-center .settings-content-body { flex: none; min-height: 0; overflow: visible; padding: 0; gap: 16px; }
 .settings-center :is(.settings-btn, .settings-header-action) { min-height: var(--control-lg); padding: 0 12px; border-radius: var(--radius-sm); border-color: var(--bd-default); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .settings-center .settings-btn.primary { color: var(--tx-on-accent); background: var(--accent); }
@@ -174,7 +173,7 @@
 .agent-activity-table .text-muted { color: var(--tx-muted); }
 .agent-activity-table .chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--tx-secondary); font-size: var(--fs-2xs); font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .agent-activity-table .chip.tone-success { border-color: var(--intent-success-border); background: var(--intent-success-bg); color: var(--intent-success-fg); }
-.agent-activity-table .chip.tone-attn { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
+.agent-activity-table .chip.tone-attn { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }
 .agent-activity-table .chip.tone-danger { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 .agent-activity-table .chip.tone-muted { color: var(--tx-muted); background: transparent; }
 .agent-activity-load-more { display: flex; justify-content: flex-start; padding-top: 4px; }

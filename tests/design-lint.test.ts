@@ -185,8 +185,9 @@ describe('design lint', () => {
       // OXE-85 (F6 T35, short ordered menus): 429.
       // OXE-100 (#908 after main): the nine Settings sections, 428.
       // OXE-166 (#906 after #908): the OxeChat sidebar, 416.
-      // OXE-167 (T4): the diagram switch and copy moved to Button, 414.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(414)
+      // OXE-265 (#963): .mcp-builtin-notice dismiss button migrated to IconButton, 415.
+      // OXE-167 (F5 T3–T13, program branch after main 21/11): the diagram switch and copy and the conversation on Button, 406.
+      expect(count(tsx, /<button/g)).toBeLessThanOrEqual(406)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
@@ -204,7 +205,8 @@ describe('design lint', () => {
       expect(fixed.length).toBeLessThanOrEqual(2)
     })
     it('reduced motion is read from data-motion, so the Motion setting can override the operating system', () => {
-      const report = css.flatMap(path => /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
+      // o splash pinta antes de qualquer script, sem data-motion; a preferência do sistema é o único sinal ali (OXE-207)
+      const report = css.flatMap(path => relative(ROOT, path).replace(/\\/g, '/') !== 'src/styles/splash.css' && /prefers-reduced-motion/.test(readFileSync(path, 'utf8')) ? [relative(ROOT, path)] : [])
       expect(report).toEqual([])
     })
   })

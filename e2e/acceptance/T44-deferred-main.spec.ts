@@ -12,7 +12,8 @@ async function openUpdates(page: Page) {
   await page.keyboard.press('Control+Shift+P'); await page.keyboard.insertText('Settings')
   await page.locator('[cmdk-item]', { hasText: 'Settings' }).first().click()
   const settings = page.getByRole('dialog').filter({ has: page.getByRole('navigation', { name: 'Settings categories' }) }).first()
-  await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Updates/ }).click()
+  // CR OXE-296 (17/11): BRD-23 placed Updates inside the About section.
+  await settings.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^About/ }).click()
   await page.waitForTimeout(800)
   return settings
 }

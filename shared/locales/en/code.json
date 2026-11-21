@@ -3,6 +3,9 @@
     "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
+    "changesCount_one": "Changes, {{count}} file",
+    "changesCount_other": "Changes, {{count}} files",
+    "changesCountTitle": "Counts the files git reports changed in {{folder}}",
     "browser": "Browser",
     "git": "Commit & pull request",
     "files": "Files",
@@ -380,7 +383,8 @@
       "copy": "Copy",
       "paste": "Paste",
       "selectAll": "Select all",
-      "clear": "Clear"
+      "clear": "Clear",
+      "sendToChat": "Send selection to OxeChat"
     },
     "agentNotFound": "Agent “{{name}}” not found. Try: {{options}}…",
     "search": {
@@ -940,6 +944,7 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
     "toggleAll": "Toggle all workspace terminals",
@@ -1101,7 +1106,10 @@
     },
     "review": {
       "back": "Back to Changes",
-      "classic": "Classic review (line comments)"
+      "classic": "Classic review (line comments)",
+      "viewLabel": "Changes view",
+      "changesOption": "Changes",
+      "classicOption": "Classic"
     },
     "density": {
       "default": "App default",
@@ -1130,7 +1138,9 @@
     "scope": {
       "pinned": "Pinned to {{folder}}",
       "worktree": "Panels are reading the worktree at {{path}}. Click to keep them here even when another pane is active.",
-      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active."
+      "root": "Panels are reading {{path}}. Click to keep them here even when a worktree pane is active.",
+      "pinAction": "Pin the scope",
+      "followAction": "Follow the active pane"
     },
     "systems": {
       "title": "Systems",
