@@ -83,7 +83,7 @@
     "cmdk": "^1.1.1",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.11",
-    "i18next": "^26.5.11",
+    "i18next": "^27.1.1",
     "ignore": "^7.0.14",
     "js-yaml": "^4.3.0",
     "jsonc-parser": "^3.3.1",
