@@ -64,15 +64,15 @@ describe('VIS-13 · the context ring says its number', () => {
   it('an open conversation with nothing used yet reads 0%, not an empty circle', () => {
     render(<ThreadUsageRing provider="claude" idle threadId="t-1" />)
     const ring = screen.getByRole('button')
-    expect(ring).toHaveTextContent('0%')
-    // The visible figure is part of the name (WCAG 2.5.3).
+    // A12 (OXE-167): the ring carries no visible text; the percentage is in its accessible name and tooltip.
+    expect((ring.textContent ?? '').trim()).toBe('')
     expect(ring.getAttribute('aria-label')).toContain('0%')
   })
 
   it('shows the share of the context window the provider reported, the same figure as its name', () => {
     render(<ThreadUsageRing provider="codex" idle threadId="t-1" context={{ usedTokens: 74_000, windowTokens: 200_000, percentage: 37, categories: [], capturedAt: 1, source: 'codex-token-usage' }} />)
     const ring = screen.getByRole('button')
-    expect(ring).toHaveTextContent('37%')
+    expect((ring.textContent ?? '').trim()).toBe('')
     expect(ring.getAttribute('aria-label')).toContain('37%')
   })
 })

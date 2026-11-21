@@ -64,6 +64,23 @@
     "BRD-02.archived-band.count",
     "BRD-02.raw-button.count",
     "BRD-02.attention.radius",
-    "BRD-12.title.font-weight"
+    "BRD-12.title.font-weight",
+    "BRD-04.chat-header.height",
+    "BRD-04.column.width",
+    "BRD-05.title.font-size",
+    "BRD-05.title.font-weight",
+    "BRD-05.title.font-family",
+    "BRD-25.column.width",
+    "BRD-25.prompt.align",
+    "BRD-25.prompt.radius",
+    "BRD-25.turn-gap",
+    "BRD-25.header.meta",
+    "BRD-04.composer.radius",
+    "BRD-04.composer-toolbar.height",
+    "BRD-04.button.height",
+    "BRD-04.button.font-weight",
+    "BRD-04.icon-button.height",
+    "BRD-25.composer.mode-first",
+    "BRD-25.composer.controls"
   ]
 }

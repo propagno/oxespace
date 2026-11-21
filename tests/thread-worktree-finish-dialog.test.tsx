@@ -99,15 +99,17 @@ describe('ending a conversation that owns a worktree', () => {
 })
 
 describe('the conversation header', () => {
-  it('shows the branch and a worktree badge for a conversation that owns one', () => {
-    render(<ThreadHeader thread={thread} pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onTogglePanel={() => {}} />)
-    expect(screen.getByText('feature/x')).toBeInTheDocument()
-    expect(screen.getByText('worktree')).toHaveAttribute('title', expect.stringContaining('feature/x'))
+  it('shows the branch and a worktree chip for a conversation that owns one', () => {
+    const { container } = render(<ThreadHeader thread={thread} pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onTogglePanel={() => {}} />)
+    const chip = container.querySelector('[data-ui="chat-worktree"]')
+    expect(chip).toBeInTheDocument()
+    expect(chip).toHaveTextContent('feature/x')
+    expect(chip).toHaveAttribute('title', owned.path)
   })
 
-  it('shows no worktree badge for an ordinary conversation', () => {
-    render(<ThreadHeader thread={{ ...thread, ownedWorktree: undefined }} branch="main" pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onTogglePanel={() => {}} />)
-    expect(screen.getByText('main')).toBeInTheDocument()
-    expect(screen.queryByText('worktree')).toBeNull()
+  it('shows no worktree chip for an ordinary conversation', () => {
+    const { container } = render(<ThreadHeader thread={{ ...thread, ownedWorktree: undefined }} branch="main" pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onTogglePanel={() => {}} />)
+    expect(container.querySelector('[data-ui="chat-worktree"]')).toBeNull()
+    expect(screen.queryByText('main')).toBeNull()
   })
 })
