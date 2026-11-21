@@ -3,7 +3,9 @@ import type { ToolContext, ToolEntry } from './tool-registry'
 import { ActionRefused, AgentActions, type ActionActor } from '../services/agent-actions/agent-actions'
 import type { ActionLevel } from '../services/agent-actions/action-audit'
 import type { AppServices } from './app-services'
-import type { MainMessage } from '../../../shared/messages'
+import { mainMessage, type MainMessage } from '../../../shared/messages'
+import type { ApprovalRisk as BrokerRisk } from '../services/agent-actions/approval-broker'
+import type { ApprovalRisk } from '../../../shared/types/approvals'
 import { requesterFor } from '../services/approvals/requester'
 
 export type Args = Record<string, unknown>
@@ -20,7 +22,23 @@ export interface ActionScope {
 }
 
 /** `summary` is for the audit trail; the person sees a C3 summary with the tool, action and target, and `notes` (B10). */
-export interface Approval { summary: string; text: string; notes?: MainMessage[] }
+export interface Approval {
+  summary: string
+  text: string
+  /** Optional target shown in the modal ("Where") and summary; defaults to `scope.rootPath`. */
+  target?: string
+  notes?: MainMessage[]
+  /** Overrides the broker scope key (e.g. cross-workspace read pair `(sourceWorkspaceId, targetWorkspaceId)`). */
+  brokerScope?: string
+  /** Broker scope risk (`'read'` allows non-persisted session approval when `risk` is `'low'`). */
+  brokerRisk?: BrokerRisk
+  /** Risk level shown to the person; defaults to `'medium'`. */
+  risk?: ApprovalRisk
+  /** Optional custom label for the allow-session button on read approvals. */
+  sessionOptionLabel?: MainMessage
+  /** Optional explicit explanation returned on denial or missing broker. */
+  deniedMessage?: string
+}
 
 export interface DomainAction {
   level: ActionLevel
@@ -32,6 +50,8 @@ export interface DomainAction {
    * For `confirm`: what the person is asked to approve; it must describe the effect exactly. Returning
    * null skips the question for this call (for example a Thread this caller created): the call is then
    * handled as `write`, still recorded and rate limited. Say when in `approvalNote`.
+   * For `read`: optional conditional escalation (e.g. cross-workspace reads); returning null stays `read`,
+   * returning an `Approval` escalates this call to `confirm`.
    */
   confirm?: (args: Args, scope: ActionScope, ctx: ToolContext) => Promise<Approval | null> | Approval | null
   /** Replaces "A person approves each call." in the tool description. */
@@ -99,10 +119,25 @@ export function domainTool(name: string, summary: string, actions: Record<string
         const missing = (action.required ?? []).filter(field => args[field] === undefined || args[field] === null || args[field] === '')
         if (missing.length) throw new ActionRefused(`${key} requires: ${missing.join(', ')}.`, 'invalid')
         const scope = await resolveScope(ctx)
-        const approval = action.level === 'confirm' && action.confirm ? await action.confirm(args, scope, ctx) : undefined
-        const level = action.level === 'confirm' && approval === null ? 'write' : action.level
+        const approval = action.confirm && (action.level === 'confirm' || action.level === 'read')
+          ? await action.confirm(args, scope, ctx)
+          : undefined
+        const level = action.level === 'confirm' && approval === null
+          ? 'write'
+          : action.level === 'read' && approval
+            ? 'confirm'
+            : action.level
         const result = await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-          tool: name, action: key, level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes
+          tool: name, action: key, level,
+          target: approval?.target ?? scope.rootPath,
+          summary: approval?.summary,
+          text: approval?.text,
+          notes: approval?.notes,
+          brokerScope: approval?.brokerScope,
+          brokerRisk: approval?.brokerRisk,
+          risk: approval?.risk,
+          sessionOptionLabel: approval?.sessionOptionLabel,
+          deniedMessage: approval?.deniedMessage
         }, () => action.run(args, scope, ctx))
         return reply({ schemaVersion: 1, ok: true, result })
       } catch (error) {
@@ -160,4 +195,82 @@ export function service<K extends keyof AppServices>(ctx: ToolContext, key: K): 
 export function codeWorkspace(scope: ActionScope): string {
   if (!scope.workspaceId || scope.workspaceId.startsWith('thread:')) throw new ActionRefused('This needs a Code workspace. Open the project in Code mode first.', 'no-workspace')
   return scope.workspaceId
+}
+
+export interface WorkspaceLike {
+  id: string
+  name?: string
+  rootPath?: string
+  panes?: Array<{
+    id: string
+    displayName?: string | null
+    status?: string
+    agentProfileId?: string | null
+    rowIndex?: number
+    columnIndex?: number
+  }>
+}
+
+/** Broker scope key for non-persisted session approval of cross-workspace reads. */
+export function crossWorkspaceReadScope(sourceWorkspaceId: string, targetWorkspaceId: string): string {
+  return `cross-workspace-read:${sourceWorkspaceId}->${targetWorkspaceId}`
+}
+
+/**
+ * Resolves the target workspace for a Code-workspace read (`oxespace_agents` list/read, `oxespace_terminal` output).
+ * Same-workspace reads stay fast (`crossWorkspace: false`); another workspace requires explicit user authorization.
+ */
+export function resolveReadableWorkspace(
+  args: Args,
+  scope: ActionScope,
+  ctx: ToolContext,
+  paneId?: string
+): { sourceWorkspaceId: string; targetWorkspace: WorkspaceLike; crossWorkspace: boolean } {
+  const sourceWorkspaceId = codeWorkspace(scope)
+  const requestedWorkspaceId = str(args, 'workspaceId', 200)
+  if (requestedWorkspaceId && requestedWorkspaceId !== sourceWorkspaceId) {
+    const target = ctx.workspaceServ.get(requestedWorkspaceId) as WorkspaceLike | null
+    if (!target) throw new ActionRefused('No workspace with that id exists. Use oxespace_list_workspaces.', 'not-found')
+    return { sourceWorkspaceId, targetWorkspace: target, crossWorkspace: true }
+  }
+  const own = ctx.workspaceServ.get(sourceWorkspaceId) as WorkspaceLike | null
+  if (!paneId) {
+    if (!own) throw new ActionRefused('No workspace with that id exists.', 'not-found')
+    return { sourceWorkspaceId, targetWorkspace: own, crossWorkspace: false }
+  }
+  if (own?.panes?.some(pane => pane.id === paneId)) {
+    return { sourceWorkspaceId, targetWorkspace: own, crossWorkspace: false }
+  }
+  if (!requestedWorkspaceId) {
+    const other = (ctx.workspaceServ.list() as WorkspaceLike[]).find(ws => ws.id !== sourceWorkspaceId && ws.panes?.some(pane => pane.id === paneId))
+    if (other) return { sourceWorkspaceId, targetWorkspace: other, crossWorkspace: true }
+  }
+  throw new ActionRefused('No pane with that id in this workspace.', 'not-found')
+}
+
+/** Builds the approval request for a cross-workspace read, or returns null when reading the caller's own workspace. */
+export function crossWorkspaceReadApproval(
+  args: Args,
+  scope: ActionScope,
+  ctx: ToolContext,
+  detail: { actionLabel: string; paneId?: string }
+): Approval | null {
+  const resolved = resolveReadableWorkspace(args, scope, ctx, detail.paneId)
+  if (!resolved.crossWorkspace) return null
+  const source = ctx.workspaceServ.get(resolved.sourceWorkspaceId) as WorkspaceLike | null
+  const sourceName = source?.name?.trim() || scope.name || resolved.sourceWorkspaceId
+  const targetName = resolved.targetWorkspace.name?.trim() || resolved.targetWorkspace.id
+  const target = `${targetName} (${resolved.targetWorkspace.id})`
+  const paneSuffix = detail.paneId ? ` (pane ${detail.paneId})` : ''
+  return {
+    summary: `cross-workspace ${detail.actionLabel} in "${targetName}"`,
+    target,
+    text: `${detail.actionLabel} in workspace "${targetName}" (${resolved.targetWorkspace.id})${paneSuffix} from workspace "${sourceName}" (${resolved.sourceWorkspaceId})`,
+    notes: [mainMessage('approvals.note.workspace.crossRead', { source: sourceName, target: targetName })],
+    brokerScope: crossWorkspaceReadScope(resolved.sourceWorkspaceId, resolved.targetWorkspace.id),
+    brokerRisk: 'read',
+    risk: 'low',
+    sessionOptionLabel: mainMessage('approvals.option.allowSessionWorkspaceReads', {}),
+    deniedMessage: `Cross-workspace read from "${sourceName}" (${resolved.sourceWorkspaceId}) to "${targetName}" (${resolved.targetWorkspace.id}) requires explicit user authorization, which was declined or unavailable.`
+  }
 }

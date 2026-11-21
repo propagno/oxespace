@@ -1,4 +1,4 @@
-import type { ApprovalBroker } from './approval-broker'
+import type { ApprovalBroker, ApprovalRisk as BrokerRisk } from './approval-broker'
 import { textHash } from './approval-broker'
 import type { ActionAudit, ActionLevel } from './action-audit'
 import { englishText } from '../../agent-text'
@@ -37,6 +37,14 @@ export interface ActionRequest {
   notes?: MainMessage[]
   /** The risk the person sees; `medium` unless the tool says otherwise. */
   risk?: ApprovalRisk
+  /** Overrides the broker scope key (e.g. a cross-workspace `(sourceWorkspaceId, targetWorkspaceId)` pair). */
+  brokerScope?: string
+  /** Broker scope risk (`'read'` enables non-persisted session approval when `risk` is `'low'`). Default `'action'`. */
+  brokerRisk?: BrokerRisk
+  /** Optional custom label for the allow-session button on read approvals. */
+  sessionOptionLabel?: MainMessage
+  /** Optional explicit explanation returned when denied or when no approval broker is available. */
+  deniedMessage?: string
   /** For `confirm`: gets the approval center's record id as soon as the person can answer it (OXE-109). */
   onAsked?: (approvalId: string) => void
 }
@@ -68,7 +76,14 @@ export class AgentActions {
 
   async run<T>(actor: ActionActor, request: ActionRequest, perform: () => Promise<T>): Promise<T> {
     if (request.level === 'read') return perform()
-    if (!actor.authenticated) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (an OxeCode pane or an OxeChat conversation).', 'no-execution')
+    if (!actor.authenticated) {
+      throw new ActionRefused(
+        request.brokerRisk === 'read'
+          ? 'Cross-workspace reads require an authenticated OXESpace session (an OxeCode pane) and explicit user authorization.'
+          : 'This action changes OXESpace, so it must come from an agent running inside OXESpace (an OxeCode pane or an OxeChat conversation).',
+        'no-execution'
+      )
+    }
     this.limit(actor)
     const text = request.text ?? `${request.action}${request.target ? ` on ${request.target}` : ''}`
     const hash = textHash(text)
@@ -81,16 +96,19 @@ export class AgentActions {
       if (!requester) throw new ActionRefused('This action changes OXESpace, so it must come from an agent running inside OXESpace (a Code pane or a Thread).', 'no-execution')
       const target = request.target ?? ''
       const broker = this.deps.broker
+      const brokerScope = request.brokerScope ?? `${request.tool}|${request.target ?? ''}`
+      const brokerRisk = request.brokerRisk ?? 'action'
       const state = broker
-        ? await broker.require(actor.key, `${request.tool}|${request.target ?? ''}`, {
-          actor: actor.label, tool: `${request.tool}.${request.action}`, risk: 'action', text,
+        ? await broker.require(actor.key, brokerScope, {
+          actor: actor.label, tool: `${request.tool}.${request.action}`, risk: brokerRisk, text,
           kind: 'mcp-confirm', requester, level: request.risk ?? 'medium', title: mainMessage('approvals.title.agent', {}),
-          summary: mainMessage('approvals.summary.mcpConfirm', { tool: request.tool, action: request.action, target }), target, notes: request.notes ?? []
+          summary: mainMessage('approvals.summary.mcpConfirm', { tool: request.tool, action: request.action, target }), target, notes: request.notes ?? [],
+          ...(request.sessionOptionLabel ? { sessionOptionLabel: request.sessionOptionLabel } : {})
         }, undefined, request.onAsked)
         : { state: 'denied' as const }
       if (state.state === 'denied') {
         this.deps.audit?.record({ ...base, decision: 'denied', outcome: 'skipped', errorCode: 'denied' })
-        throw new ActionRefused('The person declined this request. Do not retry it unchanged.', 'denied')
+        throw new ActionRefused(request.deniedMessage ?? 'The person declined this request. Do not retry it unchanged.', 'denied')
       }
       if (state.state === 'refused') {
         this.deps.audit?.record({ ...base, decision: 'refused', outcome: 'skipped', errorCode: refusalCode(state.refusal) })
