@@ -1,7 +1,7 @@
-import { Children, Suspense, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
+import { Children, Suspense, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Info, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
@@ -153,6 +153,40 @@ function MarkdownImage({ src, alt, threadId }: { src?: string; alt?: string; thr
   return <span className="thread-markdown-reference" title={file ?? undefined}>{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
 }
 
+type AlertKind = 'note' | 'important' | 'warning' | 'caution'
+/** The first line of a GitHub alert, read in any case as GitHub reads it: `[!NOTE]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`. */
+const ALERT_MARKER = /^\[!(note|important|warning|caution)\][ \t]*(?:\r?\n|$)/i
+const ALERT_ICONS = { note: Info, important: MessageSquareWarning, warning: TriangleAlert, caution: OctagonAlert } as const
+
+/**
+ * A quote whose first line is one of the four alert markers: its kind and the rest of the quote without the marker.
+ * Null for any other quote, which stays a plain quote.
+ */
+function alertOf(children: ReactNode): { kind: AlertKind; rest: ReactNode[] } | null {
+  const parts = Children.toArray(children)
+  const index = parts.findIndex(part => typeof part !== 'string' || part.trim() !== '')
+  const first = parts[index]
+  if (!isValidElement(first) || first.type !== 'p') return null
+  const inner = Children.toArray((first.props as { children?: ReactNode }).children)
+  const lead = inner[0]
+  if (typeof lead !== 'string') return null
+  const match = ALERT_MARKER.exec(lead)
+  if (!match) return null
+  const remaining = [lead.slice(match[0].length), ...inner.slice(1)].filter(part => part !== '')
+  const paragraph = remaining.length ? [cloneElement(first, undefined, ...remaining)] : []
+  return { kind: match[1].toLowerCase() as AlertKind, rest: [...parts.slice(0, index), ...paragraph, ...parts.slice(index + 1)] }
+}
+
+/** A GitHub alert of the answer: a side rule and an icon in the kind's intent, its label, then the rest of the quote. */
+function MarkdownAlert({ kind, children }: { kind: AlertKind; children?: ReactNode }): ReactElement {
+  const { t } = useTranslation('thread')
+  const Icon = ALERT_ICONS[kind]
+  return <div className="thread-alert" data-ui="alert" data-kind={kind}>
+    <div className="thread-alert-title"><Icon size={14} aria-hidden="true" focusable="false" className="thread-alert-icon" /><span>{t(`markdown.alert.${kind}`)}</span></div>
+    {children}
+  </div>
+}
+
 /** The parser drops every address that is not a web or mail one; an image the answer carries in a `data:` address is kept (it is checked again where it is drawn). */
 function keepInlineImages(url: string, key: string): string {
   return key === 'src' && inlineImageSource(url) ? url : defaultUrlTransform(url)
@@ -171,6 +205,11 @@ export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threa
   const components = useMemo<Components>(() => ({
     table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
     pre: ({ children }) => <Fence>{children}</Fence>,
+    // A quote that opens with [!NOTE], [!IMPORTANT], [!WARNING] or [!CAUTION] is a GitHub alert; any other stays a quote.
+    blockquote: ({ children }) => {
+      const alert = alertOf(children)
+      return alert ? <MarkdownAlert kind={alert.kind}>{alert.rest}</MarkdownAlert> : <blockquote>{children}</blockquote>
+    },
     // F33/A16: inline code that names a file is a link (PathLink with a conversation, else the path menu link).
     code: ({ children, className }) => <MarkdownCode className={className} threadId={threadId} turnId={turnId}>{children}</MarkdownCode>,
     // Code inside a link stays plain: a path button inside an anchor would be nested interactive content (FRONTEND #470).
