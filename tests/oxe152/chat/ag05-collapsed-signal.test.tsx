@@ -83,6 +83,7 @@ describe('OXE-187 · AG-05 a collapsed group says who needs you', () => {
     expect(signalsIn(groupRow('mandacaru')), 'open: no inherited signal').toEqual([])
     expect(signalsIn(sectionToggle()), 'a collapsed section: its child failed').toEqual(['failed'])
     cleanup()
+    resetSectionsForTests() // CR-33: the second render reads its own fixture, not the first render's cached sections
 
     fixture({ p1: true }, false)
     await renderSidebar()
