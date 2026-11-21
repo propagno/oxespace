@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { ActivityApi, ActivityEntry, ActivityRecent } from '../../shared/types/activity'
 
 /**
  * The activity center's single source: what happened this session that a person may want to see
@@ -79,6 +80,8 @@ interface ActivityState {
   markRead: (source: ActivitySource, id: string) => void
   markAllRead: () => void
   setLive: (scope: LiveScope, entries: Record<string, LiveAttention>) => void
+  /** Reads main's stored entries once (newest first, read by lastSeenAt); an entry recorded this session wins. */
+  hydrate: () => Promise<void>
   reset: () => void
 }
 
@@ -87,6 +90,36 @@ const EMPTY_LIVE = (): ActivityState['live'] => ({ code: {}, thread: {} })
 const EMPTY_WAITING = (): ActivityState['waiting'] => ({ code: {}, thread: {} })
 /** Never reset: a wait keeps its number, so a new wait is told apart from an old one with the same subject. */
 let waitSeq = 0
+
+/** The sources main keeps (shared/types/activity.ts); an OxeQuery request stays in the window. */
+const STORED_SOURCES: ReadonlySet<ActivitySource> = new Set<ActivitySource>(['code', 'thread', 'background', 'quota', 'update', 'mcp'])
+/** hydrate() reads main once; reset() forgets it, and bumps the generation so a read that settles after it changes nothing. */
+let hydrateStarted = false
+let generation = 0
+
+function activityApi(): ActivityApi | undefined {
+  try { return typeof window === 'undefined' ? undefined : window.oxe?.activity } catch { return undefined }
+}
+
+/** Fire and forget: main keeping the list is a bonus, so a missing method or a refused call changes nothing here. */
+function toMain(call: (api: ActivityApi) => Promise<unknown> | undefined): void {
+  const api = activityApi()
+  if (!api) return
+  try { void call(api)?.catch(() => undefined) } catch { /* the window works without main */ }
+}
+
+/** Only main's fields: never place, outcome or read. */
+function toEntry(item: ActivityItem): ActivityEntry {
+  const entry: ActivityEntry = { source: item.source as ActivityEntry['source'], id: item.id, kind: item.kind, target: item.target, title: item.title, at: item.at }
+  if (item.detail) entry.detail = item.detail
+  return entry
+}
+
+function fromStored(entry: ActivityEntry, lastSeenAt: number | null): ActivityItem {
+  const item: ActivityItem = { source: entry.source, id: entry.id, kind: entry.kind, target: entry.target, title: entry.title, at: entry.at, read: lastSeenAt !== null && entry.at <= lastSeenAt }
+  if (entry.detail) item.detail = entry.detail
+  return item
+}
 
 function sameEntries(a: Record<string, LiveAttention>, b: Record<string, LiveAttention>): boolean {
   const keys = Object.keys(a)
@@ -103,12 +136,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     const item: ActivityItem = { ...input, at: input.at ?? Date.now(), read: input.read ?? false }
     const id = key(item)
     set(state => ({ items: [item, ...state.items.filter(entry => key(entry) !== id)].slice(0, ACTIVITY_LIMIT) }))
+    if (STORED_SOURCES.has(item.source)) toMain(api => api.record?.([toEntry(item)]))
   },
 
   resolve: (source, id, kind = 'needs-you') => {
     const items = get().items
     const next = items.filter(entry => !(entry.source === source && entry.id === id && entry.kind === kind))
-    if (next.length !== items.length) set({ items: next })
+    if (next.length === items.length) return
+    set({ items: next })
+    if (STORED_SOURCES.has(source)) toMain(api => api.resolve?.({ source: source as ActivityEntry['source'], id, kind }))
   },
 
   markRead: (source, id) => {
@@ -119,6 +155,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   markAllRead: () => {
     const items = get().items
+    if (items.length === 0) return
+    const newest = items.reduce((max, entry) => Math.max(max, entry.at), -Infinity)
+    toMain(api => api.seen?.(newest))
     if (!items.some(entry => !entry.read)) return
     set({ items: items.map(entry => entry.read ? entry : { ...entry, read: true }) })
   },
@@ -136,7 +175,35 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ live: { ...live, [scope]: entries }, waiting: { ...waiting, [scope]: next } })
   },
 
-  reset: () => set({ items: [], live: EMPTY_LIVE(), waiting: EMPTY_WAITING() })
+  hydrate: async () => {
+    if (hydrateStarted) return
+    hydrateStarted = true
+    const started = generation
+    const api = activityApi()
+    if (!api?.recent) return
+    let stored: ActivityRecent | undefined
+    try { stored = await api.recent() } catch { return }
+    if (started !== generation || !stored || !Array.isArray(stored.entries)) return
+    const lastSeenAt = typeof stored.lastSeenAt === 'number' ? stored.lastSeenAt : null
+    const entries = stored.entries
+    set(state => {
+      const known = new Set(state.items.map(key))
+      const restored: ActivityItem[] = []
+      for (const entry of entries) {
+        const id = key(entry)
+        if (known.has(id)) continue
+        known.add(id)
+        restored.push(fromStored(entry, lastSeenAt))
+      }
+      return { items: [...state.items, ...restored].sort((a, b) => b.at - a.at).slice(0, ACTIVITY_LIMIT) }
+    })
+  },
+
+  reset: () => {
+    generation += 1
+    hydrateStarted = false
+    set({ items: [], live: EMPTY_LIVE(), waiting: EMPTY_WAITING() })
+  }
 }))
 
 function count(entries: Record<string, LiveAttention>): AttentionCounts {
