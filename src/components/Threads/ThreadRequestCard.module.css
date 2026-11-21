@@ -31,7 +31,8 @@
 :global(.thread-pending-requests) .root:not(.question) > * { flex-shrink: 0; }
 :global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy, .factsWrap) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .question > header, .question > nav, .question > footer { flex-shrink: 0; }
-.question > header { color: var(--attn); }
+/* The question's sun: its title is text, so it takes the attention text token (--attn is 3.5:1 on the card, under AA). */
+.question > header { color: var(--attn-fg); }
 
 .root > header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--bd-subtle); }
 .amber > header { border-bottom-color: var(--intent-warning-border); }
