@@ -682,7 +682,7 @@
     "fallback": {
       "pending": "Precisa de você",
       "deny": "Negar no cartão do pedido",
-      "steer": "Direcionar no OxeChat",
+      "steer": "Orientar no OxeChat",
       "stop": "Parar no OxeChat",
       "new": "Nova conversa",
       "terminal": "Novo terminal",
