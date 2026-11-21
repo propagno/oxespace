@@ -32,8 +32,12 @@ test('a database from a newer OXESpace shows the startup failure screen, not an 
       try { await (window as unknown as { oxe: { thread: { list(): Promise<unknown> } } }).oxe.thread.list(); return 'answered' } catch (error) { return String(error) }
     })
     expect(listed).toContain('No handler registered')
-    // Copy details puts the code, the paths and the message on the clipboard.
+    // Copy details puts the code, the paths and the message on the clipboard. On this screen only its own handlers exist,
+    // so the copy goes through the browser clipboard, which needs the window focused, as it is when a person clicks
+    // (a window manager-less xvfb never focuses it by itself).
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.focus())
     await screen.getByRole('button', { name: 'Copy details' }).click()
+    await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 5_000 }).toContain('Startup failure: newer-schema')
     const copied = await app.evaluate(({ clipboard }) => clipboard.readText())
     expect(copied).toContain('Startup failure: newer-schema')
     expect(copied).toContain(profile.db)

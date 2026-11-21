@@ -82,7 +82,8 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
     const cited = page.locator('.xterm').getByText('../secret.txt:1').first()
     const citedInDom = await cited.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false)
     if (!win && menuUp && citedInDom) {
-      await cited.click({ button: 'right' })
+      // The terminal's screen layer takes the pointer above its text rows: the right-click lands on the path's cell.
+      await cited.click({ button: 'right', force: true })
       const second = page.getByRole('menu')
       if (await second.getByRole('menuitem', { name: /VS Code/ }).isVisible().catch(() => false)) await second.getByRole('menuitem', { name: /VS Code/ }).click()
       await page.waitForTimeout(1_500)
