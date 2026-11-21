@@ -49,6 +49,7 @@ import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
+import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
@@ -185,10 +186,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const idle = snapshot?.thread.status === 'idle'
   const quickReplies = useMemo(() => lastConversationMessage?.role === 'assistant' && idle && !summary.pendingRequests.length
     ? threadQuickReplies(lastConversationMessage.text) : NO_REPLIES, [lastConversationMessage, idle, summary])
-  const authFailure = snapshot?.thread.status === 'failed' && (lastResult?.type === 'completed' && lastResult.errorCode === 'authentication' || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
-  // Only something to act on: a failed sign-in, no account, a missing CLI or another auth method. A check that
-  // merely could not confirm the account ('error'), or is still running, is not shown by default.
-  const needsLogin = Boolean(snapshot && (authFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
+  const cardShowsAuthFailure = lastResult?.type === 'completed' && (lastResult.failure?.code === 'authentication' || lastResult.errorCode === 'authentication')
+  const authFailure = snapshot?.thread.status === 'failed' && (cardShowsAuthFailure || turns.at(-1)?.events.some(e => e.type === 'message' && e.role === 'assistant' && authText(e.text)))
+  const legacyAuthFailure = authFailure && !cardShowsAuthFailure
+  // Only something to act on: a legacy failed sign-in (not already owned by the failure card), no account, a missing CLI
+  // or another auth method. A check that merely could not confirm the account ('error'), or is still running, is not shown by default.
+  const needsLogin = Boolean(snapshot && (legacyAuthFailure || account && !['connected', 'error', 'checking', 'connecting'].includes(account.state) || account?.state === 'connected' && account.method !== 'subscription'))
   const degradedConnection = snapshot?.thread.connection?.state === 'degraded' ? snapshot.thread.connection : undefined
   const copyMessage = async (id: string, text: string) => {
     let copied = false
@@ -400,7 +403,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell}
       activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
-      onTogglePanel={togglePanel} onCloseCell={onCloseCell}
+      onTogglePanel={togglePanel} onCloseCell={onCloseCell} onOpenInCode={requestThreadOpenInCode}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
@@ -410,7 +413,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
     <div ref={timeline} className="thread-timeline" hidden={showingToolTab} role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
-      <div ref={scroll.content} className="thread-reading-column">
+      <div ref={scroll.content} className="thread-reading-column" data-ui="chat-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
         {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}

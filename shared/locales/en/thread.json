@@ -427,7 +427,15 @@
     "searchModels": "Search models…",
     "noModels": "No models available.",
     "selectEffort": "Select effort",
-    "effortLevel": { "none": "None", "minimal": "Minimal", "low": "Low", "medium": "Medium", "high": "High", "xhigh": "Extra high", "max": "Max" },
+    "effortLevel": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Max"
+    },
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
@@ -682,7 +690,7 @@
     "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
     "reconnect": "Reconnect your native agent account to continue.",
     "couldNotFinish": "The agent could not finish this turn.",
-    "diagnostic": "Provider diagnostic",
+    "diagnostic": "Technical details",
     "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
     "checkingUsage": "Checking current provider usage…",
     "notRecorded": "Usage and reset time were not recorded for this failure.",
@@ -690,7 +698,7 @@
     "compact": "Compact conversation",
     "reviewPermissions": "Review permissions",
     "changeConfiguration": "Change configuration",
-    "retry": "Retry turn",
+    "retry": "Try again",
     "retryGroup": "Retry this turn",
     "changedFiles": "This turn changed files.",
     "undoAndRetry": "Undo its changes and retry",
@@ -751,6 +759,7 @@
     "operations_one": "{{count}} operation",
     "operations_other": "{{count}} operations",
     "undo": "Undo",
+    "undoTurn": "Undo turn",
     "confirmUndo": "Confirm undo",
     "undoGroup": "Confirm undo",
     "undoFailed": "Could not undo these changes.",
@@ -979,7 +988,11 @@
     "copyResponse": "Copy response",
     "copied": "Copied",
     "copy": "Copy",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copy prompt",
+    "editPrompt": "Edit prompt",
+    "undoTurnChanges": "Undo this turn's changes",
+    "promptEdited": "Edited · resent below"
   },
   "modelPicker": {
     "title": "Choose model",
@@ -1103,7 +1116,8 @@
   "plan": {
     "title": "Plan",
     "progress": "{{done}}/{{total}} completed",
-    "inProgress": "In progress"
+    "inProgress": "In progress",
+    "run": "Run plan"
   },
   "projectSettings": {
     "saveFailed": "Could not save project settings.",
@@ -1164,6 +1178,17 @@
     "minutes": "{{minutes}}m {{seconds}}s",
     "seconds": "{{seconds}}s"
   },
+  "explore": {
+    "summary": "Explored {{files}} files and {{searches}} searches · {{duration}}",
+    "read": "Read",
+    "searched": "Searched",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} result",
+    "hits_other": "{{count}} results"
+  },
+  "steps": {
+    "showMoreLines": "Show {{count}} more lines"
+  },
   "request": {
     "reviewPlan": "Review plan",
     "mcpApproval": "Approve MCP tool request",
@@ -1202,6 +1227,18 @@
     "cancel": "Cancel",
     "decline": "Decline",
     "deny": "Deny",
+    "allowMenu": "More ways to allow",
+    "alwaysAllowProject": "Always allow in this project…",
+    "allowedOnce": "Allowed once",
+    "denied": "Denied",
+    "otherOption": "Other option…",
+    "kind": {
+      "command": "Run a command in the terminal",
+      "db": "Change the database",
+      "file": "Change files",
+      "container": "Change a container",
+      "push": "Push to the remote"
+    },
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
     "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
     "guarded": "Agent-steering file",
@@ -1558,6 +1595,7 @@
     "decline": "Deny",
     "usageUnavailable": "Usage unavailable",
     "interrupted": "Interrupted",
+    "contextCompacted": "Context compacted",
     "noPublicMessages": "No public messages in this section. Continue loading earlier messages if available."
   },
   "turnReview": {
@@ -2107,7 +2145,9 @@
     "forkCodexOnly": "Fork is available for Codex conversations",
     "export": "Export",
     "archive": "Archive",
-    "delete": "Delete…"
+    "delete": "Delete…",
+    "openInCode": "Open in OxeCode",
+    "openWorktreeInCode": "Open the worktree in OxeCode"
   },
   "composerModel": {
     "idle": "Ask, or type / for commands",
@@ -2123,6 +2163,7 @@
   "backgroundShells": {
     "region": "Background shells",
     "running": "Running",
+    "runningOnPort": "Running · port {{port}}",
     "stopped": "Stopped",
     "exitCode": "exit {{code}}",
     "unknownSince": "State unknown since {{time}}",

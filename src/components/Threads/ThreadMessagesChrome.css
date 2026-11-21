@@ -1,16 +1,27 @@
-/* 1.5.0 Cockpit Conversation Messages:
-   - User prompts sit in a soft green bubble (--accent-soft + --accent-border) aligned right.
+/* OxeChat conversation (AG-10 §2.1, OXE-167):
+   - The prompt is a card on the same left axis as the answer, the column's width: no bubble pushed right.
+   - Its actions (Copy prompt, Edit prompt) wait for the pointer or the focus.
    - Assistant answers display the provider avatar mark on the left and clean prose typography. */
 .thread-view .thread-message-user {
-  width: fit-content;
-  max-width: min(82%, 780px);
-  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: none;
+  margin-left: 0;
   margin-right: 0;
-  padding: 10px 14px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
-  background: var(--accent-soft);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
 }
+.thread-view .thread-prompt-actions { display: flex; justify-content: flex-end; gap: var(--space-1); opacity: 0; }
+.thread-view .thread-message-user:hover .thread-prompt-actions,
+.thread-view .thread-message-user:focus-within .thread-prompt-actions { opacity: 1; }
+.thread-view .thread-prompt-edited { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-view .thread-prompt-editor { display: flex; flex-direction: column; gap: var(--space-2); }
+.thread-view .thread-prompt-editor-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.thread-opening-mark { color: var(--tx-accent); flex: none; }
 .thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) {
   color: var(--tx-primary);
   font-weight: var(--weight-medium);
@@ -78,3 +89,33 @@
 .thread-live-activity-stop { flex: none; }
 .thread-nav-search { padding: 0 var(--space-2) var(--space-2); }
 .thread-message-outgoing { opacity: 0.88; }
+.thread-compaction-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  text-align: center;
+}
+.thread-compaction-divider::before,
+.thread-compaction-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--bd-subtle);
+}
+.thread-change-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

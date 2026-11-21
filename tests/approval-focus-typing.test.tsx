@@ -112,7 +112,7 @@ describe('OXE-175 · the request card while the composer is focused', () => {
     const composer = focusOutside(composerHtml)
     const onRespond = vi.fn(async () => undefined)
     const view = render(<ThreadRequestCard request={request('r1')} agent="Claude" disabled={false} onRespond={onRespond} conversationId="t-1" />)
-    expect(await screen.findByText('Claude needs your approval')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Deny' })).toBeInTheDocument()
     expect(composer).toHaveFocus()
     view.rerender(<ThreadRequestCard request={request('r2')} agent="Claude" disabled={false} onRespond={onRespond} conversationId="t-1" />)
     expect(composer).toHaveFocus()
