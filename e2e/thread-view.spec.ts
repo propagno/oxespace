@@ -485,7 +485,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.workbench-titlebar')).not.toContainText('Authentication flow')
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
-    await expect(failureCard.getByLabel('Provider diagnostic')).toContainText('hit the session usage limit')
+    // OXE-167 (AG-11 6.2): the provider's codes sit in the card's closed "Technical details"; open it to read them.
+    await failureCard.locator('.thread-failure-technical > summary').click()
+    await expect(failureCard.getByLabel('Technical details', { exact: true })).toContainText('hit the session usage limit')
     await expect(failureCard.getByText('100% used', { exact: true })).toBeVisible()
     await expect(failureCard.locator('.thread-usage-window time')).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
