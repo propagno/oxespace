@@ -22,8 +22,8 @@ test('a database from a newer OXESpace shows the startup failure screen, not an 
     await expect(screen.getByRole('heading', { level: 2 })).toHaveText('This data comes from a newer OXESpace')
     await expect(screen).toContainText(join(profile.root, 'db-backups'))
     for (const name of ['Open the backups folder', 'Copy details', 'Quit']) await expect(screen.getByRole('button', { name })).toBeVisible()
-    // The error's own words are folded under Details.
-    await screen.getByText('Details', { exact: true }).click()
+    // The error's own words are folded under "Technical message" (CR-10, 369a80450).
+    await screen.getByText('Technical message', { exact: true }).click()
     await expect(screen).toContainText('created by a newer OXESpace version')
     // Nothing of the normal interface mounted behind it, and no handler of it is there to half work.
     await expect(page.getByTestId('btn-new-workspace')).toHaveCount(0)

@@ -12,7 +12,8 @@ import { join } from 'node:path'
  * hidden window that is not the app (as a compromised web preview or design guest would be), and with the app's own
  * window but a subframe. Nothing is written: the inputs are harmless, and a refused handler never reaches the service.
  */
-const SENSITIVE = ['terminal:write', 'terminal:start', 'fs:write-file', 'fs:read-file', 'mcp:create', 'mcp:call-tool', 'approvals:respond', 'remote:answer-pairing', 'remote:set-enabled']
+// fs:write-file left the app in 1.5.0 (G5, #754: the editor is read-only), so it is no longer a channel to guard.
+const SENSITIVE = ['terminal:write', 'terminal:start', 'fs:read-file', 'mcp:create', 'mcp:call-tool', 'approvals:respond', 'remote:answer-pairing', 'remote:set-enabled']
 
 test('B12: sensitive channels refuse a sender that is not the app frame', async () => {
   const root = mkdtempSync(join(tmpdir(), 'oxe-acc-b12-'))

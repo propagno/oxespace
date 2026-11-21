@@ -28,7 +28,8 @@ test('B19: the new worktree gets the listed ignored files, and only those', asyn
   mkdirSync(join(repo, 'config')); writeFileSync(join(repo, 'config', 'local.json'), '{"port":3000}')
   mkdirSync(join(repo, 'secrets')); writeFileSync(join(repo, 'secrets', 'key.pem'), '-----BEGIN PRIVATE KEY-----\nnot listed\n')
   writeFileSync(join(repo, 'big.bin'), Buffer.alloc(200 * 1024 * 1024))
-  writeFileSync(join(repo, 'oxe.yaml'), ['worktree:', '  include:', '    - .env', '    - config/*.json', '    - big.bin', '    - ../outside.txt', `    - ${outside.replace(/\\/g, '/')}`, ''].join('\n'))
+  // The key is worktree.copyFiles since the ARCHITECT review of B19 (5fc2c48ca): it says what is done to the paths.
+  writeFileSync(join(repo, 'oxe.yaml'), ['worktree:', '  copyFiles:', '    - .env', '    - config/*.json', '    - big.bin', '    - ../outside.txt', `    - ${outside.replace(/\\/g, '/')}`, ''].join('\n'))
   execFileSync('git', ['add', '.gitignore', 'oxe.yaml'], { cwd: repo })
   execFileSync('git', ['-c', 'user.email=acc@example.invalid', '-c', 'user.name=acc', 'commit', '-q', '-m', 'project files'], { cwd: repo })
 
