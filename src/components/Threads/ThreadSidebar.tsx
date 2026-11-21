@@ -22,6 +22,8 @@ import { SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDT
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
 import { threadNavigationStatus } from './threadNavigationStatus'
+import { GROUP_SIGNAL_WORD, dominantGroupSignal } from './threadGroupSignal'
+import { StatusSignal } from '../../ui/StatusSignal'
 import { threadConfirmation } from '../../../shared/threadConfirmations'
 import { threadConfirmationText } from './threadConfirmationText'
 import { ThreadProjectSettingsDialog } from './ThreadProjectSettingsDialog'
@@ -278,8 +280,13 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           const open = query ? true : expanded[group.id] ?? true
           const unavailable = unavailableProjects.includes(group.id)
           const duplicate = groups.filter(g => g.name === group.name).length > 1
+          // OXE-187: a collapsed project says its most urgent conversation; an open one shows its rows instead.
+          const signal = open ? null : dominantGroupSignal(group.threads, unreadIds)
+          const signalLabel = signal ? t(`status.${GROUP_SIGNAL_WORD[signal]}`) : ''
+          const summary = signal ? t('sidebar.groupSummary', { name: group.name, conversations: t('sidebar.conversationCount', { count: group.threads.length }), state: signalLabel }) : undefined
           return <section key={group.id} {...workspaceColorAttrs({ id: group.id, color: typeof matchedColor === 'string' ? null : matchedColor })} className={cx('thread-project-group', styles.group, selected?.projectId === group.id && 'is-active')}>
-            <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={open} onSelect={() => toggle(group.id)}
+            <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={open} aria-label={summary} onSelect={() => toggle(group.id)}
+              meta={signal ? <StatusSignal state={signal} label={signalLabel} size={12} /> : undefined}
               lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />}
               title={<><span className={styles.projectDot} aria-hidden="true" /><span className={cx('thread-project-name', styles.name)}>{group.name}</span>{unavailable && <small className={styles.dupPath}> {t('sidebar.directoryMissing')}</small>}{duplicate && <small className={styles.dupPath}> {group.path.split(/[\\/]/).slice(-2).join('/')}</small>}</>}
               actions={<>

@@ -8,6 +8,9 @@ import type { SectionGroup } from './sectionsModel'
 import type { DropTarget, DropZoneProps } from './useSectionDrag'
 import type { ThreadSectionsController } from './useThreadSections'
 import styles from './ThreadSections.module.css'
+import { useThreadStore } from '../../../store/thread.store'
+import { StatusSignal } from '../../../ui/StatusSignal'
+import { GROUP_SIGNAL_WORD, dominantGroupSignal } from '../threadGroupSignal'
 
 const NO_SECTION = '\u0000none'
 
@@ -25,15 +28,19 @@ export function ThreadSectionGroup({ group, index, total, searching, controller,
   rowsClassName?: string
 }): ReactElement | null {
   const { t } = useTranslation('thread')
+  const unreadIds = useThreadStore(state => state.unreadIds)
   const { section, threads } = group
   if (searching && !threads.length) return null
   const open = searching || !section.collapsed
+  // OXE-187: a collapsed section shows its most urgent conversation's signal next to its count.
+  const signal = open ? null : dominantGroupSignal(threads, unreadIds)
   return <section className={cx('thread-section', styles.section)} aria-label={section.name} data-section-id={section.id} {...zoneProps({ projectId: section.projectId, sectionId: section.id })}>
     <SidebarSection
       label={<Button variant="ghost" data-list-item className={cx('thread-section-toggle', styles.toggle)} aria-expanded={open}
         onClick={() => { if (!searching) void controller.setCollapsed(section, !section.collapsed) }}>
         <ChevronDown size={12} aria-hidden="true" /><span className={styles.name}>{section.name}</span>{' '}
         <small className={styles.count}><span aria-hidden="true">{threads.length}</span><span className="sr-only">{t('sections.count', { count: threads.length })}</span></small>
+        {signal && <StatusSignal state={signal} label={t(`status.${GROUP_SIGNAL_WORD[signal]}`)} size={12} />}
       </Button>}
       action={<Menu label={t('sections.actionsFor', { name: section.name })} align="end"
         trigger={<Button variant="ghost" size="sm" square data-list-action data-testid="thread-row-action" aria-label={t('sections.actionsFor', { name: section.name })} title={t('sections.actionsFor', { name: section.name })} data-section-actions={section.id} icon={<MoreHorizontal size={14} aria-hidden="true" />} />}

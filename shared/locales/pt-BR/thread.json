@@ -1455,6 +1455,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
