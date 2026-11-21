@@ -435,7 +435,15 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
-    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
+    "effortLevel": {
+      "none": "Nenhum",
+      "minimal": "Mínimo",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "xhigh": "Extra alto",
+      "max": "Máximo"
+    },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
@@ -1008,7 +1016,11 @@
     "copyResponse": "Copiar a resposta",
     "copied": "Copiado",
     "copy": "Copiar",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copiar prompt",
+    "editPrompt": "Editar prompt",
+    "undoTurnChanges": "Desfazer as alterações deste turno",
+    "promptEdited": "Editado · reenviado abaixo"
   },
   "modelPicker": {
     "title": "Escolher modelo",
@@ -1132,7 +1144,8 @@
   "plan": {
     "title": "Plano",
     "progress": "{{done}}/{{total}} concluídas",
-    "inProgress": "Em andamento"
+    "inProgress": "Em andamento",
+    "run": "Executar plano"
   },
   "projectSettings": {
     "saveFailed": "Não foi possível salvar as configurações do projeto.",
@@ -1192,6 +1205,18 @@
     "thoughtFor": "Pensou por {{duration}}",
     "minutes": "{{minutes}} min {{seconds}} s",
     "seconds": "{{seconds}} s"
+  },
+  "explore": {
+    "summary": "Explorou {{files}} arquivos e {{searches}} buscas · {{duration}}",
+    "read": "Leu",
+    "searched": "Buscou",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} achado",
+    "hits_many": "{{count}} achados",
+    "hits_other": "{{count}} achados"
+  },
+  "steps": {
+    "showMoreLines": "Mostrar mais {{count}} linhas"
   },
   "request": {
     "reviewPlan": "Revisar o plano",
@@ -2174,7 +2199,9 @@
     "forkCodexOnly": "Bifurcar está disponível para conversas do Codex",
     "export": "Exportar",
     "archive": "Arquivar",
-    "delete": "Excluir…"
+    "delete": "Excluir…",
+    "openInCode": "Abrir no OxeCode",
+    "openWorktreeInCode": "Abrir a worktree no OxeCode"
   },
   "composerModel": {
     "idle": "Pergunte, ou digite / para comandos",
@@ -2190,6 +2217,7 @@
   "backgroundShells": {
     "region": "Shells em segundo plano",
     "running": "Em execução",
+    "runningOnPort": "Rodando · porta {{port}}",
     "stopped": "Parado",
     "exitCode": "saída {{code}}",
     "unknownSince": "Estado desconhecido desde {{time}}",
