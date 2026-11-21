@@ -50,16 +50,17 @@ test('Thread composer: write, break lines, reach its controls and send without a
     await expect(message).toHaveValue('First line\nsecond line')
     expect(await sends()).toBe(0)
 
-    // Tab leaves the field for the composer's own controls, and Shift+Tab comes back to it.
+    // Tab leaves the field for the composer bar (OXE-172, A12): Agent | Plan first, then Context; Shift+Tab comes back.
     await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: 'Show conversation commands' }), await focusedName(page)).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Agent', exact: true }), await focusedName(page)).toBeFocused()
     await page.keyboard.press('Tab')
-    const addToPrompt = page.getByRole('button', { name: 'Add to prompt' })
-    await expect(addToPrompt).toBeFocused()
+    await page.keyboard.press('Tab')
+    const addToPrompt = page.getByRole('button', { name: 'Context', exact: true })
+    await expect(addToPrompt, await focusedName(page)).toBeFocused()
 
-    // The "Add to prompt" menu opens with Enter, walks with the arrows and gives focus back on Escape.
+    // The Context menu (with Show conversation commands) opens with Enter, walks with the arrows and gives focus back on Escape.
     await page.keyboard.press('Enter')
-    const menu = page.getByRole('menu', { name: 'Add to prompt' })
+    const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: /Show conversation commands/ }) })
     await expect(menu).toBeVisible()
     const focusedItem = () => page.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem' ? document.activeElement.textContent?.trim() ?? '' : '')
     await expect.poll(focusedItem).not.toBe('')
@@ -71,8 +72,7 @@ test('Thread composer: write, break lines, reach its controls and send without a
     await expect(menu).toHaveCount(0)
     await expect(addToPrompt).toBeFocused()
 
-    await page.keyboard.press('Shift+Tab')
-    await page.keyboard.press('Shift+Tab')
+    for (let step = 0; step < 3; step += 1) await page.keyboard.press('Shift+Tab')
     await expect(message, await focusedName(page)).toBeFocused()
     await expect(message).toHaveValue('First line\nsecond line')
 
