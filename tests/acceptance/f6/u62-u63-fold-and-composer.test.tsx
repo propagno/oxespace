@@ -76,8 +76,7 @@ describe('U6.3 · the composer', () => {
     expect(composerHints({ status: 'working', canSteer: false })).toEqual({ placeholder: 'Queued until the current turn ends', steer: false, sendNow: true })
     expect(composerHints({ status: 'needs-you', canSteer: true })).toEqual({ placeholder: 'Answer, or tell the agent what to do instead', steer: false, sendNow: true })
     await changeLanguage('pt-BR')
-    // OXE-270 (1.5.2 Polimento 2, A5; amendment pre-approved by the coordination on 17/11): glossary §5, "Orientar".
-    expect(composerHints({ status: 'working', canSteer: true }).placeholder).toBe('Oriente: o agente lê depois do passo atual')
+    expect(composerHints({ status: 'working', canSteer: true }).placeholder).toBe('Direcione: o agente lê depois do passo atual')
   })
 
   test('Steer with this asks main to steer with the queued message, and a refusal keeps it queued with the reason', async () => {
