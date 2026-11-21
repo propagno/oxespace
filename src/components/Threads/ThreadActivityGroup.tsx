@@ -1,16 +1,19 @@
-import { foldSummary, toolRow } from '../../../shared/thread-tool-rows'
+import { useState } from 'react'
+import { classifyToolRowKind, foldSummary, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
 import { Check, ChevronDown, CircleAlert, CircleHelp, TerminalSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
+import { useThreadWorkbenchStore } from '../../store/thread-workbench.store'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import { Button, Spinner } from '../../ui'
 import { useToolOutputCuts } from '../../store/tool-output-cut.store'
 import { cutNote } from './toolOutputCut'
 import { foldSummaryText } from './foldSummaryText'
+import { PathLink } from './PathLink'
 import { ToolRowView } from './ToolRowView'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
@@ -81,17 +84,91 @@ function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: R
   </div>
 }
 
-export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; onResolveInterrupted?: ResolveInterrupted }) {
+const EXPLORE_NAMES = new Set(['Read', 'LS', 'Grep', 'Glob', 'read_file', 'list_dir', 'grep_files'])
+const SEARCH_NAMES = new Set(['Grep', 'Glob', 'grep_files'])
+
+/** "1.8 s" / "1,8 s": one decimal, the span from the first start to the last end. */
+function formatExploreSpan(ms: number, language: string): string {
+  const seconds = (Math.max(0, ms) / 1000).toFixed(1)
+  return `${language.toLowerCase().startsWith('pt') ? seconds.replace('.', ',') : seconds} s`
+}
+
+function toolInput(detail: string): Record<string, unknown> | undefined {
+  const text = detail.trim()
+  if (!text.startsWith('{')) return undefined
+  try { return JSON.parse(text) as Record<string, unknown> } catch { return undefined }
+}
+
+function stepState(event: Tool): 'running' | 'failed' | 'done' {
+  return event.state === 'running' ? 'running' : event.state === 'failed' ? 'failed' : 'done'
+}
+
+function TargetLink({ threadId, raw, turnId }: { threadId?: string; raw: string; turnId?: string }) {
+  if (!threadId || !raw) return <>{raw}</>
+  return <PathLink threadId={threadId} raw={raw} turnId={turnId} />
+}
+
+/** One read or search inside an exploration, with the lines read or the hits found. */
+function ExploreStep({ event, root, threadId }: { event: Tool; root: string; threadId?: string }) {
+  const { t } = useTranslation('thread')
+  const target = toolRow(event, root).target
+  const search = SEARCH_NAMES.has(event.name)
+  const input = toolInput(event.detail)
+  const from = typeof input?.offset === 'number' ? input.offset : undefined
+  const limit = typeof input?.limit === 'number' ? input.limit : undefined
+  const range = !search && from !== undefined && limit !== undefined ? t('explore.lines', { from, to: from + limit - 1 }) : ''
+  const hits = search ? (event.output ?? '').split('\n').filter(line => line.length > 0).length : 0
+  return <div data-ui="step" data-kind={classifyToolRowKind(event.name)} data-state={stepState(event)}>
+    {search
+      ? <>{t('explore.searched')} "<TargetLink threadId={threadId} raw={target} turnId={event.turnId} />" · {t('explore.hits', { count: hits })}</>
+      : <>{t('explore.read')} <TargetLink threadId={threadId} raw={target} turnId={event.turnId} />{range ? ` · ${range}` : ''}</>}
+  </div>
+}
+
+/** A run of reads and searches, closed into one line until the person opens it. */
+function ExploreGroup({ events, root, threadId }: { events: Tool[]; root: string; threadId?: string }) {
+  const { t, i18n: bundle } = useTranslation('thread')
+  const [open, setOpen] = useState(false)
+  const searches = events.filter(event => SEARCH_NAMES.has(event.name)).length
+  const start = Math.min(...events.map(event => event.startedAt ?? event.completedAt ?? 0))
+  const end = Math.max(...events.map(event => event.completedAt ?? event.startedAt ?? start))
+  const label = t('explore.summary', { files: events.length - searches, searches, duration: formatExploreSpan(end - start, bundle.language) })
+  return <div data-ui="explore-group">
+    <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(value => !value)}>{label}</Button>
+    {open && <div data-ui="explore-steps">{events.map(event => <ExploreStep key={event.id} event={event} root={root} threadId={threadId} />)}</div>}
+  </div>
+}
+
+/** One tool that is not part of an exploration: an edit carries the file pill. */
+function ActionStep({ event, root, threadId }: { event: Tool; root: string; threadId?: string }) {
+  const row = toolRow(event, root)
+  const openChanges = () => { if (threadId) useThreadWorkbenchStore.getState().setView(threadId, { panel: 'changes' }) }
+  return <div data-ui="step" data-kind={row.kind} data-state={stepState(event)}>
+    {row.kind === 'edit'
+      ? <Button variant="ghost" size="sm" data-ui="file-pill" onClick={openChanges}>{row.target}</Button>
+      : <span>{row.target || event.name}</span>}
+    {(row.meta.additions || row.meta.deletions) ? <span>+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
+  </div>
+}
+
+function segmentTools(events: Tool[]): Array<{ kind: 'explore' | 'other'; events: Tool[] }> {
+  const out: Array<{ kind: 'explore' | 'other'; events: Tool[] }> = []
+  for (const event of events) {
+    const kind = EXPLORE_NAMES.has(event.name) ? 'explore' : 'other'
+    const last = out.at(-1)
+    if (last?.kind === kind) last.events.push(event)
+    else out.push({ kind, events: [event] })
+  }
+  return out
+}
+
+export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', threadId, onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; threadId?: string; onResolveInterrupted?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length, unconfirmed = events.filter(event => event.state === 'unknown').length
   if (mode === 'normal') {
-    const rows = events.map(event => toolRow(event, rootPath))
-    const summary = foldSummary(rows)
-    return <details className={`thread-activity-group${summary.failed ? ' has-failure' : ''}`} open={summary.running || undefined}>
-      <summary>{summary.running ? <Spinner size="sm" decorative /> : summary.failed ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}
-        <span>{foldSummaryText(summary)}{summary.running ? '…' : ''}</span><ChevronDown size={14} /></summary>
-      <div className="thread-activity-items">{events.map((event, index) => <div key={event.id}><ToolRowView row={rows[index]} />{(event.state === 'failed' || event.interrupted) && <ThreadToolDiagnostic event={event} onResolve={onResolveInterrupted} />}</div>)}</div>
-    </details>
+    return <>{segmentTools(events).map(part => part.kind === 'explore'
+      ? <ExploreGroup key={part.events[0].id} events={part.events} root={rootPath} threadId={threadId} />
+      : part.events.map(event => <ActionStep key={event.id} event={event} root={rootPath} threadId={threadId} />))}</>
   }
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
   const reading = events.every(event => ['Read', 'Glob', 'Grep'].includes(event.name))
