@@ -384,6 +384,7 @@
         "deny": "Deny",
         "allowOnce": "Allow once",
         "allowSessionReads": "Allow reads on this connection for this run",
+        "allowSessionWorkspaceReads": "Allow reads from this workspace for this session",
         "closeTab": "Close tab",
         "restart": "Restart",
         "keepWorking": "Keep working",
@@ -408,7 +409,11 @@
         },
         "agent": {
           "actsOnPrompt": "That agent will act on this prompt with its own access.",
-          "turnStopped": "Its running turn is stopped first."
+          "turnStopped": "Its running turn is stopped first.",
+          "unknownState": "OXESpace cannot read this agent's screen state; confirm it is ready for a prompt and not showing a dialog."
+        },
+        "workspace": {
+          "crossRead": "Cross-workspace read: allows \"{{source}}\" to read panes from \"{{target}}\" only during this app session."
         },
         "thread": {
           "actsOnMessage": "The other conversation will act on this message with its own access."

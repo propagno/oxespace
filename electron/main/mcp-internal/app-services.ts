@@ -16,7 +16,7 @@ export interface AppServices {
   credits?: Pick<import('../services/agentCredits').AgentCreditsService, 'getCredits'>
   /** Agents in panes: their lifecycle state, their terminals and the panes they live in. */
   agents?: {
-    state: Pick<import('../services/agent-state/agent-state.service').AgentStateService, 'list' | 'get' | 'explain' | 'waitFor'>
+    state: Pick<import('../services/agent-state/agent-state.service').AgentStateService, 'list' | 'get' | 'explain' | 'waitFor'> & Partial<Pick<import('../services/agent-state/agent-state.service').AgentStateService, 'agentOf'>>
     terminal: Pick<import('../services/terminal.service').TerminalManager, 'peek' | 'submit' | 'interrupt' | 'start' | 'stop'>
     profiles: () => import('../../../shared/types/agent').AgentProfile[]
     resolve: (agentProfileId: string) => { executable: string; provider: string }

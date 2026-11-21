@@ -187,8 +187,9 @@ describe('design lint', () => {
       // OXE-166 (#906 after #908): the OxeChat sidebar, 416.
       // OXE-265 (#963): .mcp-builtin-notice dismiss button migrated to IconButton, 415.
       // OXE-36 (#991): WebPreviewPanel browserbar + DevServerMenu migrated to src/ui Button/IconButton, 405.
-      // OXE-172 (F5 T12+T13 after #991), 399.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(399)
+      // OXE-167 (F5 T3+T4+T8 after #991), 403.
+      // OXE-172 (F5 T5+T12+T13 after #1020), 397.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(397)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)

@@ -80,6 +80,9 @@ describe('agent from command', () => {
     expect(agentFromCommand('claude --resume abc')).toBe('claude')
     expect(agentFromCommand('"C:\\Program Files\\nodejs\\codex.cmd" resume')).toBe('codex')
     expect(agentFromCommand('/usr/local/bin/cursor-agent')).toBe('cursor')
+    expect(agentFromCommand('agy --workspace .')).toBe('antigravity')
+    expect(agentFromCommand('"C:\\Users\\dev\\agy.cmd"')).toBe('antigravity')
+    expect(agentFromCommand('/usr/local/bin/antigravity')).toBe('antigravity')
     expect(agentFromCommand('pwsh.exe')).toBeNull()
   })
 })
@@ -146,7 +149,17 @@ describe('AgentStateService', () => {
     service.start('p1', 'w1', 80, 24, 'bash')
     service.output('p1', 'hello')
     expect(service.get('p1')).toBeNull()
+    expect(service.agentOf('p1')).toBeNull()
     expect(events).toEqual([])
+  })
+
+  it('tracks identified provider via agentOf for executables without a detection manifest (agy/antigravity)', () => {
+    const { service } = make()
+    service.start('p-agy', 'w1', 80, 24, 'agy')
+    expect(service.agentOf('p-agy')).toBe('antigravity')
+    expect(service.get('p-agy')).toBeNull()
+    service.exit('p-agy')
+    expect(service.agentOf('p-agy')).toBeNull()
   })
 })
 

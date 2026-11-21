@@ -6,11 +6,15 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,12 +25,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -63,17 +70,71 @@ import com.oxespace.mobile.ui.components.Viewfinder
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.icons.OxeIcons
+import com.oxespace.mobile.ui.live.LocalClock
+import kotlinx.coroutines.delay
 
 /** Minimum touch target, for TalkBack and thumbs alike. */
 private val TouchTarget = 48.dp
 
+/** The code's time left ticks once a second. */
+private const val TICK_MS = 1_000L
+
+/** A14 (MOB-7): Back at the left of the title, on every pairing state, above the steps. */
+@Composable
+private fun TopBar(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(TouchTarget)) {
+            Icon(OxeIcons.ArrowLeft, contentDescription = stringResource(R.string.pairing_back), tint = Oxe.colors.textPrimary)
+        }
+        Text(
+            stringResource(R.string.pairing_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = Oxe.colors.textPrimary,
+            modifier = Modifier.weight(1f).semantics { heading() },
+        )
+    }
+}
+
+/**
+ * A14 (OXE-179 CA-2): ms left on the code, from the QR's `exp` and LocalClock, ticking each second; null when the
+ * desktop sent no expiry (an older one).
+ */
+@Composable
+private fun codeTimeLeft(expiresAt: Long?): Long? {
+    if (expiresAt == null) return null
+    val read = LocalClock.current
+    var now by remember(expiresAt, read) { mutableLongStateOf(read()) }
+    LaunchedEffect(expiresAt, read) {
+        while (now < expiresAt) {
+            delay(TICK_MS)
+            now = read()
+        }
+    }
+    return expiresAt - now
+}
+
+/** The whole seconds left, rounded up, as m:ss ("2:00", "0:07"). */
+private fun minutesSeconds(leftMs: Long): String {
+    val seconds = (leftMs.coerceAtLeast(0L) + 999) / 1000
+    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
+}
+
 @Composable
 fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Unit, camera: @Composable (Modifier) -> Unit) {
+    // A14: Back and Cancel do what the phone's Back does, so MainActivity's BackHandler leaves pairing.
+    val dispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    val onBack: () -> Unit = { dispatcher?.onBackPressed() }
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(OxeSpace.space6),
             verticalArrangement = Arrangement.spacedBy(OxeSpace.space4),
         ) {
+            TopBar(onBack)
             // CR-A42b-2 (M2): the four steps above every state; a failure marks the step it happened at.
             PairingStepper(
                 labels = listOf(
@@ -87,8 +148,9 @@ fun PairingScreen(state: PairingState, onScanAgain: () -> Unit, onDone: () -> Un
             )
             when (state) {
                 PairingState.Scanning, is PairingState.BadCode -> Scanning(state as? PairingState.BadCode, camera)
+                is PairingState.AskingLocalNetwork -> AskingLocalNetwork(camera)
                 is PairingState.Contacting -> Contacting(state)
-                is PairingState.Waiting -> Waiting(state)
+                is PairingState.Waiting -> Waiting(state, onScanAgain = onScanAgain, onCancel = onBack)
                 is PairingState.Paired -> Result(
                     title = stringResource(R.string.pairing_paired_title),
                     body = stringResource(R.string.pairing_paired_body, state.desktop.desktopName ?: stringResource(R.string.home_unknown_desktop)),
@@ -110,13 +172,25 @@ private fun Title(text: String) {
 private fun Scanning(badCode: PairingState.BadCode?, camera: @Composable (Modifier) -> Unit) {
     // The camera preview shows the desktop's pairing QR, a one-time secret: not for a screen recording either.
     SecureScreen()
-    Title(stringResource(R.string.pairing_title))
     Text(stringResource(R.string.pairing_instructions), style = MaterialTheme.typography.bodyLarge)
     // CR-A42b-2 (M2): the camera in the viewfinder; its guides turn to warning when the last code was wrong.
     Viewfinder(warning = badCode != null, modifier = Modifier.fillMaxWidth().aspectRatio(1f)) { inside -> camera(inside) }
     if (badCode != null) {
         // A code that isn't a pairing code is a problem, so it's a Notice (MG5).
         Notice(NoticeIntent.WARNING, title = stringResource(badCodeText(badCode.problem)), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    }
+}
+
+/**
+ * A15 (MOB-1): step 2 (Conectar), before the phone first talks to the computer. The camera's dark area holds the
+ * slot, where MainActivity puts the local network prompt instead of the camera.
+ */
+@Composable
+private fun AskingLocalNetwork(camera: @Composable (Modifier) -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(OxeRadius.xl)).background(Oxe.colors.termBg).padding(OxeSpace.space4),
+    ) {
+        camera(Modifier.fillMaxWidth())
     }
 }
 
@@ -130,9 +204,16 @@ private fun Contacting(state: PairingState.Contacting) {
 }
 
 @Composable
-private fun Waiting(state: PairingState.Waiting) {
+private fun Waiting(state: PairingState.Waiting, onScanAgain: () -> Unit, onCancel: () -> Unit) {
     // The verification code is what the person compares with the desktop: not for Recents or a screen recording.
     SecureScreen()
+    val left = codeTimeLeft(state.expiresAt)
+    if (left != null && left <= 0L) {
+        // A14: at 0 the code and its countdown go; the existing lapsed text and a new code take over.
+        Text(stringResource(R.string.home_lapsed), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        OxeButton(stringResource(R.string.pairing_scan_again), onClick = onScanAgain, modifier = Modifier.fillMaxWidth())
+        return
+    }
     val desktop = state.desktopName ?: stringResource(R.string.home_unknown_desktop)
     Title(stringResource(R.string.pairing_waiting_title))
     Text(stringResource(R.string.pairing_waiting_body, desktop), style = MaterialTheme.typography.bodyLarge)
@@ -145,7 +226,24 @@ private fun Waiting(state: PairingState.Waiting) {
             CodeBoxes(state.verification, spoken)
         }
     }
-    if (state.verification.isNotEmpty()) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+    Text(
+        stringResource(R.string.pairing_waiting_computer),
+        style = MaterialTheme.typography.bodyMedium,
+        color = Oxe.colors.textSecondary,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (left != null) {
+        // m:ss in tabular digits, so the line doesn't jitter as it ticks.
+        Text(
+            stringResource(R.string.pairing_code_expires_in, minutesSeconds(left)),
+            style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+            color = Oxe.colors.textSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    OxeButton(stringResource(R.string.pairing_cancel), onClick = onCancel, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.SECONDARY)
 }
 
 @Composable
@@ -194,6 +292,7 @@ fun CameraWithPermission(description: String, onText: (String) -> Unit, modifier
 /** Which of the four steps a pairing is at; a failure is placed at the step it happened at. */
 private fun stepOf(state: PairingState): Int = when (state) {
     PairingState.Scanning, is PairingState.BadCode -> 0
+    is PairingState.AskingLocalNetwork -> 1
     is PairingState.Contacting -> 1
     is PairingState.Waiting -> 2
     is PairingState.Paired -> 4

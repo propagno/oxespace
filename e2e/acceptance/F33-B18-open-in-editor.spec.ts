@@ -77,8 +77,13 @@ test('F33/B18: a cited path opens in the editor on its line; outside the project
 
     // Outside the project: main refuses, nothing is launched, and the person is told.
     const before = existsSync(args) ? readFileSync(args, 'utf8') : ''
-    if (!win && menuUp) {
-      await page.locator('.xterm').getByText('../secret.txt:1').first().click({ button: 'right' })
+    // On a canvas or WebGL renderer the terminal's text is not in the DOM (the Linux runner too, since 1.5.0): then the
+    // path can't be right-clicked here, and main's refusal below is what proves it.
+    const cited = page.locator('.xterm').getByText('../secret.txt:1').first()
+    const citedInDom = await cited.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true, () => false)
+    if (!win && menuUp && citedInDom) {
+      // The terminal's screen layer takes the pointer above its text rows: the right-click lands on the path's cell.
+      await cited.click({ button: 'right', force: true })
       const second = page.getByRole('menu')
       if (await second.getByRole('menuitem', { name: /VS Code/ }).isVisible().catch(() => false)) await second.getByRole('menuitem', { name: /VS Code/ }).click()
       await page.waitForTimeout(1_500)
