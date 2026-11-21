@@ -831,7 +831,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(conversation).toBeVisible()
     await expect(reviewHost).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
-    await expect(page.locator('.thread-change-summary')).toContainText('Edited 3 files')
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed')
     await page.screenshot({ path: 'test-results/thread-change-card.png' })
     // View changes opens exactly what the turn changed, in its worktree, not the branch diff.
     await page.locator('.thread-change-summary').last().getByRole('button', { name: 'View changes', exact: true }).click()
@@ -908,7 +908,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
     await expect(page.locator('.thread-activity-group, .thread-activity-single')).toHaveCount(0)
-    await expect(page.locator('.thread-change-summary')).toContainText('Edited 3 files')
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed')
     await page.screenshot({ path: 'test-results/thread-view-summary.png' })
     await page.keyboard.press('Control+o') // summary → normal
     await page.keyboard.press('Control+o') // normal → verbose
