@@ -870,7 +870,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
+    await expect(page.locator('.thread-activity-group, .thread-activity-single, [data-ui="explore-group"], [data-ui="step"]').first()).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
     // Once a turn's prompt scrolls away while its work is read, it stays at the top edge and leads back.
     const sticky = page.getByTestId('thread-sticky-prompt')
