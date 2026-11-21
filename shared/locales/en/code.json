@@ -944,6 +944,7 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
     "toggleAll": "Toggle all workspace terminals",
