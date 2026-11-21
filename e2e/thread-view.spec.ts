@@ -971,7 +971,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('paragraph').filter({ hasText: /^Review message 3333$/ })).toBeVisible()
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
-    await expect(latestMessage.getByRole('button')).toHaveCount(0)
+    // OXE-167 (A5, the prompt card): a prompt offers Copy, and Edit only on the latest prompt; nothing else.
+    await expect(latestMessage.getByRole('button', { name: 'Copy prompt', exact: true })).toHaveCount(1)
+    expect(await latestMessage.getByRole('button').count()).toBeLessThanOrEqual(2)
     await expect(latestResponse).toHaveClass(/is-final-response/)
     await expect(latestResponse.getByRole('button', { name: 'Copy final response' })).toBeVisible()
     await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Finished')
