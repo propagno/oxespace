@@ -489,7 +489,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await failureCard.locator('.thread-failure-technical > summary').click()
     await expect(failureCard.getByLabel('Technical details', { exact: true })).toContainText('hit the session usage limit')
     await expect(failureCard.getByText(/100% used/)).toBeVisible()
-    await expect(failureCard.locator('.thread-usage-window time')).toHaveCount(2)
+    // OXE-167 (AG-11 6.2): each window says when it resets in its own line.
+    await expect(failureCard.locator('.thread-usage-window-line', { hasText: 'Resets in' })).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
     await expect(failureCard.getByText(/72% used/)).toBeVisible()
     for (const width of [900, 1280]) {
