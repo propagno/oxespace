@@ -841,6 +841,7 @@
     "truncated": "Cortado"
   },
   "grid": {
+    "resize": "Redimensionar as colunas",
     "split": "Conversas lado a lado",
     "single": "Conversa"
   },
