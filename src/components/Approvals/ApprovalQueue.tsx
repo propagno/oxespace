@@ -256,6 +256,8 @@ export function ApprovalQueue({
       setSelectedId(sorted[prevIndex].request.id)
       return
     }
+    // OXE-333: a question is answered in its conversation, never denied or approved from here.
+    if ((lower === 'd' || lower === 'a') && selected?.request.kind === 'question') return
     if (lower === 'd' && selected) {
       event.preventDefault()
       clearHold()
@@ -533,6 +535,14 @@ export function ApprovalQueue({
             ) : null}
           </div>
 
+          {selected.request.kind === 'question' ? (
+          // OXE-333: a question is answered in its conversation (the question card), never approved from the queue.
+          <footer className={styles.previewFooter}>
+            <Button variant="primary" onClick={() => onOpenTask?.(selected)}>
+              {t('f7.queue.answerInConversation')}
+            </Button>
+          </footer>
+          ) : (
           <footer className={styles.previewFooter}>
             <Button variant="secondary" onClick={() => void onRespond(selected.request.id, { decision: 'decline' })}>
               {t('request.deny')}
@@ -583,6 +593,7 @@ export function ApprovalQueue({
               </span>
             ) : null}
           </footer>
+          )}
         </section>
       ) : (
         <section aria-label={t('f7.queue.previewLabel')} className={styles.rightEmpty}>

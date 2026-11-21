@@ -210,6 +210,13 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     onClose(false)
   }
 
+  // OXE-333: a question is answered in its conversation (OXE-332's event), never from the impact dialog.
+  const answerInConversation = (item: QueueItem): void => {
+    if (item.kind !== 'request') return
+    onClose(false)
+    window.dispatchEvent(new CustomEvent('oxe:open-thread', { detail: { threadId: item.row.id } }))
+  }
+
   const focusedIndex = (): number => itemRefs.current.findIndex(item => item?.contains(document.activeElement) ?? false)
   const move = (index: number): void => {
     if (!items.length) return
@@ -238,7 +245,8 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     // Enter on the item itself (a button keeps its own Enter): the impact of a request the queue cannot decide.
     if (key === 'Enter' && event.target === itemRefs.current[index] && item.kind === 'request' && !decidable(item)) {
       event.preventDefault()
-      seeImpact(item)
+      if (item.request.kind === 'question') answerInConversation(item)
+      else seeImpact(item)
     }
   }
 
@@ -304,7 +312,9 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
                       <Button size="md" variant="primary" onClick={() => decide(item, 'accept')}>{t('f7.card.allowOnce')}</Button>
                     </>
                   ) : (
-                    <Button size="md" variant="secondary" onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
+                    item.request.kind === 'question'
+                      ? <Button size="md" variant="primary" onClick={() => answerInConversation(item)}>{t('f7.queue.answerInConversation')}</Button>
+                      : <Button size="md" variant="secondary" onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
                   )}
                 </div>
               </div>
