@@ -863,10 +863,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
-    // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
+    // A finished turn folds its work under one line that names what it opens ("6 actions"); the turn is closed once,
     // under the answer. Opening the fold shows the one-line action summaries.
     const fold = page.getByTestId('thread-turn-fold').first()
-    await expect(fold).toHaveText(/^\d+ steps?/)
+    await expect(fold).toHaveText(/^\d+ actions?/)
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
