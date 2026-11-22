@@ -169,6 +169,8 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     const agentName = agent ?? t('f7.card.defaultAgent')
     const offer = request.alwaysAllow
     const offeredRule = offer?.offered ? offer.rule : undefined
+    // The label promises no more than the rule gives: a Codex rule lasts for its session, never the whole project.
+    const alwaysAllowLabel = offeredRule?.scope === 'session' ? t('f7.card.alwaysAllowEllipsis') : t('request.alwaysAllowProject')
     const confirmAlwaysAllow = async (): Promise<void> => {
       if (savingRule || inFlight.current) return
       setSavingRule(true)
@@ -220,7 +222,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
         {oneStep ? <>
           <Button variant="primary" className={styles.allowPrimary} disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{t('f7.card.allowOnce')}</Button>
           <Menu label={t('request.allowMenu')} trigger={<IconButton data-ui="allow-menu" label={t('request.allowMenu')} title={t('request.allowMenu')} icon={<ChevronDown size={14} aria-hidden="true" />} />} items={[
-            ...(offeredRule ? [{ label: t('request.alwaysAllowProject'), onSelect: () => setAlwaysAllowOpen(true) }] : []),
+            ...(offeredRule ? [{ label: alwaysAllowLabel, onSelect: () => setAlwaysAllowOpen(true) }] : []),
             { label: t('f7.card.seeImpact'), onSelect: openImpact }
           ]} />
         </> : <Button variant="secondary" className={styles.quiet} disabled={disabled} onClick={openImpact}>{t('f7.card.seeImpact')}</Button>}
