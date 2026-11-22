@@ -3,7 +3,9 @@
  * PTY panes, 8 of them printing ~1 MB/s of ANSI-coloured text for 20 s and 1 idle pane where keys are typed, measured
  * in 3 rounds:
  *  - main:loop: the main process's event-loop delay, with the recorder the performance journal uses for `main:loop`
- *    (monitorEventLoopDelay, 20 ms resolution, perf-journal.ts), reset at each round's start;
+ *    (monitorEventLoopDelay, 20 ms resolution, perf-journal.ts), reset at each round's start. Reported net of the
+ *    recorder's tick, with the journal's formula (shared/perfLoop.ts, OXE-386): an idle loop reads about 1 ms, not 21;
+ *    the series before 22/11 is raw and not comparable;
  *  - key echo: a key typed in the idle pane, from the key event to its echo arriving from the PTY;
  *  - Ctrl K: from the key to the first command palette item painted;
  *  - workspace switch: from the click to the other workspace's grid active (to a second workspace and back);
@@ -18,6 +20,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { LOOP_RESOLUTION_MS, loopReadingMs, type LoopRawNs } from '../shared/perfLoop'
 import { armInputTimerUntil, readInputTimer } from './helpers/input-timer'
 import { launchForPerf } from './helpers/perf-launch'
 
@@ -91,23 +94,25 @@ async function workingSetMb(app: ElectronApplication): Promise<number> {
 
 /** Starts the main process's loop-delay recorder (the journal's main:loop recorder), or reports that it cannot. */
 async function startLoopRecorder(app: ElectronApplication): Promise<boolean> {
-  return await app.evaluate(() => {
+  return await app.evaluate((_electron, resolution) => {
     const builtin = (process as unknown as { getBuiltinModule?: (id: string) => unknown }).getBuiltinModule
     const hooks = builtin?.('node:perf_hooks') as typeof import('node:perf_hooks') | undefined
     if (!hooks) return false
     const scope = globalThis as unknown as { __oxeLoadLoop?: ReturnType<typeof hooks.monitorEventLoopDelay> }
-    scope.__oxeLoadLoop ??= hooks.monitorEventLoopDelay({ resolution: 20 })
+    scope.__oxeLoadLoop ??= hooks.monitorEventLoopDelay({ resolution })
     scope.__oxeLoadLoop.reset()
     scope.__oxeLoadLoop.enable()
     return true
-  })
+  }, LOOP_RESOLUTION_MS)
 }
+/** The round's main:loop, net of the recorder's tick (OXE-386): the raw nanoseconds are read in the app, the formula is shared. */
 async function readLoop(app: ElectronApplication): Promise<{ p50: number; p95: number; max: number }> {
-  return await app.evaluate(() => {
+  const raw: LoopRawNs = await app.evaluate(() => {
     const loop = (globalThis as unknown as { __oxeLoadLoop: { percentile: (p: number) => number; max: number; disable: () => void } }).__oxeLoadLoop
     loop.disable()
-    return { p50: loop.percentile(50) / 1e6, p95: loop.percentile(95) / 1e6, max: loop.max / 1e6 }
+    return { p50: loop.percentile(50), p95: loop.percentile(95), max: loop.max }
   })
+  return loopReadingMs(raw)
 }
 
 /** Counts, in the window, the characters each loader pane receives from its PTY. */
@@ -192,6 +197,7 @@ test.describe.serial('the app under real terminal load (OXE-120)', () => {
       const idle = paneIds[LOADERS]
       const hasLoop = await startLoopRecorder(app)
       if (!hasLoop) console.log('[LOAD] main:loop — not measured: process.getBuiltinModule is missing in this Electron')
+      else console.log(`[LOAD] main:loop — net of the recorder's ${LOOP_RESOLUTION_MS} ms tick, as the performance journal reads it (OXE-386; the raw series before 22/11 is not comparable)`)
 
       for (let round = 1; round <= ROUNDS; round++) {
         await countBytes(page, loaders)
