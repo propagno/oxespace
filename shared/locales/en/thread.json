@@ -18,6 +18,7 @@
     "connect": "Connect",
     "signOut": "Sign out",
     "verify": "Verify",
+    "connected": "Connected",
     "message": {
       "checking": "Checking connection…",
       "activeTurn": "Stop the active turn before reconnecting.",
@@ -1647,7 +1648,7 @@
     "welcomeTitle": "Start your first conversation",
     "welcomeBody": "Describe what you want done. The agent gets its own branch and worktree, and everything it runs, queries or changes stays with the conversation.",
     "newConversation": "New conversation",
-    "providerAccounts": "Provider accounts",
+    "providerAccounts": "Agent accounts",
     "sendingMessage": "Sending message",
     "attachments": "Message attachments",
     "kilobytes": "{{size}} KB",
