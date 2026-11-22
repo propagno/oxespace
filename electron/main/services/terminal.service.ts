@@ -1,40 +1,35 @@
-import { defaultSplitShellProfileId, POSIX_SHELL_PROFILE_ID, WINDOWS_SHELL_PROFILE_ID } from './shell-profile.defaults'
 import { recordRuntime } from './runtime-diagnostics'
-import type { IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { homedir } from 'node:os'
-import { basename, delimiter, extname, join } from 'node:path'
+import { basename } from 'node:path'
 import type { AppDatabase } from '../db/index'
 import { terminatePty } from '../utils/process-tree'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
-import { resumeCommand, type ClaudePermissionMode, type PaneResumeRecord, type PaneSessionSource } from './agent-state/pane-sessions'
+import { resumeCommand } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
-import { agentProgram, setTerminalAgentsFullAccess, terminalAgentsFullAccess, withFullAccess } from './agent-state/agent-full-access'
-import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume, RESUME_LOAD_MS, startedFreshStatus } from './agent-state/pane-resume'
-import { nativeSessionExists, type NativeSessionRoots } from './agent-state/native-session-files'
+import { setTerminalAgentsFullAccess, terminalAgentsFullAccess } from './agent-state/agent-full-access'
+import { startedFreshStatus } from './agent-state/pane-resume'
 import { PtyModeTracker } from './pty-mode-tracker'
+import { resolveExecutable as resolveWithProbe } from './terminal/executable'
+import { SessionStarter, type ManagedTerminalStart, type PtyModule, type SessionStartOptions, type StartedProcess } from './terminal/session-start'
+import { CONPTY_START_SCREEN, SessionOutput, type TerminalSession } from './terminal/session-output'
+import { SessionExits } from './terminal/session-exit'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
-import { SizeLeases } from './terminal/size-lease'; import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
-import { DA1_CARRY_MS, DA1_REPLY, Da1Filter, stripDa1 } from './pty-da1'
-import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStartInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
-import { assertProviderAllowed, inheritedEnvironment } from './policy'
-import { recordIncident } from './diagnostics/incident-sink'
+import { SizeLeases } from './terminal/size-lease'
+import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
+import { Da1Filter } from './pty-da1'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 
-const resolvedExecutableCache = new Map<string, string>()
-/** What the system ConPTY wrote first: clear, reset attributes, home. The bundled one writes none of it (B13). */
-export const CONPTY_START_SCREEN = '\x1b[2J\x1b[m\x1b[H'
+export { __resetExecutableCacheForTests } from './terminal/executable'
+export { CONPTY_START_SCREEN }
+export type { ManagedTerminalStart }
 
-interface PtyModule {
-  spawn(file: string, args: string[], options: IPtyForkOptions | IWindowsPtyForkOptions): IPty
-}
-
-interface TerminalManagerOptions {
+interface TerminalManagerOptions extends SessionStartOptions {
   pty?: PtyModule
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
@@ -46,27 +41,9 @@ interface TerminalManagerOptions {
   emitSizeLease?: (event: TerminalSizeLeaseEvent) => void // 1.5.0 · a phone took a pane's size, or the desktop's is back (lease: null)
   emitActivity?: (event: TerminalActivityEvent) => void
   ringCapacityBytes?: number
-  prepareLaunch?: (input: { paneId: string; workspaceId: string; cwd: string; signal: AbortSignal }) => Promise<Record<string, string>>
   onLaunchExit?: (paneId: string) => void
-  executionEnvironment?: (input: { paneId: string; workspaceId: string; cwd: string }) => Record<string, string>
-  grantProxy?: (origin: { paneId: string }) => { env: Record<string, string>; revoke: () => void }
-  /** MCP launch arguments for an agent CLI, and the variables those arguments refer to. */
-  agentMcpArgs?: (executable: string, args: string[], workspaceId: string) => { args: string[]; env?: Record<string, string> } | Promise<{ args: string[]; env?: Record<string, string> }>
-  isManagedPane?: (paneId: string) => boolean
-  /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
-  oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
   /** Sees every terminal's lifecycle and output, e.g. to read what an agent shows on screen. */
   observer?: TerminalObserver
-  /** The agent session recorded for a pane, answered on its first start in this app run only (see PaneAgentSessions). */
-  resumeSession?: (paneId: string, wanted: boolean, again?: boolean) => PaneResumeRecord | null
-  /** Forgets the pane's recorded session (a restart with `resume: false`). */
-  clearSession?: (paneId: string) => void
-  /** The pane's current agent session and where it came from (Terminal details, S2). */
-  currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null
-  /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
-  assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
-  /** Where the providers keep their sessions; the user's own folders by default. For tests. */
-  nativeSessionRoots?: NativeSessionRoots
 }
 
 export interface TerminalObserver {
@@ -75,65 +52,6 @@ export interface TerminalObserver {
   resize(paneId: string, cols: number, rows: number): void
   exit(paneId: string): void
 }
-
-export interface ManagedTerminalStart extends TerminalStartInput {
-  launch?: { executable: string; args: string[] }
-  requireCwd?: string
-  /** B17 · A restart asks for the pane's recorded session again, past the once-per-run answer. */
-  resumeAgain?: boolean
-}
-
-interface TerminalSession {
-  sessionId: string
-  launchDirectory: string
-  executable: string
-  startedAt: number
-  paneId: string
-  workspaceId: string
-  pty: IPty
-  agentCommand?: string
-  /** Whether the start that made this process wanted the agent's session back (a restart asks the same). */
-  resumeAgent?: boolean
-  /** B17 · The native session this process was started to resume, if any. */
-  resumed?: { agent: 'claude' | 'codex'; sessionId: string }
-  revokeProxy?: () => void
-  inputQueue: PtyInputQueue
-  outputBatcher: PtyOutputBatcher
-  /** Recent output, so a re-mounted view is restored without a respawn. */
-  ring: PtyRingBuffer
-  /** DEC private modes, so a re-mounted view lands in the right screen. */
-  modes: PtyModeTracker
-  /** True while a terminal view is rendering this session. */
-  attached: boolean
-  /**
-   * True only between a view's attach() and its detach(). `attached` starts true so the first prompt is not held
-   * back, but a pane started with no view never attaches; then main answers DA1 itself (see pty-da1.ts).
-   */
-  viewAttached: boolean
-  da1: Da1Filter
-  da1Timer: ReturnType<typeof setTimeout> | null
-  lastActivityAt: number
-  /** Last size the view reported; used for the alt-screen redraw nudge. */
-  cols: number
-  rows: number
-  activityNotifiedAt: number
-}
-
-/**
- * A session whose process died while no view was attached. Without this the
- * pane would come back as a fresh shell and the user would never see why their
- * agent stopped.
- */
-interface ExitedSession {
-  exitCode: number | null
-  exitedAt: number
-  ring: PtyRingBuffer
-  modes: PtyModeTracker
-}
-
-const ACTIVITY_THROTTLE_MS = 1000
-const EXITED_SESSION_LIMIT = 32
-const EXITED_SESSION_TTL_MS = 30 * 60 * 1000
 
 /**
  * Safety valve now that leaving a workspace no longer stops its shells. Each
@@ -144,51 +62,36 @@ const MAX_LIVE_PTYS = 24
 /** A session must be quiet this long before it is considered reclaimable. */
 const RECLAIM_IDLE_MS = 30_000
 
-interface TerminalLaunchContextRow {
-  pane_root_path: string | null
-  workspace_root_path: string
-  shell_profile_id: string
-  shell_profile_name: string | null
-  shell_executable: string | null
-  shell_args_json: string | null
-}
-
 export class TerminalManager {
   private readonly starting = new Map<string, Promise<void>>()
   private readonly launchControllers = new Map<string, AbortController>()
-  private readonly prepareLaunch?: TerminalManagerOptions['prepareLaunch']
+  private readonly starter: SessionStarter
+  private readonly output: SessionOutput
+  private readonly exits = new SessionExits()
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
-  private readonly executionEnvironment?: TerminalManagerOptions['executionEnvironment']
-  private readonly grantProxy?: TerminalManagerOptions['grantProxy']
-  private readonly agentMcpArgs?: TerminalManagerOptions['agentMcpArgs']
-  private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
-  private readonly oxeQueryShell?: TerminalManagerOptions['oxeQueryShell']
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
-  private readonly assignSession?: TerminalManagerOptions['assignSession']
   private readonly clearSession?: TerminalManagerOptions['clearSession']
   private readonly currentSession?: TerminalManagerOptions['currentSession']
-  private readonly nativeSessionRoots?: NativeSessionRoots
   /** B17 · What each pane's first start in this run did with its agent's session, for terminal.status. */
   private readonly agentResumes = new Map<string, PaneAgentResume>()
-  /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
-  private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
-  /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
   private readonly emitSizeLease: (event: TerminalSizeLeaseEvent) => void
-  readonly sizes = new SizeLeases({ size: id => { const s = this.sessions.get(id); return s ? { cols: s.cols, rows: s.rows } : null }, apply: (id, cols, rows) => { const s = this.sessions.get(id); if (s) this.applySize(s, cols, rows) }, emit: event => this.emitSizeLease(event) }) // 1.5.0 · the size a phone holds for a pane while it has the terminal open
-  private readonly lastStarts = new Map<string, Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' | 'rows' | 'resumeAgent'>>()
+  /** 1.5.0 · The size a phone holds for a pane while it has the terminal open. */
+  readonly sizes = new SizeLeases({
+    size: id => {
+      const s = this.sessions.get(id)
+      return s ? { cols: s.cols, rows: s.rows } : null
+    },
+    apply: (id, cols, rows) => {
+      const s = this.sessions.get(id)
+      if (s) this.applySize(s, cols, rows)
+    },
+    emit: event => this.emitSizeLease(event)
+  })
   private readonly sessions = new Map<string, TerminalSession>()
-  private readonly pty: PtyModule
-  private readonly launchContextStatement: ReturnType<AppDatabase['prepare']>
-  private readonly workspaceExistsStatement: ReturnType<AppDatabase['prepare']>
-  private readonly env: NodeJS.ProcessEnv
   private readonly platform: NodeJS.Platform
-  private readonly emitData: (event: TerminalDataEvent) => void
   private readonly emitExit: (event: TerminalExitEvent) => void
-  private readonly emitActivity: (event: TerminalActivityEvent) => void
   private readonly ringCapacityBytes?: number
-  private readonly exitedSessions = new Map<string, ExitedSession>()
-  private readonly outputListeners = new Set<(paneId: string) => void>()
   /** A18 (T79) · Each pane's passive shell cwd, read from OSC 7/633/9;9/1337 in its output. */
   private readonly shellCwds = new Map<string, { scanner: ShellCwdScanner; cwd: string | null }>()
   /** A18 (T73) · Each pane's branch and the branch it started on. */
@@ -196,44 +99,43 @@ export class TerminalManager {
   private readonly emitBranchChanged: (event: TerminalBranchChangedEvent) => void
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
-    this.prepareLaunch = options.prepareLaunch
     this.onLaunchExit = options.onLaunchExit
-    this.executionEnvironment = options.executionEnvironment
-    this.grantProxy = options.grantProxy
-    this.agentMcpArgs = options.agentMcpArgs
-    this.isManagedPane = options.isManagedPane
-    this.oxeQueryShell = options.oxeQueryShell
     this.observer = options.observer
     this.resumeSession = options.resumeSession
-    this.assignSession = options.assignSession
     this.clearSession = options.clearSession
     this.currentSession = options.currentSession
-    this.nativeSessionRoots = options.nativeSessionRoots
-    this.pty = options.pty ?? { spawn }
-    this.env = options.env ?? process.env
     this.platform = options.platform ?? process.platform
-    // Terminal startup needs one pane, one root and one shell profile. Mapping
-    // the complete workspace for every concurrently starting pane produced an
-    // avoidable N×N path on large layouts.
-    this.launchContextStatement = db.prepare(`
-      SELECT
-        p.root_path AS pane_root_path,
-        w.root_path AS workspace_root_path,
-        COALESCE(p.shell_profile_id, w.default_shell_profile_id) AS shell_profile_id,
-        s.name AS shell_profile_name,
-        s.executable AS shell_executable,
-        s.args_json AS shell_args_json
-      FROM panes p
-      JOIN workspaces w ON w.id = p.workspace_id
-      LEFT JOIN shell_profiles s
-        ON s.id = COALESCE(p.shell_profile_id, w.default_shell_profile_id)
-      WHERE p.id = @paneId AND w.id = @workspaceId
-      LIMIT 1
-    `)
-    this.workspaceExistsStatement = db.prepare('SELECT 1 AS found FROM workspaces WHERE id = ? LIMIT 1')
-    this.emitData = options.emitData ?? (() => undefined)
+    this.starter = new SessionStarter({
+      db,
+      pty: options.pty ?? { spawn },
+      env: options.env ?? process.env,
+      platform: this.platform,
+      exists: path => existsSync(path),
+      sessions: this.sessions,
+      agentResumes: this.agentResumes,
+      takeFailedResume: paneId => this.exits.takeFailedResume(paneId),
+      notifyLaunchExit: paneId => this.notifyLaunchExit(paneId),
+      started: started => this.onStarted(started),
+      prepareLaunch: options.prepareLaunch,
+      executionEnvironment: options.executionEnvironment,
+      grantProxy: options.grantProxy,
+      agentMcpArgs: options.agentMcpArgs,
+      isManagedPane: options.isManagedPane,
+      oxeQueryShell: options.oxeQueryShell,
+      resumeSession: options.resumeSession,
+      assignSession: options.assignSession,
+      clearSession: options.clearSession,
+      currentSession: options.currentSession,
+      nativeSessionRoots: options.nativeSessionRoots
+    })
+    this.output = new SessionOutput({
+      sessions: this.sessions,
+      takeExited: paneId => this.exits.take(paneId),
+      scanShellCwd: (paneId, chunk) => this.scanShellCwd(paneId, chunk),
+      emitData: options.emitData ?? (() => undefined),
+      emitActivity: options.emitActivity ?? (() => undefined)
+    })
     this.emitExit = options.emitExit ?? (() => undefined)
-    this.emitActivity = options.emitActivity ?? (() => undefined)
     this.emitBranchChanged = options.emitBranchChanged ?? (() => undefined)
     this.emitSizeLease = options.emitSizeLease ?? (() => undefined)
     this.ringCapacityBytes = options.ringCapacityBytes
@@ -244,7 +146,7 @@ export class TerminalManager {
     if (pending) return pending
     const controller = new AbortController()
     this.launchControllers.set(input.paneId, controller)
-    const task = this.startOnce(input, controller.signal).finally(() => {
+    const task = this.starter.start(input, controller.signal).finally(() => {
       this.starting.delete(input.paneId)
       this.launchControllers.delete(input.paneId)
     })
@@ -252,180 +154,13 @@ export class TerminalManager {
     return task
   }
 
-  private async startOnce(input: ManagedTerminalStart, signal: AbortSignal): Promise<void> {
-    if (this.sessions.has(input.paneId)) return
-    if (!input.launch && this.isManagedPane?.(input.paneId)) throw new Error('Delegated terminal is managed by its task. Use Retry in Workspace settings > Agent delegation.')
-
-    const threadShell = /^thread-shell:([a-f0-9-]{36}):([1-8])$/i.exec(input.paneId)
-    let launch = this.launchContextStatement.get({
-      paneId: input.paneId,
-      workspaceId: input.workspaceId
-    }) as TerminalLaunchContextRow | undefined
-    if (threadShell) {
-      if (input.agentCommand || input.launch || input.initialPrompt || input.agentArgs?.length) throw Error('Project terminals start an interactive shell. Run agent commands inside the terminal.')
-      const row = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id = ? AND workspace_id = ?').get(threadShell[1], input.workspaceId) as { data_json: string } | undefined
-      if (!row) throw Error('Thread terminal owner is unavailable')
-      const thread = JSON.parse(row.data_json) as { rootPath: string; projectId: string }
-      const context = this.db.prepare('SELECT 1 FROM thread_project_contexts c JOIN thread_projects p ON p.id = c.project_id WHERE p.hidden = 0 AND c.project_id = ? AND c.root_path = ?').get(thread.projectId, thread.rootPath)
-      if (!context || !existsSync(thread.rootPath)) throw Error('Project directory is unavailable. Relink the project first.')
-      const shell = this.db.prepare('SELECT id, name, executable, args_json FROM shell_profiles WHERE id = ?').get(defaultSplitShellProfileId(this.platform)) as { id: string; name: string; executable: string; args_json: string } | undefined
-      if (!shell) throw Error('Configure a shell profile in Settings first.')
-      launch = { pane_root_path: thread.rootPath, workspace_root_path: thread.rootPath, shell_profile_id: shell.id, shell_profile_name: shell.name, shell_executable: shell.executable, shell_args_json: shell.args_json }
-    }
-    const oxeShell = this.oxeQueryShell?.(input.paneId)
-    if (oxeShell) {
-      if (input.agentCommand || input.launch || input.initialPrompt || input.agentArgs?.length) throw Error('Container shells start the registered command only.')
-      const home = homedir()
-      launch = { pane_root_path: home, workspace_root_path: home, shell_profile_id: 'oxequery-shell', shell_profile_name: 'Container shell', shell_executable: oxeShell.file, shell_args_json: JSON.stringify(oxeShell.args) } as TerminalLaunchContextRow
-    }
-    if (!launch) {
-      const workspaceExists = this.workspaceExistsStatement.get(input.workspaceId)
-      if (!workspaceExists) throw new Error(`Workspace ${input.workspaceId} not found`)
-      throw new Error(`Pane ${input.paneId} not found`)
-    }
-    if (!launch.shell_executable || !launch.shell_profile_name || launch.shell_args_json === null) {
-      throw new Error(`Shell profile ${launch.shell_profile_id} not found`)
-    }
-    const shellArgs = JSON.parse(launch.shell_args_json) as string[]
-
-    // Pane-level rootPath overrides the workspace root — used by git worktree panes.
-    const cwd = launch.pane_root_path && existsSync(launch.pane_root_path)
-      ? launch.pane_root_path
-      : launch.workspace_root_path
-    if (input.requireCwd && (cwd !== input.requireCwd || !existsSync(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
-
-    // B17 · On the pane's first start in this app run, go back to its agent's native session (herdr's native
-    // session restore), with arguments main builds from the recorded id. A shell pane whose agent was typed by hand
-    // starts the provider itself rather than typing into the shell.
-    const consulted = !threadShell && !oxeShell && !input.launch ? this.resumeSession?.(input.paneId, input.resumeAgent === true, input.resumeAgain === true) ?? null : null
-    // A resume whose process exited at once could not load its session: this start is fresh, never another try.
-    // Settings > Terminal: agents started here skip their permission prompts. The person's own setting, so a session
-    // that skipped them comes back that way too (T54 asks for the person's setting, and this is one).
-    const skipPrompts = terminalAgentsFullAccess(this.db)
-    const allowBypass = skipPrompts || resumeBypassAllowed(this.db)
-    const failed = this.failedResumes.get(input.paneId)
-    this.failedResumes.delete(input.paneId)
-    if (failed) this.clearSession?.(input.paneId)
-    const plan = await planPaneResume(failed ? null : consulted, input, cwd, {
-      allowed: agent => { try { assertProviderAllowed(agent, launch.workspace_root_path); return true } catch { return false } },
-      exists: (agent, sessionId, dir) => nativeSessionExists(agent, sessionId, dir, this.nativeSessionRoots),
-      allowBypass
-    })
-    const status = failed ? failedToLoadStatus(failed) : plan.status
-    if (status) this.agentResumes.set(input.paneId, status)
-    const resumed = plan.status?.outcome === 'resumed' ? { agent: plan.status.agent, sessionId: plan.status.sessionId } : undefined
-    const agentCommand = plan.agentCommand
-
-    // Claude Code and Codex start only where the policy lets them; a plain shell is never blocked.
-    const agentName = (input.launch?.executable ?? agentCommand?.trim().split(/\s+/)[0] ?? '').replace(/\\/g, '/').split('/').pop()?.replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase()
-    if (agentName === 'claude' || agentName === 'codex') assertProviderAllowed(agentName, launch.workspace_root_path)
-    const agentParts = agentCommand ? agentCommand.trim().split(/\s+/) : null
-    const executable = input.launch ? resolveExecutable(input.launch.executable, this.env, this.platform) : agentParts
-      ? resolveExecutable(agentParts[0], this.env, this.platform)
-      : resolveExecutable(launch.shell_executable, this.env, this.platform)
-    // T54 · Restore session (the pane's own `--resume <id>`): the session main recorded for this pane starts again in the
-    // mode it started in. Only that exact session, only Claude, never a launch an agent or Team asked for.
-    const recorded = !input.launch && !threadShell && !oxeShell && agentName === 'claude' && input.agentArgs?.length === 2 && input.agentArgs[0] === '--resume'
-      ? this.currentSession?.(input.paneId) ?? null : null
-    const restoreMode = recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts
-      ? permissionModeArgs(recorded.permissionMode, agentParts.slice(1), allowBypass) : []
-    // The same one line as a B17 resume when the setting held the session's skipped permissions back (SECURITY L on #552).
-    if (recorded?.agent === 'claude' && recorded.sessionId === input.agentArgs?.[1] && agentParts && bypassWithheld(recorded.permissionMode, agentParts.slice(1), allowBypass)) {
-      this.agentResumes.set(input.paneId, { outcome: 'resumed', agent: 'claude', sessionId: recorded.sessionId, note: mainMessage('agents.resume.bypassWithheld', {}) })
-    }
-    let args = input.launch ? input.launch.args : agentParts
-      ? [...agentParts.slice(1), ...restoreMode, ...(input.agentArgs ?? []), ...plan.extraArgs]
-      : [...shellArgs, ...(input.agentArgs ?? [])]
-    // The agents the person starts in a pane start without permission prompts while their setting says so (Settings >
-    // Terminal): by the pane's command or as the pane's own program. Never a launch an agent or Team asked for, never
-    // a conversation's or a container's shell, and a resumed session that recorded a mode of its own keeps it.
-    if (!input.launch && !threadShell && !oxeShell) args = withFullAccess(agentProgram(agentParts?.[0] ?? launch.shell_executable), args, skipPrompts)
-    // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
-    const assigned = this.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
-    if (assigned) { args = ['--session-id', assigned, ...args]; this.assignSession?.(input.paneId, 'claude', assigned) }
-    let mcpEnv: Record<string, string> = {}
-    if (!input.launch && this.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.agentMcpArgs(executable, args, input.workspaceId))
-
-    // Provider CLIs get the environment without secret-looking variables the provider does not need (S7). Plain
-    // shells and other agents keep the full environment: that is the person's own shell.
-    const baseEnv = agentName === 'claude' || agentName === 'codex' ? inheritedEnvironment(agentName, launch.workspace_root_path, this.env) : this.env
-    let finalEnv: Record<string, string> = {
-      ...baseEnv,
-      // Force CLIs to use dark-mode syntax highlighting since OXESpace uses a dark terminal theme
-      COLORFGBG: '15;0',
-      COLORTERM: 'truecolor',
-      GLAMOUR_STYLE: 'dark',
-      BAT_THEME: 'TwoDark'
-    }
-    if (this.executionEnvironment && !threadShell && !oxeShell) finalEnv = { ...finalEnv, ...this.executionEnvironment({ paneId: input.paneId, workspaceId: input.workspaceId, cwd }) }
-    finalEnv = { ...finalEnv, ...mcpEnv }
-    const proxyGrant = !threadShell && !oxeShell && Boolean(agentCommand || input.launch || (launch.shell_profile_id !== WINDOWS_SHELL_PROFILE_ID && launch.shell_profile_id !== POSIX_SHELL_PROFILE_ID)) ? this.grantProxy?.({ paneId: input.paneId }) : undefined
-    if (proxyGrant) finalEnv = { ...finalEnv, ...proxyGrant.env }
-    // Optional launch integrations only return environment; provider failures
-    // never prevent the shell/agent from starting or touch its output stream.
-    if (this.prepareLaunch && !threadShell && !oxeShell) {
-      const integration = new AbortController()
-      const cancel = (): void => integration.abort()
-      signal.addEventListener('abort', cancel, { once: true })
-      const timer = setTimeout(cancel, 3000)
-      const integrationSignal = integration.signal
-      let onAbort: (() => void) | undefined
-      try {
-        const env = await Promise.race([
-          this.prepareLaunch({ paneId: input.paneId, workspaceId: input.workspaceId, cwd, signal: integrationSignal }),
-          new Promise<never>((_, reject) => {
-            onAbort = () => reject(new Error('Optional launch integration cancelled'))
-            integrationSignal.addEventListener('abort', onAbort, { once: true })
-          })
-        ])
-        finalEnv = { ...finalEnv, ...env }
-      }
-      catch { /* Optional integration unavailable. */ }
-      finally {
-        clearTimeout(timer)
-        signal.removeEventListener('abort', cancel)
-        if (onAbort) integrationSignal.removeEventListener('abort', onAbort)
-      }
-    }
-    
-    // An app started with ELECTRON_RUN_AS_NODE must not hand it to its shells: any Electron CLI run there (code) breaks.
-    for (const key of Object.keys(finalEnv)) if (key.toUpperCase() === 'ELECTRON_RUN_AS_NODE') delete finalEnv[key]
-
-    // Spawn at the view's real geometry. Starting at 80x24 and resizing after
-    // the fact makes the app reflow once, which reads as a flash on open.
-    const cols = clampDimension(input.cols, 80)
-    const rows = clampDimension(input.rows, 24)
-
-    let ptyProcess: IPty
-    if (signal.aborted) { proxyGrant?.revoke(); this.notifyLaunchExit(input.paneId); return }
-    try {
-      ptyProcess = this.pty.spawn(executable, args, {
-        name: 'xterm-256color',
-        cwd,
-        cols,
-        rows,
-        env: finalEnv,
-        // Windows: the ConPTY that node-pty ships. Its kill never forks a helper; the system ConPTY's kill does
-        // child_process.fork(), which needs RunAsNode and would start a second OXESpace once that fuse is off.
-        ...(this.platform === 'win32' ? { useConptyDll: true } : {})
-      })
-    } catch (error) {
-      recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })
-      proxyGrant?.revoke()
-      this.notifyLaunchExit(input.paneId)
-      if (agentCommand || input.launch) {
-        recordIncident('incident.agent.startFailed', agentName || 'agent')
-        throw new Error(`Unable to start agent "${input.launch?.executable ?? agentCommand}". ${toMessage(error)}`, { cause: error })
-      }
-      throw new Error(`Unable to start ${launch.shell_profile_name}. Check Settings > Shell profiles executable "${launch.shell_executable}". ${toMessage(error)}`, { cause: error })
-    }
-
+  /** The spawned process becomes the pane's session: its state, its output and its exit. */
+  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command }: StartedProcess): void {
     // A pane that is starting fresh must not inherit a dead session's output.
-    recordRuntime('process-start', { pane: input.paneId, pid: ptyProcess.pid, parentPid: process.pid, executable, kind: input.paneId.startsWith('thread-shell:') ? 'thread' : 'code' })
-    this.exitedSessions.delete(input.paneId)
+    this.exits.forget(input.paneId)
     this.reclaimIdleSession()
 
-    this.lastStarts.set(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
+    this.exits.recordStart(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
       sessionId: randomUUID(),
       launchDirectory: cwd,
@@ -437,9 +172,9 @@ export class TerminalManager {
       agentCommand: input.agentCommand,
       resumeAgent: input.resumeAgent,
       resumed,
-      revokeProxy: proxyGrant?.revoke,
+      revokeProxy,
       inputQueue: new PtyInputQueue(ptyProcess),
-      outputBatcher: new PtyOutputBatcher(input.paneId, (event) => this.onBatch(event)),
+      outputBatcher: new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event)),
       ring: new PtyRingBuffer(this.ringCapacityBytes),
       modes: new PtyModeTracker(),
       // A view always attaches right after starting; assuming attached here
@@ -459,47 +194,31 @@ export class TerminalManager {
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
     if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.trackBranch(input.paneId, cwd)
-    this.observer?.start(input.paneId, input.workspaceId, cols, rows, input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable)
+    this.observer?.start(input.paneId, input.workspaceId, cols, rows, command)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
-      if (session) this.receive(session, data)
+      if (session) this.output.receive(session, data)
       this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
-      if (session) this.releaseDa1(session)
+      if (session) this.output.releaseDa1(session)
       session?.outputBatcher.flush()
-      if (session) this.rememberExit(session, exitCode)
+      if (session) this.exits.remember(session, exitCode)
       // A resume that ends at once could not load its session; forget it so it cannot loop resume → exit → resume.
-      if (session?.resumed && Date.now() - session.startedAt < RESUME_LOAD_MS) {
-        this.failedResumes.set(input.paneId, session.resumed)
-        this.clearSession?.(input.paneId)
-      }
+      if (session && this.exits.recordFailedResume(session)) this.clearSession?.(input.paneId)
       this.sessions.delete(input.paneId)
-      keepDesktopSize(this.sizes, input.paneId, session); this.sizes.forget(input.paneId) // a held pane's next start is at the desktop's size
+      // A held pane's next start is at the desktop's size.
+      keepDesktopSize(this.sizes, input.paneId, session)
+      this.sizes.forget(input.paneId)
       session?.revokeProxy?.()
       this.notifyLaunchExit(input.paneId)
       this.forgetBranch(input.paneId)
       this.observer?.exit(input.paneId)
       this.emitExit({ paneId: input.paneId, exitCode })
     })
-
-    const typed = input.initialPrompt
-    if (typed) {
-      let sent = false
-      ptyProcess.onData(() => {
-        if (sent) return
-        sent = true
-        setTimeout(() => {
-          if (this.sessions.has(input.paneId)) {
-            this.sessions.get(input.paneId)?.inputQueue.enqueue(typed + '\r')
-          }
-        }, 800)
-      })
-    }
-
   }
 
   async write(input: TerminalWriteInput): Promise<void> {
@@ -539,159 +258,40 @@ export class TerminalManager {
     // While a phone holds the size, the desktop's own fit is remembered for when the phone lets go, not applied.
     if (!this.sizes.rememberDesktop(input.paneId, input.cols, input.rows)) this.applySize(session, input.cols, input.rows)
   }
+
   private applySize(session: TerminalSession, cols: number, rows: number): void {
     const unchanged = session.cols === cols && session.rows === rows
-    session.cols = cols; session.rows = rows
+    session.cols = cols
+    session.rows = rows
     this.observer?.resize(session.paneId, cols, rows)
     // A restored full-screen TUI needs a fresh frame after the renderer has installed its alternate buffer; a same-size resize is that handshake.
     if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
     else session.pty.resize(cols, rows)
   }
 
-  /**
-   * PTY output on its way to the batcher. A DA1 query that no view will answer is answered here and removed from the
-   * stream. Main runs this and attach()/detach() on one thread, so the choice is made once per query and holds:
-   * - no view at that moment: the query never reaches the ring or the IPC stream, so a view attaching while main's
-   *   reply is still queued (or any later replay) cannot answer it a second time;
-   * - a view attached: the query goes to it live and its xterm answers; main sends nothing. detach() flushes the
-   *   batcher first, so the view still gets it; a view torn down before parsing it leaves ConPTY to time out, never
-   *   two replies.
-   */
-  private receive(session: TerminalSession, chunk: string): void {
-    // A18 (T79) · One indexOf per chunk while nothing is pending; a new cwd moves the pane's branch.
-    const shell = this.shellCwds.get(session.paneId)
-    if (shell) {
-      const cwd = shell.scanner.push(chunk)
-      if (cwd && cwd !== shell.cwd) {
-        shell.cwd = cwd
-        void this.refreshBranch(session.paneId, cwd)
-      }
-    }
-    const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
-    for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
-    if (data) session.outputBatcher.push(data)
-    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
-    if (session.da1.holding) {
-      session.da1Timer = setTimeout(() => {
-        session.da1Timer = null
-        if (this.sessions.get(session.paneId) === session) session.outputBatcher.push(session.da1.release())
-      }, DA1_CARRY_MS)
-    }
-  }
-
-  private releaseDa1(session: TerminalSession): void {
-    if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
-    const held = session.da1.release()
-    if (held) session.outputBatcher.push(held)
-  }
-
-  /**
-   * Route batched output. Everything is retained; only an attached view gets
-   * the bytes over IPC. Previously every chunk was broadcast to every window
-   * and dropped in the preload when nobody was listening.
-   */
-  private onBatch(event: TerminalDataEvent): void {
-    const session = this.sessions.get(event.paneId)
-    if (!session) return
-
-    // A replayed DA1 would be answered again by the re-mounted view and typed into the shell as `?1;2c`. Whoever was
-    // going to answer it has (main or the live view), so the ring keeps none. receive() never splits a query.
-    session.ring.push(stripDa1(event.data))
-    session.modes.consume(event.data)
-    session.lastActivityAt = Date.now()
-    for (const listener of this.outputListeners) { try { listener(event.paneId) } catch { /* a reader never breaks the pane */ } }
-
-    if (session.attached) {
-      this.emitData(event)
-      return
-    }
-
-    // Detached: no payload crosses the boundary, but the UI still needs to know
-    // a background agent is working (sidebar dots, notifications).
-    if (session.lastActivityAt - session.activityNotifiedAt < ACTIVITY_THROTTLE_MS) return
-    session.activityNotifiedAt = session.lastActivityAt
-    this.emitActivity({ paneId: event.paneId, at: session.lastActivityAt, bytes: event.data.length })
-  }
-
-  /**
-   * Bind a terminal view to a session and hand back what it needs to render.
-   *
-   * Ordering matters: the caller subscribes to `onData` BEFORE calling this,
-   * queueing what arrives. This body runs in one synchronous tick — flush,
-   * read the ring, mark attached — so no chunk can slip between the snapshot
-   * and the live stream, and none is delivered twice.
-   */
+  /** Binds a view and hands back what to render. Subscribe to `onData` before calling it. */
   attach(input: TerminalAttachInput): TerminalAttachResult {
-    const session = this.sessions.get(input.paneId)
-    if (!session) {
-      const exited = this.takeExited(input.paneId)
-      if (!exited) {
-        return { running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false }
-      }
-      return {
-        running: false,
-        seq: exited.ring.seq,
-        prologue: exited.modes.prologue(),
-        replay: exited.ring.snapshot(),
-        truncated: false,
-        altScreen: false,
-        exit: { exitCode: exited.exitCode, at: exited.exitedAt }
-      }
-    }
-
-    session.outputBatcher.flush()
-    const slice = session.ring.since(input.sinceSeq ?? 0)
-    session.attached = true
-    session.viewAttached = true
-
-    // On the alternate screen the retained bytes cannot be trusted: if the
-    // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
-    // the normal buffer. Ask the app for a correct frame instead.
-    const altScreen = session.modes.altScreen
-    return {
-      running: true,
-      seq: session.ring.seq,
-      prologue: session.modes.prologue(),
-      replay: altScreen ? '' : slice.data,
-      truncated: slice.truncated,
-      altScreen
-    }
+    return this.output.attach(input)
   }
 
-  /**
-   * Main-process readers that are not views (the remote gateway) hear that a pane printed something, then read it
-   * with `readSince`. Nothing is attached, so the pane and its views are unaffected.
-   */
+  /** Readers that are not views hear that a pane printed, then read it with `readSince`. */
   onOutput(listener: (paneId: string) => void): () => void {
-    this.outputListeners.add(listener)
-    return () => { this.outputListeners.delete(listener) }
+    return this.output.onOutput(listener)
   }
 
   /** Output after `seq` in the ring, without attaching. `session` changes when the pane's process is replaced. */
   readSince(paneId: string, seq: number): { session: string; seq: number; data: string; truncated: boolean; cols: number; rows: number } | null {
-    const session = this.sessions.get(paneId)
-    if (!session) return null
-    session.outputBatcher.flush()
-    return { session: session.sessionId, seq: session.ring.seq, cols: session.cols, rows: session.rows, ...session.ring.since(seq) }
+    return this.output.readSince(paneId, seq)
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */
   detach(input: TerminalStopInput): void {
-    const session = this.sessions.get(input.paneId)
-    if (!session) return
-    session.outputBatcher.flush()
-    session.attached = false
-    session.viewAttached = false
+    this.output.detach(input)
   }
 
-  /**
-   * The retained output for a reader that is not a view (an agent through MCP).
-   * Nothing is attached or consumed, so the pane and its views are unaffected.
-   */
+  /** The retained output for a reader that is not a view. Nothing is attached or consumed. */
   peek(paneId: string): { running: boolean; data: string; altScreen: boolean } | null {
-    const session = this.sessions.get(paneId)
-    if (!session) return null
-    return { running: true, data: session.ring.snapshot(), altScreen: session.modes.altScreen }
+    return this.output.peek(paneId)
   }
 
   /** T54 · Settings › Terminal: whether a session that skipped permissions resumes that way (off by default). */
@@ -720,6 +320,17 @@ export class TerminalManager {
     void this.branches.track(paneId, cwd).then(view => {
       if (this.branches.isTracked(paneId)) this.emitBranchChanged({ paneId, ...view })
     }).catch(() => undefined)
+  }
+
+  private scanShellCwd(paneId: string, chunk: string): void {
+    // A18 (T79) · One indexOf per chunk while nothing is pending; a new cwd moves the pane's branch.
+    const shell = this.shellCwds.get(paneId)
+    if (!shell) return
+    const cwd = shell.scanner.push(chunk)
+    if (cwd && cwd !== shell.cwd) {
+      shell.cwd = cwd
+      void this.refreshBranch(paneId, cwd)
+    }
   }
 
   private async refreshBranch(paneId: string, cwd?: string): Promise<TerminalPaneBranch | null> {
@@ -782,36 +393,6 @@ export class TerminalManager {
     } catch { /* process exited; attach still returns cleanly */ }
   }
 
-  private rememberExit(session: TerminalSession, exitCode: number | null): void {
-    this.exitedSessions.set(session.paneId, {
-      exitCode,
-      exitedAt: Date.now(),
-      ring: session.ring,
-      modes: session.modes
-    })
-    // Bound both ways: oldest-first eviction plus a TTL, so a long session
-    // cannot accumulate dead panes indefinitely.
-    const cutoff = Date.now() - EXITED_SESSION_TTL_MS
-    for (const [paneId, entry] of this.exitedSessions) {
-      if (entry.exitedAt < cutoff) this.exitedSessions.delete(paneId)
-    }
-    while (this.exitedSessions.size > EXITED_SESSION_LIMIT) {
-      const oldest = this.exitedSessions.keys().next().value
-      if (oldest === undefined) break
-      this.exitedSessions.delete(oldest)
-    }
-  }
-
-  private takeExited(paneId: string): ExitedSession | undefined {
-    const entry = this.exitedSessions.get(paneId)
-    if (!entry) return undefined
-    if (Date.now() - entry.exitedAt > EXITED_SESSION_TTL_MS) {
-      this.exitedSessions.delete(paneId)
-      return undefined
-    }
-    return entry
-  }
-
   stop(input: TerminalStopInput): void {
     this.launchControllers.get(input.paneId)?.abort()
     const session = this.sessions.get(input.paneId)
@@ -819,7 +400,7 @@ export class TerminalManager {
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
-    this.releaseDa1(session)
+    this.output.releaseDa1(session)
     session.outputBatcher.flush()
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
@@ -832,17 +413,20 @@ export class TerminalManager {
     this.observer?.exit(input.paneId)
     this.forgetBranch(input.paneId)
     // An explicit stop is not a crash to be explained on return.
-    this.exitedSessions.delete(input.paneId)
+    this.exits.forget(input.paneId)
   }
+
   private notifyLaunchExit(paneId: string): void {
     try { this.onLaunchExit?.(paneId) } catch { /* Optional integrations cannot affect PTY cleanup. */ }
   }
 
   async restart(input: TerminalStopInput): Promise<void> {
     // A pane whose process exited by itself restarts as it last started; a pane that was stopped stays stopped.
-    const session = this.sessions.get(input.paneId) ?? (this.takeExited(input.paneId) ? this.lastStarts.get(input.paneId) : undefined)
+    const session = this.sessions.get(input.paneId) ?? this.exits.restartable(input.paneId)
     if (!session) return
-    const { workspaceId, agentCommand, resumeAgent } = session, { cols, rows } = desktopStartSize(this.sizes, input.paneId, session) // T18-b
+    const { workspaceId, agentCommand, resumeAgent } = session
+    // T18-b · A phone's held size is never the desktop's: the new process starts at the desktop's own fit.
+    const { cols, rows } = desktopStartSize(this.sizes, input.paneId, session)
     // B17 · `resume: false` starts fresh and forgets the session, so a later crash does not bring it back. A fresh
     // Claude then gets a new session id of main's, recorded as the pane's session.
     let fresh: PaneAgentResume | undefined
@@ -940,61 +524,11 @@ export class TerminalManager {
   }
 }
 
+/** Windows PATH and PATHEXT resolution, with this file's existence probe (see terminal/executable.ts). */
 export function resolveExecutable(
   executable: string,
   env: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform
 ): string {
-  if (platform !== 'win32' || extname(executable)) return executable
-
-  const pathValue = env.PATH ?? env.Path ?? env.path
-  if (!pathValue) return executable
-  const pathExtValue = env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD'
-  const cacheKey = `${executable}\0${pathValue}\0${pathExtValue}`
-  const cached = resolvedExecutableCache.get(cacheKey)
-  if (cached) {
-    if (existsSync(cached)) return cached
-    resolvedExecutableCache.delete(cacheKey)
-  }
-
-  const pathExtensions = pathExtValue
-    .split(';')
-    .map((extension) => extension.trim())
-    .filter(Boolean)
-
-  const executableNames = pathExtensions.map((extension) => `${executable}${extension.toLowerCase()}`)
-  executableNames.push(executable)
-
-  if (executable.includes('\\') || executable.includes('/')) {
-    const resolved = executableNames.find((candidate) => existsSync(candidate))
-    if (resolved) resolvedExecutableCache.set(cacheKey, resolved)
-    return resolved ?? executable
-  }
-
-  for (const directory of pathValue.split(delimiter).filter(Boolean)) {
-    for (const executableName of executableNames) {
-      const candidate = join(directory, executableName)
-      if (existsSync(candidate)) {
-        resolvedExecutableCache.set(cacheKey, candidate)
-        return candidate
-      }
-    }
-  }
-
-  return executable
-}
-
-/** Test-only: avoid positive executable resolutions leaking between cases. */
-export function __resetExecutableCacheForTests(): void {
-  resolvedExecutableCache.clear()
-}
-
-/** node-pty rejects non-positive or non-integer geometry. */
-function clampDimension(value: number | undefined, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) return fallback
-  return Math.min(1000, Math.floor(value))
-}
-
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Terminal process failed'
+  return resolveWithProbe(executable, env, platform, existsSync)
 }
