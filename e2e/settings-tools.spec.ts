@@ -24,6 +24,8 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
+    // The wizard is a modal until the workspace is made: the Settings shortcut pressed under it is lost (OXE-390).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
     await openSettings(page)
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
