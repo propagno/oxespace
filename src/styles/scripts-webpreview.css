@@ -106,7 +106,7 @@
 .scripts-panel-search input:focus {
   background: var(--fill-hover);
   border-color: var(--bd-focus);
-  box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 18%, transparent);
 }
 
 .scripts-panel-list {
@@ -212,7 +212,7 @@
 
 .web-preview-address-input:focus {
   border-color: var(--intent-info-border);
-  box-shadow: 0 0 0 1px rgba(0, 174, 239, 0.18);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--intent-info-solid) 18%, transparent);
 }
 
 .web-preview-go-button {

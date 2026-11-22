@@ -37,6 +37,26 @@ const RULES: Array<{ name: string; pattern: RegExp }> = [
   { name: 'pixel radius (use --radius-*)', pattern: /border-radius:\s*(?:[3-9]|\d\d+)px/ }
 ]
 
+const COLOR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch)\(/i
+const NON_RGB_COLOR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:hsla?|oklch)\(/i
+
+/** True when an rgb()/rgba() argument list is a neutral gray/black/white (R === G === B). */
+function isNeutralRgb(args: string): boolean {
+  const match = /^\s*(\d+(?:\.\d+)?)\s*(?:,|\s)\s*(\d+(?:\.\d+)?)\s*(?:,|\s)\s*(\d+(?:\.\d+)?)\b/.exec(args)
+  if (!match) return false
+  const [r, g, b] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  return r === g && g === b
+}
+
+/** True when a legacy CSS line carries a disallowed color literal (neutral shadows remain allowed). */
+export function hasDisallowedLegacyColor(text: string): boolean {
+  if (!COLOR_LITERAL.test(text)) return false
+  if (!/shadow|--elevation/.test(text)) return true
+  if (NON_RGB_COLOR_LITERAL.test(text)) return true
+  const rgbs = [...text.matchAll(/\brgba?\(([^)]+)\)/gi)]
+  return rgbs.length === 0 || rgbs.some(match => !isNeutralRgb(match[1]))
+}
+
 export function violations(css: string): Array<{ line: number; rule: string; text: string }> {
   const found: Array<{ line: number; rule: string; text: string }> = []
   let disabled = false
@@ -74,9 +94,13 @@ describe('design lint', () => {
       expect(report).toEqual([])
     })
 
-    it('has no color literal outside shadows', () => {
+    it('has no color literal outside neutral shadows', () => {
+      expect(hasDisallowedLegacyColor('box-shadow: 0 0 0 3px rgba(35, 139, 255, 0.38);')).toBe(true)
+      expect(hasDisallowedLegacyColor('box-shadow: 0 0 0 2px #238bff;')).toBe(true)
+      expect(hasDisallowedLegacyColor('box-shadow: 0 12px 28px rgb(0 0 0 / 45%);')).toBe(false)
+      expect(hasDisallowedLegacyColor('box-shadow: 0 1px 2px rgba(255, 255, 255, 0.08);')).toBe(false)
       const report = legacy.flatMap(path => lines(path).flatMap((text, index) =>
-        /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?)\(/i.test(text) && !/shadow|--elevation/.test(text) ? [`${relative(ROOT, path)}:${index + 1} ${text.trim()}`] : []))
+        hasDisallowedLegacyColor(text) ? [`${relative(ROOT, path)}:${index + 1} ${text.trim()}`] : []))
       expect(report).toEqual([])
     })
 

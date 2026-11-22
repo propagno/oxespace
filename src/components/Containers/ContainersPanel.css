@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 .containers-panel {
   display: flex;
   flex-direction: column;
@@ -217,4 +218,5 @@ button.containers-row-origin:hover {
   line-height: var(--leading-snug);
   white-space: pre-wrap;
   word-break: break-word;
+}
 }

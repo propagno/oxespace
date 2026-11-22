@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 /* OxeCode top bar, slim dock headers, and pane switch chrome (Playground parity G7 & G8). */
 .workspace-topbar {
   height: 36px;
@@ -221,3 +222,4 @@
 .worktree-remove-confirm-head { font-weight: var(--weight-semibold); color: var(--intent-danger-fg); font-size: var(--fs-sm); }
 .worktree-remove-confirm-body { color: var(--tx-primary); font-size: var(--fs-xs); }
 .worktree-remove-confirm-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+}

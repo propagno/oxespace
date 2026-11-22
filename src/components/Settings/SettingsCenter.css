@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 /* Settings is a desktop surface with independent navigation and content scroll. */
 .settings-center-overlay { position: fixed; inset: 0; z-index: calc(var(--layer-overlay) - 1); background: var(--scrim); }
 .settings-center { position: fixed; inset: 0; z-index: var(--layer-overlay); display: grid; grid-template-columns: var(--settings-navigation-width, 248px) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
@@ -255,3 +256,4 @@
 .settings-center > .settings-center-nav { border-right: 1px solid var(--bd-subtle); }
 /* The scrim still takes clicks outside the dialog, but no longer dims the title bar that stays in view. */
 .settings-center-overlay { background: transparent; }
+}

@@ -343,7 +343,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
-                  fontFamily: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'DejaVu Sans Mono', monospace",
+                  fontFamily: 'var(--font-mono)',
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   scrollbar: {

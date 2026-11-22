@@ -262,7 +262,7 @@
   flex-shrink: 0;
   background: var(--tx-disabled);
 }
-.statusbar-dot.green  { background: var(--intent-success-solid); box-shadow: 0 0 4px rgba(52, 212, 116, 0.7); }
+.statusbar-dot.green  { background: var(--intent-success-solid); box-shadow: 0 0 4px color-mix(in srgb, var(--intent-success-solid) 70%, transparent); }
 .statusbar-dot.orange { background: var(--intent-warning-solid); }
 .statusbar-dot.yellow { background: var(--intent-warning-solid); }
 .statusbar-dot.red    { background: var(--intent-danger-solid); }
