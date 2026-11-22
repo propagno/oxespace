@@ -21,24 +21,37 @@ if (process.env.OXESPACE_E2E_FIRST_RUN !== 'stay') {
   const leaveFirstRun = `(() => {
     if (window.__oxeE2eLeaveFirstRun) return
     window.__oxeE2eLeaveFirstRun = true
-    let launched = false
-    let launchedAt = 0
-    document.addEventListener('click', (event) => {
-      const target = event.target
-      if (target && target.closest && target.closest('[data-testid="wizard-launch-btn"]')) { launched = true; launchedAt = Date.now() }
-    }, true)
+    // Nothing watches the page until a wizard launch: the observer and the timer exist only while one is pending, and
+    // stop on the click or after 30 s, so the harness costs nothing in a spec that never launches the wizard.
+    let observer = null
+    let timer = null
+    let deadline = 0
+    const stop = () => {
+      if (observer) observer.disconnect()
+      if (timer) clearInterval(timer)
+      observer = null
+      timer = null
+    }
     const tick = () => {
-      if (launched && Date.now() - launchedAt > 30000) launched = false
-      if (!launched || document.querySelector('[data-testid="wizard-launch-btn"]')) return
+      if (Date.now() > deadline) return stop()
+      if (document.querySelector('[data-testid="wizard-launch-btn"]')) return
       const firstRun = document.querySelector('[data-testid="first-run"]')
       if (!firstRun) return
       const button = [...firstRun.querySelectorAll('button')].find((node) => /^OxeCode\\b/.test((node.getAttribute('aria-label') || node.textContent || '').trim()))
       if (!button) return
-      launched = false
+      stop()
       button.click()
     }
-    new MutationObserver(tick).observe(document.documentElement, { childList: true, subtree: true })
-    setInterval(tick, 250)
+    document.addEventListener('click', (event) => {
+      const target = event.target
+      if (!(target && target.closest && target.closest('[data-testid="wizard-launch-btn"]'))) return
+      deadline = Date.now() + 30000
+      if (!observer) {
+        observer = new MutationObserver(tick)
+        observer.observe(document.documentElement, { childList: true, subtree: true })
+      }
+      if (!timer) timer = setInterval(tick, 250)
+    }, true)
   })()`
   app.on('browser-window-created', (_event, win) => {
     win.webContents.on('dom-ready', () => { win.webContents.executeJavaScript(leaveFirstRun).catch(() => undefined) })
