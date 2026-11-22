@@ -448,6 +448,7 @@
       "directShort": "direto",
       "compareBranches": "Comparar branches",
       "uncommittedChanges": "Alterações não commitadas",
+      "staged": "Alterações preparadas",
       "from": "Comparar a partir de",
       "mergeBase": "Ancestral comum (como um pull request)",
       "direct": "Direto da base"
