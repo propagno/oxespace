@@ -210,6 +210,20 @@ private fun NeedsYouCard(
     }
 }
 
+/**
+ * OXE-164 (RN-1 / RN-2): desktop-authored impact summary for a critical request, sanitized via [displaySafe] and capped
+ * like a title. Never reads `request.title`, `detail`, or `reason` (agent-written text); returns null when absent or
+ * blank so callers fall back to the phone's own catalog label.
+ */
+internal fun desktopImpactAction(request: RemotePendingRequest): String? =
+    request.desktopImpactSummary?.let { displaySafe(it, TEXT_LIMIT) }?.takeIf { it.isNotEmpty() }
+
+@Composable
+internal fun criticalHeaderLabel(request: RemotePendingRequest): String {
+    val action = desktopImpactAction(request) ?: stringResource(R.string.needs_you_kind_command)
+    return "${stringResource(R.string.request_risk_critical)} · $action".uppercase()
+}
+
 /** The card's one signal: the sun on attn, or the alert on danger at critical, with the app's own words and the time. */
 @Composable
 private fun NeedsYouHeader(request: RemotePendingRequest, critical: Boolean, question: Boolean) {
@@ -223,16 +237,17 @@ private fun NeedsYouHeader(request: RemotePendingRequest, critical: Boolean, que
         else -> c.attnFg
     }
     val icon = if (critical) OxeIcons.Warning else OxeIcons.Sun
-    // The agent's title never labels a request here: only the catalog's words (CR-F3-7).
+    // OXE-164 (RN-1/RN-2): critical requests use the desktop-authored impact summary or the catalog fallback;
+    // the agent's title never labels a request here (CR-F3-7).
     val kind = when {
-        critical -> "${stringResource(R.string.request_risk_critical)} · ${stringResource(R.string.needs_you_kind_command)}"
+        critical -> criticalHeaderLabel(request)
         question -> {
             val count = request.questions.orEmpty().size.coerceAtLeast(1)
-            pluralStringResource(R.plurals.needs_you_kind_questions, count, count)
+            pluralStringResource(R.plurals.needs_you_kind_questions, count, count).uppercase()
         }
-        request.kind == "approval" || request.command != null -> stringResource(R.string.needs_you_kind_command)
-        else -> requestTitle(request)
-    }.uppercase()
+        request.kind == "approval" || request.command != null -> stringResource(R.string.needs_you_kind_command).uppercase()
+        else -> requestTitle(request).uppercase()
+    }
     Row(
         Modifier.fillMaxWidth().background(bg).padding(horizontal = OxeSpace.space3, vertical = OxeSpace.space2),
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),

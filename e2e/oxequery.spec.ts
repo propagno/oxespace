@@ -777,7 +777,7 @@ test('connections can be favorited, grouped, colored, duplicated, found by searc
     await list.getByRole('button', { name: 'New connection' }).click()
     const dialog = page.getByRole('dialog', { name: 'New connection' })
     await dialog.getByLabel('Name').fill('scratch')
-    await dialog.getByRole('button', { name: 'Connect without saving' }).click()
+    await dialog.getByRole('button', { name: 'Open without saving this connection' }).click()
     await expect(page.getByRole('tab', { name: 'scratch' })).toBeVisible()
     await expect(list.getByRole('button', { name: /^Not saved/ })).toBeVisible()
     await expect(list.getByRole('button', { name: 'Edit scratch' })).toHaveCount(0)

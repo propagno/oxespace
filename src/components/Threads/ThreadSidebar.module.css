@@ -1,5 +1,8 @@
 /* The OxeChat sidebar (BRD-02, OXE-166) on the src/ui sidebar anatomy, OxeCode's mould. This file only places what the
    primitives leave to the caller: a conversation row's two lines, its mini card, its hover actions and the groups. */
+/* ── State chips under the filter (OXE-187): one row, shown on focus or while a chip is on ── */
+.stateChips { display: flex; align-items: center; gap: var(--space-1); height: var(--row-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; }
+
 .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 0 var(--space-2) var(--space-3); }
 
 /* ── Project group ── */
