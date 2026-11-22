@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 .workspace-settings-modal-v2.modal {
   width: min(1120px, 96vw);
   height: min(780px, 88dvh);
@@ -106,4 +107,5 @@
   .workspace-settings-modal-v2 .ws-settings-title-group { grid-template-columns: minmax(0, 1fr); }
   .workspace-settings-modal-v2 .theme-card-grid, .workspace-settings-modal-v2 .layout-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace-settings-modal-v2 .shell-card-grid { grid-template-columns: minmax(0, 1fr); }
+}
 }

@@ -533,7 +533,7 @@
 
 .integration-context-preview:focus {
   border-color: var(--accent-border);
-  box-shadow: 0 0 0 1px rgba(0, 214, 201, 0.16);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 @media (max-width: 900px) {
