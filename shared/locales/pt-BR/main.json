@@ -10,7 +10,7 @@
     "rendererGone": {
       "title": "O OXESpace parou de responder",
       "message": "A interface continua travando.",
-      "detail": "Terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a janela de volta ou tente recarregá-la. Diagnóstico: Configurações > Diagnóstico.",
+      "detail": "Terminais e agentes continuam rodando. Reinicie o OXESpace para trazer a janela de volta ou recarregue-a. Diagnóstico: Configurações > Diagnóstico.",
       "restart": "Reiniciar o OXESpace",
       "reload": "Tentar recarregar",
       "close": "Fechar"

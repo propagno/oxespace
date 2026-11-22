@@ -10,7 +10,7 @@
     "rendererGone": {
       "title": "OXESpace stopped responding",
       "message": "The interface keeps crashing.",
-      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back, or try reloading it. Diagnostics: Settings > Diagnostics.",
+      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back, or try reloading. Diagnostics: Settings > Diagnostics.",
       "restart": "Restart OXESpace",
       "reload": "Try reloading",
       "close": "Close"
