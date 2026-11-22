@@ -3,8 +3,9 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { AgentKey, AgentRequestSummary, AgentRow, AgentsChange, AgentsOverview } from '../../../shared/types/agents'
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
+import { shortcutLabel } from '../../keyboard/keybindings'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, StatusSignal } from '../../ui'
+import { Button, Kbd, StatusSignal } from '../../ui'
 import { openActivityTarget } from '../Activity/openActivityTarget'
 import { useOpenRequest } from '../Approvals/openRequest'
 import styles from './NeedsYouQueue.module.css'
@@ -245,9 +246,10 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
   })
 
   const needsWord = t(GROUP_KEY['needs-you'])
+  const nextShortcut = shortcutLabel('attention.next')
   const capped = (state: 'failed' | 'working', rows: AgentRow[]): ReactElement | null => rows.length === 0 ? null : (
     <section className={styles.group} data-ui="needs-you-group" data-state={state}>
-      <h3 className={styles.heading}>{t(GROUP_KEY[state])}</h3>
+      <h3 className={styles.heading}>{t('f7.queue.groupHeading', { label: t(GROUP_KEY[state]), count: rows.length })}</h3>
       {rows.slice(0, ROW_CAP).map(row => (
         <div key={keyOf(row)} className={styles.row} data-ui="needs-you-row">
           <StatusSignal state={state} label={t(GROUP_KEY[state])} size={14} />
@@ -263,7 +265,6 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
       style={{ top: place.top, right: place.right }} onKeyDown={onKeyDown}>
       {items.length > 0 && (
         <section className={styles.group} data-ui="needs-you-group" data-state="needs-you">
-          <h3 className={styles.heading}>{needsWord}</h3>
           {items.map((item, index) => {
             const label = where(item.row)
             if (item.kind === 'pane') {
@@ -306,6 +307,12 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
       )}
       {capped('failed', failed)}
       {capped('working', working)}
+      {items.length > 0 && nextShortcut && (
+        <footer className={styles.footer} data-ui="needs-you-footer">
+          <span>{t('f7.queue.nextShortcut')}</span>{' '}
+          <Kbd>{nextShortcut}</Kbd>
+        </footer>
+      )}
       {items.length === 0 && failed.length === 0 && working.length === 0 && <p className={styles.more}>{t('f7.queue.allClearTitle')}</p>}
     </div>,
     document.body

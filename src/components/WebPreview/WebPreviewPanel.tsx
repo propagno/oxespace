@@ -1,6 +1,6 @@
-import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, Plus, RotateCw, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, MoreHorizontal, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, EmptyState, ErrorState, Spinner } from '../../ui'
+import { ToolPanel, Button, IconButton, Menu, EmptyState, ErrorState, Spinner, type MenuEntry, type MenuRadioOption } from '../../ui'
 import { formatDesignGrab, formatDesignGrabs, previewElementLabel, type DesignGrabContext, type PreviewElementRef } from '../../../shared/types/design-mode'
 import type { DesignGrabSource } from '../../../shared/design-source'
 import type { BrowserPreviewEvent, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
@@ -13,7 +13,7 @@ import { useEditorStore } from '../../store/editor.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { DesignGrabSheet, type DesignGrabItem } from './DesignGrabSheet'
 import { locateDesignSource } from './designSource'
-import { DevServerMenu, useDevServers } from './DevServerMenu'
+import { buildDevServerMenuItems, DevServerMenu, useDevServers } from './DevServerMenu'
 import type { DevServerConfig } from '../../../shared/dev-server'
 import { addPreviewProblem, formatPreviewProblems, NO_PREVIEW_PROBLEMS, previewProblemCount, type PreviewProblems } from '../../../shared/preview-problems'
 import { NativePreviewHost } from './NativePreviewHost'
@@ -322,9 +322,53 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     }
   }
 
+  const applyDeviceChoice = (nextValue: string): void => {
+    const nextDeviceId = nextValue === 'desktop' ? null : nextValue
+    const nextRotated = nextDeviceId === null ? false : deviceChoice.rotated
+    setDeviceChoice({ deviceId: nextDeviceId, rotated: nextRotated })
+    void window.oxe?.browserPreview?.setDevice?.({ ownerKey: previewKey, tabId: activeTabId, deviceId: nextDeviceId, rotated: nextRotated })
+  }
+  const rotateDevice = (): void => {
+    if (activeDevice.id === 'desktop') return
+    const nextRotated = !deviceChoice.rotated
+    setDeviceChoice({ deviceId: activeDevice.id, rotated: nextRotated })
+    void window.oxe?.browserPreview?.setDevice?.({ ownerKey: previewKey, tabId: activeTabId, deviceId: activeDevice.id, rotated: nextRotated })
+  }
+  const deviceRadioOptions: MenuRadioOption[] = PREVIEW_DEVICES.map(device =>
+    device.id === 'desktop' || device.width === null || device.height === null
+      ? { value: 'desktop', label: t('deviceEmulation.desktop') }
+      : {
+        value: device.id,
+        label: device.name,
+        hint: device.touch
+          ? t('deviceEmulation.menuHintTouch', { width: device.width, height: device.height })
+          : t('deviceEmulation.menuHintPlain', { width: device.width, height: device.height })
+      }
+  )
+  const overflowItems: MenuEntry[] = [
+    { type: 'label', label: t('preview.zoomLevel', { zoom }) },
+    { label: t('preview.zoomOut'), icon: <Minus size={14} aria-hidden="true" />, keepOpen: true, onSelect: zoomOut },
+    { label: t('preview.zoomIn'), icon: <Plus size={14} aria-hidden="true" />, keepOpen: true, onSelect: zoomIn },
+    { type: 'separator' },
+    {
+      type: 'submenu',
+      label: t('deviceEmulation.menuLabel'),
+      items: [
+        { type: 'radio', value: activeDevice.id, options: deviceRadioOptions, onValueChange: applyDeviceChoice },
+        ...(activeDevice.id !== 'desktop' ? [{ type: 'separator' as const }, { label: t('deviceEmulation.rotate'), icon: <RotateCw size={14} aria-hidden="true" />, onSelect: rotateDevice }] : [])
+      ]
+    },
+    { type: 'submenu', label: t('preview.devServer.label'), items: buildDevServerMenuItems(dev, startServer, showPage, setCaptureNotice, t) },
+    { type: 'separator' },
+    { type: 'check', label: t('preview.design'), checked: designMode, disabled: !url || !guestReady, onSelect: toggleDesignMode },
+    { label: t('preview.capture'), icon: <Camera size={14} aria-hidden="true" />, disabled: !url || capturing, onSelect: () => void handleCapture() },
+    { label: t('preview.openExternal'), icon: <ExternalLink size={14} aria-hidden="true" />, disabled: !url, onSelect: openExternal }
+  ]
+
   const content = (
     <>
-      <header className="web-preview-header">
+      {/* A plain bar, not a <header>: inside the dock the DockPanel's header is the panel's one header (BRD-15). */}
+      <div className="web-preview-header">
         <div className="web-preview-title">
           <MonitorPlay size={14} aria-hidden="true" />
           <strong>{t('panels.browser')}</strong>
@@ -337,7 +381,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
             </Button>
           ) : null}
         </div>
-      </header>
+      </div>
 
       <div className="web-preview-tabs" role="group" aria-label={t('preview.tabs')}>
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
@@ -349,15 +393,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       </div>
 
       <div className="web-preview-browserbar" role="toolbar" aria-label={t('preview.toolbar')}>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.back')} title={t('preview.back')} disabled={!canGoBack} onClick={goBack}>
-          <ArrowLeft size={14} aria-hidden="true" />
-        </button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.forward')} title={t('preview.forward')} disabled={!canGoForward} onClick={goForward}>
-          <ArrowRight size={14} aria-hidden="true" />
-        </button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.reload')} title={t('preview.reload')} disabled={!url} onClick={reload}>
-          <RotateCw size={14} aria-hidden="true" />
-        </button>
+        <IconButton size="sm" label={t('preview.back')} title={t('preview.back')} icon={<ArrowLeft size={14} aria-hidden="true" />} disabled={!canGoBack} onClick={goBack} />
+        <IconButton size="sm" label={t('preview.forward')} title={t('preview.forward')} icon={<ArrowRight size={14} aria-hidden="true" />} disabled={!canGoForward} onClick={goForward} />
+        <IconButton size="sm" label={t('preview.reload')} title={t('preview.reload')} icon={<RotateCw size={14} aria-hidden="true" />} disabled={!url} onClick={reload} />
         <input
           className="web-preview-address-input"
           aria-label={t('preview.address')}
@@ -368,36 +406,49 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
           placeholder="http://localhost:3000"
           spellCheck={false}
         />
-        <button type="button" className="web-preview-go-button" disabled={!canOpen || !activeTabId} onClick={open}>
+        <Button size="sm" variant="primary" className="web-preview-go-button" disabled={!canOpen || !activeTabId} onClick={open}>
           {t('preview.go')}
-        </button>
-        <label className="web-preview-external-toggle" title={t('preview.externalTitle')}>
-          <input type="checkbox" checked={allowExternal} onChange={(event) => setAllowExternal(event.currentTarget.checked)} />
-          {t('preview.external')}
-        </label>
-        <div className="web-preview-zoom-controls" role="group" aria-label={t('preview.zoom')}>
-          <button type="button" aria-label={t('preview.zoomOut')} title={t('preview.zoomOut')} onClick={zoomOut}><Minus size={14} aria-hidden="true" /></button>
-          <span>{zoom}%</span>
-          <button type="button" aria-label={t('preview.zoomIn')} title={t('preview.zoomIn')} onClick={zoomIn}><Plus size={14} aria-hidden="true" /></button>
-        </div>
-        <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
-        <DevServerMenu dev={dev} onStart={startServer} onOpen={showPage} onNotice={setCaptureNotice} />
-        <button
-          type="button"
-          className={`web-preview-nav-button${designMode ? ' active' : ''}`}
-          aria-label={t('preview.design')}
+        </Button>
+        <IconButton
+          size="sm"
+          className="web-preview-design-toggle"
+          label={t('preview.design')}
           aria-pressed={designMode}
           title={t('preview.designTitle')}
           data-testid="design-mode-toggle"
           disabled={!url || !guestReady}
+          icon={<MousePointerClick size={14} aria-hidden="true" />}
           onClick={toggleDesignMode}
-        >
-          <MousePointerClick size={14} aria-hidden="true" />
-        </button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.capture')} title={t('preview.capture')} disabled={!url || capturing} onClick={() => void handleCapture()}><Camera size={14} aria-hidden="true" /></button>
-        <button type="button" className="web-preview-nav-button" aria-label={t('preview.openExternal')} title={t('preview.openExternal')} disabled={!url} onClick={openExternal}>
-          <ExternalLink size={14} aria-hidden="true" />
-        </button>
+        />
+        <div className="web-preview-secondary-controls">
+          <div className="web-preview-zoom-controls" role="group" aria-label={t('preview.zoom')}>
+            <IconButton size="sm" label={t('preview.zoomOut')} title={t('preview.zoomOut')} icon={<Minus size={14} aria-hidden="true" />} onClick={zoomOut} />
+            <span>{zoom}%</span>
+            <IconButton size="sm" label={t('preview.zoomIn')} title={t('preview.zoomIn')} icon={<Plus size={14} aria-hidden="true" />} onClick={zoomIn} />
+          </div>
+          <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
+          <DevServerMenu dev={dev} onStart={startServer} onOpen={showPage} onNotice={setCaptureNotice} />
+          <IconButton size="sm" label={t('preview.capture')} title={t('preview.capture')} icon={<Camera size={14} aria-hidden="true" />} disabled={!url || capturing} onClick={() => void handleCapture()} />
+          <IconButton size="sm" label={t('preview.openExternal')} title={t('preview.openExternal')} icon={<ExternalLink size={14} aria-hidden="true" />} disabled={!url} onClick={openExternal} />
+        </div>
+        <div className="web-preview-overflow-menu">
+          <Menu
+            label={t('preview.moreActions')}
+            align="end"
+            testId="web-preview-overflow-menu"
+            trigger={
+              <IconButton
+                size="sm"
+                label={t('preview.moreActions')}
+                title={t('preview.moreActions')}
+                icon={<MoreHorizontal size={14} aria-hidden="true" />}
+                data-testid="web-preview-more-actions"
+                onPointerDown={dev.refresh}
+              />
+            }
+            items={overflowItems}
+          />
+        </div>
       </div>
 
       <PreviewApprovalInline owner={approvalOwner} />
@@ -421,6 +472,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
             <input type="checkbox" data-testid="preview-auto-verify" checked={autoVerify} onChange={event => setAutoVerifyChoice(event.currentTarget.checked)} />{t('preview.verify.toggle')}
           </label>
         ) : null}
+        <label className="web-preview-external-toggle" title={t('preview.externalTitle')}>
+          <input type="checkbox" checked={allowExternal} onChange={(event) => setAllowExternal(event.currentTarget.checked)} />
+          {t('preview.external')}
+        </label>
       </div>
       {previewProblemCount(problems) > 0 ? (
         <div className="web-preview-problems" role="status" data-testid="preview-problems">

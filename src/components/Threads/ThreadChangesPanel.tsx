@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { ChevronDown, ListTree, Maximize2, Minimize2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PreviewElementRef } from '../../../shared/types/design-mode'
@@ -18,17 +18,19 @@ import { ThreadSessionPanel } from './ThreadSessionPanel'
 import { PlacesChanges } from './PlacesChanges'
 import { placesBridge } from './placesModel'
 import { THREAD_TOOL_PANELS } from './threadToolPanels'
+import { lazyFrom } from '../../lib/chunk'
+import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
 
-const GitControlPanel = lazy(() => import('../GitHub/GitControlPanel').then(module => ({ default: module.GitControlPanel })))
-const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
-const EditorPane = lazy(() => import('../Editor/EditorPane').then(module => ({ default: module.EditorPane })))
-const SearchPanel = lazy(() => import('../Search/SearchPanel').then(module => ({ default: module.SearchPanel })))
-const BackgroundJobsPanel = lazy(() => import('../Background/BackgroundJobsPanel').then(module => ({ default: module.BackgroundJobsPanel })))
-const WebPreviewPanel = lazy(() => import('../WebPreview/WebPreviewPanel').then(module => ({ default: module.WebPreviewPanel })))
-const ThreadProjectTerminal = lazy(() => import('./ThreadProjectTerminal').then(module => ({ default: module.ThreadProjectTerminal })))
+const GitControlPanel = lazyFrom(SHARED_PANEL_CHUNKS.git, module => module.GitControlPanel)
+const ChangesPanel = lazyFrom(SHARED_PANEL_CHUNKS.changes, module => module.ChangesPanel)
+const EditorPane = lazyFrom(SHARED_PANEL_CHUNKS.files, module => module.EditorPane)
+const SearchPanel = lazyFrom(SHARED_PANEL_CHUNKS.search, module => module.SearchPanel)
+const BackgroundJobsPanel = lazyFrom(SHARED_PANEL_CHUNKS.background, module => module.BackgroundJobsPanel)
+const WebPreviewPanel = lazyFrom(SHARED_PANEL_CHUNKS.webPreview, module => module.WebPreviewPanel)
+const ThreadProjectTerminal = lazyFrom(SHARED_PANEL_CHUNKS.threadTerminal, module => module.ThreadProjectTerminal)
 /** Thread panels named as everywhere else (src/components/Workbench/panelCatalog.ts). */
-const ThreadNetworkPanel = lazy(() => import('./ThreadNetworkPanel').then(module => ({ default: module.ThreadNetworkPanel })))
-const AndroidPanel = lazy(() => import('../Android/AndroidPanel').then(module => ({ default: module.AndroidPanel })))
+const ThreadNetworkPanel = lazyFrom(SHARED_PANEL_CHUNKS.threadNetwork, module => module.ThreadNetworkPanel)
+const AndroidPanel = lazyFrom(SHARED_PANEL_CHUNKS.android, module => module.AndroidPanel)
 const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls', android: 'android' }
 
 export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }): void | Promise<void>; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {

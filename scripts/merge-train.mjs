@@ -816,6 +816,23 @@ async function driveBatch(api, batch, queue, { now, timeoutMinutes, log, actions
     }
   }
   record('batch-end', `${branch}: merged ${merged.map((m) => `#${m.number}`).join(' ') || 'nothing'}${merged.length < members.length ? `; ${members.length - merged.length} back on their own` : ''}`)
+  if (batch.createdAt && merged.length) {
+    const metric = `${merged.length} car(s) in ${Math.max(0, Math.round((now - time(batch.createdAt)) / 60_000))} min from build to merge`
+    actions[actions.length - 1].metric = metric
+    log(`batch: ${metric}`)
+  }
+}
+
+/**
+ * The run summary's throughput line for one merge: minutes since the car was labelled, and minutes its tested head
+ * waited for CI (the train state's `since`). Null when neither is known.
+ */
+export function mergeMetric({ labeledAt, since, now }) {
+  const minutes = (iso) => (iso && Number.isFinite(Date.parse(iso)) ? Math.max(0, Math.round((now - Date.parse(iso)) / 60_000)) : null)
+  const queued = minutes(labeledAt)
+  const ci = minutes(since)
+  if (queued === null && ci === null) return null
+  return [queued === null ? null : `queued ${queued} min`, ci === null ? null : `${ci} min on its tested head`].filter(Boolean).join('; ')
 }
 
 /** How many of the highest-numbered train/batch-N branches are read to find the train's open batch. */
@@ -1093,6 +1110,12 @@ export async function runTrain(
         continue
       }
       await upsertComment(api, entry.number, renderComment(action.message, null))
+      // Throughput, for the run summary only: a field of the merge action, so the action list keeps its shape.
+      const metric = mergeMetric({ labeledAt: input.pr.labeledAt, since: input.trainState?.since, now })
+      if (metric) {
+        actions[actions.length - 1].metric = metric
+        log(`#${entry.number}: ${metric}`)
+      }
       // A merge by GITHUB_TOKEN starts no push run on main, so main's CI is dispatched here.
       await api.dispatchWorkflow('ci.yml', 'main')
       // A merged batch PR (merge-batch.mjs) leaves its train/batch-N branch behind, and the repository does not
@@ -1103,6 +1126,10 @@ export async function runTrain(
       // The fix-main label covers one merge: a later push to that PR does not jump a held queue again.
       if (entry.fixMain) await api.removeLabel(entry.number, FIX_MAIN_LABEL)
       drop(entry)
+      // The cars behind it are now behind main: served one by one, each would run the whole CI again. Ready cars with
+      // no file in common ride one batch instead, from the main this merge made (21/11: no batch formed all day,
+      // because a batch was only tried at the top of a run, before the merge).
+      if (batches && health.green && queue.length >= 2 && (await startBatch(api, queue, { log, actions }))) break
       continue
     }
     if (action.type === 'wait') await upsertComment(api, entry.number, renderComment(action.message, action.state))
@@ -1440,7 +1467,7 @@ async function main() {
   const actions = await runTrain(api, { timeoutMinutes, repo, holdWhenMainRed, batches, log, ...(dryRun ? { headPolls: 0 } : {}) })
   const summary = process.env.GITHUB_STEP_SUMMARY
   if (summary) {
-    const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}`)
+    const lines = actions.map((a) => `- ${a.number ? `#${a.number} ` : ''}**${a.type}**: ${a.message}${a.metric ? ` _(${a.metric})_` : ''}`)
     appendFileSync(summary, `### Merge train\n\n${lines.join('\n')}\n`)
   }
 }

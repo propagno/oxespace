@@ -1,7 +1,7 @@
-import { Children, Suspense, createContext, isValidElement, lazy, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
+import { Children, Suspense, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, Info, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
@@ -15,9 +15,13 @@ import { useThreadStore } from '../../store/thread.store'
 
 const REMARK_PLUGINS = [remarkGfm]
 
+import { chunk, lazyFrom } from '../../lib/chunk'
+
 // Formulas and diagrams are drawn by libraries far larger than this file: each loads only for an answer that has one.
-const MathView = lazy(() => import('./ThreadMath').then(module => ({ default: module.MathView })))
-const MermaidDiagram = lazy(() => import('./ThreadMermaid').then(module => ({ default: module.MermaidDiagram })))
+export const THREAD_MATH_CHUNK = chunk(() => import('./ThreadMath'))
+export const THREAD_MERMAID_CHUNK = chunk(() => import('./ThreadMermaid'))
+const MathView = lazyFrom(THREAD_MATH_CHUNK, module => module.MathView)
+const MermaidDiagram = lazyFrom(THREAD_MERMAID_CHUNK, module => module.MermaidDiagram)
 
 type Highlighter = typeof import('./codeHighlight')
 let highlighter: Highlighter | null = null
@@ -41,6 +45,32 @@ function useHighlighter(wanted: boolean): Highlighter | null {
 
 /** True inside a fenced block only (the block context is also on inside a link, where code stays plain). */
 const FencedContext = createContext(false)
+/** The answer is still arriving: the latest assistant message of a turn that runs. Diagrams read it and do not call a partial drawing a failure. */
+const StreamingContext = createContext(false)
+
+const NUMERIC_CELL = /^[-+]?[\d.,]+%?$/
+
+function cellPlain(children: ReactNode): string {
+  let out = ''
+  Children.forEach(children, child => {
+    if (typeof child === 'string' || typeof child === 'number') out += String(child)
+    else if (isValidElement(child)) out += cellPlain((child.props as { children?: ReactNode }).children)
+  })
+  return out.replace(/\s+/g, ' ').trim()
+}
+
+/** A table cell: a number is marked so it sits right, in tabular figures; prose stays as it is. */
+function MarkdownCell({ as: Tag, children }: { as: 'td' | 'th'; children?: ReactNode }): ReactElement {
+  const numeric = NUMERIC_CELL.test(cellPlain(children))
+  return <Tag {...(numeric ? { 'data-numeric': 'true' as const } : {})}>{children}</Tag>
+}
+
+/** A task box of the answer: checked or not, and never editable. */
+function MarkdownInput({ node: _node, ...props }: ComponentPropsWithoutRef<'input'> & { node?: unknown }): ReactElement {
+  if (props.type !== 'checkbox') return <input {...props} />
+  const { checked, ...rest } = props
+  return <input {...rest} type="checkbox" defaultChecked={Boolean(checked)} disabled />
+}
 
 /** The text of a fenced block, coloured by what the language's reader scans for. The text itself is unchanged: Copy copies the same characters. */
 function FencedCode({ className, text }: { className?: string; text: string }): ReactElement {
@@ -60,11 +90,11 @@ function CodeBlock({ children, language, ...props }: ComponentPropsWithoutRef<'p
     return () => clearTimeout(timer)
   }, [copied])
   return <div className="thread-code-block">
-    <div className="thread-code-toolbar"><span data-testid="thread-code-language">{name ?? t('markdown.code')}</span><button type="button" aria-label={t('markdown.copyCode')} onClick={async event => {
-      const code = event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? ''
+    <div className="thread-code-toolbar">{name ? <span data-testid="thread-code-language">{name}</span> : null}<button type="button" aria-label={t('markdown.copyCode')} onClick={async event => {
+      const code = (event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? '').replace(/\n$/, '')
       try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
       catch { setError(true); setCopied(false) }
-    }}>{copied ? <Check size={12} className="oxe-confirm" /> : <Copy size={12} />}{copied ? t('markdown.copied') : t('markdown.copy')}</button></div>
+    }}>{copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}<span role="status" aria-live="polite">{copied ? t('markdown.copied') : t('markdown.copy')}</span></button></div>
     <pre {...props}>{children}</pre>
     {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>
@@ -101,12 +131,13 @@ function fenceText(children: ReactNode): string | null {
  * code. Until the library is in, the block shows as the code it is.
  */
 function Fence({ children }: { children?: ReactNode }): ReactElement {
+  const streaming = useContext(StreamingContext)
   const language = fenceLanguage(children)
   const kind = /(?:^|\s)language-(math|mermaid)(?:\s|$)/.exec(language ?? '')?.[1]
   const text = kind ? fenceText(children) : null
   const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
   if (kind === 'math' && text) return <Suspense fallback={code}><MathView tex={text} display /></Suspense>
-  if (kind === 'mermaid' && text) return <Suspense fallback={code}><MermaidDiagram code={text} /></Suspense>
+  if (kind === 'mermaid' && text) return <Suspense fallback={code}><MermaidDiagram code={text} streaming={streaming} /></Suspense>
   return code
 }
 
@@ -149,6 +180,40 @@ function MarkdownImage({ src, alt, threadId }: { src?: string; alt?: string; thr
   return <span className="thread-markdown-reference" title={file ?? undefined}>{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
 }
 
+type AlertKind = 'note' | 'important' | 'warning' | 'caution'
+/** The first line of a GitHub alert, read in any case as GitHub reads it: `[!NOTE]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`. */
+const ALERT_MARKER = /^\[!(note|important|warning|caution)\][ \t]*(?:\r?\n|$)/i
+const ALERT_ICONS = { note: Info, important: MessageSquareWarning, warning: TriangleAlert, caution: OctagonAlert } as const
+
+/**
+ * A quote whose first line is one of the four alert markers: its kind and the rest of the quote without the marker.
+ * Null for any other quote, which stays a plain quote.
+ */
+function alertOf(children: ReactNode): { kind: AlertKind; rest: ReactNode[] } | null {
+  const parts = Children.toArray(children)
+  const index = parts.findIndex(part => typeof part !== 'string' || part.trim() !== '')
+  const first = parts[index]
+  if (!isValidElement(first) || first.type !== 'p') return null
+  const inner = Children.toArray((first.props as { children?: ReactNode }).children)
+  const lead = inner[0]
+  if (typeof lead !== 'string') return null
+  const match = ALERT_MARKER.exec(lead)
+  if (!match) return null
+  const remaining = [lead.slice(match[0].length), ...inner.slice(1)].filter(part => part !== '')
+  const paragraph = remaining.length ? [cloneElement(first, undefined, ...remaining)] : []
+  return { kind: match[1].toLowerCase() as AlertKind, rest: [...parts.slice(0, index), ...paragraph, ...parts.slice(index + 1)] }
+}
+
+/** A GitHub alert of the answer: a side rule and an icon in the kind's intent, its label, then the rest of the quote. */
+function MarkdownAlert({ kind, children }: { kind: AlertKind; children?: ReactNode }): ReactElement {
+  const { t } = useTranslation('thread')
+  const Icon = ALERT_ICONS[kind]
+  return <div className="thread-alert" data-ui="alert" data-kind={kind}>
+    <div className="thread-alert-title"><Icon size={14} aria-hidden="true" focusable="false" className="thread-alert-icon" /><span>{t(`markdown.alert.${kind}`)}</span></div>
+    {children}
+  </div>
+}
+
 /** The parser drops every address that is not a web or mail one; an image the answer carries in a `data:` address is kept (it is checked again where it is drawn). */
 function keepInlineImages(url: string, key: string): string {
   return key === 'src' && inlineImageSource(url) ? url : defaultUrlTransform(url)
@@ -156,17 +221,26 @@ function keepInlineImages(url: string, key: string): string {
 
 /**
  * Same parser for streaming and saved messages; no HTML execution or text rewriting. With `threadId` (and the turn),
- * path mentions in the agent's text become PathLinks that main resolves (A16).
+ * path mentions in the agent's text become PathLinks that main resolves (A16). `streaming` is the turn's latest
+ * assistant message while that turn runs: a diagram that is not whole yet says it is still being built.
  */
-export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threadId?: string; turnId?: string }) {
+export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { text: string; threadId?: string; turnId?: string; streaming?: boolean }) {
   const { t } = useTranslation('thread')
   // Formulas are set apart before the parser reads the text; a text without one comes back as it was.
   const source = useMemo(() => protectMath(text), [text])
   // The same functions from one render to the next: a new one each time is, to React, a new kind of element, and
   // every block under it would be thrown away and built again (a diagram would lose its drawing while text streams).
   const components = useMemo<Components>(() => ({
-    table: ({ children }) => <div className="thread-table-scroll" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
+    table: ({ children }) => <div className="thread-table-scroll" data-ui="md-table" role="region" aria-label={t('markdown.table')} tabIndex={0}><table>{children}</table></div>,
+    td: ({ children }) => <MarkdownCell as="td">{children}</MarkdownCell>,
+    th: ({ children }) => <MarkdownCell as="th">{children}</MarkdownCell>,
+    input: props => <MarkdownInput {...props} />,
     pre: ({ children }) => <Fence>{children}</Fence>,
+    // A quote that opens with [!NOTE], [!IMPORTANT], [!WARNING] or [!CAUTION] is a GitHub alert; any other stays a quote.
+    blockquote: ({ children }) => {
+      const alert = alertOf(children)
+      return alert ? <MarkdownAlert kind={alert.kind}>{alert.rest}</MarkdownAlert> : <blockquote>{children}</blockquote>
+    },
     // F33/A16: inline code that names a file is a link (PathLink with a conversation, else the path menu link).
     code: ({ children, className }) => <MarkdownCode className={className} threadId={threadId} turnId={turnId}>{children}</MarkdownCode>,
     // Code inside a link stays plain: a path button inside an anchor would be nested interactive content (FRONTEND #470).
@@ -175,5 +249,5 @@ export function ThreadMarkdown({ text, threadId, turnId }: { text: string; threa
       : <span className="thread-markdown-reference" title={href}>{children}</span>}</InCodeBlockContext.Provider>,
     img: ({ alt, src }) => <MarkdownImage alt={alt} src={typeof src === 'string' ? src : undefined} threadId={threadId} />
   }), [t, threadId, turnId])
-  return <div className="thread-markdown"><Markdown remarkPlugins={REMARK_PLUGINS} urlTransform={keepInlineImages} components={components}>{source}</Markdown></div>
+  return <StreamingContext.Provider value={streaming}><div className="thread-markdown"><Markdown remarkPlugins={REMARK_PLUGINS} urlTransform={keepInlineImages} components={components}>{source}</Markdown></div></StreamingContext.Provider>
 }
