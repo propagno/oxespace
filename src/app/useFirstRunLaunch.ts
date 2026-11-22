@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { preloadCodeView, whenIdle } from './codeViewPreload'
 import { useNavigationPrefs } from '../store/navigation-prefs.store'
 import { useThreadStore } from '../store/thread.store'
 
@@ -23,6 +24,13 @@ export interface FirstRunLaunch {
 export function useFirstRunLaunch(): FirstRunLaunch {
   const [kept, setKept] = useState(false)
   const [folder, setFolder] = useState<string | null>(null)
+  // While the first run waits at Step 2, its footer OxeCode is the likely next click: warm OxeCode's view once, at idle.
+  const preloaded = useRef(false)
+  useEffect(() => {
+    if (!kept || preloaded.current) return
+    // Marked when it runs, not when scheduled: a cancelled schedule (unmount, StrictMode) leaves it to the next one.
+    return whenIdle(() => { preloaded.current = true; void preloadCodeView() })
+  }, [kept])
   return {
     kept,
     folder,
