@@ -43,6 +43,8 @@ interface OxeQueryState {
   openConnection(connection: OxeQueryConnection): void
   openActivity(): void
   closeTab(id: string): void
+  closeOtherTabs(id: string): void
+  closeTabsToRight(id: string): void
   setActiveTab(id: string): void
   openDialog(editing?: OxeQueryConnection | null, draft?: ConnectionDraft): void
   closeDialog(): void
@@ -78,6 +80,19 @@ export const useOxeQueryStore = create<OxeQueryState>((set, get) => ({
   openActivity: () => set(state => ({ tabs: state.tabs.some(tab => tab.kind === 'activity') ? state.tabs : [{ id: 'activity', kind: 'activity' as const }, ...state.tabs], activeTab: 'activity' })),
 
   closeTab: id => set(state => ({ tabs: state.tabs.filter(tab => tab.id !== id), activeTab: nextActive(state.tabs, id, state.activeTab) })),
+
+  closeOtherTabs: id => set(state => {
+    const keep = state.tabs.filter(tab => tab.id === id)
+    return keep.length ? { tabs: keep, activeTab: id } : state
+  }),
+
+  closeTabsToRight: id => set(state => {
+    const index = state.tabs.findIndex(tab => tab.id === id)
+    if (index === -1) return state
+    const kept = state.tabs.slice(0, index + 1)
+    const activeTab = kept.some(tab => tab.id === state.activeTab) ? state.activeTab : id
+    return { tabs: kept, activeTab }
+  }),
 
   setActiveTab: id => set({ activeTab: id }),
 

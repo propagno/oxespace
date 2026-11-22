@@ -740,7 +740,7 @@
       },
       "commands": {
         "threadSend": "Enviar uma mensagem a uma conversa",
-        "threadSteer": "Direcionar um turno em andamento",
+        "threadSteer": "Orientar um turno em andamento",
         "threadInterrupt": "Parar um turno em andamento",
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",

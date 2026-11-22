@@ -682,7 +682,7 @@
     "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
     "reconnect": "Reconnect your native agent account to continue.",
     "couldNotFinish": "The agent could not finish this turn.",
-    "diagnostic": "Provider diagnostic",
+    "diagnostic": "Technical details",
     "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
     "checkingUsage": "Checking current provider usage…",
     "notRecorded": "Usage and reset time were not recorded for this failure.",
@@ -922,8 +922,17 @@
     "image": "[Image]",
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
+    "diagramBuilding": "Building the diagram…",
+    "diagramFailed": "Couldn't draw this diagram",
+    "enlarge": "Enlarge",
     "showCode": "Show code",
-    "showDiagram": "Show diagram"
+    "showDiagram": "Show diagram",
+    "alert": {
+      "note": "Note",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Starts now.",
@@ -1366,6 +1375,7 @@
     "width": "OxeChat sidebar width",
     "conversations": "Conversations",
     "filter": "Filter conversations",
+    "filterPlaceholder": "Filter…",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
@@ -2194,6 +2204,8 @@
         "failed": "Failed",
         "working": "Working"
       },
+      "groupHeading": "{{label}} · {{count}}",
+      "nextShortcut": "Next",
       "more": "+{{rest}} more",
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",

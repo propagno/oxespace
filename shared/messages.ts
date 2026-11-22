@@ -435,6 +435,7 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
+  'approvals.option.allowSessionWorkspaceReads': Record<string, never>
   'approvals.option.closeTab': Record<string, never>
   'approvals.option.restart': Record<string, never>
   'approvals.option.keepWorking': Record<string, never>
@@ -453,6 +454,8 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.note.mongo.emptyFilter': Record<string, never>
   'approvals.note.agent.actsOnPrompt': Record<string, never>
   'approvals.note.agent.turnStopped': Record<string, never>
+  'approvals.note.agent.unknownState': Record<string, never>
+  'approvals.note.workspace.crossRead': { source: string; target: string }
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
@@ -820,6 +823,7 @@ export const MESSAGE_CODES = [
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
+  'approvals.option.allowSessionWorkspaceReads',
   'approvals.option.closeTab',
   'approvals.option.restart',
   'approvals.option.keepWorking',
@@ -837,6 +841,8 @@ export const MESSAGE_CODES = [
   'approvals.note.mongo.emptyFilter',
   'approvals.note.agent.actsOnPrompt',
   'approvals.note.agent.turnStopped',
+  'approvals.note.agent.unknownState',
+  'approvals.note.workspace.crossRead',
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',
