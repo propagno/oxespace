@@ -2204,6 +2204,7 @@
       "allClearTitle": "All clear",
       "approvalRules": "Approval rules",
       "openTask": "Open the task",
+      "answerInConversation": "Answer in the conversation",
       "closeQueue": "Close approvals",
       "panelLabel": "What needs you",
       "group": {
@@ -2216,7 +2217,8 @@
       "more": "+{{rest}} more",
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",
-      "goToPane": "Go to terminal"
+      "goToPane": "Go to terminal",
+      "respondFailed": "Couldn't send your answer. Try again."
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
@@ -2247,6 +2249,7 @@
       "runsProjectCodeGeneric": "This command runs this project's code.",
       "toastAdded": "Always allowed: {{command}} · revoke in What agents can do",
       "toastOpen": "Open",
+      "failed": "Couldn't add the rule. Nothing was approved.",
       "reason": {
         "destructive": "Always allow isn't offered for destructive commands.",
         "network": "Always allow isn't offered for network commands.",
