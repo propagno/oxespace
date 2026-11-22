@@ -28,5 +28,6 @@ describe('OXE-360 · the images a Markdown preview may show', () => {
       expect(container.querySelector('img'), src.slice(0, 40)).toBeNull()
       unmount()
     }
-  })
+  // Released by 8e (152sec CR-01): v8 coverage makes parsing the real 4 MB limit about 7x slower (run 45057950386).
+  }, 60_000)
 })
