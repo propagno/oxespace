@@ -167,6 +167,8 @@ export async function layoutDiag(app: ElectronApplication, page: Page): Promise<
 export async function openDemoWorkspace(page: Page, workspaceRoot: string): Promise<void> {
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
+  // This helper leaves the first run itself: the harness must not click too (OXE-390).
+  await page.evaluate(() => { (window as unknown as { __oxeE2eHelperLeaves?: boolean }).__oxeE2eHelperLeaves = true })
   await page.getByTestId('wizard-launch-btn').click()
   // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
   await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
