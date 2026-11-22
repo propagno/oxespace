@@ -223,7 +223,7 @@
     {
       "id": "BRD-04.button.font-weight",
       "scene": "chat-conversation",
-      "select": "[data-ui=button]",
+      "select": "[data-ui=chat-column] [data-ui=button], [data-ui=composer-toolbar] [data-ui=button]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-medium"
