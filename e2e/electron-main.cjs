@@ -45,6 +45,8 @@ if (process.env.OXESPACE_E2E_FIRST_RUN !== 'stay') {
     document.addEventListener('click', (event) => {
       const target = event.target
       if (!(target && target.closest && target.closest('[data-testid="wizard-launch-btn"]'))) return
+      // openDemoWorkspace and openRepo leave with a click the spec waits for: a second, automatic one races it (OXE-390).
+      if (window.__oxeE2eHelperLeaves) return
       deadline = Date.now() + 30000
       if (!observer) {
         observer = new MutationObserver(tick)
