@@ -70,7 +70,7 @@ const BRD25: Array<Omit<Target, 'state' | 'tolerance' | 'densities' | 'themes'>>
   { id: 'BRD-25.column.width', scene: 'chat-conversation', select: '[data-ui=chat-column]', prop: 'width', expect: { token: '--measure-chat' } },
   { id: 'BRD-25.prompt.align', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'inline-start-offset', of: '[data-ui=chat-column]', expect: { px: 0 } },
   { id: 'BRD-25.prompt.radius', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'border-radius', expect: { token: '--radius-lg' } },
-  { id: 'BRD-25.turn-gap', scene: 'chat-anatomy', select: '.thread-virtual-row:not([data-row-index="0"]) > [data-ui=turn].is-turn-start', prop: 'margin-block-start', expect: { token: '--space-6' } },
+  { id: 'BRD-25.turn-gap', scene: 'chat-anatomy', select: '[data-row-index]:not([data-row-index="0"]) > [data-ui=turn][data-turn-start]', prop: 'margin-block-start', expect: { token: '--space-6' } },
   { id: 'BRD-25.fold.height', scene: 'chat-anatomy', select: '[data-ui=turn-line]', prop: 'height', expect: { token: '--row-1' } },
   { id: 'BRD-25.step.height', scene: 'chat-anatomy', select: '[data-ui=explore-group] [data-ui=step]', prop: 'height', expect: { px: 24 } },
   { id: 'BRD-25.reasoning.font', scene: 'chat-anatomy', select: '[data-ui=reasoning]', prop: 'font-family', expect: { token: '--font-ui' } },
