@@ -20,6 +20,7 @@ import {
   parseBatchMessage,
   runBatch,
   runTrain,
+  mergeMetric,
   // @ts-expect-error -- a plain ES module script without type declarations
 } from '../../scripts/merge-train.mjs'
 
@@ -649,5 +650,63 @@ describe('code batches (TECH LEAD, user OK on 09/11)', () => {
     await step(api)
     expect(kinds(api, 'postStatus', 'merge')).toEqual([])
     expect(api.comments.get(1)!.at(-1)!.body).toMatch(/changes \.github\/workflows\/ci\.yml, a workflow/)
+  })
+})
+
+/** The serial train's reads on top of the batch fake: main's distance from a head, and no protection checks. */
+const serialApi = (pulls: Record<number, Pull>, noBatch: number[] = []) => {
+  const api = fakeGitHub(pulls)
+  const queue = api.queue
+  api.queue = () => queue().map((e) => (noBatch.includes(e.number) ? { ...e, noBatch: true } : e))
+  return Object.assign(api, {
+    async behindBy(sha: string) {
+      return api.commits.get(sha)!.parents[0] === api.refs.get('main') ? 0 : 1
+    },
+    async requiredChecks() {
+      return []
+    },
+    async updateBranch(number: number) {
+      api.writes.push(['updateBranch', number])
+    },
+  })
+}
+const greenOwnRun = (api: ReturnType<typeof fakeGitHub>, sha: string) =>
+  api.runs.set(sha, [{ name: CI_WORKFLOW, path: '.github/workflows/ci.yml', headSha: sha, status: 'completed', conclusion: 'success', htmlUrl: RUN_URL, createdAt: '2026-11-04T11:40:00Z' }])
+
+describe('code batch right after a serial merge (OXE-357, 21/11)', () => {
+  it('after a serial merge, the ready cars behind it ride a code batch in the same run', async () => {
+    // #1 cannot batch (no-batch), so the run serves it alone and merges it; #2 and #3 are ready and share no file.
+    const api = serialApi({ 1: code('a', 'src/a.ts'), 2: code('b', 'src/b.ts'), 3: code('c', 'electron/main/c.ts') }, [1])
+    markReady(api, head('a'), head('b'), head('c'))
+    greenOwnRun(api, head('a'))
+    const actions = await runTrain(api, { now: NOW, batches: true, sleep: async () => {}, headPolls: 0 })
+    expect(actions.map((a: { type: string; number?: number }) => [a.type, a.number])).toEqual([['merge', 1], ['batch', undefined]])
+    expect(kinds(api, 'merge', 'mergeInto', 'updateBranch')).toEqual([
+      ['merge', 1, head('a')],
+      ['mergeInto', 'train/batch-1', head('b')],
+      ['mergeInto', 'train/batch-1', head('c')],
+    ])
+    // Built from the main the merge made, not the one the run started on.
+    expect(kinds(api, 'createRef')).toEqual([['createRef', 'train/batch-1', api.refs.get('main')]])
+  })
+
+  it('after a serial merge, a car that cannot batch is served on its own as before', async () => {
+    // #2 and #3 change the same file: no batch of two forms, so #2 is brought up to date alone.
+    const api = serialApi({ 1: code('a', 'src/a.ts'), 2: code('b', 'src/b.ts'), 3: code('c', 'src/b.ts') }, [1])
+    markReady(api, head('a'), head('b'), head('c'))
+    greenOwnRun(api, head('a'))
+    const actions = await runTrain(api, { now: NOW, batches: true, sleep: async () => {}, headPolls: 0 })
+    expect(actions.map((a: { type: string; number?: number }) => [a.type, a.number])).toEqual([['merge', 1], ['update', 2]])
+    expect(kinds(api, 'mergeInto')).toEqual([])
+  })
+
+  it('a serial merge records how long the car queued and how long its tested head took', async () => {
+    const api = serialApi({ 1: code('a', 'src/a.ts') })
+    markReady(api, head('a'))
+    greenOwnRun(api, head('a'))
+    const actions = await runTrain(api, { now: NOW, batches: true, sleep: async () => {}, headPolls: 0 })
+    expect(actions[0]).toMatchObject({ type: 'merge', number: 1, metric: 'queued 120 min' })
+    expect(mergeMetric({ labeledAt: '2026-11-04T10:00:00Z', since: '2026-11-04T11:35:00Z', now: NOW })).toBe('queued 120 min; 25 min on its tested head')
+    expect(mergeMetric({ labeledAt: null, since: undefined, now: NOW })).toBeNull()
   })
 })

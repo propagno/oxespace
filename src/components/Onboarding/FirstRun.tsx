@@ -106,7 +106,6 @@ export function FirstRun({
         <header className={styles.hero}>
           <OxeMark size={40} tile />
           <h1 className={styles.heroTitle} data-ui="first-run-title">{t('firstRun.v2.heroTitle')}</h1>
-          <p className={styles.heroLead}>{t('firstRun.v2.heroLead')}</p>
         </header>
 
         <ol className={styles.steps}>
@@ -147,8 +146,8 @@ export function FirstRun({
                           {t('firstRun.v2.howToInstall')}
                         </Button>
                       ) : agent.status === 'signed-out' ? (
-                        <Button variant="secondary" size="sm" onClick={() => onSignIn(agent.provider)}>
-                          {t('firstRun.v2.signIn', { provider: label })}
+                        <Button variant="secondary" size="sm" aria-label={t('firstRun.v2.signIn', { provider: label })} onClick={() => onSignIn(agent.provider)}>
+                          {t('firstRun.v2.signInShort')}
                         </Button>
                       ) : agent.status === 'signing-in' ? (
                         <>

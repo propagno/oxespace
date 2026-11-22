@@ -219,7 +219,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     return <ThreadSidebarRow key={thread.id} thread={thread} selected={selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
       request={thread.status === 'approval' ? pending.get(thread.id) : undefined} time={relativeTime(thread.updatedAt)} dragProps={drag.rowProps(thread)}
       snippet={found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : undefined}
-      onSelect={() => void select(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
+      onSelect={() => void useThreadStore.getState().openInActiveCell(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
       actions={<>
         <IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.openSideNamed', { name })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)}
           icon={<Columns2 size={14} aria-hidden="true" />} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))} />
@@ -255,11 +255,13 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
       onArchived={() => { toggleCollapse(); setShowArchived(true) }} />}
     {!collapsed && <div className="nav-panel">
       <SidebarHeader title={t('sidebar.conversations')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="thread" />} />
-      <SidebarFilter ref={search} className="thread-nav-search" icon={<Search size={14} />} hint={query ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')}
+      <SidebarFilter ref={search} className="thread-nav-search" icon={<Search size={14} />} hint={query ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
         value={query} onChange={event => setQuery(event.target.value)} onClear={() => setQuery('')} clearLabel={i18n.t('common:nav.clearSearch')} autoComplete="off" spellCheck={false} />
       <nav ref={attachList} onKeyDown={onListKeyDown} className={cx('thread-project-list', styles.list)} aria-label={t('sidebar.projectsRegion')}>
         {coldSkeleton
-          ? <div data-testid="thread-sidebar-skeleton"><Skeleton lines={5} label={t('sidebar.loading')} /></div>
+          // motion.md rule 3 (OXE-343): no placeholder before 300 ms, so a list that arrives sooner never flashes one; the
+          // busy aside and the block hold its place until then, and cached rows, when there are any, paint at once.
+          ? <div data-testid="thread-sidebar-skeleton"><Skeleton lines={5} label={t('sidebar.loading')} delay={300} /></div>
           : loading && !threads.length && <LoadingState label={t('sidebar.loading')} />}
         {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
         {pinned.length > 0 && <section data-ui="thread-pinned-section">

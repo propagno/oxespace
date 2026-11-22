@@ -21,14 +21,19 @@ export interface ApprovalPresentation {
   summary: MainMessage
   target: string
   notes: MainMessage[]
+  /** Optional custom label for the allow-session button on read requests (defaults to ALLOW_SESSION_READS). */
+  sessionOptionLabel?: MainMessage
 }
 
 /** A broker request (agent action or OxeQuery). "Allow for this run" exists for reads; the center keeps it for low risk only. */
 export function brokerDraft(request: ApprovalPresentation & { text: string; risk: 'read' | 'write' | 'action' }): ApprovalDraft {
+  const sessionOption: ApprovalOption = request.sessionOptionLabel
+    ? { id: ALLOW_SESSION_READS.id, label: request.sessionOptionLabel, intent: 'allow-session' }
+    : ALLOW_SESSION_READS
   return {
     kind: request.kind, requester: request.requester, risk: request.level, ...(request.environment ? { environment: request.environment } : {}),
     title: request.title, summary: request.summary, ...(request.target ? { target: request.target } : {}), appNotes: request.notes, text: request.text,
-    options: [DENY, ALLOW_ONCE, ...(request.risk === 'read' ? [ALLOW_SESSION_READS] : [])], defaultOptionId: DENY.id
+    options: [DENY, ALLOW_ONCE, ...(request.risk === 'read' ? [sessionOption] : [])], defaultOptionId: DENY.id
   }
 }
 

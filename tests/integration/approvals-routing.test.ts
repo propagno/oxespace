@@ -77,6 +77,28 @@ describe('B10 · no native dialog while an app window exists', () => {
     expect(showMessageBox).not.toHaveBeenCalled()
   })
 
+  it('ApprovalBroker for cross-workspace read offers allow-session in the window without a native dialog', async () => {
+    const { mainMessage } = await import('../../shared/messages')
+    const actions = new AgentActions({ broker: new ApprovalBroker(appApprovalPrompter, Date.now, 5_000) })
+    const result = actions.run(
+      { key: `xws-${run}`, label: 'pane:p1', workspaceId: 'ws-a', authenticated: true },
+      {
+        tool: 'oxespace_agents', action: 'list', level: 'confirm', target: 'Project B (ws-b)', text: 'List agent panes in Project B',
+        brokerScope: 'cross-workspace-read:ws-a->ws-b', brokerRisk: 'read', risk: 'low',
+        sessionOptionLabel: mainMessage('approvals.option.allowSessionWorkspaceReads', {})
+      },
+      async () => ['ok']
+    )
+    await answer('allow-session')
+    await expect(result).resolves.toEqual(['ok'])
+    expect(await latest()).toMatchObject({
+      kind: 'mcp-confirm',
+      risk: 'low',
+      options: expect.arrayContaining([expect.objectContaining({ id: 'allow-session', intent: 'allow-session', label: { code: 'approvals.option.allowSessionWorkspaceReads', params: {} } })])
+    })
+    expect(showMessageBox).not.toHaveBeenCalled()
+  })
+
   it('ApprovalBroker for OxeQuery asks in the window', async () => {
     const result = oxeQuery(`oxequery-${run}`)
     await answer('allow-once')

@@ -1,12 +1,14 @@
-import { lazy, Suspense, useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
+import { Suspense, useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
 import { PlacesChanges, type PlacesSend } from './PlacesChanges'
 import { placesBridge } from './placesModel'
+import { lazyFrom } from '../../lib/chunk'
+import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
 
-const ChangesPanel = lazy(() => import('../Changes/ChangesPanel').then(module => ({ default: module.ChangesPanel })))
-const ActivityPanel = lazy(() => import('../OxeQuery/ActivityPanel').then(module => ({ default: module.ActivityPanel })))
-const ContainersPanel = lazy(() => import('../Containers/ContainersPanel').then(module => ({ default: module.ContainersPanel })))
+const ChangesPanel = lazyFrom(SHARED_PANEL_CHUNKS.changes, module => module.ChangesPanel)
+const ActivityPanel = lazyFrom(SHARED_PANEL_CHUNKS.activity, module => module.ActivityPanel)
+const ContainersPanel = lazyFrom(SHARED_PANEL_CHUNKS.containers, module => module.ContainersPanel)
 
 export type ThreadTabId = ThreadToolTabEntry['tab']
 

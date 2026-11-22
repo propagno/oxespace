@@ -9,12 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeFonts
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -42,7 +43,10 @@ import com.oxespace.mobile.ui.theme.OxeSpace
  * scan line).
  */
 
-/** Where a pairing stands: [current] is the step in progress (0-based); [failed] marks it as the one that failed. */
+/**
+ * Where a pairing stands: [current] is the step in progress (0-based); [failed] marks it as the one that failed.
+ * 1.5.2 A14 (MOB-7): numbered circles, the done ones with a check; the whole row is one stop for TalkBack ("3/4: …").
+ */
 @Composable
 fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modifier, failed: Boolean = false) {
     val colors = Oxe.colors
@@ -54,13 +58,40 @@ fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modi
         labels.forEachIndexed { i, label ->
             val done = i < current
             val now = i == current
-            val bar = when {
+            val fill = when {
+                now && failed -> colors.intentDangerSolid
+                done -> colors.accent
+                else -> colors.surfaceRaised
+            }
+            val ring = when {
                 now && failed -> colors.intentDangerSolid
                 done || now -> colors.accent
                 else -> colors.borderDefault
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
-                Box(Modifier.fillMaxWidth().height(4.dp).background(bar, RoundedCornerShape(OxeRadius.full)))
+            val mark = when {
+                (now && failed) || done -> colors.textOnAccent
+                now -> colors.textAccent
+                else -> colors.textMuted
+            }
+            Column(
+                Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(OxeSpace.space1),
+            ) {
+                Box(
+                    Modifier.size(28.dp).background(fill, CircleShape).border(2.dp, ring, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (done) {
+                        Icon(OxeIcons.Check, contentDescription = null, tint = mark, modifier = Modifier.size(16.dp))
+                    } else {
+                        Text(
+                            (i + 1).toString(),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"),
+                            color = mark,
+                        )
+                    }
+                }
                 Text(
                     label,
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (now) FontWeight.SemiBold else FontWeight.Normal),
