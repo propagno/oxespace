@@ -153,10 +153,11 @@ describe('OXE-73 BRD-10 the needs-you queue (A26)', () => {
     const critical = items()[1]
     expect(within(critical).queryByRole('button', { name: deny })).toBeNull()
     expect(within(critical).queryByRole('button', { name: allow })).toBeNull()
-    fireEvent.click(within(critical).getByRole('button', { name: impact }))
-    expect(useOpenRequest.getState().requestId).toBe('r2')
+    // OXE-332 (152hml planner, 21/11): See impact now closes the queue, so Deny on the first row is clicked before it.
     fireEvent.click(within(items()[0]).getByRole('button', { name: deny }))
     expect(respond).toHaveBeenCalledWith('thread-1', 'r1', { decision: 'decline' })
+    fireEvent.click(within(critical).getByRole('button', { name: impact }))
+    expect(useOpenRequest.getState().requestId).toBe('r2')
     expect(decided('r2', 'accept') || decided('r2', 'decline')).toBe(false)
   })
 

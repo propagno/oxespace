@@ -68,7 +68,7 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
         </>}>{connections.length ? t('welcome.textSaved') : t('welcome.text')}</EmptyState></div>}
       {tabs.map(tab => {
         const visible = tab.id === activeTab
-        if (tab.kind === 'activity') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ActivityPanel active={active && visible} /></div>
+        if (tab.kind === 'activity') return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel"><ActivityPanel active={active && visible} hideHeading /></div>
         const connection = connections.find(item => item.id === tab.connectionId)
         return <div key={tab.id} className="oq-panel" hidden={!visible} role="tabpanel">
           {!connection ? <div className="oq-placeholder"><EmptyState title={t('view.connectionGone')} actions={<Button size="sm" onClick={() => closeTab(tab.id)}>{t('view.closeThisTab')}</Button>} /></div>

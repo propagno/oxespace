@@ -81,10 +81,13 @@ export class McpConfigSync {
    */
   syncAll(): void {
     const workspaces = this.db.prepare('SELECT id, root_path FROM workspaces').all() as WorkspaceRootRow[]
+    // ~/.claude.json can be megabytes (OXE-347): collect every workspace's approvals and apply them in one read + one write.
+    const approvals: ClaudeApproval[] = []
     for (const ws of workspaces) {
       // A sweep of every project (B7.4): what a project's policy changed waits for its own launch or Settings read.
-      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path, undefined, { defer: true })
+      if (ws.root_path && existsSync(ws.root_path)) this.writeMcpJson(ws.root_path, undefined, { defer: true }, approvals)
     }
+    approveProjectServersInClaude(approvals)
   }
 
   /**
@@ -96,7 +99,8 @@ export class McpConfigSync {
     else this.syncWorkspace(workspaceId)
   }
 
-  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string, policyRead: { defer?: boolean } = {}): string | null {
+  /** With `approvals`, the Claude Code approval is collected for the caller to apply once instead of written here. */
+  private writeMcpJson(workspaceRoot: string, explicitWorkspaceId?: string, policyRead: { defer?: boolean } = {}, approvals?: ClaudeApproval[]): string | null {
     const mcpPath = join(workspaceRoot, MCP_FILE)
     const snapshotPath = join(workspaceRoot, SNAPSHOT_DIR, SNAPSHOT_FILE)
 
@@ -182,10 +186,17 @@ export class McpConfigSync {
     // approves them — without this the server is listed but its tools never
     // appear (the reported "OXESpace tools not available"). Approve our
     // managed servers for this project so they load on the next session.
-    approveProjectServersInClaude(workspaceRoot, desiredNames)
+    const approval: ClaudeApproval = { workspaceRoot, serverNames: desiredNames }
+    if (approvals) approvals.push(approval)
+    else approveProjectServersInClaude([approval])
 
     return mcpPath
   }
+}
+
+interface ClaudeApproval {
+  workspaceRoot: string
+  serverNames: string[]
 }
 
 /**
@@ -194,8 +205,9 @@ export class McpConfigSync {
  * isn't set up. Atomic write, fresh read, only when something actually changes
  * (Claude rewrites this file too, so we minimise races).
  */
-function approveProjectServersInClaude(workspaceRoot: string, serverNames: string[]): void {
-  if (serverNames.length === 0) return
+function approveProjectServersInClaude(approvals: readonly ClaudeApproval[]): void {
+  const wanted = approvals.filter((approval) => approval.serverNames.length > 0)
+  if (wanted.length === 0) return
   const configPath = join(homedir(), '.claude.json')
   if (!existsSync(configPath)) return
 
@@ -211,25 +223,30 @@ function approveProjectServersInClaude(workspaceRoot: string, serverNames: strin
   const projects = isRecord(doc.projects) ? { ...(doc.projects as Record<string, unknown>) } : {}
   // Claude keys projects by absolute path and stores forward slashes on Windows.
   const norm = (s: string) => s.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
-  const wantKey = workspaceRoot.replace(/\\/g, '/')
-  const existingKey = Object.keys(projects).find((k) => norm(k) === norm(wantKey))
-  const key = existingKey ?? wantKey
-  const proj = isRecord(projects[key]) ? { ...(projects[key] as Record<string, unknown>) } : {}
-
   const strArr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
-  const enabled = new Set(strArr(proj.enabledMcpjsonServers))
-  const disabled = new Set(strArr(proj.disabledMcpjsonServers))
 
-  let changed = !existingKey
-  for (const name of serverNames) {
-    if (!enabled.has(name)) { enabled.add(name); changed = true }
-    if (disabled.has(name)) { disabled.delete(name); changed = true }
+  let changed = false
+  for (const { workspaceRoot, serverNames } of wanted) {
+    const wantKey = workspaceRoot.replace(/\\/g, '/')
+    const existingKey = Object.keys(projects).find((k) => norm(k) === norm(wantKey))
+    const key = existingKey ?? wantKey
+    const proj = isRecord(projects[key]) ? { ...(projects[key] as Record<string, unknown>) } : {}
+    const enabled = new Set(strArr(proj.enabledMcpjsonServers))
+    const disabled = new Set(strArr(proj.disabledMcpjsonServers))
+
+    let projectChanged = !existingKey
+    for (const name of serverNames) {
+      if (!enabled.has(name)) { enabled.add(name); projectChanged = true }
+      if (disabled.has(name)) { disabled.delete(name); projectChanged = true }
+    }
+    if (!projectChanged) continue
+
+    proj.enabledMcpjsonServers = [...enabled]
+    proj.disabledMcpjsonServers = [...disabled]
+    projects[key] = proj
+    changed = true
   }
   if (!changed) return
-
-  proj.enabledMcpjsonServers = [...enabled]
-  proj.disabledMcpjsonServers = [...disabled]
-  projects[key] = proj
   doc.projects = projects
 
   try {
