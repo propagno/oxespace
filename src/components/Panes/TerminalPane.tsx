@@ -150,8 +150,9 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         throw new Error(task.error || tc('terminalPane.taskPaused'))
       }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
-      const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
-      if (profile && profile.agentProfileId !== pane.agentProfileId) {
+      // A sub-profile runs its parent's command, so inferring on a bound pane would replace it with the parent.
+      const profile = pane.agentProfileId ? null : inferAgentProfile(agentCommand ?? '', allProfiles)
+      if (profile) {
         if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
 
@@ -247,8 +248,8 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         return
       }
       const { command: agentCommand, initialPrompt } = await resolveWithIntegrationContext()
-      const profile = inferAgentProfile(agentCommand ?? '', allProfiles)
-      if (profile && profile.agentProfileId !== pane.agentProfileId) {
+      const profile = pane.agentProfileId ? null : inferAgentProfile(agentCommand ?? '', allProfiles)
+      if (profile) {
         if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
       await window.oxe.terminal.stop({ paneId: pane.id })

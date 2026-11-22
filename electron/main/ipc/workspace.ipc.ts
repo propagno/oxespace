@@ -12,6 +12,7 @@ import { firstPolicyRead } from '../services/policy/first-read'
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
   stopWorkspace(workspaceId: string): Promise<void> | void
+  hasSession?(paneId: string): boolean
 }
 
 /**
@@ -24,12 +25,19 @@ export interface WorkspaceIpcServices {
   agentService?: AgentService
 }
 
+/** The app's own service: it asks the terminals what runs, and registration is startup, so it clears stale rows once. */
+function startWorkspaceService(db: AppDatabase, lifecycle?: WorkspaceLifecycleController): WorkspaceService {
+  const service = new WorkspaceService(db, { isPaneRunning: (paneId) => lifecycle?.hasSession?.(paneId) ?? false })
+  service.resetStalePaneStatus()
+  return service
+}
+
 export function registerWorkspaceIpc(
   db: AppDatabase,
   lifecycle?: WorkspaceLifecycleController,
   services: WorkspaceIpcServices = {}
 ): void {
-  const workspaceService = services.workspaceService ?? new WorkspaceService(db)
+  const workspaceService = services.workspaceService ?? startWorkspaceService(db, lifecycle)
   const shellProfileService = services.shellProfileService ?? new ShellProfileService(db)
   const agentService = services.agentService ?? new AgentService(db)
 
