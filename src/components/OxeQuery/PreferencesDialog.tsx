@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentAccess, ConnectionEnvironment, EnvironmentLimit, OxeQueryPreferences } from '../../../shared/types/oxequery'
-import { Dialog, ErrorState, Select, LoadingState, toast } from '../../ui'
+import { Dialog, ErrorState, Select, SettingRow, LoadingState, toast } from '../../ui'
 import { i18n } from '../../i18n'
 import { errorMessage, oq } from './client'
 import { formatNumber } from '../../utils/formatTime'
@@ -58,15 +58,18 @@ export function PreferencesDialog({ onClose }: { onClose: () => void }): ReactEl
     actions={{ cancel: { label: t('common.cancel') }, primary: { label: t('common.save'), loading: busy, disabled: !value, onClick: () => void save() } }}>
     {error && <ErrorState compact title={t(value ? 'preferences.saveFailed' : 'preferences.loadFailed')} message={error} />}
     {!value && !error ? <LoadingState label={t('preferences.loading')} /> : value && <div className="oq-preferences oq-scope">
-      <Select label={t('preferences.history')} hint={t('preferences.historyHint')} value={String(value.historyLimit)}
-        onChange={event => change({ historyLimit: Number(event.target.value) })} options={[...new Set([...HISTORY, value.historyLimit])].sort((a, b) => a - b).map(item => ({ value: String(item), label: formatNumber(item) }))} />
-      <Select label={t('preferences.audit')} hint={t('preferences.auditHint')} value={String(value.auditRetentionDays)}
-        onChange={event => change({ auditRetentionDays: Number(event.target.value) })} options={[...new Set([...AUDIT_DAYS, value.auditRetentionDays])].sort((a, b) => a - b).map(item => ({ value: String(item), label: t('preferences.days', { count: item }) }))} />
+      <SettingRow label={t('preferences.history')} description={t('preferences.historyHint')}
+        control={<Select aria-label={t('preferences.history')} value={String(value.historyLimit)}
+          onChange={event => change({ historyLimit: Number(event.target.value) })} options={[...new Set([...HISTORY, value.historyLimit])].sort((a, b) => a - b).map(item => ({ value: String(item), label: formatNumber(item) }))} />} />
+      <SettingRow label={t('preferences.audit')} description={t('preferences.auditHint')}
+        control={<Select aria-label={t('preferences.audit')} value={String(value.auditRetentionDays)}
+          onChange={event => change({ auditRetentionDays: Number(event.target.value) })} options={[...new Set([...AUDIT_DAYS, value.auditRetentionDays])].sort((a, b) => a - b).map(item => ({ value: String(item), label: t('preferences.days', { count: item }) }))} />} />
       <fieldset className="oq-preferences-ceiling">
         <legend>{t('preferences.ceiling')}</legend>
-        {ENVIRONMENTS.map(environment => <Select key={environment} label={t(`environment.${environment}`)} value={value.agentCeiling[environment]}
-          onChange={event => change({ agentCeiling: { ...value.agentCeiling, [environment]: event.target.value as AgentAccess } })}
-          options={[{ value: 'off', label: t('preferences.access.off') }, { value: 'read', label: t('preferences.access.read') }, { value: 'write', label: t('preferences.access.write'), disabled: environment === 'prod' }]} />)}
+        {ENVIRONMENTS.map(environment => <SettingRow key={environment} label={t(`environment.${environment}`)}
+          control={<Select aria-label={t(`environment.${environment}`)} value={value.agentCeiling[environment]}
+            onChange={event => change({ agentCeiling: { ...value.agentCeiling, [environment]: event.target.value as AgentAccess } })}
+            options={[{ value: 'off', label: t('preferences.access.off') }, { value: 'read', label: t('preferences.access.read') }, { value: 'write', label: t('preferences.access.write'), disabled: environment === 'prod' }]} />} />)}
         <small>{t('preferences.ceilingHint')}</small>
       </fieldset>
       <fieldset className="oq-preferences-ceiling">
