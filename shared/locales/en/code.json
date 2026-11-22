@@ -430,6 +430,7 @@
       "directShort": "direct",
       "compareBranches": "Compare branches",
       "uncommittedChanges": "Uncommitted changes",
+      "staged": "Staged changes",
       "from": "Compare from",
       "mergeBase": "Common ancestor (like a pull request)",
       "direct": "Base directly"
