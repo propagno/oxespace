@@ -1,11 +1,12 @@
-import { useMemo, useState, type ReactElement } from 'react'
+import { useMemo, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Copy, Database, Download, Pencil, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, Database, Download, FolderOpen, Pencil, Plus, Search, Star, Trash2, Upload } from 'lucide-react'
 import type { OxeQueryConnection } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { organize } from './connection-list-model'
 import { useOxeQueryStore } from './oxequery.store'
-import { Button, ConfirmDialog, EmptyState, ErrorState, IconButton, SidebarFilter, SidebarGroup, SidebarRow, SidebarSection } from '../../ui'
+import { copyText } from './catalog'
+import { AnchoredMenu, Button, ConfirmDialog, EmptyState, ErrorState, IconButton, SidebarFilter, SidebarGroup, SidebarRow, SidebarSection, type MenuEntry } from '../../ui'
 import { exportConnections, importConnections } from './connection-transfer'
 
 /** The saved connections: favorites, recent, groups, search, and the actions on one connection. */
@@ -19,6 +20,8 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
   const collapsed = useMemo(() => new Set(folded), [folded])
   const [failure, setFailure] = useState('')
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; ephemeral: boolean } | null>(null)
+  const [menuKey, setMenuKey] = useState<string | null>(null)
+  const listRef = useRef<HTMLElement | null>(null)
   const sections = useMemo(() => organize(connections, search), [connections, search])
   const store = useOxeQueryStore.getState
 
@@ -32,12 +35,40 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
   }
   const toggleSection = (id: string): void => store().toggleSection(id)
 
+  const connectionMenuItems = (connection: OxeQueryConnection): MenuEntry[] => {
+    const items: MenuEntry[] = [
+      { label: t('contextMenu.open'), icon: <FolderOpen size={14} aria-hidden="true" />, onSelect: () => store().openConnection(connection) }
+    ]
+    if (!connection.ephemeral) {
+      items.push(
+        { label: t('common.edit'), icon: <Pencil size={14} aria-hidden="true" />, onSelect: () => store().openDialog(connection) },
+        { label: t('connections.duplicate'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void run(() => oq('connections.duplicate', { id: connection.id })) } }
+      )
+    }
+    items.push(
+      { label: t('contextMenu.copyName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void copyText(connection.name, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone')) } },
+      {
+        label: t(connection.ephemeral ? 'common.close' : 'common.delete'),
+        icon: <Trash2 size={14} aria-hidden="true" />,
+        danger: true,
+        onSelect: () => {
+          if (connection.ephemeral) void remove(connection.id)
+          else setPendingDelete({ id: connection.id, name: connection.name, ephemeral: false })
+        }
+      }
+    )
+    return items
+  }
+
   const row = (connection: OxeQueryConnection, section: string): ReactElement => {
+    const key = `${section}:${connection.id}`
     const tooltip = `${connection.engine} · ${connection.host}:${connection.port}${connection.ephemeral ? ` · ${t('connections.notSaved')}` : ''}`
     return (
-      <div key={`${section}:${connection.id}`} className="oq-connection-row">
+      <div key={key} className="oq-connection-row" data-connection-key={key}
+        onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setMenuKey(key) }}>
         <SidebarRow
           className="oq-connection-item"
+          onKeyDownCapture={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); setMenuKey(key) } }}
           selected={activeTab === `connection:${connection.id}`}
           lead={connection.color ? <i className="oq-color-dot" data-color={connection.color} aria-hidden="true" /> : <Database size={14} aria-hidden="true" />}
           title={<span title={tooltip}>{connection.name}</span>}
@@ -82,11 +113,13 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
             />
           </>}
         />
+        {menuKey === key && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuKey(null) }} label={t('contextMenu.connectionLabel', { name: connection.name })}
+          items={connectionMenuItems(connection)} returnFocus={() => [...(listRef.current?.querySelectorAll<HTMLElement>('[data-connection-key]') ?? [])].find(el => el.dataset.connectionKey === key)?.querySelector<HTMLElement>('[data-ui="sidebar-row"]') ?? null} />}
       </div>
     )
   }
 
-  return <section aria-label={t('connections.title')}>
+  return <section ref={listRef} aria-label={t('connections.title')}>
     <SidebarSection
       label={t('connections.title')}
       action={<span className="oq-h3-actions">

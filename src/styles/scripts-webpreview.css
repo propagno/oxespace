@@ -16,6 +16,8 @@
 
 .web-preview-panel {
   width: min(1180px, calc(100vw - 48px));
+  container-type: inline-size;
+  container-name: web-preview;
 }
 
 .scripts-panel-embedded,
@@ -179,59 +181,33 @@
 }
 
 .web-preview-browserbar {
-  min-height: 42px;
+  min-height: var(--bar-lg);
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--ov-2);
   background: var(--surface-canvas);
 }
 
-.web-preview-nav-button,
-.web-preview-zoom-controls button {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--tx-muted);
-  cursor: pointer;
-}
-
-.web-preview-nav-button:hover:not(:disabled),
-.web-preview-zoom-controls button:hover:not(:disabled) {
-  background: var(--ov-2);
-  color: var(--tx-primary);
-}
-
-.web-preview-nav-button[aria-pressed="true"] {
-  background: var(--intent-info-bg);
-  color: var(--intent-info-fg);
-}
-
-.web-preview-nav-button:disabled,
-.web-preview-zoom-controls button:disabled {
-  color: var(--tx-muted);
-  cursor: default;
+.web-preview-browserbar > * {
+  flex-shrink: 0;
 }
 
 .web-preview-address-input {
-  flex: 1 1 120px;
-  min-width: 120px;
-  height: 30px;
-  padding: 0 10px;
+  flex: 1 1 140px;
+  min-width: 140px;
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-xs);
   background: var(--surface-sunken);
   color: var(--intent-info-fg);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
 }
 
 .web-preview-address-input:focus {
@@ -240,32 +216,35 @@
 }
 
 .web-preview-go-button {
-  height: 28px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--tx-on-accent);
-  font-size: var(--fs-2xs);
-  font-weight: 900;
-  cursor: pointer;
+  flex-shrink: 0;
 }
 
-.web-preview-go-button:hover:not(:disabled) { background: var(--accent-hover); }
-.web-preview-go-button:disabled {
-  opacity: 0.45;
-  cursor: default;
+.web-preview-design-toggle {
+  flex-shrink: 0;
+}
+
+.web-preview-secondary-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.web-preview-overflow-menu {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .web-preview-zoom-controls {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  min-width: 86px;
+  gap: var(--space-1);
+  flex-shrink: 0;
   color: var(--tx-secondary);
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  font-weight: 800;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
 }
 
 .web-preview-zoom-controls span {
@@ -392,19 +371,38 @@
   min-height: 100%;
 }
 
-@media (max-width: 760px) {
-  .web-preview-browserbar {
-    grid-template-columns: auto auto auto minmax(90px, 1fr) auto;
+@container web-preview (max-width: 560px) {
+  .web-preview-secondary-controls {
+    display: none;
   }
 
-  .web-preview-zoom-controls,
-  .web-preview-browserbar .web-preview-nav-button:nth-last-child(-n + 5) {
+  .web-preview-overflow-menu {
+    display: inline-flex;
+  }
+}
+
+@container web-preview (max-width: 355px) {
+  .web-preview-design-toggle {
+    display: none;
+  }
+}
+
+/* OXE-353: a 960x720 window with the sidebar, the grid and the Browser leaves the panel about 271px. Back, Forward,
+   Reload, the address and "⋯" must fit: the address gives way first, and Go leaves (Enter in the address opens). */
+@container web-preview (max-width: 340px) {
+  .web-preview-address-input {
+    flex: 1 1 96px;
+    min-width: 96px;
+  }
+
+  .web-preview-go-button {
     display: none;
   }
 }
 .web-preview-external-toggle {
   display: inline-flex;
   align-items: center;
+  min-block-size: var(--target-min);
   gap: 5px;
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
@@ -494,8 +492,8 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px 12px;
-  padding: 8px 12px;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--bd-subtle);
   color: var(--tx-muted);
   background: var(--surface-raised);
@@ -506,8 +504,7 @@
  * #3 · Design Mode — element picker in the web preview + confirmation sheet.
  * ------------------------------------------------------------------------- */
 
-.web-preview-nav-button.active {
-  border-color: var(--accent);
+.web-preview-design-toggle[aria-pressed='true'] {
   color: var(--accent);
 }
 

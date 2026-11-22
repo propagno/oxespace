@@ -24,7 +24,7 @@
 
 .oq-view { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--surface-canvas); color: var(--tx-primary); }
 .oq-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
-.oq-tab { display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.oq-tab { position: relative; display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .oq-tab[data-active='true'] { background: var(--surface-raised); box-shadow: inset 0 -2px 0 var(--accent); }
 .oq-tab button { padding: 6px 10px; border: 0; color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); cursor: pointer; }
 .oq-tab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 4px; color: var(--tx-muted); }
@@ -50,7 +50,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 .oq-workbench { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .oq-workbench-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-.oq-editor { flex: none; min-height: 80px; overflow: hidden; border-top: 1px solid var(--bd-default); }
+.oq-editor { position: relative; flex: none; min-height: 80px; overflow: hidden; border-top: 1px solid var(--bd-default); }
 .oq-badge { padding: 1px 8px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-full, 999px); font-size: var(--fs-2xs); background: var(--surface-sunken); }
 /* The shortcut beside Run: the one action people repeat, so its key is always in sight. */
 .oq-run-key { display: inline-flex; margin-left: 6px; opacity: .85; }
@@ -602,7 +602,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 .oq-tabs-bar { display: flex; align-items: stretch; justify-content: space-between; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); }
 .oq-tabs-bar > .oq-tabs { flex: 1; min-width: 0; padding: 4px 0 0; border-bottom: 0; }
-.oq-view-meta { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); }
+.oq-view-meta { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; color: var(--tx-muted); font-family: var(--font-ui); font-size: var(--fs-2xs); }
 
 .oq-qtabs { background: var(--surface-chrome); border-bottom-color: var(--bd-subtle); }
 .oq-editor-toolbar { border-bottom: 1px solid var(--bd-subtle); background: var(--surface-base); }

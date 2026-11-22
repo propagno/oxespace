@@ -16,15 +16,15 @@ function renderDependencyLine(task: DelegationTask, t: TFunction<'code'>) {
   const failed = deps.find(d => ['failed', 'cancelled', 'interrupted'].includes(d.state))
   if (failed) {
     const obj = failed.objective.length > 60 ? failed.objective.slice(0, 59) + '…' : failed.objective
-    return <p className="delegated-work-dependency text-danger">{t('delegated.blocked', { objective: obj, defaultValue: `Blocked: ${obj} failed` })}</p>
+    return <p className="delegated-work-dependency text-danger">{t('delegated.blocked', { objective: obj })}</p>
   }
   const waiting = deps.filter(d => d.state !== 'approved')
   if (!waiting.length) return null
   const firstObj = waiting[0].objective.length > 60 ? waiting[0].objective.slice(0, 59) + '…' : waiting[0].objective
   if (waiting.length === 1) {
-    return <p className="delegated-work-dependency text-secondary">{t('delegated.waitsForOne', { objective: firstObj, defaultValue: `Waits for: ${firstObj}` })}</p>
+    return <p className="delegated-work-dependency text-secondary">{t('delegated.waitsForOne', { objective: firstObj })}</p>
   }
-  return <p className="delegated-work-dependency text-secondary" title={waiting.map(d => d.objective).join(', ')}>{t('delegated.waitsForMany', { first: firstObj, count: waiting.length - 1, defaultValue: `Waits for: ${firstObj} and ${waiting.length - 1} more` })}</p>
+  return <p className="delegated-work-dependency text-secondary" title={waiting.map(d => d.objective).join(', ')}>{t('delegated.waitsForMany', { first: firstObj, count: waiting.length - 1 })}</p>
 }
 
 export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, origin, onClose, onOpen }: {
@@ -78,7 +78,7 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
     <div className="delegated-work-list" aria-busy={busy}>
       {!filtered.length && <p>{busy ? t('delegated.loading') : query ? t('delegated.noMatches') : t('delegated.empty')}</p>}
       {filtered.map(task => <article key={task.id}>
-        <header><strong>{task.objective}</strong><span data-state={task.state}>{t(`delegated.states.${task.state}`, { defaultValue: task.state })}</span></header>
+        <header><strong>{task.objective}</strong><span data-state={task.state}>{t(`delegated.states.${task.state}`)}</span></header>
         <p className="delegated-work-branch"><GitBranch size={14} />{task.branch}</p>
         {renderDependencyLine(task, t)}
         <p>{task.nativeSession?.provider ?? task.agentProfileId} · {task.surface === 'thread' ? t('delegated.surfaceThread') : t('delegated.surfaceTerminal')} · {formatDateTime(task.updatedAt)}</p>

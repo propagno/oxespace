@@ -13,6 +13,7 @@ import { KEYBINDINGS, chordsFor, type KeybindingId } from '../../keyboard/keybin
 import { KeyChord } from '../Keyboard/KeyChord'
 import { commandCategoryLabel } from '../../commands/commandText'
 import { goToPane, goToWorkspace } from '../../commands/goTo'
+import { getCachedFileList, getFileListCacheEpoch, setCachedFileList } from './fileListCache'
 
 interface CommandMenuProps {
   open: boolean
@@ -72,12 +73,33 @@ export function CommandMenu({
       setFileList([])
       return
     }
-    // Snapshot the tracked file list once per open for name quick-open.
+    const { id: workspaceId, rootPath } = workspace
+    const cached = getCachedFileList(rootPath)
+    if (cached) {
+      setFileList(cached.files)
+      if (cached.fresh) return
+    } else {
+      // Clear previous workspace's files immediately so entries never leak across rootPaths.
+      setFileList([])
+    }
+    // Cold miss or stale entry: fetch (or revalidate in background) the tracked file list.
     let active = true
+    const epoch = getFileListCacheEpoch()
     window.oxe.search
-      .listFiles({ workspaceId: workspace.id, rootPath: workspace.rootPath })
-      .then((r) => { if (active) setFileList(Array.isArray(r?.files) ? r.files : []) })
-      .catch(() => { if (active) setFileList([]) })
+      .listFiles({ workspaceId, rootPath })
+      .then((r) => {
+        if (r?.error) {
+          if (active && !cached) setFileList([])
+          return
+        }
+        const nextFiles = Array.isArray(r?.files) ? r.files : []
+        setCachedFileList(rootPath, nextFiles, Date.now(), epoch)
+        if (active) setFileList(nextFiles)
+      })
+      .catch(() => {
+        // Keep existing cached list intact when a background revalidation fails.
+        if (active && !cached) setFileList([])
+      })
     return () => { active = false }
   }, [open, workspace])
 
