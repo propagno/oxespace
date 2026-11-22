@@ -190,8 +190,9 @@ describe('design lint', () => {
       // OXE-167 (F5 T3+T4+T8 after #991), 403.
       // OXE-46 (#1005 after main): 402.
       // OXE-28 (#1004 after main): 391.
-      // OXE-172 (F5 T5+T12+T13 after main 22/11 13Z), 385.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(385)
+      // OXE-161 (#1009 after main): 359.
+      // OXE-172 (F5 T5+T12+T13 after #1009), 353.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(353)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
