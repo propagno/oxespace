@@ -55,7 +55,9 @@ export async function freezeClock(page: Page): Promise<void> {
 /** Launches the built app against a temporary database (requires `npm run build` first). */
 /** `env` adds variables for one spec (e.g. OXESPACE_E2E_AGENT_STATE=1), on top of the defaults below. */
 /** `realClock` skips freezeClock, for a spec that needs time to move. */
-export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string>; realClock?: boolean } = {}): Promise<LaunchedApp> {
+/** `firstRun` (OXE-331): 'leave' (default) leaves the first run through its footer OxeCode after a wizard launch, in
+ * e2e/electron-main.cjs; 'stay' keeps it on screen, for specs about the first run. */
+export async function launchApp(options: { appearance?: Appearance; locale?: string; density?: Density; env?: Record<string, string>; realClock?: boolean; firstRun?: 'leave' | 'stay' } = {}): Promise<LaunchedApp> {
   const root = mkdtempSync(join(tmpdir(), 'oxespace-visual-'))
   const workspaceRoot = join(root, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
@@ -72,6 +74,7 @@ export async function launchApp(options: { appearance?: Appearance; locale?: str
       OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'),
       // The system language the app sees; e2e/electron-main.cjs pins English when unset.
       ...(options.locale ? { OXESPACE_LOCALE: options.locale } : {}),
+      ...(options.firstRun === 'stay' ? { OXESPACE_E2E_FIRST_RUN: 'stay' } : {}),
       ...options.env
     }
   })
@@ -168,7 +171,7 @@ export async function openDemoWorkspace(page: Page, workspaceRoot: string): Prom
   // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
   await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
   const firstRun = page.getByTestId('first-run')
-  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click()
+  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 10_000 })
 }
 
