@@ -101,7 +101,7 @@ import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { startToolOutputCuts } from './store/tool-output-cut.store'
-import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
+import { activateNotification, startNotificationPreferenceSync } from './app/desktopNotifications'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
@@ -442,21 +442,15 @@ export function App(): ReactElement {
   useEffect(() => {
     const api = window.oxe?.notifications
     if (!api) return
-    return api.onActivate(({ paneId, workspaceId }) => {
-      if (paneId.startsWith(QUOTA_NOTIFICATION_PANE_PREFIX)) return
-      if (paneId.startsWith(THREAD_NOTIFICATION_PANE_PREFIX)) {
-        setFirstRunExited(true)
-        setHasOpenedThread(true)
-        setApplicationView('thread')
-        void useThreadStore.getState().select(paneId.slice(THREAD_NOTIFICATION_PANE_PREFIX.length))
-        return
-      }
-      if (useWorkspaceStore.getState().activeWorkspaceId !== workspaceId) {
-        void setActiveWorkspace(workspaceId)
-      }
-      setActiveTerminalPaneId(paneId)
-    })
-  }, [setActiveWorkspace, setActiveTerminalPaneId])
+    return api.onActivate(target => activateNotification(target, {
+      activeWorkspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+      showCode: () => selectMode('code'),
+      showThread: id => { setFirstRunExited(true); setHasOpenedThread(true); setApplicationView('thread'); void useThreadStore.getState().select(id) },
+      activateWorkspace: id => { void setActiveWorkspace(id) },
+      setActivePane: id => { useUIStore.getState().setActivePane(id); setActiveTerminalPaneId(id) }
+    }))
+  }, [selectMode, setActiveWorkspace, setActiveTerminalPaneId])
+  useEffect(() => startNotificationPreferenceSync(), [])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))

@@ -30,7 +30,7 @@ import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
 import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
 import { peekDatabaseVersion } from './services/data-export/removed-features-export'
 import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
-import { registerNotificationsIpc } from './ipc/notifications.ipc'
+import { notificationsEnabled, registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { singleInstanceDisabled } from './test-switches'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
@@ -520,7 +520,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       return { close: () => notification.close() }
     },
     focused: () => BrowserWindow.getAllWindows().some(win => !win.isDestroyed() && win.isFocused()),
-    enabled: () => true,
+    enabled: notificationsEnabled,
     focusWindow: () => {
       const win = BrowserWindow.getAllWindows().find(item => !item.isDestroyed())
       if (!win) return
