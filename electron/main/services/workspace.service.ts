@@ -90,8 +90,20 @@ const PRESET_LAYOUTS: Record<WorkspaceLayoutPreset, WorkspaceLayout> = {
   16: '4x4'
 }
 
+export interface WorkspaceServiceOptions {
+  /** The live terminal's answer. panes.status is never told that a PTY started, so the row alone cannot say it. */
+  isPaneRunning?: (paneId: string) => boolean
+}
+
 export class WorkspaceService {
-  constructor(private readonly db: AppDatabase) {}
+  constructor(private readonly db: AppDatabase, private readonly options: WorkspaceServiceOptions = {}) {}
+
+  /** For startup, when no PTY has survived: a row a crash or a kill left busy goes back to idle. Returns how many did. */
+  resetStalePaneStatus(): number {
+    return this.db
+      .prepare("UPDATE panes SET status = 'idle', updated_at = datetime('now') WHERE status NOT IN ('idle', 'exited')")
+      .run().changes
+  }
 
   create(input: CreateWorkspaceInput): Workspace {
     // Opening a folder that already has a workspace activates that workspace
@@ -680,7 +692,7 @@ export class WorkspaceService {
       rowIndex: row.row_index,
       columnIndex: row.column_index,
       shellProfileId: row.shell_profile_id,
-      status: row.status,
+      status: this.options.isPaneRunning?.(row.id) ? 'running' : row.status,
       agentProfileId: row.agent_profile_id,
       agentName: row.agent_name,
       displayName: row.display_name ?? null,
