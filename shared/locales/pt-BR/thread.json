@@ -695,7 +695,7 @@
     "sessionBusy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
     "reconnect": "Reconecte a conta do seu agente nativo para continuar.",
     "couldNotFinish": "O agente não conseguiu terminar este turno.",
-    "diagnostic": "Diagnóstico do provedor",
+    "diagnostic": "Detalhes técnicos",
     "usageUnavailable": "Não foi possível obter o uso atual. O provedor não confirmou quando o limite renova.",
     "checkingUsage": "Verificando o uso atual no provedor…",
     "notRecorded": "O uso e o horário de renovação não foram registrados nesta falha.",
@@ -841,6 +841,7 @@
     "truncated": "Cortado"
   },
   "grid": {
+    "resize": "Redimensionar as colunas",
     "split": "Conversas lado a lado",
     "single": "Conversa"
   },
@@ -951,8 +952,17 @@
     "image": "[Imagem]",
     "imageAlt": "[Imagem: {{alt}}]",
     "diagram": "Diagrama",
+    "diagramBuilding": "Montando diagrama…",
+    "diagramFailed": "Não foi possível desenhar o diagrama",
+    "enlarge": "Ampliar",
     "showCode": "Ver o código",
-    "showDiagram": "Ver o diagrama"
+    "showDiagram": "Ver o diagrama",
+    "alert": {
+      "note": "Nota",
+      "important": "Importante",
+      "warning": "Atenção",
+      "caution": "Cuidado"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Inicia agora.",
@@ -2149,7 +2159,7 @@
       "seeImpact": "Ver impacto",
       "answer": "Responder",
       "stop": "Parar",
-      "retry": "Tentar novamente o passo que falhou",
+      "retry": "Tentar de novo o passo que falhou",
       "openPr": "Abrir pull request"
     }
   },
@@ -2178,12 +2188,12 @@
   },
   "composerModel": {
     "idle": "Pergunte, ou digite / para comandos",
-    "steer": "Direcione: o agente lê depois do passo atual",
+    "steer": "Oriente: o agente lê depois do passo atual",
     "queued": "Na fila até o turno atual terminar",
     "needsYou": "Responda, ou diga ao agente o que fazer",
     "appliesNext": "Vale a partir da próxima mensagem",
     "queuedPrefix": "Na fila · {{text}}",
-    "steerWithThis": "Direcionar com esta",
+    "steerWithThis": "Orientar com esta",
     "sendNow": "Enviar agora",
     "removeQueued": "Remover mensagem da fila"
   },

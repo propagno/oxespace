@@ -1,9 +1,10 @@
 import { Server } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { detectDevServers, launchAutoVerify, packageManagerFor, urlFromOutput, type DevServerConfig } from '../../../shared/dev-server'
 import { selectJobs, useBackgroundStore } from '../../store/background.store'
-import { Menu, type MenuEntry } from '../../ui'
+import { IconButton, Menu, type MenuEntry } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { runInThreadShell, stopThreadShell, threadShellPane, THREAD_SHELL_SLOTS } from '../../lib/threadShell'
 
@@ -134,11 +135,15 @@ interface DevServerMenuProps {
   onNotice: (text: string) => void
 }
 
-/** The Browser's "Dev servers" menu: each server of the project with its command, to start, stop or open. */
-export function DevServerMenu({ dev, onNotice, onOpen, onStart }: DevServerMenuProps): ReactElement {
-  const { t } = useTranslation('code')
-  const running = dev.servers.filter(config => dev.isRunning(config)).length
-  const items: MenuEntry[] = dev.servers.length === 0
+/** Builds the dropdown entries for the project's dev servers (shared between inline DevServerMenu and narrow overflow menu). */
+export function buildDevServerMenuItems(
+  dev: DevServers,
+  onStart: (config: DevServerConfig) => void,
+  onOpen: (url: string) => void,
+  onNotice: (text: string) => void,
+  t: TFunction<'code'>
+): MenuEntry[] {
+  return dev.servers.length === 0
     ? [{ type: 'label', label: t('preview.devServer.none') }]
     : dev.servers.flatMap((config, index): MenuEntry[] => {
       const up = dev.isRunning(config)
@@ -149,15 +154,29 @@ export function DevServerMenu({ dev, onNotice, onOpen, onStart }: DevServerMenuP
       if (up || !config.command) entries.push({ label: t('preview.devServer.open', { url: dev.urlOf(config) }), onSelect: () => onOpen(dev.urlOf(config)) })
       return entries
     })
+}
+
+/** The Browser's "Dev servers" menu: each server of the project with its command, to start, stop or open. */
+export function DevServerMenu({ dev, onNotice, onOpen, onStart }: DevServerMenuProps): ReactElement {
+  const { t } = useTranslation('code')
+  const running = dev.servers.filter(config => dev.isRunning(config)).length
+  const items = buildDevServerMenuItems(dev, onStart, onOpen, onNotice, t)
   const label = running > 0 ? t('preview.devServer.labelRunning', { count: running }) : t('preview.devServer.label')
   return (
     <Menu
       label={t('preview.devServer.label')}
       align="end"
       trigger={
-        <button type="button" className="web-preview-nav-button web-preview-dev-server" aria-label={label} title={label} data-testid="dev-server-menu" data-running={running > 0 ? 'true' : undefined} onPointerDown={dev.refresh}>
-          <Server size={14} aria-hidden="true" />
-        </button>
+        <IconButton
+          size="sm"
+          className="web-preview-dev-server"
+          label={label}
+          title={label}
+          icon={<Server size={14} aria-hidden="true" />}
+          data-testid="dev-server-menu"
+          data-running={running > 0 ? 'true' : undefined}
+          onPointerDown={dev.refresh}
+        />
       }
       items={items}
     />
