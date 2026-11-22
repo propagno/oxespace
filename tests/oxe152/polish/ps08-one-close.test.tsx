@@ -1,8 +1,8 @@
 // Acceptance test for 1.5.2 Polimento · Configurações (Jira OXE-232, PS-08·1, CA-1 & CA-2).
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsCenter, type AppPage } from '../../../src/components/Settings/SettingsCenter'
 import { changeLanguage } from '../../../src/i18n'
 
@@ -15,8 +15,27 @@ const PAGES_WITH_HEADER: readonly AppPage[] = [
   'about'
 ]
 
+/** Each page's own title, which only its mounted content has; the Settings title sits outside the content region. */
+const PAGE_TITLE_ID: Readonly<Record<string, string>> = {
+  appearance: 'settings-appearance-title',
+  providers: 'settings-providers-title',
+  notifications: 'settings-notifications-title',
+  terminal: 'settings-terminal-title',
+  diagnostics: 'settings-diagnostics-title',
+  about: 'settings-updates-title'
+}
+
+const originalOxe = window.oxe
+
+beforeEach(() => {
+  // Diagnostics reads this bridge when it mounts; without it the page is only the Settings error boundary.
+  const snapshot = { generatedAt: 1, appVersion: '1.5.2', platform: 'win32', arch: 'x64', nodeVersion: '22', electronVersion: '44', workspaceCount: 0, checks: [] }
+  window.oxe = { ...originalOxe, diagnostics: { getSnapshot: async () => snapshot } } as unknown as typeof window.oxe
+})
+
 afterEach(async () => {
   cleanup()
+  window.oxe = originalOxe
   await changeLanguage('en')
 })
 
@@ -44,12 +63,15 @@ describe('OXE-232 (PS-08·1): one close button on every Settings page', () => {
         )
         const dialog = screen.getByRole('dialog')
         // Wait for the lazy SettingsContent page to mount inside the region.
-        await within(dialog).findByRole('heading', { level: 2 })
+        await waitFor(() => expect(
+          dialog.querySelector(`.settings-center-content #${PAGE_TITLE_ID[page]}`),
+          `${locale} › ${page} never mounted`
+        ).not.toBeNull(), { timeout: 10_000 })
         const closeButtons = within(dialog).getAllByRole('button', { name: closePattern })
         expect(closeButtons, `${locale} › ${page} should have exactly one close button`).toHaveLength(1)
       }
     }
-  })
+  }, 60_000)
 
   it('the redundant X leaves SettingsContentHeader and no CSS selector reads a translated aria-label', () => {
     const modalSource = readFileSync(join(process.cwd(), 'src/components/Settings/SettingsModal.tsx'), 'utf8')

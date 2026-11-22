@@ -136,7 +136,9 @@ export async function layoutAtWidth(app: ElectronApplication, page: Page, width:
   await expect.poll(async () => {
     await app.evaluate(({ BrowserWindow }, wanted) => {
       const win = BrowserWindow.getAllWindows()[0]
-      const factor = Math.min(1, win.getContentBounds().width / wanted)
+      const fit = win.getContentBounds().width / wanted
+      // Below the app's minimum width the window can't shrink, so the page zooms in; from the minimum up it only zooms out.
+      const factor = wanted < win.getMinimumSize()[0] ? fit : Math.min(1, fit)
       if (Math.abs(win.webContents.getZoomFactor() - factor) > 0.001) win.webContents.setZoomFactor(factor)
     }, width)
     return Math.abs(await shellWidth() - width) <= 2
@@ -167,6 +169,8 @@ export async function layoutDiag(app: ElectronApplication, page: Page): Promise<
 export async function openDemoWorkspace(page: Page, workspaceRoot: string): Promise<void> {
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
+  // This helper leaves the first run itself: the harness must not click too (OXE-390).
+  await page.evaluate(() => { (window as unknown as { __oxeE2eHelperLeaves?: boolean }).__oxeE2eHelperLeaves = true })
   await page.getByTestId('wizard-launch-btn').click()
   // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
   await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })

@@ -535,6 +535,7 @@
   },
   "agentConfig": {
     "promptRequired": "Skill prompt is required",
+    "nameRequired": "Name is required",
     "saveFailed": "Failed to save agent profile",
     "commandChanged": "{{name}} now starts with the new command",
     "commandRequired": "Command is required",

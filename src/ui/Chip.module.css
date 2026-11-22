@@ -1,0 +1,165 @@
+.chip {
+  --chip-h: var(--control-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-block-size: max(var(--target-min), var(--chip-h));
+  padding-inline: var(--space-3);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--tx-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+
+.chip:where([data-size='sm']) {
+  --chip-h: var(--control-sm);
+  padding-inline: var(--space-2);
+  gap: var(--space-1);
+}
+
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover:not(:disabled) {
+  background: var(--fill-hover);
+  color: var(--tx-primary);
+}
+
+.interactive:active:not(:disabled) {
+  background: var(--fill-pressed);
+}
+
+.interactive:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.interactive:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.removable {
+  padding-inline-end: var(--space-0-5);
+  gap: var(--space-0-5);
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-block-size: var(--target-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove {
+  border-radius: var(--radius-full);
+  color: inherit;
+}
+
+/* Variants */
+.chip:where([data-variant='neutral'])[data-pressed='true'] {
+  background: var(--fill-selected);
+  border-color: var(--accent-border);
+  color: var(--tx-primary);
+}
+
+.chip:where([data-variant='accent']) {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--tx-accent);
+}
+
+.chip:where([data-variant='accent'])[data-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--tx-on-accent);
+}
+
+.chip:where([data-variant='attention']) {
+  background: var(--attn-bg);
+  border-color: var(--attn-border);
+  color: var(--attn-fg);
+}
+
+.chip:where([data-variant='attention'])[data-pressed='true'] {
+  background: var(--attn);
+  border-color: var(--attn);
+  color: var(--tx-on-solid);
+}
+
+.chip:where([data-variant='danger']) {
+  background: var(--intent-danger-bg);
+  border-color: var(--intent-danger-border);
+  color: var(--intent-danger-fg);
+}
+
+.chip:where([data-variant='danger'])[data-pressed='true'] {
+  background: var(--intent-danger-solid);
+  border-color: var(--intent-danger-solid);
+  color: var(--tx-on-solid);
+}
+
+@media (forced-colors: active) {
+  .chip {
+    border-color: ButtonText;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .chip[data-pressed='true'] {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+
+  .interactive:focus-visible,
+  .trigger:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}

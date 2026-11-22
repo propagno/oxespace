@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Database, Plus, X } from 'lucide-react'
 import { AnchoredMenu } from '../../ui'
 import { EmptyState } from '../../ui/Display'
-import { Button } from '../../ui/Button'
+import { Button, IconButton } from '../../ui/Button'
 import { ConnectionDialog } from './ConnectionDialog'
 import { ActivityPanel } from './ActivityPanel'
 import { MongoWorkbench } from './MongoWorkbench'
@@ -45,7 +45,7 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
           onContextMenu={event => { event.preventDefault(); setTabMenuId(tab.id) }}>
           <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}
             onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setTabMenuId(tab.id) } }}>{titleOf(tab)}</button>
-          <button type="button" aria-label={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" onClick={() => closeTab(tab.id)}><X size={12} aria-hidden="true" /></button>
+          <IconButton size="sm" variant="ghost" label={t('view.closeTab', { name: titleOf(tab) })} title={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" icon={<X size={12} aria-hidden="true" />} onClick={() => closeTab(tab.id)} />
           {tabMenuId === tab.id && <AnchoredMenu open onOpenChange={open => { if (!open) setTabMenuId(null) }} label={t('contextMenu.tabLabel', { name: titleOf(tab) })}
             items={[
               { label: t('common.close'), icon: <X size={14} aria-hidden="true" />, onSelect: () => closeTab(tab.id) },

@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +42,8 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.R
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeCodeStyle
 import com.oxespace.mobile.ui.theme.OxeRadius
@@ -153,10 +154,12 @@ fun CodeBlock(text: String) {
             softWrap = false,
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 76.dp, top = 14.dp, bottom = 14.dp),
         )
-        TextButton(
+        OxeButton(
+            text = stringResource(if (copied) R.string.thread_copied else R.string.thread_copy),
             onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("code", text))) }; copied = true },
-            modifier = Modifier.align(Alignment.TopEnd).heightIn(min = 48.dp),
-        ) { Text(stringResource(if (copied) R.string.thread_copied else R.string.thread_copy), style = MaterialTheme.typography.labelMedium) }
+            modifier = Modifier.align(Alignment.TopEnd),
+            kind = OxeButtonKind.GHOST,
+        )
     }
 }
 

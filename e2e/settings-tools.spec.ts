@@ -14,7 +14,9 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
   const root = mkdtempSync(join(tmpdir(), 'oxe-settings-tools-'))
   const repo = join(root, 'tools-repo'); mkdirSync(repo)
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3'),
+    // Settings opens from the first run too: no automatic click may race it (OXE-390).
+    OXESPACE_E2E_FIRST_RUN: 'stay'
   } })
   try {
     const page = await app.firstWindow()
@@ -22,6 +24,8 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-launch-btn').click()
+    // The wizard is a modal until the workspace is made: the Settings shortcut pressed under it is lost (OXE-390).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
     await openSettings(page)
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()

@@ -1,53 +1,75 @@
-/* Composer footer in the reference pattern:
-   [Plan | Agent] [/ +] · model · effort · permission ············ status · stop · send */
-.thread-composer footer { gap: 6px; }
-.thread-composer footer .thread-mode-toggle { order: -1; }
+/* Composer bar (AG-10 §2.5, OXE-172):
+   [Agent | Plan] [+ Context] ············ model · access · ring · stop · send */
+.thread-composer-column { container-type: inline-size; container-name: thread-composer; }
+.thread-composer[data-ui='composer'] { border-radius: var(--radius-lg); }
+.thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); flex-wrap: nowrap; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
-.thread-composer footer .thread-composer-status { margin-left: auto; }
+.thread-composer-right { display: flex; align-items: center; gap: var(--space-1-5); margin-left: auto; min-width: 0; flex: 0 1 auto; }
+.thread-composer .thread-context-trigger { flex: none; }
 
-/* Plan | Agent: a small segmented control; the active side is lifted, not tinted. */
-.thread-mode-toggle { display: inline-flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); }
-.thread-composer .thread-mode-toggle button { height: 24px; padding: 0 10px; border-radius: calc(var(--radius-md) - 2px); color: var(--tx-muted); font-size: var(--fs-xs); font-weight: 500; }
+/* Agent | Plan: a small segmented control; the active side is lifted, Plan uses warning tint. */
+.thread-mode-toggle { display: inline-flex; align-items: center; flex: none; gap: var(--space-0-5); padding: var(--space-0-5); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-composer .thread-mode-toggle button { height: var(--control-sm); min-height: var(--control-sm); padding: 0 var(--space-2); border-radius: calc(var(--radius-md) - var(--space-0-5)); color: var(--tx-muted); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-pressed); color: var(--tx-primary); }
+.thread-composer .thread-mode-toggle button[data-mode='plan'][aria-pressed='true'] { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--tx-primary); background: transparent; }
 
-/* Model, effort and permissions as chips that name their value (T57, T58 §4): 24 px, round, 12 px text. Only the
+/* Model and permissions as chips that name their value (T57, T58 §4): --control-sm, round, 12 px text. Only the
    permissions chip carries intent color, by risk. A change for the next message has a dashed border. */
-.thread-composer { container: thread-composer / inline-size; }
-.thread-composer .thread-config-trigger.thread-chip { flex: none; min-width: 24px; min-height: var(--control-sm); height: var(--control-sm); gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-full); background: var(--fill-hover); color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
-/* Only the model's name gives way, to an ellipsis and never below a few letters; the other chips keep their size. */
-.thread-composer .thread-chip.is-model { flex: 0 1 auto; min-width: 64px; color: var(--tx-primary); }
+.thread-composer .thread-config-trigger.thread-chip { flex: none; min-width: var(--control-sm); min-height: var(--control-sm); height: var(--control-sm); gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid transparent; border-radius: var(--radius-full); background: var(--fill-hover); color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+/* Only the model's name gives way, to an ellipsis; the other controls keep their size. */
+.thread-composer .thread-chip.is-model { flex: 0 1 auto; min-width: var(--control-sm); color: var(--tx-primary); overflow: hidden; }
+.thread-composer .thread-chip.is-turn-settings { max-width: 100%; }
 .thread-composer .thread-chip > svg { flex: none; }
-.thread-composer .thread-chip .thread-chip-text { max-width: 18ch; }
+.thread-composer .thread-chip .thread-chip-text { max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-chip-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tx-muted); }
 .thread-chip-dot[data-provider='claude'] { background: var(--provider-claude); }
 .thread-chip-dot[data-provider='codex'] { background: var(--provider-codex); }
 .thread-chip-dot[data-provider='antigravity'] { background: var(--provider-antigravity); }
-.thread-composer .thread-chip.is-permissions { flex-shrink: 0; }
+.thread-composer .thread-chip.is-effort, .thread-composer .thread-chip.is-permissions { flex-shrink: 0; }
 .thread-composer .thread-chip.is-permissions[data-access='read-only'] { background: var(--intent-info-bg); color: var(--intent-info-fg); }
 .thread-composer .thread-chip.is-permissions[data-access='workspace-write'] { background: var(--accent-soft); color: var(--tx-accent); }
 .thread-composer .thread-chip.is-permissions[data-access='full-access'] { background: var(--intent-danger-bg); color: var(--intent-danger-fg); border-color: var(--intent-danger-border); }
 .thread-composer .thread-chip[data-pending] { border-style: dashed; border-color: currentColor; }
-.thread-composer .thread-mode-toggle button[aria-pressed='true']:first-child { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
-/* Narrow (T58 §5), one step at a time and always a whole chip: the effort keeps its icon, then the permissions keep
-   icon and color (the text is in the tooltip and the name), then the model keeps its dot; the number beside the ring
-   goes with the first step. Under 500 px the right side takes a line of its own when it no longer fits: with Stop on
-   screen the row needs about 475 px and nothing is left to give. The permissions chip never hides.
-   The steps are for the longest case: Portuguese, with Stop on screen. */
-@container thread-composer (max-width: 719px) { .thread-composer .thread-chip.is-effort .thread-chip-text, .thread-composer .thread-usage-ring-number { display: none; } }
-@container thread-composer (max-width: 679px) { .thread-composer .thread-chip.is-permissions .thread-chip-text { display: none; } }
-@container thread-composer (max-width: 539px) { .thread-composer .thread-chip.is-model { min-width: 24px; } .thread-composer .thread-chip.is-model .thread-chip-text { display: none; } }
-@container thread-composer (max-width: 499px) { .thread-composer footer { flex-wrap: wrap; row-gap: var(--space-2); } }
 .thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
+
+/* Narrow container (< 420 px): tighten padding and gaps so mode-switch, Context, Turn settings and Send/Stop fit without horizontal scroll. */
+@container thread-composer (max-width: 419px) {
+  .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1); }
+  .thread-composer-right { gap: var(--space-1); }
+  .thread-composer .thread-mode-toggle button { padding: 0 var(--space-1-5); }
+  .thread-composer .thread-context-trigger { padding: 0 var(--space-1-5); }
+}
+.thread-composer footer[data-width='narrow'] { gap: var(--space-1); }
+.thread-composer footer[data-width='narrow'] .thread-composer-right { gap: var(--space-1); }
+.thread-composer footer[data-width='narrow'] .thread-mode-toggle button { padding: 0 var(--space-1-5); }
+.thread-composer footer[data-width='narrow'] .thread-context-trigger { padding: 0 var(--space-1-5); }
 
 /* One line per option, as in a menu. The explanation stays for screen readers. */
 .thread-config-options button small {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
+/* Text-free usage ring: square icon-button. */
+.thread-composer footer .thread-usage-ring { flex: none; width: var(--control-sm); min-width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; border-radius: var(--radius-full); }
+
 /* Round actions on the right: send takes the accent only when there is something to send. */
-.thread-composer footer .thread-send { flex: 0 0 28px; width: 28px; height: 28px; padding: 0; justify-content: center; border-radius: 50%; }
+.thread-composer footer .thread-send { flex: 0 0 var(--control-md); width: var(--control-md); height: var(--control-md); padding: 0; justify-content: center; border-radius: 50%; }
 /* Stop while a turn runs (T57): a pill with its word, in the danger color, that never shrinks out of the footer. */
-.thread-composer footer .thread-stop { flex: none; width: auto; height: 28px; gap: 6px; padding: 0 12px; justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-full); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.thread-composer footer .thread-stop { flex: none; width: auto; height: var(--control-sm); gap: var(--space-1-5); padding: 0 var(--space-2); justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-full); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .thread-composer footer .thread-stop:hover:not(:disabled) { background: color-mix(in srgb, var(--intent-danger-fg) 14%, var(--intent-danger-bg)); color: var(--intent-danger-fg); }
 .thread-composer footer .thread-send:disabled { background: var(--fill-pressed); color: var(--tx-muted); opacity: 1; }
+
+/* Working-set bar (AG-10 §2.3, OXE-172): joined to the top of the composer card, --bar-sm at rest. */
+.thread-composer [data-ui='working-set'] { margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2); border: 0; border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; background: var(--surface-sunken); height: var(--bar-sm); min-height: var(--bar-sm); overflow: hidden; }
+.thread-composer [data-ui='working-set'][data-open='true'] { height: auto; overflow: visible; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-header { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
+.thread-composer [data-ui='working-set'] button.thread-dock-changes-toggle { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-1); border: 0; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-chevron { margin-left: 0; transform: rotate(-90deg); }
+.thread-composer [data-ui='working-set'][data-open='true'] .thread-dock-changes-chevron { transform: rotate(0deg); }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions { gap: var(--space-1); }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { height: var(--bar-sm); min-height: var(--bar-sm); padding: 0 var(--space-1-5); border: 0; }
+.thread-composer [data-ui='working-set'] ul { padding: var(--space-1) var(--space-2) var(--space-1-5); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
+.thread-working-set-stats { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); }
+.thread-working-set-add { color: var(--intent-success-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.thread-working-set-del { color: var(--intent-danger-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
