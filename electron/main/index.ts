@@ -6,6 +6,7 @@ import { markAppReady, measureStartup, trackWindowStartup } from './startup-timi
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
 import { RendererRecoveryPolicy, showRendererGiveUp } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
+import { flushStorage } from './storage-flush'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { mainLanguage, systemLocale, tMain } from './i18n'
 import { messageKey, messageValues } from '../../shared/messages'
@@ -688,7 +689,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
