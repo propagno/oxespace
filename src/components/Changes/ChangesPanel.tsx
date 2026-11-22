@@ -11,7 +11,7 @@ import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes
 import './ChangesPanel.css'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
+import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
@@ -126,6 +126,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const pendingComments = useMemo(() => workspaceComments.filter(comment => comment.sentAt == null), [workspaceComments])
   const [sendNotice, setSendNotice] = useState<{ kind: 'sent' | 'failed'; text: string } | null>(null)
   const [sending, setSending] = useState(false)
+  // The workspace whose comments are waiting for a confirmation, so switching workspaces never discards the other's.
+  const [discardFor, setDiscardFor] = useState<string | null>(null)
   useEffect(() => {
     if (sendNotice?.kind !== 'sent') return
     const timer = window.setTimeout(() => setSendNotice(null), 5000)
@@ -304,7 +306,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       {pendingComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
         {/* The send button already says the count; the separate count shows only when there is no send button. */}
         {!onSendComments && <span><b>{pendingComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: pendingComments.length })}</span></span>}
-        <button type="button" aria-label={t('changes.comments.discard')} title={t('changes.comments.discardTitle')} onClick={() => clearComments(workspaceId)}><X size={14} aria-hidden="true" /></button>
+        <button type="button" aria-label={t('changes.comments.discard')} title={t('changes.comments.discardTitle')} onClick={() => setDiscardFor(workspaceId)}><X size={14} aria-hidden="true" /></button>
       </span>}
       {pendingComments.length > 0 && onSendComments && <Button variant="primary" size="sm" loading={sending} title={t('changes.comments.sendTitle')} onClick={() => void sendComments()}>{t('changes.comments.sendCount', { count: pendingComments.length })}</Button>}
       <button type="button" className="changes-icon" aria-label={t('changes.refresh')} title={t('changes.refresh')} onClick={() => void load()} disabled={loading}>{loading ? <Spinner size="sm" decorative /> : <RefreshCw size={14} aria-hidden="true" />}</button>
@@ -314,6 +316,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       <span className="changes-banner-nav"><button type="button" aria-label={t('changes.previousFile')} onClick={() => go(-1)} disabled={index <= 0}><ChevronLeft size={14} aria-hidden="true" /></button><button type="button" aria-label={t('changes.nextFile')} onClick={() => go(1)} disabled={index < 0 || index >= ordered.length - 1}><ChevronRight size={14} aria-hidden="true" /></button></span></div>}
     {error && <ErrorState compact title={t('changes.readFailed')} message={error} onRetry={() => void load()} />}
     {sendNotice && <div role="status" className="changes-note changes-send-notice"><span>{sendNotice.text}</span>{sendNotice.kind === 'failed' && <Button variant="secondary" size="sm" loading={sending} onClick={() => void sendComments()}>{t('changes.comments.retry')}</Button>}</div>}
+    {discardFor === workspaceId && <ConfirmDialog danger title={t('changes.comments.discardConfirm')} description={t('changes.comments.discardConsequence', { count: workspaceComments.length })} confirmLabel={t('changes.comments.discardAction')}
+      onCancel={() => setDiscardFor(null)} onConfirm={() => { clearComments(workspaceId); setDiscardFor(null) }} />}
     <div className="changes-body">
       <div className="changes-diff">
         {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
