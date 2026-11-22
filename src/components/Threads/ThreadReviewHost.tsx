@@ -22,7 +22,7 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   workbench: RefObject<HTMLDivElement | null>
   onClose: () => void
   onReturnFocus: () => void
-  onSendToConversation: (prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }) => void | Promise<void>
+  onSendToConversation: (prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }) => void | boolean | Promise<void | boolean>
   /** Runs /compact in the conversation, for the session panel. */
   onCompact?: () => void
 }) {

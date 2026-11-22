@@ -15,7 +15,7 @@ const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus
 const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
-import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
+import { Button, Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
 import { resolvePaneIdentity } from '../../utils/paneDisplay'
@@ -44,6 +44,13 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   const setTerminalOverride = useTerminalPrefsStore((s) => s.setOverride)
   const terminalPrefs = useResolvedTerminalPrefs(workspaceId)
   const isRunning = state.status === 'running' || state.status === 'starting'
+  // OXE-355 · A failed process leaves its output on screen, read only. Only a non-zero exit records an error.
+  const exitedWithFailure = state.status === 'exited' && Boolean(state.error)
+  // Starting again mounts a new view and runs its attach handshake, as starting from the idle screen does.
+  const [viewRun, setViewRun] = useState({ id: 0, failed: exitedWithFailure })
+  if (viewRun.failed !== exitedWithFailure) {
+    setViewRun({ id: exitedWithFailure ? viewRun.id : viewRun.id + 1, failed: exitedWithFailure })
+  }
   // Copilot panes get the account-wide AI-Credits indicator in their status bar.
   const isCopilotPane = useMemo(() => {
     const profile = allProfiles.find((p) => p.agentProfileId === pane.agentProfileId)
@@ -350,7 +357,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
   return (
     <div className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
-      {state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
+      {exitedWithFailure ? (
+        <div className="terminal-error-bar terminal-exit-bar" role="status">
+          <span>{state.error}</span>
+          <Button size="sm" icon={<Play size={12} aria-hidden="true" />} aria-label={tc('terminalPane.start')} onClick={() => void start(true)}>
+            {tc('terminalPane.startButton')}
+          </Button>
+        </div>
+      ) : state.error ? <div className="terminal-error-bar">{state.error}</div> : null}
       {isRunning && sizeLease ? (
         <div className="terminal-size-lease" role="status" data-testid="terminal-size-lease">
           <span>{tc('terminalPane.sizeLease.label', { cols: sizeLease.cols, rows: sizeLease.rows })}</span>
@@ -360,10 +374,11 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         </div>
       ) : null}
 
-      {isRunning ? (
+      {isRunning || exitedWithFailure ? (
         <div className="terminal-content">
           <ErrorBoundary id="terminal" label={tc('terminalPane.boundary')}>
           <TerminalView
+            key={viewRun.id}
             paneId={pane.id}
             workspaceId={workspaceId}
             isRunning={isRunning}
