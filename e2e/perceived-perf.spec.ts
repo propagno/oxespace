@@ -277,11 +277,18 @@ const SURFACES: Surface[] = [
   settingsSurface('Settings · Agents', 'providers'),
   settingsSurface('Settings · Appearance', 'appearance')
 ]
-/** Code's first open is the workspace itself: the wizard's Launch button to the grid with its terminal. */
+/**
+ * Code's first open is the workspace itself. Since OXE-331 the first run stays at Step 2 after the wizard's Launch, so
+ * OxeCode's cold first content is measured from the first run's footer "OxeCode" (the click that opens it) to the grid
+ * with its terminal. Before OXE-331 the start point was the Launch button; the baseline value did not change, only the
+ * start point moved (docs/perf/oxecode-cold-first-content.md). The launch keeps the first run (firstRun 'stay').
+ */
 const CODE_COLD: Surface = {
   name: 'OxeCode (Code)',
   probe: SURFACES.find(s => s.name === 'OxeCode (Code)')!.probe,
-  arm: async page => { await page.getByTestId('wizard-launch-btn').evaluate(el => el.setAttribute('data-perf-trigger', '')) }
+  arm: async page => {
+    await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).evaluate(el => el.setAttribute('data-perf-trigger', ''))
+  }
 }
 
 type Samples = Record<string, Sample[]>
@@ -295,7 +302,8 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; repo: s
   const root = mkdtempSync(join(tmpdir(), 'oxespace-perceived-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
-  const app = await launchForPerf({ ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3') })
+  // firstRun 'stay' (OXE-331): CODE_COLD starts on the first run's footer OxeCode, so the harness must not click it.
+  const app = await launchForPerf({ ...process.env, TZ: 'UTC', OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'oxespace.sqlite3'), OXESPACE_E2E_FIRST_RUN: 'stay' })
   const page = await app.firstWindow()
   return { app, page, repo }
 }
@@ -369,6 +377,11 @@ async function session(shots: boolean): Promise<void> {
     await page.getByTestId('btn-new-workspace').click()
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-1').click()
+    // Launch makes the workspace (not measured); the first run stays at Step 2 until its footer OxeCode (OXE-331).
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).waitFor({ state: 'visible', timeout: 30_000 })
+    await page.waitForTimeout(300)
     const record = (phase: 'cold' | 'warm', name: string, sample: Sample): void => {
       if (shots) return
       if (phase === 'cold' && !results.cold[name]) console.log(`[TRACE] ${name} cold: ${sample.trace}`)
