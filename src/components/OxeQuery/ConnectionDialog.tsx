@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
-import { Check, CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -294,10 +294,19 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
         />
       )}
 
-      {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
-        {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-label={label} aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
-          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}
-      </section>}
+      {!editing && (
+        <SegmentedControl<DatabaseEngine>
+          label={t('newDatabase.engine')}
+          className="oq-engine-choice"
+          value={engine}
+          onChange={chooseEngine}
+          options={ENGINES.map(({ id, name: label, Icon }) => ({
+            value: id,
+            label,
+            icon: <Icon size={14} aria-hidden="true" />
+          }))}
+        />
+      )}
 
       <div className="oq-connect-by"><span>{t('form.mode')}</span>
         <SegmentedControl label={t('form.connectBy')} value={mode} onChange={switchMode} options={[{ value: 'host', label: t('form.host') }, { value: 'url', label: t('form.url') }]} />
