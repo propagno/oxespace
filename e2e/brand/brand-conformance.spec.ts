@@ -300,6 +300,8 @@ test.describe.serial('brand conformance (OXE-149)', () => {
             // CR-53: AG-11 folds a finished turn's work under its "N actions" line; open it to measure the steps inside.
             const fold = page.getByTestId('thread-turn-fold').last()
             if (await fold.getAttribute('aria-expanded') === 'false') await fold.click()
+            const explore = page.locator('[data-ui=explore-group] > [aria-expanded=false]').first()
+            if (await explore.count()) await explore.click()
             await page.locator('[data-ui=step], [data-ui=reasoning]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the fold showed no step'))
             await page.locator('[data-ui=working-set]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the working-set bar did not show'))
           } catch (error) {
