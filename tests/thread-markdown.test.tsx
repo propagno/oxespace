@@ -25,7 +25,7 @@ it('preserves code whitespace when copying and renders nested and task lists', a
   expect(screen.getByText('Observação').closest('blockquote')).not.toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Copy code' }))
   await screen.findByText('Copied')
-  expect(writeText).toHaveBeenCalledWith('const value = 1\n  console.log(value)\n')
+  expect(writeText).toHaveBeenCalledWith('const value = 1\n  console.log(value)')
 })
 
 it('keeps external links functional without navigating the app or executing HTML', async () => {

@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Pin, PinOff, Play, Plus, RefreshCw, Search, Server, Table } from 'lucide-react'
+import { ChevronDown, ChevronRight, Copy, FileCode2, Pin, PinOff, Play, Plus, RefreshCw, Search, Server, Table } from 'lucide-react'
 import { AnchoredMenu, IconButton, type MenuEntry } from '../../ui'
 import type { OxeQueryConnection, SqlDefinitionTarget, SqlExtensionInfo, SqlSearchHit, SqlTable, WorkspaceState } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
@@ -8,7 +8,7 @@ import type { StructureOutcome } from './StructureEditor'
 import { ROW_HEIGHT, buildRows, keyMove, pinKey, rowsFromHits, windowOf, type SchemaData, type TreeItem, type TreeKey, type TreeRow } from './tree-model'
 import { toast } from '../../ui/Toast'
 import { ErrorState } from '../../ui/Display'
-import { tq } from './catalog'
+import { copyText, tq } from './catalog'
 import { formatNumber } from '../../utils/formatTime'
 
 // Dialogs are only needed when opened: they load on first use and stay out of the tree's own chunk.
@@ -197,7 +197,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       const held = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-index]')?.dataset.index : undefined
       const index = held === undefined ? focusIndex : Number(held)
       const row = rows[index]
-      if (row?.item?.kind === 'relation') { event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) }
+      if (row && row.type !== 'note') { event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) }
       return
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -234,13 +234,55 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     </span>
   }
 
-  /** The same actions as a menu, for the keyboard (Shift+F10, the menu key) and a right click. */
-  const menuItems = (table: SqlTable): MenuEntry[] => {
-    const items: MenuEntry[] = [{ label: t('tree.query'), icon: <Play size={14} aria-hidden="true" />, onSelect: () => queryTable(table) }]
-    if (canStructure(table)) items.push({ label: t('tree.structure'), icon: <Table size={14} aria-hidden="true" />, onSelect: () => setStructure({ schema: table.schema, table: table.name }) })
-    if (canRefresh(table)) items.push({ label: t('tree.refreshView'), icon: <RefreshCw size={14} aria-hidden="true" />, onSelect: () => { void refreshView(table) } })
-    items.push({ label: isPinned(table) ? t('tree.unpin') : t('tree.pin'), icon: isPinned(table) ? <PinOff size={14} aria-hidden="true" /> : <Pin size={14} aria-hidden="true" />, onSelect: () => togglePin(table) })
-    return items
+  /** Context menu items for any schema tree node (relations, schemas, categories, extensions, pinned, and other objects). */
+  const menuItemsForRow = (row: TreeRow): MenuEntry[] => {
+    if (row.item?.kind === 'relation') {
+      const table = row.item.table
+      const items: MenuEntry[] = [
+        { label: t('tree.query'), icon: <Play size={14} aria-hidden="true" />, onSelect: () => queryTable(table) },
+        {
+          label: t('tree.structure'),
+          icon: <Table size={14} aria-hidden="true" />,
+          onSelect: () => {
+            if (canStructure(table)) setStructure({ schema: table.schema, table: table.name })
+            else onOpen(table)
+          }
+        },
+        { label: t('contextMenu.copyName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void copyText(`${table.schema}.${table.name}`, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone')) } },
+        {
+          label: canRefresh(table) ? t('tree.refreshView') : t('common.refresh'),
+          icon: <RefreshCw size={14} aria-hidden="true" />,
+          onSelect: () => { if (canRefresh(table)) void refreshView(table); else void loadSchema(table.schema) }
+        },
+        { label: isPinned(table) ? t('tree.unpin') : t('tree.pin'), icon: isPinned(table) ? <PinOff size={14} aria-hidden="true" /> : <Pin size={14} aria-hidden="true" />, onSelect: () => togglePin(table) }
+      ]
+      return items
+    }
+    if (row.type === 'schema') {
+      const schemaName = row.schema ?? row.label
+      const items: MenuEntry[] = [
+        { label: t('common.refresh'), icon: <RefreshCw size={14} aria-hidden="true" />, onSelect: () => { void loadSchema(schemaName) } },
+        { label: t('contextMenu.copyName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void copyText(schemaName, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone')) } },
+        { label: t('workbench.newQuery'), icon: <Play size={14} aria-hidden="true" />, onSelect: () => onInsert(`-- ${schemaName}\n`) }
+      ]
+      if (!connection.readOnly) {
+        items.push({ label: t('tree.newTable'), icon: <Plus size={14} aria-hidden="true" />, onSelect: () => setStructure({ schema: schemaName, table: null }) })
+      }
+      return items
+    }
+    if (row.item) {
+      const item = row.item
+      return [
+        { label: t('contextMenu.openDefinition'), icon: <FileCode2 size={14} aria-hidden="true" />, onSelect: () => { void openDefinition(item) } },
+        { label: t('contextMenu.copyName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void copyText(row.label, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone')) } },
+        { label: t('common.refresh'), icon: <RefreshCw size={14} aria-hidden="true" />, onSelect: () => { if (row.schema) void loadSchema(row.schema); else reload() } }
+      ]
+    }
+    return [
+      { label: t('common.refresh'), icon: <RefreshCw size={14} aria-hidden="true" />, onSelect: () => { if (row.schema) void loadSchema(row.schema); else if (row.type === 'extensions') void loadExtensions(); else reload() } },
+      { label: t('contextMenu.copyName'), icon: <Copy size={14} aria-hidden="true" />, onSelect: () => { void copyText(row.label, t('contextMenu.copiedName'), t('contextMenu.copiedNameDone')) } },
+      { label: t('workbench.newQuery'), icon: <Play size={14} aria-hidden="true" />, onSelect: () => onInsert('') }
+    ]
   }
 
   const renderRow = (row: TreeRow, index: number): ReactElement => {
@@ -254,7 +296,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     return <div key={row.id} role="treeitem" className="oq-tree-row" data-index={index} data-kind={row.type} data-actions={actionCount ? actionCount : undefined} style={rowStyle} tabIndex={index === focusIndex ? 0 : -1}
       aria-level={row.level} aria-expanded={branch ? row.expanded : undefined} aria-label={name} aria-selected={index === focusIndex}
       onClick={() => { setFocusIndex(index); activate(row) }} onFocus={() => setFocusIndex(index)}
-      onContextMenu={row.item?.kind === 'relation' ? event => { if (event.defaultPrevented) return; event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) } : undefined}
+      onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) }}
       title={row.item?.kind === 'relation' ? t('tree.browse', { name: `${row.item.table.schema}.${row.item.table.name}` }) : undefined}>
       {branch ? (row.expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />) : <span className="oq-tree-spacer" aria-hidden="true" />}
       <span className="oq-tree-label">{row.label}</span>
@@ -262,8 +304,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       {row.item && describeItem(row.item) && <small>{describeItem(row.item)}</small>}
       {row.type === 'schema' && !connection.readOnly && row.expanded && <button type="button" tabIndex={-1} className="oq-tree-new" data-oq-action="newTable" aria-label={t('tree.newTableIn', { schema: row.schema })} title={t('tree.newTableTitle')} onClick={event => { event.stopPropagation(); setStructure({ schema: row.schema!, table: null }) }}><Plus size={12} aria-hidden="true" /> {t('tree.newTable')}</button>}
       {actions(row)}
-      {menuRow === row.id && row.item?.kind === 'relation' && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuRow(null) }} label={t('tree.actionsFor', { name: row.item.table.name })}
-        items={menuItems(row.item.table)} returnFocus={() => scroller.current?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null} />}
+      {menuRow === row.id && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuRow(null) }} label={t('tree.actionsFor', { name: row.label })}
+        items={menuItemsForRow(row)} returnFocus={() => scroller.current?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null} />}
     </div>
   }
 
