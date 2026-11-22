@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.oxespace.mobile.ui.theme.Oxe
@@ -48,6 +49,7 @@ fun OxeButton(
     enabled: Boolean = true,
     /** CR-A42b-2: a label in another family, e.g. the terminal keys in Plex Mono (DESIGN #744). */
     fontFamily: androidx.compose.ui.text.font.FontFamily? = null,
+    maxLines: Int = 2,
 ) {
     val colors = oxeButtonColors(kind)
     val c = Oxe.colors
@@ -68,7 +70,8 @@ fun OxeButton(
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = OxeType.weightSemibold, fontFamily = fontFamily ?: MaterialTheme.typography.labelLarge.fontFamily),
-            maxLines = 1,
+            textAlign = TextAlign.Center,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
         )
     }
