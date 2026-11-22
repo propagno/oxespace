@@ -144,7 +144,7 @@
 .thread-reasoning-pulse { display: inline-block; width: var(--space-1-5); height: var(--space-1-5); border-radius: var(--radius-full); background: var(--accent); flex-shrink: 0; }
 .thread-step-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .thread-step-toggle { min-width: 0; text-align: left; }
-[data-ui="explore-group"] [data-ui="step"] { display: flex; align-items: center; box-sizing: border-box; height: var(--control-sm); min-height: var(--control-sm); }
+[data-ui="explore-group"] [data-ui="step"] { display: flex; align-items: center; box-sizing: border-box; height: var(--bar-sm); min-height: var(--bar-sm); }
 [data-ui="explore-steps"] { display: flex; flex-direction: column; gap: var(--space-1-5); }
 [data-ui="turn-line"] { height: var(--row-1); min-height: var(--row-1); }
 [data-ui="file-pill"] { font-family: var(--font-mono); }
