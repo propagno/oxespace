@@ -724,9 +724,12 @@ export interface ThreadApi {
   history?(id: string, before?: number, limit?: number): Promise<ThreadHistoryPage>
   attach?(id: string, input: { name: string; mimeType: ThreadAttachment['mimeType']; data: ArrayBuffer }): Promise<ThreadAttachment>
   removeAttachment?(id: string, attachmentId: string): Promise<void>
-  /** `resend`: the text was stored and is sent again, so it never runs as a desktop command, whoever clicked. */
-  send(id: string, text: string, attachmentIds?: string[], options?: { resend: true }): Promise<void>
+  /** Text nobody vouches for (a resend, a retry, a programmatic send): it never runs as a desktop command. */
+  send(id: string, text: string, attachmentIds?: string[]): Promise<void>
   steer?(id: string, text: string, attachmentIds?: string[]): Promise<void>
+  /** Only for text the person just typed: it may run a desktop command. See tests/unit/thread-send-callers.test.ts. */
+  sendTyped?(id: string, text: string, attachmentIds?: string[]): Promise<void>
+  steerTyped?(id: string, text: string, attachmentIds?: string[]): Promise<void>
   updateQueued?(id: string, itemId: string, text: string): Promise<void>
   deleteQueued?(id: string, itemId: string, preserveAttachments?: boolean): Promise<void>
   reorderQueued?(id: string, itemIds: string[]): Promise<void>

@@ -370,32 +370,47 @@ describe('the rule itself', () => {
 })
 
 describe('the window', () => {
-  it('its send handler is the one caller that passes the window origin', async () => {
-    const t = setup()
-    const send = vi.spyOn(ThreadManager.prototype, 'send').mockResolvedValue(undefined)
-    const runtime = registerThreadIpc(t.db, { bridge: join(t.dir, 'bridge.cjs'), prepare: async () => ({ OXESPACE_EXECUTION_ID: 'e1', OXESPACE_EXECUTION_TOKEN: 't1' }), end: () => {} })
-    cleanups.push(() => runtime.stop())
-    await ipc.handlers.get(IPC_CHANNELS.thread.send)!({ sender: {}, senderFrame: {} }, 'thread-id', '/plan', [])
-    expect(send).toHaveBeenCalledWith('thread-id', '/plan', [], 'window')
-  })
+  const event = { sender: {}, senderFrame: {} }
+  // What the preload's sendTyped and steerTyped append, and nothing else does.
+  const TYPED = 'typed'
+  const notTyped: [string, unknown[]][] = [['no option', []], ['undefined', [undefined]], ['null', [null]], ['true', [true]], ['another word', ['Typed']],
+    ['window', ['window']], ['a resend option', [{ resend: true }]], ['an object that says typed', [{ typed: true }]], ['an array', [['typed']]]]
 
-  it.each([['a resend', { resend: true }], ['an unknown option', { anything: 1 }], ['false', false]])('%s through the window is not the window origin', async (_name, options) => {
-    const t = setup()
-    const send = vi.spyOn(ThreadManager.prototype, 'send').mockResolvedValue(undefined)
-    const runtime = registerThreadIpc(t.db, { bridge: join(t.dir, 'bridge.cjs'), prepare: async () => ({ OXESPACE_EXECUTION_ID: 'e1', OXESPACE_EXECUTION_TOKEN: 't1' }), end: () => {} })
-    cleanups.push(() => runtime.stop())
-    await ipc.handlers.get(IPC_CHANNELS.thread.send)!({ sender: {}, senderFrame: {} }, 'thread-id', RAISE, [], options)
-    expect(send.mock.calls[0][3]).toBeUndefined()
-    expect(send.mock.calls[0][1]).toBe(RAISE)
-  })
-
-  it('stored text resent by a click never changes access', async () => {
+  async function windowRuntime() {
     const t = setup()
     const runtime = registerThreadIpc(t.db, { bridge: join(t.dir, 'bridge.cjs'), prepare: async () => ({ OXESPACE_EXECUTION_ID: 'e1', OXESPACE_EXECUTION_TOKEN: 't1' }), end: () => {} })
     cleanups.push(() => runtime.stop())
     const manager = await runtime.manager
     const id = manager.create({ workspaceId: 'thread:project', projectId: 'project', rootPath: t.dir, provider: 'claude', access: 'read-only' }).thread.id
-    await Promise.resolve(ipc.handlers.get(IPC_CHANNELS.thread.send)!({ sender: {}, senderFrame: {} }, id, RAISE, [], { resend: true })).catch(() => undefined)
-    expect(manager.read(id).thread.access).toBe('read-only')
+    const call = async (channel: string, ...args: unknown[]) => await ipc.handlers.get(channel)!(event, ...args)
+    return { manager, id, call }
+  }
+
+  for (const method of ['send', 'steer'] as const) {
+    it.each(notTyped)(`${method} with %s is no origin`, async (_name, extra) => {
+      const w = await windowRuntime()
+      const spy = vi.spyOn(ThreadManager.prototype, method).mockResolvedValue(undefined)
+      await w.call(IPC_CHANNELS.thread[method], w.id, RAISE, [], ...extra)
+      expect(spy.mock.calls[0][3]).toBeUndefined()
+    })
+
+    it(`${method} with the typed marker is the window`, async () => {
+      const w = await windowRuntime()
+      const spy = vi.spyOn(ThreadManager.prototype, method).mockResolvedValue(undefined)
+      await w.call(IPC_CHANNELS.thread[method], w.id, '/plan', [], TYPED)
+      expect(spy).toHaveBeenCalledWith(w.id, '/plan', [], 'window')
+    })
+
+    it(`${method} with no option is refused a desktop command, for real`, async () => {
+      const w = await windowRuntime()
+      await expect(w.call(IPC_CHANNELS.thread[method], w.id, RAISE, [])).rejects.toThrow(REFUSED)
+      expect(w.manager.read(w.id).thread.access).toBe('read-only')
+    })
+  }
+
+  it('typed text still runs a command, for real', async () => {
+    const w = await windowRuntime()
+    await w.call(IPC_CHANNELS.thread.send, w.id, '/permissions workspace-write', [], TYPED)
+    expect(w.manager.read(w.id).thread.access).toBe('workspace-write')
   })
 })

@@ -326,16 +326,18 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const attachmentIds = attachments.map(value => value.id)
     const composed = composeMessageWithElements(text, keptElements)
     const message = composed || t('view.inspectImage')
+    // The person's authority is for what they typed, alone: not a selected element's text, not the image note.
+    const typed = Boolean(text.trim()) && message === text
+    const deliver = mode === 'steer' ? (typed && api!.steerTyped) || api!.steer! : (typed && api!.sendTyped) || api!.send
     const dispatchSend = (): Promise<unknown> => {
       const hasElementImages = keptElements.some(element => Boolean(element.image)) && Boolean(api?.attach)
       if (!hasElementImages) {
-        return mode === 'steer' ? api!.steer!(id, message, attachmentIds) : api!.send(id, message, attachmentIds)
+        return deliver(id, message, attachmentIds)
       }
       return (async () => {
         const elementAttachmentIds = await attachPreviewElementImages(id, keptElements, attachments.length)
         const allIds = [...attachmentIds, ...elementAttachmentIds]
-        if (mode === 'steer') await api!.steer!(id, message, allIds)
-        else await api!.send(id, message, allIds)
+        await deliver(id, message, allIds)
       })()
     }
     if (/^\s*\//.test(text)) {
