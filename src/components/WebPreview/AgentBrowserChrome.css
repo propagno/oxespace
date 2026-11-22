@@ -1,4 +1,3 @@
-@layer oxe-legacy {
 .agent-browser-chrome {
   flex: 1;
   min-height: 0;
@@ -187,5 +186,4 @@
 .agent-browser-network-meta {
   color: var(--tx-secondary);
   flex: none;
-}
 }

@@ -1,4 +1,3 @@
-@layer oxe-legacy {
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--surface-chrome); background-image: none; border-right: 0; }
 /* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
@@ -92,4 +91,3 @@
 
 /* The sidebar header's actions as one landmark (BRD-01): laid out like the header's action row. */
 .sidebar-header-nav { display: flex; align-items: center; gap: var(--space-0-5); }
-}
