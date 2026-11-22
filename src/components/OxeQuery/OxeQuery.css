@@ -357,7 +357,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-mleaf small { margin-left: 6px; color: var(--tx-muted); }
 .oq-mleaf-actions { position: absolute; top: 0; right: var(--space-1); bottom: 0; display: none; flex: none; align-items: center; gap: var(--space-0-5); padding-left: var(--space-1); background: var(--surface-base); }
 .oq-mleaf:hover .oq-mleaf-actions, .oq-mleaf:focus-within .oq-mleaf-actions { display: inline-flex; }
-.oq-mleaf-actions button:not([data-ui]) { display: inline-grid; place-items: center; width: var(--control-sm); height: var(--control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+/* PQ-07·9 (frozen): a collection's Rename and Drop are 24 px boxes, width and height var(--control-sm), on the src/ui IconButton. */
+.oq-mleaf-actions [data-ui='icon-button'] { width: var(--control-sm); height: var(--control-sm); }
 .oq-mnode:hover, .oq-mleaf > button:first-child:hover, .oq-mleaf-actions button:hover { background: color-mix(in srgb, var(--tx-primary) 8%, transparent); }
 .oq-mleaf > button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .oq-field-error { color: var(--intent-danger-solid); font-size: var(--fs-2xs); }
