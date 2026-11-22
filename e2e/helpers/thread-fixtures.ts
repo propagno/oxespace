@@ -1,5 +1,5 @@
 import { modeButton } from './modes'
-import type { ElectronApplication, Page } from '@playwright/test'
+import { expect, type ElectronApplication, type Page } from '@playwright/test'
 
 /**
  * Named Thread states for visual tests. The events mirror the shapes already used by
@@ -297,7 +297,9 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
     })
     ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread] : [])
     ipcMain.handle('thread:read', () => snapshot)
-    ipcMain.handle('thread:send', () => {})
+    const sent: string[] = []
+    g.e2eThreadSends = sent
+    ipcMain.handle('thread:send', (_event, _threadId: string, text: string) => { sent.push(text) })
     ipcMain.handle('thread:pin', () => {})
     ipcMain.handle('thread:observe', () => {})
     ipcMain.handle('thread:respond', () => {})
@@ -373,13 +375,27 @@ export async function registerThreadProject(app: ElectronApplication, page: Page
   }, { workspaceId: workspace.id, rootPath: root })
 }
 
-/** Opens Thread mode, creates the fake thread through the real dialog and applies a named state. */
+/** Opens Thread mode, starts the fake thread on the new conversation screen (OXC-3: its first message creates it) and applies a named state. */
 export async function openThreadWithState(app: ElectronApplication, page: Page, root: string, state: ExtendedThreadStateName): Promise<void> {
   await modeButton(page, 'thread').click()
   await page.getByRole('button', { name: 'New conversation in repo' }).click()
-  await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+  await sendOpeningMessage(app, page)
   await page.locator('.thread-timeline').waitFor()
   await setThreadState(app, root, state)
+}
+
+/** Creates the conversation from the open new conversation screen, by sending its first message. */
+export async function sendOpeningMessage(app: ElectronApplication, page: Page): Promise<void> {
+  // The new conversation is a screen in place (OXC-3): nothing exists until its first message is sent.
+  await page.locator('[data-ui="new-conversation-title"]').waitFor()
+  // The opening message is sent for real to the fixture's thread:send, which records it; a send that never arrives fails
+  // here. A spec that installs its own thread:send does so after this returns.
+  const recordedSends = () => app.evaluate(() => [...((globalThis as Record<string, unknown>).e2eThreadSends as string[])])
+  const sentBefore = await recordedSends()
+  const message = page.locator('[data-ui="composer"] textarea')
+  await message.fill('Start')
+  await message.press('Enter')
+  await expect.poll(recordedSends, { message: 'the opening message reaches thread:send', timeout: 10_000 }).toEqual([...sentBefore, 'Start'])
 }
 
 export async function setThreadState(app: ElectronApplication, root: string, state: ExtendedThreadStateName): Promise<void> {
@@ -387,4 +403,7 @@ export async function setThreadState(app: ElectronApplication, root: string, sta
   await app.evaluate((_context, payload) => {
     ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
   }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, turns: definition.turns, turnFiles: definition.turnFiles, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
+  // thread:changed is applied on a 100 ms timer and then the snapshot is read: the opening of an empty conversation is
+  // what the brand scene chat-new-session measures (BRD-05), so this returns once it is on screen and fails if it never is.
+  if (state === 'empty') for (const window of app.windows()) await window.getByTestId('thread-empty').waitFor({ timeout: 5_000 })
 }

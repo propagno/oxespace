@@ -216,7 +216,8 @@ describe('design lint', () => {
       // OXE-28 (#1004 after main): 391.
       // OXE-161 (#1009 after main): 359.
       // OXE-167 + OXE-172 (#1023 after #1025 and #1081, the union): 352.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(352)
+      // OXE-168 (F5 T15): the opening's starters are src/ui Buttons, 351.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(351)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
