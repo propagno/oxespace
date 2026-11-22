@@ -48,14 +48,15 @@ const stillLoading = (host: Element): boolean => host.querySelector('[data-view-
 
 /**
  * Focus goes to the new view's first region, and its name is said once. Focus that is already somewhere on purpose stays:
- * in a dialog the switch opened (OxePod's "Connect in OxeQuery" opens New connection on its Password field) or already
+ * in a dialog the switch opened (OxePod's "Connect in OxeQuery" opens New connection on its Password field), in a menu
+ * the person opened meanwhile (Ctrl+2, then View in the menu bar: moving focus would close it, OXE-387), or already
  * inside the new view.
  */
 function arrive(view: AppView): void {
   const host = document.querySelector<HTMLElement>(`[data-view="${view}"]`)
   const region = host?.querySelector<HTMLElement>('[data-focus-region], [role="region"], main, section') ?? host
   const active = document.activeElement
-  const placed = active instanceof HTMLElement && active !== document.body && (active.closest('[role="dialog"], [role="alertdialog"]') !== null || host?.contains(active) === true)
+  const placed = active instanceof HTMLElement && active !== document.body && (active.closest('[role="dialog"], [role="alertdialog"], [role="menu"]') !== null || host?.contains(active) === true)
   if (region && !placed) {
     if (!region.hasAttribute('tabindex') && !region.matches('button, a, input, textarea, select')) region.setAttribute('tabindex', '-1')
     region.focus({ preventScroll: true })
