@@ -44,7 +44,8 @@ export function registerGitIpc(service = new GitService()): GitService {
     if (parsed.head) return diff
     service.watchDiff(parsed.rootPath, (updated) => {
       for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(IPC_CHANNELS.git.onDiffUpdate, updated)
+        // Every window hears every watcher: the payload says which root it was computed for.
+        win.webContents.send(IPC_CHANNELS.git.onDiffUpdate, { ...updated, rootPath: parsed.rootPath })
       }
     }, parsed.base, parsed.includeUncommitted)
     return diff

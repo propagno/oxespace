@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { openExternalOrRecord } from '../utils/external-open'
 import { readFile, writeFile } from 'node:fs/promises'
 import type { NativeAccountService, NativeAuthScope } from '../services/conversation/native-account.service'
 import type { ThreadManager } from '../services/conversation/thread-manager'
@@ -104,7 +105,7 @@ export function registerThreadIpc(
         : workspaceCwd(context.workspaceId, context.paneId)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
-    openExternal: url => shell.openExternal(url),
+    openExternal: async url => { if (!openExternalOrRecord(url)) throw Error('Login browser link unavailable') },
     changed: status => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.agentAccount.changed, status) },
     beforeLogin: async provider => {
       const service = await manager

@@ -109,6 +109,10 @@ anywhere; opening a file after an approval is a post-1.4 item. The host must be 
 None of these is in the core Thread group, so an ordinary Thread sends the same tool definitions as
 before. Code panes receive the whole registry.
 
+The window's own captures go through `browserPreview.captureClipboard`, `browserPreview.captureElement` and
+`browserPreview.captureElementFile`; the internal MCP's IPC has no capture channel (A12). Agents capture with the
+`oxespace_capture_web_preview` tool.
+
 ## Capabilities
 
 | Id | Capability | MCP tools by level, or the decision |

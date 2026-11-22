@@ -380,7 +380,6 @@ export const IPC_CHANNELS = {
     getStatus: 'mcp-internal:get-status',
     toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode', toolRules: 'mcp-internal:tool-rules', setToolRule: 'mcp-internal:set-tool-rule',
     regenerateToken: 'mcp-internal:regenerate-token',
-    captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed',
     actionAudit: 'mcp-internal:action-audit',
@@ -829,8 +828,6 @@ export interface PaneConversationApi {
 export interface McpInternalApi {
   getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
   regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
-  /** Copies the visible Web Preview frame to the system clipboard. */
-  captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
   /** Recent changes agents made through the OXESpace MCP tools, newest first. */
