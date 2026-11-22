@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ThreadFailureCard, ThreadUsageDetails, usageTime } from '../src/components/Threads/ThreadFailureCard'
+import { ThreadFailureCard, ThreadUsageDetails, usageResetIn, usageTime } from '../src/components/Threads/ThreadFailureCard'
 import type { ThreadFailure } from '../shared/types/thread'
 
 afterEach(cleanup)
 const failure: ThreadFailure = { id: 'failure-A', occurredAt: 1790000000000, code: 'usage', message: 'Your session usage is exhausted.', detail: 'You have hit the session usage limit. Try again later.', providerCode: 'usageLimitExceeded', usage: { checkedAt: 1790000010000, windows: [{ label: 'Codex · Session · 5 hours', usedPercent: 100, resetsAt: 1790000500000 }, { label: 'Codex · Weekly', usedPercent: 62, resetsAt: 1790000600000 }] } }
 
 describe('Thread failure card', () => {
-  it('opens the latest failure with actual provider diagnostic under Technical details and compact usage windows', () => {
+  it('opens the latest failure with actual provider diagnostic under Technical details, compact usage windows and their local reset times', () => {
     const { container } = render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest />)
     expect(screen.getByText('Usage allowance exhausted').closest('details')).toHaveAttribute('open')
     const technical = screen.getByText('Technical details').closest('details')!
@@ -15,8 +15,9 @@ describe('Thread failure card', () => {
     fireEvent.click(screen.getByText('Technical details'))
     expect(screen.getByLabelText('Technical details')).toHaveTextContent(failure.detail!)
     expect(screen.getByText('usageLimitExceeded')).toBeVisible()
-    expect(screen.getByText(/100% used/)).toBeVisible()
-    expect(screen.getByText(/62% used/)).toBeVisible()
+    expect(screen.getByText(`Session · 5 hours · 100% used · Resets in ${usageResetIn(1790000500000)}`)).toBeVisible()
+    expect(screen.getByText(`Weekly · 62% used · Resets in ${usageResetIn(1790000600000)}`)).toBeVisible()
+    expect(screen.getByText(usageTime(1790000500000))).toHaveAttribute('datetime', new Date(1790000500000).toISOString())
     expect(container.querySelectorAll('progress')).toHaveLength(0)
     fireEvent.click(screen.getByText('Usage allowance exhausted'))
     expect(screen.getByText('Usage allowance exhausted').closest('details')).not.toHaveAttribute('open')
@@ -25,7 +26,7 @@ describe('Thread failure card', () => {
     const refresh = vi.fn(async () => ({ checkedAt: 1790000700000, windows: [{ label: 'Codex · Weekly', usedPercent: 80, resetsAt: 1790000900000 }] }))
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest refreshUsage={refresh} />)
     fireEvent.click(screen.getByRole('button', { name: 'Refresh usage' }))
-    await waitFor(() => expect(screen.getByText(/80% used/)).toBeVisible())
+    await waitFor(() => expect(screen.getByText(`Weekly · 80% used · Resets in ${usageResetIn(1790000900000)}`)).toBeVisible())
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(screen.getByText(usageTime(failure.occurredAt))).toBeVisible()
     expect(screen.queryByText(/100% used/)).not.toBeInTheDocument()

@@ -363,10 +363,22 @@ describe('A11 · one failure card, the only owner (row 6.2, POLISH-09 #3)', () =
     expect(onRetry).toHaveBeenCalledWith(true)
   })
 
-  test('an authentication failure says to reconnect and offers no retry', () => {
+  test('an authentication failure, while signed out, says to reconnect and offers no retry', () => {
     const { container } = render(<ThreadFailureCard latest onRetry={vi.fn()} event={failed({ code: 'authentication' })} />)
     expect(container).toHaveTextContent(tt('failure.reconnect'))
     expect(buttonNames(container as HTMLElement)).not.toContain(RETRY.en)
+  })
+
+  test.each(['en', 'pt-BR'] as const)('(%s) an authentication failure, once the account is connected, keeps Reconnect and Try again resends the last prompt', async locale => {
+    await changeLanguage(locale)
+    const events = [msg('u0', 'user', 'An earlier prompt'), msg('a0', 'assistant', 'Done.'), done(), msg('u1', 'user', 'Fix the login'), { ...failed({ code: 'authentication', message: 'Sign in again.' }), errorCode: 'authentication' }]
+    const f = fixture(events, { status: 'failed', turns: [{ id: 'u0', sequence: 1, status: 'completed', configuration: {} }, { id: 'u1', sequence: 2, status: 'failed', configuration: {} }] })
+    view(f)
+    const card = one('[data-ui="failure-card"]')
+    const again = await within(card).findByRole('button', { name: RETRY[locale] })
+    expect(within(card).getByRole('button', { name: tt('view.reconnect') })).toBeInTheDocument()
+    await userEvent.click(again)
+    await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', 'Fix the login', []))
   })
 
   test.each(['en', 'pt-BR'] as const)('(%s) in the conversation the card is the failure\'s one owner: no strip above the composer, no second Failed line', async locale => {

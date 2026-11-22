@@ -487,10 +487,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
     await failureCard.locator('.thread-failure-technical > summary').click()
     await expect(failureCard.getByLabel('Technical details', { exact: true })).toContainText('hit the session usage limit')
-    await expect(failureCard.getByText(/100% used/)).toBeVisible()
-    await expect(failureCard.locator('.thread-usage-window-line', { hasText: 'Resets in' })).toHaveCount(2)
+    await expect(failureCard.getByText(/^Session · 5 hours · 100% used · Resets in (59m|60m|1h)$/)).toBeVisible()
+    await expect(failureCard.locator('.thread-usage-window time')).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
-    await expect(failureCard.getByText(/72% used/)).toBeVisible()
+    await expect(failureCard.getByText(/^Weekly · 72% used · Resets in (23h|24h)$/)).toBeVisible()
     for (const width of [900, 1280]) {
       await page.setViewportSize({ width, height: 720 })
       await expect(failureCard.getByRole('button', { name: 'Refresh usage', exact: true })).toBeVisible()
@@ -506,8 +506,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    const authCard = page.locator('[data-ui="failure-card"]').last()
-    await expect(authCard).toContainText('Reconnect your native agent account to continue.')
+    const authCard = page.locator('[data-ui="failure-card"]')
+    await expect(authCard.getByText('Reconnect your native agent account to continue.', { exact: true })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })
     await authCard.getByRole('button', { name: 'Reconnect', exact: true }).click()
     const accountsDialog = page.getByRole('dialog', { name: 'Agent accounts' })
@@ -519,8 +519,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(claude.getByText('Complete sign-in in your browser.')).toBeVisible()
     await claude.getByRole('button', { name: 'Cancel sign-in', exact: true }).click()
     await accountsDialog.getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
-    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await authCard.getByRole('button', { name: 'Try again', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
     await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Finished')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
@@ -831,7 +830,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(conversation).toBeVisible()
     await expect(reviewHost).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
-    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed')
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed (+9 −3)')
     await page.screenshot({ path: 'test-results/thread-change-card.png' })
     // View changes opens exactly what the turn changed, in its worktree, not the branch diff.
     await page.locator('.thread-change-summary').last().getByRole('button', { name: 'View changes', exact: true }).click()
@@ -870,7 +869,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('.thread-activity-group, .thread-activity-single, [data-ui="explore-group"], [data-ui="step"]').first()).toBeVisible()
+    await expect(page.locator('[data-ui="step"][data-kind="run"]').filter({ hasText: 'npm run typecheck' })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
     // Once a turn's prompt scrolls away while its work is read, it stays at the top edge and leads back.
     const sticky = page.getByTestId('thread-sticky-prompt')
@@ -907,8 +906,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.keyboard.press('Control+o') // normal → verbose
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
-    await expect(page.locator('.thread-activity-group, .thread-activity-single')).toHaveCount(0)
-    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed')
+    await expect(page.locator('.thread-activity-group, .thread-activity-single, [data-ui="explore-group"], [data-ui="step"]')).toHaveCount(0)
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed (+9 −3)')
     await page.screenshot({ path: 'test-results/thread-view-summary.png' })
     await page.keyboard.press('Control+o') // summary → normal
     await page.keyboard.press('Control+o') // normal → verbose
@@ -971,7 +970,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const latestMessage = page.locator('.thread-message-user').filter({ hasText: 'Review message 3333' })
     const latestResponse = page.locator('.thread-message-assistant').filter({ hasText: 'A detailed response to verify the conversation history.' }).last()
     await expect(latestMessage.getByRole('button', { name: 'Copy prompt', exact: true })).toHaveCount(1)
-    expect(await latestMessage.getByRole('button').count()).toBeLessThanOrEqual(2)
+    await expect(latestMessage.getByRole('button')).toHaveCount(1)
     await expect(latestResponse).toHaveClass(/is-final-response/)
     await expect(latestResponse.getByRole('button', { name: 'Copy final response' })).toBeVisible()
     await expect(page.locator('.thread-virtual-turn.is-turn-end').last().locator('.thread-turn-timing')).toContainText('Finished')

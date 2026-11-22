@@ -103,7 +103,7 @@ describe('the conversation header', () => {
     const { container } = render(<ThreadHeader thread={thread} pending={false} running={false} onCommand={() => {}} onDelegate={() => {}} onPin={() => {}} onTogglePanel={() => {}} />)
     const chip = container.querySelector('[data-ui="chat-worktree"]')
     expect(chip).toBeInTheDocument()
-    expect(chip).toHaveTextContent('feature/x')
+    expect(chip?.textContent).toBe('feature/x')
     expect(chip).toHaveAttribute('title', owned.path)
   })
 

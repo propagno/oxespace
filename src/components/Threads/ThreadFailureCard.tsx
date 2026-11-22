@@ -1,4 +1,4 @@
-import { Button, EmptyState, ErrorState, Notice, Spinner } from '../../ui'
+import { Button, EmptyState, ErrorState, Spinner } from '../../ui'
 import { useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -61,14 +61,14 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
     {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => (
       <div className="thread-usage-window" key={`${window.label}:${index}`}>
         <span className="thread-usage-window-line">{`${usageWindowLabel(labelOf(window.label))} · ${t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}${window.resetsAt ? ` · ${t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })}` : ''}`}</span>
-        {!window.resetsAt && <small>{t('failure.noReset')}</small>}
+        <small>{window.resetsAt ? <><time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · {t('failure.localTime')}</> : t('failure.noReset')}</small>
       </div>
     ))}</div> : <EmptyState compact title={t('failure.noWindows')} />}
     <footer>{t('failure.checked', { name, time: usageClock(usage.checkedAt) })}</footer>
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, disabled }: {
+export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, onResend, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
   refreshUsage?: () => Promise<ThreadUsage>
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
@@ -81,6 +81,8 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
   onPermissions?: () => void
   /** A failed sign-in: opens the agent accounts, where the person signs in again. */
   onReconnect?: () => void
+  /** A failed sign-in, only once the account is connected again: sends the last prompt again. */
+  onResend?: () => void
   disabled?: boolean
 }) {
   const { t } = useTranslation('thread')
@@ -109,7 +111,7 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
       {code === 'authentication'
-        ? <Notice intent="danger">{t('failure.reconnect')}</Notice>
+        ? <p>{t('failure.reconnect')}</p>
         : <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : event.error ?? t('failure.couldNotFinish')}</p>}
       {(failure?.detail || failure?.providerCode || failure?.httpStatus) && <details className="thread-failure-technical">
         <summary>{t('failure.diagnostic')}</summary>
@@ -121,8 +123,11 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">{t('failure.staleUsage')}</p>}
       {refreshError && <ErrorState compact title={refreshError} />}
       {/* The card is a failed sign-in's one owner (no strip above the composer, AG-11 6.2), so its way back is here: Reconnect
-          opens the agent accounts. It offers no retry. */}
-      {code === 'authentication' && onReconnect && <footer><Button size="sm" variant="primary" disabled={disabled} onClick={onReconnect}>{t('view.reconnect')}</Button></footer>}
+          opens the agent accounts. Signed out it offers no retry; connected again, Try again resends the last prompt. */}
+      {code === 'authentication' && (onReconnect || onResend) && <footer>
+        {onReconnect && <Button size="sm" variant={onResend ? 'secondary' : 'primary'} disabled={disabled} onClick={onReconnect}>{t('view.reconnect')}</Button>}
+        {onResend && <Button size="sm" variant="primary" title={t('view.resendTitle')} disabled={disabled} onClick={onResend}>{t('failure.retry')}</Button>}
+      </footer>}
       {code !== 'session-busy' && code !== 'authentication' && (refreshUsage || retry || compact || permissions) && <footer>
         {compact && <Button size="sm" disabled={disabled} onClick={compact}>{t('failure.compact')}</Button>}
         {permissions && <Button size="sm" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? t('failure.reviewPermissions') : t('failure.changeConfiguration')}</Button>}

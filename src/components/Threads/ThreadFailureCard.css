@@ -34,7 +34,7 @@
 .thread-usage-card > header strong { color: var(--tx-primary); font-size: var(--fs-sm); font-weight: 600; }
 .thread-usage-card > header span { color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 22px; }
-.thread-usage-card .thread-usage-window { margin: 0; gap: 6px; }
+.thread-usage-card .thread-usage-window { display: flex; flex-wrap: wrap; align-items: baseline; margin: 0; gap: var(--space-1-5); }
 .thread-usage-card .thread-usage-window > div { flex-wrap: nowrap; align-items: baseline; font-size: var(--fs-xs); }
 .thread-usage-card .thread-usage-window > div > span { color: var(--tx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-usage-card .thread-usage-window strong { flex: none; color: var(--tx-primary); font-weight: 600; }
