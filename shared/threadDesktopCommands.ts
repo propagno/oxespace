@@ -1,10 +1,6 @@
 import type { ThreadProvider } from './types/thread'
 
-/**
- * What the preload's sendTyped and steerTyped append: the person just typed this text. It is the only thing that gives
- * a send or steer from the window the authority to run one of the commands below.
- */
-export const THREAD_TEXT_TYPED = 'typed'
+export { THREAD_TEXT_TYPED } from './threadTextTyped'
 
 /** Only names with a concrete integrated handler belong here. */
 export const DESKTOP_COMMANDS = new Set(['model', 'effort', 'permissions', 'approvals', 'allowed-tools', 'plan', 'status', 'capabilities', 'delegations', 'delegation', 'new', 'clear', 'reset', 'resume', 'rename', 'name', 'archive', 'delete', 'copy', 'export', 'help', 'skills', 'accounts', 'login', 'logout', 'settings', 'config', 'pwd', 'cwd', 'stop', 'quit', 'exit', 'diff', 'review', 'compact', 'checkpoint', 'instructions', 'rules', 'spending', 'work', 'events'])

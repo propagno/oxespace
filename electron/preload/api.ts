@@ -40,7 +40,7 @@ import {
 } from '../../shared/types/ipc'
 import type { GitDiff } from '../../shared/types/git'
 import { createAgentsApi } from './agents'
-import { THREAD_TEXT_TYPED } from '../../shared/threadDesktopCommands'
+import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
