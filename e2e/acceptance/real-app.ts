@@ -59,6 +59,10 @@ export async function openRepo(page: Page, repo: string): Promise<void> {
   await page.getByTestId('wizard-dir-input').fill(repo)
   await page.getByTestId('wizard-layout-card-1').click().catch(() => undefined)
   await page.getByTestId('wizard-launch-btn').click()
+  // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
+  await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+  const firstRun = page.getByTestId('first-run')
+  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
   await page.waitForTimeout(2_500)
 }
 

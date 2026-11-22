@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { rememberAppView } from '../../app/startView'
+import { completeFolderStep } from '../../app/useFirstRunLaunch'
 import { selectAccount, useAccountStore } from '../../store/account.store'
 import { useAgentStore } from '../../store/agent.store'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
@@ -15,9 +16,11 @@ export interface FirstRunHostProps {
   onOpenMode: (mode: 'code' | 'data') => void
   onStartConversation: (folder: string | null) => void
   onNewWorkspace: () => void
+  /** The folder of the workspace step 1 made (OXE-331). */
+  workspaceFolder?: string | null
 }
 
-export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace }: FirstRunHostProps): ReactElement {
+export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace, workspaceFolder }: FirstRunHostProps): ReactElement {
   const readiness = useAgentStore(state => state.readiness)
   const profiles = useAgentStore(state => state.allProfiles)
   const loadReadiness = useAgentStore(state => state.loadReadiness)
@@ -27,7 +30,7 @@ export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace }
   const [signingIn, setSigningIn] = useState<Partial<Record<AgentProvider, boolean>>>({})
   const started = useRef(false)
 
-  const folder = pickedFolder ?? projects[0]?.contexts[0]?.rootPath ?? null
+  const folder = pickedFolder ?? workspaceFolder ?? projects[0]?.contexts[0]?.rootPath ?? null
   const claudeContext: AgentAccountContext = useMemo(() => accountContext('claude', 'thread:first-run'), [])
   const codexContext: AgentAccountContext = useMemo(() => accountContext('codex', 'thread:first-run'), [])
   const claudeAccount = useAccountStore(selectAccount(claudeContext))
@@ -73,11 +76,7 @@ export function FirstRunHost({ onOpenMode, onStartConversation, onNewWorkspace }
     const selected = await window.oxe?.workspace?.pickFolder?.()
     if (!selected) return
     setPickedFolder(selected)
-    useNavigationPrefs.getState().completeFirstRunStep('folder')
-    if (window.oxe?.thread?.addProject) {
-      await window.oxe.thread.addProject(selected).catch(() => undefined)
-      await useThreadStore.getState().loadProjects().catch(() => undefined)
-    }
+    await completeFolderStep(selected)
   }
 
   const handleSignIn = (provider: AgentProvider): void => {

@@ -8,6 +8,7 @@ import { formatNumber } from '../../utils/formatTime'
 import styles from './Approvals.module.css'
 import { HoldToApprove } from './HoldToApprove'
 import { ImpactFacts } from './ImpactFacts'
+import { focusIsEditable } from './typingFocus'
 
 function formatScalar(value: unknown): string {
   if (value === null || value === undefined) return '—'
@@ -54,6 +55,9 @@ export function ImpactPreview({
   const [withoutHoldOpen, setWithoutHoldOpen] = useState(false)
   const [understood, setUnderstood] = useState(false)
   const withoutHoldCancelRef = useRef<HTMLButtonElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const approveRef = useRef<HTMLButtonElement>(null)
+  const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!withoutHoldOpen) return
@@ -86,13 +90,6 @@ export function ImpactPreview({
 
   const dbPreview = impact?.kind === 'db' && dbPreviewState?.requestId === request.id ? dbPreviewState.result : null
 
-  if (!impact) return null
-
-  const agentName = agent ?? t('f7.card.defaultAgent')
-  const contextLine = conversation
-    ? t('f7.preview.context', { agent: agentName, conversation })
-    : agentName
-
   const respond = async (response: ThreadRequestResponse): Promise<void> => {
     if (busy) return
     setBusy(true)
@@ -102,6 +99,33 @@ export function ImpactPreview({
       setBusy(false)
     }
   }
+
+  // OXE-336: the D and A the footer shows, only for keys pressed in this dialog. A answers a reversible request; on any
+  // other it only moves the focus to Approve or to the hold, whose own keys have already prevented the default.
+  useEffect(() => {
+    if (!impact || busy || withoutHoldOpen) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+      const key = event.key.toLowerCase()
+      if (key !== 'a' && key !== 'd') return
+      const target = event.target
+      if (!(target instanceof HTMLElement) || !bodyRef.current?.closest('[role="dialog"]')?.contains(target)) return
+      if (target.closest('input, textarea, select') || focusIsEditable(target)) return
+      event.preventDefault()
+      if (key === 'd') void respond({ decision: 'decline' })
+      else if (impact.reversible) void respond({ decision: 'accept' })
+      else (holdRef.current?.querySelector('button') ?? approveRef.current)?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  })
+
+  if (!impact) return null
+
+  const agentName = agent ?? t('f7.card.defaultAgent')
+  const contextLine = conversation
+    ? t('f7.preview.context', { agent: agentName, conversation })
+    : agentName
 
   const isCriticalIrreversible = !impact.reversible && impact.risk === 'critical'
   const countOverride = impact.kind === 'db' ? (dbPreview ? dbPreview.count : null) : undefined
@@ -150,12 +174,14 @@ export function ImpactPreview({
         </Button>
       ) : isCriticalIrreversible ? (
         <>
-          <HoldToApprove
-            label={t('f7.preview.holdToApprove')}
-            shortcut="A"
-            disabled={busy}
-            onComplete={() => void respond({ decision: 'accept' })}
-          />
+          <div ref={holdRef}>
+            <HoldToApprove
+              label={t('f7.preview.holdToApprove')}
+              shortcut="A"
+              disabled={busy}
+              onComplete={() => void respond({ decision: 'accept' })}
+            />
+          </div>
           <Button
             variant="ghost"
             disabled={busy}
@@ -169,6 +195,7 @@ export function ImpactPreview({
         </>
       ) : (
         <Button
+          ref={approveRef}
           variant="danger"
           disabled={busy}
           onClick={() => void respond({ decision: 'accept' })}
@@ -183,7 +210,7 @@ export function ImpactPreview({
   return (
     <>
       <Dialog size="lg" title={dialogTitle} onClose={onClose} footer={footer}>
-        <div className={styles.previewStack}>
+        <div ref={bodyRef} className={styles.previewStack}>
           <p className={styles.contextLine}>{contextLine}</p>
 
           {impact.why ? <p className={styles.whyText}>{impact.why}</p> : null}

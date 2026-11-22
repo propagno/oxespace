@@ -97,6 +97,9 @@ test('S2: six agent panes, started both ways, come back on their own sessions or
       for (let i = 0; i < n; i++) await row.getByRole('button').last().click()
     }
     await page.getByTestId('wizard-launch-btn').click()
+    // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace (as openRepo does).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    if (await page.getByTestId('first-run').isVisible()) await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
     await expect(panes(page)).toHaveCount(6, { timeout: 20_000 })
     await expect.poll(() => launches(log).length, { timeout: 20_000, message: 'the three wizard agents started' }).toBe(3)
     ids = await paneIds(page)
@@ -210,6 +213,9 @@ test('S2: a split past the capacity closes cleanly', async () => {
     await page.getByTestId('wizard-dir-input').fill(profile.repo)
     await page.getByTestId('wizard-layout-card-4').click()
     await page.getByTestId('wizard-launch-btn').click()
+    // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace (as openRepo does).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    if (await page.getByTestId('first-run').isVisible()) await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
     await expect(panes(page)).toHaveCount(4, { timeout: 20_000 })
     for (let i = 0; i < 4; i++) { await panes(page).nth(i).locator('.xterm').click(); await page.keyboard.press('Control+Shift+Backslash'); await page.waitForTimeout(2_000) }
     // Past the room the window has, the app either splits or says why (F19), never errors.
