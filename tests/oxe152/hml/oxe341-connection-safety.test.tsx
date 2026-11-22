@@ -26,6 +26,11 @@ const cat = (key: string, vars: Record<string, string> = {}): string => {
   return text.replace(/\{\{(\w+)\}\}/g, (_, v: string) => vars[v] ?? `{{${v}}}`)
 }
 
+// The Test button by the start of its accessible name: the name begins with its visible text (WCAG 2.5.3), and OXE-283
+// gave it aria-label form.testLabel ("Test connection") after this test was frozen. Release CR (8e, 22/11).
+const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const testButton = (): HTMLElement => screen.getByRole('button', { name: new RegExp(`^${escapeRe(cat('form.test'))}\\b`) })
+
 let api: FakeOxeQuery
 beforeEach(() => {
   api = installFakeOxeQuery()
@@ -46,7 +51,7 @@ describe('OXE-341 · Testing a new connection leaves nothing behind', () => {
     act(() => useOxeQueryStore.setState({ dialog: { open: true, editing: null } } as never))
     render(<ConnectionDialog />)
     fireEvent.change(screen.getByLabelText(cat('form.host')), { target: { value: 'db.local' } })
-    fireEvent.click(screen.getByRole('button', { name: cat('form.test') }))
+    fireEvent.click(testButton())
     await waitFor(() => expect(api.callsOf('connections.test')).toHaveLength(1))
     await waitFor(() => expect(screen.getByRole('button', { name: cat('common.cancel') })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: cat('common.cancel') }))
@@ -60,7 +65,7 @@ describe('OXE-341 · Testing a new connection leaves nothing behind', () => {
     api.on('connections.delete', null)
     act(() => useOxeQueryStore.setState({ connections: [existing], dialog: { open: true, editing: existing } } as never))
     render(<ConnectionDialog />)
-    fireEvent.click(screen.getByRole('button', { name: cat('form.test') }))
+    fireEvent.click(testButton())
     await waitFor(() => expect(api.callsOf('connections.test')).toHaveLength(1))
     await waitFor(() => expect(screen.getByRole('button', { name: cat('common.cancel') })).not.toBeDisabled())
     fireEvent.click(screen.getByRole('button', { name: cat('common.cancel') }))
