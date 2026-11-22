@@ -219,7 +219,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     return <ThreadSidebarRow key={thread.id} thread={thread} selected={selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
       request={thread.status === 'approval' ? pending.get(thread.id) : undefined} time={relativeTime(thread.updatedAt)} dragProps={drag.rowProps(thread)}
       snippet={found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : undefined}
-      onSelect={() => void select(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
+      onSelect={() => void useThreadStore.getState().openInActiveCell(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
       actions={<>
         <IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.openSideNamed', { name })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)}
           icon={<Columns2 size={14} aria-hidden="true" />} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))} />
