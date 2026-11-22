@@ -339,6 +339,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     notifications: {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,
+      setEnabled: (enabled) => ipc.invoke(IPC_CHANNELS.notifications.setEnabled, enabled) as Promise<void>,
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
