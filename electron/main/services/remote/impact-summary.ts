@@ -1,4 +1,6 @@
 import type { ThreadRequest } from '../../../../shared/types/thread'
+import { remoteImpact as enImpact } from '../../../../shared/locales/en/main.json'
+import { remoteImpact as ptImpact } from '../../../../shared/locales/pt-BR/main.json'
 import { baseName, splitShellCommand, tokenize, unwrapPowerShell } from '../conversation/shell-command-rules'
 
 export type DesktopImpactLanguage = 'en' | 'pt-BR'
@@ -26,54 +28,8 @@ type ImpactActionCode =
   | 'runReadOnlyCommand'
   | 'runCommand'
 
-const LABELS: Record<DesktopImpactLanguage, Record<ImpactActionCode, string>> = {
-  en: {
-    removeVolume: 'Remove a volume',
-    removeContainer: 'Remove container resource',
-    manageContainer: 'Manage container',
-    writeProdDb: 'Write to production database',
-    writeDb: 'Write to database',
-    forcePush: 'Force-push to remote',
-    publish: 'Publish package or release',
-    mergePr: 'Merge pull request',
-    push: 'Push to remote',
-    editOutsideProject: 'Edit files outside project',
-    editFiles: 'Edit project files',
-    deleteFiles: 'Delete files',
-    discardGit: 'Discard git changes',
-    modifyInfra: 'Modify infrastructure',
-    changePermissions: 'Change permissions',
-    formatDisk: 'Format or overwrite disk',
-    stopSystemOrProcess: 'Stop system or process',
-    runRemoteCode: 'Run remote or dynamic code',
-    runIrreversibleCommand: 'Run irreversible command',
-    runReadOnlyCommand: 'Run read-only command',
-    runCommand: 'Run command'
-  },
-  'pt-BR': {
-    removeVolume: 'Remover um volume',
-    removeContainer: 'Remover recurso de contêiner',
-    manageContainer: 'Gerenciar contêiner',
-    writeProdDb: 'Escrever no banco de produção',
-    writeDb: 'Escrever no banco de dados',
-    forcePush: 'Fazer force-push no remoto',
-    publish: 'Publicar pacote ou release',
-    mergePr: 'Fazer merge de pull request',
-    push: 'Enviar alterações ao remoto',
-    editOutsideProject: 'Editar arquivos fora do projeto',
-    editFiles: 'Editar arquivos do projeto',
-    deleteFiles: 'Apagar arquivos',
-    discardGit: 'Descartar alterações do git',
-    modifyInfra: 'Alterar infraestrutura',
-    changePermissions: 'Alterar permissões',
-    formatDisk: 'Formatar ou sobrescrever disco',
-    stopSystemOrProcess: 'Parar sistema ou processo',
-    runRemoteCode: 'Executar código remoto ou dinâmico',
-    runIrreversibleCommand: 'Executar comando irreversível',
-    runReadOnlyCommand: 'Executar comando de leitura',
-    runCommand: 'Executar comando'
-  }
-}
+/** The action's words, from the main catalogs (shared/locales/*/main.json › remoteImpact). */
+const LABELS: Record<DesktopImpactLanguage, Record<ImpactActionCode, string>> = { en: enImpact, 'pt-BR': ptImpact }
 
 const ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/
 const FETCHERS = new Set(['curl', 'wget', 'invoke-webrequest', 'iwr', 'invoke-restmethod', 'irm'])
