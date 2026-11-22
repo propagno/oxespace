@@ -10,7 +10,7 @@ import { i18n } from '../../i18n'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, Checkbox, Dialog, EmptyState, IconButton, Notice } from '../../ui'
+import { Button, Checkbox, Dialog, EmptyState, FieldError, IconButton, Notice } from '../../ui'
 import { useModalSurface } from '../../ui/useModalSurface'
 import { formatNumber } from '../../utils/formatTime'
 import { AlwaysAllowConfirm, clearAlwaysAllowToast, showAlwaysAllowToast } from './AlwaysAllowConfirm'
@@ -142,6 +142,26 @@ export function ApprovalQueue({
   const withoutHoldCancelRef = useRef<HTMLButtonElement>(null)
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onRespondRef = useRef(onRespond)
+  // OXE-337: one answer at a time; a failed answer (or Always allow) is shown, never swallowed.
+  const sendingRef = useRef(false)
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<'respond' | 'alwaysAllow' | null>(null)
+  const send = async (id: string, response: ThreadRequestResponse): Promise<boolean> => {
+    if (sendingRef.current) return false
+    sendingRef.current = true
+    setSending(true)
+    setFailure(null)
+    try {
+      await onRespondRef.current(id, response)
+      return true
+    } catch {
+      setFailure('respond')
+      return false
+    } finally {
+      sendingRef.current = false
+      setSending(false)
+    }
+  }
 
   useEffect(() => {
     onRespondRef.current = onRespond
@@ -231,7 +251,7 @@ export function ApprovalQueue({
     clearHold()
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null
-      void onRespondRef.current(requestId, { decision: 'accept' })
+      void send(requestId, { decision: 'accept' })
     }, QUEUE_HOLD_MS)
   }
 
@@ -261,7 +281,7 @@ export function ApprovalQueue({
     if (lower === 'd' && selected) {
       event.preventDefault()
       clearHold()
-      void onRespond(selected.request.id, { decision: 'decline' })
+      void send(selected.request.id, { decision: 'decline' })
       return
     }
     if (lower === 'a' && selected) {
@@ -269,7 +289,7 @@ export function ApprovalQueue({
       if (event.repeat) return
       const impact = selected.request.impact
       if (impact?.reversible) {
-        void onRespond(selected.request.id, { decision: 'accept' })
+        void send(selected.request.id, { decision: 'accept' })
         return
       }
       if (impact?.risk === 'critical') {
@@ -308,13 +328,14 @@ export function ApprovalQueue({
     if (!selected || !selectedImpact || savingRule) return
     setSavingRule(true)
     try {
-      const res = await window.oxe?.approvals?.alwaysAllow?.(selected.request.id)
+      const res = await Promise.resolve().then(() => window.oxe?.approvals?.alwaysAllow?.(selected.request.id)).catch(() => null)
       setAlwaysAllowOpen(false)
       if (!res?.ok) {
         clearAlwaysAllowToast()
+        setFailure('alwaysAllow')
         return
       }
-      await onRespond(selected.request.id, { decision: 'accept' })
+      if (!(await send(selected.request.id, { decision: 'accept' }))) return
       showAlwaysAllowToast(
         t('f7.alwaysAllow.toastAdded', { command: selectedImpact.text }),
         t('f7.alwaysAllow.toastOpen'),
@@ -535,6 +556,11 @@ export function ApprovalQueue({
             ) : null}
           </div>
 
+          {failure ? (
+            <FieldError className={sharedStyles.noteLine}>
+              {failure === 'alwaysAllow' ? t('f7.alwaysAllow.failed') : t('f7.queue.respondFailed')}
+            </FieldError>
+          ) : null}
           {selected.request.kind === 'question' ? (
           // OXE-333: a question is answered in its conversation (the question card), never approved from the queue.
           <footer className={styles.previewFooter}>
@@ -544,7 +570,7 @@ export function ApprovalQueue({
           </footer>
           ) : (
           <footer className={styles.previewFooter}>
-            <Button variant="secondary" onClick={() => void onRespond(selected.request.id, { decision: 'decline' })}>
+            <Button variant="secondary" disabled={sending} onClick={() => void send(selected.request.id, { decision: 'decline' })}>
               {t('request.deny')}
               <kbd aria-hidden="true" className={sharedStyles.kbdHint}>D</kbd>
             </Button>
@@ -574,7 +600,8 @@ export function ApprovalQueue({
               <Button
                 ref={approveRef}
                 variant={approveStyle === 'danger' ? 'danger' : 'primary'}
-                onClick={() => void onRespond(selected.request.id, { decision: 'accept' })}
+                disabled={sending}
+                onClick={() => void send(selected.request.id, { decision: 'accept' })}
               >
                 {t('request.approve')}
                 <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
@@ -635,7 +662,7 @@ export function ApprovalQueue({
                 onClick={() => {
                   const id = selected.request.id
                   closeWithoutHold()
-                  void onRespond(id, { decision: 'accept' })
+                  void send(id, { decision: 'accept' })
                 }}
               >
                 {t('request.approve')}

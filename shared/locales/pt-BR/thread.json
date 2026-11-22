@@ -2282,7 +2282,8 @@
       "more": "+{{rest}} mais",
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
-      "goToPane": "Ir ao terminal"
+      "goToPane": "Ir ao terminal",
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
@@ -2314,6 +2315,7 @@
       "runsProjectCodeGeneric": "Este comando executa código deste projeto.",
       "toastAdded": "Sempre permitido: {{command}} · revogue em O que os agentes podem fazer",
       "toastOpen": "Abrir",
+      "failed": "Não foi possível adicionar a regra. Nada foi aprovado.",
       "reason": {
         "destructive": "Sempre permitir não é oferecido para comandos destrutivos.",
         "network": "Sempre permitir não é oferecido para comandos de rede.",
