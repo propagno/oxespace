@@ -1,7 +1,7 @@
 import { modeButton } from './helpers/modes'
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
-import { installThreadFixtures, registerThreadProject } from './helpers/thread-fixtures'
+import { installThreadFixtures, registerThreadProject, sendOpeningMessage } from './helpers/thread-fixtures'
 
 /**
  * A conversation in its own worktree, end to end in the real renderer: the option in the new-thread dialog
@@ -62,14 +62,14 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
 
     await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    const dialog = page.getByRole('dialog', { name: 'New conversation' })
-    const option = dialog.getByRole('checkbox', { name: 'Work in an isolated worktree' })
+    const start = page.getByTestId('new-conversation')
+    const option = start.getByRole('switch', { name: 'Work in an isolated worktree' })
     // Off until the person turns it on.
     await expect(option).not.toBeChecked()
     await option.check()
-    await dialog.getByLabel('Branch').fill('feature/e2e')
+    await start.getByLabel('Branch').fill('feature/e2e')
     await page.screenshot({ path: test.info().outputPath('new-thread-worktree-option.png') })
-    await dialog.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    await sendOpeningMessage(app, page)
 
     // The conversation shows the branch it works on and that it is a worktree.
     const heading = page.locator('.thread-heading')
@@ -84,8 +84,9 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
 
     // The choice is remembered for this project.
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await expect(page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Work in an isolated worktree' })).toBeChecked()
-    await page.getByRole('dialog', { name: 'New conversation' }).getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByTestId('new-conversation').getByRole('switch', { name: 'Work in an isolated worktree' })).toBeChecked()
+    // The screen has no Cancel: choosing the conversation leaves it.
+    await page.locator('.thread-navigation-row:not([data-thread-draft]) .thread-navigation-item').click()
 
     // Archiving asks about the worktree first; an empty one goes with the conversation.
     const composer = page.locator('.thread-composer textarea')
@@ -132,10 +133,12 @@ test('a conversation worktree shows what creating it reported, a refusal include
     await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
     const dialog = page.getByRole('dialog', { name: 'New conversation' })
-    await dialog.getByRole('checkbox', { name: 'Work in an isolated worktree' }).check()
-    await dialog.getByLabel('Branch').fill('feature/notices')
-    await dialog.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    const start = page.getByTestId('new-conversation')
+    await start.getByRole('switch', { name: 'Work in an isolated worktree' }).check()
+    await start.getByLabel('Branch').fill('feature/notices')
+    await sendOpeningMessage(app, page)
     await expect(dialog).toBeHidden()
+    await expect(start).toBeHidden()
 
     // The dialog closed as the conversation opened: what creating its worktree reported is on the opening screen.
     const opening = page.getByTestId('thread-empty')

@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { launchApp, resizeWindow, type Appearance } from './helpers/launch'
-import { installThreadFixtures } from './helpers/thread-fixtures'
+import { installThreadFixtures, sendOpeningMessage } from './helpers/thread-fixtures'
 
 /**
  * Captures the README images from a small, believable demo project. Skipped unless
@@ -184,7 +184,7 @@ for (const theme of THEMES) {
       await installThreadDemo(app, repo)
       await modeButton(page, 'thread').click()
       await page.getByRole('button', { name: /^New conversation in/ }).first().click()
-      await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+      await sendOpeningMessage(app, page)
       await page.locator('.thread-timeline').waitFor()
       await app.evaluate((_context, payload) => {
         ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)

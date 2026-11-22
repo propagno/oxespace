@@ -1,7 +1,7 @@
 import { modeButton } from './helpers/modes'
 import { expect, test } from '@playwright/test'
 import { launchApp, openDemoWorkspace, resizeWindow } from './helpers/launch'
-import { installThreadFixtures, registerThreadProject } from './helpers/thread-fixtures'
+import { installThreadFixtures, registerThreadProject, sendOpeningMessage } from './helpers/thread-fixtures'
 
 /**
  * T40 (B20, X17; DESIGN option A on #442), end to end in the real renderer: the conversation's own PR merged, so a toast
@@ -51,10 +51,10 @@ test('a merged PR archives its conversation when the toast runs out, never off s
 
     await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    const dialog = page.getByRole('dialog', { name: 'New conversation' })
-    await dialog.getByRole('checkbox', { name: 'Work in an isolated worktree' }).check()
-    await dialog.getByLabel('Branch').fill('feature/e2e')
-    await dialog.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    const start = page.getByTestId('new-conversation')
+    await start.getByRole('switch', { name: 'Work in an isolated worktree' }).check()
+    await start.getByLabel('Branch').fill('feature/e2e')
+    await sendOpeningMessage(app, page)
     // The pointer away from the corner: hovering the toast would rightly hold its timer.
     await page.mouse.move(10, 450)
 
