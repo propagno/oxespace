@@ -1,8 +1,10 @@
 import { Suspense } from 'react'
 import { ChevronDown, ListTree, Maximize2, Minimize2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { PreviewElementRef } from '../../../shared/types/design-mode'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
+import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import type { WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { threadPanelLabel } from './threadPanelLabels'
 import { ThreadSubagentActivity } from './ThreadSubagentActivity'
@@ -31,7 +33,7 @@ const ThreadNetworkPanel = lazyFrom(SHARED_PANEL_CHUNKS.threadNetwork, module =>
 const AndroidPanel = lazyFrom(SHARED_PANEL_CHUNKS.android, module => module.AndroidPanel)
 const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls', android: 'android' }
 
-export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string): void; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
+export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }): void | Promise<void>; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
   const { t } = useTranslation('thread')
   const subagents = snapshot.events.filter(event => event.type === 'subagent')
   const id = snapshot.thread.id

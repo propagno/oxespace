@@ -925,18 +925,18 @@ export class TerminalManager {
 
   /** Live sessions and how many run an agent, for the diagnostics panel (B8.3). */
   counts(): { running: number; agents: number } {
-    let agents = 0
-    for (const session of this.sessions.values()) if (session.agentCommand) agents++
+    let agents = 0; for (const session of this.sessions.values()) if (session.agentCommand) agents++
     return { running: this.sessions.size, agents }
   }
-
   /** Sessions running with no view attached — surfaced in the status bar. */
   countDetached(): number {
-    let total = 0
-    for (const session of this.sessions.values()) {
-      if (!session.attached) total++
-    }
-    return total
+    let total = 0; for (const session of this.sessions.values()) if (!session.attached) total++; return total
+  }
+  /** Live foreground process or launched executable of a pane, for approval requester labels (OXE-293). */
+  foregroundProcess(paneId: string): string | undefined {
+    const s = this.sessions.get(paneId); if (!s) return undefined
+    let live = ''; try { live = s.pty.process } catch { /* exited or unavailable */ }
+    return live?.trim() || s.agentCommand?.trim() || s.executable?.trim() || undefined
   }
 }
 

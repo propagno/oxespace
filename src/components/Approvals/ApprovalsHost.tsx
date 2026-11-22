@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactElement } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
 import type { ThreadRequest } from '../../../shared/types/thread'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -118,6 +118,9 @@ export function ApprovalsHost(): ReactElement | null {
 
   const pendingView = usePendingView()
   const openedRequestId = useOpenRequest(state => state.requestId)
+  const openedThreadId = useOpenRequest(state => state.threadId)
+  /** The opened request already sent to OxeChat (OXE-332): once per opening, not on every snapshot refresh. */
+  const sentToThread = useRef<string | null>(null)
   const snapshot = useThreadStore(state => state.snapshot)
   const snapshotCache = useThreadStore(state => state.snapshotCache)
   const selectedThreadId = useThreadStore(state => state.selectedId)
@@ -142,6 +145,12 @@ export function ApprovalsHost(): ReactElement | null {
     [openedRequestId, snapshot, snapshotCache]
   )
   const needsImpactPreview = Boolean(openedTarget?.request.impact && !openedTarget.request.impact.reversible)
+  // OXE-332: a request whose conversation is not cached loads it (select reads it); the request shows once it arrives.
+  const hasOpenedTarget = Boolean(openedTarget)
+  useEffect(() => {
+    if (!openedRequestId) { sentToThread.current = null; return }
+    if (!hasOpenedTarget && openedThreadId) void useThreadStore.getState().select(openedThreadId)
+  }, [openedRequestId, openedThreadId, hasOpenedTarget])
 
   const toastTarget = useMemo(
     () => findBackgroundToastApproval(snapshot, snapshotCache, visibleThreadIds, dismissedToastIds, openedRequestId),
@@ -237,7 +246,14 @@ export function ApprovalsHost(): ReactElement | null {
 
   useEffect(() => {
     if (!openedTarget) return
-    void useThreadStore.getState().select(openedTarget.threadId)
+    // Only when it is not already the selected one: select re-reads the conversation, and the fresh snapshot would
+    // rebuild openedTarget and run this again without end (OXE-332).
+    if (useThreadStore.getState().selectedId !== openedTarget.threadId) void useThreadStore.getState().select(openedTarget.threadId)
+    // Answered inline: the window goes to OxeChat on that conversation (App listens; src/app/openThread.ts).
+    if (!needsImpactPreview && sentToThread.current !== openedTarget.request.id) {
+      sentToThread.current = openedTarget.request.id
+      window.dispatchEvent(new CustomEvent('oxe:open-thread', { detail: { threadId: openedTarget.threadId } }))
+    }
     if (!needsImpactPreview) {
       const frame = requestAnimationFrame(() => {
         const deny = document.querySelector<HTMLElement>('.thread-request-approval .thread-request-decline')

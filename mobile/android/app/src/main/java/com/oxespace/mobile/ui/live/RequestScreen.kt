@@ -417,8 +417,9 @@ private fun AgentWords(detail: String?, why: String?) {
 }
 
 /**
- * A pending request's title, from the phone's own catalog by its kind (TECH LEAD R1 v2, DESIGN option b): never the
- * agent's text, which only shows inside "Escrito pelo agente". A kind this app doesn't know reads as an agent's request.
+ * A pending request's title, from the phone's own catalog by its kind (TECH LEAD R1 v2, DESIGN option b) or, for
+ * critical requests with a desktop-authored impact summary (OXE-164, RN-1/RN-2), that desktop-calculated action.
+ * Never reads the agent's text (`request.title`), which only shows inside "Escrito pelo agente".
  */
 internal fun requestTitleString(kind: String): Int = when (kind) {
     "question", "elicitation" -> R.string.request_kind_question
@@ -427,8 +428,13 @@ internal fun requestTitleString(kind: String): Int = when (kind) {
 }
 
 @Composable
-fun requestTitle(request: RemotePendingRequest): String =
-    stringResource(requestTitleString(request.kind))
+fun requestTitle(request: RemotePendingRequest): String {
+    val critical = request.risk?.let { riskLevel(it) == RemoteApprovalRisk.CRITICAL } == true
+    if (critical) {
+        desktopImpactAction(request)?.let { return it }
+    }
+    return stringResource(requestTitleString(request.kind))
+}
 
 private val KNOWN_DECISIONS = setOf("accept", "decline", "cancel")
 private const val TITLE_MAX = 200

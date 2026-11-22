@@ -1,10 +1,12 @@
 import type { ReactNode, RefObject, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { ArrowUp, AtSign, CornerDownLeft, Paperclip, Plus, Slash, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { PreviewElementRef } from '../../../shared/types/design-mode'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { ErrorState, Menu } from '../../ui'
 import { ComposerChips } from './ComposerChips'
+import { PreviewElementChips } from './PreviewElementChips'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadUsageRing } from './ThreadUsageRing'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
@@ -41,10 +43,11 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, draft, attachments, pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onInsertMention, onInterrupt, onCaret }: {
+export function ThreadComposerForm({ snapshot, draft, attachments, previewElements = [], pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInsertMention, onInterrupt, onCaret }: {
   snapshot: ThreadSnapshot | null
   draft: string
   attachments: ThreadAttachment[]
+  previewElements?: readonly PreviewElementRef[]
   pending: boolean
   running: boolean
   active: boolean
@@ -60,6 +63,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   onSend: (mode?: 'queue' | 'steer') => void
   onUpload: (files: File[]) => void
   onRemoveAttachment: (attachmentId: string) => void
+  onRemovePreviewElement?: (elementId: string) => void
   onInsertMention: () => void
   onInterrupt: () => void
   onCaret: (caret: number) => void
@@ -69,6 +73,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   const api = window.oxe?.thread
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
   const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
+  const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length)
   const canSteer = Boolean(snapshot?.thread.capabilities?.features.steering?.enabled)
   const hints = composerHints({
     status: deriveComposerHintStatus(snapshot?.thread, running, (snapshot?.pendingRequests?.length ?? 0) > 0),
@@ -82,6 +87,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
   return <form className="thread-composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
     {commands.popup}
     {mentions.popup}
+    {previewElements.length > 0 && onRemovePreviewElement && <PreviewElementChips elements={previewElements} disabled={pending} onRemove={onRemovePreviewElement} />}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
@@ -96,12 +102,12 @@ export function ThreadComposerForm({ snapshot, draft, attachments, pending, runn
       {compactChips
         ? <ComposerChips {...compactChips} />
         : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
-      {hints.steer && <button type="button" className="thread-command-trigger" aria-label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || (!draft.trim() && !attachments.length)} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
+      {hints.steer && <button type="button" className="thread-command-trigger" aria-label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || !hasContent} onClick={() => onSend('steer')}><CornerDownLeft size={14} /></button>}
       {snapshot && <div className="thread-composer-group thread-composer-status">
       <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} /></div>}
       {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}
       {running && <button type="button" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} onClick={onInterrupt}><Square size={12} fill="currentColor" aria-hidden="true" /><span>{t('composer.stopShort')}</span></button>}
-      <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle', { key: sendKeyLabel(sendKey) }) : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })} disabled={blocked || tooLong || (!draft.trim() && !attachments.length)}><ArrowUp size={16} /></button></footer>
+      <button type="submit" className="thread-send oxe-press" aria-label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle', { key: sendKeyLabel(sendKey) }) : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })} disabled={blocked || tooLong || !hasContent}><ArrowUp size={16} /></button></footer>
     {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
   </form>
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
+import type { PreviewElementRef } from '../../shared/types/design-mode'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
 import { writeThreadListCache } from './threadListCache'
 import { threadConfirmation } from '../../shared/threadConfirmations'
@@ -19,6 +20,7 @@ interface ThreadState {
   snapshotCache: Record<string, ThreadSnapshot>; snapshotCacheOrder: string[]
   drafts: Record<string, string>; scrollPositions: Record<string, { top: number; following: boolean }>
   attachments: Record<string, ThreadAttachment[]>
+  previewElements: Record<string, PreviewElementRef[]>
   expanded: Record<string, boolean>; errors: Record<string, string>; loading: boolean
   /** False until the first load() settles, ok or failed: until then the sidebar paints its cached copy or a skeleton. */
   listLoaded: boolean
@@ -53,6 +55,9 @@ interface ThreadState {
   addAttachment: (id: string, attachment: ThreadAttachment) => void
   removeAttachment: (id: string, attachmentId: string) => void
   clearAttachments: (id: string) => void
+  addPreviewElement: (id: string, element: PreviewElementRef) => void
+  removePreviewElement: (id: string, elementId: string) => void
+  clearPreviewElements: (id: string) => void
   setScroll: (id: string, top: number, following: boolean) => void
   toggle: (id: string) => void
   adopt: (snapshot: ThreadSnapshot) => void
@@ -79,7 +84,7 @@ export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
 export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, previewElements: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   dropFromListCache: id => { if (get().listLoaded) saveListCache(get(), id) },
@@ -209,6 +214,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
       drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id) || id.startsWith('new:'))),
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
+      previewElements: Object.fromEntries(Object.entries(get().previewElements).filter(([id]) => valid.has(id))),
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
     // A failed load keeps the copy it has; a fresh list replaces it.
     if (!failed) saveListCache(get())
@@ -267,6 +273,9 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   addAttachment: (id, attachment) => set(state => ({ attachments: { ...state.attachments, [id]: [...(state.attachments[id] ?? []).filter(value => value.id !== attachment.id), attachment].slice(0, 8) } })),
   removeAttachment: (id, attachmentId) => set(state => ({ attachments: { ...state.attachments, [id]: (state.attachments[id] ?? []).filter(value => value.id !== attachmentId) } })),
   clearAttachments: id => set(state => ({ attachments: { ...state.attachments, [id]: [] } })),
+  addPreviewElement: (id, element) => set(state => ({ previewElements: { ...state.previewElements, [id]: [...(state.previewElements[id] ?? []).filter(value => value.id !== element.id && value.selector !== element.selector), element].slice(-6) } })),
+  removePreviewElement: (id, elementId) => set(state => ({ previewElements: { ...state.previewElements, [id]: (state.previewElements[id] ?? []).filter(value => value.id !== elementId) } })),
+  clearPreviewElements: id => set(state => ({ previewElements: { ...state.previewElements, [id]: [] } })),
   setScroll: (id, top, following) => set(state => ({ scrollPositions: { ...state.scrollPositions, [id]: { top, following } } })),
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
   adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {

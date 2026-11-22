@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, ChevronRight, GitBranch, History, Keyboard, KeyRound, Lock, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
+import { Activity, ArrowLeft, ArrowUpCircle, Bell, Bot, GitBranch, History, Keyboard, KeyRound, Lock, Palette, Settings2, ShieldCheck, Smartphone, SquareTerminal, Wrench, X, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -294,13 +294,11 @@ export function SettingsCenter(props: SettingsModalProps & {
           {entries.length === 0 && <p className="settings-scope">{t('center.noMatch')}</p>}
         </nav>
         <div className="settings-nav-footer">
-          <p className="settings-scope-note" title={workspace?.rootPath}>{workspace ? workspace.name : t('center.appliesAcross')}</p>
           <button className="settings-back" onClick={close}><ArrowLeft size={14} />{t('center.backToWork')}</button>
         </div>
       </aside>
       <main className="settings-center-main">
         <header className="settings-center-toolbar">
-          <div><span>{t('center.title')}</span><ChevronRight size={12} aria-hidden="true" /><span title={workspace?.rootPath}>{workspace?.name ?? t('center.application')}</span></div>
           <button type="button" aria-label={t('center.close')} title={t('center.closeTitle')} onClick={close}><X size={16} aria-hidden="true" /></button>
         </header>
         <div ref={content} role="region" aria-label={t('center.title')} tabIndex={0} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<Skeleton lines={6} label={t('center.title')} />}>

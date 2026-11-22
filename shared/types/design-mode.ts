@@ -50,6 +50,37 @@ export interface DesignGrabContext {
   screenshotPath: string | null
 }
 
+/** Structured reference to a picked Web Preview element shown as a removable chip in the composer (OXE-10). */
+export interface PreviewElementRef {
+  id: string
+  /** Concise human-readable label (e.g. visible text, component name, or tag name). */
+  label: string
+  /** Exact CSS selector captured from the previewed page. */
+  selector: string
+  /** Serialized element context included in the outgoing message only when kept at send time. */
+  prompt: string
+  /** Optional PNG capture attached alongside the outgoing message when the chip is kept. */
+  image?: { name: string; dataUrl: string }
+}
+
+/** Short label for a Web Preview element chip: visible text, component name, or tag name. */
+export function previewElementLabel(payload: Pick<DesignGrabPayload, 'text' | 'tagName'>, context?: Partial<DesignGrabContext>): string {
+  const text = payload.text.replace(/\s+/g, ' ').trim()
+  if (text) return text.length > 32 ? `${text.slice(0, 31)}…` : text
+  const component = context?.source?.component?.trim()
+  if (component) return component
+  return payload.tagName
+}
+
+/** Combines kept Web Preview element references with the person's own message text at send time. */
+export function composeMessageWithElements(draft: string, elements: readonly PreviewElementRef[]): string {
+  const trimmed = draft.trim()
+  if (elements.length === 0) return draft
+  const blocks = elements.map(item => item.prompt).filter(Boolean)
+  if (trimmed) blocks.push(`User request:\n${trimmed}`)
+  return blocks.join('\n\n')
+}
+
 /** Channel names exchanged between the guest preload and the renderer host. */
 export const DESIGN_MODE_CHANNELS = {
   /** host → guest: enable/disable the picker. A second argument `true` keeps it on after each pick. */
