@@ -139,7 +139,7 @@ test('Thread shows delivery, queue pause and context usage, offers no rewind, an
     await app.evaluate(() => { const g = globalThis as Record<string, any>; g.seedHardening() })
     const ring = page.locator('.thread-usage-ring')
     // OXE-172 (A12, the composer bar): the ring names its tokens and percentage, "Usage: 42k / 100k tokens · 42%".
-    await expect(ring).toHaveAttribute('aria-label', /^Usage: .*42%/)
+    await expect(ring).toHaveAttribute('aria-label', 'Usage: 42k / 100k tokens · 42%')
     await ring.click()
     const popover = page.getByRole('dialog', { name: 'Usage details' })
     await expect(popover.getByRole('region', { name: 'Context window' })).toContainText('42%')

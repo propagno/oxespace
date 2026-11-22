@@ -54,13 +54,15 @@ test('Thread composer: write, break lines, reach its controls and send without a
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: 'Agent', exact: true }), await focusedName(page)).toBeFocused()
     await page.keyboard.press('Tab')
+    await expect(page.getByRole('button', { name: 'Plan', exact: true }), await focusedName(page)).toBeFocused()
     await page.keyboard.press('Tab')
     const addToPrompt = page.getByRole('button', { name: 'Context', exact: true })
     await expect(addToPrompt, await focusedName(page)).toBeFocused()
 
     // The Context menu (with Show conversation commands) opens with Enter, walks with the arrows and gives focus back on Escape.
     await page.keyboard.press('Enter')
-    const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: /Show conversation commands/ }) })
+    const menu = page.getByRole('menu', { name: 'Context', exact: true })
+    await expect(menu.getByRole('menuitem', { name: /Show conversation commands/ })).toHaveCount(1)
     await expect(menu).toBeVisible()
     const focusedItem = () => page.evaluate(() => document.activeElement?.getAttribute('role') === 'menuitem' ? document.activeElement.textContent?.trim() ?? '' : '')
     await expect.poll(focusedItem).not.toBe('')
