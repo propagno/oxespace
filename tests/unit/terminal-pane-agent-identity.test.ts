@@ -248,3 +248,59 @@ describe('OXE-294 · TerminalPane agent identity', () => {
     expect(fromIntent.title).toBe('Antigravity handoff')
   })
 })
+
+// Frozen acceptance test for 1.5.2 Multiprovedor (Jira OXE-318, A1–A2). Written by the planner; the executor must not
+// edit it. A pane bound to a custom sub-profile (parentProvider 'claude', its own systemPrompt) keeps that profile on
+// start and restart: the inference that binds a free shell to a built-in agent runs only when the pane has no profile.
+const SUB_PROFILES: AgentProfile[] = [
+  { agentProfileId: 'builtin-agent-claude', name: 'Claude', provider: 'claude', command: 'claude', commandTemplate: 'claude {{task}}', isBuiltin: true },
+  { agentProfileId: 'custom-claude-reviewer', name: 'Claude Reviewer', provider: 'custom', parentProvider: 'claude', command: '', commandTemplate: '{{task}}', systemPrompt: 'Review only; never edit.', isBuiltin: false }
+]
+
+describe('OXE-318 · TerminalPane keeps a custom sub-profile', () => {
+  beforeEach(() => {
+    useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
+    useAgentStore.setState({ profiles: SUB_PROFILES, allProfiles: SUB_PROFILES, readiness: [], isLoading: false, isDiscovering: false, lastHealthCheckAt: null, error: null })
+    window.oxe = {
+      app: { version: '1.5.2', platform: 'win32' },
+      workspace: { setPaneAgent: vi.fn().mockResolvedValue({ id: 'workspace-1', panes: [] }) },
+      terminal: {
+        start: vi.fn().mockResolvedValue(undefined),
+        write: vi.fn().mockResolvedValue(undefined),
+        resize: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn().mockResolvedValue(undefined),
+        status: vi.fn().mockResolvedValue({ running: false, seq: 0, altScreen: false })
+      }
+    } as unknown as typeof window.oxe
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
+
+  it('start and restart preserve custom sub-profile agentProfileId and systemPrompt', async () => {
+    const pane = makePane({ agentProfileId: 'custom-claude-reviewer' })
+    render(createElement(TerminalPane, { pane, workspaceId: 'workspace-1', workspaceRootPath: 'C:/repo/oxespace', autoStart: true }))
+    await vi.waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(window.oxe.terminal.start).mock.calls[0][0]).toMatchObject({ paneId: 'pane-1', agentCommand: 'claude', initialPrompt: 'Review only; never edit.' })
+
+    // Restart: the header's "new session" on a running pane.
+    act(() => { useTerminalStore.getState().setStatus('pane-1', 'running') })
+    act(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: 'pane-1' } })) })
+    await vi.waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(window.oxe.terminal.start).mock.calls[1][0]).toMatchObject({ paneId: 'pane-1', agentCommand: 'claude', initialPrompt: 'Review only; never edit.' })
+
+    const rebinds = vi.mocked(window.oxe.workspace.setPaneAgent).mock.calls.filter(call => (call[0] as { agentProfileId?: string }).agentProfileId === 'builtin-agent-claude')
+    expect(rebinds).toHaveLength(0)
+  })
+
+  it('start infers builtin agent profile when pane has no agentProfileId', async () => {
+    useTerminalStore.setState({ panes: {}, pendingCommands: { 'pane-1': 'claude' }, activePaneId: null })
+    const pane = makePane({ agentProfileId: null })
+    render(createElement(TerminalPane, { pane, workspaceId: 'workspace-1', workspaceRootPath: 'C:/repo/oxespace', autoStart: true }))
+    await vi.waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(window.oxe.workspace.setPaneAgent).toHaveBeenCalled())
+    expect(vi.mocked(window.oxe.workspace.setPaneAgent).mock.calls[0][0]).toMatchObject({ paneId: 'pane-1', agentProfileId: 'builtin-agent-claude' })
+  })
+})

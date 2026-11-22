@@ -400,3 +400,44 @@ describe('agent tools', () => {
     brokerAfterRestart.dispose()
   })
 })
+
+// Frozen acceptance test for 1.5.2 Multiprovedor (Jira OXE-317, A5–A6). Written by the planner; the executor must not
+// edit it. `oxespace_agents_change start` was closed to claude and codex by its schema (enum, and a 10-character
+// `agent`), although oxespace_agents lists every configured provider since OXE-173. Contract: `agent` is any provider
+// (or sub-profile parent) the person configured, matched as today; anything else is refused with the configured list
+// and no pane is created. Only configured profiles ever launch (RN-2): never a free command.
+describe('OXE-317 · start any configured provider', () => {
+  const configured = [
+    { agentProfileId: 'claude-1', provider: 'claude', name: 'Claude' },
+    { agentProfileId: 'agy-1', provider: 'antigravity', name: 'Antigravity' },
+    { agentProfileId: 'gemini-1', provider: 'gemini', name: 'Gemini' }
+  ]
+  const executables: Record<string, string> = { 'claude-1': 'claude', 'agy-1': 'agy', 'gemini-1': 'gemini' }
+
+  function multi() {
+    const h = harness()
+    h.agents.profiles = () => configured
+    h.agents.resolve = ((id: string) => ({ executable: executables[id], provider: configured.find(p => p.agentProfileId === id)!.provider })) as unknown as typeof h.agents.resolve
+    return h
+  }
+
+  it('oxespace_agents_change start launches antigravity and other configured provider profiles on user approval', async () => {
+    const { ctx, agents } = multi()
+    const started = await call('oxespace_agents_change', { action: 'start', agent: 'antigravity' }, ctx)
+    expect(started).toMatchObject({ ok: true, result: { paneId: 'helper' } })
+    expect(agents.terminal.start).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'helper', workspaceId: 'ws-1', launch: expect.objectContaining({ executable: 'agy' }) }))
+    workspace.panes = workspace.panes.filter(pane => pane.id !== 'helper'); _resetAgentOwnersForTests()
+    expect(await call('oxespace_agents_change', { action: 'start', agent: 'gemini' }, ctx)).toMatchObject({ ok: true, result: { paneId: 'helper' } })
+    expect(agents.terminal.start).toHaveBeenLastCalledWith(expect.objectContaining({ launch: expect.objectContaining({ executable: 'gemini' }) }))
+  })
+
+  it('oxespace_agents_change start rejects unknown provider with available profiles list', async () => {
+    const { ctx, agents } = multi()
+    const createPane = vi.spyOn(agents, 'createPane')
+    const refused = await call('oxespace_agents_change', { action: 'start', agent: 'rm -rf /' }, ctx)
+    expect(refused.ok).toBe(false)
+    for (const provider of ['claude', 'antigravity', 'gemini']) expect(refused.message).toContain(provider)
+    expect(createPane).not.toHaveBeenCalled()
+    expect(agents.terminal.start).not.toHaveBeenCalled()
+  })
+})

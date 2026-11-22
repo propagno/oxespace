@@ -565,6 +565,12 @@ export interface RemotePendingRequest {
    * as `critical` (Deny leading), as REMOTE_UNKNOWN_VALUES says (#354), so a later level needs no protocol bump.
    */
   risk?: 'low' | 'medium' | 'high' | 'critical'
+  /**
+   * Short action/impact summary authored exclusively by the desktop's local classifier (never the agent's `title`,
+   * `detail`, or `reason`), so the phone can label critical requests without trusting agent-written text (OXE-164).
+   * Absent on older desktops or when the desktop has no local impact classification: the phone falls back to its catalog.
+   */
+  desktopImpactSummary?: string
   warnings?: string[]
   /** Values the redactor replaced in `command` and `warnings`. */
   redacted?: number

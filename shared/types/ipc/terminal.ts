@@ -47,6 +47,14 @@ export interface TerminalExitEvent {
   exitCode: number | null
 }
 
+/** OXE-272 · Command execution state reported by shells with OSC 633/133 integration. */
+export interface ShellCommandState {
+  running: boolean
+  startedAt: number
+  finishedAt?: number
+  exitCode?: number
+}
+
 /**
  * Heartbeat for a session with no attached view. Carries no output — just
  * enough for the sidebar and notifications to keep showing that a background
@@ -56,6 +64,8 @@ export interface TerminalActivityEvent {
   paneId: string
   at: number
   bytes: number
+  /** Present when an OSC 633/133 command start/end transition arrived on this pane. */
+  command?: ShellCommandState
 }
 
 export interface TerminalAttachInput {
@@ -94,6 +104,8 @@ export interface TerminalStatusResult {
   executable?: string
   pid?: number
   startedAt?: number
+  /** OXE-272 · Latest shell command execution state from OSC 633/133, when the shell reported one. */
+  command?: ShellCommandState
   /** B17 · What the pane's first start in this app run did with its agent's native session; absent before that start. */
   agentResume?: PaneAgentResume
   /**

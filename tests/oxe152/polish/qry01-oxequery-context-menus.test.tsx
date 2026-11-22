@@ -132,7 +132,9 @@ describe('OXE-44 · QRY-1 OxeQuery context menus', () => {
         })
 
         // 1) ConnectionList context menu (right-click & Shift+F10, Escape closes, Delete opens ConfirmDialog)
-        const connView = render(<ConnectionList activeTab="connection:c-a" />)
+        // The views suspend on their first render (lazy chunks): render inside an awaited act (OXE-334).
+        let connView!: ReturnType<typeof render>
+        await act(async () => { connView = render(<ConnectionList activeTab="connection:c-a" />) })
         const alphaBtn = screen.getByRole('button', { name: /^Alpha/ })
         fireEvent.keyDown(alphaBtn, { key: 'F10', shiftKey: true })
 
@@ -156,7 +158,8 @@ describe('OXE-44 · QRY-1 OxeQuery context menus', () => {
         connView.unmount()
 
         // 2) OxeQueryView open tab context menu (Fechar, Fechar outras, Fechar à direita)
-        const tabsView = render(<OxeQueryView active={false} />)
+        let tabsView!: ReturnType<typeof render>
+        await act(async () => { tabsView = render(<OxeQueryView active={false} />) })
         const betaTab = screen.getByRole('tab', { name: 'Beta' })
         fireEvent.contextMenu(betaTab)
 
@@ -177,7 +180,8 @@ describe('OXE-44 · QRY-1 OxeQuery context menus', () => {
         tabsView.unmount()
       }
     }
-  })
+  // Four theme × density passes of two full views: about 3 s on CI, more on a loaded machine (OXE-334).
+  }, 20_000)
 
   test('opens context menus on ResultGrid cells/headers and all SchemaTree node kinds', async () => {
     // 1) ResultGrid cell & header context menus
