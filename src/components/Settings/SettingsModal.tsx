@@ -308,6 +308,9 @@ function ProvidersSettingsSection({
   }): ReactElement => {
     const isCustom = profile.provider === 'custom'
     const install = !isCustom ? PROVIDER_INSTALL_DOCS[profile.provider] : undefined
+    // A custom agent starts on its parent's CLI: it is offered when that CLI is ready or was never checked.
+    const startStatus = isCustom ? agentReadiness.find((item) => item.provider === profile.parentProvider)?.status ?? 'unknown' : status
+    const canUse = startStatus === 'ready' || startStatus === 'unknown'
     const contract = status === 'ready' ? compatibilityBadge(profile.provider, readiness?.version, compatibility) : null
     const detail = isCustom
       ? t('providers.card.skillParent', { parent: profile.parentProvider ?? '—' })
@@ -356,7 +359,7 @@ function ProvidersSettingsSection({
                 all. If the CLI turns out to be absent, starting the pane says so
                 with the exact command it tried — the same information, at the
                 moment it actually matters. */}
-            {(status === 'ready' || status === 'unknown') && onUseProviderInPane ? (
+            {canUse && onUseProviderInPane ? (
               <Button
                 variant="secondary"
                 size="sm"
