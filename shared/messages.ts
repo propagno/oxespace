@@ -60,6 +60,8 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.side.invalidInput': Record<string, never>
   /** A conversation call carried an id or input that is not one. */
   'thread.invalidInput': Record<string, never>
+  /** A desktop command came in as a message from something other than the person's window. */
+  'thread.command.windowOnly': Record<string, never>
   /** No conversation has this id (deleted, or never existed). */
   'thread.notFound': Record<string, never>
   /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
@@ -591,6 +593,7 @@ export const MESSAGE_CODES = [
   'thread.side.closed',
   'thread.side.invalidInput',
   'thread.invalidInput',
+  'thread.command.windowOnly',
   'thread.notFound',
   'thread.agent.scriptUnsupported',
   'thread.agent.nativeMissing',

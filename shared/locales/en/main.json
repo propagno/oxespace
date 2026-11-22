@@ -115,6 +115,9 @@
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, maybe agent instructions, MCP settings or hooks, so each run asks."
       },
       "invalidInput": "This conversation request could not be read.",
+      "command": {
+        "windowOnly": "Commands run only when you type them in OXESpace."
+      },
       "notFound": "This conversation no longer exists.",
       "place": {
         "gone": "This place is no longer part of the conversation. Reload the list of places.",
