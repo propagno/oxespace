@@ -46,8 +46,9 @@ test('PP-05·13 in the app: in pt-BR menu entry "Contas dos agentes" opens the d
     await page.getByPlaceholder('Buscar arquivos e comandos…').fill('Contas dos agentes')
     const command = page.locator('[cmdk-item][data-value^="cmd-thread.accounts"]')
     await expect(command, 'the accounts command is listed').toBeVisible({ timeout: 10_000 })
-    await expect(command).toContainText('Contas dos agentes')
-    await expect(command).not.toContainText('Contas dos provedores')
+    // The command starts with a verb (docs/design/commands.md; CR-34) and names the dialog inside it, in any case.
+    await expect(command).toContainText('Contas dos agentes', { ignoreCase: true })
+    await expect(command).not.toContainText('Contas dos provedores', { ignoreCase: true })
     await command.click()
     const dialog = page.getByRole('dialog', { name: pt('thread', 'accounts.title'), exact: true })
     await expect(dialog).toBeVisible()

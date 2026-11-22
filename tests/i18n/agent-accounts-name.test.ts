@@ -22,8 +22,9 @@ describe('OXE-268 · PP-05·13 Agent accounts has one name', () => {
     for (const lang of ['pt-BR', 'en'] as const) {
       const thread = read(lang, 'thread'), common = read(lang, 'common')
       expect(at(thread, 'accounts.title'), `${lang} dialog title`).toBe(expected[lang])
-      // The palette and the application menus show commands.action.<key> ("OxeChat: …" in the palette).
-      expect(at(common, 'commands.action.thread.accounts'), `${lang} command action`).toBe(expected[lang])
+      // The palette and the application menus show commands.action.<key> ("OxeChat: …" in the palette). A command starts
+      // with a verb (docs/design/commands.md; CR-34), so the action names the dialog inside it: "Gerenciar as contas dos agentes".
+      expect(String(at(common, 'commands.action.thread.accounts')).toLowerCase(), `${lang} command action`).toContain(expected[lang].toLowerCase())
       expect(at(common, 'commands.thread.accounts'), `${lang} command`).toBe(expected[lang])
       expect(at(thread, 'view.providerAccounts'), `${lang} view entry`).toBe(expected[lang])
       expect(at(thread, 'sidebar.agentAccounts'), `${lang} sidebar footer`).toBe(expected[lang])

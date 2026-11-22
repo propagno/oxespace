@@ -782,7 +782,7 @@
         "events": "Show conversation events",
         "rules": "Show approval rules",
         "undo-last-turn": "Undo the last turn’s file changes",
-        "accounts": "Agent accounts"
+        "accounts": "Manage agent accounts"
       },
       "new-workspace": "Create a workspace…",
       "workspace-settings": "Open workspace settings",
