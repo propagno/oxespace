@@ -47,7 +47,7 @@
   color: var(--tx-primary);
   font: inherit;
   font-size: var(--fs-sm);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .input::placeholder {
