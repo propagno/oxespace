@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { i18n } from '../i18n'
 import type { AppUpdatePreferences, AppUpdateState } from '../../shared/types/updater'
+import { confirmClose } from '../lib/closeGuard'
 import { humanizeError } from '../utils/humanizeError'
 
 interface UpdaterStore {
@@ -26,6 +27,9 @@ const APP_DEFAULT: AppUpdateState = {
 }
 
 let unsubApp: (() => void) | null = null
+
+/** The restart in progress, question included: a second click while it is open shares it and installs nothing more. */
+let restarting: Promise<void> | null = null
 
 export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
   app: APP_DEFAULT,
@@ -68,10 +72,21 @@ export const useUpdaterStore = create<UpdaterStore>((set, get) => ({
     }
   },
 
-  quitAndInstall: async () => {
-    const api = window.oxe?.app
-    if (!api?.quitAndInstall) return
-    await api.quitAndInstall()
+  // Main's quitAndInstallUpdate() bypasses the close guard, so the window asks here first: the same question as
+  // File › Exit. Unsaved work or a turn in progress (working or waiting for approval) opens the dialog, and Cancel
+  // installs nothing. One restart at a time: clicks while the question is open share its answer.
+  quitAndInstall: () => {
+    restarting ??= (async () => {
+      try {
+        const api = window.oxe?.app
+        if (!api?.quitAndInstall) return
+        if (!(await confirmClose('quit'))) return
+        await api.quitAndInstall()
+      } finally {
+        restarting = null
+      }
+    })()
+    return restarting
   },
 
   downloadAppUpdate: async () => {
