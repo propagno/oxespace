@@ -279,6 +279,7 @@ export const IPC_CHANNELS = {
   },
   session: {
     list: 'session:list',
+    onPartial: 'session:list-partial',
     fork: 'session:fork',
     delete: 'session:delete',
     cleanup: 'session:cleanup',
@@ -901,7 +902,8 @@ export interface BackgroundApi {
 }
 
 export interface SessionApi {
-  list(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<import('./session').SessionSummary[]>
+  list(input: import('./session').SessionListInput): Promise<import('./session').SessionSummary[]>
+  onPartial(listener: (event: import('./session').SessionListPartialEvent) => void): () => void
   fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
   delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
   cleanup(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<number>
