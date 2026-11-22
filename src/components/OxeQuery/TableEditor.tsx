@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { Button } from '../../ui/Button'
+import { Button, IconButton } from '../../ui/Button'
 import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Download, Eye, Pencil, Plus, Trash2, Undo2, X } from 'lucide-react'
@@ -153,11 +153,11 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
 
   return <section className="oq-editor-bar" aria-label={t('rows.edit')}>
     <div className="oq-editor-bar-row">
-      <button type="button" aria-pressed={enabled} disabled={Boolean(reason)} title={reason || t('rows.editTitle')}
-        onClick={() => { setEnabled(value => !value); setInserting(false); onClearSelection() }}><Pencil size={13} aria-hidden="true" />{enabled ? t('rows.editing') : t('rows.edit')}</button>
+      <Button size="sm" variant="ghost" icon={<Pencil size={13} aria-hidden="true" />} aria-pressed={enabled} disabled={Boolean(reason)} title={reason || t('rows.editTitle')}
+        onClick={() => { setEnabled(value => !value); setInserting(false); onClearSelection() }}>{enabled ? t('rows.editing') : t('rows.edit')}</Button>
       {reason && <span className="oq-muted">{reason}</span>}
       {enabled && <>
-        <button type="button" onClick={startInsert}><Plus size={13} aria-hidden="true" />{t('rows.add')}</button>
+        <Button size="sm" variant="ghost" icon={<Plus size={13} aria-hidden="true" />} onClick={startInsert}>{t('rows.add')}</Button>
         <span className="oq-muted">{staged.length === 0 ? t('rows.selectHint') : t('rows.pending', { count: staged.length })}</span>
       </>}
       {connection.environment === 'prod' && enabled && <span className="oq-badge" data-environment="prod">{t('environment.short.prod')}</span>}
@@ -165,7 +165,7 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
 
     {enabled && (row || inserting) && <div className="oq-edit-form" role="group" aria-label={inserting ? t('rows.newRow') : t('rows.editRow')}>
       <header><strong>{inserting ? t('rows.newRow') : t('workbench.row', { number: selectedRow! + 1 })}</strong>
-        <button type="button" aria-label={t('rows.closeEditor')} onClick={() => { setInserting(false); onClearSelection() }}><X size={13} aria-hidden="true" /></button></header>
+        <IconButton size="sm" variant="ghost" label={t('rows.closeEditor')} title={t('rows.closeEditor')} icon={<X size={13} aria-hidden="true" />} onClick={() => { setInserting(false); onClearSelection() }} /></header>
       <div className="oq-edit-fields">{Object.keys(draft).map(name => {
         const meta = editability.columns.find(column => column.name === name)
         const locked = Boolean(meta?.generated) || (!inserting && Boolean(meta?.key))
@@ -174,21 +174,21 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
           <span>{name}<small>{meta?.type}{meta?.key ? ` · ${t('rows.key')}` : ''}{meta?.generated ? ` · ${t('rows.generated')}` : ''}{inserting && meta?.hasDefault ? ` · ${t('rows.default')}` : ''}</small></span>
           <input value={entry.isNull ? '' : entry.value} disabled={locked || entry.isNull} placeholder={entry.isNull ? SQL_NULL : inserting && meta?.hasDefault ? t('rows.default') : ''}
             onChange={event => setDraft(current => ({ ...current, [name]: { value: event.target.value, isNull: false } }))} />
-          {meta?.nullable && !locked && <button type="button" className="oq-null-toggle" aria-pressed={entry.isNull} title={t('rows.setNull')}
-            onClick={() => setDraft(current => ({ ...current, [name]: { value: '', isNull: !entry.isNull } }))}>{SQL_NULL}</button>}
+          {meta?.nullable && !locked && <Button size="sm" className="oq-null-toggle" aria-pressed={entry.isNull} title={t('rows.setNull')}
+            onClick={() => setDraft(current => ({ ...current, [name]: { value: '', isNull: !entry.isNull } }))}>{SQL_NULL}</Button>}
         </label>
       })}</div>
       <footer>
         {inserting ? <Button size="sm" variant="primary" onClick={stageInsert}>{t('rows.stageInsert')}</Button>
           : <><Button size="sm" variant="primary" onClick={stageUpdate}>{t('rows.stageUpdate')}</Button>
-            <button type="button" className="oq-danger" onClick={stageDelete}><Trash2 size={13} aria-hidden="true" />{t('rows.stageDelete')}</button></>}
+            <Button size="sm" variant="danger" icon={<Trash2 size={13} aria-hidden="true" />} onClick={stageDelete}>{t('rows.stageDelete')}</Button></>}
       </footer>
     </div>}
 
     {enabled && staged.length > 0 && <div className="oq-staged">
       <ul aria-label={t('rows.pendingLabel')}>{staged.map((change, index) => <li key={index} data-kind={change.kind}>
         <span>{describeChange(change)}</span>
-        <button type="button" aria-label={t('rows.discardOne', { number: index + 1 })} onClick={() => { setStaged(current => current.filter((_, position) => position !== index)); setStatements(null) }}><Undo2 size={12} aria-hidden="true" /></button>
+        <IconButton size="sm" variant="ghost" label={t('rows.discardOne', { number: index + 1 })} title={t('rows.discardOne', { number: index + 1 })} icon={<Undo2 size={12} aria-hidden="true" />} onClick={() => { setStaged(current => current.filter((_, position) => position !== index)); setStatements(null) }} />
       </li>)}</ul>
       {statements && <pre className="oq-sql-preview" aria-label={t('rows.sqlPreview')}>{statements.join('\n')}</pre>}
       {error && <ErrorState compact title={t('rows.applyFailed')} message={conflict ? `${error} ${t('rows.conflict')}` : error} />}
@@ -198,8 +198,8 @@ export function TableEditor({ connection, schema, table, result, selectedRow, on
         <ul>{confirmReasons.map(item => <li key={item}>{item}</li>)}</ul>
       </ConfirmDialog>}
       <div className="oq-staged-actions">
-        <button type="button" disabled={busy} onClick={() => void viewSql()}><Eye size={13} aria-hidden="true" />{t('rows.viewSql')}</button>
-        <button type="button" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>{t('rows.discardAll')}</button>
+        <Button size="sm" icon={<Eye size={13} aria-hidden="true" />} disabled={busy} onClick={() => void viewSql()}>{t('rows.viewSql')}</Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setStaged([]); setStatements(null); setError(''); setConfirmReasons(null) }}>{t('rows.discardAll')}</Button>
         <Button size="sm" variant="primary" disabled={busy} onClick={() => void apply(false)}>{t('rows.applyCount', { count: staged.length })}</Button>
       </div>
     </div>}
@@ -239,10 +239,10 @@ export function ExportButton({ connection, source, label }: {
 
   const formats: ExportFormat[] = connection.engine === 'postgres' ? ['csv', 'xlsx', 'json', 'ndjson', 'sql'] : ['json', 'ndjson', 'csv', 'xlsx']
   return <span className="oq-export">
-    <button type="button" aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}><Download size={13} aria-hidden="true" />{label ?? t('export.label')}</button>
-    {open && <ul role="menu" aria-label={t('export.format')}>{formats.map(format => <li key={format} role="none"><button type="button" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</button></li>)}</ul>}
+    <Button size="sm" icon={<Download size={13} aria-hidden="true" />} aria-haspopup="menu" aria-expanded={open} disabled={state.phase === 'running'} onClick={() => setOpen(value => !value)}>{label ?? t('export.label')}</Button>
+    {open && <ul role="menu" aria-label={t('export.format')}>{formats.map(format => <li key={format} role="none"><Button size="sm" variant="ghost" role="menuitem" onClick={() => void run(format)}>{format.toUpperCase()}</Button></li>)}</ul>}
     {state.phase === 'running' && <span className="oq-muted" role="status">{t('export.running', { count: state.rows, formatted: formatNumber(state.rows) })}
-      <button type="button" onClick={() => void oq('export.cancel', { exportId }).catch(() => undefined)}>{t('common.cancel')}</button></span>}
+      <Button size="sm" variant="ghost" onClick={() => void oq('export.cancel', { exportId }).catch(() => undefined)}>{t('common.cancel')}</Button></span>}
     {state.phase === 'done' && <span className="oq-muted" role="status">{state.text}</span>}
     {state.phase === 'error' && <ErrorState compact title={state.text} />}
   </span>

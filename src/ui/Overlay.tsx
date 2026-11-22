@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode, type SyntheticEvent } from 'react'
 import { Check, ChevronRight, X } from 'lucide-react'
 import { Dialog as RadixDialog, DropdownMenu as RadixMenu, Popover as RadixPopover, Tooltip as RadixTooltip } from 'radix-ui'
 import { i18n } from '../i18n'
@@ -403,17 +403,23 @@ function withOwnerFocus(item: MenuEntry, owner: () => HTMLElement | null): MenuE
   return { ...plain, onSelect: () => { owner()?.focus({ preventScroll: true }); plain.onSelect() } }
 }
 
-/** Wrap the app once so tooltips share their open delay. */
-export function TooltipProvider({ children }: { children: ReactNode }): ReactElement {
-  return <RadixTooltip.Provider delayDuration={400} skipDelayDuration={200}>{children}</RadixTooltip.Provider>
+const TooltipProviderContext = createContext(false)
+
+/** Wrap the app once so tooltips share their open and skip delays. */
+export function TooltipProvider({ children, delayDuration = 400, skipDelayDuration = 300 }: { children: ReactNode; delayDuration?: number; skipDelayDuration?: number }): ReactElement {
+  return <TooltipProviderContext.Provider value={true}>
+    <RadixTooltip.Provider delayDuration={delayDuration} skipDelayDuration={skipDelayDuration}>{children}</RadixTooltip.Provider>
+  </TooltipProviderContext.Provider>
 }
 
 /** A short hint on hover and keyboard focus. Never the only place for information a person needs. */
 export function Tooltip({ content, children, side = 'top' }: { content: ReactNode; children: ReactElement; side?: 'top' | 'right' | 'bottom' | 'left' }): ReactElement {
-  // A local provider keeps a tooltip working in isolation (tests, portals); the app-level one shares the open delay.
-  return <RadixTooltip.Provider delayDuration={400} skipDelayDuration={200}><RadixTooltip.Root>
+  const hasTooltipProvider = useContext(TooltipProviderContext)
+  const root = <RadixTooltip.Root>
     {/* Inside a dialog a focus-opened tooltip would take the first Escape away from the dialog, so only hover opens it there. */}
     <RadixTooltip.Trigger asChild onFocus={event => { if (event.currentTarget.closest('[role="dialog"], [role="alertdialog"]')) event.preventDefault() }}>{children}</RadixTooltip.Trigger>
     <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
-  </RadixTooltip.Root></RadixTooltip.Provider>
+  </RadixTooltip.Root>
+  // Fallback provider only when rendered in isolation (unit tests) without an ancestor TooltipProvider.
+  return hasTooltipProvider ? root : <RadixTooltip.Provider delayDuration={400} skipDelayDuration={300}>{root}</RadixTooltip.Provider>
 }
