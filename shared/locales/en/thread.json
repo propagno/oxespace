@@ -1029,6 +1029,8 @@
     "title": "What should {{agent}} work on in {{folder}}?",
     "context": "Where the agent works",
     "starters": "Starters",
+    "accessUnreadable": "Access could not be read",
+    "noAgent": "No agent installed",
     "access": {
       "read-only": "Read only",
       "workspace-write": "Can edit this project",

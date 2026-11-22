@@ -1058,6 +1058,8 @@
     "title": "No que o {{agent}} deve trabalhar em {{folder}}?",
     "context": "Onde o agente trabalha",
     "starters": "Sugestões para começar",
+    "accessUnreadable": "Não foi possível ler o acesso",
+    "noAgent": "Nenhum agente instalado",
     "access": {
       "read-only": "Somente leitura",
       "workspace-write": "Pode editar este projeto",

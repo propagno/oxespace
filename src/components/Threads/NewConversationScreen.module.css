@@ -14,6 +14,15 @@
 .pickers .picker { gap: var(--space-1-5); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--fs-xs); }
 .pickers span.picker { border: 1px solid var(--bd-subtle); color: var(--tx-secondary); }
 .pickers .picker[aria-checked='true'] { border-color: var(--accent-border); background: var(--accent-soft); color: var(--tx-accent); }
+/* The project picker, and the way out for a folder that is no project. */
+.projects { display: grid; gap: var(--space-2); width: 40ch; max-width: 100%; }
+.options { display: flex; flex-direction: column; max-height: 40vh; overflow-y: auto; }
+.options .option { flex: none; justify-content: flex-start; height: auto; min-height: var(--control-md); padding: var(--space-1-5) var(--space-2); text-align: start; }
+.dot { flex: none; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-sm); background: var(--ws, var(--accent)); }
+.optionText { display: grid; flex: 1; min-width: 0; gap: var(--space-1); }
+.optionText code, .unregistered code { overflow: hidden; color: var(--tx-muted); font-size: var(--fs-xs); text-overflow: ellipsis; white-space: nowrap; }
+.unregistered { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+
 .worktree { display: grid; gap: var(--space-2); }
 .hint { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
