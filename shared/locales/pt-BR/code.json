@@ -285,6 +285,7 @@
       "unpushed_other": "{{count}} commits não publicados",
       "neverPushed": "uma branch que nunca foi publicada",
       "title": "Remover {{name}}?",
+      "unknown": "Não foi possível ler o estado desta worktree. Ela só é removida se o Git não encontrar trabalho não commitado nela; nada é descartado à força.",
       "checking": "Verificando o que esta worktree guarda…",
       "clean": "Tudo aqui está commitado e publicado. A pasta é apagada; a branch fica.",
       "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-la apaga esse trabalho de vez.",
@@ -293,6 +294,7 @@
     },
     "createError": {
       "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria uma worktree onde já há arquivos.",
+      "branchExists": "Já existe uma branch chamada “{{branch}}”. Escolha outro nome ou marque “Usar uma branch existente” para abri-la aqui.",
       "branchInUse": "Esta branch já está aberta em outra worktree. Escolha outra branch ou remova aquela worktree antes.",
       "noStart": "O git não encontrou um ponto de partida para a nova branch. Confira se a branch atual tem pelo menos um commit.",
       "branchMissing": "Branch não encontrada. Digite o nome de uma branch existente, ou desmarque “Usar uma branch existente” para criar uma nova.",

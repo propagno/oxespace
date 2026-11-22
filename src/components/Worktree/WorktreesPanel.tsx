@@ -148,6 +148,10 @@ export function WorktreesPanel({ rootPath }: { rootPath: string }): ReactElement
 
   useEffect(() => {
     let live = true
+    // Another repository: the rows and the removal that was open belong to the one before, so both go at once.
+    setRows(null)
+    setTarget(null)
+    setLoadError(null)
     panelApi().list({ rootPath }).then(
       found => { if (live) { setLoadError(null); setRows(found) } },
       error => { if (live) setLoadError(humanizeError(error)) }
