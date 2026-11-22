@@ -21,7 +21,7 @@
 //   action "Try again" / "Tentar de novo" (the retry, before Update usage for a usage failure), and a closed
 //   <details> "Technical details" / "Detalhes técnicos" holding the provider's codes; a turn that changed files offers
 //   undo-and-retry or retry-keeping; context → failure.compact, configuration → failure.changeConfiguration, sandbox →
-//   failure.reviewPermissions; authentication → failure.reconnect and no retry. In the conversation, that card is the
+//   failure.reviewPermissions; authentication → failure.reconnect and no retry while signed out. In the conversation, that card is the
 //   failure's one owner: no strip above the composer (no .thread-connection-notice for it), no second "Failed" /
 //   "Falhou" line outside the card.
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -363,12 +363,14 @@ describe('A11 · one failure card, the only owner (row 6.2, POLISH-09 #3)', () =
     expect(onRetry).toHaveBeenCalledWith(true)
   })
 
+  // liberação de teste congelado: coordenação 22/11, LOGIN A (usuário, OXE-388)
   test('an authentication failure, while signed out, says to reconnect and offers no retry', () => {
     const { container } = render(<ThreadFailureCard latest onRetry={vi.fn()} event={failed({ code: 'authentication' })} />)
     expect(container).toHaveTextContent(tt('failure.reconnect'))
     expect(buttonNames(container as HTMLElement)).not.toContain(RETRY.en)
   })
 
+  // liberação de teste congelado: coordenação 22/11, LOGIN A (usuário, OXE-388)
   test.each(['en', 'pt-BR'] as const)('(%s) an authentication failure, once the account is connected, keeps Reconnect and Try again resends the last prompt', async locale => {
     await changeLanguage(locale)
     const events = [msg('u0', 'user', 'An earlier prompt'), msg('a0', 'assistant', 'Done.'), done(), msg('u1', 'user', 'Fix the login'), { ...failed({ code: 'authentication', message: 'Sign in again.' }), errorCode: 'authentication' }]
