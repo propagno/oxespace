@@ -1,8 +1,7 @@
 import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadActivity, ThreadActivityVerb } from '../../../shared/types/agents'
-
-export type NowLineAction = 'deny' | 'allow' | 'see-impact' | 'answer' | 'stop' | 'retry' | 'open-pr'
+import type { NowLineAction } from './threadMoreActions'
 
 type VerbI18nKey =
   | 'nowLine.verbs.editing'

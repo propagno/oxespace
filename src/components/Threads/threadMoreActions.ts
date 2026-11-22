@@ -1,5 +1,8 @@
 import { i18n } from '../../i18n'
 
+/** What a conversation's status actions ask of the view (NowLine's buttons; More actions' Open pull request). */
+export type NowLineAction = 'deny' | 'allow' | 'see-impact' | 'answer' | 'stop' | 'retry' | 'open-pr'
+
 export type ThreadMoreActionId =
   | 'rename'
   | 'pin'
@@ -34,11 +37,15 @@ export const THREAD_MORE_ACTIONS: ReadonlyArray<{ id: string; label: string }> =
   }
 }))
 
-/** The ⋯ menu in the four groups of BRD-21 (OXE-167): conversation, reading, elsewhere ("Abrir no OxeCode" first), destructive. */
-export const THREAD_MORE_ACTION_GROUPS: ReadonlyArray<ReadonlyArray<ThreadMoreActionId | 'open-in-code'>> = [
+/**
+ * The ⋯ menu in the four groups of BRD-21 (OXE-167): conversation, reading, elsewhere ("Abrir no OxeCode" first), destructive.
+ * Open pull request ends the third group, and only when the conversation's pull request has a URL (OXE-388): the PR bar
+ * shows an open one only, so a merged or closed one opens from here.
+ */
+export const THREAD_MORE_ACTION_GROUPS: ReadonlyArray<ReadonlyArray<ThreadMoreActionId | 'open-in-code' | 'open-pull-request'>> = [
   ['rename', 'pin', 'delegate', 'mcp'],
   ['larger-text', 'show-every-tool-call', 'details'],
-  ['open-in-code', 'fork', 'export'],
+  ['open-in-code', 'fork', 'export', 'open-pull-request'],
   ['archive', 'delete']
 ]
 

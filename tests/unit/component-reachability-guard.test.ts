@@ -24,7 +24,10 @@ const ALLOWED_UNMOUNTED_FILES = new Set([
   'src/components/Threads/ThreadBackgroundShells.tsx',
   // OXE-167 (F5 T5, MARCA 15/11): the quiet header no longer shows the sub-line; the 1.5.0 frozen f6/u61 still renders
   // ThreadSubline alone, so it stays until that test is released with it.
-  'src/components/Threads/ThreadSubline.tsx'
+  'src/components/Threads/ThreadSubline.tsx',
+  // OXE-167 (F5 T5; ÓRFÃOS F5 A, user 22/11 on OXE-388): the quiet header has no status strip; the 1.5.0 frozen f6/u61
+  // still renders NowLine alone, so it stays until that test is released with it.
+  'src/components/Threads/NowLine.tsx'
 ])
 
 function walk(dir: string, predicate: (fullPath: string) => boolean): string[] {

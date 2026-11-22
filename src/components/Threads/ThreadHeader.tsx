@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react'
-import { Archive, Code, Download, GitBranch, GitFork, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
+import { Archive, Code, Download, ExternalLink, GitBranch, GitFork, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
@@ -12,11 +12,10 @@ import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
-import type { NowLineAction } from './NowLine'
 import { parityState } from './parity'
 import { ThreadCellClose } from './ThreadCellClose'
 import { CollisionChips } from './CollisionChips'
-import { THREAD_MORE_ACTION_GROUPS, THREAD_MORE_ACTIONS, type ThreadMoreActionId } from './threadMoreActions'
+import { THREAD_MORE_ACTION_GROUPS, THREAD_MORE_ACTIONS, type NowLineAction, type ThreadMoreActionId } from './threadMoreActions'
 import { THREAD_TOOL_PANELS } from './threadToolPanels'
 import './ThreadHeaderChrome.css'
 
@@ -68,6 +67,8 @@ export function ThreadHeader({
   onDelegate,
   onPin,
   onOpenInCode,
+  hasPullRequest = false,
+  onNowAction,
   onCloseCell
 }: {
   thread?: ConversationThread
@@ -186,9 +187,12 @@ export function ThreadHeader({
       disabled: !onOpenInCode,
       onSelect: () => { void onOpenInCode?.(openPath) }
     }
+    const openPullRequest: MenuEntry[] = hasPullRequest && onNowAction
+      ? [{ label: t('nowLine.actions.openPr'), icon: <ExternalLink size={14} aria-hidden="true" />, onSelect: () => onNowAction('open-pr') }]
+      : []
     return THREAD_MORE_ACTION_GROUPS.flatMap((group, index): MenuEntry[] => [
       ...(index > 0 ? [{ type: 'separator' } as MenuEntry] : []),
-      ...group.flatMap(id => id === 'open-in-code' ? [openInCode] : byId.has(id) ? [byId.get(id)!] : [])
+      ...group.flatMap(id => id === 'open-in-code' ? [openInCode] : id === 'open-pull-request' ? openPullRequest : byId.has(id) ? [byId.get(id)!] : [])
     ])
   }
 
