@@ -21,6 +21,8 @@ export interface GitDiffFile {
 }
 
 export interface GitDiff {
+  /** The root the diff was computed for, so an update reaches only the workspaces that show that root. */
+  rootPath?: string
   files: GitDiffFile[]
   base: string
   includeUncommitted: boolean
