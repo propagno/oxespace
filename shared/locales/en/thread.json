@@ -378,6 +378,8 @@
   },
   "composer": {
     "attachments": "Attachments",
+    "previewElements": "Selected preview elements",
+    "removePreviewElement": "Remove element {{label}} ({{selector}})",
     "remove": "Remove {{name}}",
     "message": "Message",
     "messageIn": "Message in {{title}}",

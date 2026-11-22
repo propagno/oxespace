@@ -386,6 +386,8 @@
   },
   "composer": {
     "attachments": "Anexos",
+    "previewElements": "Elementos selecionados do preview",
+    "removePreviewElement": "Remover elemento {{label}} ({{selector}})",
     "remove": "Remover {{name}}",
     "message": "Mensagem",
     "messageIn": "Mensagem em {{title}}",
