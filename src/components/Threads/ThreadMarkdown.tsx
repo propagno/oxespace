@@ -1,7 +1,7 @@
 import { Children, Suspense, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
 import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Check, Copy, Info, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
+import { Check, Copy, Info, Lightbulb, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
@@ -180,13 +180,13 @@ function MarkdownImage({ src, alt, threadId }: { src?: string; alt?: string; thr
   return <span className="thread-markdown-reference" title={file ?? undefined}>{alt ? t('markdown.imageAlt', { alt }) : t('markdown.image')}</span>
 }
 
-type AlertKind = 'note' | 'important' | 'warning' | 'caution'
-/** The first line of a GitHub alert, read in any case as GitHub reads it: `[!NOTE]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`. */
-const ALERT_MARKER = /^\[!(note|important|warning|caution)\][ \t]*(?:\r?\n|$)/i
-const ALERT_ICONS = { note: Info, important: MessageSquareWarning, warning: TriangleAlert, caution: OctagonAlert } as const
+type AlertKind = 'note' | 'tip' | 'important' | 'warning' | 'caution'
+/** The first line of a GitHub alert, read in any case as GitHub reads it: `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`. */
+const ALERT_MARKER = /^\[!(note|tip|important|warning|caution)\][ \t]*(?:\r?\n|$)/i
+const ALERT_ICONS = { note: Info, tip: Lightbulb, important: MessageSquareWarning, warning: TriangleAlert, caution: OctagonAlert } as const
 
 /**
- * A quote whose first line is one of the four alert markers: its kind and the rest of the quote without the marker.
+ * A quote whose first line is one of the five alert markers: its kind and the rest of the quote without the marker.
  * Null for any other quote, which stays a plain quote.
  */
 function alertOf(children: ReactNode): { kind: AlertKind; rest: ReactNode[] } | null {
@@ -236,7 +236,7 @@ export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { 
     th: ({ children }) => <MarkdownCell as="th">{children}</MarkdownCell>,
     input: props => <MarkdownInput {...props} />,
     pre: ({ children }) => <Fence>{children}</Fence>,
-    // A quote that opens with [!NOTE], [!IMPORTANT], [!WARNING] or [!CAUTION] is a GitHub alert; any other stays a quote.
+    // A quote that opens with [!NOTE], [!TIP], [!IMPORTANT], [!WARNING] or [!CAUTION] is a GitHub alert; any other stays a quote.
     blockquote: ({ children }) => {
       const alert = alertOf(children)
       return alert ? <MarkdownAlert kind={alert.kind}>{alert.rest}</MarkdownAlert> : <blockquote>{children}</blockquote>

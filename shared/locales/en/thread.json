@@ -943,6 +943,7 @@
     "showDiagram": "Show diagram",
     "alert": {
       "note": "Note",
+      "tip": "Tip",
       "important": "Important",
       "warning": "Warning",
       "caution": "Caution"
