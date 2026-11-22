@@ -18,6 +18,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { formatDateTime } from '../../utils/formatTime'
+import { resolvePaneIdentity } from '../../utils/paneDisplay'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
@@ -211,7 +212,9 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       if (char === '\r' || char === '\n') {
         const command = typedCommandRef.current.trim()
         typedCommandRef.current = ''
-        const matchedProfile = inferAgentProfile(command, allProfiles)
+        const runtimeAgent = state.agentName ?? getStatus(pane.id).agentName
+        const hasBoundAgent = Boolean(pane.agentProfileId) || resolvePaneIdentity({ pane, profile: null, agent: runtimeAgent }).key !== 'shell'
+        const matchedProfile = hasBoundAgent ? null : inferAgentProfile(command, allProfiles)
         if (matchedProfile && matchedProfile.agentProfileId !== pane.agentProfileId) {
           if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, matchedProfile.agentProfileId, { preserveSession: true })
         } else if (command) {
@@ -221,7 +224,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       }
       if (char >= ' ') typedCommandRef.current += char
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, setPaneAgent, setLastIntent])
+  }, [allProfiles, getStatus, pane, setPaneAgent, setLastIntent, state.agentName])
 
   useEffect(() => {
     if (!autoStart || state.status !== 'idle') return
@@ -463,17 +466,17 @@ function toMessage(error: unknown): string {
   return humanizeError(error, tc('terminalPane.error'))
 }
 
-function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {
+export function inferAgentProfile(command: string, profiles: AgentProfile[]): AgentProfile | null {
   if (!command) return null
   const match = command.match(/^(?:&\s*)?(?:"([^"]+)"|'([^']+)'|([^\s]+))/)
-  const first = match?.[1] ?? match?.[2] ?? match?.[3]
-    ?? ''
+  const first = match?.[1] ?? match?.[2] ?? match?.[3] ?? ''
   const normalized = first.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
   if (!normalized) return null
 
   return profiles.find((profile) => {
     const profileCommand = profile.command.trim().split(/\s+/)[0]
+    if (!profileCommand) return false
     const profileExecutable = profileCommand.replace(/\\/g, '/').split('/').pop()?.replace(/\.(cmd|exe|bat|ps1)$/i, '').toLowerCase()
-    return profileExecutable === normalized || profile.provider === normalized || profile.parentProvider === normalized
+    return profileExecutable === normalized
   }) ?? null
 }

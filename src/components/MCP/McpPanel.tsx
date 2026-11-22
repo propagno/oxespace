@@ -8,6 +8,7 @@ const tc = i18n.getFixedT(null, 'code')
 import type { CreateMcpServerInput, McpHealthStatus, McpHttpConfig, McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { parseMcpJson } from './parseMcpJson'
+import { firstArgPlaceholder } from './mcpArgPlaceholder'
 import { McpCatalog } from './McpCatalog'
 import { McpImportPanel } from './McpImportPanel'
 import { catalogConfig, envTemplate, type McpCatalogEntry } from './connectorCatalog'
@@ -667,8 +668,8 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       setError(tc('mcp.form.required'))
       return
     }
-    const placeholder = /<[^<>s]+>/.exec(argsText)
-    if (placeholder) { setError(tc('mcp.form.placeholder', { value: placeholder[0] })); return }
+    const placeholder = firstArgPlaceholder(argsText)
+    if (placeholder) { setError(tc('mcp.form.placeholder', { value: placeholder })); return }
     const missing = (initial?.requiredEnv ?? []).filter(key => !parsedEnv[key])
     if (missing.length) { setError(tc('mcp.form.missing', { names: missing.join(', ') })); return }
     setBusy(true)

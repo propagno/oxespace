@@ -15,6 +15,6 @@
 .delegated-work-list h4 { margin: 16px 0 8px; font-size: var(--fs-xs); }
 .delegated-work-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .delegated-work-list li { display: flex; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); font-size: var(--fs-xs); }
-.delegated-work-list li strong { min-width: 88px; text-transform: capitalize; }
+.delegated-work-list li strong { min-width: 88px; }
 .delegated-work-list li span { color: var(--tx-secondary); overflow-wrap: anywhere; }
 .delegated-work-more { margin-top: var(--space-3); }

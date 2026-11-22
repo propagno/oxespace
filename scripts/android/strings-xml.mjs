@@ -3,7 +3,8 @@
  * is translated the same way as the desktop and tests/i18n-catalog.test.ts keeps both languages aligned.
  *
  * `home.title` becomes `home_title`; `{{name}}` becomes a positional argument numbered by its first appearance in
- * English, so every language passes the same arguments; keys ending in `_one`, `_other`… become one `<plurals>`.
+ * English, so every language passes the same arguments (`{{name, number}}`, i18next's number format, is a `%d`
+ * argument); keys ending in `_one`, `_other`… become one `<plurals>`.
  */
 export const STRINGS_XML_PATHS = {
   en: 'mobile/android/app/src/main/res/values/strings.xml',
@@ -11,7 +12,7 @@ export const STRINGS_XML_PATHS = {
 }
 
 const PLURAL = /_(zero|one|two|few|many|other)$/
-const PLACEHOLDER = /\{\{\s*([\w.]+)\s*\}\}/g
+const PLACEHOLDER = /\{\{\s*([\w.]+)\s*(?:,\s*(number)\s*)?\}\}/g
 
 function flatten(catalog, prefix = '') {
   const out = new Map()
@@ -44,11 +45,11 @@ function render(text, order, key, plural) {
   const formatted = PLACEHOLDER.test(text) || plural
   PLACEHOLDER.lastIndex = 0
   const escaped = escape(text, formatted)
-  return escaped.replace(PLACEHOLDER, (_, name) => {
+  return escaped.replace(PLACEHOLDER, (_, name, format) => {
     // The count goes last, after the named arguments, so callers pass (…named, count) and the quantity.
     if (plural && name === 'count') return `%${order.size + 1}$d`
     if (!order.has(name)) throw new Error(`[android] mobile:${key} uses {{${name}}}, which the English text doesn't have`)
-    return `%${order.get(name)}$s`
+    return `%${order.get(name)}$${format === 'number' ? 'd' : 's'}`
   })
 }
 

@@ -758,7 +758,7 @@
     "hint": "Dica: {{hint}}",
     "unknown": {
       "headline": "Não foi possível executar a instrução",
-      "recovery": "Leia os detalhes técnicos abaixo ou peça ao agente que os explique."
+      "recovery": "Revise a instrução ou peça ao agente que explique o erro."
     },
     "sqlState": {
       "23502": {
@@ -783,7 +783,7 @@
       },
       "42601": {
         "headline": "A instrução tem um erro de sintaxe",
-        "recovery": "Confira a grafia perto da posição indicada em Detalhes técnicos ou peça ao agente que a corrija."
+        "recovery": "Confira a sintaxe da instrução ou peça ao agente que a corrija."
       },
       "42703": {
         "headline": "Uma coluna da instrução não existe",
@@ -1257,5 +1257,29 @@
     "textSaved": "Escolha uma conexão à esquerda, ou adicione uma.",
     "newDatabase": "Novo banco local",
     "newDatabaseTitle": "Iniciar um contêiner PostgreSQL ou MongoDB e conectar a ele"
+  },
+  "contextMenu": {
+    "connectionLabel": "Ações da conexão {{name}}",
+    "tabLabel": "Ações da aba {{name}}",
+    "cellLabel": "Ações da célula {{column}}",
+    "sqlEditorLabel": "Menu do editor SQL",
+    "open": "Abrir",
+    "copyName": "Copiar nome",
+    "copiedName": "nome",
+    "copiedNameDone": "Nome copiado",
+    "closeOthers": "Fechar outras",
+    "closeToRight": "Fechar à direita",
+    "sortColumn": "Ordenar",
+    "copyColumnName": "Copiar nome da coluna",
+    "fitColumnWidth": "Ajustar largura",
+    "copyValue": "Copiar valor",
+    "copyRowJson": "Copiar linha (JSON)",
+    "viewDetail": "Ver detalhe",
+    "viewStructure": "Ver estrutura",
+    "openDefinition": "Abrir definição",
+    "runQuery": "Executar consulta",
+    "runSelection": "Executar seleção",
+    "cut": "Recortar",
+    "paste": "Colar"
   }
 }

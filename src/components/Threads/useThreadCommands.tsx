@@ -29,10 +29,13 @@ export function describeThreadCommand(command: ThreadCommand, provider: ThreadPr
   return builtIn?.description === command.description && i18n.exists(key) ? i18n.t(key as 'thread:commands.codex.model') : command.description
 }
 
-export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onError }: {
+export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onRunCommand, onError }: {
   snapshot: ThreadSnapshot | null; draft: string; textarea: RefObject<HTMLTextAreaElement | null>; pending: boolean
   run: (action: () => Promise<unknown>) => Promise<void>
-  onNewThread?: () => void; onAccounts?: () => void; onError: (message: string) => void
+  onNewThread?: () => void; onAccounts?: () => void
+  /** Runs a desktop command now, the way sending it would (ThreadView's runCommand). */
+  onRunCommand?: (text: string) => void
+  onError: (message: string) => void
 }) {
   const { t } = useTranslation('thread')
   const [catalog, setCatalog] = useState<ThreadCommandCatalog>({ commands: [] })
@@ -130,6 +133,14 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
   }
   const choose = (command: ThreadCommand) => {
     if (command.execution === 'unavailable') { onError(command.unavailableReason || t('commands.notIntegrated', { name: command.name })); return }
+    // "/new" takes no argument: chosen from the list it starts the new conversation at once, as its description says,
+    // instead of only writing "/new " into the composer (OXE-356). OxeChat's own entry opens the new conversation;
+    // the integrated one runs like sending it. An agent's own alias (a catalog command) still goes to the agent.
+    if (command.name === 'new' && !catalog.commands.some(native => native.name === 'new')) {
+      if (pending || !snapshot) return
+      if (command.execution === 'desktop' && onRunCommand) { clearCommand(); onRunCommand('/new'); return }
+      if (command.source === 'oxe') { if (onNewThread) { clearCommand(); onNewThread() } else onError(t('commands.newUnavailable')); return }
+    }
     if (localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name)) { executeLocal(`/${command.name}`); return }
     const suffix = token ? draft.slice(token[0].length).trimStart() : draft
     const text = `/${command.name} ${suffix}`
