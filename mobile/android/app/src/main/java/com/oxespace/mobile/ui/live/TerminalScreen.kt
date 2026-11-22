@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -42,11 +41,10 @@ import com.oxespace.mobile.ui.components.NoticeAction
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
+import com.oxespace.mobile.ui.components.OxeTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -194,15 +192,21 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) }
+                    OxeIconButton(
+                        icon = ImageVector.vectorResource(R.drawable.ic_back),
+                        contentDescription = stringResource(R.string.live_back),
+                        onClick = onBack,
+                    )
                 },
                 actions = {
                     if (!hidden) Box {
                         val label = stringResource(R.string.terminal_text_size)
-                        TextButton(
+                        OxeButton(
+                            text = "Aa",
                             onClick = { sizeMenu = true },
-                            modifier = Modifier.heightIn(min = 48.dp).clearAndSetSemantics { contentDescription = label; role = Role.Button; onClick { sizeMenu = true; true } },
-                        ) { Text("Aa") }
+                            kind = OxeButtonKind.GHOST,
+                            modifier = Modifier.clearAndSetSemantics { contentDescription = label; role = Role.Button; onClick { sizeMenu = true; true } },
+                        )
                         DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
                             for (option in TerminalTextSize.entries) {
                                 DropdownMenuItem(
@@ -349,9 +353,11 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
                         color = colors.textMuted,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { fit = !fit }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.terminal_fit_width), color = if (fitted) colors.textPrimary else colors.textMuted)
-                    }
+                    OxeButton(
+                        text = stringResource(R.string.terminal_fit_width),
+                        onClick = { fit = !fit },
+                        kind = if (fitted) OxeButtonKind.PRIMARY else OxeButtonKind.GHOST,
+                    )
                 }
             }
             Box(Modifier.weight(1f).fillMaxWidth().then(if (fitted) Modifier else Modifier.horizontalScroll(rememberScrollState()))) {
@@ -432,8 +438,8 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         AlertDialog(
             onDismissRequest = { askLines = 0 },
             text = { Text(pluralStringResource(R.plurals.terminal_paste_lines, askLines, askLines)) },
-            confirmButton = { TextButton(onClick = { askLines = 0; sendLine() }) { Text(stringResource(R.string.terminal_input_send)) } },
-            dismissButton = { TextButton(onClick = { askLines = 0 }) { Text(stringResource(R.string.terminal_cancel)) } },
+            confirmButton = { OxeButton(stringResource(R.string.terminal_input_send), onClick = { askLines = 0; sendLine() }) },
+            dismissButton = { OxeButton(stringResource(R.string.terminal_cancel), onClick = { askLines = 0 }, kind = OxeButtonKind.GHOST) },
         )
     }
     Column(
@@ -463,10 +469,10 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
             },
         )
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
-            OutlinedTextField(
+            OxeTextField(
                 value = text,
                 onValueChange = { text = it; message = null },
-                placeholder = { Text(stringResource(R.string.terminal_input_placeholder)) },
+                placeholder = stringResource(R.string.terminal_input_placeholder),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),

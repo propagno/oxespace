@@ -21,15 +21,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,11 +58,11 @@ import com.oxespace.mobile.ui.components.Skeleton
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
+import com.oxespace.mobile.ui.components.OxeTextField
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
-
-private val TouchTarget = 48.dp
 
 /** Says what the app is for and offers pairing; once paired, shows the connection and what to do about it. */
 @Composable
@@ -163,9 +159,11 @@ private fun Paired(
                 },
                 actions = {
                     Box {
-                        IconButton(onClick = { menu = true }) {
-                            Icon(ImageVector.vectorResource(R.drawable.ic_more), contentDescription = stringResource(R.string.live_menu))
-                        }
+                        OxeIconButton(
+                            icon = ImageVector.vectorResource(R.drawable.ic_more),
+                            contentDescription = stringResource(R.string.live_menu),
+                            onClick = { menu = true },
+                        )
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_enter_address)) }, onClick = { menu = false; askingAddress = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; confirmingUnpair = true })
@@ -226,9 +224,12 @@ private fun PairedBody(
     if (problem != null && !unpairOnPage) {
         OxeButton(stringResource(R.string.home_retry), onClick = onRetry, modifier = Modifier.fillMaxWidth())
         if (offerWifi) OxeButton(stringResource(R.string.home_open_wifi), onClick = onWifi, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.SECONDARY)
-        TextButton(onClick = onAddress, modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget)) {
-            Text(stringResource(R.string.home_enter_address))
-        }
+        OxeButton(
+            text = stringResource(R.string.home_enter_address),
+            onClick = onAddress,
+            modifier = Modifier.fillMaxWidth(),
+            kind = OxeButtonKind.GHOST,
+        )
     }
     if (unpairOnPage) {
         OxeButton(stringResource(R.string.home_unpair), onClick = onUnpair, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.SECONDARY)
@@ -247,12 +248,18 @@ fun UnpairDialog(desktopName: String, onConfirm: () -> Unit, onDismiss: () -> Un
         title = { Text(stringResource(R.string.home_unpair_confirm_title, desktopName)) },
         text = { Text(stringResource(R.string.home_unpair_confirm_body, desktopName), style = MaterialTheme.typography.bodyMedium) },
         confirmButton = {
-            TextButton(onClick = onConfirm, modifier = Modifier.heightIn(min = TouchTarget)) {
-                Text(stringResource(R.string.home_unpair), color = Oxe.colors.intentDangerFg)
-            }
+            OxeButton(
+                text = stringResource(R.string.home_unpair),
+                onClick = onConfirm,
+                kind = OxeButtonKind.DANGER,
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_cancel)) }
+            OxeButton(
+                text = stringResource(R.string.home_cancel),
+                onClick = onDismiss,
+                kind = OxeButtonKind.GHOST,
+            )
         },
     )
 }
@@ -267,25 +274,30 @@ fun AddressDialog(initial: String, onSave: (String) -> Boolean, onDismiss: () ->
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
                 Text(stringResource(R.string.home_address_hint), style = MaterialTheme.typography.bodyMedium)
-                OutlinedTextField(
+                OxeTextField(
                     value = text,
                     onValueChange = { text = it; invalid = false },
-                    label = { Text(stringResource(R.string.home_address_title)) },
+                    label = stringResource(R.string.home_address_title),
                     singleLine = true,
                     isError = invalid,
-                    supportingText = if (invalid) ({ Text(stringResource(R.string.home_address_invalid)) }) else null,
+                    supportingText = if (invalid) stringResource(R.string.home_address_invalid) else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (onSave(text)) onDismiss() else invalid = true }, modifier = Modifier.heightIn(min = TouchTarget)) {
-                Text(stringResource(R.string.home_save))
-            }
+            OxeButton(
+                text = stringResource(R.string.home_save),
+                onClick = { if (onSave(text)) onDismiss() else invalid = true },
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.heightIn(min = TouchTarget)) { Text(stringResource(R.string.home_cancel)) }
+            OxeButton(
+                text = stringResource(R.string.home_cancel),
+                onClick = onDismiss,
+                kind = OxeButtonKind.GHOST,
+            )
         },
     )
 }
