@@ -372,6 +372,7 @@
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
+        "paneProcess": "{{process}} · pane {{pane}}",
         "conversation": "{{agent}} · conversation {{conversation}}",
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
