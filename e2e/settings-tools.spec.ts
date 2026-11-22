@@ -14,7 +14,9 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
   const root = mkdtempSync(join(tmpdir(), 'oxe-settings-tools-'))
   const repo = join(root, 'tools-repo'); mkdirSync(repo)
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3')
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'db.sqlite3'),
+    // Settings opens from the first run too: no automatic click may race it (OXE-390).
+    OXESPACE_E2E_FIRST_RUN: 'stay'
   } })
   try {
     const page = await app.firstWindow()

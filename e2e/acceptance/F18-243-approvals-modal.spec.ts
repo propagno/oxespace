@@ -134,6 +134,9 @@ test('F18/#243 real app: past 50 a request is refused and logged; a closed pane 
     await page.getByTestId('wizard-dir-input').fill(profile.repo)
     await page.getByTestId('wizard-layout-card-2').click()
     await page.getByTestId('wizard-launch-btn').click()
+    // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace (as openRepo does).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    if (await page.getByTestId('first-run').isVisible()) await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
     const panes = page.locator('[data-testid="pane-container"]')
     await expect(panes).toHaveCount(2, { timeout: 20_000 })
     // The approval modal stands over the whole app once the first request arrives, so both panes start their script
