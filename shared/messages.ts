@@ -423,6 +423,8 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.summary.crash': Record<string, never>
   /** The app's name for who asks: the agent's provider and the pane's position, never the pane's chosen name. */
   'approvals.requester.pane': { agent: string; pane: number }
+  /** A pane running an ordinary process (not a recognized agent profile): executable basename and 1-based pane position. */
+  'approvals.requester.paneProcess': { process: string; pane: number }
   /** A conversation, by provider and a short id the app assigned. */
   'approvals.requester.conversation': { agent: string; conversation: string }
   /** The provider is not known to the app: never a provider name, so it cannot pass for a trusted one. */
@@ -814,6 +816,7 @@ export const MESSAGE_CODES = [
   'approvals.summary.preview.other',
   'approvals.summary.crash',
   'approvals.requester.pane',
+  'approvals.requester.paneProcess',
   'approvals.requester.conversation',
   'approvals.requester.unknownPane',
   'approvals.requester.unknownConversation',

@@ -498,7 +498,9 @@ describe('remote gateway: no internal token ever crosses it', () => {
     // native-session-files: A46 locates the agent's session files with fs, os and path; it holds no token.
     // native-history-page: A46 pages the session history from those files; it holds no token.
     // claude-project-path: A46 maps a workspace root to Claude's project folder with path and crypto; it holds no token.
-    const allowed = [/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/, /^electron\/main\/services\/agent-state\/pane-sessions$/, /^electron\/main\/services\/agent-state\/native-session-files$/, /^electron\/main\/services\/conversation\/native-history-page$/, /^electron\/main\/services\/usage\/claude-project-path$/]
+    // shell-command-rules: OXE-164's desktop impact summary splits a command with the approval rules' pure shell parser
+    // (default-shell-rules, shell-parse over web-tree-sitter); it holds no token.
+    const allowed = [/^electron\/main\/services\/conversation\/shell-command-rules$/,/^shared\//, /^electron\/main\/services\/remote\//, /^electron\/main\/db(\/index)?$/, /^electron\/main\/services\/oxequery\/secret-cipher$/, /^electron\/main\/services\/oxequery\/connection-store$/, /^electron\/main\/services\/conversation\/thread-history$/, /^electron\/main\/ipc\/main-message-error$/, /^electron\/main\/services\/agent-state\/pane-sessions$/, /^electron\/main\/services\/agent-state\/native-session-files$/, /^electron\/main\/services\/conversation\/native-history-page$/, /^electron\/main\/services\/usage\/claude-project-path$/]
     const repo = resolve(__dirname, '../..')
     const seen = new Set<string>()
     const visit = (file: string) => {

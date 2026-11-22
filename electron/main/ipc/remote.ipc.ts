@@ -6,6 +6,7 @@ import type { RemoteChange } from '../../../shared/types/remote'
 import type { RemoteAgentStateHost, RemoteAgentsHost, RemoteTerminalHost, RemoteThreadHost } from '../services/remote/desktop'
 import type { PaneConversationSource } from '../services/remote/pane-conversation'
 import type { RemoteGateway } from '../services/remote/gateway'
+import { mainLanguage } from '../i18n'
 import { parseNoInput } from '../services/remote/inputs'
 
 /**
@@ -22,7 +23,7 @@ export function registerRemoteIpc(db: AppDatabase, hosts?: { threads: Promise<Re
   const broadcast = (change: RemoteChange) => send(IPC_CHANNELS.remote.changed, change)
   const pairingFailed = (message: MainMessage) => send(IPC_CHANNELS.remote.pairingFailed, message)
   const load = () => gateway ??= Promise.all([import('../services/remote/gateway'), import('../services/remote/desktop'), hosts?.threads]).then(([{ RemoteGateway }, { createRemoteDesktop }, threads]) =>
-    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts?.paneConversations ? { paneConversations: hosts.paneConversations } : {}), ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState, agents: hosts.agents }) } : {}) }))
+    new RemoteGateway({ db, storage: safeStorage, broadcast, pairingFailed, ...(hosts?.paneConversations ? { paneConversations: hosts.paneConversations } : {}), ...(hosts && threads ? { desktop: createRemoteDesktop({ db, threads, terminals: hosts.terminals, agentState: hosts.agentState, agents: hosts.agents, language: () => mainLanguage() === 'pt-BR' ? 'pt-BR' : 'en' }) } : {}) }))
   const handle = (channel: string, run: (gateway: RemoteGateway, input: unknown) => unknown) => {
     ipcMain.handle(channel, async (_event: IpcMainInvokeEvent, input: unknown) => {
       return run(await load(), input)

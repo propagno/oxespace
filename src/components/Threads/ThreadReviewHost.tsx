@@ -1,11 +1,12 @@
 import type { RefObject } from 'react'
 import { Dialog as RadixDialog } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
+import type { PreviewElementRef } from '../../../shared/types/design-mode'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
+import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { ThreadChangesPanel } from './ThreadChangesPanel'
-import type { PlacesSend } from './PlacesChanges'
 import { clampToolPanelWidth, ToolPanelSplitter } from './threadToolPanels'
 
 /**
@@ -21,7 +22,7 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   workbench: RefObject<HTMLDivElement | null>
   onClose: () => void
   onReturnFocus: () => void
-  onSendToConversation: PlacesSend
+  onSendToConversation: (prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }) => void | boolean | Promise<void | boolean>
   /** Runs /compact in the conversation, for the session panel. */
   onCompact?: () => void
 }) {
