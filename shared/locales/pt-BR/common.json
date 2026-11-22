@@ -682,7 +682,7 @@
     "fallback": {
       "pending": "Precisa de você",
       "deny": "Negar no cartão do pedido",
-      "steer": "Direcionar no OxeChat",
+      "steer": "Orientar no OxeChat",
       "stop": "Parar no OxeChat",
       "new": "Nova conversa",
       "terminal": "Novo terminal",
@@ -791,7 +791,7 @@
         "events": "Mostrar os eventos da conversa",
         "rules": "Mostrar as regras de aprovação",
         "undo-last-turn": "Desfazer as alterações de arquivo do último turno",
-        "accounts": "Gerenciar as contas dos provedores"
+        "accounts": "Gerenciar as contas dos agentes"
       },
       "new-workspace": "Criar um workspace…",
       "workspace-settings": "Abrir as configurações do workspace",
@@ -936,7 +936,7 @@
       "events": "Eventos da conversa",
       "rules": "Regras de aprovação",
       "undo": "Desfazer as alterações de arquivo do último turno",
-      "accounts": "Contas dos provedores"
+      "accounts": "Contas dos agentes"
     },
     "menu": {
       "title": "Buscar",

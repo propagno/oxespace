@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { sanitizeTerminalPreview, stripTerminalControl } from '../utils/paneDisplay'
 import type { SessionLocation } from '../../shared/types/agent-hooks'
+import type { ShellCommandState } from '../../shared/types/ipc/terminal'
 
 export type TerminalPaneStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error'
 
@@ -26,6 +27,8 @@ export interface TerminalStateEntry {
   agentName: string | null
   /** Where the pane's agent reports working; null until it reports, and again once it ends. */
   location: SessionLocation | null
+  /** OXE-272 · Command execution state reported via OSC 633/133; null when the shell never emitted one. */
+  shellCommand: ShellCommandState | null
   /**
    * The shell is still running in main but no terminal view is rendering it
    * (its workspace fell out of the mounted MRU). The entry is deliberately
@@ -52,6 +55,8 @@ interface TerminalState {
   setAgentState: (paneId: string, state: import('../../shared/types/agent-state').AgentLifecycleState | null, source?: string | null, agent?: string | null) => void
   /** Directory the pane's agent reports working in. */
   setLocation: (paneId: string, location: SessionLocation | null) => void
+  /** OXE-272 · Latest shell command execution state from OSC 633/133. */
+  setShellCommand: (paneId: string, command: ShellCommandState | null) => void
   /** The view unmounted but the shell keeps running (workspace left the MRU). */
   markDetached: (paneId: string) => void
   /** Heartbeat from a session with no attached view — carries no output. */
@@ -76,6 +81,7 @@ const DEFAULT_STATE: TerminalStateEntry = {
   agentName: null,
   hookAt: null,
   location: null,
+  shellCommand: null,
   detached: false
 }
 
@@ -116,7 +122,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           // Only a mounted view drives a status change, so reaching here means
           // the pane is being rendered again.
           detached: false,
-          isWorking: status !== 'running' ? false : (state.panes[paneId]?.isWorking ?? false)
+          isWorking: status !== 'running' ? false : (state.panes[paneId]?.isWorking ?? false),
+          shellCommand: status === 'starting' || status === 'idle' ? null : (state.panes[paneId]?.shellCommand ?? null)
         }
       }
     }))
@@ -263,6 +270,16 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     set(current => ({
       panes: { ...current.panes, [paneId]: { ...(current.panes[paneId] ?? DEFAULT_STATE), location } }
     })),
+
+  setShellCommand: (paneId, command) =>
+    set(current => {
+      const entry = current.panes[paneId] ?? DEFAULT_STATE
+      const prev = entry.shellCommand
+      if (prev === command || (prev && command && prev.running === command.running && prev.startedAt === command.startedAt && prev.finishedAt === command.finishedAt && prev.exitCode === command.exitCode)) {
+        return current
+      }
+      return { panes: { ...current.panes, [paneId]: { ...entry, shellCommand: command } } }
+    }),
 
   markRead: (paneId) =>
     set(state => ({

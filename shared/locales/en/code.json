@@ -853,6 +853,10 @@
       "heuristic": "Estimated from terminal activity"
     },
     "decisionAnnounce": "{{agent}} needs your decision: {{reason}}",
+    "commandRunning": "Command running for {{duration}}",
+    "commandSucceeded": "Command succeeded in {{duration}}",
+    "commandFailed": "Command failed (exit {{code}}) in {{duration}}",
+    "commandFinished": "Command finished in {{duration}}",
     "decisionNotice": {
       "place": "Needs you · {{workspace}}",
       "body": "{{workspace}}: the agent stopped and is waiting for your approval or answer."
@@ -2416,6 +2420,7 @@
     "search": "Search native sessions",
     "searchPlaceholder": "Search message, model or session ID",
     "loading": "Loading native sessions…",
+    "loadingMore": "Loading more sessions…",
     "untitled": "{{provider}} session",
     "unknownModel": "Unknown model",
     "meta_one": "{{model}} · Updated {{updated}} · {{count}} request",

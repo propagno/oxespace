@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ConversationThread, ThreadAttachment, ThreadProjectSummary, ThreadSnapshot } from '../../shared/types/thread'
+import type { PreviewElementRef } from '../../shared/types/design-mode'
 import { cacheThreadSnapshot, retainThreadSnapshots } from './threadSnapshotCache'
 import { writeThreadListCache } from './threadListCache'
 import { threadConfirmation } from '../../shared/threadConfirmations'
 import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
 import { optimistic } from './optimistic'
 import { i18n } from '../i18n'
+import { SPLIT_RATIO_DEFAULT, clampSplitRatio } from '../components/Threads/threadGridLayout'
 
 // Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
 const storedDrafts = loadStoredDrafts()
@@ -18,6 +20,7 @@ interface ThreadState {
   snapshotCache: Record<string, ThreadSnapshot>; snapshotCacheOrder: string[]
   drafts: Record<string, string>; scrollPositions: Record<string, { top: number; following: boolean }>
   attachments: Record<string, ThreadAttachment[]>
+  previewElements: Record<string, PreviewElementRef[]>
   expanded: Record<string, boolean>; errors: Record<string, string>; loading: boolean
   /** False until the first load() settles, ok or failed: until then the sidebar paints its cached copy or a skeleton. */
   listLoaded: boolean
@@ -37,6 +40,11 @@ interface ThreadState {
   openSecondary: (id: string) => Promise<void>
   closeSecondary: () => void
   setActiveCell: (cell: 'primary' | 'secondary') => void
+  /** The primary column's share of the side-by-side grid, in percent (35–65). */
+  splitRatio: number
+  setSplitRatio: (ratio: number) => void
+  /** Opens a conversation in the focused column: beside the selected one when the secondary column is active. */
+  openInActiveCell: (id: string) => Promise<void>
   loadEarlier: (id: string) => Promise<number>
   load: () => Promise<void>
   refresh: (id: string) => Promise<void>
@@ -47,6 +55,9 @@ interface ThreadState {
   addAttachment: (id: string, attachment: ThreadAttachment) => void
   removeAttachment: (id: string, attachmentId: string) => void
   clearAttachments: (id: string) => void
+  addPreviewElement: (id: string, element: PreviewElementRef) => void
+  removePreviewElement: (id: string, elementId: string) => void
+  clearPreviewElements: (id: string) => void
   setScroll: (id: string, top: number, following: boolean) => void
   toggle: (id: string) => void
   adopt: (snapshot: ThreadSnapshot) => void
@@ -73,7 +84,7 @@ export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
 export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, previewElements: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   dropFromListCache: id => { if (get().listLoaded) saveListCache(get(), id) },
@@ -152,6 +163,14 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   },
   closeSecondary: () => set({ secondaryId: null, activeCell: 'primary' }),
   setActiveCell: activeCell => set({ activeCell }),
+  setSplitRatio: ratio => set({ splitRatio: clampSplitRatio(ratio) }),
+  openInActiveCell: async id => {
+    const state = get()
+    if (state.activeCell !== 'secondary' || !state.secondaryId) { await state.select(id); return }
+    // The selected conversation is already in the primary column: focus it there instead of a second copy.
+    if (id === state.selectedId) { set({ activeCell: 'primary' }); return }
+    await state.openSecondary(id)
+  },
   loadEarlier: async id => {
     const state = get()
     const current = state.selectedId === id ? state.snapshot : state.snapshotCache[id]
@@ -195,6 +214,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
       drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id) || id.startsWith('new:'))),
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
+      previewElements: Object.fromEntries(Object.entries(get().previewElements).filter(([id]) => valid.has(id))),
       scrollPositions: Object.fromEntries(Object.entries(get().scrollPositions).filter(([id]) => valid.has(id))) })
     // A failed load keeps the copy it has; a fresh list replaces it.
     if (!failed) saveListCache(get())
@@ -253,6 +273,9 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   addAttachment: (id, attachment) => set(state => ({ attachments: { ...state.attachments, [id]: [...(state.attachments[id] ?? []).filter(value => value.id !== attachment.id), attachment].slice(0, 8) } })),
   removeAttachment: (id, attachmentId) => set(state => ({ attachments: { ...state.attachments, [id]: (state.attachments[id] ?? []).filter(value => value.id !== attachmentId) } })),
   clearAttachments: id => set(state => ({ attachments: { ...state.attachments, [id]: [] } })),
+  addPreviewElement: (id, element) => set(state => ({ previewElements: { ...state.previewElements, [id]: [...(state.previewElements[id] ?? []).filter(value => value.id !== element.id && value.selector !== element.selector), element].slice(-6) } })),
+  removePreviewElement: (id, elementId) => set(state => ({ previewElements: { ...state.previewElements, [id]: (state.previewElements[id] ?? []).filter(value => value.id !== elementId) } })),
+  clearPreviewElements: id => set(state => ({ previewElements: { ...state.previewElements, [id]: [] } })),
   setScroll: (id, top, following) => set(state => ({ scrollPositions: { ...state.scrollPositions, [id]: { top, following } } })),
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
   adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {
@@ -263,10 +286,13 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
     return { ...(state.selectedId === snapshot.thread.id ? { snapshot } : {}), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, threads: state.threads.map(thread => thread.id === snapshot.thread.id ? snapshot.thread : thread) }
   })
-}), { name: 'oxe.thread-navigation', partialize: state => ({ selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds }), merge: (saved, current) => {
-  const value = saved as { selectedId?: unknown; secondaryId?: unknown; expanded?: Record<string, unknown>; hiddenProjects?: unknown; unreadIds?: unknown } | null
+}), { name: 'oxe.thread-navigation', partialize: state => ({ selectedId: state.selectedId, secondaryId: state.secondaryId, splitRatio: state.splitRatio, activeCell: state.activeCell, expanded: state.expanded, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds }), merge: (saved, current) => {
+  const value = saved as { selectedId?: unknown; secondaryId?: unknown; splitRatio?: unknown; activeCell?: unknown; expanded?: Record<string, unknown>; hiddenProjects?: unknown; unreadIds?: unknown } | null
   return { ...current, selectedId: typeof value?.selectedId === 'string' ? value.selectedId : null,
     secondaryId: typeof value?.secondaryId === 'string' ? value.secondaryId : null,
+    // Whatever was saved, the layout read back is one the screen can show.
+    splitRatio: typeof value?.splitRatio === 'number' ? clampSplitRatio(value.splitRatio) : SPLIT_RATIO_DEFAULT,
+    activeCell: value?.activeCell === 'secondary' && typeof value?.secondaryId === 'string' ? 'secondary' as const : 'primary' as const,
     hiddenProjects: Array.isArray(value?.hiddenProjects) ? value.hiddenProjects.filter((id): id is string => typeof id === 'string') : [],
     unreadIds: Array.isArray(value?.unreadIds) ? [...new Set(value.unreadIds.filter((id): id is string => typeof id === 'string'))] : [],
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }

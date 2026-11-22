@@ -28,6 +28,7 @@ const WAIT_MAX_MS = 100_000
 const START_WAIT_MS = 30_000
 const PROMPT_ACTIVITY_MS = 5_000
 const MODEL = /^[a-z0-9][a-z0-9._:/[\]-]{0,99}$/i
+const PROVIDER_MAX = 64
 
 /** Who started each helper pane, by execution key; in memory, like the executions themselves. */
 const owners = new Map<string, string>()
@@ -55,6 +56,49 @@ function profileProvider(pane: PaneLike | undefined, profiles: readonly AgentPro
   if (profile.parentProvider) return profile.parentProvider
   if (profile.provider === 'custom') return agentFromCommand(profile.command) ?? 'custom'
   return profile.provider
+}
+
+/** The profile `start` opens for a provider: the provider's own before a sub-profile of it. */
+function startProfile(provider: string | undefined, profiles: readonly AgentProfile[]): AgentProfile {
+  // A custom profile without a parent is a free command, maybe a shell, and its starter prompts it without asking.
+  const startable = profiles.filter(item => (item.parentProvider ?? item.provider) !== 'custom')
+  const matches = startable.filter(item => (item.parentProvider ?? item.provider) === provider)
+  const profile = matches.find(item => !item.parentProvider) ?? matches[0]
+  if (profile) return profile
+  const configured = [...new Set(startable.map(item => item.parentProvider ?? item.provider))].join(', ') || 'none'
+  throw new ActionRefused(`No agent profile is configured for that provider. Configured providers: ${configured}. The person can add one in Settings > Agents.`, 'unavailable')
+}
+
+/**
+ * What `start` runs, always from a configured profile. The delegation launcher resolves only Claude Code and Codex,
+ * which take a task on their command line; a helper pane needs just the executable, so the others use the profile's.
+ */
+function startLaunch(profile: AgentProfile, ctx: ToolContext): { executable: string; provider: string } {
+  const { profiles, resolve } = agents(ctx)
+  const provider = profile.parentProvider ?? profile.provider
+  const source = profile.parentProvider ? profiles().find(item => item.provider === provider) : profile
+  const command = source?.command?.trim()
+  if (provider === 'claude' || provider === 'codex' || !command) return resolve(profile.agentProfileId)
+  const quoted = /^"([^"]+)"$/.exec(command)
+  const executable = quoted?.[1] ?? command
+  if (/[\r\n\0]/.test(executable) || (!quoted && /\s/.test(executable))) {
+    throw new ActionRefused(`The ${provider} profile must name an executable without arguments (quote a path with spaces). The person can change it in Settings > Agents.`, 'unavailable')
+  }
+  return { executable, provider }
+}
+
+function modelArguments(provider: string, model: string | undefined): string[] {
+  if (!model) return []
+  if (provider === 'claude') return ['--model', model]
+  if (provider === 'codex') return ['-m', model]
+  throw new ActionRefused('model can be chosen only for claude and codex. Start this provider without it.', 'invalid')
+}
+
+/** An agent without a screen manifest or hooks never publishes a state, so waiting again would not help. */
+function startTimeoutNote(provider: string, state: PaneAgentState | null): string {
+  return state || provider === 'claude' || provider === 'codex'
+    ? 'Not ready yet; use oxespace_agents wait before prompting.'
+    : 'OXESpace has no state for this agent yet and may not be able to read it; use oxespace_agents read to check the pane before prompting.'
 }
 
 function paneProvider(pane: PaneLike | undefined, state: PaneAgentState | null, ctx: ToolContext, profiles: readonly AgentProfile[]): string | null {
@@ -204,30 +248,30 @@ export const AGENT_READ_TOOLS: ToolEntry[] = [
 export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
   domainTool('oxespace_agents_change', 'Start a helper agent in a new pane of your Code workspace and work with it: prompt it, stop its turn, close its pane. Nothing is sent to an agent that waits for an approval or answer, and there is no free key input.', {
     start: {
-      level: 'write', description: 'Open a new pane running Claude Code or Codex (the person\'s agent profile) and wait until it is ready for a prompt.',
-      properties: { agent: { type: 'string', enum: ['claude', 'codex'] }, model: { type: 'string', maxLength: 100, description: 'Optional model name.' }, name: { type: 'string', maxLength: 60, description: 'Label for the pane.' } },
+      level: 'write', description: 'Open a new pane running the person\'s agent profile for a configured provider and wait until it is ready for a prompt.',
+      properties: { agent: { type: 'string', maxLength: PROVIDER_MAX, description: 'A configured provider, for example claude, codex or antigravity.' }, model: { type: 'string', maxLength: 100, description: 'Optional model name (claude and codex only).' }, name: { type: 'string', maxLength: 60, description: 'Label for the pane.' } },
       required: ['agent'],
       run: async (args, scope, ctx) => {
         const workspaceId = codeWorkspace(scope)
         const service_ = agents(ctx)
-        const provider = str(args, 'agent', 10)
-        const profile = service_.profiles().find(item => (item.parentProvider ?? item.provider) === provider && !item.parentProvider) ?? service_.profiles().find(item => (item.parentProvider ?? item.provider) === provider)
-        if (!profile) throw new ActionRefused(`No ${provider} agent profile is configured. The person can add one in Settings > Agents.`, 'unavailable')
+        // Not str(): a malformed agent gets the same refusal, with the configured providers.
+        const requested = typeof args.agent === 'string' && args.agent.length <= PROVIDER_MAX ? args.agent : undefined
+        const profile = startProfile(requested, service_.profiles())
         const model = str(args, 'model', 100)
         if (model && !MODEL.test(model)) throw new ActionRefused('Invalid model name.', 'invalid')
         // B10: a pane is never named like the app; checked before the pane exists.
         const name = str(args, 'name', 60)?.replace(/[\r\n]+/g, ' ')
         const reserved = name ? reservedNameIn(name) : null
         if (reserved) throw new ActionRefused(englishText(mainMessage('agents.name.reserved', { name: reserved })), 'reserved-name')
-        const resolved = service_.resolve(profile.agentProfileId)
+        const resolved = startLaunch(profile, ctx)
+        const modelArgs = modelArguments(resolved.provider, model)
         const { paneId: created } = service_.createPane(workspaceId)
         service_.workspaceChanged(service_.setPaneAgent(created, profile.agentProfileId, name ?? null))
         owners.set(created, scope.actor.key)
-        const modelArgs = model ? (resolved.provider === 'claude' ? ['--model', model] : ['-m', model]) : []
         await service_.terminal.start({ paneId: created, workspaceId, launch: { executable: resolved.executable, args: [...service_.mcpArgs(resolved.provider), ...modelArgs] } })
         const ready = await service_.state.waitFor(created, ['idle', 'done', 'blocked'], START_WAIT_MS)
         if (ready.state?.state === 'blocked') return { paneId: created, ready: false, state: ready.state, note: 'The agent shows a dialog (for example folder trust) that the person must answer before it can take a prompt.' }
-        return { paneId: created, ready: !ready.timedOut && Boolean(ready.state), state: ready.state, ...(ready.timedOut ? { note: 'Not ready yet; use oxespace_agents wait before prompting.' } : {}) }
+        return { paneId: created, ready: !ready.timedOut && Boolean(ready.state), state: ready.state, ...(ready.timedOut ? { note: startTimeoutNote(resolved.provider, ready.state) } : {}) }
       }
     },
     prompt: {

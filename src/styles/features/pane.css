@@ -80,6 +80,15 @@
 .pane-branch-badge.is-moved { color: var(--accent); }
 .pane-branch-badge[data-tone='warning']:not(.is-moved) { color: var(--intent-warning-fg); }
 
+.pane-command-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.pane-command-meta[data-state='success'] { color: var(--intent-success-fg); }
+.pane-command-meta[data-state='failure'] { color: var(--intent-danger-fg); }
+
 .pane-status-dot {
   width: 7px;
   height: 7px;
