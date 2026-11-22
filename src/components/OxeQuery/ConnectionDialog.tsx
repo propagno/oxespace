@@ -271,9 +271,20 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
 
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
+  // A new connection that Test had to save is not kept when the dialog closes without Save & open:
+  // its secrets were stored only so main could test them. An existing connection is never deleted here.
+  const dismiss = (): void => {
+    if (busy) return
+    close()
+    if (!editing && savedId) {
+      const id = savedId
+      void oq('connections.delete', { id }).then(() => useOxeQueryStore.getState().forgetConnection(id), () => undefined)
+    }
+  }
+
   const title = editing ? t('form.editTitle') : t('connections.new')
   const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : draft?.containerRef ? t('form.fromContainerDraft', { name: draft.containerRef }) : t('form.description')
-  return <Dialog title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
+  return <Dialog title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={dismiss}
     actions={{
       // Test and Connect without saving stay at the start of the footer as secondary buttons (U1 extra slot), never in a menu.
       extra: <>

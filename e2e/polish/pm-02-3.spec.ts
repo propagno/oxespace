@@ -25,7 +25,12 @@ test('PM-02·3 in the app: the title bar is 40px in comfortable and the bell\'s 
     await openDemoWorkspace(page, workspaceRoot)
     // The active, visible pane is marked seen on every OS, so its needs-you entry is read: signal a pane that is not the active one.
     const [signalled, ...others] = await terminals(page)
-    await page.locator(`[data-terminal-pane="${others.at(-1)}"]`).click()
+    const focused = others.at(-1)
+    await page.locator(`[data-terminal-pane="${focused}"]`).click()
+    // The click makes that pane active in the grid at once, but the terminal store that decides "seen" follows one
+    // animation frame later (App.tsx): wait for the active pane, then two frames, so the signal never meets the old one.
+    await expect(page.locator(`.pane-container.active[data-pane-id="${focused}"]`)).toBeVisible()
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
     await setAgentState(app, { paneId: signalled, state: 'waiting', agent: 'claude', hookEvent: 'PermissionRequest' })
     const bar = page.locator('header.workbench-titlebar')
     const count = page.getByTestId('activity-count')

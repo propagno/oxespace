@@ -6,10 +6,7 @@ import { errorMessage, oq } from './client'
 import { organize } from './connection-list-model'
 import { useOxeQueryStore } from './oxequery.store'
 import { copyText } from './catalog'
-import { AnchoredMenu, type MenuEntry } from '../../ui'
-import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { Button } from '../../ui/Button'
-import { EmptyState, ErrorState } from '../../ui/Display'
+import { AnchoredMenu, Button, ConfirmDialog, EmptyState, ErrorState, IconButton, SidebarFilter, SidebarGroup, SidebarRow, SidebarSection, type MenuEntry } from '../../ui'
 import { exportConnections, importConnections } from './connection-transfer'
 
 /** The saved connections: favorites, recent, groups, search, and the actions on one connection. */
@@ -65,36 +62,84 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
 
   const row = (connection: OxeQueryConnection, section: string): ReactElement => {
     const key = `${section}:${connection.id}`
-    return <div key={key} className="oq-connection-row" data-connection-key={key}
-      onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setMenuKey(key) }}>
-      <button type="button" className="oq-nav-item" aria-current={activeTab === `connection:${connection.id}` ? 'page' : undefined}
-        title={`${connection.engine} · ${connection.host}:${connection.port}${connection.ephemeral ? ` · ${t('connections.notSaved')}` : ''}`}
-        onClick={() => store().openConnection(connection)}
-        onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setMenuKey(key) } }}>
-        {connection.color ? <i className="oq-color-dot" data-color={connection.color} aria-hidden="true" /> : <Database size={14} aria-hidden="true" />}
-        <span>{connection.name}</span>
-        <small className="oq-engine-tag">{connection.engine === 'mongodb' ? 'Mongo' : 'PG'}</small>
-        {connection.environment !== 'local' && <small className={connection.environment === 'prod' ? 'oq-prod' : 'oq-env'}>{t(`environment.short.${connection.environment}`)}</small>}</button>
-      {menuKey === key && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuKey(null) }} label={t('contextMenu.connectionLabel', { name: connection.name })}
-        items={connectionMenuItems(connection)} returnFocus={() => [...(listRef.current?.querySelectorAll<HTMLElement>('[data-connection-key]') ?? [])].find(el => el.dataset.connectionKey === key)?.querySelector<HTMLElement>('.oq-nav-item') ?? null} />}
-      {!connection.ephemeral && <>
-        <button type="button" className="oq-icon" aria-pressed={connection.favorite} aria-label={t(connection.favorite ? 'connections.unfavorite' : 'connections.favorite', { name: connection.name })} title={t(connection.favorite ? 'connections.removeFavorite' : 'connections.addFavorite')}
-          data-on={connection.favorite || undefined} onClick={() => void run(() => oq('connections.update', { id: connection.id, favorite: !connection.favorite }))}><Star size={12} aria-hidden="true" /></button>
-        <button type="button" className="oq-icon" aria-label={t('connections.editNamed', { name: connection.name })} title={t('common.edit')} onClick={() => store().openDialog(connection)}><Pencil size={12} aria-hidden="true" /></button>
-        <button type="button" className="oq-icon" aria-label={t('connections.duplicateNamed', { name: connection.name })} title={t('connections.duplicate')} onClick={() => void run(() => oq('connections.duplicate', { id: connection.id }))}><Copy size={12} aria-hidden="true" /></button>
-      </>}
-      <button type="button" className="oq-icon" aria-label={t(connection.ephemeral ? 'connections.closeNamed' : 'connections.deleteNamed', { name: connection.name })} title={t(connection.ephemeral ? 'common.close' : 'common.delete')}
-        onClick={() => connection.ephemeral ? void remove(connection.id) : setPendingDelete({ id: connection.id, name: connection.name, ephemeral: false })}><Trash2 size={12} aria-hidden="true" /></button>
-    </div>
+    const tooltip = `${connection.engine} · ${connection.host}:${connection.port}${connection.ephemeral ? ` · ${t('connections.notSaved')}` : ''}`
+    return (
+      <div key={key} className="oq-connection-row" data-connection-key={key}
+        onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setMenuKey(key) }}>
+        <SidebarRow
+          className="oq-connection-item"
+          onKeyDownCapture={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); setMenuKey(key) } }}
+          selected={activeTab === `connection:${connection.id}`}
+          lead={connection.color ? <i className="oq-color-dot" data-color={connection.color} aria-hidden="true" /> : <Database size={14} aria-hidden="true" />}
+          title={<span title={tooltip}>{connection.name}</span>}
+          meta={<span className="oq-connection-meta">
+            <small className="oq-engine-tag">{connection.engine === 'mongodb' ? 'Mongo' : 'PG'}</small>
+            {connection.environment !== 'local' && <small className={connection.environment === 'prod' ? 'oq-prod' : 'oq-env'}>{t(`environment.short.${connection.environment}`)}</small>}
+          </span>}
+          onSelect={() => store().openConnection(connection)}
+          actions={<>
+            {!connection.ephemeral && <>
+              <IconButton
+                size="sm"
+                className={connection.favorite ? 'oq-fav-on' : undefined}
+                aria-pressed={connection.favorite}
+                label={t(connection.favorite ? 'connections.unfavorite' : 'connections.favorite', { name: connection.name })}
+                title={t(connection.favorite ? 'connections.removeFavorite' : 'connections.addFavorite')}
+                data-on={connection.favorite || undefined}
+                icon={<Star size={12} aria-hidden="true" />}
+                onClick={() => void run(() => oq('connections.update', { id: connection.id, favorite: !connection.favorite }))}
+              />
+              <IconButton
+                size="sm"
+                label={t('connections.editNamed', { name: connection.name })}
+                title={t('common.edit')}
+                icon={<Pencil size={12} aria-hidden="true" />}
+                onClick={() => store().openDialog(connection)}
+              />
+              <IconButton
+                size="sm"
+                label={t('connections.duplicateNamed', { name: connection.name })}
+                title={t('connections.duplicate')}
+                icon={<Copy size={12} aria-hidden="true" />}
+                onClick={() => void run(() => oq('connections.duplicate', { id: connection.id }))}
+              />
+            </>}
+            <IconButton
+              size="sm"
+              label={t(connection.ephemeral ? 'connections.closeNamed' : 'connections.deleteNamed', { name: connection.name })}
+              title={t(connection.ephemeral ? 'common.close' : 'common.delete')}
+              icon={<Trash2 size={12} aria-hidden="true" />}
+              onClick={() => connection.ephemeral ? void remove(connection.id) : setPendingDelete({ id: connection.id, name: connection.name, ephemeral: false })}
+            />
+          </>}
+        />
+        {menuKey === key && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuKey(null) }} label={t('contextMenu.connectionLabel', { name: connection.name })}
+          items={connectionMenuItems(connection)} returnFocus={() => [...(listRef.current?.querySelectorAll<HTMLElement>('[data-connection-key]') ?? [])].find(el => el.dataset.connectionKey === key)?.querySelector<HTMLElement>('[data-ui="sidebar-row"]') ?? null} />}
+      </div>
+    )
   }
 
   return <section ref={listRef} aria-label={t('connections.title')}>
-    <h3>{t('connections.title')}<span className="oq-h3-actions">
-      <button type="button" className="oq-icon" data-oq-action="importConnections" aria-label={t('connections.import')} title={t('connections.importTitle')} onClick={() => void run(importConnections)}><Upload size={13} aria-hidden="true" /></button>
-      <button type="button" className="oq-icon" data-oq-action="exportConnections" aria-label={t('connections.export')} title={t('connections.exportTitle')} disabled={connections.length === 0}
-        onClick={() => void run(exportConnections)}><Download size={13} aria-hidden="true" /></button>
-      <button type="button" className="oq-icon" data-oq-action="newConnection" aria-label={t('connections.new')} title={t('connections.new')} onClick={() => store().openDialog(null)}><Plus size={14} aria-hidden="true" /></button></span></h3>
-    {connections.length > 4 && <label className="oq-conn-search"><Search size={12} aria-hidden="true" /><input type="search" aria-label={t('connections.search')} placeholder={t('connections.search')} value={search} onChange={event => setSearch(event.target.value)} /></label>}
+    <SidebarSection
+      label={t('connections.title')}
+      action={<span className="oq-h3-actions">
+        <IconButton size="sm" data-oq-action="importConnections" label={t('connections.import')} title={t('connections.importTitle')} icon={<Upload size={13} aria-hidden="true" />} onClick={() => void run(importConnections)} />
+        <IconButton size="sm" data-oq-action="exportConnections" label={t('connections.export')} title={t('connections.exportTitle')} disabled={connections.length === 0} icon={<Download size={13} aria-hidden="true" />} onClick={() => void run(exportConnections)} />
+        <IconButton size="sm" data-oq-action="newConnection" label={t('connections.new')} title={t('connections.new')} icon={<Plus size={14} aria-hidden="true" />} onClick={() => store().openDialog(null)} />
+      </span>}
+    />
+    {connections.length > 4 && (
+      <SidebarFilter
+        className="oq-conn-search"
+        icon={<Search size={12} aria-hidden="true" />}
+        aria-label={t('connections.search')}
+        placeholder={t('connections.search')}
+        value={search}
+        onChange={event => setSearch(event.target.value)}
+        onClear={() => setSearch('')}
+        clearLabel={t('common.clear', { defaultValue: 'Clear' })}
+      />
+    )}
     {connectionsError && <ErrorState compact title={t('connections.loadFailed')} message={connectionsError} onRetry={() => void store().refreshConnections()} retryLabel={t('common.tryAgain')} />}
     {failure && <ErrorState compact title={failure} />}
     {pendingDelete && <ConfirmDialog danger title={t('connections.deleteTitle', { name: pendingDelete.name })} confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')}
@@ -106,8 +151,16 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
       const headed = sections.length > 1 || section.id === 'results' || section.id.startsWith('group:')
       const open = !collapsed.has(section.id)
       return <div key={section.id} className="oq-conn-section" data-section={section.id}>
-        {headed && <button type="button" className="oq-conn-heading" aria-expanded={open} onClick={() => toggleSection(section.id)}>
-          {open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}{section.title}<small>{section.connections.length}</small></button>}
+        {headed && (
+          <SidebarGroup
+            className="oq-conn-heading"
+            aria-expanded={open}
+            lead={open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
+            title={section.title}
+            meta={section.connections.length}
+            onSelect={() => toggleSection(section.id)}
+          />
+        )}
         {(open || !headed) && section.connections.map(connection => row(connection, section.id))}
       </div>
     })}
