@@ -2,14 +2,17 @@ import { create } from 'zustand'
 
 export interface OpenRequestState {
   requestId: string | null
-  open: (id: string) => void
+  /** The conversation the opened request belongs to, when the opener knows it (OXE-332): lets the host load it uncached. */
+  threadId: string | null
+  open: (id: string, threadId?: string) => void
   close: () => void
 }
 
 export const useOpenRequest = create<OpenRequestState>(set => ({
   requestId: null,
-  open: id => set({ requestId: id }),
-  close: () => set({ requestId: null })
+  threadId: null,
+  open: (id, threadId) => set({ requestId: id, threadId: threadId ?? null }),
+  close: () => set({ requestId: null, threadId: null })
 }))
 
 export function startOpenRequestListener(): () => void {

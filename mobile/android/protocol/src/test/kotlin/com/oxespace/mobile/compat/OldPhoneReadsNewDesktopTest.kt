@@ -112,7 +112,7 @@ class OldPhoneReadsNewDesktopTest {
             RemotePendingRequest(
                 threadId = "t-1", workspaceId = "w-1", threadTitle = "Fix login", requestId = "r-1", generation = 2, kind = "approval",
                 title = "Run npm test", detail = "npm test", command = "npm test", cwd = ".", reason = "verify", toolName = "bash",
-                paths = listOf("src/a.ts"), risk = "critical", warnings = listOf("Deletes files"), redacted = 1,
+                paths = listOf("src/a.ts"), risk = "critical", desktopImpactSummary = "Remove a volume", warnings = listOf("Deletes files"), redacted = 1,
                 questions = listOf(
                     RemotePendingRequest.Question(
                         id = "q-1", header = "Pick", question = "Which?", multiple = true, required = true,
