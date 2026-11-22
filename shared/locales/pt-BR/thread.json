@@ -962,6 +962,7 @@
     "showDiagram": "Ver o diagrama",
     "alert": {
       "note": "Nota",
+      "tip": "Dica",
       "important": "Importante",
       "warning": "Atenção",
       "caution": "Cuidado"
