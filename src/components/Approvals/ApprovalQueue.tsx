@@ -21,9 +21,8 @@ import { mainAllowStyle } from './approvalsRules'
 import sharedStyles from './Approvals.module.css'
 import styles from './ApprovalQueue.module.css'
 import { ImpactFacts, titleIncludesWhere } from './ImpactFacts'
+import { HoldToApprove } from './HoldToApprove'
 import { formatPreviewCell, isChangedPreviewCell } from './ImpactPreview'
-
-const QUEUE_HOLD_MS = 1_200
 
 export interface ApprovalQueueItem {
   request: ThreadRequest
@@ -140,7 +139,6 @@ export function ApprovalQueue({
   const listboxRef = useRef<HTMLDivElement>(null)
   const approveRef = useRef<HTMLButtonElement>(null)
   const withoutHoldCancelRef = useRef<HTMLButtonElement>(null)
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onRespondRef = useRef(onRespond)
   // OXE-337: one answer at a time; a failed answer (or Always allow) is shown, never swallowed.
   const sendingRef = useRef(false)
@@ -166,6 +164,7 @@ export function ApprovalQueue({
   useEffect(() => {
     onRespondRef.current = onRespond
   }, [onRespond])
+  const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (initialSelectedId) setSelectedId(initialSelectedId)
@@ -179,21 +178,10 @@ export function ApprovalQueue({
   const selectedIndex = sorted.length === 0 ? -1 : Math.max(0, sorted.findIndex(item => item.request.id === selectedId))
   const selected = selectedIndex >= 0 ? sorted[selectedIndex] : null
 
-  const clearHold = (): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
+  // The hold leaves with its request: hand its focus back to the list (which also cancels it), so the keys keep working.
+  const leaveHold = (): void => {
+    if (holdRef.current?.contains(document.activeElement)) listboxRef.current?.focus()
   }
-
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current !== null) {
-        clearTimeout(holdTimerRef.current)
-        holdTimerRef.current = null
-      }
-    }
-  }, [selected?.request.id])
 
   useEffect(() => {
     let alive = true
@@ -247,23 +235,16 @@ export function ApprovalQueue({
     }
   }, [selectedDbId])
 
-  const startHold = (requestId: string): void => {
-    clearHold()
-    holdTimerRef.current = setTimeout(() => {
-      holdTimerRef.current = null
-      void send(requestId, { decision: 'accept' })
-    }, QUEUE_HOLD_MS)
-  }
-
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.ctrlKey || event.metaKey || event.altKey || withoutHoldOpen) return
+    // A confirmation's keys bubble here through its portal: they never answer the request behind it.
+    if (event.ctrlKey || event.metaKey || event.altKey || withoutHoldOpen || alwaysAllowOpen) return
     const target = event.target as HTMLElement | null
     if (target?.closest('input, textarea, select')) return
     const lower = event.key.toLowerCase()
     if (lower === 'j' || event.key === 'ArrowDown') {
       if (sorted.length === 0) return
       event.preventDefault()
-      clearHold()
+      leaveHold()
       const nextIndex = Math.min(sorted.length - 1, selectedIndex + 1)
       setSelectedId(sorted[nextIndex].request.id)
       return
@@ -271,7 +252,7 @@ export function ApprovalQueue({
     if (lower === 'k' || event.key === 'ArrowUp') {
       if (sorted.length === 0) return
       event.preventDefault()
-      clearHold()
+      leaveHold()
       const prevIndex = Math.max(0, selectedIndex - 1)
       setSelectedId(sorted[prevIndex].request.id)
       return
@@ -280,11 +261,13 @@ export function ApprovalQueue({
     if ((lower === 'd' || lower === 'a') && selected?.request.kind === 'question') return
     if (lower === 'd' && selected) {
       event.preventDefault()
-      clearHold()
+      leaveHold()
       void send(selected.request.id, { decision: 'decline' })
       return
     }
     if (lower === 'a' && selected) {
+      // The hold button handled this A itself.
+      if (event.isDefaultPrevented()) return
       event.preventDefault()
       if (event.repeat) return
       const impact = selected.request.impact
@@ -293,16 +276,13 @@ export function ApprovalQueue({
         return
       }
       if (impact?.risk === 'critical') {
-        startHold(selected.request.id)
+        // A pressed anywhere in the queue is a press on the shared hold: it has the focus, so release or blur cancels it.
+        const hold = holdRef.current?.querySelector('button')
+        hold?.focus()
+        hold?.dispatchEvent(new window.KeyboardEvent('keydown', { key: event.key, bubbles: true, cancelable: true }))
         return
       }
       approveRef.current?.focus()
-    }
-  }
-
-  const handleKeyUp = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.key.toLowerCase() === 'a') {
-      clearHold()
     }
   }
 
@@ -355,7 +335,6 @@ export function ApprovalQueue({
     <div
       className={styles.queue}
       onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
     >
       <div className={styles.left}>
         <header className={styles.leftHeader}>
@@ -395,7 +374,7 @@ export function ApprovalQueue({
                   aria-selected={isSelected}
                   className={styles.option}
                   onClick={() => {
-                    clearHold()
+                    leaveHold()
                     setSelectedId(item.request.id)
                   }}
                 >
@@ -576,16 +555,17 @@ export function ApprovalQueue({
             </Button>
             {isCriticalIrreversible ? (
               <>
-                <Button
-                  variant="danger"
-                  onPointerDown={() => startHold(selected.request.id)}
-                  onPointerUp={clearHold}
-                  onPointerCancel={clearHold}
-                  onPointerLeave={clearHold}
-                >
-                  {t('f7.preview.holdToApprove')}
-                  <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
-                </Button>
+                <div ref={holdRef}>
+                  <HoldToApprove
+                    key={selected.request.id}
+                    label={t('f7.preview.holdToApprove')}
+                    shortcut="A"
+                    onComplete={() => {
+                      leaveHold()
+                      void send(selected.request.id, { decision: 'accept' })
+                    }}
+                  />
+                </div>
                 <Button
                   variant="ghost"
                   onClick={() => {
