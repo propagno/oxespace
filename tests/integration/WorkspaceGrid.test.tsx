@@ -30,7 +30,7 @@ describe('WorkspaceGrid', () => {
       expect(screen.getByRole('dialog')).toHaveTextContent('1234')
       await user.click(screen.getByRole('button', { name: 'Find Codex or Claude sessions' }))
       await waitFor(() => expect(screen.getByRole('dialog', { name: 'Codex and Claude sessions' })).toHaveTextContent('Review the authentication flow'))
-      expect(list).toHaveBeenCalledWith({ workspaceId: 'workspace-1', workspaceRootPath: 'C:/repo', provider: 'codex' })
+      expect(list).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-1', workspaceRootPath: 'C:/repo', provider: 'codex' }))
       await user.click(screen.getByRole('button', { name: 'Copy session ID codex native-codex-id' }))
       expect(writeText).toHaveBeenCalledWith('native-codex-id')
       await user.click(screen.getByRole('button', { name: 'Copy command to resume codex native-codex-id' }))

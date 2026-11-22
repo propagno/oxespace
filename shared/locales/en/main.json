@@ -143,8 +143,7 @@
         "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
         "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       },
-      "restore": {
-      }
+      "restore": {}
     },
     "app": {
       "connectivity": {
@@ -373,6 +372,7 @@
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
+        "paneProcess": "{{process}} · pane {{pane}}",
         "conversation": "{{agent}} · conversation {{conversation}}",
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
@@ -697,5 +697,28 @@
     "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
     "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again.",
     "no-contact": "Code expired; no phone reached this computer. Use the same Private network, or allow OXESpace in the firewall."
+  },
+  "remoteImpact": {
+    "removeVolume": "Remove a volume",
+    "removeContainer": "Remove container resource",
+    "manageContainer": "Manage container",
+    "writeProdDb": "Write to production database",
+    "writeDb": "Write to database",
+    "forcePush": "Force-push to remote",
+    "publish": "Publish package or release",
+    "mergePr": "Merge pull request",
+    "push": "Push to remote",
+    "editOutsideProject": "Edit files outside project",
+    "editFiles": "Edit project files",
+    "deleteFiles": "Delete files",
+    "discardGit": "Discard git changes",
+    "modifyInfra": "Modify infrastructure",
+    "changePermissions": "Change permissions",
+    "formatDisk": "Format or overwrite disk",
+    "stopSystemOrProcess": "Stop system or process",
+    "runRemoteCode": "Run remote or dynamic code",
+    "runIrreversibleCommand": "Run irreversible command",
+    "runReadOnlyCommand": "Run read-only command",
+    "runCommand": "Run command"
   }
 }
