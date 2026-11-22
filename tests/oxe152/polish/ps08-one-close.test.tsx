@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsCenter, type AppPage } from '../../../src/components/Settings/SettingsCenter'
 import { changeLanguage } from '../../../src/i18n'
 
@@ -25,8 +25,17 @@ const PAGE_TITLE_ID: Readonly<Record<string, string>> = {
   about: 'settings-updates-title'
 }
 
+const originalOxe = window.oxe
+
+beforeEach(() => {
+  // Diagnostics reads this bridge when it mounts; without it the page is only the Settings error boundary.
+  const snapshot = { generatedAt: 1, appVersion: '1.5.2', platform: 'win32', arch: 'x64', nodeVersion: '22', electronVersion: '44', workspaceCount: 0, checks: [] }
+  window.oxe = { ...originalOxe, diagnostics: { getSnapshot: async () => snapshot } } as unknown as typeof window.oxe
+})
+
 afterEach(async () => {
   cleanup()
+  window.oxe = originalOxe
   await changeLanguage('en')
 })
 
