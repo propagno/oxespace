@@ -730,7 +730,7 @@
     "hint": "Hint: {{hint}}",
     "unknown": {
       "headline": "The statement could not run",
-      "recovery": "Read the technical details below, or ask the agent to explain them."
+      "recovery": "Review the statement, or ask the agent to explain the error."
     },
     "sqlState": {
       "23502": {
@@ -755,7 +755,7 @@
       },
       "42601": {
         "headline": "The statement has a syntax error",
-        "recovery": "Check the spelling near the position shown under Technical details, or ask the agent to fix it."
+        "recovery": "Check the statement syntax, or ask the agent to fix it."
       },
       "42703": {
         "headline": "A column in the statement does not exist",
@@ -1215,5 +1215,29 @@
     "textSaved": "Choose a connection on the left, or add one.",
     "newDatabase": "New local database",
     "newDatabaseTitle": "Start a PostgreSQL or MongoDB container and connect to it"
+  },
+  "contextMenu": {
+    "connectionLabel": "Connection actions for {{name}}",
+    "tabLabel": "Tab actions for {{name}}",
+    "cellLabel": "Cell actions for {{column}}",
+    "sqlEditorLabel": "SQL editor menu",
+    "open": "Open",
+    "copyName": "Copy name",
+    "copiedName": "name",
+    "copiedNameDone": "Name copied",
+    "closeOthers": "Close others",
+    "closeToRight": "Close to the right",
+    "sortColumn": "Sort",
+    "copyColumnName": "Copy column name",
+    "fitColumnWidth": "Fit width",
+    "copyValue": "Copy value",
+    "copyRowJson": "Copy row (JSON)",
+    "viewDetail": "View detail",
+    "viewStructure": "View structure",
+    "openDefinition": "Open definition",
+    "runQuery": "Run query",
+    "runSelection": "Run selection",
+    "cut": "Cut",
+    "paste": "Paste"
   }
 }

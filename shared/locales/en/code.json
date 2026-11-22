@@ -944,6 +944,7 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
     "toggleAll": "Toggle all workspace terminals",
@@ -1010,6 +1011,7 @@
     "externalTitle": "Allow sites outside this computer; they keep their own frame security headers",
     "external": "External",
     "zoom": "Zoom",
+    "zoomLevel": "Zoom · {{zoom}}%",
     "zoomOut": "Zoom out",
     "zoomIn": "Zoom in",
     "viewport": {
@@ -1023,6 +1025,7 @@
     "designHint": "Design Mode — click an element in the page, or press Escape to cancel.",
     "capture": "Copy the preview to the clipboard",
     "openExternal": "Open in your browser",
+    "moreActions": "More browser actions",
     "access": {
       "title": "Allow agents to inspect this page?",
       "allow": "Allow access",

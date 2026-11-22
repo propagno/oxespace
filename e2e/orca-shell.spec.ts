@@ -61,7 +61,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
 
     // Move focus out of xterm first: Ctrl+E is a shell line-editing key while
     // the terminal owns focus, and an application shortcut elsewhere.
-    await page.locator('[data-ui="sidebar-section"]').last().click()
+    await page.locator('[data-ui="sidebar-header"] strong').last().click()
     await page.keyboard.press('Control+e')
     await expect(page.getByTestId('workspace-editor-panel')).toBeVisible()
     await page.getByTestId('workspace-editor-panel').getByRole('button', { name: 'Expand panel' }).click()

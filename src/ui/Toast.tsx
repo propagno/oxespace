@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useState, type ReactElement } from 'react'
+import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import { create } from 'zustand'
+import { chunk, lazyFrom } from '../lib/chunk'
 
 export interface ToastInput {
   title: string
@@ -77,15 +78,15 @@ export function dismissToast(id: number): void {
 }
 
 /** The stack is its own chunk: the boot bundle carries only the store above. */
-const loadStack = () => import('./ToastStack')
-const ToastStack = lazy(loadStack)
+export const TOAST_STACK_CHUNK = chunk(() => import('./ToastStack'))
+const ToastStack = lazyFrom(TOAST_STACK_CHUNK, module => module.default)
 /** Without requestIdleCallback, the stack loads this long after the first paint. */
 export const PRELOAD_FALLBACK_MS = 2_000
 
 /** Loads the stack when the app is idle after its first paint; `ready` runs once it is in. Returns the cancel. */
 export function preloadToastStack(ready: () => void): () => void {
   let live = true
-  const load = (): void => { void loadStack().then(() => { if (live) ready() }) }
+  const load = (): void => { void TOAST_STACK_CHUNK.load().then(() => { if (live) ready() }, () => undefined) }
   const idle = (globalThis as { requestIdleCallback?: (run: () => void, options?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void })
   if (idle.requestIdleCallback) {
     const id = idle.requestIdleCallback(load, { timeout: PRELOAD_FALLBACK_MS })

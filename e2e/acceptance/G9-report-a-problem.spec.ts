@@ -19,12 +19,12 @@ for (const locale of ['en-US', 'pt-BR'] as const) {
         dialog.showMessageBoxSync = (() => 0) as typeof dialog.showMessageBoxSync
         shell.openExternal = (async (url: string) => { (g.opened as string[]).push(url) }) as typeof shell.openExternal
       })
-      const button = page.locator('.app-menu-button').first()
-      await expect(button, 'the menu button is in the title bar').toBeVisible()
+      // Since 1.5.0 (#760) the menus sit inline beside the logo (File … Help); the compact menu button is for narrow widths.
+      const button = page.locator('.app-menubar-inline').getByRole('button', { name: en ? 'Help' : 'Ajuda', exact: true })
+      await expect(button, 'Help is in the title bar').toBeVisible()
       const box = await button.boundingBox()
-      console.log('G9-BUTTON', locale, JSON.stringify({ box, label: await button.getAttribute('aria-label') }))
+      console.log('G9-BUTTON', locale, JSON.stringify({ box, label: await button.innerText() }))
       await button.click()
-      await page.getByRole('menuitem', { name: en ? /^Help/ : /^Ajuda/ }).first().click()
       await page.getByRole('menuitem', { name: en ? /Report a problem/ : /Relatar um problema/ }).first().click()
       const report = page.getByRole('dialog', { name: en ? 'Report a problem' : /Relatar um problema/ })
       await expect(report, 'the report dialog opens').toBeVisible({ timeout: 10_000 })
@@ -33,11 +33,8 @@ for (const locale of ['en-US', 'pt-BR'] as const) {
       expect.soft(await app.evaluate(() => (globalThis as Record<string, unknown>).opened), 'nothing is sent or opened by itself').toEqual([])
       await page.keyboard.press('Escape')
       await expect.soft(report, 'Escape closes it').toHaveCount(0)
-      // By keyboard: focus the button, open with Enter, arrow to Help, into it, to the item.
+      // By keyboard: focus Help, open it with Enter, arrow to the item.
       await button.focus(); await page.keyboard.press('Enter')
-      const help = page.getByRole('menuitem', { name: en ? /^Help/ : /^Ajuda/ }).first()
-      for (let i = 0; i < 10 && !(await help.evaluate(e => e === document.activeElement).catch(() => false)); i++) await page.keyboard.press('ArrowDown')
-      await page.keyboard.press('ArrowRight')
       const item = page.getByRole('menuitem', { name: en ? /Report a problem/ : /Relatar um problema/ }).first()
       for (let i = 0; i < 12 && !(await item.evaluate(e => e === document.activeElement).catch(() => false)); i++) await page.keyboard.press('ArrowDown')
       await page.keyboard.press('Enter')
