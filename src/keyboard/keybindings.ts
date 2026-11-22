@@ -70,13 +70,13 @@ export const KEYBINDINGS = [
   { id: 'code.designMode', chords: ['Mod+Shift+S'], scope: 'code' },
   { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
   { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
-  { id: 'code.splitLayout', chords: ['F2'], scope: 'code' },
+  { id: 'code.splitLayout', chords: ['F2'], scope: 'code', when: context => !inTextField(context.target) },
   { id: 'pane.splitRight', chords: ['Mod+Shift+\\'], scope: 'code' },
   { id: 'pane.splitDown', chords: ['Mod+Shift+-'], scope: 'code' },
   { id: 'pane.maximize', chords: ['Mod+Shift+Enter'], scope: 'code' },
 
   // Terminal (Code panes)
-  { id: 'terminal.restart', chords: ['Mod+R'], scope: 'terminal' },
+  { id: 'terminal.restart', chords: ['Mod+R'], scope: 'terminal', when: context => !inTextField(context.target) },
   { id: 'terminal.slash', chords: ['Mod+/'], scope: 'terminal' },
   { id: 'terminal.zoomIn', chords: ['Mod+=', 'Mod+Shift+='], scope: 'terminal', when: context => inXterm(context.target) },
   { id: 'terminal.zoomOut', chords: ['Mod+-'], scope: 'terminal', when: context => inXterm(context.target) },
@@ -203,6 +203,16 @@ type HandlerMap = Partial<Record<KeybindingId, KeybindingHandler>>
 
 const layers: Array<{ current: HandlerMap }> = []
 
+/**
+ * A modal dialog is open. Radix's modal Dialog sets no aria-modal: it marks the rest of the page data-aria-hidden,
+ * which a popover (also role="dialog") does not. The Thread's side drawer is left out: its own shortcuts close it.
+ */
+function modalIsOpen(): boolean {
+  if (document.querySelector('[role="dialog"][aria-modal="true"], [role="alertdialog"]')) return true
+  return document.querySelector('[data-aria-hidden="true"]') !== null
+    && document.querySelector('[role="dialog"][data-state="open"]:not(.thread-review-host)') !== null
+}
+
 function blocked(target: Element | null, binding: Keybinding): boolean {
   // The native CLI owns its keymap, including Ctrl+R, Ctrl+B and Ctrl+J, but not the ways out of it.
   if (target?.closest('.thread-native-cli') && !binding.everyTerminal) return true
@@ -218,7 +228,12 @@ export function dispatchKeybinding(event: KeyboardEvent): boolean {
     if (blocked(target, binding)) continue
     if (!scopeIsActive(binding.scope, context.view)) continue
     if (!chordsFor(binding.id as KeybindingId).some(chord => matchesChord(event, parsed(chord)))) continue
-    if (binding.when && !binding.when(context)) continue
+    // The document is asked only for a key that matched, so typing does not query it.
+    if ((binding.when && !binding.when(context)) || (!binding.fixed && modalIsOpen())) {
+      // A restart held back keeps Mod+R from Electron's default menu, where it reloads the window.
+      if (binding.id === 'terminal.restart' && matchesChord(event, parsed('Mod+R'))) event.preventDefault()
+      continue
+    }
     // The most recently mounted handler for an id wins.
     for (let index = layers.length - 1; index >= 0; index--) {
       const handler = layers[index].current[binding.id as KeybindingId]

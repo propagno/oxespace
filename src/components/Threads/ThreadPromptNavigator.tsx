@@ -6,6 +6,11 @@ import type { ThreadTimelineItem } from './threadTimelineModel'
 /** Offset below the top edge where a jump places its row and where the turn being read is measured. */
 const READING_LINE_PX = 48
 
+/** True when Alt+Up/Down belong to the conversation: editors, terminals and the side panel keep their own. */
+export function ownsPromptKeys(active: Element | null): boolean {
+  return Boolean(active?.closest('.thread-workbench')) && !active?.closest('.xterm, .monaco-editor, .cm-editor, .thread-review-host')
+}
+
 /** Indexes of the rows that hold a person's prompt, in timeline order. */
 export function promptRowIndexes(rows: Pick<ThreadTimelineItem, 'event'>[]): number[] {
   return rows.flatMap((row, index) => row.event.type === 'message' && row.event.role === 'user' ? [index] : [])
@@ -23,7 +28,7 @@ export function adjacentPrompt(prompts: number[], current: number | undefined, d
 /**
  * Keeps the prompt of the turn being read in view: when that prompt has scrolled above the top of the
  * conversation, it is shown in a strip there; clicking it scrolls back to it. Alt+Up and Alt+Down move to
- * the previous or next prompt from anywhere in the conversation, the composer included.
+ * the previous or next prompt from the conversation, the composer included (see ownsPromptKeys).
  */
 export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
   rows: ThreadTimelineItem[]
@@ -62,7 +67,7 @@ export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.altKey || event.ctrlKey || event.metaKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
-      if (!scrollRef.current?.closest('.thread-workbench')?.contains(document.activeElement)) return
+      if (!ownsPromptKeys(document.activeElement) || !scrollRef.current?.closest('.thread-workbench')?.contains(document.activeElement)) return
       const target = adjacentPrompt(prompts, current < 0 ? undefined : current, event.key === 'ArrowUp' ? -1 : 1)
       if (target === undefined) return
       event.preventDefault()

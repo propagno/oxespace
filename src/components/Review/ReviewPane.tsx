@@ -146,6 +146,8 @@ export function ReviewPane({ workspaceId, rootPath }: ReviewPaneProps): ReactEle
   // actually changes.
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
+      // With a modifier the key is another shortcut (Ctrl+K, Ctrl+J, Ctrl+R).
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       const t = e.target as HTMLElement
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return
       if (e.key === 'j') { e.preventDefault(); handleNavigate(1) }
