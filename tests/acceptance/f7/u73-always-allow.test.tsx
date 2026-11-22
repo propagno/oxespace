@@ -100,7 +100,8 @@ describe('U7.3 · Always allow, with the provider rule', () => {
   test('a Codex rule says it is for this Codex session only', { timeout: 30_000 }, async () => {
     mockMain({ ok: true, rule: CODEX_RULE.rule })
     await renderCard(CODEX_RULE)
-    await openAlwaysAllow()
+    // liberação de teste congelado: coordenação 22/11, constraint do 8e: a regra de sessão do Codex não promete o projeto; o item é o f7.card.alwaysAllowEllipsis
+    await openAlwaysAllow('Always allow…')
     expect(within(await screen.findByRole('dialog')).getByText('Allowed for this Codex session only.')).toBeInTheDocument()
   })
 
