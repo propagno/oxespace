@@ -277,8 +277,8 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
     actions={{
       // Test and Connect without saving stay at the start of the footer as secondary buttons (U1 extra slot), never in a menu.
       extra: <>
-        <Button variant="secondary" loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
-        {!editing && <Button variant="secondary" disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
+        <Button variant="secondary" loading={busy} aria-label={t('form.testLabel')} onClick={() => void check()}>{t('form.test')}</Button>
+        {!editing && <Button variant="secondary" disabled={busy} aria-label={t('form.connectOnceLabel')} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
       </>,
       cancel: { label: t('common.cancel'), disabled: busy },
       // The form submits itself, so the browser still checks the required fields.
@@ -299,7 +299,7 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
           <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}
       </section>}
 
-      <div className="oq-connect-by"><span>{t('form.connectBy')}</span>
+      <div className="oq-connect-by"><span>{t('form.mode')}</span>
         <SegmentedControl label={t('form.connectBy')} value={mode} onChange={switchMode} options={[{ value: 'host', label: t('form.host') }, { value: 'url', label: t('form.url') }]} />
       </div>
 
