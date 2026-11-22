@@ -45,7 +45,7 @@ import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
 import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
 import { useCompactFeedback } from './useCompactFeedback'
-import type { NowLineAction } from './NowLine'
+import type { NowLineAction } from './threadMoreActions'
 import { useOpenRequest } from '../Approvals/openRequest'
 import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
@@ -108,7 +108,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), actionInFlight = useRef(false)
   // T40: its own PR closed or merged, the conversation offers to archive itself (src/components/Threads/usePrArchiveOffer.ts).
   const onPrStatus = usePrArchiveOffer(snapshot?.thread)
-  const hasPullRequest = Boolean(snapshot && prOfThread?.threadId === snapshot.thread.id)
+  const hasPullRequest = Boolean(snapshot && prOfThread?.threadId === snapshot.thread.id && prOfThread.url)
   const scroll = useThreadScrollAnchor(snapshot, shownId)
   const { timeline, scrollEnd } = scroll
   // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
