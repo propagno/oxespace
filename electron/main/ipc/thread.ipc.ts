@@ -105,7 +105,10 @@ export function registerThreadIpc(
         : workspaceCwd(context.workspaceId, context.paneId)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
-    openExternal: async url => { if (!openExternalOrRecord(url)) throw Error('Login browser link unavailable') },
+    // A failed system open is the login's failure: the account shows it instead of waiting for a browser.
+    openExternal: url => new Promise<void>((resolve, reject) => {
+      if (!openExternalOrRecord(url, Date.now(), system => { system.then(resolve, reject) })) reject(Error('Login browser link unavailable'))
+    }),
     changed: status => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.agentAccount.changed, status) },
     beforeLogin: async provider => {
       const service = await manager
