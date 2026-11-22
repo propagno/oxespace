@@ -68,8 +68,10 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, onResend, disabled }: {
+export function ThreadFailureCard({ event, latest, current = latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, onResend, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
+  /** The failure the conversation stands on: the last result, with no turn running since. An older one is history. */
+  current?: boolean
   refreshUsage?: () => Promise<ThreadUsage>
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
   onRetry?: (restoreFiles: boolean) => void
@@ -107,11 +109,11 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
     catch { setRefreshError(t('failure.refreshFailed')) }
     finally { refreshing.current = false; setLoading(false) }
   }
-  return <details className="thread-turn-error thread-failure-card" data-ui="failure-card" open={latest}>
+  return <details className="thread-turn-error thread-failure-card" data-ui="failure-card" data-danger={code === 'authentication' || undefined} open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
       {code === 'authentication'
-        ? <p>{t('failure.reconnect')}</p>
+        ? <p role={current ? 'alert' : undefined}>{t('failure.reconnect')}</p>
         : <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : event.error ?? t('failure.couldNotFinish')}</p>}
       {(failure?.detail || failure?.providerCode || failure?.httpStatus) && <details className="thread-failure-technical">
         <summary>{t('failure.diagnostic')}</summary>
@@ -123,8 +125,9 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">{t('failure.staleUsage')}</p>}
       {refreshError && <ErrorState compact title={refreshError} />}
       {/* The card is a failed sign-in's one owner (no strip above the composer, AG-11 6.2), so its way back is here: Reconnect
-          opens the agent accounts. Signed out it offers no retry; connected again, Try again resends the last prompt. */}
-      {code === 'authentication' && (onReconnect || onResend) && <footer>
+          opens the agent accounts. Signed out it offers no retry; connected again, Try again resends the last prompt.
+          Only the current failure announces and offers them: an older one is history (LOGIN A, OXE-388). */}
+      {code === 'authentication' && current && (onReconnect || onResend) && <footer>
         {onReconnect && <Button size="sm" variant={onResend ? 'secondary' : 'primary'} disabled={disabled} onClick={onReconnect}>{t('view.reconnect')}</Button>}
         {onResend && <Button size="sm" variant="primary" title={t('view.resendTitle')} disabled={disabled} onClick={onResend}>{t('failure.retry')}</Button>}
       </footer>}

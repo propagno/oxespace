@@ -1,5 +1,7 @@
 .thread-turn-error.thread-failure-card { border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); overflow: hidden; }
 .thread-turn-error.thread-failure-card>summary { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+.thread-turn-error.thread-failure-card[data-danger] { border-color: var(--intent-danger-border); }
+.thread-failure-card[data-danger]>summary>svg:first-child { color: var(--intent-danger-fg); }
 .thread-failure-card>summary>strong { color: var(--tx-primary); font-weight: 500; }
 .thread-failure-card>summary>time { margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-failure-card>summary>svg:last-child { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
