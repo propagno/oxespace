@@ -143,8 +143,7 @@
         "scriptUnsupported": "O OxeChat não inicia agentes por .cmd, .ps1 ou .bat. Escolha o executável nas Configurações de agentes.",
         "nativeMissing": "Falta o executável nativo (codex.exe) no Codex instalado. Reinstale o Codex ou escolha o codex.exe nas Configurações de agentes."
       },
-      "restore": {
-      }
+      "restore": {}
     },
     "app": {
       "connectivity": {
@@ -374,6 +373,7 @@
       },
       "requester": {
         "pane": "{{agent}} · painel {{pane}}",
+        "paneProcess": "{{process}} · painel {{pane}}",
         "conversation": "{{agent}} · conversa {{conversation}}",
         "mcpServer": "Servidor MCP {{server}}",
         "app": "OXESpace",
@@ -700,5 +700,28 @@
     "peer-closed": "O celular desistiu do pareamento antes da sua resposta. Mostre um novo código para tentar de novo.",
     "reserved-name": "O celular se deu um nome que só o OXESpace pode usar. Renomeie-o no celular e tente de novo.",
     "no-contact": "Código expirado; nenhum celular chegou aqui. Use a mesma rede Particular ou libere o OXESpace no firewall."
+  },
+  "remoteImpact": {
+    "removeVolume": "Remover um volume",
+    "removeContainer": "Remover recurso de contêiner",
+    "manageContainer": "Gerenciar contêiner",
+    "writeProdDb": "Escrever no banco de produção",
+    "writeDb": "Escrever no banco de dados",
+    "forcePush": "Fazer force-push no remoto",
+    "publish": "Publicar pacote ou release",
+    "mergePr": "Fazer merge de pull request",
+    "push": "Enviar alterações ao remoto",
+    "editOutsideProject": "Editar arquivos fora do projeto",
+    "editFiles": "Editar arquivos do projeto",
+    "deleteFiles": "Apagar arquivos",
+    "discardGit": "Descartar alterações do git",
+    "modifyInfra": "Alterar infraestrutura",
+    "changePermissions": "Alterar permissões",
+    "formatDisk": "Formatar ou sobrescrever disco",
+    "stopSystemOrProcess": "Parar sistema ou processo",
+    "runRemoteCode": "Executar código remoto ou dinâmico",
+    "runIrreversibleCommand": "Executar comando irreversível",
+    "runReadOnlyCommand": "Executar comando de leitura",
+    "runCommand": "Executar comando"
   }
 }

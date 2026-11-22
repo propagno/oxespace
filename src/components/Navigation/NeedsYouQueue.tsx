@@ -5,7 +5,7 @@ import type { AgentKey, AgentRequestSummary, AgentRow, AgentsChange, AgentsOverv
 import type { ThreadRequestResponse } from '../../../shared/types/thread'
 import { shortcutLabel } from '../../keyboard/keybindings'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, Kbd, StatusSignal } from '../../ui'
+import { Button, FieldError, Kbd, StatusSignal } from '../../ui'
 import { openActivityTarget } from '../Activity/openActivityTarget'
 import { useOpenRequest } from '../Approvals/openRequest'
 import styles from './NeedsYouQueue.module.css'
@@ -118,9 +118,10 @@ function queueItems(agents: readonly AgentRow[]): QueueItem[] {
   return [...requests, ...panes]
 }
 
-/** Only a conversation's approval that main did not judge critical is answered from the queue. */
+/** OXE-337: only a conversation's approval main judged low risk and did not mark irreversible is answered here. */
 const decidable = (item: QueueItem | undefined): boolean =>
-  item?.kind === 'request' && item.row.kind === 'thread' && item.request.kind === 'approval' && item.request.risk !== 'critical'
+  item?.kind === 'request' && item.row.kind === 'thread' && item.request.kind === 'approval' && item.request.risk === 'low'
+  && item.request.reversible !== false
 
 const ROW_CAP = 3
 const GROUP_KEY = { 'needs-you': 'f7.queue.group.needsYou', failed: 'f7.queue.group.failed', working: 'f7.queue.group.working' } as const
@@ -141,6 +142,8 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
   const lastIndex = useRef(0)
   const sent = useRef(new Set<string>())
   const [active, setActive] = useState(0)
+  // OXE-337: a failed answer is shown, never swallowed; the row stays so it can be answered again.
+  const [failedAnswer, setFailedAnswer] = useState(false)
   const [place, setPlace] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
   const items = queueItems(agents)
   const failed = agents.filter(row => row.state === 'failed')
@@ -190,7 +193,13 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     const respond = oxe()?.thread?.respond
     if (sent.current.has(id) || typeof respond !== 'function') return
     sent.current.add(id)
-    void Promise.resolve(respond(item.row.id, id, { decision })).catch(() => { sent.current.delete(id) })
+    setFailedAnswer(false)
+    let pending: Promise<void> | void
+    try { pending = respond(item.row.id, id, { decision }) } catch (error) { pending = Promise.reject(error) }
+    void Promise.resolve(pending).catch(() => {
+      sent.current.delete(id)
+      setFailedAnswer(true)
+    })
   }
 
   const goToPane = (row: AgentRow): void => {
@@ -201,6 +210,20 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     openActivityTarget({ type: 'pane', workspaceId, paneId: row.id }, view => {
       if (view === 'code') window.dispatchEvent(new CustomEvent('oxe:open-pane', { detail: { paneId: row.id, workspaceId } }))
     })
+  }
+
+  // OXE-332: the request opens with its conversation (so the host can load it uncached) and the queue closes.
+  const seeImpact = (item: QueueItem): void => {
+    if (item.kind !== 'request') return
+    openRequest(item.request.requestId, item.row.id)
+    onClose(false)
+  }
+
+  // OXE-333: a question is answered in its conversation (OXE-332's event), never from the impact dialog.
+  const answerInConversation = (item: QueueItem): void => {
+    if (item.kind !== 'request') return
+    onClose(false)
+    window.dispatchEvent(new CustomEvent('oxe:open-thread', { detail: { threadId: item.row.id } }))
   }
 
   const focusedIndex = (): number => itemRefs.current.findIndex(item => item?.contains(document.activeElement) ?? false)
@@ -231,7 +254,8 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
     // Enter on the item itself (a button keeps its own Enter): the impact of a request the queue cannot decide.
     if (key === 'Enter' && event.target === itemRefs.current[index] && item.kind === 'request' && !decidable(item)) {
       event.preventDefault()
-      openRequest(item.request.requestId)
+      if (item.request.kind === 'question') answerInConversation(item)
+      else seeImpact(item)
     }
   }
 
@@ -297,7 +321,9 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
                       <Button size="md" variant="primary" onClick={() => decide(item, 'accept')}>{t('f7.card.allowOnce')}</Button>
                     </>
                   ) : (
-                    <Button size="md" variant="secondary" onClick={() => openRequest(item.request.requestId)}>{t('f7.card.seeImpact')}</Button>
+                    item.request.kind === 'question'
+                      ? <Button size="md" variant="primary" onClick={() => answerInConversation(item)}>{t('f7.queue.answerInConversation')}</Button>
+                      : <Button size="md" variant="secondary" onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
                   )}
                 </div>
               </div>
@@ -305,6 +331,7 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
           })}
         </section>
       )}
+      {failedAnswer && <FieldError className={styles.more}>{t('f7.queue.respondFailed')}</FieldError>}
       {capped('failed', failed)}
       {capped('working', working)}
       {items.length > 0 && nextShortcut && (

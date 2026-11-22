@@ -16,7 +16,7 @@ export function SeenSitesSetting(): ReactElement {
   return <SettingsSection title={t('general.privacy')}>
     <SettingRow testId="seen-sites-setting" label={t('general.seenSites.label')}
       description={<>{t('general.seenSites.hint')}<br /><span data-testid="seen-sites-count">{t('general.seenSites.count', { count })}</span></>}
-      control={<Button disabled={count === 0} onClick={() => {
+      control={<Button disabled={count === 0} aria-label={t('general.seenSites.clearLabel')} onClick={() => {
         const cleared = clearSeenHosts()
         setCount(0)
         toast({ title: t('general.seenSites.cleared', { count: cleared }), intent: 'success', duration: 3000 })

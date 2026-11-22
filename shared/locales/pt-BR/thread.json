@@ -18,6 +18,7 @@
     "connect": "Conectar",
     "signOut": "Sair",
     "verify": "Verificar",
+    "connected": "Conectada",
     "message": {
       "checking": "Verificando a conexão…",
       "activeTurn": "Pare o turno ativo antes de reconectar.",
@@ -385,6 +386,8 @@
   },
   "composer": {
     "attachments": "Anexos",
+    "previewElements": "Elementos selecionados do preview",
+    "removePreviewElement": "Remover elemento {{label}} ({{selector}})",
     "remove": "Remover {{name}}",
     "message": "Mensagem",
     "messageIn": "Mensagem em {{title}}",
@@ -1417,6 +1420,8 @@
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
     "filterPlaceholder": "Filtrar…",
+    "filterUnread": "Não lidas",
+    "filterByState": "Filtrar por estado",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
@@ -1456,6 +1461,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
@@ -1694,7 +1700,7 @@
     "welcomeTitle": "Comece sua primeira conversa",
     "welcomeBody": "Descreva o que você quer fazer. O agente ganha sua própria branch e worktree, e tudo o que ele executa, consulta ou altera fica junto da conversa.",
     "newConversation": "Nova conversa",
-    "providerAccounts": "Contas dos provedores",
+    "providerAccounts": "Contas dos agentes",
     "sendingMessage": "Enviando mensagem",
     "attachments": "Anexos da mensagem",
     "kilobytes": "{{size}} KB",
@@ -2269,6 +2275,7 @@
       "allClearTitle": "Tudo em dia",
       "approvalRules": "Regras de aprovação",
       "openTask": "Abrir a conversa",
+      "answerInConversation": "Responder na conversa",
       "closeQueue": "Fechar aprovações",
       "panelLabel": "O que precisa de você",
       "group": {
@@ -2281,7 +2288,8 @@
       "more": "+{{rest}} mais",
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
-      "goToPane": "Ir ao terminal"
+      "goToPane": "Ir ao terminal",
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
@@ -2313,6 +2321,7 @@
       "runsProjectCodeGeneric": "Este comando executa código deste projeto.",
       "toastAdded": "Sempre permitido: {{command}} · revogue em O que os agentes podem fazer",
       "toastOpen": "Abrir",
+      "failed": "Não foi possível adicionar a regra. Nada foi aprovado.",
       "reason": {
         "destructive": "Sempre permitir não é oferecido para comandos destrutivos.",
         "network": "Sempre permitir não é oferecido para comandos de rede.",
