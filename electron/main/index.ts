@@ -4,7 +4,7 @@ import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from '
 import { APP_VERSION } from './services/app-info'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
-import { RendererRecoveryPolicy } from './renderer-recovery'
+import { RendererRecoveryPolicy, showRendererGiveUp } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { mainLanguage, systemLocale, tMain } from './i18n'
@@ -914,9 +914,7 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      const options: Electron.MessageBoxOptions = { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
-        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 }
-      void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options).then(shown => { if (!mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, shown) }).catch(() => {})
+      void showRendererGiveUp(mainWindow, { app, t: tMain, show: options => dialog.showMessageBox(mainWindow, options) })
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
