@@ -4,7 +4,7 @@ import { attachmentFile } from '../WebPreview/previewAttachment'
 import { threadAgentName, threadProductName } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
 import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -60,8 +60,12 @@ import { quoteMarkdown } from './threadComposerState'
 import { ThreadContextMenu } from './ThreadContextMenu'
 import { loadDelegationPanel, loadResumeData, type ThreadPanelState } from './threadCommandPanels'
 
-const ThreadCommandDialog = lazy(() => import('./ThreadCommandDialog'))
-const ThreadReviewHost = lazy(() => import('./ThreadReviewHost'))
+import { chunk, lazyFrom } from '../../lib/chunk'
+
+export const THREAD_COMMAND_DIALOG_CHUNK = chunk(() => import('./ThreadCommandDialog'))
+export const THREAD_REVIEW_HOST_CHUNK = chunk(() => import('./ThreadReviewHost'))
+const ThreadCommandDialog = lazyFrom(THREAD_COMMAND_DIALOG_CHUNK, module => module.default)
+const ThreadReviewHost = lazyFrom(THREAD_REVIEW_HOST_CHUNK, module => module.default)
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
 import { threadWorkingRoot } from './threadChanges'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
@@ -219,7 +223,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     setError(''); setErrorDetail('')
     void interrupt(id).then(() => useThreadStore.getState().refresh(id)).catch(cause => setError(threadError(cause))).finally(() => { stopInFlight.current = false })
   }
-  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onError: setError })
+  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onRunCommand: text => { void action(() => runCommand(text)) }, onError: setError })
   const [caret, setCaret] = useState(0)
   const mentions = useFileMentions({
     workspaceId: snapshot?.thread.workspaceId, rootPath: snapshot?.thread.rootPath, draft, caret, enabled: Boolean(snapshot) && !pending,

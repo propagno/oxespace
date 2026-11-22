@@ -17,7 +17,7 @@ import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
 import { reportSplitRefused, reportSplitTooSmall } from './components/Grid/splitRefusal'
-import { layoutPaneSize, paneSize, splitGridSize, splitHasRoom } from './components/Grid/splitRoom'
+import { layoutPaneSize, paneSize, splitGridSize, splitHalf, splitHasRoom } from './components/Grid/splitRoom'
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { NeedsYouPill } from './components/Navigation/NeedsYouPill'
@@ -539,7 +539,7 @@ export function App(): ReactElement {
     }
     const size = layoutPaneSize(usePaneLayoutStore.getState().trees[workspaceId] ?? null, paneId, splitGridSize()) ?? paneSize(paneId)
     if (size && !splitHasRoom(size, direction)) {
-      reportSplitTooSmall({ width: direction === 'vertical' ? (size.width - 10) / 2 : size.width, height: direction === 'horizontal' ? (size.height - 10) / 2 : size.height })
+      reportSplitTooSmall(splitHalf(size, direction))
       return
     }
 

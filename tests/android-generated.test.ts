@@ -35,6 +35,11 @@ describe('Android sources generated from the contracts', () => {
     expect(committed(THEME_KOTLIN_PATH)).toBe(themeKotlin(tokens))
   })
 
+  it('renders i18next\'s number format as a %d argument and a plain placeholder as %s', () => {
+    const source = { hold: { body: 'Allow unlocks after {{seconds, number}} s, from {{name}}.' } }
+    expect(stringsXml(source, source, 'en')).toContain('<string name="hold_body">Allow unlocks after %1$d s, from %2$s.</string>')
+  })
+
   it('match the committed string resources (run npm run android:generate after editing mobile.json)', () => {
     for (const [language, path] of Object.entries(STRINGS_XML_PATHS as Record<string, string>)) {
       expect(committed(path), language).toBe(stringsXml(catalog('en'), catalog(language), language))
