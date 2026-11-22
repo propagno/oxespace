@@ -72,6 +72,7 @@ export const useWorktreeStore = create<WorktreeStoreState>((set, get) => ({
   },
 
   status: async (rootPath, path) => {
+    // null is the failed probe, a state of its own for the panel (not checking, not clean; OXE-369).
     // Best-effort: a status probe that fails must never block the removal flow
     // that asked for it — the caller falls back to git's own refusal message.
     try {
