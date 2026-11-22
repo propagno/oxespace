@@ -436,7 +436,8 @@ export function CommandBar({ open, onOpenChange, context, onRun }: CommandBarPro
   const invokeIpc = async (ipc: string, args: unknown[]): Promise<void> => {
     const [ns, method] = ipc.split('.')
     const oxe = (window as unknown as { oxe?: Record<string, Record<string, (...a: unknown[]) => unknown>> }).oxe
-    const fn = oxe?.[ns]?.[method]
+    // The text of /steer was typed here, so it carries the person's authority.
+    const fn = (ipc === 'thread.steer' ? oxe?.thread?.steerTyped : undefined) ?? oxe?.[ns]?.[method]
     if (typeof fn === 'function') {
       await fn(...args)
     }

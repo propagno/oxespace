@@ -294,15 +294,18 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const text = draft, id = snapshot.thread.id
     const attachmentIds = attachments.map(value => value.id)
     const message = text || t('view.inspectImage')
+    // The person's authority is for what they typed, alone: not the image note.
+    const typed = Boolean(text.trim()) && message === text
+    const deliver = mode === 'steer' ? (typed && api!.steerTyped) || api!.steer! : (typed && api!.sendTyped) || api!.send
     if (/^\s*\//.test(text)) {
-      void action(async () => { if (mode === 'steer') await api!.steer!(id, message, attachmentIds); else await api!.send(id, message, attachmentIds); if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, ''); useThreadStore.getState().clearAttachments(id); scrollEnd() })
+      void action(async () => { await deliver(id, message, attachmentIds); if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, ''); useThreadStore.getState().clearAttachments(id); scrollEnd() })
       return
     }
     setOutgoing({ threadId: id, text: message, attachments, knownEvents: new Set(snapshot.events.map(event => event.type === 'message' ? event.id : '')) })
     useThreadStore.getState().setDraft(id, '')
     useThreadStore.getState().clearAttachments(id)
     requestAnimationFrame(scrollEnd)
-    void action(() => mode === 'steer' ? api!.steer!(id, message, attachmentIds) : api!.send(id, message, attachmentIds), sent => {
+    void action(() => deliver(id, message, attachmentIds), sent => {
       if (!sent) {
         const store = useThreadStore.getState()
         if (!store.drafts[id]) store.setDraft(id, text)

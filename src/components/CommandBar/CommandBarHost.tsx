@@ -141,7 +141,7 @@ export function CommandBarHost({
       void threadApi.create({ projectId, rootPath, provider: parsed.provider }).then(created => {
         useThreadStore.getState().adopt(created)
         if (parsed.text.trim()) {
-          void threadApi.send(created.thread.id, parsed.text.trim())
+          void (threadApi.sendTyped ?? threadApi.send)(created.thread.id, parsed.text.trim())
         }
       })
     }

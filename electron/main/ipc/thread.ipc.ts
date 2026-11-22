@@ -10,6 +10,7 @@ import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
+import { windowOrigin } from '../services/conversation/thread-send-origin'
 import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
@@ -248,9 +249,8 @@ export function registerThreadIpc(
       throw error
     }
   })
-  // Only a send with no option is the person's own message. A resend is stored text: it has nobody's authority.
-  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown, options?: unknown) =>
-    manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8), options === undefined || options === null ? 'window' : undefined)))
+  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown, marker?: unknown) =>
+    manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8), windowOrigin(marker))))
   ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => manager.then(service => service.turnFiles(string(id), string(turnId))))
   ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))))
   ipcMain.handle(IPC_CHANNELS.thread.turnFileHunks, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.turnFileHunks(string(id), string(turnId), string(path))))
@@ -298,7 +298,8 @@ export function registerThreadIpc(
     return manager.then(service => service.auditLog(string(id), { scope, before, limit }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => manager.then(service => service.stopTask(string(id), string(taskId))))
-  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8), 'window')))
+  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown, marker?: unknown) =>
+    manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8), windowOrigin(marker))))
   ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => manager.then(service => service.updateQueued(string(id), string(itemId), message(text))))
   ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)))
   ipcMain.handle(IPC_CHANNELS.thread.reorderQueued, (event, id: unknown, itemIds: unknown) => manager.then(service => service.reorderQueued(string(id), stringList(itemIds, 100))))

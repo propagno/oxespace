@@ -1,13 +1,18 @@
-import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
+import { hasDesktopCommand, THREAD_TEXT_TYPED } from '../../../../shared/threadDesktopCommands'
 import { assertThreadMessage } from '../../../../shared/threadLimits'
 import type { ThreadProvider } from '../../../../shared/types/thread'
 import { MainRefusal } from '../main-refusal'
 
 /**
- * Who a send speaks for. `window` is the person in the app's own window, and only the window's IPC handlers pass it.
- * No origin is everyone else: an agent, the phone, a schedule, a team, a delegation, the app sending again by itself.
+ * Who a send speaks for. `window` is text the person just typed in the app's own window: only windowOrigin gives it.
+ * No origin is everyone else: an agent, the phone, a schedule, a team, a delegation, stored text sent again by anyone.
  */
 export type ThreadSendOrigin = 'window'
+
+/** The origin of a send or steer over the window's IPC. Fails closed: anything but the typed marker is no origin. */
+export function windowOrigin(marker: unknown): 'window' | undefined {
+  return marker === THREAD_TEXT_TYPED ? 'window' : undefined
+}
 
 /**
  * A message's checks before it is queued, sent or steered. Only the window's message may be a desktop command

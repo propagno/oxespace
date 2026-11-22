@@ -117,7 +117,7 @@ export function ThreadTimelineEntry({ row, snapshot, viewMode, running, pending,
       // The orchestrator can undo the failed turn's files first; older builds only resend.
       return (restoreFiles: boolean) => void action(() => api!.retryTurn
         ? api!.retryTurn(snapshot!.thread.id, turnId, { restoreFiles })
-        : api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? [], { resend: true }))
+        : api!.send(snapshot!.thread.id, prompt.text, prompt.attachments?.map(attachment => attachment.id) ?? []))
     })()} hasChanges={turnEvents.some(value => (value.type === 'turn-diff' || value.type === 'tool') && Boolean(value.files?.length))} refreshUsage={snapshot?.thread.provider === 'codex' && api?.command ? async () => {
       const result = await api.command!(snapshot.thread.id, '/usage')
       if (!result.usage) throw Error(t('timeline.usageUnavailable'))
