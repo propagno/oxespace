@@ -68,7 +68,10 @@ export class BrowserPreviewService {
     return undefined
   }
   /** Reports HTTP >= 400 and connection failures for every preview tab, even without an agent debugger attached (OXE-10). */
-  private watchSessionNetwork(previewSession: Session): void {
+  private watchSessionNetwork(previewSession: Session | undefined): void {
+    // The view's own partition session. Electron's always has webRequest; test doubles of it may not.
+    const web = previewSession?.webRequest
+    if (!previewSession || typeof web?.onCompleted !== 'function' || typeof web.onErrorOccurred !== 'function') return
     if (this.watchedSessions.has(previewSession)) return
     this.watchedSessions.add(previewSession)
     previewSession.webRequest.onCompleted(details => {
@@ -171,9 +174,8 @@ export class BrowserPreviewService {
     meta.url = url
     let tab = this.tabs.get(key)
     if (!tab) {
-      const previewSession = previewSessionFor(input.ownerKey)
-      this.watchSessionNetwork(previewSession)
-      const view = new WebContentsView({webPreferences:{session:previewSession,preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,defaultEncoding:'UTF-8',...guestProbeWebPreferences()}})
+      const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,defaultEncoding:'UTF-8',...guestProbeWebPreferences()}})
+      this.watchSessionNetwork(view.webContents.session)
       view.setBackgroundColor('#07080e')
       tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
