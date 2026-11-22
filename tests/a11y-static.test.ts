@@ -36,7 +36,7 @@ const OUTLINE_NONE_ALLOWED: Record<string, number> = {
   'src/components/Navigation/AppMenuBar.css': 1,
   'src/components/Navigation/DetailList.css': 1,
   'src/components/Navigation/NavigationChrome.css': 1,
-  'src/components/OxeQuery/OxeQuery.css': 3,
+  'src/components/OxeQuery/OxeQuery.css': 2,
   'src/components/Settings/SettingsCenter.css': 2,
   'src/components/Threads/ThreadView.css': 1,
   'src/components/Threads/ThreadWorkbench.css': 1,
