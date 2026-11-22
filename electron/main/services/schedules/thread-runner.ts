@@ -1,6 +1,7 @@
 import type { Schedule } from '../../../../shared/schedule'
 import type { ThreadOrchestrator } from '../conversation/thread-orchestrator'
 import type { SchedulerDeps } from './scheduler'
+import { MainRefusal } from '../main-refusal'
 
 export interface ScheduleThreadHost {
   /** The conversation service, as the window's own "New conversation" reaches it. */
@@ -18,6 +19,8 @@ export interface ScheduleThreadHost {
 export function scheduleThreadRunner(host: ScheduleThreadHost): Pick<SchedulerDeps, 'start' | 'busy' | 'knownProject'> {
   return {
     start: async (schedule: Schedule) => {
+      // Checked again at the run: a stored row is never the way to full access.
+      if (schedule.access !== 'read-only' && schedule.access !== 'workspace-write') throw new MainRefusal('thread.invalidInput', {})
       const context = host.context(schedule.projectId, schedule.rootPath)
       const service = await host.service()
       const created = service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: context.rootPath, provider: schedule.provider })
