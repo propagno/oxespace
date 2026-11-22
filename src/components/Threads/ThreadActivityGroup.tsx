@@ -15,7 +15,6 @@ import { cutNote, stepOutputTail } from './toolOutputCut'
 import { ThreadInlineEvidence } from './ThreadFileActivity'
 import { foldSummaryText } from './foldSummaryText'
 import { PathLink } from './PathLink'
-import { ToolRowView } from './ToolRowView'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
 /** What an action did, in words; a tool the app does not know keeps the provider's own name. */
