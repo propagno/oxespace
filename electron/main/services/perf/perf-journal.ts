@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { monitorEventLoopDelay, type IntervalHistogram } from 'node:perf_hooks'
+import { LOOP_RESOLUTION_MS, loopDelayMs } from '../../../../shared/perfLoop'
 
 /**
  * The performance journal (1.5.1): how long the app made the person wait, measured on this computer while they work,
@@ -212,8 +213,6 @@ export function summarize(lines: string, now = Date.now()): string {
   ].join('\n')
 }
 
-const LOOP_RESOLUTION_MS = 20
-
 /**
  * The event-loop delay histogram as a stat: one sample per tick of its timer, less the tick itself (the histogram
  * records the whole interval between ticks), so what is left is time the loop could not run. Bucket counts come from
@@ -222,7 +221,7 @@ const LOOP_RESOLUTION_MS = 20
 export function loopStat(histogram: Pick<IntervalHistogram, 'count' | 'mean' | 'max' | 'percentiles'>, resolutionMs = LOOP_RESOLUTION_MS): PerfStat | null {
   const n = Number(histogram.count)
   if (!Number.isSafeInteger(n) || n < 1) return null
-  const delay = (ns: number) => Math.max(0, ns / 1e6 - resolutionMs)
+  const delay = (ns: number) => loopDelayMs(ns, resolutionMs) // shared/perfLoop.ts: the perf-load E2E reads it the same way (OXE-386)
   const points = [...histogram.percentiles].map(([percentile, ns]) => [percentile / 100, delay(ns)] as const).sort((a, b) => a[0] - b[0])
   const below = (bound: number) => points.reduce((share, [percentile, ms]) => ms < bound ? Math.max(share, percentile) : share, 0)
   const stat = emptyStat()
