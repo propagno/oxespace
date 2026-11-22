@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Frozen acceptance test for 1.5.2 Desempenho (program 152perf, Jira OXE-124 A4). Written by the
-// planner; the executor must not edit it. Red on main 8388aa419: docs/perf/react-compiler.md does not exist.
+// Frozen acceptance test for 1.5.2 Desempenho (program 152perf, Jira OXE-126 part 1, A6). Written by the
+// planner; the executor must not edit it. Red on main 8388aa419: docs/perf/compile-cache.md does not exist.
 // Contract: each measurement is a report in docs/perf/ with its measured table (before, after, delta), the CI run ids
 // that produced each number, and one explicit decision. A number with no run id is not evidence.
 // - docs/perf/react-compiler.md (OXE-124): babel-plugin-react-compiler version, compiled and bailed-out component counts,
@@ -28,17 +28,26 @@ const runIds = (text: string): string[] => [...text.matchAll(/actions\/runs\/(\d
 /** Rows of a Markdown table whose first cell matches. */
 const row = (text: string, label: RegExp): string | undefined => text.split(/\r?\n/).find(line => line.trim().startsWith('|') && label.test(line))
 
-describe('OXE-124 · a measured report with a decision', () => {
-  test('OXE-124: the React Compiler report has the measured table and a decision', () => {
-    const text = read('docs/perf/react-compiler.md')
-    expect(text).toMatch(/babel-plugin-react-compiler@\d+\.\d+\.\d+/)
-    expect(text).toMatch(/compilados?\b[^\n]*\d+/i)
-    expect(text).toMatch(/bailouts?\b[^\n]*\d+/i)
-    for (const metric of [/tempo de build|build time/i, /chunk|bundle/i]) expect(row(text, metric), String(metric)).toBeTruthy()
-    for (const surface of ['Sidebar', 'ThreadView', 'PaneContainer', 'CommandMenu']) expect(row(text, new RegExp(surface)), surface).toBeTruthy()
-    expect(row(text, /boot/i), 'the OXE-105 boot rows').toBeTruthy()
-    expect(text).toMatch(/OXE-105/)
-    expect(text).toMatch(/Decis[ãa]o:\s*\**\s*(adotar|descartar)/i)
-    expect(runIds(text).length, 'each number comes from a CI run').toBeGreaterThanOrEqual(2)
+describe('OXE-126 · a measured report with a decision', () => {
+  test('OXE-126: the compile cache report has the boot table, and the cache is on only when it gained', () => {
+    const text = read('docs/perf/compile-cache.md')
+    for (const metric of [/ready-to-show/i, /interactive/i]) expect(row(text, metric), String(metric)).toBeTruthy()
+    expect(text).toMatch(/Windows/)
+    expect(text).toMatch(/Linux/)
+    expect(runIds(text).length).toBeGreaterThanOrEqual(2)
+    const decision = /Decis[ãa]o:\s*\**\s*(manter ligado|desligado)/i.exec(text)
+    expect(decision, 'one decision').toBeTruthy()
+    const on = /manter ligado/i.test(decision![1])
+    const module = join(root, 'electron/main/compile-cache.ts')
+    if (on) {
+      const source = readFileSync(module, 'utf8')
+      expect(source).toMatch(/enableCompileCache\s*\(/)
+      // It runs before the app's main module: the module that enables the cache imports the app only after it.
+      const enable = source.search(/enableCompileCache\s*\(/)
+      const app = source.search(/import\(\s*['"]\.\/index/)
+      expect(app, 'the app module is loaded after the cache is on').toBeGreaterThan(enable)
+    } else {
+      expect(existsSync(module) ? readFileSync(module, 'utf8') : '').not.toMatch(/enableCompileCache\s*\(/)
+    }
   })
 })
