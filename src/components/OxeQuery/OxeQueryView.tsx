@@ -1,6 +1,7 @@
-import { Suspense, lazy, useEffect, type ReactElement } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Database, Plus, X } from 'lucide-react'
+import { AnchoredMenu } from '../../ui'
 import { EmptyState } from '../../ui/Display'
 import { Button, IconButton } from '../../ui/Button'
 import { ConnectionDialog } from './ConnectionDialog'
@@ -22,7 +23,11 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
   const connections = useOxeQueryStore(state => state.connections)
   const setActiveTab = useOxeQueryStore(state => state.setActiveTab)
   const closeTab = useOxeQueryStore(state => state.closeTab)
+  const closeOtherTabs = useOxeQueryStore(state => state.closeOtherTabs)
+  const closeTabsToRight = useOxeQueryStore(state => state.closeTabsToRight)
   const newDatabase = useOxeQueryStore(state => state.newDatabaseOpen)
+  const [tabMenuId, setTabMenuId] = useState<string | null>(null)
+  const tabsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => { if (active) void useOxeQueryStore.getState().refreshConnections() }, [active])
 
@@ -34,11 +39,20 @@ export function OxeQueryView({ active }: { active: boolean }): ReactElement {
   const titleOf = (tab: OxeQueryTab): string => tab.kind === 'connection' ? tab.title : t('view.tab.activity')
   return <div className="oq-view" aria-label="OxeQuery">
     {tabs.length > 0 && <div className="oq-tabs-bar">
-      <div className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
-        {tabs.map(tab => <span key={tab.id} className="oq-tab" data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
-          data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}>
-          <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}>{titleOf(tab)}</button>
+      <div ref={tabsRef} className="oq-tabs" role="tablist" aria-label={t('view.openViews')}>
+        {tabs.map((tab, index) => <span key={tab.id} className="oq-tab" data-tab-id={tab.id} data-active={tab.id === activeTab} data-color={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.color || undefined : undefined}
+          data-environment={tab.kind === 'connection' ? connections.find(item => item.id === tab.connectionId)?.environment : undefined}
+          onContextMenu={event => { event.preventDefault(); setTabMenuId(tab.id) }}>
+          <button type="button" role="tab" aria-selected={tab.id === activeTab} data-oq-tab={tab.kind} onClick={() => setActiveTab(tab.id)}
+            onKeyDown={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); setTabMenuId(tab.id) } }}>{titleOf(tab)}</button>
           <IconButton size="sm" variant="ghost" label={t('view.closeTab', { name: titleOf(tab) })} title={t('view.closeTab', { name: titleOf(tab) })} className="oq-tab-close" icon={<X size={12} aria-hidden="true" />} onClick={() => closeTab(tab.id)} />
+          {tabMenuId === tab.id && <AnchoredMenu open onOpenChange={open => { if (!open) setTabMenuId(null) }} label={t('contextMenu.tabLabel', { name: titleOf(tab) })}
+            items={[
+              { label: t('common.close'), icon: <X size={14} aria-hidden="true" />, onSelect: () => closeTab(tab.id) },
+              { label: t('contextMenu.closeOthers'), disabled: tabs.length <= 1, onSelect: () => closeOtherTabs(tab.id) },
+              { label: t('contextMenu.closeToRight'), disabled: index >= tabs.length - 1, onSelect: () => closeTabsToRight(tab.id) }
+            ]}
+            returnFocus={() => [...(tabsRef.current?.querySelectorAll<HTMLElement>('[data-tab-id]') ?? [])].find(el => el.dataset.tabId === tab.id)?.querySelector<HTMLElement>('[role="tab"]') ?? null} />}
         </span>)}
       </div>
       {activeConnection && <div className="oq-view-meta">

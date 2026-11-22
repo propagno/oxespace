@@ -125,12 +125,20 @@ describe('T1 · first paint with a cached list (CA-2)', () => {
 })
 
 describe('T1 · skeleton without a cache (CA-3)', () => {
+  // Released 21/11 (OXE-343, CR in 152chat, by 8e under the user's delegation): motion.md rule 3 shows no placeholder
+  // before 300 ms (F7.2 acceptance). The busy aside and the block are there at once; the Skeleton inside comes at 300 ms.
   it('shows a busy skeleton under the header, never the empty state or the loading spinner', () => {
+    vi.useFakeTimers()
     render(<ThreadSidebar onCreate={vi.fn()} />)
     act(() => { void useThreadStore.getState().load() })
     expect(aside()).toHaveAttribute('aria-busy', 'true')
     expect(aside()).not.toHaveAttribute('data-list-source', 'cache')
     const block = screen.getByTestId('thread-sidebar-skeleton')
+    expect(block.querySelector('[data-skeleton]')).toBeNull()
+    act(() => { vi.advanceTimersByTime(299) })
+    expect(block.querySelector('[data-skeleton]')).toBeNull()
+    act(() => { vi.advanceTimersByTime(1) })
+    vi.useRealTimers()
     expect(block.querySelector('[data-skeleton]')).not.toBeNull()
     expect(document.querySelector('nav.thread-project-list')).toContainElement(block)
     expect(within(aside()).getByRole('status', { name: 'Loading conversations…' })).toBeInTheDocument()

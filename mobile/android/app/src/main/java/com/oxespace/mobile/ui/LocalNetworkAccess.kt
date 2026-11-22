@@ -12,13 +12,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,11 +30,12 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.oxespace.mobile.R
+import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -45,9 +43,9 @@ import com.oxespace.mobile.ui.theme.OxeSpace
 /**
  * Android 17's local network protection. An app that targets API 37 needs `ACCESS_LOCAL_NETWORK` to open a socket to
  * a LAN address. Without it the OS refuses the connection on the phone (EPERM), before anything leaves. The phone
- * only ever talks to the paired computer on the local network, so it asks for this before the QR scan and before the
- * session connects. 1.4.1 never asked: on an Android 17 phone pairing failed at once with "Couldn't reach your
- * computer".
+ * only ever talks to the paired computer on the local network, so it asks for this at pairing's step 2 (Conectar),
+ * right before the phone first talks to the computer (1.5.2 A15), and before the session connects. 1.4.1 never asked:
+ * on an Android 17 phone pairing failed at once with "Couldn't reach your computer".
  */
 object LocalNetworkAccess {
     const val PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
@@ -75,7 +73,7 @@ enum class LocalNetworkAsk { NOT_ASKED, DENIED }
  * because Android stops showing its own prompt after the second refusal.
  */
 @Composable
-fun LocalNetworkGate(onGranted: () -> Unit = {}, content: @Composable () -> Unit) {
+fun LocalNetworkGate(modifier: Modifier = Modifier, onGranted: () -> Unit = {}, content: @Composable () -> Unit) {
     val context = LocalContext.current
     var granted by remember { mutableStateOf(LocalNetworkAccess.granted(context)) }
     var ask by remember { mutableStateOf(LocalNetworkAsk.NOT_ASKED) }
@@ -97,29 +95,50 @@ fun LocalNetworkGate(onGranted: () -> Unit = {}, content: @Composable () -> Unit
         ask = ask,
         onAllow = { launcher.launch(LocalNetworkAccess.PERMISSION) },
         onOpenSettings = { LocalNetworkAccess.openAppSettings(context) },
+        modifier = modifier,
     )
 }
 
-/** The gate's words and buttons alone, so screenshots can show both states without a permission system. */
+/**
+ * The gate's words and buttons alone, so screenshots can show both states without a permission system. A15 (MOB-1): a
+ * readable card: the title, why the app asks, the button, and under it the note that Android's own prompt comes next;
+ * after a refusal, the way to the app's settings and no note (Android stops asking).
+ */
 @Composable
 fun LocalNetworkPrompt(ask: LocalNetworkAsk, onAllow: () -> Unit, onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
     // Its own surface: the pairing screen puts this where the camera goes, on a dark box, and the words must stay
     // readable there (they were dark on dark) with the button inside the margins. It goes above the viewfinder's
     // corner guides and scan line, which are for a camera and would cross the words.
     Surface(modifier.zIndex(1f), color = Oxe.colors.surfaceRaised, contentColor = Oxe.colors.textPrimary, shape = RoundedCornerShape(OxeRadius.lg)) {
-    Column(Modifier.padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
-        Text(stringResource(R.string.local_network_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-        when (ask) {
-            LocalNetworkAsk.NOT_ASKED -> {
-                Text(stringResource(R.string.local_network_needed), style = MaterialTheme.typography.bodyLarge)
-                Button(onClick = onAllow, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.local_network_allow)) }
-            }
-            LocalNetworkAsk.DENIED -> {
-                Text(stringResource(R.string.local_network_denied), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                OutlinedButton(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.local_network_open_settings)) }
+        Column(Modifier.padding(OxeSpace.space4), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
+            Text(
+                stringResource(R.string.local_network_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = Oxe.colors.textPrimary,
+                modifier = Modifier.semantics { heading() },
+            )
+            when (ask) {
+                LocalNetworkAsk.NOT_ASKED -> {
+                    Text(stringResource(R.string.local_network_needed), style = MaterialTheme.typography.bodyLarge, color = Oxe.colors.textPrimary)
+                    OxeButton(stringResource(R.string.local_network_allow), onClick = onAllow, modifier = Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.local_network_next), style = MaterialTheme.typography.bodyMedium, color = Oxe.colors.textSecondary)
+                }
+                LocalNetworkAsk.DENIED -> {
+                    Text(
+                        stringResource(R.string.local_network_denied),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Oxe.colors.textPrimary,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                    OxeButton(
+                        stringResource(R.string.local_network_open_settings),
+                        onClick = onOpenSettings,
+                        modifier = Modifier.fillMaxWidth(),
+                        kind = OxeButtonKind.SECONDARY,
+                    )
+                }
             }
         }
-    }
     }
 }
 

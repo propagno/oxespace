@@ -49,6 +49,9 @@ async function acceptInWindow(page: Page): Promise<string> {
 
 test('B9.2/#458: a pairing never signed in is revoked after 2 min; quitting drops one too', async () => {
   test.skip(process.env.GITHUB_ACTIONS !== 'true', 'the gateway shows the OS firewall prompt; CI only')
+  // The gateway keeps its certificate in the OS secret store and refuses to start without one (remote.storage.unavailable);
+  // the Linux runner has no keyring, so the pairing runs on the Windows runner (acceptance-nightly os: windows-2022).
+  test.skip(process.platform === 'linux', 'the gateway needs the OS secret store; the Linux runner has no keyring')
   test.setTimeout(600_000)
   const profile = realProfile('b92', { OXESPACE_LOCALE: 'en-US' })
   let { app, page } = await launchReal(profile)

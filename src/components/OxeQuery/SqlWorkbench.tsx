@@ -2,10 +2,11 @@ import type { OnMount } from '@monaco-editor/react'
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button, IconButton } from '../../ui/Button'
+import { AnchoredMenu, type MenuEntry } from '../../ui'
 import { Kbd } from '../../ui/Field'
 import { formatChord } from '../../keyboard/chords'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
-import { ChevronDown, ChevronRight, Gauge, Play, Plus, Square, Table2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ClipboardPaste, Copy, Gauge, Play, Plus, Scissors, Sparkles, Square, Table2, X } from 'lucide-react'
 import { MONACO_THEME } from '../../lib/monacoTheme'
 import { Skeleton } from '../../ui/Display'
 import type { OxeQueryConnection, SqlFilter, SqlResult, SqlTable, SqlTableDetails, SqlTxState, WorkspaceState } from '../../../shared/types/oxequery'
@@ -89,6 +90,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [libraryTick, setLibraryTick] = useState(0)
   const [tx, setTx] = useState<SqlTxState>({ state: 'none', statements: 0 })
   const [notice, setNotice] = useState('')
+  const [editorMenuOpen, setEditorMenuOpen] = useState(false)
+  const [editorHasSelection, setEditorHasSelection] = useState(false)
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
   const pendingExplain = useRef<{ text: string; base: number } | null>(null)
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null)
@@ -347,6 +350,70 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 
   const cancel = (): void => { void oq('sql.cancel', { connectionId: connection.id }).catch(() => undefined) }
   const format = (): void => { void editor.current?.getAction('editor.action.formatDocument')?.run() }
+  const openEditorMenu = (): void => {
+    const selection = editor.current?.getSelection()
+    setEditorHasSelection(Boolean(selection && !selection.isEmpty()))
+    setEditorMenuOpen(true)
+  }
+  const runSelection = (): void => {
+    const selection = editor.current?.getSelection(), model = editor.current?.getModel()
+    if (selection && !selection.isEmpty() && model) void run(model.getValueInRange(selection), model.getOffsetAt(selection.getStartPosition()))
+  }
+  const editorCut = (): void => {
+    const instance = editor.current
+    const model = instance?.getModel()
+    const selection = instance?.getSelection()
+    if (instance && model && selection && !selection.isEmpty()) {
+      copy(model.getValueInRange(selection))
+      instance.executeEdits('oxequery', [{ range: selection, text: '', forceMoveMarkers: true }])
+      instance.focus()
+      return
+    }
+    instance?.focus()
+    instance?.trigger('oxequery', 'editor.action.clipboardCutAction', null)
+  }
+  const editorCopy = (): void => {
+    const instance = editor.current
+    const model = instance?.getModel()
+    const selection = instance?.getSelection()
+    if (model && selection && !selection.isEmpty()) {
+      copy(model.getValueInRange(selection))
+      return
+    }
+    if (instance) {
+      instance.focus()
+      instance.trigger('oxequery', 'editor.action.clipboardCopyAction', null)
+      return
+    }
+    if (active.sql) copy(active.sql)
+  }
+  const editorPaste = async (): Promise<void> => {
+    const instance = editor.current
+    try {
+      const text = await navigator.clipboard?.readText?.()
+      if (typeof text === 'string' && text.length > 0) {
+        const selection = instance?.getSelection()
+        if (instance && selection) {
+          instance.executeEdits('oxequery', [{ range: selection, text, forceMoveMarkers: true }])
+          instance.focus()
+          return
+        }
+        replaceText(active.id, active.sql + text)
+        return
+      }
+    } catch { /* fall back to Monaco paste action */ }
+    instance?.focus()
+    instance?.trigger('oxequery', 'editor.action.clipboardPasteAction', null)
+  }
+  const editorMenuItems: MenuEntry[] = [
+    { label: t('contextMenu.runQuery'), icon: <Play size={14} aria-hidden="true" />, disabled: running, onSelect: runCurrent },
+    { label: t('contextMenu.runSelection'), icon: <Play size={14} aria-hidden="true" />, disabled: running || !editorHasSelection, onSelect: runSelection },
+    { label: t('workbench.format'), icon: <Sparkles size={14} aria-hidden="true" />, onSelect: format },
+    { type: 'separator' },
+    { label: t('contextMenu.cut'), icon: <Scissors size={14} aria-hidden="true" />, onSelect: editorCut },
+    { label: t('common.copy'), icon: <Copy size={14} aria-hidden="true" />, onSelect: editorCopy },
+    { label: t('contextMenu.paste'), icon: <ClipboardPaste size={14} aria-hidden="true" />, onSelect: () => { void editorPaste() } }
+  ]
 
   const output: Output | undefined = active.outputs[Math.min(active.outputIndex, Math.max(0, active.outputs.length - 1))]
   const result = output?.result
@@ -400,18 +467,24 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       </div>
       {notice && <div className="oq-notice"><ErrorState compact title={notice} /></div>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
-      <div className="oq-editor" style={{ height: editorHeight }} onKeyDownCapture={event => {
-        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current() }
-      }}><Suspense fallback={<Skeleton variant="block" decorative />}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { patch(active.id, { sql: value ?? '' }); lint.schedule() }}
+      <div className="oq-editor" style={{ height: editorHeight }}
+        onContextMenu={event => { event.preventDefault(); openEditorMenu() }}
+        onKeyDownCapture={event => {
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current(); return }
+          if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); openEditorMenu() }
+        }}><Suspense fallback={<Skeleton variant="block" decorative />}><Editor key={active.id} height="100%" language="sql" theme={MONACO_THEME} defaultValue={active.sql} onChange={value => { patch(active.id, { sql: value ?? '' }); lint.schedule() }}
         onMount={(instance, monaco) => {
           editor.current = instance; monacoRef.current = monaco; bindCompletion(monaco, connection); registerSqlExtras(monaco); lint.mark()
           instance.onDidFocusEditorText(() => bindCompletion(monaco, connection))
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current())
           instance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => runAllRef.current())
         }}
-        options={{ minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
+        options={{ contextmenu: false, minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
           // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
-          acceptSuggestionOnCommitCharacter: false }} /></Suspense></div>
+          acceptSuggestionOnCommitCharacter: false }} /></Suspense>
+        {editorMenuOpen && <AnchoredMenu open onOpenChange={open => { if (!open) setEditorMenuOpen(false) }} label={t('contextMenu.sqlEditorLabel')}
+          items={editorMenuItems} returnFocus={() => { editor.current?.focus(); return null }} />}
+      </div>
       <Splitter orientation="horizontal" label={t('workbench.editorHeight')} value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />
       {paramsAsk && <ParamsBar names={paramsAsk.names} values={paramValues}
         onChange={(name, value) => setParamValues(current => ({ ...current, [name]: value }))}

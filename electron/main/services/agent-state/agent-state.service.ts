@@ -144,6 +144,11 @@ export class AgentStateService {
     return this.panes.get(paneId)?.published ?? null
   }
 
+  /** Identified agent executable/provider for a live pane, even when no screen manifest exists (e.g. antigravity/agy). */
+  agentOf(paneId: string): string | null {
+    return this.panes.get(paneId)?.agent ?? null
+  }
+
   list(workspaceId?: string): PaneAgentState[] {
     return [...this.panes.values()].map(record => record.published).filter((state): state is PaneAgentState => Boolean(state) && (!workspaceId || state!.workspaceId === workspaceId))
   }

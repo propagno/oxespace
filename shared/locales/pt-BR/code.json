@@ -992,6 +992,7 @@
     "width": "Largura da barra lateral",
     "workspaces": "Workspaces",
     "filter": "Filtrar workspaces",
+    "filterPlaceholder": "Filtrar…",
     "integrationGroups": "Grupos de integração",
     "integrations": "Integrações",
     "toggleAll": "Mostrar ou ocultar os terminais de todos os workspaces",
@@ -1058,6 +1059,7 @@
     "externalTitle": "Permitir sites fora deste computador; eles mantêm os próprios cabeçalhos de segurança de frame",
     "external": "Externo",
     "zoom": "Zoom",
+    "zoomLevel": "Zoom · {{zoom}}%",
     "zoomOut": "Diminuir o zoom",
     "zoomIn": "Aumentar o zoom",
     "viewport": {
@@ -1071,6 +1073,7 @@
     "designHint": "Modo Design: clique em um elemento da página, ou pressione Esc para cancelar.",
     "capture": "Copiar a prévia para a área de transferência",
     "openExternal": "Abrir no seu navegador",
+    "moreActions": "Mais ações do navegador",
     "access": {
       "title": "Permitir que os agentes inspecionem esta página?",
       "allow": "Permitir acesso",
