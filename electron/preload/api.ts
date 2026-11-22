@@ -477,6 +477,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     session: {
       list: (input) => ipc.invoke(IPC_CHANNELS.session.list, input) as Promise<import('../../shared/types/session').SessionSummary[]>,
+      onPartial: (listener) => subscribe<import('../../shared/types/session').SessionListPartialEvent>(ipc, IPC_CHANNELS.session.onPartial, listener),
       fork: (input) => ipc.invoke(IPC_CHANNELS.session.fork, input) as Promise<import('../../shared/types/session').ForkSessionResult>,
       delete: (input) => ipc.invoke(IPC_CHANNELS.session.delete, input) as Promise<boolean>,
       cleanup: (input) => ipc.invoke(IPC_CHANNELS.session.cleanup, input) as Promise<number>,
