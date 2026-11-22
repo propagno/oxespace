@@ -676,9 +676,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     expect(runningActions.gap).toBeLessThanOrEqual(12)
     expect(runningActions.rightInset).toBeLessThanOrEqual(12)
     // T57: Stop is a labelled pill, wider than the round Send, and its word is on screen.
-    expect(runningActions.stopWidth).toBeGreaterThan(runningActions.sendWidth)
+    expect(runningActions.stopWidth).toBeGreaterThan(28)
     await expect(page.locator('.thread-stop')).toContainText('Stop')
-    expect(runningActions.sendWidth).toBeGreaterThanOrEqual(24)
+    expect(runningActions.sendWidth).toBe(28)
     await expectReadingAnchor()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Unsent draft')
     await modeButton(page, 'code').click()

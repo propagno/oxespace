@@ -54,7 +54,7 @@
 .thread-composer footer .thread-usage-ring { flex: none; width: var(--control-sm); min-width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; border-radius: var(--radius-full); }
 
 /* Round actions on the right: send takes the accent only when there is something to send. */
-.thread-composer footer .thread-send { flex: 0 0 var(--control-sm); width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; border-radius: 50%; }
+.thread-composer footer .thread-send { flex: 0 0 var(--control-md); width: var(--control-md); height: var(--control-md); padding: 0; justify-content: center; border-radius: 50%; }
 /* Stop while a turn runs (T57): a pill with its word, in the danger color, that never shrinks out of the footer. */
 .thread-composer footer .thread-stop { flex: none; width: auto; height: var(--control-sm); gap: var(--space-1-5); padding: 0 var(--space-2); justify-content: center; border: 1px solid var(--intent-danger-border); border-radius: var(--radius-full); background: var(--intent-danger-bg); color: var(--intent-danger-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .thread-composer footer .thread-stop:hover:not(:disabled) { background: color-mix(in srgb, var(--intent-danger-fg) 14%, var(--intent-danger-bg)); color: var(--intent-danger-fg); }
