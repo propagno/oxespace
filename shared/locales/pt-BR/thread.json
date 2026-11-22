@@ -841,6 +841,7 @@
     "truncated": "Cortado"
   },
   "grid": {
+    "resize": "Redimensionar as colunas",
     "split": "Conversas lado a lado",
     "single": "Conversa"
   },
@@ -1416,6 +1417,8 @@
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
     "filterPlaceholder": "Filtrar…",
+    "filterUnread": "Não lidas",
+    "filterByState": "Filtrar por estado",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
@@ -1455,6 +1458,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Pede a você · {{text}}"
   },
   "sections": {

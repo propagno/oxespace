@@ -446,10 +446,15 @@
 @media (max-width: 1000px) { .thread-config-trigger span { max-width: 135px; } .thread-composer footer { gap: 4px; } }
 
 .thread-grid { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--bd-default); }
-.thread-grid.is-split { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
+.thread-grid.is-split { grid-template-columns: minmax(0, var(--thread-split, 50%)) auto minmax(0, 1fr); gap: 0; }
+.thread-grid.is-split > .thread-split-handle { align-self: stretch; }
 .thread-cell { position: relative; display: flex; min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-canvas); }
 .thread-cell>.thread-workbench { flex: 1; min-width: 0; }
 .thread-grid.is-split .thread-cell.is-active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); z-index: var(--layer-raised); }
+/* AG-06: side by side, the active column carries a 2px accent bar over the top of its header; one conversation alone looks as before. */
+.thread-grid.is-split .thread-cell.is-active::before { content: ''; position: absolute; inset: 0 0 auto; border-top: 2px solid var(--accent); z-index: var(--layer-raised); pointer-events: none; }
+.thread-grid.is-split .thread-cell.is-active .thread-heading-title-main { color: var(--tx-primary); }
+.thread-grid.is-split .thread-cell:not(.is-active) .thread-heading-title-main { color: var(--tx-secondary); }
 
 /* Reading scale stays independent from the terminal font and is shared by all threads. */
 .thread-view .thread-message, .thread-view .thread-markdown, .thread-view .thread-long-prompt-preview { font-size: var(--thread-reader-font-size); }
@@ -513,7 +518,7 @@
 .thread-account-heading>.agent-provider-icon { flex: 0 0 28px; }
 .thread-account-heading>div:not(.agent-provider-icon) { flex: 1; min-width: 0; }
 .thread-accounts-body .thread-account-note { padding: 10px 12px; margin: 12px 0 0; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-canvas); }
-@media (max-width: 1000px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { .thread-grid.is-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 1px; } .thread-grid.is-split > .thread-split-handle { display: none; } }
 
 .thread-project-selection { display: grid; gap: 8px; min-width: 0; }
 .thread-project-selection > strong, .thread-project-selection > code { overflow-wrap: anywhere; }

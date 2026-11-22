@@ -21,6 +21,8 @@ export interface SplitterProps {
   className?: string
   /** Sits on the right edge of the panel it resizes (a sidebar), over its border, instead of between two panels. */
   edge?: boolean
+  /** How many pixels one unit of `value` is while dragging (a share in percent: the container's width / 100). Default 1. */
+  unit?: number
 }
 
 /** How far the pointer may move between press and release and still count as a click, not a drag. */
@@ -31,7 +33,8 @@ const CLICK_SLOP = 3
  * restore the default size. Dragging is never the only way (WCAG 2.5.7): a click without dragging, Enter, Space or the
  * context-menu keys open Smaller, Larger and Restore, each a single click, like the pane grid's dividers.
  */
-export function Splitter({ orientation, label, value, min, max, defaultValue, onChange, after = false, step = 16, className, edge = false }: SplitterProps): ReactElement {
+export function Splitter({ orientation, label, value, min, max, defaultValue, onChange, after = false, step = 16, className, edge = false, unit = 1 }: SplitterProps): ReactElement {
+  const pixelsPerUnit = Number.isFinite(unit) && unit > 0 ? unit : 1
   const drag = useRef<{ start: number; size: number; moved: boolean } | null>(null)
   const separator = useRef<HTMLDivElement>(null)
   const [menu, setMenu] = useState(false)
@@ -55,7 +58,7 @@ export function Splitter({ orientation, label, value, min, max, defaultValue, on
         if (!drag.current) return
         const delta = axis(event) - drag.current.start
         if (Math.abs(delta) > CLICK_SLOP) drag.current.moved = true
-        if (drag.current.moved) request(drag.current.size + delta * direction)
+        if (drag.current.moved) request(drag.current.size + (delta / pixelsPerUnit) * direction)
       }}
       onPointerUp={() => { const click = drag.current?.moved === false; drag.current = null; if (click) setMenu(true) }}
       onPointerCancel={() => { drag.current = null }} onLostPointerCapture={() => { drag.current = null }}
