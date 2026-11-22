@@ -111,6 +111,9 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   // Too narrow for the actions and a readable name: no hover actions there (the header menu has them).
   const narrow = (index: number): boolean => room !== null && widthOf(index) < room.actions + room.name
   const [headerMenu, setHeaderMenu] = useState<number | null>(null)
+  // Where a right click opened the header or cell menu; undefined when the keyboard opened it.
+  const [headerPoint, setHeaderPoint] = useState<{ x: number; y: number } | undefined>(undefined)
+  const [cellPoint, setCellPoint] = useState<{ x: number; y: number } | undefined>(undefined)
   const [cellMenu, setCellMenu] = useState<{ position: number; columnPosition: number; rowIndex: number; columnIndex: number } | null>(null)
   const copyPlain = (text: string, format?: CopyFormat): void => {
     if (onCopy) onCopy(text, format)
@@ -191,7 +194,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
       const columnIndex = visible[current.column]
       if (rowIndex !== undefined && columnIndex !== undefined) {
         setHeaderMenu(null)
-        setCellMenu({ position: current.row, columnPosition: current.column, rowIndex, columnIndex })
+        setCellPoint(undefined); setCellMenu({ position: current.row, columnPosition: current.column, rowIndex, columnIndex })
       }
       return
     }
@@ -265,7 +268,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
         {visible.map(index => <span key={`${columns[index]}:${index}`} role="columnheader" className={[pinned.has(index) ? 'is-pinned' : '', numeric[index] ? 'is-number' : ''].filter(Boolean).join(' ') || undefined} style={stickyStyle(index, widthOf(index))}
           title={t('grid.sortTitle', { column: types?.[index] ? `${columns[index]} · ${types[index]}` : columns[index] })}
           aria-sort={sort?.column === index ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort(index)}
-          data-narrow={narrow(index) || undefined} onContextMenu={event => { event.preventDefault(); setCellMenu(null); setHeaderMenu(index) }}>
+          data-narrow={narrow(index) || undefined} onContextMenu={event => { event.preventDefault(); setCellMenu(null); setHeaderPoint({ x: event.clientX, y: event.clientY }); setHeaderMenu(index) }}>
           <span className="oq-grid-name">{columns[index]}</span>{types?.[index] && <small>{types[index]}</small>}{sort?.column === index && <b aria-hidden="true">{sort.direction === 'asc' ? ' ▲' : ' ▼'}</b>}
           <button type="button" className={`oq-grid-pin${pinned.has(index) ? ' is-on' : ''}`} aria-pressed={pinned.has(index)} aria-label={t(pinned.has(index) ? 'grid.unpin' : 'grid.pin', { name: columns[index] })} title={t('grid.pinTitle')}
             onClick={event => { event.stopPropagation(); setPinned(current => { const next = new Set(current); if (!next.delete(index)) next.add(index); return next }) }}><Pin size={11} aria-hidden="true" /></button>
@@ -275,7 +278,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
             onMouseDown={event => beginResize(index, event)} onClick={event => event.stopPropagation()}
             onDoubleClick={event => { event.stopPropagation(); setOverrides(current => { const next = { ...current }; delete next[index]; return next }) }} />
         </span>)}
-        {headerMenu !== null && <AnchoredMenu open onOpenChange={open => { if (!open) setHeaderMenu(null) }} label={t('grid.columnMenu', { name: columns[headerMenu] })} items={headerItems(headerMenu)} />}
+        {headerMenu !== null && <AnchoredMenu open point={headerPoint} onOpenChange={open => { if (!open) setHeaderMenu(null) }} label={t('grid.columnMenu', { name: columns[headerMenu] })} items={headerItems(headerMenu)} />}
       </div>
       {Array.from({ length: Math.max(0, end - start) }, (_, offset) => start + offset).map(position => {
         const index = order ? order[position] : position
@@ -295,11 +298,12 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
                 setFocus({ row: position, column: columnPosition })
                 setAnchor({ row: position, column: columnPosition })
                 setHeaderMenu(null)
+                setCellPoint({ x: event.clientX, y: event.clientY })
                 setCellMenu({ position, columnPosition, rowIndex: index, columnIndex: column })
               }}
               onDoubleClick={() => onOpenCell ? onOpenCell({ column: columns[column], ...(types?.[column] ? { type: types[column] } : {}), value, row: index }) : onCopy?.(plainCell(value))}>{shown(value)}</span>
           })}
-          {cellMenu?.position === position && <AnchoredMenu open onOpenChange={open => { if (!open) setCellMenu(null) }}
+          {cellMenu?.position === position && <AnchoredMenu open point={cellPoint} onOpenChange={open => { if (!open) setCellMenu(null) }}
             label={t('contextMenu.cellLabel', { column: columns[cellMenu.columnIndex] ?? '' })}
             items={cellItems(cellMenu.rowIndex, cellMenu.columnIndex)}
             returnFocus={() => scroller.current} />}
