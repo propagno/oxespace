@@ -1377,6 +1377,8 @@
     "conversations": "Conversations",
     "filter": "Filter conversations",
     "filterPlaceholder": "Filter…",
+    "filterUnread": "Unread",
+    "filterByState": "Filter by state",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
@@ -1414,6 +1416,7 @@
     "archivedCount": "Archived · {{count}}",
     "conversationCount_one": "{{count}} conversation",
     "conversationCount_other": "{{count}} conversations",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Asks you · {{text}}"
   },
   "sections": {
