@@ -9,6 +9,7 @@ import { riskFromShell } from '../../../../shared/approval-rules'
 import type { AgentRow } from '../../../../shared/types/agents'
 import type { MainMessage } from '../../../../shared/messages'
 import { toToolDiff } from './tool-diff'
+import { desktopImpactSummaryOf, type DesktopImpactLanguage } from './impact-summary'
 import { workspaceColorIndex } from '../../../../shared/workspace-color'
 
 /**
@@ -150,7 +151,7 @@ export function decisionsOf(request: ThreadRequest): Array<'accept' | 'decline' 
   return offered.filter((decision): decision is 'accept' | 'decline' | 'cancel' => decision === 'accept' || decision === 'decline' || decision === 'cancel')
 }
 
-export function toPendingRequest({ thread, request }: RemotePendingRow, roots: readonly string[]): RemotePendingRequest {
+export function toPendingRequest({ thread, request }: RemotePendingRow, roots: readonly string[], language: DesktopImpactLanguage = 'en'): RemotePendingRequest {
   const all = [thread.rootPath, ...roots]
   const command = request.command === undefined ? undefined : clean(request.command, all, REMOTE_TEXT_LIMITS.detail)
   const allWarnings = request.policy?.warnings ?? []
@@ -183,6 +184,8 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     allWarnings.length > 20 || warnings.some(warning => warning.truncated) || questionsCut
   const desktopOnly = (truncated && request.kind === 'question') || isDatabaseWriteRequest(request)
   const risk = request.impact?.risk ?? (request.policy?.level ? riskFromShell(request.policy.level) : undefined)
+  const rawImpactSummary = desktopImpactSummaryOf(request, language)
+  const desktopImpactSummary = rawImpactSummary ? text(rawImpactSummary, all, TITLE) : undefined
   return {
     threadId: thread.id, workspaceId: thread.workspaceId, threadTitle: text(thread.title, all, TITLE), requestId: request.id, generation: request.generation,
     kind: request.kind, title: text(request.title, all, TITLE),
@@ -193,6 +196,7 @@ export function toPendingRequest({ thread, request }: RemotePendingRow, roots: r
     ...(request.toolName ? { toolName: text(request.toolName, all, TITLE) } : {}),
     ...(paths.length ? { paths } : {}),
     ...(risk ? { risk } : {}),
+    ...(desktopImpactSummary ? { desktopImpactSummary } : {}),
     ...(warnings.length ? { warnings: warnings.map(warning => warning.text) } : {}),
     ...(redacted ? { redacted } : {}),
     ...(questions.length ? { questions } : {}),

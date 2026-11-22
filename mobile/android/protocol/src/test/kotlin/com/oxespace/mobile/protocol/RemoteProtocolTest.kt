@@ -179,4 +179,16 @@ class RemoteProtocolTest {
         assertEquals(RemoteSubscription.PENDING_REQUESTS, RemoteSubscription.fromWire("pendingRequests"))
         assertEquals(null, RemoteCommand.fromWire("host.exec"))
     }
+
+    @Test
+    fun pendingRequestCarriesOptionalDesktopImpactSummaryDistinctFromAgentTitle() {
+        val withSummary = """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix","requestId":"r-1","generation":1,"kind":"approval","title":"LIMPAR CACHE","command":"rm -rf /","risk":"critical","desktopImpactSummary":"Delete files","decisions":["accept","decline"],"answerable":true,"createdAt":1}"""
+        val decoded = RemoteFrames.json.decodeFromString(RemotePendingRequest.serializer(), withSummary)
+        assertEquals("Delete files", decoded.desktopImpactSummary)
+        assertEquals("LIMPAR CACHE", decoded.title)
+
+        val olderDesktop = """{"threadId":"t-1","workspaceId":"w-1","threadTitle":"Fix","requestId":"r-2","generation":1,"kind":"approval","title":"Run","risk":"critical","decisions":["accept","decline"],"answerable":true,"createdAt":1}"""
+        val decodedOlder = RemoteFrames.json.decodeFromString(RemotePendingRequest.serializer(), olderDesktop)
+        assertEquals(null, decodedOlder.desktopImpactSummary)
+    }
 }

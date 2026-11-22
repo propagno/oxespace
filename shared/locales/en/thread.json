@@ -18,6 +18,7 @@
     "connect": "Connect",
     "signOut": "Sign out",
     "verify": "Verify",
+    "connected": "Connected",
     "message": {
       "checking": "Checking connection…",
       "activeTurn": "Stop the active turn before reconnecting.",
@@ -816,6 +817,7 @@
     "truncated": "Cut"
   },
   "grid": {
+    "resize": "Resize the columns",
     "split": "Side-by-side conversations",
     "single": "Conversation"
   },
@@ -1378,6 +1380,8 @@
     "conversations": "Conversations",
     "filter": "Filter conversations",
     "filterPlaceholder": "Filter…",
+    "filterUnread": "Unread",
+    "filterByState": "Filter by state",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
@@ -1415,6 +1419,7 @@
     "archivedCount": "Archived · {{count}}",
     "conversationCount_one": "{{count}} conversation",
     "conversationCount_other": "{{count}} conversations",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Asks you · {{text}}"
   },
   "sections": {
@@ -1645,7 +1650,7 @@
     "welcomeTitle": "Start your first conversation",
     "welcomeBody": "Describe what you want done. The agent gets its own branch and worktree, and everything it runs, queries or changes stays with the conversation.",
     "newConversation": "New conversation",
-    "providerAccounts": "Provider accounts",
+    "providerAccounts": "Agent accounts",
     "sendingMessage": "Sending message",
     "attachments": "Message attachments",
     "kilobytes": "{{size}} KB",

@@ -463,7 +463,7 @@ class AgentsTopic implements RemoteTopicSource {
     const overview = this.desktop.agents()
     const roots = this.desktop.roots()
     const shown = new Map(this.desktop.pendingRequests().map(row => {
-      const request = toPendingRequest(row, roots)
+      const request = toPendingRequest(row, roots, this.desktop.language?.())
       return [`${request.threadId}\u0000${request.requestId}`, request] as const
     }))
     const unavailable = REMOTE_AGENT_SOURCES.filter(source => Boolean(overview.sources[source] && !overview.sources[source].ok))
@@ -563,7 +563,7 @@ export function createTopics(options: TopicOptions): Omit<Record<RemoteSubscript
     thread: new ThreadTopic(desktop, debounceMs),
     pendingRequests: new ListTopic({
       code: 'p', field: 'requests', id: item => `${item.threadId}/${item.requestId}`, watch: anyThread,
-      read: () => { const roots = desktop.roots(); return desktop.pendingRequests().map(row => toPendingRequest(row, roots)) }
+      read: () => { const roots = desktop.roots(), language = desktop.language?.(); return desktop.pendingRequests().map(row => toPendingRequest(row, roots, language)) }
     }, debounceMs),
     terminal: new TerminalTopic(desktop, debounceMs, flushMs),
     jobs: new ListTopic({
