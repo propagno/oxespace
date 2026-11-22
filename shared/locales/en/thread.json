@@ -814,6 +814,7 @@
     "truncated": "Cut"
   },
   "grid": {
+    "resize": "Resize the columns",
     "split": "Side-by-side conversations",
     "single": "Conversation"
   },
