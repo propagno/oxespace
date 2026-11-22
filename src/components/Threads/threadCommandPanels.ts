@@ -9,6 +9,8 @@ export interface ThreadResumeData {
   notice: string
   nativeSessions: SessionSummary[]
   nativeNotice: string
+  /** The dialog reads the native list itself, showing each partial; set when the app streams them. */
+  nativeLoading?: boolean
 }
 
 /** A command result shown in the conversation dialog, with resume data when it is the resume surface. */
@@ -16,10 +18,16 @@ export type ThreadPanelState = ThreadCommandResult & { resume?: ThreadResumeData
 
 const NATIVE_SESSION_ID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
 
+/** The provider's own sessions that /resume can open by ID. */
+export function nativeResumeSessions(provider: ConversationThread['provider'], sessions: SessionSummary[]): SessionSummary[] {
+  return sessions.filter(session => session.provider === provider && NATIVE_SESSION_ID.test(session.sessionId))
+}
+
 export async function loadResumeData(thread: ConversationThread): Promise<ThreadResumeData> {
   const tasks: DelegationTask[] = []
   let notice = '', nativeNotice = ''
   let nativeSessions: SessionSummary[] = []
+  let nativeLoading = false
   try {
     let cursor: string | undefined
     let inspected = 0
@@ -33,10 +41,11 @@ export async function loadResumeData(thread: ConversationThread): Promise<Thread
   } catch { notice = i18n.t('thread:resumeData.delegatedFailed') }
   try {
     if (!window.oxe.session?.list) throw Error('Session discovery is unavailable')
-    const sessions = await window.oxe.session.list({ workspaceId: thread.workspaceId, workspaceRootPath: thread.rootPath, provider: thread.provider })
-    nativeSessions = sessions.filter(session => session.provider === thread.provider && NATIVE_SESSION_ID.test(session.sessionId))
+    // With partial events the dialog opens at once and lists the sessions as they are read.
+    if (typeof window.oxe.session.onPartial === 'function') nativeLoading = true
+    else nativeSessions = nativeResumeSessions(thread.provider, await window.oxe.session.list({ workspaceId: thread.workspaceId, workspaceRootPath: thread.rootPath, provider: thread.provider }))
   } catch { nativeNotice = i18n.t('thread:resumeData.nativeFailed') }
-  return { tasks, notice, nativeSessions, nativeNotice }
+  return { tasks, notice, nativeSessions, nativeNotice, ...(nativeLoading ? { nativeLoading } : {}) }
 }
 
 /** /delegations lists the project's delegated work; `/delegations <id>` shows one task. */
