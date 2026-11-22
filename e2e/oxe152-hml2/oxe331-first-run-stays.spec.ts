@@ -18,7 +18,9 @@ test('OXE-331: a workspace made from Step 1 keeps the first run open at Step 2; 
   const root = mkdtempSync(join(tmpdir(), 'oxe-first-run-331-'))
   const folder = mkdtempSync(join(tmpdir(), 'oxe-first-run-331-folder-'))
   const app = await electron.launch({ args: [join(process.cwd(), 'e2e/electron-main.cjs')], env: {
-    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3')
+    ...process.env, OXESPACE_DISABLE_SINGLE_INSTANCE: '1', OXESPACE_E2E_MOCK_NATIVE: '1', OXESPACE_DB_PATH: join(root, 'app.sqlite3'),
+    // This spec is about the first run staying on screen: it opts out of the harness's first-run leave (e2e/electron-main.cjs).
+    OXESPACE_E2E_FIRST_RUN: 'stay'
   } })
   try {
     const page = await app.firstWindow()
