@@ -28,7 +28,7 @@ type ImpactActionCode =
   | 'runReadOnlyCommand'
   | 'runCommand'
 
-/** The action's words, from the main catalogs (shared/locales/*/main.json › remoteImpact). */
+/** The action's words, from the main catalogs: remoteImpact in shared/locales/en/main.json and pt-BR/main.json. */
 const LABELS: Record<DesktopImpactLanguage, Record<ImpactActionCode, string>> = { en: enImpact, 'pt-BR': ptImpact }
 
 const ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/
