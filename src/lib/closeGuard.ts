@@ -9,25 +9,49 @@ import { unsavedWork } from './unsavedWork'
  */
 let pendingId: string | null = null
 
-/** A conversation whose agent is in the middle of a turn: closing the app stops it, and it reopens paused. */
-export interface RunningTurn { id: string; title: string }
+/**
+ * Work that closing the app stops. With no `kind`, a conversation whose agent is in the middle of a turn: it reopens
+ * paused. OXE-368 adds an agent working (or waiting for a decision) in an OxeCode terminal, and a background job
+ * that runs; those say which workspace they are in.
+ */
+export interface RunningTurn { id: string; title: string; kind?: 'agent' | 'job'; workspace?: string }
 
 /** Main's list is asked when the close arrives; this long, and the close goes on as if nothing ran. */
 export const RUNNING_TURNS_LOOKUP_MS = 1500
 
-/**
- * Conversations with a turn in progress, working or waiting for the person. Asked of main, which knows every
- * conversation whatever this window has open. A list that fails or is late counts as nothing running: the question
- * is a courtesy, and the app must stay closable.
- */
-export async function runningTurns(): Promise<RunningTurn[]> {
+/** Conversations with a turn in progress, working or waiting for the person; main knows every one of them. */
+async function conversationTurns(late: Promise<null>): Promise<RunningTurn[]> {
   const list = window.oxe?.thread?.list
   if (!list) return []
-  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const late = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), RUNNING_TURNS_LOOKUP_MS) })
     const threads = await Promise.race([list(), late])
     return (threads ?? []).filter(thread => thread.status === 'running' || thread.status === 'approval').map(thread => ({ id: thread.id, title: thread.title }))
+  } catch {
+    return []
+  }
+}
+
+/** Terminal agents and background jobs (OXE-368). The module is loaded here, on a close, and within the deadline. */
+async function terminalWork(late: Promise<null>): Promise<RunningTurn[]> {
+  try {
+    const module = await Promise.race([import('./runningWork'), late])
+    return module ? await module.runningWork(late) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * What is in progress and closing would stop: conversations with a turn in progress, agents working or waiting for a
+ * decision in a terminal of any workspace, and background jobs that run. All of it inside one deadline. A list that
+ * fails or is late counts as nothing running: the question is a courtesy, and the app must stay closable.
+ */
+export async function runningTurns(): Promise<RunningTurn[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), RUNNING_TURNS_LOOKUP_MS) })
+  try {
+    const [turns, work] = await Promise.all([conversationTurns(late), terminalWork(late)])
+    return [...turns, ...work]
   } catch {
     return []
   } finally {
