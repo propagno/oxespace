@@ -165,6 +165,10 @@ export async function openDemoWorkspace(page: Page, workspaceRoot: string): Prom
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
   await page.getByTestId('wizard-launch-btn').click()
+  // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
+  await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+  const firstRun = page.getByTestId('first-run')
+  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click()
   await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 10_000 })
 }
 

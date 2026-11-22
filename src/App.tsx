@@ -4,6 +4,7 @@ import type { CodeCommandContext } from './commands/code.commands'
 import type { ThreadCommandContext } from './commands/thread.commands'
 import { useDeferredModule } from './app/useDeferredModule'
 import { firstRunGate } from './app/firstRunGate'
+import { useFirstRunLaunch } from './app/useFirstRunLaunch'
 import { DataHosts, DataSidebar, isDataView, ThreadGrid, ThreadSidebar, ThreadSidebarBoundary, useModeActions, ViewSkeleton } from './components/Navigation/ModeViews'
 import { useViewSwitch } from './app/viewSwitch'; import { useOpenThreadListener } from './app/openThread'
 import { setShownView } from './app/shownView'
@@ -118,6 +119,7 @@ export function App(): ReactElement {
   const [hasOpenedThread, setHasOpenedThread] = useState(() => applicationView === 'thread')
   const [firstRunExited, setFirstRunExited] = useState(false)
   const firstRunDismissed = useNavigationPrefs(state => state.firstRun.dismissed)
+  const firstRunLaunch = useFirstRunLaunch()
   // The view switches when the next view is ready; until then the current one stays and the button is busy (F7.2).
   const viewSwitch = useViewSwitch(applicationView, mode => { setFirstRunExited(true); if (mode === 'thread') setHasOpenedThread(true); rememberAppView(mode); setApplicationView(mode) })
   const rawSelectMode = viewSwitch.select
@@ -454,9 +456,10 @@ export function App(): ReactElement {
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))
-    const workspace = await createWorkspace({ rootPath: input.rootPath, layoutPreset: input.layoutPreset, defaultShellProfileId: input.defaultShellProfileId, autoStart: true, agentBindings: input.agentBindings })
+    const workspace = await firstRunLaunch.create(showFirstRun, () => createWorkspace({ rootPath: input.rootPath, layoutPreset: input.layoutPreset, defaultShellProfileId: input.defaultShellProfileId, autoStart: true, agentBindings: input.agentBindings }))
     if (!knownIds.has(workspace.id)) input.agentSlots.forEach((cmd, i) => { if (cmd && workspace.panes[i]) setPendingCommand(workspace.panes[i].id, cmd) })
-    setFirstRunExited(true); rememberAppView('code'); setApplicationView('code'); window.requestAnimationFrame(() => closeNewWorkspace())
+    if (!showFirstRun) { setFirstRunExited(true); rememberAppView('code'); setApplicationView('code') }
+    window.requestAnimationFrame(() => closeNewWorkspace())
   }
 
   const handleClosePane = (paneId: string): void => {
@@ -593,11 +596,11 @@ export function App(): ReactElement {
   const threadProjectsState = useThreadStore(state => state.projectsState)
   const threadProject = threadProjects.find(project => project.projectId === appThread?.projectId)
   // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
-  // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
+  // started it stays until the person leaves it (a mode, the first conversation): step 1's project or workspace does not end it.
   const firstRunStarted = useRef(false)
-  const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView() && workspaces.length === 0
+  const firstRunOpen = !firstRunDismissed && !firstRunExited && !hasRememberedAppView()
   // A restart is not an empty profile until the project catalog is read as empty (OXE-77).
-  const firstRun = firstRunGate({ isLoading, firstRunOpen, projectsState: threadProjectsState, projectCount: threadProjects.length, started: firstRunStarted.current })
+  const firstRun = firstRunGate({ isLoading, firstRunOpen, hasWorkspace: workspaces.length > 0, madeInFirstRun: firstRunLaunch.kept, projectsState: threadProjectsState, projectCount: threadProjects.length, started: firstRunStarted.current })
   if (firstRun.start) firstRunStarted.current = true
   const showFirstRun = firstRun.show
   const openContainerConversation = useCallback((id: string): void => {
@@ -768,7 +771,7 @@ export function App(): ReactElement {
             <h3>{t('app.loadingWorkspaces')}</h3>
           </div>
         ) : showFirstRun ? (
-          <Suspense key="first-run" fallback={null}><FirstRunHost onOpenMode={selectMode} onNewWorkspace={openNewWorkspaceFromUI} onStartConversation={folder => {
+          <Suspense key="first-run" fallback={null}><FirstRunHost workspaceFolder={firstRunLaunch.folder} onOpenMode={selectMode} onNewWorkspace={openNewWorkspaceFromUI} onStartConversation={folder => {
             setFirstRunExited(true)
             setHasOpenedThread(true)
             selectMode('thread')
@@ -868,7 +871,7 @@ export function App(): ReactElement {
         workspace={activeWorkspace ?? null}
         actions={commandActions}
         workspaces={workspaces}
-        onSelectWorkspace={(id) => void setActiveWorkspace(id)}
+        onSelectWorkspace={(id) => { setFirstRunExited(true); void setActiveWorkspace(id) }}
         onSelectPane={setActivePane}
       />}
       {isUsageOpen && <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />}
