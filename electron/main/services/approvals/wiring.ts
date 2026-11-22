@@ -31,6 +31,7 @@ export function wireApprovals(sources: {
   workspaces: () => Workspace[]
   profiles: () => Array<{ agentProfileId: string; provider: string; parentProvider?: string | null }>
   oxeQuery?: () => AgentGateway | undefined
+  paneProcess?: (paneId: string) => string | undefined
 }): void {
   const alwaysAllow = new AlwaysAllow({
     db: sources.db,
@@ -98,10 +99,15 @@ export function wireApprovals(sources: {
       threadProvider ??= sources.db.prepare("SELECT json_extract(data_json, '$.provider') AS provider FROM conversation_threads WHERE id = ?")
       return { agent: providerName((threadProvider.get(owner.id) as { provider?: string } | undefined)?.provider) }
     }
-    return paneInfo(owner.id, sources.workspaces(), id => {
-      const profile = sources.profiles().find(item => item.agentProfileId === id)
-      return profile ? (profile.parentProvider ?? profile.provider) : undefined
-    })
+    return paneInfo(
+      owner.id,
+      sources.workspaces(),
+      id => {
+        const profile = sources.profiles().find(item => item.agentProfileId === id)
+        return profile ? (profile.parentProvider ?? profile.provider) : undefined
+      },
+      sources.paneProcess
+    )
   })
 }
 

@@ -25,7 +25,8 @@ import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { useAppThread, useCommandSnapshot } from './app/useAppThread'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
@@ -155,7 +156,7 @@ export function App(): ReactElement {
     openNewThread: (projectId, rootPath) => { setNewThreadWorkspaceId(projectId); setNewThreadRootPath(rootPath) }
   }), [selectMode])
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
-  const threadSnapshot = useThreadStore(state => state.snapshot)
+  const appThread = useAppThread(), commandSnapshot = useCommandSnapshot()
   const threadSelection = useThreadStore(state => state.selectedId)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
@@ -590,7 +591,7 @@ export function App(): ReactElement {
 
   const threadProjects = useThreadStore(state => state.projects)
   const threadProjectsState = useThreadStore(state => state.projectsState)
-  const threadProject = threadProjects.find(project => project.projectId === threadSnapshot?.thread.projectId)
+  const threadProject = threadProjects.find(project => project.projectId === appThread?.projectId)
   // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
   // started it stays until the person leaves it (a mode, a workspace, the first conversation), not until a project exists.
   const firstRunStarted = useRef(false)
@@ -609,14 +610,15 @@ export function App(): ReactElement {
   }, [])
 
   // Code's side panels: buttons in the workspace bar for Changes and Browser, the rest in the Panels menu (also on the rail).
-  const codePanelItems: WorkbenchPanelItem[] = activeWorkspace ? [
-    { id: 'changes', active: activeWorkspace.reviewPanelVisible === true, onToggle: toggleReviewPanel },
-    { id: 'browser', active: webPreviewOpenByWorkspace[activeWorkspace.id] === true, onToggle: toggleWebPreviewPanel },
-    { id: 'git', active: activeWorkspace.githubPanelVisible === true, onToggle: toggleGitHubPanel },
-    { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: toggleEditor },
-    { id: 'search', active: isSearchPanelOpen, onToggle: toggleSearchPanel },
-    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: toggleWorktreePanel }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: toggleHttpCallsPanel }, { id: 'android', active: isAndroidPanelOpen, onToggle: toggleAndroidPanel }, { id: 'containers', active: containersOpen, onToggle: () => setContainersOpen(open => !open) }
-  ] : []
+  const panelToggles = useRef<Record<string, () => void>>({}); panelToggles.current = { changes: toggleReviewPanel, browser: toggleWebPreviewPanel, git: toggleGitHubPanel, files: toggleEditor, search: toggleSearchPanel, worktrees: toggleWorktreePanel, httpCalls: toggleHttpCallsPanel, android: toggleAndroidPanel }
+  const codePanelItems: WorkbenchPanelItem[] = useMemo(() => activeWorkspace ? [
+    { id: 'changes', active: activeWorkspace.reviewPanelVisible === true, onToggle: () => panelToggles.current.changes() },
+    { id: 'browser', active: webPreviewOpenByWorkspace[activeWorkspace.id] === true, onToggle: () => panelToggles.current.browser() },
+    { id: 'git', active: activeWorkspace.githubPanelVisible === true, onToggle: () => panelToggles.current.git() },
+    { id: 'files', active: activeWorkspace.editorVisible === true, onToggle: () => panelToggles.current.files() },
+    { id: 'search', active: isSearchPanelOpen, onToggle: () => panelToggles.current.search() },
+    { id: 'worktrees', active: activeWorkspace.worktreePanelVisible === true, onToggle: () => panelToggles.current.worktrees() }, { id: 'httpCalls', active: isHttpCallsPanelOpen, onToggle: () => panelToggles.current.httpCalls() }, { id: 'android', active: isAndroidPanelOpen, onToggle: () => panelToggles.current.android() }, { id: 'containers', active: containersOpen, onToggle: () => setContainersOpen(open => !open) }
+  ] : [], [activeWorkspace, webPreviewOpenByWorkspace, isSearchPanelOpen, isHttpCallsPanelOpen, isAndroidPanelOpen, containersOpen])
 
   const toolHandlers: Partial<Record<ToolId, () => void>> = {
     integration: openIntegrationPanel, github: toggleGitHubPanel, worktrees: toggleWorktreePanel, search: toggleSearchPanel,
@@ -681,7 +683,7 @@ export function App(): ReactElement {
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
-  const threadCommandContext: ThreadCommandContext = { snapshot: threadSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+  const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
@@ -729,7 +731,7 @@ export function App(): ReactElement {
       </header>
       <RemovedFeaturesBand />
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
-      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
+      {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? appThread?.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
@@ -831,12 +833,12 @@ export function App(): ReactElement {
         ) : applicationView === 'code' ? (
           <AppStatusBar appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={activePane?.id ?? null} />
         ) : applicationView === 'thread' ? (
-          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={threadSnapshot?.thread.rootPath} usageProvider={isUsageProvider(threadSnapshot?.thread.provider) ? threadSnapshot.thread.provider : null} />
+          <AppStatusBar docked appVersion={appVersion} workspace={null} activePaneId={null} rootPath={appThread?.rootPath} usageProvider={isUsageProvider(appThread?.provider) ? appThread.provider : null} />
         ) : (
           <AppStatusBar docked appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={null} />
         )}
         <Suspense fallback={null}>
-          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={threadSnapshot?.thread.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
+          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={appThread?.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
           {newThreadWorkspaceId !== undefined && <NewThreadDialog initialProjectId={newThreadWorkspaceId} initialRootPath={newThreadRootPath} onClose={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} />}
           {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
             await window.oxe.thread!.addProject(rootPath)
@@ -860,7 +862,7 @@ export function App(): ReactElement {
           onClose={closeNewWorkspace}
         />
       ) : null}
-      <CommandMenu
+      {isCommandMenuOpen && <CommandMenu
         open={isCommandMenuOpen}
         onOpenChange={(o) => (o ? openCommandMenu() : closeCommandMenu())}
         workspace={activeWorkspace ?? null}
@@ -868,8 +870,8 @@ export function App(): ReactElement {
         workspaces={workspaces}
         onSelectWorkspace={(id) => void setActiveWorkspace(id)}
         onSelectPane={setActivePane}
-      />
-      <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />
+      />}
+      {isUsageOpen && <UsageModal open={isUsageOpen} onOpenChange={(o) => (o ? openUsage() : closeUsage())} />}
       <SchedulesHost onOpenThread={openScheduledThread} />
       {commandBarOpen ? <CommandBarHost open={commandBarOpen} onOpenChange={setCommandBarOpen} applicationView={applicationView} selectMode={selectMode} activeWorkspace={activeWorkspace ?? null} activePane={activePane}
         onNewTerminal={() => splitActivePane('vertical')} onNewConversation={newThread} /> : null}
@@ -884,8 +886,8 @@ export function App(): ReactElement {
       ) : null}
       {isMcpPanelOpen ? (
         <McpPanelHost
-          workspaceId={applicationView === 'thread' ? threadSnapshot?.thread.workspaceId ?? null : activeWorkspace?.id ?? null}
-          conversationServers={applicationView === 'thread' ? threadSnapshot?.thread.mcpServers?.servers : undefined}
+          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
           onClose={closeMcpPanel}
         />
       ) : null}

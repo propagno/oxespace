@@ -286,6 +286,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.summary.preview.other': ['action'],
   'approvals.summary.crash': [],
   'approvals.requester.pane': ['agent', 'pane'],
+  'approvals.requester.paneProcess': ['pane', 'process'],
   'approvals.requester.conversation': ['agent', 'conversation'],
   'approvals.requester.unknownPane': ['pane'],
   'approvals.requester.unknownConversation': ['conversation'],
