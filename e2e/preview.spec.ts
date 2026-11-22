@@ -55,6 +55,8 @@ test('preview: markdown, image and pdf render in the editor pane', async () => {
       page.locator('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]').first()
     ).toBeVisible()
 
+    // The terminal takes the focus when its shell starts, which can be after the grid shows: let that land, then blur it.
+    await page.waitForFunction(() => Boolean(document.activeElement?.closest('.xterm')), undefined, { timeout: 15_000 })
     // Blur the terminal before using an app-level shortcut.
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
     await page.keyboard.press('Control+e')
