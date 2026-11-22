@@ -63,12 +63,12 @@ describe('A8 · workspace color in the renderer', () => {
     expect(results.violations.map(violation => `${violation.id}: ${violation.help}`)).toEqual([])
   })
 
-  it('marks the conversation header with the workspace color and shows the workspace chip, and nothing without a workspace', () => {
+  it('marks the conversation header with the workspace color, and nothing without a workspace', () => {
     const props = { pending: false, running: false, onTogglePanel: vi.fn(), onCommand: vi.fn(), onDelegate: vi.fn(), onPin: vi.fn() }
     const { container, rerender } = render(<ThreadHeader {...props} workspace={workspace(7)} />)
     const header = container.querySelector('header.thread-heading')
     expect(header).toHaveAttribute('data-ws', '7')
-    expect(header?.querySelector('.thread-heading-context')).toHaveTextContent('cajui-api')
+    expect(header?.querySelector('.thread-heading-context')).toBeNull()
     rerender(<ThreadHeader {...props} />)
     expect(container.querySelector('header.thread-heading')).not.toHaveAttribute('data-ws')
   })
