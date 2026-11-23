@@ -18,6 +18,12 @@ export interface TerminalWriteSchedulerOptions {
   /** Optional custom frame scheduler (injectable for deterministic tests). */
   scheduleFrame?: (cb: () => void) => number
   cancelFrame?: (id: number) => void
+  /**
+   * OXE-411 lever Q: keep the pending output as a queue of chunks. The single string re-copied everything still
+   * pending on every frame (`pending.slice(maxBytesPerFrame)`), which is quadratic once a pane falls behind its
+   * output: the measured renderer profile spent 38% of its CPU there. Same slices, same order, same backpressure.
+   */
+  queue?: boolean
 }
 
 export interface TerminalWriteScheduler {
@@ -42,13 +48,40 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
       ? (id: number) => cancelAnimationFrame(id)
       : (id: number) => clearTimeout(id as unknown as ReturnType<typeof setTimeout>))
 
+  // Lever Q: the pending output as chunks, `head` characters of parts[first] already taken.
+  const parts: string[] = []
+  let first = 0
+  let head = 0
+  let queued = 0
+  const useQueue = options.queue === true
+  const takeQueued = (max: number): string => {
+    let chunk = ''
+    while (chunk.length < max && first < parts.length) {
+      const part = parts[first]
+      const room = max - chunk.length
+      if (part.length - head <= room) {
+        chunk += head ? part.slice(head) : part
+        first++
+        head = 0
+      } else {
+        chunk += part.slice(head, head + room)
+        head += room
+      }
+    }
+    if (first > 1024 || first === parts.length) { parts.splice(0, first); first = 0 }
+    queued -= chunk.length
+    return chunk
+  }
+
   let pending = ''
   let inFlight = false
   let frameId: number | null = null
   let disposed = false
 
+  const hasPending = (): boolean => (useQueue ? queued > 0 : pending.length > 0)
+
   const scheduleFlush = (): void => {
-    if (disposed || inFlight || frameId !== null || !pending) return
+    if (disposed || inFlight || frameId !== null || !hasPending()) return
     frameId = scheduleFrame(() => {
       frameId = null
       flushNext()
@@ -56,33 +89,41 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   }
 
   const flushNext = (): void => {
-    if (disposed || inFlight || !pending) return
-    const chunk = pending.length > maxBytesPerFrame ? pending.slice(0, maxBytesPerFrame) : pending
-    pending = pending.length > maxBytesPerFrame ? pending.slice(maxBytesPerFrame) : ''
+    if (disposed || inFlight || !hasPending()) return
+    let chunk: string
+    if (useQueue) chunk = takeQueued(maxBytesPerFrame)
+    else {
+      chunk = pending.length > maxBytesPerFrame ? pending.slice(0, maxBytesPerFrame) : pending
+      pending = pending.length > maxBytesPerFrame ? pending.slice(maxBytesPerFrame) : ''
+    }
     inFlight = true
     options.write(chunk, () => {
       inFlight = false
-      if (!disposed && pending) scheduleFlush()
+      if (!disposed && hasPending()) scheduleFlush()
     })
   }
 
   const enqueue = (data: string): void => {
     if (disposed || !data) return
-    if (!inFlight && frameId === null && !pending && data.length <= immediateBytes) {
+    if (!inFlight && frameId === null && !hasPending() && data.length <= immediateBytes) {
       inFlight = true
       options.write(data, () => {
         inFlight = false
-        if (!disposed && pending) scheduleFlush()
+        if (!disposed && hasPending()) scheduleFlush()
       })
       return
     }
-    pending += data
+    if (useQueue) { parts.push(data); queued += data.length } else pending += data
     scheduleFlush()
   }
 
   const dispose = (): void => {
     disposed = true
     pending = ''
+    parts.length = 0
+    first = 0
+    head = 0
+    queued = 0
     if (frameId !== null) {
       cancelFrame(frameId)
       frameId = null
@@ -92,6 +133,6 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   return {
     enqueue,
     dispose,
-    pendingLength: () => pending.length
+    pendingLength: () => (useQueue ? queued : pending.length)
   }
 }

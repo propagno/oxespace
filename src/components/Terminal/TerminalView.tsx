@@ -603,6 +603,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
 
     const bridge = transport ?? window.oxe.terminal
     const writeScheduler = createTerminalWriteScheduler({
+      queue: terminalLevers(window.oxe?.app?.termLevers).has('Q'),
       write: (chunk, done) => {
         if (disposed) {
           done()

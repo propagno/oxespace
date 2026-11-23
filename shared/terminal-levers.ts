@@ -7,8 +7,10 @@
  *  - M: main's headless screen mirror (agent state) is fed only for panes started as an agent
  *    (electron/main/services/terminal.service.ts).
  *  - I: main batches PTY output to the window in 50 ms or 256 KiB instead of 16 ms or 32 KiB.
+ *  - Q: the renderer's write scheduler keeps pending output as a queue of chunks instead of one string it re-copies on
+ *    every frame (src/components/Terminal/terminalWriteScheduler.ts).
  */
-export type TerminalLever = 'H' | 'M' | 'I'
+export type TerminalLever = 'H' | 'M' | 'I' | 'Q'
 
 export const TERMINAL_LEVERS_ENV = 'OXESPACE_TERM_LEVERS'
 /** The renderer's copy: main passes the list as this argument, since a sandboxed preload has no environment. */
@@ -21,7 +23,7 @@ export function terminalLevers(value: string | undefined | null): ReadonlySet<Te
   const levers = new Set<TerminalLever>()
   for (const part of (value ?? '').split(',')) {
     const lever = part.trim().toUpperCase()
-    if (lever === 'H' || lever === 'M' || lever === 'I') levers.add(lever)
+    if (lever === 'H' || lever === 'M' || lever === 'I' || lever === 'Q') levers.add(lever)
   }
   return levers
 }

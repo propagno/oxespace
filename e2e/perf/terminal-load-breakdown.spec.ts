@@ -2,7 +2,8 @@
  * OXE-411 · What the terminal costs under load, lever by lever (shared/terminal-levers.ts), on the built app with real
  * PTYs. CI only (.github/workflows/terminal-load.yml); never in the smoke run (playwright.config.ts ignores e2e/perf/).
  *
- * Each arm is the app launched with OXESPACE_TERM_LEVERS set to: '' (base), H, M, I, or H,M,I. Arms alternate their
+ * Each arm is the app launched with OXESPACE_TERM_LEVERS set to: '' (base), Q, H, or H,Q (OXESPACE_BREAKDOWN_ARMS picks
+ * others: the first run measured M, I and H+M+I as well). Arms alternate their
  * order every round, on the same runner. Each launch opens a quiet workspace (2 panes) and a load workspace (10 panes,
  * 8 of them printing ~1 MB/s of ANSI text for LOAD_SECONDS) and measures two phases while the load runs:
  *  - visible: the load workspace is on screen (the OXE-120/OXE-349 perf-load scenario); typing in its idle pane;
@@ -10,7 +11,7 @@
  * Per phase: key echo (key event → echo painted from the PTY), Ctrl K → first item, main:loop p95 (net of the
  * recorder's tick), and CPU (% of one core) per process type: main, renderer, GPU, PTY host. Per launch: workspace
  * switch both ways, and the working set per process type at the peak and 10 s after the load.
- * In round 1, the base and H,M,I arms also record a CPU profile of the renderer (top 10 functions by self time).
+ * In round 1, the base, Q and H+Q arms also record a CPU profile of the renderer (top 10 functions by self time).
  *
  * Output: OXESPACE_BREAKDOWN_RESULTS (default test-results/terminal-load-breakdown): results.json, summary.md and the
  * renderer profiles. The numbers are reported, never asserted; what fails is a run that measured nothing.
@@ -25,7 +26,7 @@ import { launchForPerf } from '../helpers/perf-launch'
 import { armEnv, forceKill } from '../helpers/pty-host'
 
 const ROUNDS = Number(process.env.OXESPACE_BREAKDOWN_ROUNDS ?? 5)
-const ARMS: Array<{ name: string; levers: string }> = (process.env.OXESPACE_BREAKDOWN_ARMS ?? 'base,H,M,I,H+M+I')
+const ARMS: Array<{ name: string; levers: string }> = (process.env.OXESPACE_BREAKDOWN_ARMS ?? 'base,Q,H,H+Q')
   .split(',').map(name => ({ name, levers: name === 'base' ? '' : name.split('+').join(',') }))
 const OUT = process.env.OXESPACE_BREAKDOWN_RESULTS || join(process.cwd(), 'test-results', 'terminal-load-breakdown')
 const LOADERS = 8
@@ -229,7 +230,7 @@ async function runArm(arm: { name: string; levers: string }, round: number): Pro
       for (const id of ids) window.oxe.terminal.onData(id, event => { counter.total += event.data.length })
       scope.__oxeBreakBytes = counter
     }, loaders)
-    const profile = round === 1 && (arm.name === 'base' || arm.name === 'H+M+I') ? await startProfile(page) : null
+    const profile = round === 1 && (arm.name === 'base' || arm.name === 'Q' || arm.name === 'H+Q') ? await startProfile(page) : null
     for (const paneId of loaders) await page.evaluate(({ paneId, command }) => window.oxe.terminal.write({ paneId, data: command }), { paneId, command: `node "${loaderFile}"\r` })
     const startedAt = Date.now()
     const loaded = (): boolean => Date.now() - startedAt < (LOAD_SECONDS - 2) * 1000
@@ -329,6 +330,6 @@ test.describe.serial('the terminal under load, lever by lever (OXE-411)', () => 
   test('renderer CPU profile under load', () => {
     const profiled = launches.filter(launch => launch.profile)
     test.info().annotations.push({ type: 'profiles', description: profiled.map(launch => launch.arm).join(', ') || 'none: no CDP session in this Electron' })
-    expect(profiled.length, 'the base and H+M+I renderer profiles were recorded').toBeGreaterThan(0)
+    expect(profiled.length, 'the base, Q and H+Q renderer profiles were recorded').toBeGreaterThan(0)
   })
 })

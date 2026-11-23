@@ -3,6 +3,7 @@ import { openInMemoryDatabase } from '../electron/main/db/index'
 import { WorkspaceService } from '../electron/main/services/workspace.service'
 import { TerminalManager, type TerminalObserver } from '../electron/main/services/terminal.service'
 import { terminalLevers } from '../shared/terminal-levers'
+import { createTerminalWriteScheduler } from '../src/components/Terminal/terminalWriteScheduler'
 
 /*
  * OXE-411 · The levers measured by e2e/perf/terminal-load-breakdown.spec.ts are off unless OXESPACE_TERM_LEVERS names
@@ -46,7 +47,7 @@ describe('the terminal load levers (OXE-411)', () => {
   })
 
   test('OXESPACE_TERM_LEVERS turns on exactly the levers it names', () => {
-    expect([...terminalLevers('h, M ,i')].sort()).toEqual(['H', 'I', 'M'])
+    expect([...terminalLevers('h, M ,i, q')].sort()).toEqual(['H', 'I', 'M', 'Q'])
     expect([...terminalLevers('M')]).toEqual(['M'])
   })
 
@@ -56,5 +57,44 @@ describe('the terminal load levers (OXE-411)', () => {
       print('agent says hi')
       expect(observed.join('')).toBe('agent says hi')
     } finally { manager.stopAll(); db.close() }
+  })
+})
+
+describe('lever Q: the write scheduler as a queue of chunks (OXE-411)', () => {
+  /** Drives a scheduler by hand: frames run when asked, and each write completes when asked. */
+  function drive(queue: boolean, inputs: string[], maxBytesPerFrame: number) {
+    const frames: Array<() => void> = []
+    const dones: Array<() => void> = []
+    const written: string[] = []
+    const scheduler = createTerminalWriteScheduler({
+      queue, maxBytesPerFrame, immediateBytes: 8,
+      write: (chunk, done) => { written.push(chunk); dones.push(done) },
+      scheduleFrame: cb => { frames.push(cb); return frames.length },
+      cancelFrame: () => undefined
+    })
+    const pending: number[] = []
+    inputs.forEach((data, index) => {
+      scheduler.enqueue(data)
+      // Interleave: a write completes every other input, a frame runs every third.
+      if (index % 2 === 0) dones.shift()?.()
+      if (index % 3 === 0) frames.shift()?.()
+      pending.push(scheduler.pendingLength())
+    })
+    for (let guard = 0; guard < 10_000 && (frames.length || dones.length); guard++) { dones.shift()?.(); frames.shift()?.() }
+    return { written, pending, left: scheduler.pendingLength() }
+  }
+
+  test('writes the same slices in the same order as the string scheduler, with the same backpressure', () => {
+    let seed = 7
+    const random = (): number => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
+    const inputs = Array.from({ length: 400 }, (_, index) => `${index}:${'x'.repeat(Math.floor(random() * 3000))}\r\n`)
+    for (const max of [64, 1024, 65536]) {
+      const before = drive(false, inputs, max)
+      const after = drive(true, inputs, max)
+      expect(after.written).toEqual(before.written)
+      expect(after.pending).toEqual(before.pending)
+      expect(after.left).toBe(0)
+      expect(after.written.join('')).toBe(inputs.join(''))
+    }
   })
 })
