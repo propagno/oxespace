@@ -1,5 +1,6 @@
 import { designSearchTerms, designSourceCandidates, type DesignGrabSource } from '../../../shared/design-source'
 import type { DesignGrabContext, DesignGrabPayload } from '../../../shared/types/design-mode'
+import { listFilesCached } from '../../lib/fileListCache'
 
 /** Where an element can be written. Styles and data come after markup: the person picked what they see. */
 const SOURCE_GLOBS = ['*.{tsx,jsx,vue,svelte,astro,html,htm,mdx,ts,js,mjs,css,scss,less}', '!*.min.*', '!dist/**', '!build/**', '!out/**', '!coverage/**']
@@ -22,8 +23,9 @@ export async function locateDesignSource(payload: DesignGrabPayload, project: Pr
 
   const told = payload.probe ? designSourceCandidates(payload.probe, project.rootPath) : []
   if (told.length > 0) {
-    const listed = await window.oxe.search.listFiles({ workspaceId: project.id, rootPath: project.rootPath }).catch(() => null)
-    const known = new Map((listed && !listed.error ? listed.files : []).map(file => [file.toLowerCase(), file]))
+    // OXE-299: through the shared file-list cache, so a grab does not run `rg --files` again within its TTL.
+    const listed = await listFilesCached({ workspaceId: project.id, rootPath: project.rootPath })
+    const known = new Map((listed ?? []).map(file => [file.toLowerCase(), file]))
     const inProject = told.flatMap(item => { const file = known.get(item.file.toLowerCase()); return file ? [{ ...item, file }] : [] })
     if (inProject.length > 0) return { source: inProject[0], candidates: inProject.slice(1, 3), components }
   }
