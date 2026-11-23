@@ -242,7 +242,7 @@ test('boot + workspace create', async () => {
     const workingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.workingSetSize, 0) / 1024
     const peakWorkingSetMb = processMetrics.reduce((total, metric) => total + metric.memory.peakWorkingSetSize, 0) / 1024
     const rendererHeapMb = await page.evaluate(() => {
-      const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory
+      const memory = (performance as unknown as Performance & { memory?: { usedJSHeapSize?: number } }).memory
       return (memory?.usedJSHeapSize ?? 0) / 1024 / 1024
     })
     console.log(
@@ -752,7 +752,7 @@ test('thread: 5,000 events, scroll and streaming append', async () => {
         const to = performance.now()
         const slow = box.__keySamples.flatMap((ms, index) => ms > budget ? [`${box.__keyStarts[index]}+${Math.round(ms)}`] : [])
         const marks = performance.getEntriesByType('mark').filter(mark => mark.startTime >= box.__keyFrom - 2000 && mark.startTime <= to).map(mark => `${mark.name}@${Math.round(mark.startTime)}`)
-        const memory = (performance as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory
+        const memory = (performance as unknown as Performance & { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory
         return [`window=${Math.round(box.__keyFrom)}..${Math.round(to)}`, `slow=[${slow.join(' ')}]`,
           `longtasks=[${box.__keyLongTasks.map(task => `${task.at}+${task.ms}:${task.source}`).join(' ')}]`,
           `marks=[${marks.join(' ')}]`, memory ? `heap=${Math.round(memory.usedJSHeapSize / 1e6)}/${Math.round(memory.totalJSHeapSize / 1e6)}MB` : 'heap=n/a'].join(' ')
