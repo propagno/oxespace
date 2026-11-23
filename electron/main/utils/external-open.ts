@@ -31,12 +31,15 @@ function recordLinkIncident(code: DiagnosticsIncidentCode, subject: string | und
 /**
  * Hands a link from the main window to the system browser or mail app, or records why not. The incident carries the
  * reason only: never the URL, nor its host. Anything but a string is refused as malformed.
+ * True means handed to the system, not opened: a caller that must know waits on what `opening` receives.
  */
-export function openExternalOrRecord(url: unknown, now = Date.now()): boolean {
+export function openExternalOrRecord(url: unknown, now = Date.now(), opening?: (system: Promise<void>) => void): boolean {
   const refusal = typeof url === 'string' ? externalUrlRefusal(url) : 'malformed'
   if (refusal === null) {
     // The system may have no handler (a mailto: with no mail app on Linux): journalled, still without the URL.
-    shell.openExternal(url as string).catch(() => recordIncident('incident.window.externalOpenFailed'))
+    const system = shell.openExternal(url as string)
+    system.catch(() => recordIncident('incident.window.externalOpenFailed'))
+    opening?.(system)
     return true
   }
   recordLinkIncident('incident.window.externalRefused', refusal, now)
