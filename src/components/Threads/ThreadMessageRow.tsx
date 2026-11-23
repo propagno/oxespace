@@ -64,11 +64,26 @@ function PromptCardTools({ event, turnId, turnEvents, snapshot, running, copied,
   const changedFiles = turnEvents.some(value => value.type === 'tool' && Boolean(value.files?.length))
   if (editing !== null && snapshot && canEdit) {
     const send = (): void => {
+      if (!editing.trim()) return
       const value = editing
       void action(() => api!.editPrompt!(snapshot.thread.id, turnId, value, { restoreFiles })).then(() => setEditing(null))
     }
     return <div className="thread-prompt-editor">
-      <TextArea label={t('message.editPrompt')} value={editing} rows={3} onChange={changed => setEditing(changed.target.value)} />
+      <TextArea
+        label={t('message.editPrompt')}
+        value={editing}
+        rows={3}
+        onChange={changed => setEditing(changed.target.value)}
+        onKeyDown={keyEvent => {
+          if (keyEvent.key === 'Escape') {
+            keyEvent.preventDefault()
+            setEditing(null)
+          } else if (keyEvent.key === 'Enter' && (keyEvent.ctrlKey || keyEvent.metaKey)) {
+            keyEvent.preventDefault()
+            if (editing.trim()) send()
+          }
+        }}
+      />
       {changedFiles && <Checkbox label={t('message.undoTurnChanges')} checked={restoreFiles} onChange={changed => setRestoreFiles(changed.target.checked)} />}
       <div className="thread-prompt-editor-actions">
         <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>{t('common.cancel')}</Button>

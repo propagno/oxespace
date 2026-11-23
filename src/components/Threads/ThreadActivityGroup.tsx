@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { foldSummary, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
@@ -83,6 +84,15 @@ function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: R
 
 export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', onResolveInterrupted }: { events: Tool[]; mode?: ThreadViewMode; rootPath?: string; onResolveInterrupted?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleRow = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   const running = events.some(event => event.state === 'running'), failures = events.filter(event => event.state === 'failed').length, unconfirmed = events.filter(event => event.state === 'unknown').length
   if (mode === 'normal') {
     const rows = events.map(event => toolRow(event, rootPath))
@@ -90,7 +100,15 @@ export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', o
     return <details className={`thread-activity-group${summary.failed ? ' has-failure' : ''}`} open={summary.running || undefined}>
       <summary>{summary.running ? <Spinner size="sm" decorative /> : summary.failed ? <CircleAlert size={14} /> : unconfirmed ? <CircleHelp size={14} /> : <Check size={14} />}
         <span>{foldSummaryText(summary)}{summary.running ? '…' : ''}</span><ChevronDown size={14} /></summary>
-      <div className="thread-activity-items">{events.map((event, index) => <div key={event.id}><ToolRowView row={rows[index]} />{(event.state === 'failed' || event.interrupted) && <ThreadToolDiagnostic event={event} onResolve={onResolveInterrupted} />}</div>)}</div>
+      <div className="thread-activity-items">{events.map((event, index) => {
+        const row = rows[index]
+        const alwaysExpanded = event.state === 'failed' || Boolean(event.interrupted)
+        const isExpanded = alwaysExpanded || expandedIds.has(event.id)
+        return <div key={event.id}>
+          <ToolRowView row={row} expanded={isExpanded} onSelect={() => toggleRow(event.id)} />
+          {isExpanded && <ThreadToolDiagnostic event={event} onResolve={onResolveInterrupted} />}
+        </div>
+      })}</div>
     </details>
   }
   const commands = events.every(event => ['commandExecution', 'Bash'].includes(event.name))
