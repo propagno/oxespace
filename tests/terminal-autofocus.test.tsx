@@ -101,7 +101,17 @@ vi.mock('@xterm/addon-search', () => ({
 const transport = () => ({ onData: vi.fn(() => () => {}), onExit: vi.fn(() => () => {}), attach: vi.fn(async () => ({ running: false, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false })), detach: vi.fn(async () => {}) })
 
 describe('OXE-395 · the terminal takes focus only when the person has not moved on', () => {
-  beforeEach(() => { terminalState.focus.mockClear(); document.body.innerHTML = '' })
+  beforeEach(() => {
+    terminalState.focus.mockClear()
+    terminalState.registerOscHandler.mockReturnValue({ dispose: vi.fn() })
+    document.body.innerHTML = ''
+    global.ResizeObserver = class {
+      observe(): void {}
+      disconnect(): void {}
+      unobserve(): void {}
+      takeRecords(): ResizeObserverEntry[] { return [] }
+    }
+  })
 
   test('a late start does not take the focus the person moved', async () => {
     const other = document.createElement('input')
