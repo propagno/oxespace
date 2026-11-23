@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, IconButton, LoadingState, Menu, Notice, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
@@ -63,10 +63,15 @@ function relativeTime(timestamp: number): string {
  * The OxeChat sidebar (BRD-02, OXE-166, OXC-1) on OxeCode's mould: a src/ui SidebarHeader (Conversations, New
  * conversation, Schedules, collapse), a SidebarFilter, Pinned, the Projects label, one SidebarGroup per project with its
  * sections and then No section, Archived last and collapsed, and a SidebarFooter of IconButtons. Each conversation is a
- * two-line SidebarRow; one that waits shows its needs-you mini card, read from pendingRequestsAll().
+ * two-line SidebarRow; one that waits shows its needs-you mini card, read from pendingRequestsAll(). A session's parallel
+ * chats (OXC-5, OXE-170) are one-line rows right under their parent, in the session's order; a parent row offers
+ * "New parallel conversation" as its + and in its ⋯ menu, with no shortcut.
  */
-export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode, draft, onLeaveDraft }: {
-  onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
+export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddProject, onOpenInCode, draft, onLeaveDraft }: {
+  onCreate: (projectId: string, rootPath?: string) => void
+  /** Opens the new conversation screen for a parallel chat of this conversation's session (OXE-170). */
+  onCreateParallel?: (parentId: string) => void
+  onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
   /** A new conversation being written in place (OXC-3): its draft row shows in its project and is the one selection. */
   draft?: { projectId: string } | null
   /** Choosing a conversation while the draft is open leaves the draft, also when it is the one that was selected. */
@@ -171,6 +176,8 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
 
   // Line 2's +N −N: the session view (OXE-170), read again when the list or a conversation's places change.
   const [changes, setChanges] = useState<Map<string, SessionChanges>>(() => new Map())
+  // The order each session lists its parallel chats in (OXE-170 CA-4), by the session's (its main chat's) id.
+  const [chatOrder, setChatOrder] = useState<Map<string, string[]>>(() => new Map())
   const sessionsKey = useMemo(() => threads.map(thread => `${thread.id}:${thread.status}`).join(','), [threads])
   const refreshSessions = useCallback(() => {
     const read = window.oxe?.thread?.sessions
@@ -178,6 +185,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     void Promise.resolve(read()).then(list => {
       if (!Array.isArray(list)) return
       setChanges(new Map(list.map(session => [session.id, session.changes])))
+      setChatOrder(new Map(list.map(session => [session.id, session.chats.filter(chat => !chat.main).map(chat => chat.id)])))
     }).catch(() => undefined)
   }, [])
   useEffect(() => { if (sessionsKey) refreshSessions() }, [sessionsKey, refreshSessions])
@@ -186,6 +194,21 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     return () => { if (typeof off === 'function') off() }
   }, [refreshSessions])
 
+  // A parallel chat is drawn under its parent, never as a conversation of its own; one whose parent is not listed stays a row.
+  const childrenOf = useMemo(() => {
+    const listed = new Set(threads.filter(thread => !thread.archived).map(thread => thread.id))
+    const byParent = new Map<string, ConversationThread[]>()
+    for (const thread of threads) {
+      if (thread.archived || !thread.parentThreadId || !listed.has(thread.parentThreadId)) continue
+      byParent.set(thread.parentThreadId, [...(byParent.get(thread.parentThreadId) ?? []), thread])
+    }
+    for (const [parentId, list] of byParent) {
+      const order = chatOrder.get(parentId) ?? []
+      const at = (id: string): number => { const index = order.indexOf(id); return index < 0 ? Infinity : index }
+      list.sort((a, b) => at(a.id) - at(b.id) || a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+    }
+    return byParent
+  }, [threads, chatOrder])
   // Also matches by conversation content (native transcript index), not just title/path.
   const contentMatches = useThreadContentMatches(query)
   const contentHit = useCallback((thread: ConversationThread) => !!thread.nativeSessionId && contentMatches.has(thread.nativeSessionId), [contentMatches])
@@ -233,19 +256,26 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     } catch (error) { setActionError(humanizeError(error, t('sidebar.restoreFailed'))) }
     finally { setRestoringId(null) }
   }
-  const row = (thread: ConversationThread) => {
+  const row = (thread: ConversationThread, child = false) => {
     const name = displayThreadTitle(thread.title)
+    // Chats do not nest: only a conversation that is no parallel chat starts one (OXE-170 CA-7).
+    const parallel = onCreateParallel && !child && !thread.parentThreadId
+      ? { label: t('sidebar.newParallel'), disabled: unavailableProjects.includes(thread.projectId), start: () => onCreateParallel(thread.id) }
+      : null
     // Found by what was said in it: the line that matched, so the person sees why it is listed.
     const found = query && thread.nativeSessionId ? contentMatches.get(thread.nativeSessionId) : undefined
-    return <ThreadSidebarRow key={thread.id} thread={thread} selected={!draft && selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
+    return <ThreadSidebarRow key={thread.id} thread={thread} child={child} selected={!draft && selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={child ? undefined : changes.get(thread.id)}
       request={thread.status === 'approval' ? pending.get(thread.id) : undefined} time={relativeTime(thread.updatedAt)} dragProps={drag.rowProps(thread)}
       snippet={found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : undefined}
       onSelect={() => { onLeaveDraft?.(); void useThreadStore.getState().openInActiveCell(thread.id) }} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
       actions={<>
+        {parallel && <IconButton size="sm" data-list-action data-testid="thread-row-action" label={parallel.label} title={parallel.label} disabled={parallel.disabled}
+          icon={<Plus size={14} aria-hidden="true" />} onClick={parallel.start} />}
         <IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.openSideNamed', { name })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)}
           icon={<Columns2 size={14} aria-hidden="true" />} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))} />
         <Menu label={t('sidebar.actionsFor', { name })} side="right" open={rowMenuId === thread.id} onOpenChange={open => setRowMenuId(open ? thread.id : null)} items={[
           { label: t('sidebar.openToSide'), icon: <Columns2 size={14} />, disabled: sideBySideBlocked(thread.id), onSelect: () => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed')))) },
+          ...(parallel ? [{ label: parallel.label, icon: <Plus size={14} />, disabled: parallel.disabled, onSelect: parallel.start }] : []),
           { label: t('sidebar.renameMenu'), icon: <Pencil size={14} />, onSelect: () => { setActionError(''); setRenameTarget(thread); setRenameValue(namedThreadTitle(thread.title)) } },
           { label: thread.pinned ? t('sidebar.unpin') : t('sidebar.pin'), icon: <Pin size={14} />, onSelect: () => void useThreadStore.getState().pinThread(thread.id, !thread.pinned) },
           moveToSectionEntry(thread, sections.sectionsOf(thread.projectId), sections),
@@ -253,8 +283,20 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
           { type: 'separator' },
           { label: t('confirm.archive.confirm'), icon: <Archive size={14} />, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'archive'); else setConfirmation({ kind: 'archive', id: thread.id, title: name }) } },
           { label: t('confirm.delete.confirm'), icon: <Trash2 size={14} />, danger: true, onSelect: () => { setActionError(''); if (thread.ownedWorktree) askWorktreeFinish(thread.id, 'delete'); else setConfirmation({ kind: 'thread', id: thread.id, title: name }) } }
-        ]} trigger={<IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.actionsFor', { name })} title={t('sidebar.conversationActions')} icon={<MoreHorizontal size={14} aria-hidden="true" />} />} />
+        ]} trigger={<IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.actionsFor', { name })} title={t('sidebar.conversationActions')} icon={<MoreHorizontal size={14} aria-hidden="true" />}
+          // Radix opens the menu on pointerdown; a click with no pointer behind it (detail 0: a screen reader's or a script's
+          // activation) opens it too, and a mouse click (detail ≥ 1) is left to Radix.
+          onClick={event => { if (event.detail === 0) setRowMenuId(thread.id) }} />} />
       </>} />
+  }
+  /**
+   * The rows of one list (a section, No section, Pinned): each conversation and, right under it, those of its parallel
+   * chats the list shows, as one-line rows. A chat whose parent this list does not show stays a row of its own.
+   */
+  const rowsOf = (list: readonly ConversationThread[]) => {
+    const shown = new Set(list.map(thread => thread.id))
+    return list.flatMap(thread => thread.parentThreadId && shown.has(thread.parentThreadId) && childrenOf.has(thread.parentThreadId) ? []
+      : [<Fragment key={thread.id}>{row(thread, !!thread.parentThreadId)}{(childrenOf.get(thread.id) ?? []).filter(child => shown.has(child.id)).map(child => row(child, true))}</Fragment>])
   }
   // New conversation goes to the selected conversation's project, or the first one listed.
   const createTarget = groups.find(group => group.id === selected?.projectId) ?? groups[0]
@@ -293,7 +335,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         {Object.entries(errors).map(([id, error]) => <ErrorState key={id} compact title={error} retryLabel={t('common.tryAgain')} onRetry={() => { void useThreadStore.getState().load(); void useThreadStore.getState().loadProjects() }} />)}
         {pinned.length > 0 && <section data-ui="thread-pinned-section">
           <SidebarSection label={<span role="heading" aria-level={2}>{t('sidebar.pinnedHeading')}</span>} />
-          <div className={cx('thread-pinned-rows', styles.rows)}>{pinned.map(row)}</div>
+          <div className={cx('thread-pinned-rows', styles.rows)}>{rowsOf(pinned)}</div>
         </section>}
         {!coldSkeleton && <SidebarSection label={t('sidebar.projects')} action={<>
           <IconButton size="sm" label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'}
@@ -334,9 +376,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
                 {draft?.projectId === group.id && <div ref={markDraftCurrent} className={cx('thread-navigation-row', styles.row)} data-thread-draft={group.id}>
                   <SidebarRow className={cx('thread-navigation-item', styles.item)} selected lead={<Pencil size={12} aria-hidden="true" />} title={`${t('view.newConversation')} · ${t('sidebar.draft')}`} />
                 </div>}
-                {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query || !!stateFilter} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
+                {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query || !!stateFilter} controller={sections} zoneProps={drag.zoneProps} renderRows={rowsOf} rowsClassName={styles.rows} />)}
                 {split.sections.length > 0 && <SidebarSection label={t('sections.none')} />}
-                <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <Button variant="ghost" size="sm" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</Button>}</div>
+                <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{rowsOf(visible)}{split.loose.length > visible.length && <Button variant="ghost" size="sm" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</Button>}</div>
               </>
             })()}</div>}
           </section>

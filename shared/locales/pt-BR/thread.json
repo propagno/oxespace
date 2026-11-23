@@ -1429,6 +1429,7 @@
     }
   },
   "sidebar": {
+    "newParallel": "Nova conversa paralela",
     "age": {
       "now": "agora",
       "minutes_one": "{{count}} min",
@@ -2496,5 +2497,10 @@
       "see": "Ver agendamentos"
     },
     "footnote": "Os agendamentos só rodam com o OXESpace aberto. Nunca rodam com acesso total nem sem aprovações, e um agente não consegue criar um."
+  },
+  "parallel": {
+    "title": "Nova conversa paralela em {{title}}",
+    "notice": "Esta conversa trabalha na mesma pasta e parte das alterações da sessão. As duas veem os mesmos arquivos.",
+    "locked": "worktree da sessão"
   }
 }
