@@ -117,3 +117,22 @@ describe('lever Q: the write scheduler as a queue of chunks (OXE-411)', () => {
     }
   })
 })
+
+describe('lever Q keeps nothing it has written (OXE-411)', () => {
+  test('a pane far behind its output holds only what is still pending', () => {
+    const dones: Array<() => void> = []
+    const frames: Array<() => void> = []
+    const scheduler = createTerminalWriteScheduler({
+      queue: true, maxBytesPerFrame: 1024, immediateBytes: 0,
+      write: (_chunk, done) => { dones.push(done) },
+      scheduleFrame: cb => { frames.push(cb); return frames.length },
+      cancelFrame: () => undefined
+    })
+    for (let i = 0; i < 5000; i++) scheduler.enqueue('y'.repeat(1024))
+    for (let i = 0; i < 4000; i++) { dones.shift()?.(); frames.shift()?.() }
+    // What is left is exactly what was not written yet; the written chunks are not kept anywhere.
+    expect(scheduler.pendingLength()).toBe(1000 * 1024)
+    // At most the part a frame split, beyond what is pending.
+    expect(scheduler.retainedLength()).toBeLessThanOrEqual(1000 * 1024 + 1024)
+  })
+})

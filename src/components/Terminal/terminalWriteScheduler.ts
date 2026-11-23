@@ -31,6 +31,8 @@ export interface TerminalWriteScheduler {
   dispose: () => void
   /** Pending buffered characters waiting to be written (for diagnostics/tests). */
   pendingLength: () => number
+  /** Characters the scheduler still references, written or not (for diagnostics/tests). */
+  retainedLength: () => number
 }
 
 export const IMMEDIATE_CHUNK_BYTES = 512
@@ -61,6 +63,8 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
       const room = max - chunk.length
       if (part.length - head <= room) {
         chunk += head ? part.slice(head) : part
+        // Written: let it go now, not when the array is next compacted (a pane behind its output kept megabytes).
+        parts[first] = ''
         first++
         head = 0
       } else {
@@ -68,7 +72,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
         head += room
       }
     }
-    if (first > 1024 || first === parts.length) { parts.splice(0, first); first = 0 }
+    if (first > 64 || first === parts.length) { parts.splice(0, first); first = 0 }
     queued -= chunk.length
     return chunk
   }
@@ -133,6 +137,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   return {
     enqueue,
     dispose,
-    pendingLength: () => (useQueue ? queued : pending.length)
+    pendingLength: () => (useQueue ? queued : pending.length),
+    retainedLength: () => (useQueue ? parts.reduce((total, part) => total + part.length, 0) : pending.length)
   }
 }
