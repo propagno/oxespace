@@ -184,8 +184,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       platform: process.platform,
       // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
       locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
-      // OXE-411 · The measured terminal levers (shared/terminal-levers.ts); empty unless OXESPACE_TERM_LEVERS is set.
-      termLevers: process.argv.find(arg => arg.startsWith('--oxe-term-levers='))?.slice('--oxe-term-levers='.length) ?? '',
+      // OXE-411 · OXESPACE_TERM_LEVERS when it is set (shared/terminal-levers.ts); absent, the renderer uses the default.
+      termLevers: process.argv.find(arg => arg.startsWith('--oxe-term-levers='))?.slice('--oxe-term-levers='.length),
       startupFailure: () => ipc.invoke(IPC_CHANNELS.app.startupFailure) as Promise<import('../../shared/types/app').StartupFailure | null>,
       openBackupsFolder: () => ipc.invoke(IPC_CHANNELS.app.openBackupsFolder) as Promise<void>,
       quitAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.quitAfterStartupFailure) as Promise<void>,
@@ -243,7 +243,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       stop: (input) => ipc.invoke(IPC_CHANNELS.terminal.stop, input) as Promise<void>,
       restart: (input) => ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>,
       attach: (input) => ipc.invoke(IPC_CHANNELS.terminal.attach, input) as Promise<TerminalAttachResult>,
-      detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<void>,
+      detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<import('../../shared/types/ipc').TerminalDetachResult | void>,
       status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
       resumeBypass: () => ipc.invoke(IPC_CHANNELS.terminal.resumeBypass) as Promise<boolean>,
       setResumeBypass: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setResumeBypass, enabled) as Promise<boolean>,

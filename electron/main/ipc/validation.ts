@@ -10,6 +10,7 @@ import type {
   UpdatePaneNameInput,
   TerminalResizeInput,
   TerminalAttachInput,
+  TerminalDetachInput,
   TerminalStartInput,
   TerminalStopInput,
   TerminalWriteInput
@@ -175,6 +176,12 @@ export function parseTerminalStopInput(value: unknown): TerminalStopInput {
   return {
     paneId: expectNonEmptyString(input.paneId, 'paneId')
   }
+}
+
+/** terminal:detach · `parked` is true or absent (OXE-411). */
+export function parseTerminalDetachInput(value: unknown): TerminalDetachInput {
+  const input = expectRecord(value, 'terminal:detach input')
+  return { paneId: expectNonEmptyString(input.paneId, 'paneId'), ...(input.parked === true ? { parked: true } : {}) }
 }
 
 /** terminal:restart · `resume` is absent or the literal `false` (start fresh); anything else is refused. */

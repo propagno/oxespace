@@ -25,7 +25,7 @@ import { SizeLeases } from './terminal/size-lease'
 import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
 import { Da1Filter } from './pty-da1'
 import { LEVER_I_FLUSH_BYTES, LEVER_I_FLUSH_MS, TERMINAL_LEVERS_ENV, terminalLevers, type TerminalLever } from '../../../shared/terminal-levers'
-import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 
 export { __resetExecutableCacheForTests } from './terminal/executable'
 export { CONPTY_START_SCREEN }
@@ -296,8 +296,8 @@ export class TerminalManager {
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */
-  detach(input: TerminalStopInput): void {
-    this.output.detach(input)
+  detach(input: TerminalDetachInput): TerminalDetachResult | undefined {
+    return this.output.detach(input)
   }
 
   /** The retained output for a reader that is not a view. Nothing is attached or consumed. */
@@ -512,7 +512,8 @@ export class TerminalManager {
     const now = Date.now()
     let oldest: TerminalSession | null = null
     for (const session of this.sessions.values()) {
-      if (session.attached) continue
+      // A parked view (its workspace is hidden, OXE-411) is still the person's terminal: never reclaimed.
+      if (session.attached || session.parked) continue
       if (now - session.lastActivityAt < RECLAIM_IDLE_MS) continue
       if (!oldest || session.lastActivityAt < oldest.lastActivityAt) oldest = session
     }
@@ -535,7 +536,7 @@ export class TerminalManager {
   }
   /** Sessions running with no view attached — surfaced in the status bar. */
   countDetached(): number {
-    let total = 0; for (const session of this.sessions.values()) if (!session.attached) total++; return total
+    let total = 0; for (const session of this.sessions.values()) if (!session.attached && !session.parked) total++; return total
   }
   /** Live foreground process or launched executable of a pane, for approval requester labels (OXE-293). */
   foregroundProcess(paneId: string): string | undefined {

@@ -2,8 +2,8 @@
  * OXE-411 · What the terminal costs under load, lever by lever (shared/terminal-levers.ts), on the built app with real
  * PTYs. CI only (.github/workflows/terminal-load.yml); never in the smoke run (playwright.config.ts ignores e2e/perf/).
  *
- * Each arm is the app launched with OXESPACE_TERM_LEVERS set to: '' (base), Q, H, or H,Q (OXESPACE_BREAKDOWN_ARMS picks
- * others: the first run measured M, I and H+M+I as well). Arms alternate their
+ * Each arm is the app launched with OXESPACE_TERM_LEVERS set: base is 'none' (the terminal before OXE-411), H+Q is the
+ * default since 1.6.0; OXESPACE_BREAKDOWN_ARMS picks others (earlier runs measured Q, H, M, I and H+M+I). Arms alternate their
  * order every round, on the same runner. Each launch opens a quiet workspace (2 panes) and a load workspace (10 panes,
  * 8 of them printing ~1 MB/s of ANSI text for LOAD_SECONDS) and measures two phases while the load runs:
  *  - visible: the load workspace is on screen (the OXE-120/OXE-349 perf-load scenario); typing in its idle pane;
@@ -11,7 +11,7 @@
  * Per phase: key echo (key event → echo painted from the PTY), Ctrl K → first item, main:loop p95 (net of the
  * recorder's tick), and CPU (% of one core) per process type: main, renderer, GPU, PTY host. Per launch: workspace
  * switch both ways, and the working set per process type at the peak and 10 s after the load.
- * In round 1, the base, Q and H+Q arms also record a CPU profile of the renderer (top 10 functions by self time).
+ * In round 1, the base and H+Q arms also record a CPU profile of the renderer (top 10 functions by self time).
  *
  * Output: OXESPACE_BREAKDOWN_RESULTS (default test-results/terminal-load-breakdown): results.json, summary.md and the
  * renderer profiles. The numbers are reported, never asserted; what fails is a run that measured nothing.
@@ -26,8 +26,8 @@ import { launchForPerf } from '../helpers/perf-launch'
 import { armEnv, forceKill } from '../helpers/pty-host'
 
 const ROUNDS = Number(process.env.OXESPACE_BREAKDOWN_ROUNDS ?? 5)
-const ARMS: Array<{ name: string; levers: string }> = (process.env.OXESPACE_BREAKDOWN_ARMS ?? 'base,Q,H,H+Q')
-  .split(',').map(name => ({ name, levers: name === 'base' ? '' : name.split('+').join(',') }))
+const ARMS: Array<{ name: string; levers: string }> = (process.env.OXESPACE_BREAKDOWN_ARMS ?? 'base,H+Q')
+  .split(',').map(name => ({ name, levers: name === 'base' ? 'none' : name.split('+').join(',') }))
 const OUT = process.env.OXESPACE_BREAKDOWN_RESULTS || join(process.cwd(), 'test-results', 'terminal-load-breakdown')
 const LOADERS = 8
 const LOAD_SECONDS = 40
@@ -59,6 +59,8 @@ interface Phase { echoMs: number[]; ctrlKMs: number[]; loopP95: number | null; c
 interface Launch {
   arm: string
   round: number
+  /** main:loop p95 with the app open and nothing printing: the reading's floor on this runner. */
+  idleLoopP95: number | null
   visible: Phase
   hidden: Phase
   switchToQuietMs: number | null
@@ -230,7 +232,10 @@ async function runArm(arm: { name: string; levers: string }, round: number): Pro
       for (const id of ids) window.oxe.terminal.onData(id, event => { counter.total += event.data.length })
       scope.__oxeBreakBytes = counter
     }, loaders)
-    const profile = round === 1 && (arm.name === 'base' || arm.name === 'Q' || arm.name === 'H+Q') ? await startProfile(page) : null
+    // The loop's floor: 5 s with nothing printing, before the load.
+    let idleLoopP95: number | null = null
+    if (await startLoop(app)) { await page.waitForTimeout(5_000); idleLoopP95 = await readLoop(app) }
+    const profile = round === 1 && (arm.name === 'base' || arm.name === 'H+Q') ? await startProfile(page) : null
     for (const paneId of loaders) await page.evaluate(({ paneId, command }) => window.oxe.terminal.write({ paneId, data: command }), { paneId, command: `node "${loaderFile}"\r` })
     const startedAt = Date.now()
     const loaded = (): boolean => Date.now() - startedAt < (LOAD_SECONDS - 2) * 1000
@@ -253,7 +258,7 @@ async function runArm(arm: { name: string; levers: string }, round: number): Pro
     for (const key of Object.keys(peak) as Group[]) peak[key] = Math.max(peak[key], end.mb[key])
     await page.waitForTimeout(10_000)
     const after = await processes(app)
-    return { arm: arm.name, round, visible, hidden, switchToQuietMs, switchBackMs, peakMb: peak, afterMb: after.mb, loadedBytes, ...(top ? { profile: top } : {}), errors }
+    return { arm: arm.name, round, idleLoopP95, visible, hidden, switchToQuietMs, switchBackMs, peakMb: peak, afterMb: after.mb, loadedBytes, ...(top ? { profile: top } : {}), errors }
   } finally {
     await Promise.race([app.close().catch(() => undefined), new Promise(resolve => setTimeout(resolve, 5_000))])
     forceKill(child)
@@ -271,14 +276,14 @@ function summary(): string {
   const lines = [`## ${process.platform} (${ROUNDS} rounds; median, p95 over every sample of the arm)`, '']
   for (const which of ['visible', 'hidden'] as const) {
     lines.push(`### Load ${which === 'visible' ? 'on screen' : 'in a hidden workspace'}`, '',
-      '| Arm | Echo p50 / p95 ms | Ctrl K p50 / p95 ms | main:loop p95 ms | CPU % main | renderer | GPU | PTY host | total |',
+      '| Arm | Echo p50 / p95 ms | Ctrl K p50 / p95 ms | main:loop p95 ms (idle floor) | CPU % main | renderer | GPU | PTY host | total |',
       '| --- | --- | --- | --- | --- | --- | --- | --- | --- |')
     for (const arm of ARMS) {
       const rows = launches.filter(launch => launch.arm === arm.name)
       const echo = rows.flatMap(row => row[which].echoMs), ctrl = rows.flatMap(row => row[which].ctrlKMs)
       const cpu = (key: Group): number | null => median(rows.map(row => row[which].cpu[key]))
       const total = median(rows.map(row => Object.values(row[which].cpu).reduce((a, b) => a + b, 0)))
-      lines.push(`| ${arm.name} | ${f(median(echo))} / ${f(quantile(echo, 0.95))} | ${f(median(ctrl))} / ${f(quantile(ctrl, 0.95))} | ${f(median(rows.map(row => row[which].loopP95 ?? NaN)), 1)} | ${f(cpu('main'))} | ${f(cpu('renderer'))} | ${f(cpu('gpu'))} | ${f(cpu('ptyHost'))} | ${f(total)} |`)
+      lines.push(`| ${arm.name} | ${f(median(echo))} / ${f(quantile(echo, 0.95))} | ${f(median(ctrl))} / ${f(quantile(ctrl, 0.95))} | ${f(median(rows.map(row => row[which].loopP95 ?? NaN)), 1)} (${f(median(rows.map(row => row.idleLoopP95 ?? NaN)), 1)}) | ${f(cpu('main'))} | ${f(cpu('renderer'))} | ${f(cpu('gpu'))} | ${f(cpu('ptyHost'))} | ${f(total)} |`)
     }
     lines.push('')
   }
@@ -330,6 +335,6 @@ test.describe.serial('the terminal under load, lever by lever (OXE-411)', () => 
   test('renderer CPU profile under load', () => {
     const profiled = launches.filter(launch => launch.profile)
     test.info().annotations.push({ type: 'profiles', description: profiled.map(launch => launch.arm).join(', ') || 'none: no CDP session in this Electron' })
-    expect(profiled.length, 'the base, Q and H+Q renderer profiles were recorded').toBeGreaterThan(0)
+    expect(profiled.length, 'the base and H+Q renderer profiles were recorded').toBeGreaterThan(0)
   })
 })

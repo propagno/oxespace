@@ -645,9 +645,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         }, 300)
       }
     })
-    // OXE-411 lever H (off unless OXESPACE_TERM_LEVERS names it): a pane in a hidden workspace detaches from main.
+    // OXE-411 lever H (on by default; OXESPACE_TERM_LEVERS=none turns it off): a pane in a hidden workspace parks.
     const detachHidden = !transport && terminalLevers(window.oxe?.app?.termLevers).has('H')
     let parked = false
+    let parking = false
+    /** The ring cursor main returned when the pane parked; attaching with it replays only what came after. */
+    let parkedSeq: number | null = null
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (parked) return
       if (attachPending) {
@@ -661,19 +664,26 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       onExitRef.current?.(event.exitCode)
     })
 
-    const attachView = async (reattach: boolean): Promise<void> => {
+    const attachView = async (sinceSeq: number | null = null): Promise<void> => {
+      const reattach = sinceSeq !== null
       let attached: TerminalAttachResult | null = null
       try {
         // Optional-chained: some test harnesses stub only part of the bridge.
-        attached = (await bridge.attach?.({ paneId })) ?? null
+        attached = (await bridge.attach?.(reattach ? { paneId, sinceSeq } : { paneId })) ?? null
       } catch {
         // Main could not answer — fall through and render as a fresh view.
       }
       if (disposed) return
-      // Lever H: back from a hidden workspace, the retained output is replayed onto a clean terminal.
-      if (reattach) terminal.reset()
 
-      if (attached?.running || attached?.exit) {
+      const delta = reattach && attached?.running === true && !attached.truncated && !attached.altScreen
+      if (delta) {
+        // Lever H, back from a hidden workspace: only what was printed while parked, after what the view already has.
+        if (attached?.replay) terminal.write(attached.replay)
+      } else if (reattach && !attached?.running && !attached?.exit) {
+        // Main could not answer the reattach: keep what the view shows and go on live.
+      } else if (attached?.running || attached?.exit) {
+        // A fresh view, or a parked one whose missed output no longer fits the ring: restore from a clean terminal.
+        if (reattach) terminal.reset()
         // The buffer we are restoring may be missing its head, so start from a
         // clean screen rather than appending onto a partial frame.
         if (attached.truncated) terminal.write('\x1b[2J\x1b[H')
@@ -695,26 +705,39 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
             if (!disposed) onResizeRef.current(terminal.cols, terminal.rows)
           })
         })
-      } else if (attached?.replay) {
+      } else if (attached?.replay && !delta) {
         terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
       }
     }
-    // Lever H: no IPC, no xterm writes and no agent preview scans while hidden; attach again when shown.
-    const park = (): void => {
-      if (!detachHidden || parked || attachPending || disposed) return
-      parked = true
-      if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
-      void bridge.detach?.({ paneId })
-    }
-    const parkObserver = detachHidden && workspaceHost ? new MutationObserver(() => {
-      if (isHidden()) { park(); return }
+    // Lever H: no IPC, no xterm writes and no agent preview scans while hidden; attach again from the cursor when shown.
+    // Output keeps being written until main's answer: what it sent before detaching arrives before the answer.
+    const unpark = (): void => {
       if (!parked) return
       parked = false
       attachPending = true
-      void attachView(true)
+      void attachView(parkedSeq)
+    }
+    const park = async (): Promise<void> => {
+      if (!detachHidden || parked || parking || attachPending || disposed) return
+      parking = true
+      let result: { seq: number } | void | undefined
+      try { result = await bridge.detach?.({ paneId, parked: true }) } catch { result = undefined }
+      parking = false
+      if (disposed) return
+      // No cursor (an older main, a test bridge): stay live rather than risk a replay over what the view shows.
+      if (!result || typeof result.seq !== 'number') return
+      parkedSeq = result.seq
+      parked = true
+      if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
+      // Shown again while main was answering: attach right away.
+      if (!isHidden()) unpark()
+    }
+    const parkObserver = detachHidden && workspaceHost ? new MutationObserver(() => {
+      if (isHidden()) { void park(); return }
+      unpark()
     }) : null
     parkObserver?.observe(workspaceHost!, { attributes: true, attributeFilter: ['class'] })
-    void attachView(false).then(() => { if (isHidden()) park() })
+    void attachView().then(() => { if (isHidden()) void park() })
 
     return () => {
       disposed = true

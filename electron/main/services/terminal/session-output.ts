@@ -1,5 +1,5 @@
 import type { IPty } from 'node-pty'
-import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalStopInput } from '../../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult } from '../../../../shared/types/ipc'
 import type { PtyInputQueue } from '../pty-input-queue'
 import type { PtyOutputBatcher } from '../pty-output-batcher'
 import type { PtyRingBuffer } from '../pty-ring-buffer'
@@ -38,6 +38,11 @@ export interface TerminalSession {
    * back, but a pane started with no view never attaches; then main answers DA1 itself (see pty-da1.ts).
    */
   viewAttached: boolean
+  /**
+   * OXE-411 · Detached by a view that is still mounted (its workspace is hidden) and will attach again: not a session
+   * without a view (the status bar count) and never reclaimed as idle.
+   */
+  parked?: boolean
   da1: Da1Filter
   da1Timer: ReturnType<typeof setTimeout> | null
   lastActivityAt: number
@@ -160,6 +165,7 @@ export class SessionOutput {
     const slice = session.ring.since(input.sinceSeq ?? 0)
     session.attached = true
     session.viewAttached = true
+    session.parked = false
 
     // On the alternate screen the retained bytes cannot be trusted: if the
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
@@ -192,13 +198,18 @@ export class SessionOutput {
     return { session: session.sessionId, seq: session.ring.seq, cols: session.cols, rows: session.rows, ...session.ring.since(seq) }
   }
 
-  /** Unbind the view. The process keeps running and its output keeps accruing. */
-  detach(input: TerminalStopInput): void {
+  /**
+   * Unbind the view. The process keeps running and its output keeps accruing. Returns the ring's cursor, so a parked
+   * view (OXE-411) attaches again with `sinceSeq` and gets only what came after.
+   */
+  detach(input: TerminalDetachInput): TerminalDetachResult | undefined {
     const session = this.host.sessions.get(input.paneId)
-    if (!session) return
+    if (!session) return undefined
     session.outputBatcher.flush()
     session.attached = false
     session.viewAttached = false
+    session.parked = input.parked === true
+    return { seq: session.ring.seq }
   }
 
   /**

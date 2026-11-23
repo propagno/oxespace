@@ -6,8 +6,8 @@ import { terminalLevers } from '../shared/terminal-levers'
 import { createTerminalWriteScheduler } from '../src/components/Terminal/terminalWriteScheduler'
 
 /*
- * OXE-411 · The levers measured by e2e/perf/terminal-load-breakdown.spec.ts are off unless OXESPACE_TERM_LEVERS names
- * them: the app behaves as before the card. The measurements are in docs/validation/terminal-load-breakdown.md.
+ * OXE-411 · The levers measured by e2e/perf/terminal-load-breakdown.spec.ts. H and Q are on by default since 1.6.0;
+ * OXESPACE_TERM_LEVERS=none brings back the terminal as it was. The measurements: docs/validation/terminal-load-breakdown.md.
  */
 function fakePty() {
   let onData: ((data: string) => void) | undefined
@@ -27,17 +27,19 @@ async function startAgent(env: NodeJS.ProcessEnv) {
   const observer: TerminalObserver = { start: vi.fn(), output: (_paneId, data) => { observed.push(data) }, resize: vi.fn(), exit: vi.fn() }
   const emitted: string[] = []
   const manager = new TerminalManager(db, { pty: { spawn: vi.fn(() => pty as never) }, platform: 'linux', env, observer, emitData: event => { emitted.push(event.data) } })
-  await manager.start({ workspaceId: workspace.id, paneId: workspace.panes[0].id, agentCommand: 'my-agent' })
-  return { manager, db, print, observed, emitted }
+  const paneId = workspace.panes[0].id
+  await manager.start({ workspaceId: workspace.id, paneId, agentCommand: 'my-agent' })
+  return { manager, db, print, observed, emitted, paneId }
 }
 
 describe('the terminal load levers (OXE-411)', () => {
-  test('every lever is off by default', async () => {
-    expect([...terminalLevers(undefined)]).toEqual([])
-    expect([...terminalLevers('')]).toEqual([])
+  test('H and Q are on by default; none turns every lever off; M and I only when named', async () => {
+    expect([...terminalLevers(undefined)].sort()).toEqual(['H', 'Q'])
+    expect([...terminalLevers('')].sort()).toEqual(['H', 'Q'])
+    expect([...terminalLevers('none')]).toEqual([])
     expect([...terminalLevers('X, , hm')]).toEqual([])
 
-    // No lever: the agent mirror is fed and output reaches the window in the usual 16 ms batch.
+    // The default leaves main as it was: the agent mirror is fed and output reaches the window in the usual 16 ms batch.
     const { manager, db, print, observed, emitted } = await startAgent({ PATH: process.env.PATH ?? '' })
     try {
       print('hello')
@@ -56,6 +58,23 @@ describe('the terminal load levers (OXE-411)', () => {
     try {
       print('agent says hi')
       expect(observed.join('')).toBe('agent says hi')
+    } finally { manager.stopAll(); db.close() }
+  })
+})
+
+describe('lever H in main: a parked view (OXE-411)', () => {
+  test('a parked detach returns the cursor, and the session is not counted as running without a view', async () => {
+    const { manager, db, print, paneId: pane } = await startAgent({ PATH: process.env.PATH ?? '' })
+    try {
+      print('before')
+      const parked = manager.detach({ paneId: pane, parked: true })
+      expect(parked?.seq).toBeGreaterThan(0)
+      expect(manager.countDetached()).toBe(0)
+      print('while parked')
+      const back = manager.attach({ paneId: pane, sinceSeq: parked?.seq })
+      expect(back.replay).toBe('while parked')
+      manager.detach({ paneId: pane })
+      expect(manager.countDetached()).toBe(1)
     } finally { manager.stopAll(); db.close() }
   })
 })
