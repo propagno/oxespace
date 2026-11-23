@@ -207,7 +207,11 @@ function featureUse(deps: ExportDeps, id: RemovedFeatureId): { hadData: boolean;
   }
 }
 
-/** The version the app database had before this start migrated it; 0 when there is none or it cannot be read. */
+/**
+ * The version the app database had before this start migrated it; 0 when there is none or it cannot be read.
+ * The one export index.ts reads at boot (OXE-358); data-export.ipc.ts reaches the rest through removed-features-run.ts
+ * on first use.
+ */
 export function peekDatabaseVersion(databasePath: string): number {
   if (!existsSync(databasePath)) return 0
   try {
