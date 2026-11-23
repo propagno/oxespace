@@ -3,6 +3,7 @@
    - Its actions (Copy prompt, Edit prompt) wait for the pointer or the focus.
    - Assistant answers display the provider avatar mark on the left and clean prose typography. */
 .thread-view .thread-message-user {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -15,9 +16,21 @@
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
-.thread-view .thread-prompt-actions { display: flex; justify-content: flex-end; gap: var(--space-1); opacity: 0; }
+.thread-view .thread-prompt-actions {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
 .thread-view .thread-message-user:hover .thread-prompt-actions,
 .thread-view .thread-message-user:focus-within .thread-prompt-actions { opacity: 1; }
+@media (hover: none) { .thread-view .thread-prompt-actions { opacity: 1; } }
 .thread-view .thread-prompt-edited { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-view .thread-prompt-editor { display: flex; flex-direction: column; gap: var(--space-2); }
 .thread-view .thread-prompt-editor-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }

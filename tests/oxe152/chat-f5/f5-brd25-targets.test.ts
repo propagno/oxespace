@@ -93,12 +93,13 @@ type Ev = Record<string, unknown> & { type: string }
 const anatomy = (): Ev[] => ((THREAD_STATES as unknown as Record<string, { events?: Ev[] } | undefined>).anatomy?.events ?? [])
 
 describe('A14 · the AG-10/11 brand targets (brd-25.json) and the chat-anatomy scene', () => {
-  test('the token generator emits --measure-chat: 800px, the same in both densities (MARCA 15/11, answer 4)', () => {
+  // OXE-401: --measure-chat widened from 800px to 1200px
+  test('the token generator emits --measure-chat: 1200px, the same in both densities (MARCA 15/11, answer 4; OXE-401)', () => {
     const css = pbRead('src/styles/tokens.generated.css')
     const block = (selector: string): string => { const at = css.indexOf(`${selector} {`); return at < 0 ? '' : css.slice(at, css.indexOf('}', at)) }
-    expect(block(':root'), 'in the base :root block').toMatch(/--measure-chat:\s*800px;/)
+    expect(block(':root'), 'in the base :root block').toMatch(/--measure-chat:\s*1200px;/)
     const comfortable = block(":root[data-density='comfortable']")
-    expect(/--measure-chat:\s*(?!800px)/.test(comfortable), 'comfortable keeps 800px').toBe(false)
+    expect(/--measure-chat:\s*(?!1200px)/.test(comfortable), 'comfortable keeps 1200px').toBe(false)
     expect(pbRead('src/design/tokens/scales.ts'), 'from the token source, not hand-written (SOURCE-TEXT, marked)').toMatch(/measure-chat|measureChat/)
   })
 
