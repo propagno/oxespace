@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 export interface WizardLaunchInput {
   rootPath: string
   layoutPreset: WorkspaceLayoutPreset
-  defaultShellProfileId: string
+  defaultShellProfileId?: string
   agentSlots: string[]
   agentBindings: PaneAgentBinding[]
 }
@@ -73,6 +73,8 @@ export function NewWorkspaceModal({
   // rather than from a hardcoded product name.
   const shellProfile = shellProfiles.find((profile) => !AGENT_SHELL_PROFILE_IDS.has(profile.id)) ?? null
   const shellLabel = shellProfile?.name ?? t('newWorkspace.shell')
+  // No neutral shell (every slot an agent): fall back to the first shell profile there is, else none (main picks its default).
+  const fallbackShellProfileId = (shellProfile ?? shellProfiles[0])?.id
 
   const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + shellCount
   const remaining = Math.max(0, layoutPreset - totalSelected)
@@ -151,13 +153,13 @@ export function NewWorkspaceModal({
         if (!profile) return []
         return [{ paneIndex, agentProfileId: profile.agentProfileId, agentName: profile.name }]
       })
-      const shellBindings = agentSlots.flatMap((command, paneIndex) => command
+      const shellBindings = agentSlots.flatMap((command, paneIndex) => command || !shellProfile
         ? []
-        : [{ paneIndex, shellProfileId: shellProfile!.id }])
+        : [{ paneIndex, shellProfileId: shellProfile.id }])
       await onLaunch({
         rootPath: rootPath.trim(),
         layoutPreset,
-        defaultShellProfileId: shellProfile!.id,
+        defaultShellProfileId: fallbackShellProfileId,
         agentSlots,
         agentBindings: [...agentBindings, ...shellBindings]
       })
