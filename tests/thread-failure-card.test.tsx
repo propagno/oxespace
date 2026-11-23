@@ -1,21 +1,24 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ThreadFailureCard, ThreadUsageDetails, usageTime } from '../src/components/Threads/ThreadFailureCard'
+import { ThreadFailureCard, ThreadUsageDetails, usageResetIn, usageTime } from '../src/components/Threads/ThreadFailureCard'
 import type { ThreadFailure } from '../shared/types/thread'
 
 afterEach(cleanup)
 const failure: ThreadFailure = { id: 'failure-A', occurredAt: 1790000000000, code: 'usage', message: 'Your session usage is exhausted.', detail: 'You have hit the session usage limit. Try again later.', providerCode: 'usageLimitExceeded', usage: { checkedAt: 1790000010000, windows: [{ label: 'Codex · Session · 5 hours', usedPercent: 100, resetsAt: 1790000500000 }, { label: 'Codex · Weekly', usedPercent: 62, resetsAt: 1790000600000 }] } }
 
 describe('Thread failure card', () => {
-  it('opens the latest failure with actual provider diagnostic and local reset times for each usage window', () => {
+  it('opens the latest failure with actual provider diagnostic under Technical details, compact usage windows and their local reset times', () => {
     const { container } = render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest />)
     expect(screen.getByText('Usage allowance exhausted').closest('details')).toHaveAttribute('open')
+    const technical = screen.getByText('Technical details').closest('details')!
+    expect(technical).not.toHaveAttribute('open')
+    fireEvent.click(screen.getByText('Technical details'))
     expect(screen.getByLabelText('Technical details')).toHaveTextContent(failure.detail!)
     expect(screen.getByText('usageLimitExceeded')).toBeVisible()
-    expect(screen.getByText('100% used')).toBeVisible()
-    expect(screen.getByText('62% used')).toBeVisible()
+    expect(screen.getByText(`Session · 5 hours · 100% used · Resets in ${usageResetIn(1790000500000)}`)).toBeVisible()
+    expect(screen.getByText(`Weekly · 62% used · Resets in ${usageResetIn(1790000600000)}`)).toBeVisible()
     expect(screen.getByText(usageTime(1790000500000))).toHaveAttribute('datetime', new Date(1790000500000).toISOString())
-    expect(container.querySelectorAll('progress')).toHaveLength(2)
+    expect(container.querySelectorAll('progress')).toHaveLength(0)
     fireEvent.click(screen.getByText('Usage allowance exhausted'))
     expect(screen.getByText('Usage allowance exhausted').closest('details')).not.toHaveAttribute('open')
   })
@@ -23,10 +26,10 @@ describe('Thread failure card', () => {
     const refresh = vi.fn(async () => ({ checkedAt: 1790000700000, windows: [{ label: 'Codex · Weekly', usedPercent: 80, resetsAt: 1790000900000 }] }))
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest refreshUsage={refresh} />)
     fireEvent.click(screen.getByRole('button', { name: 'Refresh usage' }))
-    await waitFor(() => expect(screen.getByText('80% used')).toBeVisible())
+    await waitFor(() => expect(screen.getByText(`Weekly · 80% used · Resets in ${usageResetIn(1790000900000)}`)).toBeVisible())
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(screen.getByText(usageTime(failure.occurredAt))).toBeVisible()
-    expect(screen.queryByText('100% used')).not.toBeInTheDocument()
+    expect(screen.queryByText(/100% used/)).not.toBeInTheDocument()
   })
   it('explicitly reports unavailable resets and retains the diagnostic when refresh fails', async () => {
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { ...failure, usage: undefined, usageUnavailable: true } }} latest refreshUsage={vi.fn(async () => { throw Error('Offline') })} />)
@@ -45,22 +48,22 @@ describe('Thread failure card', () => {
   it('offers retry only when the caller can replay the failed turn', () => {
     const retry = vi.fn()
     const { rerender } = render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest onRetry={retry} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(retry).toHaveBeenCalledTimes(1)
     rerender(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure }} latest onRetry={retry} disabled />)
-    expect(screen.getByRole('button', { name: 'Retry turn' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDisabled()
   })
   it('explains a native writer conflict without offering immediate retry or irrelevant usage controls', () => {
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { id: 'busy', occurredAt: Date.now(), code: 'session-busy', message: 'This native session is active elsewhere.' } }} latest onRetry={vi.fn()} refreshUsage={vi.fn()} />)
     expect(screen.getByText('Session active elsewhere')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Retry turn' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Refresh usage' })).not.toBeInTheDocument()
     expect(screen.queryByText(/reset time/i)).not.toBeInTheDocument()
   })
   it('presents previously saved active-writer failures as session conflicts', () => {
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { id: 'old-busy', occurredAt: Date.now(), code: 'unknown', message: 'The agent could not finish this turn.', detail: 'thread native-A already has an active writer' } }} latest onRetry={vi.fn()} />)
     expect(screen.getByText('Session active elsewhere')).toBeVisible()
-    expect(screen.queryByRole('button', { name: 'Retry turn' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 })
 
@@ -70,23 +73,23 @@ describe('retrying a failed turn', () => {
   it('retries at once when the turn changed no file', () => {
     const onRetry = vi.fn()
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: network }} latest onRetry={onRetry} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRetry).toHaveBeenCalledWith(false)
   })
 
   it('offers to undo the turn\'s changes first when it changed files', () => {
     const onRetry = vi.fn()
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: network }} latest hasChanges onRetry={onRetry} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRetry).not.toHaveBeenCalled()
     const choice = screen.getByRole('group', { name: 'Retry this turn' })
     expect(choice).toHaveTextContent('This turn changed files.')
     fireEvent.click(screen.getByRole('button', { name: 'Undo its changes and retry' }))
     expect(onRetry).toHaveBeenCalledWith(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     fireEvent.click(screen.getByRole('button', { name: 'Retry without undoing' }))
     expect(onRetry).toHaveBeenLastCalledWith(false)
-    fireEvent.click(screen.getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onRetry).toHaveBeenCalledTimes(2)
   })

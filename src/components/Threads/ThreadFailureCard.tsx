@@ -1,4 +1,4 @@
-import { Button, EmptyState, ErrorState, Notice, Spinner } from '../../ui'
+import { Button, EmptyState, ErrorState, Spinner } from '../../ui'
 import { useRef, useState } from 'react'
 import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -58,20 +58,20 @@ export function ThreadUsageDetails({ usage, provider }: { usage: ThreadUsage; pr
   const labelOf = (label: string): string => known && label.toLowerCase().startsWith(`${known.toLowerCase()} · `) ? label.slice(known.length + 3) : label
   return <section className="thread-usage-card" aria-label={t('failure.providerUsage')}>
     <header><strong>{name}</strong><span>{t('failure.subscriptionLimits')}</span></header>
-    {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => {
-      const percent = Math.max(0, Math.min(100, window.usedPercent))
-      return <div className="thread-usage-window" key={`${window.label}:${index}`}>
-        <div><span>{usageWindowLabel(labelOf(window.label))}</span><strong>{t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}</strong></div>
-        <progress className={percent >= 90 ? 'is-high' : undefined} aria-label={t('failure.windowUsage', { label: usageWindowLabel(window.label) })} value={percent} max={100} />
-        <small>{window.resetsAt ? <>{t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })} · <time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · {t('failure.localTime')}</> : t('failure.noReset')}</small>
+    {usage.windows.length ? <div className="thread-usage-grid">{usage.windows.map((window, index) => (
+      <div className="thread-usage-window" key={`${window.label}:${index}`}>
+        <span className="thread-usage-window-line">{`${usageWindowLabel(labelOf(window.label))} · ${t('failure.used', { percent: formatNumber(window.usedPercent, { maximumFractionDigits: 1 }) })}${window.resetsAt ? ` · ${t('failure.resetsIn', { time: usageResetIn(window.resetsAt) })}` : ''}`}</span>
+        <small>{window.resetsAt ? <><time dateTime={new Date(window.resetsAt).toISOString()}>{usageTime(window.resetsAt)}</time> · {t('failure.localTime')}</> : t('failure.noReset')}</small>
       </div>
-    })}</div> : <EmptyState compact title={t('failure.noWindows')} />}
+    ))}</div> : <EmptyState compact title={t('failure.noWindows')} />}
     <footer>{t('failure.checked', { name, time: usageClock(usage.checkedAt) })}</footer>
   </section>
 }
 
-export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, disabled }: {
+export function ThreadFailureCard({ event, latest, current = latest, refreshUsage, onRetry, hasChanges, onCompact, onPermissions, onReconnect, onResend, disabled }: {
   event: Extract<ThreadEvent, { type: 'completed' }>; latest: boolean
+  /** The failure the conversation stands on: the last result, with no turn running since. An older one is history. */
+  current?: boolean
   refreshUsage?: () => Promise<ThreadUsage>
   /** Sends the turn again; `restoreFiles` undoes this turn's file changes first. */
   onRetry?: (restoreFiles: boolean) => void
@@ -81,6 +81,10 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
   onCompact?: () => void
   /** Offered when the sandbox or the configuration blocked the turn. */
   onPermissions?: () => void
+  /** A failed sign-in: opens the agent accounts, where the person signs in again. */
+  onReconnect?: () => void
+  /** A failed sign-in, only once the account is connected again: sends the last prompt again. */
+  onResend?: () => void
   disabled?: boolean
 }) {
   const { t } = useTranslation('thread')
@@ -105,19 +109,28 @@ export function ThreadFailureCard({ event, latest, refreshUsage, onRetry, hasCha
     catch { setRefreshError(t('failure.refreshFailed')) }
     finally { refreshing.current = false; setLoading(false) }
   }
-  return <details className="thread-turn-error thread-failure-card" open={latest}>
+  return <details className="thread-turn-error thread-failure-card" data-ui="failure-card" data-danger={code === 'authentication' || undefined} open={latest}>
     <summary><AlertCircle size={14} /><strong>{title}</strong>{failure && <time dateTime={new Date(failure.occurredAt).toISOString()}>{usageTime(failure.occurredAt)}</time>}<ChevronDown size={14} /></summary>
     <div className="thread-failure-body">
       {code === 'authentication'
-        ? <Notice intent="danger">{failure ? failureMessage(failure) : t('failure.reconnect')}</Notice>
+        ? <p role={current ? 'alert' : undefined}>{t('failure.reconnect')}</p>
         : <p>{code === 'session-busy' ? t('failure.sessionBusy') : failure ? failureMessage(failure) : event.error ?? t('failure.couldNotFinish')}</p>}
-      {failure?.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
-      {(failure?.providerCode || failure?.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
+      {(failure?.detail || failure?.providerCode || failure?.httpStatus) && <details className="thread-failure-technical">
+        <summary>{t('failure.diagnostic')}</summary>
+        {failure.detail && <pre className="thread-failure-diagnostic" aria-label={t('failure.diagnostic')}>{failure.detail}</pre>}
+        {(failure.providerCode || failure.httpStatus) && <div className="thread-failure-codes">{failure.providerCode && <code>{failure.providerCode}</code>}{failure.httpStatus && <code>HTTP {failure.httpStatus}</code>}</div>}
+      </details>}
       {usage && <ThreadUsageDetails usage={usage} />}
       {!usage && code !== 'authentication' && code !== 'session-busy' && <p className="thread-failure-note">{failure?.usageUnavailable ? t('failure.usageUnavailable') : refreshUsage && failure ? t('failure.checkingUsage') : t('failure.notRecorded')}</p>}
       {usage && failure?.usageUnavailable && !currentUsage && <p className="thread-failure-note">{t('failure.staleUsage')}</p>}
       {refreshError && <ErrorState compact title={refreshError} />}
-      {/* A sign-in failure is acted on in the account notice above the composer, which follows the account state; repeating Reconnect here doubled it. */}
+      {/* The card is a failed sign-in's one owner (no strip above the composer, AG-11 6.2), so its way back is here: Reconnect
+          opens the agent accounts. Signed out it offers no retry; connected again, Try again resends the last prompt.
+          Only the current failure announces and offers them: an older one is history (LOGIN A, OXE-388). */}
+      {code === 'authentication' && current && (onReconnect || onResend) && <footer>
+        {onReconnect && <Button size="sm" variant={onResend ? 'secondary' : 'primary'} disabled={disabled} onClick={onReconnect}>{t('view.reconnect')}</Button>}
+        {onResend && <Button size="sm" variant="primary" title={t('view.resendTitle')} disabled={disabled} onClick={onResend}>{t('failure.retry')}</Button>}
+      </footer>}
       {code !== 'session-busy' && code !== 'authentication' && (refreshUsage || retry || compact || permissions) && <footer>
         {compact && <Button size="sm" disabled={disabled} onClick={compact}>{t('failure.compact')}</Button>}
         {permissions && <Button size="sm" disabled={disabled} onClick={permissions}>{guidance.action === 'review-permissions' ? t('failure.reviewPermissions') : t('failure.changeConfiguration')}</Button>}
