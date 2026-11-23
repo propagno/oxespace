@@ -11,8 +11,10 @@ const ENTRY = join(process.cwd(), 'out', 'main', 'index.js')
 const BUDGET = 620 * 1024
 
 describe('OXE-358 · the main process entry', () => {
-  test('keeps at least 8% headroom against its 620 kB budget', () => {
-    expect(existsSync(ENTRY), 'out/main/index.js: run npm run build first').toBe(true)
+  // CI's unit shards run without a production build, so this test skips there: the same 8% claim is the gate itself,
+  // `npm run verify:bundle` (scripts/verify-bundle-budgets.mjs, main process entry headroom 0.08), which Quick checks
+  // run after the build on every PR. With a build present (npm run build first), this test measures it again.
+  test.skipIf(!existsSync(ENTRY))('keeps at least 8% headroom against its 620 kB budget', () => {
     const bytes = statSync(ENTRY).size
     const headroom = 1 - bytes / BUDGET
     expect(Math.round(headroom * 1000) / 10, `main process entry ${Math.round(bytes / 1024)} kB of 620 kB`).toBeGreaterThanOrEqual(8)
