@@ -9,7 +9,7 @@ import { WebPreviewPanel } from '../../../src/components/WebPreview/WebPreviewPa
 // OXE-305: the Web Preview's tabs, new tab, problems banner and design Review were the last raw <button>s of the panel;
 // they are src/ui Button/IconButton now, with the primitives' height, focus and hover.
 
-afterEach(() => cleanup())
+afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
 describe('OXE-305 · Web Preview controls are src/ui primitives', () => {
   test('WebPreviewPanel renders zero raw button elements across tabs, problems banner and design hint', async () => {
@@ -17,8 +17,9 @@ describe('OXE-305 · Web Preview controls are src/ui primitives', () => {
     const session = vi.fn((input: { action: string }) => input.action === 'open'
       ? new Promise<BrowserPreviewSessionState>(resolve => { ready = resolve })
       : Promise.resolve({ ownerKey: 'project', activeTabId: 't-1', tabs: [] } as unknown as BrowserPreviewSessionState))
+    vi.stubGlobal('ResizeObserver', class { observe(): void {} unobserve(): void {} disconnect(): void {} })
     const previous = window.oxe
-    Object.defineProperty(window, 'oxe', { configurable: true, value: { browserPreview: { session, onEvent: () => () => {}, designMode: vi.fn(async () => undefined), setAccess: vi.fn(async () => undefined), mount: vi.fn(async () => ({ lease: 1 })), close: vi.fn(async () => undefined), setZoom: vi.fn(async () => undefined) } } })
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { browserPreview: { session, onEvent: () => () => {}, designMode: vi.fn(async () => undefined), setAccess: vi.fn(async () => undefined), mount: vi.fn(async () => ({ lease: "l" })), bounds: vi.fn(async () => undefined), close: vi.fn(async () => undefined), setZoom: vi.fn(async () => undefined) } } })
     try {
       render(<WebPreviewPanel workspace={{ id: 'project', name: 'Project' } as Workspace} onClose={() => {}} />)
       await act(async () => ready({ ownerKey: 'project', activeTabId: 't-1', tabs: [
