@@ -12,7 +12,7 @@ function fake(options: { avds?: string[]; devices?: Record<string, string>; kill
   const devices: Record<string, string> = { ...(options.devices ?? {}) }
   const names: Record<string, string> = {}
   const adbCalls: string[] = []
-  const emulatorCalls: string[] = []
+  const emulatorArgs: string[] = []
   const run: AdbRunner = async args => {
     const line = args.join(' ')
     adbCalls.push(line)
@@ -25,13 +25,13 @@ function fake(options: { avds?: string[]; devices?: Record<string, string>; kill
     return { status: 1, stdout: '', stderr: `unexpected ${line}` }
   }
   const runEmulator: EmulatorRunner = async args => {
-    emulatorCalls.push(args.join(' '))
+    emulatorArgs.push(args.join(' '))
     if (args[0] === '-list-avds') return ok((options.avds ?? ['Pixel_8_API_36']).join('\n') + '\n')
     return { ...ok(), pid: 4242 }
   }
   /** The emulator the test "boots": it appears in adb devices with its AVD name. */
   const boot = (serial: string, avd: string) => { devices[serial] = 'device'; names[serial] = avd }
-  return { run, runEmulator, devices, names, adbCalls, emulatorCalls, boot }
+  return { run, runEmulator, devices, names, adbCalls, emulatorArgs, boot }
 }
 
 const killed: Array<{ pid: number; signal: string }> = []
@@ -46,7 +46,7 @@ describe('OXE-112 (A) · the emulators OXESpace starts are its own, and only tho
     const adb = fake()
     const devices = new AndroidDevices({ run: adb.run, runEmulator: adb.runEmulator, killProcess, sleep })
     await devices.startAvd('Pixel_8_API_36')
-    expect(adb.emulatorCalls).toContain('-avd Pixel_8_API_36')
+    expect(adb.emulatorArgs).toContain('-avd Pixel_8_API_36')
     expect(devices.ownsSerial('emulator-5554')).toBe(false)
     adb.boot('emulator-5554', 'Pixel_8_API_36')
     expect(await devices.ownedSerials()).toEqual(['emulator-5554'])
