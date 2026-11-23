@@ -48,7 +48,7 @@ describe('OXE-310 · WorkspaceSurface after the hook cleanup', () => {
     const source = readFileSync(join(process.cwd(), 'src/components/Workspace/WorkspaceSurface.tsx'), 'utf8')
     const entry = /interface SidePanelEntry \{([\s\S]*?)\n\}/.exec(source)?.[1] ?? ''
     expect(entry, 'the side-panel entry carries no resize handler').not.toMatch(/onResize/)
-    const builder = source.slice(source.indexOf('const sidePanels: SidePanelEntry[] = []'), source.indexOf('sidePanels.map('))
+    const builder = source.slice(source.indexOf('const sidePanels: SidePanelEntry[] = []'), source.indexOf('const rootAvailable ='))
     expect(builder.length).toBeGreaterThan(0)
     expect(builder, 'no ref read while the side-panel list is built').not.toMatch(/\.current\b/)
   }, 30_000)
