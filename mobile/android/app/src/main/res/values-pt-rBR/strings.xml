@@ -248,9 +248,12 @@
     <string name="settings_about_same_wifi">Funciona enquanto este celular e o seu computador estão na mesma Wi-Fi.</string>
     <string name="settings_about_title">Sobre</string>
     <string name="settings_about_version">Versão %1$s</string>
+    <string name="settings_alerts_blocked">As notificações estão bloqueadas</string>
+    <string name="settings_alerts_blocked_body">O Android está bloqueando as notificações do OXESpace; estes interruptores só valem depois que você as permitir.</string>
     <string name="settings_alerts_done">Uma tarefa terminou</string>
     <string name="settings_alerts_failed">Uma tarefa falhou</string>
     <string name="settings_alerts_needs_you">Um agente precisa de você</string>
+    <string name="settings_alerts_open_settings">Abrir configurações</string>
     <string name="settings_alerts_title">Notificações</string>
     <string name="settings_answers_always">Sempre</string>
     <string name="settings_answers_critical">Pedidos críticos</string>
