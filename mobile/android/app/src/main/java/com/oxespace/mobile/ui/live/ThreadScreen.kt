@@ -38,12 +38,10 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,6 +110,7 @@ import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -218,12 +217,20 @@ fun ThreadScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) }
+                    OxeIconButton(
+                        icon = ImageVector.vectorResource(R.drawable.ic_back),
+                        contentDescription = stringResource(R.string.live_back),
+                        onClick = onBack,
+                    )
                 },
                 actions = {
                     if (running) {
                         Box {
-                            IconButton(onClick = { menu = true }) { Icon(ImageVector.vectorResource(R.drawable.ic_more), contentDescription = stringResource(R.string.live_menu)) }
+                            OxeIconButton(
+                                icon = ImageVector.vectorResource(R.drawable.ic_more),
+                                contentDescription = stringResource(R.string.live_menu),
+                                onClick = { menu = true },
+                            )
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.thread_stop_turn)) }, enabled = connected, onClick = { menu = false; stopping = true })
                             }
@@ -274,8 +281,10 @@ fun ThreadScreen(
         ) {
             if (timeline.hasMore && entries.isNotEmpty()) {
                 item(key = "older") {
-                    TextButton(
+                    OxeButton(
+                        text = stringResource(R.string.thread_load_older),
                         enabled = !loadingOlder,
+                        kind = OxeButtonKind.GHOST,
                         onClick = {
                             loadingOlder = true
                             scope.launch {
@@ -284,8 +293,7 @@ fun ThreadScreen(
                                 loadingOlder = false
                             }
                         },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) { Text(stringResource(R.string.thread_load_older)) }
+                    )
                 }
             }
             if (timeline.skipped > 0) {
@@ -701,8 +709,8 @@ private fun StopTurnDialog(title: String, onConfirm: () -> Unit, onDismiss: () -
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.thread_stop_title)) },
         text = { Text(stringResource(R.string.thread_stop_body, title)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.thread_stop_confirm)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.thread_stop_keep)) } },
+        confirmButton = { OxeButton(stringResource(R.string.thread_stop_confirm), onClick = onConfirm, kind = OxeButtonKind.DANGER) },
+        dismissButton = { OxeButton(stringResource(R.string.thread_stop_keep), onClick = onDismiss, kind = OxeButtonKind.GHOST) },
     )
 }
 

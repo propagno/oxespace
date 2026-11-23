@@ -177,7 +177,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.composer-toolbar.height",
@@ -196,7 +196,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.button.height",
@@ -219,12 +219,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.button.font-weight",
       "scene": "chat-conversation",
-      "select": "[data-ui=button]",
+      "select": "[data-ui=chat-column] [data-ui=button], [data-ui=composer-toolbar] [data-ui=button]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-medium"
@@ -238,7 +238,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.icon-button.height",
@@ -261,7 +261,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.raw-button.count",

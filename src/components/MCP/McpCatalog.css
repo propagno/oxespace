@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 /* Connector catalog (Plugins-style): two columns of brand tiles. */
 .mcp-panel.is-catalog { width: min(940px, 94vw); }
 .mcp-view-tabs { display: inline-flex; gap: 2px; margin: 0 14px 10px; padding: 3px; border-radius: var(--radius-full); background: var(--surface-raised); }
@@ -38,3 +39,4 @@
 
 button.mcp-catalog-hint.is-action { cursor: pointer; background: transparent; color: var(--tx-primary); }
 button.mcp-catalog-hint.is-action:hover { background: var(--fill-hover); }
+}

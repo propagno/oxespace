@@ -51,6 +51,12 @@ export function AgentConfigModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
 
+    // A profile the user names needs a name: refused here, before IPC, instead of saving a blank or stale one.
+    if (!profile.isBuiltin && !name.trim()) {
+      setSubmitError(t('agentConfig.nameRequired'))
+      return
+    }
+
     if (isCustom) {
       const trimmedPrompt = systemPrompt.trim()
       if (!trimmedPrompt) {

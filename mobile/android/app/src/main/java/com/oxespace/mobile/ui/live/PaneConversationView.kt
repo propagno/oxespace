@@ -17,9 +17,9 @@ import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeAction
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
+import com.oxespace.mobile.ui.components.OxeButtonKind
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -104,7 +104,11 @@ fun PaneConversationView(
             ) {
                 if (state.olderCursor != null) {
                     item(key = "older") {
-                        TextButton(onClick = conversation::loadEarlier, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.thread_load_older)) }
+                        OxeButton(
+                            text = stringResource(R.string.thread_load_older),
+                            onClick = conversation::loadEarlier,
+                            kind = OxeButtonKind.GHOST,
+                        )
                     }
                 }
                 if (state.newConversation) {

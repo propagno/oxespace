@@ -4,6 +4,7 @@
 import { app, BrowserWindow, Notification } from 'electron'
 import { ApprovalCenter } from './approval-center'
 import { askForAttention, endAttention } from './attention'
+import { notificationsEnabled } from '../notification-preference'
 import { approvalTimeoutMs } from './timeout'
 
 function liveWindows(): BrowserWindow[] {
@@ -14,7 +15,8 @@ export const approvalCenter = new ApprovalCenter({
   send: (channel, payload) => { for (const window of liveWindows()) window.webContents.send(channel, payload) },
   hasWindow: () => liveWindows().length > 0,
   attention: () => askForAttention(liveWindows(), {
-    supported: () => Notification.isSupported(),
+    // OXE-368: with Desktop notifications off the frame still flashes; only the notification is dropped.
+    supported: () => notificationsEnabled() && Notification.isSupported(),
     show: title => { new Notification({ title, silent: false }).show() },
     title: () => import('../../i18n').then(({ tMain }) => tMain('messages.approvals.notify.waiting' as never))
   }),

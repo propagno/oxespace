@@ -333,16 +333,18 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const attachmentIds = attachments.map(value => value.id)
     const composed = composeMessageWithElements(text, keptElements)
     const message = composed || t('view.inspectImage')
+    // The person's authority is for what they typed, alone: not a selected element's text, not the image note.
+    const typed = Boolean(text.trim()) && message === text
+    const deliver = mode === 'steer' ? (typed && api!.steerTyped) || api!.steer! : (typed && api!.sendTyped) || api!.send
     const dispatchSend = (): Promise<unknown> => {
       const hasElementImages = keptElements.some(element => Boolean(element.image)) && Boolean(api?.attach)
       if (!hasElementImages) {
-        return mode === 'steer' ? api!.steer!(id, message, attachmentIds) : api!.send(id, message, attachmentIds)
+        return deliver(id, message, attachmentIds)
       }
       return (async () => {
         const elementAttachmentIds = await attachPreviewElementImages(id, keptElements, attachments.length)
         const allIds = [...attachmentIds, ...elementAttachmentIds]
-        if (mode === 'steer') await api!.steer!(id, message, allIds)
-        else await api!.send(id, message, allIds)
+        await deliver(id, message, allIds)
       })()
     }
     if (/^\s*\//.test(text)) {
@@ -503,10 +505,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {errorDetail && onAccounts ? <Button size="sm" onClick={() => { setError(''); setErrorDetail(''); onAccounts() }}>{t('view.connectAgent')}</Button> : null}
         <Button size="sm" variant="ghost" onClick={() => { setError(''); setErrorDetail('') }}>{t('view.dismissError')}</Button></>} /></div>}
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
-      {snapshot && <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} previewElements={previewElements} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
+        workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={() => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes' })} /> : undefined}
         commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInsertMention={insertMention} onInterrupt={stopTurn} />
     </div></div>}

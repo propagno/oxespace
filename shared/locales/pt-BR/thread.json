@@ -399,6 +399,7 @@
     "commandsTitle": "Comandos e skills · Ctrl+/",
     "add": "Adicionar ao prompt",
     "addTitle": "Anexar, mencionar um arquivo ou conectar ferramentas",
+    "context": "Contexto",
     "attach": "Anexar imagem",
     "mention": "Mencionar um arquivo",
     "steer": "Orientar o turno ativo",
@@ -420,6 +421,7 @@
     "applyFailed": "Não foi possível aplicar a configuração",
     "refreshModels": "Atualizar os modelos",
     "label": "Configuração da conversa",
+    "turnSettings": "Configuração do turno",
     "mode": "Modo",
     "modeTitle": "Planejar: o agente planeja primeiro e não muda nada até você aprovar. Agente: ele trabalha na tarefa.",
     "plan": "Planejar",
@@ -971,6 +973,7 @@
     "showDiagram": "Ver o diagrama",
     "alert": {
       "note": "Nota",
+      "tip": "Dica",
       "important": "Importante",
       "warning": "Atenção",
       "caution": "Cuidado"

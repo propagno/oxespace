@@ -322,6 +322,24 @@ export class BrowserPreviewService {
     if (tab && typeof input.autoVerify === 'boolean') tab.autoVerify = input.autoVerify
     return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true,tab?.workspaceId)}
   }
+  /**
+   * Whether the owner's active tab got to `url`, in any window, for oxespace_open_web_preview. Load state only: it
+   * needs no agent access because nothing of the page (title, text, where else it went) is returned.
+   */
+  loadState(ownerKey: string, url: string): 'loaded' | 'failed' | 'loading' | null {
+    let found: 'failed' | 'loading' | null = null
+    for (const [key,state] of this.tabSessions) {
+      if (state.ownerKey !== ownerKey) continue
+      const meta = state.tabs.find(tab => tab.id === state.activeTabId)
+      if (meta?.url !== url) continue
+      if (meta.error) { found ??= 'failed'; continue }
+      const guest = this.tabs.get(`${key}:${meta.id}`)?.view.webContents
+      // The tab takes the URL before its guest does: until the guest is on it and idle, it is still loading.
+      if (guest && !guest.isDestroyed() && !guest.isLoading() && guest.getURL() === url) return 'loaded'
+      found = 'loading'
+    }
+    return found
+  }
   /** Whether main lets agents drive this owner's preview in this window (T43). */
   hasAgentAccess(window: BrowserWindow, ownerKey: string): boolean { return this.agentGrants.get(this.ownerKey(window,ownerKey))?.granted === true }
   /**

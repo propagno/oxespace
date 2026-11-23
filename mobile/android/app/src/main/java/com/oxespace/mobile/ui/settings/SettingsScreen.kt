@@ -15,7 +15,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,6 +44,7 @@ import com.oxespace.mobile.settings.ThemeChoice
 import com.oxespace.mobile.ui.UnpairDialog
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
 import com.oxespace.mobile.ui.components.OxeSwitch
 import com.oxespace.mobile.ui.components.Segmented
 import com.oxespace.mobile.ui.components.SettingsCard
@@ -133,9 +133,11 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text(stringResource(pageTitle), modifier = Modifier.semantics { heading() }) },
                 navigationIcon = {
-                    IconButton(onClick = { if (destination == SettingsDestination.TOP) onBack() else toTop() }) {
-                        Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.settings_back))
-                    }
+                    OxeIconButton(
+                        icon = ImageVector.vectorResource(R.drawable.ic_back),
+                        contentDescription = stringResource(R.string.settings_back),
+                        onClick = { if (destination == SettingsDestination.TOP) onBack() else toTop() },
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Oxe.colors.surfaceChrome),
             )

@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 .delegated-work-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: var(--space-3); }
 .delegated-work-toolbar label { display: flex; align-items: center; gap: 8px; flex: 1; }
 .delegated-work-toolbar input { width: 100%; min-width: 120px; }
@@ -18,3 +19,4 @@
 .delegated-work-list li strong { min-width: 88px; }
 .delegated-work-list li span { color: var(--tx-secondary); overflow-wrap: anywhere; }
 .delegated-work-more { margin-top: var(--space-3); }
+}

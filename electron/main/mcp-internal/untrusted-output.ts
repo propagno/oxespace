@@ -1,7 +1,7 @@
 import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-internal'
 
 /**
- * Text that comes from outside the project (a terminal, a job, a web page) reaches the agent inside a fence
+ * Text that comes from outside the project (a terminal, a job, a web page, GitHub, another conversation) reaches the agent inside a fence
  * that says what it is. The agent already reads these tools' descriptions, but a description is read once and
  * a page can say "ignore the above" many screens later; the fence sits next to the text it is about.
  *
@@ -13,7 +13,12 @@ const FENCED: Record<string, { source: string; actions?: readonly string[] }> = 
   oxespace_get_job_output: { source: 'a background job' },
   oxespace_terminal: { source: 'a terminal', actions: ['output'] },
   oxespace_agents: { source: 'another agent\'s terminal', actions: ['read'] },
-  oxespace_preview_interact: { source: 'a web page' }
+  oxespace_preview_interact: { source: 'a web page' },
+  // Every action: titles, branch names, commit messages and logs are all written by whoever can push or comment.
+  oxespace_github: { source: 'GitHub' },
+  oxespace_threads: { source: 'another conversation', actions: ['read'] },
+  oxespace_thread_read: { source: 'another conversation' },
+  oxespace_integration: { source: 'a handoff', actions: ['handoffs'] }
 }
 
 const END = '[end of untrusted data'

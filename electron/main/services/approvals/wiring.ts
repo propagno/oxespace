@@ -13,6 +13,7 @@ import { registerApprovalsIpc } from '../../ipc/approvals.ipc'
 import { ThreadHistory } from '../conversation/thread-history'
 import { productionHostsFor } from '../http-audit/production-hosts'
 import type { AgentGateway } from '../oxequery/agent-gateway'
+import { notificationsEnabled } from '../notification-preference'
 import { policyStore } from '../policy'
 import {
   AgentPermissions,
@@ -113,7 +114,7 @@ export function wireApprovals(sources: {
 
 /** An agent's desktop notification: the app names the sender in the title; the agent's words follow. */
 export function showAgentNotice(requester: ApprovalRequester, title: string, body: string): boolean {
-  if (!Notification.isSupported()) return false
+  if (!notificationsEnabled() || !Notification.isSupported()) return false
   const prefixed = noticeTitle(requester, title)
   const notification = new Notification({ title: tMain(messageKey(prefixed.code) as never, messageValues(prefixed, mainLanguage())), body, silent: false })
   notification.on('click', () => { const window = BrowserWindow.getAllWindows().find(item => !item.isDestroyed()); if (window) { window.show(); window.focus() } })

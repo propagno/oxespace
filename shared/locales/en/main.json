@@ -10,8 +10,10 @@
     "rendererGone": {
       "title": "OXESpace stopped responding",
       "message": "The interface keeps crashing.",
-      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back. Diagnostics: Settings > Diagnostics.",
-      "ok": "OK"
+      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back, or try reloading. Diagnostics: Settings > Diagnostics.",
+      "restart": "Restart OXESpace",
+      "reload": "Try reloading",
+      "close": "Close"
     }
   },
   "dialogs": {
@@ -115,6 +117,9 @@
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, maybe agent instructions, MCP settings or hooks, so each run asks."
       },
       "invalidInput": "This conversation request could not be read.",
+      "command": {
+        "windowOnly": "Commands run only when you type them in OXESpace."
+      },
       "notFound": "This conversation no longer exists.",
       "place": {
         "gone": "This place is no longer part of the conversation. Reload the list of places.",
