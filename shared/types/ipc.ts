@@ -775,6 +775,8 @@ export interface OxeApi {
     platform: NodeJS.Platform
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
+    /** OXE-411 · The measured terminal levers, a comma list (shared/terminal-levers.ts); empty by default. */
+    termLevers?: string
   } & AppUpdateApi & import('./app').AppInfoApi
   workspace: WorkspaceApi
   terminal: TerminalApi

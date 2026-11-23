@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
+import { terminalLevers } from '../../../shared/terminal-levers'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
@@ -643,7 +644,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         }, 300)
       }
     })
+    // OXE-411 lever H (off unless OXESPACE_TERM_LEVERS names it): a pane in a hidden workspace detaches from main.
+    const detachHidden = !transport && terminalLevers(window.oxe?.app?.termLevers).has('H')
+    let parked = false
     const unsubscribeData = bridge.onData(paneId, (event) => {
+      if (parked) return
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
@@ -655,7 +660,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       onExitRef.current?.(event.exitCode)
     })
 
-    void (async () => {
+    const attachView = async (reattach: boolean): Promise<void> => {
       let attached: TerminalAttachResult | null = null
       try {
         // Optional-chained: some test harnesses stub only part of the bridge.
@@ -664,6 +669,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         // Main could not answer — fall through and render as a fresh view.
       }
       if (disposed) return
+      // Lever H: back from a hidden workspace, the retained output is replayed onto a clean terminal.
+      if (reattach) terminal.reset()
 
       if (attached?.running || attached?.exit) {
         // The buffer we are restoring may be missing its head, so start from a
@@ -690,7 +697,23 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       } else if (attached?.replay) {
         terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
       }
-    })()
+    }
+    // Lever H: no IPC, no xterm writes and no agent preview scans while hidden; attach again when shown.
+    const park = (): void => {
+      if (!detachHidden || parked || attachPending || disposed) return
+      parked = true
+      if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
+      void bridge.detach?.({ paneId })
+    }
+    const parkObserver = detachHidden && workspaceHost ? new MutationObserver(() => {
+      if (isHidden()) { park(); return }
+      if (!parked) return
+      parked = false
+      attachPending = true
+      void attachView(true)
+    }) : null
+    parkObserver?.observe(workspaceHost!, { attributes: true, attributeFilter: ['class'] })
+    void attachView(false).then(() => { if (isHidden()) park() })
 
     return () => {
       disposed = true
@@ -710,6 +733,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       unsubscribeExit()
       resizeObserver.disconnect()
       visibilityObserver?.disconnect()
+      parkObserver?.disconnect()
       dataDisposable.dispose()
       selectionDisposable.dispose()
       osc52Disposable.dispose()

@@ -184,6 +184,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       platform: process.platform,
       // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
       locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
+      // OXE-411 · The measured terminal levers (shared/terminal-levers.ts); empty unless OXESPACE_TERM_LEVERS is set.
+      termLevers: process.argv.find(arg => arg.startsWith('--oxe-term-levers='))?.slice('--oxe-term-levers='.length) ?? '',
       startupFailure: () => ipc.invoke(IPC_CHANNELS.app.startupFailure) as Promise<import('../../shared/types/app').StartupFailure | null>,
       openBackupsFolder: () => ipc.invoke(IPC_CHANNELS.app.openBackupsFolder) as Promise<void>,
       quitAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.quitAfterStartupFailure) as Promise<void>,
