@@ -2,6 +2,7 @@ import { opendirSync, statSync } from 'node:fs'
 import { posix } from 'node:path'
 import { mainMessage } from '../../../shared/messages'
 import type { WorkspaceCreateRefusal, WorkspaceRootRefusal } from '../../../shared/types/workspace'
+import { normalizeWorkspaceRoot } from '../../../shared/utils/path'
 
 /**
  * The check a workspace root passes before anything is written: an absolute path to a folder that exists and can
@@ -11,16 +12,9 @@ import type { WorkspaceCreateRefusal, WorkspaceRootRefusal } from '../../../shar
  * given, the way `WorkspaceService.create` already stores it, so an existing workspace on the same folder still
  * matches through `isSameRootPath`.
  */
-/**
- * The root as the person meant it: surrounding spaces trimmed, and one pair of matching quotes removed when they wrap
- * the whole text, as Explorer's "Copy as path" gives it. Quotes inside a name, or unbalanced ones, are kept, so such
- * a path is then refused as it stands.
- */
-export function normalizeWorkspaceRoot(rootPath: string): string {
-  const trimmed = rootPath.trim()
-  const quoted = trimmed.length >= 2 && (trimmed[0] === '"' || trimmed[0] === '\'') && trimmed.at(-1) === trimmed[0]
-  return quoted ? trimmed.slice(1, -1).trim() : trimmed
-}
+// The root as the person meant it (a pasted path's surrounding quotes removed) now lives in shared/utils/path.ts, so
+// the New workspace dialog compares with what main stores (OXE-367); main's callers keep importing it from here.
+export { normalizeWorkspaceRoot }
 
 /**
  * Whether a root names one folder on its own. On Windows `isAbsolute` also takes `\foo` (rooted on whichever drive is

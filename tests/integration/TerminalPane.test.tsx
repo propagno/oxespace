@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { WorkspacePane } from '../../shared/types/workspace'
 import { TerminalPane } from '../../src/components/Panes/TerminalPane'
 import { useAgentStore } from '../../src/store/agent.store'
+import { useTerminalPrefsStore } from '../../src/store/terminal-prefs.store'
 import { useTerminalStore } from '../../src/store/terminal.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
 
@@ -268,6 +269,36 @@ describe('TerminalPane', () => {
   test('does not render the removed terminal topbar', () => {
     render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
     expect(screen.queryByTestId('terminal-topbar')).not.toBeInTheDocument()
+  })
+
+  // OXE-319: start() read terminalPrefs without listing them, so a Caveman toggle made after the pane mounted was
+  // ignored by the next start; and the phone's size lease was cleared by a setState inside the effect.
+  test('TerminalPane starts with latest terminalPrefs and clears sizeLease cleanly without effect sync setState', async () => {
+    const prefs = useTerminalPrefsStore.getState()
+    prefs.clearOverrides('workspace-1')
+    prefs.setGlobal({ cavemanModeEnabled: false })
+    try {
+      const user = userEvent.setup()
+      const { unmount } = render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+      act(() => useTerminalPrefsStore.getState().setOverride('workspace-1', 'cavemanModeEnabled', true))
+      await user.click(screen.getByLabelText('Start terminal'))
+      await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'pane-1', initialPrompt: expect.stringContaining('smart caveman') })))
+      unmount()
+
+      // A lease belongs to its pane: when the view moves to another pane, the old one's size is not shown while the new
+      // pane's lease is still being read.
+      window.oxe.terminal.sizeLease = vi.fn((paneId: string) => paneId === 'pane-1' ? Promise.resolve({ cols: 40, rows: 20 }) : new Promise(() => undefined)) as unknown as typeof window.oxe.terminal.sizeLease
+      window.oxe.terminal.onSizeLeaseChanged = vi.fn(() => vi.fn()) as unknown as typeof window.oxe.terminal.onSizeLeaseChanged
+      useTerminalStore.getState().setStatus('pane-1', 'running')
+      useTerminalStore.getState().setStatus('pane-2', 'running')
+      const { rerender } = render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+      expect(await screen.findByText(/Sized for your phone \(40 × 20\)/)).toBeInTheDocument()
+      rerender(<TerminalPane pane={{ ...createPane(), id: 'pane-2' }} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+      expect(screen.queryByText(/Sized for your phone/)).not.toBeInTheDocument()
+      expect(window.oxe.terminal.sizeLease).toHaveBeenCalledWith('pane-2')
+    } finally {
+      useTerminalPrefsStore.getState().clearOverrides('workspace-1')
+    }
   })
 })
 

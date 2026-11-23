@@ -66,7 +66,7 @@ const ZONE_TO_OP: Record<DropZone, { direction: SplitDirection; after: boolean }
 }
 
 /**
- * F2 · recursive split-tree workspace layout (Orca "Split Anything").
+ * F2 · recursive split-tree workspace layout (any pane splits, either way).
  *
  * Panes are rendered as a FLAT, paneId-keyed sibling list, absolutely positioned
  * from `computeLayout(tree)`. Because a pane keeps its React identity regardless

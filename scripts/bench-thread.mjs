@@ -9,7 +9,8 @@ const electron = require('electron')
 const vitest = join(dirname(require.resolve('vitest/package.json')), 'vitest.mjs')
 const output = 'docs/plans/thread-professional-v2/benchmark.json'
 await mkdir('docs/plans/thread-professional-v2', { recursive: true })
-const child = spawn(electron, [vitest, 'bench', '--run', 'tests/bench/thread-history.bench.ts', '--outputJson', output], {
+// Vitest 5 has no --outputJson (OXE-352): its JSON reporter carries each test's benchmarks.
+const child = spawn(electron, [vitest, 'bench', '--run', 'tests/bench/thread-history.bench.ts', '--reporter', 'default', '--reporter', 'json', '--outputFile', output], {
   stdio: 'inherit', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
 })
 child.on('exit', code => process.exit(code ?? 1))

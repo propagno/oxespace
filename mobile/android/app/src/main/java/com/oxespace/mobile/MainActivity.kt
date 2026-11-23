@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
                 // Android 17: without local network access no connection to the computer can even start.
                 var localNetworkOk by remember { mutableStateOf(LocalNetworkAccess.granted(applicationContext)) }
                 when {
-                    showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { showPairing = false })
+                    showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { pairing.cancel(); showPairing = false })
                     status !is DesktopStatus.Unpaired && !localNetworkOk -> LocalNetworkScreen(onGranted = { localNetworkOk = true; session.retry() })
                     liveDesktop != null -> Live(liveDesktop, status)
                     else -> HomeScreen(

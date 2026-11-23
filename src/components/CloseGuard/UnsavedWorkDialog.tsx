@@ -15,6 +15,9 @@ import styles from './UnsavedWorkDialog.module.css'
  *
  * With only turns in progress (`running`): the conversations whose agent is working or waiting for the person, and
  * Cancel (focused) or close anyway. Nothing is lost: the turn stops and the conversation reopens paused.
+ *
+ * OXE-368: when the list has a terminal agent or a background job, it is no longer a list of conversations, so the
+ * dialog calls it work in progress and says what each item is and in which workspace.
  */
 export function UnsavedWorkDialog({ reason, running = [], onDone }: { reason: CloseReason; running?: RunningTurn[]; onDone: (answer: CloseAnswer) => void }): ReactElement {
   const { t } = useTranslation('common')
@@ -31,15 +34,26 @@ export function UnsavedWorkDialog({ reason, running = [], onDone }: { reason: Cl
     setFailed(true)
   }
   const quit = reason === 'quit'
+  // Only conversations: the copy of 1.5 stays as it is. Anything else in the list: the wording for mixed work.
+  const mixed = running.some(item => item.kind)
+  const what = (item: RunningTurn): string | null => {
+    if (item.kind === 'agent') return t('closeGuard.workAgentIn', { workspace: item.workspace ?? '' })
+    if (item.kind === 'job') return t('closeGuard.workJobIn', { workspace: item.workspace ?? '' })
+    return mixed ? t('closeGuard.workTurn') : null
+  }
   if (!items.length && running.length) {
-    return <Dialog testId="unsaved-work-dialog" size="sm" title={t(quit ? 'closeGuard.runningTitleQuit' : 'closeGuard.runningTitleClose')}
-      description={t('closeGuard.runningDescription', { count: running.length })} onClose={() => onDone('cancel')}
+    const title = mixed ? t(quit ? 'closeGuard.workTitleQuit' : 'closeGuard.workTitleClose') : t(quit ? 'closeGuard.runningTitleQuit' : 'closeGuard.runningTitleClose')
+    const description = mixed ? t('closeGuard.workDescription', { count: running.length }) : t('closeGuard.runningDescription', { count: running.length })
+    return <Dialog testId="unsaved-work-dialog" size="sm" title={title} description={description} onClose={() => onDone('cancel')}
       footer={<>
         <Button variant="secondary" autoFocus onClick={() => onDone('cancel')}>{t('closeGuard.cancel')}</Button>
         <Button variant="danger" onClick={() => onDone('proceed')} data-testid="running-turns-proceed">{t(quit ? 'closeGuard.runningQuit' : 'closeGuard.runningClose')}</Button>
       </>}>
-      <ul className={styles.list} aria-label={t('closeGuard.runningListLabel')} data-testid="running-turns-list">
-        {running.map(turn => <li key={turn.id}><strong>{turn.title}</strong></li>)}
+      <ul className={styles.list} aria-label={mixed ? t('closeGuard.workListLabel') : t('closeGuard.runningListLabel')} data-testid="running-turns-list">
+        {running.map(turn => {
+          const detail = what(turn)
+          return <li key={turn.id}><strong>{turn.title}</strong>{detail ? <small>{detail}</small> : null}</li>
+        })}
       </ul>
     </Dialog>
   }
@@ -53,7 +67,7 @@ export function UnsavedWorkDialog({ reason, running = [], onDone }: { reason: Cl
     <ul className={styles.list} aria-label={t('closeGuard.listLabel')}>
       {items.map(item => <li key={item.id}><strong>{item.label}</strong>{item.detail ? <small>{item.detail}</small> : null}</li>)}
     </ul>
-    {running.length ? <p className={styles.note} data-testid="running-turns-note">{t('closeGuard.runningAlso', { count: running.length })}</p> : null}
+    {running.length ? <p className={styles.note} data-testid="running-turns-note">{mixed ? t('closeGuard.workAlso', { count: running.length }) : t('closeGuard.runningAlso', { count: running.length })}</p> : null}
     {failed ? <div className={styles.error}><ErrorState compact title={t('closeGuard.saveFailed', { count: items.length })} /></div> : null}
   </Dialog>
 }

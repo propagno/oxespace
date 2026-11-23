@@ -3,13 +3,14 @@ import { memo, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { Workspace } from '../../../shared/types/workspace'
 import { useShallow } from 'zustand/react/shallow'
 import { selectIntegrationsForWorkspace, useIntegrationStore } from '../../store/integration.store'
-import { ConfirmDialog, Dialog, IconButton, SidebarGroup, SwatchPicker } from '../../ui'
+import { ConfirmDialog, Dialog, IconButton, Notice, SidebarGroup, SwatchPicker } from '../../ui'
 import { WORKSPACE_COLORS, workspaceColorAttrs } from '../../../shared/workspace-color'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { RichText } from '../../i18n/RichText'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceActivity, type WorkspaceActivity } from '../../hooks/useWorkspaceActivity'
 
 /** Position of this workspace among the ones sharing its root folder. */
@@ -308,6 +309,7 @@ function WorkspaceGroupComponent({
       {confirmRemove ? (
         <RemoveWorkspaceModal
           workspaceName={workspace.name}
+          paneIds={workspace.panes.map(pane => pane.id)}
           onCancel={() => setConfirmRemove(false)}
           onConfirm={() => {
             setConfirmRemove(false)
@@ -335,6 +337,8 @@ export const WorkspaceGroup = memo(
 
 interface RemoveWorkspaceModalProps {
   workspaceName: string
+  /** This workspace's panes; the ones running or starting are stopped by the removal (OXE-367). */
+  paneIds: string[]
   onCancel: () => void
   onConfirm: () => void
 }
@@ -345,10 +349,17 @@ interface RemoveWorkspaceModalProps {
  * untouched, which the copy makes explicit so the user doesn't fear losing
  * their code.
  */
-function RemoveWorkspaceModal({ workspaceName, onCancel, onConfirm }: RemoveWorkspaceModalProps): ReactElement {
+function RemoveWorkspaceModal({ workspaceName, paneIds, onCancel, onConfirm }: RemoveWorkspaceModalProps): ReactElement {
   const { t } = useTranslation('code')
+  // OXE-367 / A8: only this workspace's agents and terminals that are running or starting; the selector returns a number.
+  const running = useTerminalStore(s => paneIds.filter(id => {
+    const status = s.panes[id]?.status
+    return status === 'running' || status === 'starting'
+  }).length)
   return <ConfirmDialog title={t('sidebar.removeTitle')} danger confirmLabel={t('sidebar.remove')} onCancel={onCancel} onConfirm={onConfirm}
-    description={<RichText text={t('sidebar.removeBody', { name: workspaceName })} />} />
+    description={<RichText text={t('sidebar.removeBody', { name: workspaceName })} />}>
+    {running > 0 ? <Notice intent="warning">{t('sidebar.removeRunning', { count: running })}</Notice> : null}
+  </ConfirmDialog>
 }
 
 function activitySummary(a: WorkspaceActivity): string {

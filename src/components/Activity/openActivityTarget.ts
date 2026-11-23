@@ -20,6 +20,9 @@ export function openActivityTarget(target: ActivityTarget, selectView: (view: Ac
     case 'pane':
       selectView('code')
       showWorkspace(target.workspaceId)
+      // The grid draws the focused pane from the UI store; the terminal store marks it seen. Both, as a click does
+      // (OXE-364: Ctrl+Shift+U used to set only the second, so the waiting pane never looked focused).
+      useUIStore.getState().setActivePane(target.paneId)
       useTerminalStore.getState().setActivePaneId(target.paneId)
       return
     case 'background':

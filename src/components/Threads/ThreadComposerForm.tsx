@@ -137,13 +137,13 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { label: t('composer.commands'), icon: <Slash size={14} />, shortcut: 'Ctrl+/', disabled: blocked, onSelect: commands.show },
         { label: t('moreActions.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
-      ]} trigger={<Button type="button" variant="ghost" size="sm" className="thread-context-trigger" title={t('composer.addTitle')} disabled={!snapshot || pending} icon={<Plus size={14} aria-hidden="true" />}>{t('composer.context')}</Button>} />
+      ]} trigger={<Button type="button" variant="ghost" size="sm" className="thread-context-trigger" aria-label={t('composer.context')} title={t('composer.addTitle')} disabled={!snapshot || pending} icon={<Plus size={14} aria-hidden="true" />}><span className="thread-context-label">{t('composer.context')}</span></Button>} />
       <div className="thread-composer-right">
         {compactChips
           ? <ComposerChips {...compactChips} />
           : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} narrow={narrow} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
         {!narrow && snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
-        {!narrow && showSteer && <IconButton size="sm" variant="ghost" className="thread-command-trigger" label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || !hasContent} onClick={() => onSend('steer')} icon={<CornerDownLeft size={14} />} />}
+        {showSteer && <IconButton size="sm" variant="ghost" className="thread-command-trigger" label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || !hasContent} onClick={() => onSend('steer')} icon={<CornerDownLeft size={14} />} />}
         {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}
         {running && <Button size="sm" variant="danger" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} onClick={onInterrupt} icon={<Square size={12} fill="currentColor" aria-hidden="true" />}>{t('composer.stopShort')}</Button>}
         <IconButton type="submit" size="sm" variant="primary" className="thread-send oxe-press" label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle', { key: sendKeyLabel(sendKey) }) : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })} disabled={blocked || tooLong || !hasContent} icon={<ArrowUp size={16} />} />
