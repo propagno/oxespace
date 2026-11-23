@@ -630,6 +630,11 @@
     "keepAll": "Keep all",
     "undoing": "Undoing",
     "undoAll": "Undo all",
+    "undoAllTitle_one": "Undo {{count}} file?",
+    "undoAllTitle_other": "Undo all {{count}} files?",
+    "undoAllDescription_one": "This restores {{count}} file to its checkpoint before the agent edited it. Unsaved changes from the agent will be discarded.",
+    "undoAllDescription_other": "This restores {{count}} files to their checkpoints before the agent edited them. Unsaved changes from the agent will be discarded.",
+    "undoAllConfirm": "Undo all",
     "review": "Review",
     "keep": "Keep {{path}}",
     "undo": "Undo {{path}}"
