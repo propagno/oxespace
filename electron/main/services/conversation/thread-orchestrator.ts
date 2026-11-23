@@ -8,6 +8,7 @@ import { hasDesktopCommand } from '../../../../shared/threadDesktopCommands'
 import { blocksThreadInput, PARTIAL_NATIVE_HISTORY_NOTICE } from '../../../../shared/threadHistoryNotice'
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import { assertThreadMessage, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { assertThreadSend, type ThreadSendOrigin } from './thread-send-origin'
 import { idleSuspendMinutes, setIdleSuspendMinutes, suspendIdle, type IdleHost } from './thread-idle'
 import { newConversationAccess, setNewConversationAccess } from './thread-defaults'
 import type { ThreadAccess } from '../../../../shared/threadAccess'
@@ -486,9 +487,9 @@ export class ThreadOrchestrator {
 
   async projectDiff(id: string): Promise<import('../../../../shared/types/git').GitDiff> { return projectDiffAt(this.readThread(id), () => { this.readThread(id) }) }
 
-  async send(id: string, text: string, attachmentIds: string[] = [], origin?: 'execute-plan'): Promise<void> {
+  async send(id: string, text: string, attachmentIds: string[] = [], origin?: ThreadSendOrigin): Promise<void> {
     if (this.stopping) throw new Error('Application is shutting down')
-    assertThreadMessage(text)
+    assertThreadSend(this.readThread(id).provider, text, origin)
     if (this.configuring.has(id)) throw new Error('Configuration is already being updated')
     if (this.readThread(id).cliActive) throw Error('The native CLI already owns this conversation')
     // Decide queue or new turn before the first await: two sends arriving together must not both start a turn.
@@ -508,7 +509,7 @@ export class ThreadOrchestrator {
     }
   }
 
-  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean, origin?: 'execute-plan'): Promise<void> {
+  private async sendReserved(id: string, text: string, attachmentIds: string[], queue: boolean, origin?: ThreadSendOrigin): Promise<void> {
     const attachments = attachmentIds.length ? await this.resolveAttachments(id, attachmentIds) : []
     recordRuntime('turn-submit', { thread: id, kind: 'thread' })
     if (queue) {
@@ -517,7 +518,7 @@ export class ThreadOrchestrator {
       const item: ThreadQueuedInput = { id: randomUUID(), operationId: operation.id, text, attachmentIds,
         ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}),
         configuration: turnConfiguration(snapshot.thread),
-        createdAt: Date.now(), state: 'queued' }
+        createdAt: Date.now(), state: 'queued', ...(origin === 'window' ? { origin } : {}) }
       try {
         if (this.busy.has(id) && adapter?.enqueue) {
           item.nativeId = await adapter.enqueue(item, attachments)
@@ -555,7 +556,7 @@ export class ThreadOrchestrator {
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
       await this.preflight?.(snapshot.thread)
       // `@file` mentions become attached content; the stored message keeps the text as typed.
-      if (!origin && !text.trim().startsWith('/')) { // Run plan (OXE-167) sends exactly the card's text: nothing is appended
+      if (origin !== 'execute-plan' && !text.trim().startsWith('/')) { // Run plan (OXE-167) sends exactly the card's text: nothing is appended
         mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
         input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
         // The first message of a conversation carries a short orientation to the project.
@@ -574,7 +575,7 @@ export class ThreadOrchestrator {
     const turnId = randomUUID()
     const operation = this.history.beginOperation({ threadId: id, turnId, generation: snapshot.thread.generation ?? 1, kind: 'turn' })
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}), ...(origin ? { origin } : {}) })
+    snapshot.events.push({ type: 'message', id: turnId, role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}), ...(brief ? { brief } : {}), ...(origin === 'execute-plan' ? { origin } : {}) })
     snapshot.turns ??= []
     snapshot.turns.push({ id: turnId, operationId: operation.id, sequence: snapshot.turns.length + 1, startedAt: Date.now(), status: 'running', configuration: turnConfiguration(snapshot.thread), ...(attachmentIds.length ? { attachmentIds: [...attachmentIds] } : {}) })
     snapshot.events.push({ type: 'activity', id: `activity:${turnId}:preparing`, phase: 'preparing', at: Date.now() })
@@ -706,8 +707,8 @@ export class ThreadOrchestrator {
     return request
   }
 
-  async steer(id: string, text: string, attachmentIds: string[] = []): Promise<void> {
-    assertThreadMessage(text)
+  async steer(id: string, text: string, attachmentIds: string[] = [], origin?: ThreadSendOrigin): Promise<void> {
+    assertThreadSend(this.readThread(id).provider, text, origin)
     const snapshot = this.read(id), adapter = this.adapters.get(id)
     if (!this.busy.has(id) || !adapter?.steer) throw Error('This provider cannot steer the current turn')
     const attachments = await this.resolveAttachments(id, attachmentIds)
@@ -1229,7 +1230,7 @@ export class ThreadOrchestrator {
       takeSendNowAfterStop: id => this.sendNowAfterStop.delete(id), read: id => this.read(id), save: (s, o) => this.save(s, o),
       transitionOperation: (id, op, st, r) => { this.history.transitionOperation(id, op, st, r) },
       resolveAttachments: (id, a) => this.resolveAttachments(id, a), releaseAttachments: (id, a) => this.releaseAttachments(id, a),
-      send: (id, t, a) => this.send(id, t, a), interrupt: id => this.interrupt(id),
+      send: (id, t, a, origin) => this.send(id, t, a, origin), interrupt: id => this.interrupt(id),
       beginTurn: (id, turnId, thread, label, baseline) => this.turns.begin(id, turnId, workingRootOf(thread), label, baseline)
     }
   }

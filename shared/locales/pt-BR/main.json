@@ -117,6 +117,9 @@
         "rewritesTracked": "{{command}} reescreve arquivos versionados sem nomeá-los, talvez instruções, MCP ou hooks, então cada execução pergunta."
       },
       "invalidInput": "Não foi possível ler este pedido da conversa.",
+      "command": {
+        "windowOnly": "Comandos só rodam quando você os digita no OXESpace."
+      },
       "notFound": "Esta conversa não existe mais.",
       "place": {
         "gone": "Este local não faz mais parte da conversa. Recarregue a lista de locais.",

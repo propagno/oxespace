@@ -33,6 +33,8 @@ interface CommandMenuProps {
 let requestToken = 0
 const MATCHES_PER_FILE = 4
 const MAX_NAME_MATCHES = 15
+// CSS cuts the line to the row; this keeps a minified line from squeezing the path out of it.
+const MAX_SNIPPET_CHARS = 120
 
 const KEYBINDING_IDS = new Set<string>(KEYBINDINGS.map(binding => binding.id))
 /** A command's shortcut: a registry id (with the user's override) or a literal chord. */
@@ -131,11 +133,11 @@ export function CommandMenu({
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
   const openFile = useCallback(
-    (path: string) => {
+    (path: string, line?: number) => {
       if (!workspace) return
       void useEditorStore
         .getState()
-        .openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: path })
+        .openFile({ workspaceId: workspace.id, rootPath: workspace.rootPath, relativePath: path, line })
       void useWorkspaceStore.getState().updateEditorState({ workspaceId: workspace.id, editorVisible: true })
       close()
     },
@@ -260,10 +262,11 @@ export function CommandMenu({
                 <CommandItem
                   key={`${f.path}-${m.lineNumber}-${i}`}
                   value={`content-${f.path}-${m.lineNumber}-${i}`}
-                  onSelect={() => openFile(f.path)}
+                  onSelect={() => openFile(f.path, m.lineNumber)}
                 >
                   <FileText />
                   <span className={commandStyles.truncate}>{f.path}</span>
+                  <span className={commandStyles.detail}>{m.line?.trim().slice(0, MAX_SNIPPET_CHARS)}</span>
                   <span className={commandStyles.trailing}>:{m.lineNumber}</span>
                 </CommandItem>
               ))

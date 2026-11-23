@@ -40,6 +40,7 @@ import {
 } from '../../shared/types/ipc'
 import type { GitDiff } from '../../shared/types/git'
 import { createAgentsApi } from './agents'
+import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
@@ -97,6 +98,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
       send: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds) as Promise<void>,
       steer: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds) as Promise<void>,
+      sendTyped: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds, THREAD_TEXT_TYPED) as Promise<void>,
+      steerTyped: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds, THREAD_TEXT_TYPED) as Promise<void>,
       stopTask: (id, taskId) => ipc.invoke(IPC_CHANNELS.thread.stopTask, id, taskId) as Promise<void>,
       turnFiles: (id, turnId) => ipc.invoke(IPC_CHANNELS.thread.turnFiles, id, turnId) as Promise<import('../../shared/types/thread').ThreadTurnFileStatus[]>,
       undoTurnFile: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.undoTurnFile, id, turnId, path) as Promise<void>,

@@ -42,6 +42,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'thread.side.closed': [],
   'thread.side.invalidInput': [],
   'thread.invalidInput': [],
+  'thread.command.windowOnly': [],
   'thread.notFound': [],
   'thread.place.gone': [],
   'thread.place.notEvidence': [],
