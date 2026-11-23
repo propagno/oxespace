@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 /* Inline File · Edit · View · Tools · Help menu bar beside the logo, plus the compact Application menu trigger. */
 .app-menubar-wrap { display: inline-flex; align-items: center; gap: 2px; min-width: 0; -webkit-app-region: no-drag; }
 .app-menu-button { display: inline-grid; place-items: center; width: var(--control-sm); height: var(--control-sm); margin-left: 2px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; flex-shrink: 0; -webkit-app-region: no-drag; }
@@ -27,3 +28,4 @@
 .app-menu-chevron { margin-left: auto; color: var(--tx-muted); }
 .app-menu-separator { height: 1px; margin: 4px 0; background: var(--bd-default); }
 .app-menu-item[data-state='open'] { background: var(--fill-hover); }
+}

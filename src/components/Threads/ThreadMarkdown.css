@@ -23,6 +23,7 @@
 /* A GitHub alert: the side rule, the icon and the label in the kind's intent (never the sun, which is only for "needs you"). */
 .thread-alert { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--alert-color); }
 .thread-alert[data-kind="note"] { --alert-color: var(--intent-info-fg); }
+.thread-alert[data-kind="tip"] { --alert-color: var(--intent-success-fg); }
 .thread-alert[data-kind="important"] { --alert-color: var(--accent); }
 .thread-alert[data-kind="warning"] { --alert-color: var(--intent-warning-fg); }
 .thread-alert[data-kind="caution"] { --alert-color: var(--intent-danger-fg); }
@@ -73,10 +74,10 @@
 .thread-diagram-block .thread-code-toolbar { justify-content: flex-start; }
 .thread-diagram-block .thread-code-toolbar > span { margin-right: auto; }
 .thread-diagram-note, .thread-diagram-building { margin: 0; padding: 6px 10px; color: var(--tx-secondary); font-size: var(--fs-xs); }
-.thread-diagram { display: flex; justify-content: center; max-height: 640px; padding: 14px; overflow: auto; background: var(--surface-base); }
+.thread-diagram { display: flex; justify-content: safe center; max-height: 640px; padding: 14px; overflow: auto; background: var(--surface-base); }
 .thread-diagram svg { max-width: 100%; height: auto; }
 /* Diagram | Code: a two-way switch on the bar; the pressed side reads as selected. */
 .thread-diagram-switch button[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
-/* Enlarge: the same drawing in a dialog, as wide as the dialog and as tall as the window lets it be. */
+/* Enlarge: the same drawing in a dialog, at its own size up to what the dialog and the window allow; a small one is not stretched. */
 .thread-diagram-enlarged { max-height: 75vh; }
-.thread-diagram-enlarged svg { width: 100%; max-height: 70vh; }
+.thread-diagram-enlarged svg { width: auto; max-width: 100%; height: auto; max-height: 70vh; }

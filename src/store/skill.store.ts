@@ -16,6 +16,9 @@ interface SkillStoreState {
   subscribe: () => () => void
 }
 
+/** The workspace root last refreshed; a change event does not say which workspace is open. */
+let lastWorkspaceRoot: string | undefined
+
 export const useSkillStore = create<SkillStoreState>((set, get) => ({
   skills: [],
   loading: false,
@@ -23,6 +26,7 @@ export const useSkillStore = create<SkillStoreState>((set, get) => ({
   loaded: false,
 
   refresh: async (workspaceRootPath) => {
+    if (workspaceRootPath) lastWorkspaceRoot = workspaceRootPath
     set({ loading: true })
     try {
       const skills = await window.oxe.skill.list({ workspaceRootPath })
@@ -40,7 +44,7 @@ export const useSkillStore = create<SkillStoreState>((set, get) => ({
     if (!window.oxe?.skill?.onChange) return () => undefined
     const off = window.oxe.skill.onChange(() => {
       // Re-fetch on any change; cheap because the registry is in-memory.
-      void get().refresh()
+      void get().refresh(lastWorkspaceRoot)
     })
     return off
   }

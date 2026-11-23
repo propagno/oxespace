@@ -560,6 +560,7 @@
   },
   "agentConfig": {
     "promptRequired": "O prompt da skill é obrigatório",
+    "nameRequired": "O nome é obrigatório",
     "saveFailed": "Falha ao salvar o perfil do agente",
     "commandChanged": "{{name}} agora inicia com o novo comando",
     "commandRequired": "O comando é obrigatório",

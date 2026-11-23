@@ -59,14 +59,15 @@ function useColorMode(): ColorMode {
 /**
  * A fenced block named `mermaid`, drawn. While the answer is still arriving the text is not a whole diagram yet: the
  * code shows under "Building the diagram…", and the drawing takes its place once the text reads as one. A finished
- * text that never parses keeps the code, with one note above it. Once drawn, the bar reads Diagram | Code,
+ * text that never parses keeps the code, with one note above it, whatever was drawn while it streamed. Once drawn, the bar reads Diagram | Code,
  * Enlarge (the same sanitized drawing, larger, in a dialog) and Copy, which copies the code, never the picture.
  */
 export function MermaidDiagram({ code, streaming = false }: { code: string; streaming?: boolean }): ReactElement {
   const { t } = useTranslation('thread')
   const mode = useColorMode()
   const [drawn, setDrawn] = useState<{ code: string; mode: ColorMode; svg: string } | null>(() => { const svg = drawings.get(drawingKey(code, mode)); return svg ? { code, mode, svg } : null })
-  const [unreadable, setUnreadable] = useState(false)
+  // The text that could not be drawn, not a flag: the verdict on one text never counts for the next.
+  const [unreadable, setUnreadable] = useState<string | null>(null)
   const [showCode, setShowCode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [enlarged, setEnlarged] = useState(false)
@@ -74,17 +75,17 @@ export function MermaidDiagram({ code, streaming = false }: { code: string; stre
   // The switch shows one word each (Diagram | Code); its accessible names say what a press does and hold that word.
   const labelId = useId()
   useEffect(() => {
-    if (code.length > MAX_DIAGRAM_CHARS || !code.trim()) { setUnreadable(true); return }
+    if (code.length > MAX_DIAGRAM_CHARS || !code.trim()) { setUnreadable(code); return }
     const known = drawings.get(drawingKey(code, mode))
-    if (known) { setUnreadable(false); setDrawn(current => current?.code === code && current.mode === mode ? current : { code, mode, svg: known }); return }
-    setUnreadable(false)
+    if (known) { setUnreadable(null); setDrawn(current => current?.code === code && current.mode === mode ? current : { code, mode, svg: known }); return }
+    setUnreadable(null)
     let live = true
     // The text changes many times a second while it streams: draw once it has been still for a moment.
     const timer = setTimeout(() => {
       void drawDiagram(code, mode).then(svg => {
         if (!live) return
-        if (!svg) { setUnreadable(true); return }
-        setUnreadable(false)
+        if (!svg) { setUnreadable(code); return }
+        setUnreadable(null)
         remember(code, mode, svg)
         setDrawn({ code, mode, svg })
       })
@@ -96,11 +97,13 @@ export function MermaidDiagram({ code, streaming = false }: { code: string; stre
     const timer = setTimeout(() => setCopied(false), 2000)
     return () => clearTimeout(timer)
   }, [copied])
-  // A drawing of an earlier text stays while the newer text is not readable yet; of another mode, never.
-  const svg = drawn && drawn.mode === mode ? drawn.svg : null
+  // A drawing of an earlier text stays while the newer text may still become readable; once a finished text failed,
+  // only its own drawing may show. A drawing of another mode, never.
+  const failed = !streaming && unreadable === code
+  const svg = drawn && drawn.mode === mode && (!failed || drawn.code === code) ? drawn.svg : null
   const diagram = svg !== null && !showCode
   const building = streaming && svg === null
-  const cannot = !streaming && unreadable && svg === null
+  const cannot = failed && svg === null
   return <div className="thread-code-block thread-diagram-block" data-testid="thread-diagram">
     {cannot && <p className="thread-diagram-note" role="note">{t('markdown.diagramFailed')}</p>}
     <div className="thread-code-toolbar">

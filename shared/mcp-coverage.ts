@@ -139,6 +139,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['oxe.*']
   },
   'code.notifications': { label: 'Desktop notification', tools: each('oxespace_workspace_change', 'write', ['notify']), ipc: ['notifications.notify'] },
+  'code.notifications_setting': { label: 'Turn desktop notifications on or off', excluded: 'The person\'s setting: only the person turns desktop notifications on or off.', ipc: ['notifications.setEnabled'] },
   'code.local_input': {
     label: 'Clipboard',
     excluded: 'The person\'s own input devices.',

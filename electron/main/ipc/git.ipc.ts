@@ -41,7 +41,7 @@ export function registerGitIpc(service = new GitService()): GitService {
     const parsed = parseGitDiffInput(input)
     const diff = service.buildDiff(parsed.rootPath, parsed.base, parsed.includeUncommitted, parsed.head, parsed.mode)
     // Two refs do not change when the index does, so only a work-tree side is watched.
-    if (parsed.head) return diff
+    if (parsed.head || parsed.mode === 'staged') return diff
     service.watchDiff(parsed.rootPath, (updated) => {
       for (const win of BrowserWindow.getAllWindows()) {
         // Every window hears every watcher: the payload says which root it was computed for.
@@ -58,6 +58,8 @@ export function registerGitIpc(service = new GitService()): GitService {
 
   ipcMain.handle(IPC_CHANNELS.git.getFileOriginal, (_event, input: unknown) => {
     const parsed = parseGitFileOriginalInput(input)
+    // Staged scope: side A is the file at HEAD (below), side B the file in the index.
+    if (parsed.mode === 'staged' && parsed.side === 'index') return service.getStagedFile(parsed.rootPath, parsed.path)
     return service.getFileOriginal(parsed.rootPath, parsed.base, parsed.path, parsed.oldPath, parsed.head, parsed.mode)
   })
 

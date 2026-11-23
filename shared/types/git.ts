@@ -21,6 +21,8 @@ export interface GitDiffFile {
 }
 
 export interface GitDiff {
+  /** The root the diff was computed for, so an update reaches only the workspaces that show that root. */
+  rootPath?: string
   files: GitDiffFile[]
   base: string
   includeUncommitted: boolean
@@ -29,9 +31,10 @@ export interface GitDiff {
 
 /**
  * How side A is chosen: `merge-base` compares from the common ancestor of A and B (three dots, what a pull
- * request shows); `direct` compares A itself with B (two dots).
+ * request shows); `direct` compares A itself with B (two dots); `staged` compares HEAD with the index
+ * (`git diff --cached`): what the next commit holds, without the work tree or untracked files.
  */
-export type GitCompareMode = 'merge-base' | 'direct'
+export type GitCompareMode = 'merge-base' | 'direct' | 'staged'
 
 export interface GitDiffInput {
   workspaceId: string
@@ -119,6 +122,8 @@ export interface GitDiffSummary {
 
 export interface GitFileOriginalInput extends GitDiffInput {
   path: string
+  /** Staged scope only: read the file as the index has it (side B) instead of as HEAD has it (side A). */
+  side?: 'index'
   /** Base-side path for renames. */
   oldPath?: string
 }

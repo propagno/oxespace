@@ -17,6 +17,7 @@ import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
 import { errorResult, textResult } from './tool-registry'
 import { requirePreviewExecution } from './preview-scope'
+import { PREVIEW_LOAD_WAIT_MS } from './web-preview-bus'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'
 import { mainMessage, type MainMessage } from '../../../shared/messages'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
@@ -102,9 +103,10 @@ async function requireWorkspace(ctx: ToolContext): Promise<{ id: string; rootPat
  * A Code workspace resolves as before. A Thread resolves to the checkout its
  * execution was started in, and borrows the Code workspace with the same root
  * (if the project is also open in Code) so both share one workspace.
- * `workspaceId` is null when no such workspace exists.
+ * `workspaceId` is null when no such workspace exists; `fileScopeId` is then the verified execution's own id
+ * (`thread:<project>`), which the file system authorizes against the project's registered roots.
  */
-interface ProjectScope { kind: 'code' | 'thread'; rootPath: string; workspaceId: string | null }
+interface ProjectScope { kind: 'code' | 'thread'; rootPath: string; workspaceId: string | null; fileScopeId: string }
 
 const sameRoot = (a: string, b: string): boolean => {
   const norm = (value: string): string => {
@@ -120,11 +122,11 @@ export async function requireProjectScope(ctx: ToolContext): Promise<ProjectScop
   if (execution?.owner.kind === 'thread') {
     const rootPath = execution.canonicalRoot || execution.cwd
     const match = ctx.workspaceServ.list().find(ws => sameRoot(ws.rootPath, rootPath))
-    return { kind: 'thread', rootPath, workspaceId: match?.id ?? null }
+    return { kind: 'thread', rootPath, workspaceId: match?.id ?? null, fileScopeId: match?.id ?? execution.workspaceId }
   }
   if (ctx.workspaceId?.startsWith('thread:')) throw new Error('This Thread execution could not be verified. Start a new turn and try again.')
   const ws = await requireWorkspace(ctx)
-  return { kind: 'code', rootPath: ws.rootPath, workspaceId: ws.id }
+  return { kind: 'code', rootPath: ws.rootPath, workspaceId: ws.id, fileScopeId: ws.id }
 }
 
 async function listWorkspaces(_args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
@@ -294,8 +296,17 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
     return errorResult(`URL "${url}" is not safe to open (must be http or https).`)
   }
   const threadId = execution.owner.kind === 'thread' ? execution.owner.id : undefined
+  const ownerKey = threadId ? `thread:${threadId}` : execution.workspaceId
+  const calledAt = Date.now()
+  // Runs only once the page was let through, so nothing is waited for or probed before the OK.
   const open = async (): Promise<InternalMcpToolCallResult> => {
     ctx.webPreview.emitPreview({ workspaceId: execution.workspaceId, threadId, url: target.href, requestedAt: Date.now() })
+    // The bridge drops this call at 10 s, so the time the person took to approve comes out of the wait.
+    const load = target.kind === 'local'
+      ? await ctx.webPreview.confirmLoad?.(ownerKey, target.href)
+      : await ctx.webPreview.confirmLoad?.(ownerKey, target.href, Math.max(0, PREVIEW_LOAD_WAIT_MS - (Date.now() - calledAt)))
+    if (load === 'loaded') return textResult({ opened: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The page loaded. Use oxespace_preview_interact with action=inspect before interacting or capturing.' })
+    if (load === 'failed') return textResult({ opened: false, failed: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The page did not load. Check that its server is running and answers at this URL, then open it again.' })
     return textResult({ queued: true, workspaceId: execution.workspaceId, threadId, url: target.href, next: 'The renderer must open the page. Use oxespace_preview_interact with action=status or inspect to confirm the active URL before interacting or capturing.' })
   }
   const { runGated } = await import('./app-settings-actions')
@@ -318,9 +329,8 @@ async function openWebPreview(args: unknown, ctx: ToolContext): Promise<Internal
 
 async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const scope = await requireProjectScope(ctx)
-  // File reads go through the workspace-scoped file system, which needs a Code workspace for this root.
-  if (!scope.workspaceId) return errorResult('[OXESpace Quality Controller] outcome=infrastructure · retryable=false\nThe quality check reads files through a Code workspace. Open this project in Code once, then retry.')
-  const ws = { id: scope.workspaceId, rootPath: scope.rootPath }
+  // File reads go through the scoped file system: a Code workspace's id, or the verified conversation's project id.
+  const ws = { id: scope.fileScopeId, rootPath: scope.rootPath }
   const input = asRecord(args)
   const baseRef = typeof input.baseRef === 'string' && input.baseRef.trim() ? input.baseRef.trim() : undefined
   const acceptanceCriteria = Array.isArray(input.acceptanceCriteria)
@@ -348,7 +358,7 @@ async function qualityCheck(args: unknown, ctx: ToolContext): Promise<InternalMc
       files ? `Scope: ${files.length} explicitly selected path(s).` : 'Scope: complete Git worktree diff.',
       findings,
       `\nAcceptance evidence: ${report.evidence.acceptanceCriteria.filter((item) => item.status === 'evidenced').length}/${report.evidence.acceptanceCriteria.length}`,
-      `Limitations: ${report.limitations.join(' ')}`
+      `Limitations: ${(report.limitations ?? []).join(' ')}`
     ].join('\n'))
   } catch (err) {
     return errorResult(`[OXESpace Quality Controller] outcome=infrastructure · retryable=false\nQuality check could not run: ${err instanceof Error ? err.message : String(err)}`)

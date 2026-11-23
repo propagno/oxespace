@@ -89,7 +89,8 @@ const BRIDGE_DEST_FILE = 'oxespace-mcp.cjs'
 
 export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandle {
   let browserPreview: Promise<{ preview: import('../services/browser-preview/preview-automation').PreviewAutomation }> | undefined
-  const webPreview = new WebPreviewBus()
+  // Load state only, never page content. The preview service loads with the first page an agent opens, not at start.
+  const webPreview = new WebPreviewBus((ownerKey, url) => import('../services/browser-preview.service').then(module => module.browserPreviewService.loadState(ownerKey, url)))
   const worktree = new WorktreeEventBus()
   const actionAudit = new ActionAudit(deps.db)
   actionAudit.prune()

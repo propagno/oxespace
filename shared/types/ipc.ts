@@ -217,6 +217,7 @@ export const IPC_CHANNELS = {
   },
   notifications: {
     notify: 'notifications:notify',
+    setEnabled: 'notifications:set-enabled',
     onActivate: 'notifications:on-activate'
   },
   /** B10 · Approvals (shared/types/approvals.ts). Main frame only; never an MCP tool. */
@@ -677,6 +678,8 @@ export interface AgentHooksApi {
 
 export interface NotificationsApi {
   notify(payload: AgentNotificationPayload): Promise<boolean>
+  /** Tells the main process whether Settings › Desktop notifications is on; off, main shows none (OXE-368). */
+  setEnabled(enabled: boolean): Promise<void>
   onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
 }
 

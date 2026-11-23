@@ -32,7 +32,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: 880px; --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
+.thread-view { --thread-canvas-max: var(--measure-chat); --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
 /* Cockpit display header layout is governed by ThreadHeaderChrome.css. */
 .thread-heading-context { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-2xs); color: var(--tx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context svg { flex-shrink: 0; }
@@ -84,12 +84,16 @@
 /* One column: its content box is the message box's box (the dock pads by the same gutter), at every width. Beside
    a second pane the canvas is a little narrower. */
 .thread-grid.is-split .thread-reading-column, .thread-grid.is-split .thread-composer-column { --thread-canvas-max: 760px; }
-.thread-reading-column { width: min(100%, calc(var(--thread-canvas-max) + 2 * var(--thread-gutter))); max-width: none; padding: var(--space-5) var(--thread-gutter); margin: 0 auto; }
+/* One left axis (AG-10 §2.1, OXE-167): the reading column is the generated --measure-chat (800 px); the gutter is the timeline's. */
+.thread-timeline { padding-inline: var(--thread-gutter); }
+.thread-reading-column { width: 100%; max-width: var(--measure-chat); padding: var(--space-5) 0; margin: 0 auto; }
+/* The workbench's reading-column rule is older and more specific: the chat column keeps the one 800 px axis. */
+.thread-workbench .thread-timeline > .thread-reading-column[data-ui="chat-column"] { width: 100%; padding-inline: 0; max-width: var(--measure-chat); }
 .thread-timeline-request { margin: 12px 0; }
 .thread-virtual-space { width: 100%; min-height: 1px; }
 .thread-virtual-row { display: flow-root; width: 100%; }
 .thread-virtual-turn { margin-bottom: 0; }
-.thread-virtual-turn.is-turn-start { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--bd-default); }
+.thread-virtual-turn.is-turn-start { margin-top: var(--space-6); padding-top: 0; border-top: 0; }
 /* The very first row of the conversation, not the first mounted one: a row whose height changed with its mount position fed the virtualizer a new size on every scroll, and the conversation shook. */
 .thread-virtual-row[data-row-index="0"] .thread-virtual-turn.is-turn-start { margin-top: 0; padding-top: 0; border-top: 0; }
 .thread-virtual-turn.is-turn-end { margin-bottom: 12px; }
@@ -116,7 +120,6 @@
 @media (hover: none) { .thread-message-assistant .thread-message-actions { opacity: 1; } }
 .thread-message-assistant > :is(.thread-agent-label, .thread-markdown, .thread-long-prompt, .thread-message-attachments) { max-width: var(--thread-prose-max); }
 .thread-message-assistant > .thread-markdown { color: var(--tx-secondary); }
-.thread-message-user { background: color-mix(in srgb, var(--tx-primary) 4%, var(--surface-canvas)); border: 1px solid color-mix(in srgb, var(--bd-default) 50%, transparent); border-radius: var(--radius-lg); padding: 12px 14px; width: fit-content; max-width: min(82%, 800px); margin-left: auto; }
 .thread-message-outgoing-status { display: block; margin-top: 7px; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note.is-rejected { color: var(--intent-danger-solid); }
@@ -327,8 +330,8 @@
 .thread-view .thread-command-list button[aria-selected="true"] { background: var(--fill-selected, var(--fill-hover)); }
 .thread-composer .thread-command-popup>footer { display: flex; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--bd-default); color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-command-popup>p { margin: 0; padding: 10px 12px; font-size: var(--fs-xs); color: var(--tx-muted); }
-.thread-composer footer .thread-command-trigger { width: 28px; height: 28px; padding: 0; justify-content: center; color: var(--tx-muted); }
-.thread-composer { padding: 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
+.thread-composer footer .thread-command-trigger { width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; color: var(--tx-muted); }
+.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
 .thread-composer:focus-within { border-color: var(--bd-focus); box-shadow: 0 0 0 1px var(--bd-focus); }
 .thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); line-height: 1.5; }
 .thread-composer textarea::placeholder { color: var(--tx-muted); }
@@ -363,7 +366,7 @@
 .thread-account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .thread-accounts-body .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
-@media (max-width: 1000px) { .thread-heading { padding: 10px 16px 8px; } .thread-heading-context { max-width: 160px; } .thread-view { --thread-gutter: 16px; } .thread-reading-column { padding-block: var(--space-4); } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
+@media (max-width: 1000px) { .thread-heading { padding: 0 16px; } .thread-heading-context { max-width: 160px; } .thread-view { --thread-gutter: 16px; } .thread-reading-column { padding-block: var(--space-4); } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
 @media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
 .thread-create-body p, .thread-account-card p, .thread-accounts-body p { font-size: var(--fs-xs); color: var(--tx-muted); line-height: 1.5; }
@@ -611,7 +614,6 @@
 
 /* What the user sent: a quiet bubble, attachments as chips above the text, no action buttons. */
 /* Your messages sit on the accent tint, rounded except toward the edge they come from. */
-.thread-message-user { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border: 1px solid var(--accent-border); background: var(--accent-soft); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg); }
 .thread-message-user > .thread-markdown, .thread-message-user > .thread-long-prompt { color: var(--tx-primary); }
 .thread-sent-attachments, .thread-sent-context { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .thread-sent-attachments li, .thread-sent-context li { display: inline-flex; align-items: center; gap: 6px; max-width: min(280px, 100%); height: 26px; padding: 0 9px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); background: var(--surface-canvas); color: var(--tx-secondary); font-size: var(--fs-xs); }

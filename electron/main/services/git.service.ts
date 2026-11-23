@@ -383,9 +383,10 @@ export class GitService {
 
   async buildDiff(rootPath: string, base: string, includeUncommitted: boolean, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitDiff> {
     // Side B as a ref is its committed state, so the work tree has nothing to add.
-    if (head) includeUncommitted = false
+    if (head || mode === 'staged') includeUncommitted = false
     const target = head ?? 'HEAD'
-    const range = mode === 'direct' ? [base, target] : [`${base}...${target}`]
+    // Staged: the index against HEAD, whatever the base.
+    const range = mode === 'staged' ? ['--cached'] : mode === 'direct' ? [base, target] : [`${base}...${target}`]
     // Run the two diff spawns in parallel — they're independent and the
     // committed one in particular can be slow on big histories.
     const [committedRaw, uncommittedRaw] = await Promise.all([
@@ -432,6 +433,7 @@ export class GitService {
    * file contents are fetched one file at a time by `getFileOriginal`.
    */
   async getDiffSummary(rootPath: string, base: string, includeUncommitted: boolean, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitDiffSummary> {
+    if (mode === 'staged') return this.getStagedSummary(rootPath, base)
     if (head || mode === 'direct') return this.getComparisonSummary(rootPath, base, includeUncommitted, head, mode)
     const empty = { files: [], additions: 0, deletions: 0, base, mergeBase: null as string | null, includeUncommitted, compiledAt: Date.now() }
     const mergeBase = await this.spawnGit(['merge-base', base, 'HEAD'], rootPath)
@@ -493,6 +495,27 @@ export class GitService {
     }
   }
 
+  /**
+   * The staged scope (OXE-323): the index against HEAD (`git diff --cached`), what the next commit holds. The
+   * work tree and untracked files are never read, whatever the base or `includeUncommitted`.
+   */
+  private async getStagedSummary(rootPath: string, base: string): Promise<GitDiffSummary> {
+    const empty = { files: [], additions: 0, deletions: 0, base, mergeBase: null as string | null, includeUncommitted: false, mode: 'staged' as const, compiledAt: Date.now() }
+    const common = ['-c', 'core.quotePath=false', 'diff', '--cached', '-M', '-z']
+    const [names, numbers] = await Promise.all([
+      this.spawnGit([...common, '--name-status', '--'], rootPath),
+      this.spawnGit([...common, '--numstat', '--'], rootPath)
+    ])
+    if (names.status !== 0) return { ...empty, error: names.stderr || 'Git diff is unavailable.' }
+    const files = buildDiffSummaryFiles(names.stdout, numbers.stdout)
+    return {
+      ...empty,
+      files,
+      additions: files.reduce((sum, file) => sum + file.additions, 0),
+      deletions: files.reduce((sum, file) => sum + file.deletions, 0)
+    }
+  }
+
   /** Commit side A starts from: the common ancestor of A and B, or A itself in `direct` mode. */
   private async compareFrom(rootPath: string, base: string, head: string, mode: GitCompareMode): Promise<string | null> {
     if (mode === 'direct') return this.resolveCommit(rootPath, base)
@@ -535,9 +558,16 @@ export class GitService {
 
   /** Base-side content for one file (`git show <mergeBase>:<path>`). */
   async getFileOriginal(rootPath: string, base: string, path: string, oldPath?: string, head?: string, mode: GitCompareMode = 'merge-base'): Promise<GitFileOriginal> {
+    // Staged scope: side A is the file as HEAD has it.
+    if (mode === 'staged') return this.showFile(rootPath, 'HEAD', oldPath ?? path)
     const from = await this.compareFrom(rootPath, base, head ?? 'HEAD', mode) ?? (head || mode === 'direct' ? null : 'HEAD')
     if (!from) return { content: '', missing: true, binary: false, size: 0, truncated: false }
     return this.showFile(rootPath, from, oldPath ?? path)
+  }
+
+  /** Content of one file in the index (`git show :<path>`): side B of the staged scope. */
+  async getStagedFile(rootPath: string, path: string): Promise<GitFileOriginal> {
+    return this.showFile(rootPath, '', path)
   }
 
   /** Content of one file at a ref (`git show <ref>:<path>`), for side B when it is a ref. */
