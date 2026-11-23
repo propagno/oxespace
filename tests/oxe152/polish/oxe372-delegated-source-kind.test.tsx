@@ -40,6 +40,6 @@ describe('OXE-372 · Delegated work names its knowledge sources', () => {
 
   test('in English the same names come from the catalog', async () => {
     await renderWithSources()
-    expect(sourceNames()).toEqual(['Handoff', 'Acceptance criteria', 'Evidence', 'AI Memory', 'Code', 'Checkpoint', 'Conversation'])
+    expect(sourceNames()).toEqual(['Handoff', 'Acceptance criteria', 'Evidence', 'AI Memory', 'Source code', 'Checkpoint', 'Conversation'])
   })
 })

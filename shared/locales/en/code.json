@@ -2229,7 +2229,7 @@
       "acceptance": "Acceptance criteria",
       "evidence": "Evidence",
       "memory": "AI Memory",
-      "code": "Code",
+      "code": "Source code",
       "checkpoint": "Checkpoint",
       "session": "Conversation"
     },
