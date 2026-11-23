@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { holdFocusForPalette } from '../lib/paletteFocus'
 
 export type SidebarMode = 'code' | 'thread'
 
@@ -133,7 +134,7 @@ interface UIState {
   toggleSidebar: (mode?: SidebarMode) => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   isNewWorkspaceOpen: false,
   maximizedPaneId: null,
   isSidebarCollapsed: initialCollapsedSidebars.code,
@@ -164,7 +165,8 @@ export const useUIStore = create<UIState>((set) => ({
   setActivePane: (paneId) => set({ activePaneId: paneId }),
   openCommandPalette: () => set({ isCommandPaletteOpen: true }),
   closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
-  openCommandMenu: () => set({ isCommandMenuOpen: true }),
+  // OXE-397: keys typed before the palette mounts reach nothing, not the terminal that had focus.
+  openCommandMenu: () => { if (!get().isCommandMenuOpen) holdFocusForPalette(); set({ isCommandMenuOpen: true }) },
   closeCommandMenu: () => set({ isCommandMenuOpen: false }),
   openWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: true }),
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
