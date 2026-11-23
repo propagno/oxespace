@@ -133,7 +133,7 @@ export function FirstRun({
                   : agent.status === 'signing-in'
                     ? t('firstRun.v2.waiting')
                     : agent.status === 'signed-out'
-                      ? t('firstRun.v2.signIn', { provider: label })
+                      ? t('firstRun.v2.signedOut')
                       : t('firstRun.v2.notInstalled')
                 return (
                   <div key={agent.provider} className={styles.agentRow}>
