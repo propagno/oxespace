@@ -39,13 +39,25 @@ export interface ThreadOperationInput {
 export class ThreadHistory {
   constructor(private readonly db: AppDatabase) {}
 
+  /** OXE-351 (b): each SQL text is compiled once for this database and reused; a better-sqlite3 statement can run again. */
+  private readonly statements = new Map<string, ReturnType<AppDatabase['prepare']>>()
+
+  private prepare(sql: string): ReturnType<AppDatabase['prepare']> {
+    let statement = this.statements.get(sql)
+    if (!statement) {
+      statement = this.db.prepare(sql)
+      this.statements.set(sql, statement)
+    }
+    return statement
+  }
+
   read(id: string): ThreadSnapshot {
-    const row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
+    const row = this.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) this.write({ thread: JSON.parse(row.data_json), events: JSON.parse(row.events_json) })
     return { thread: parseThreadRow<ConversationThread>(row.data_json),
-      events: (this.db.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)),
-      turns: (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)) }
+      events: (this.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)),
+      turns: (this.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json)) }
   }
 
   /**
@@ -53,46 +65,46 @@ export class ThreadHistory {
    * path, configuration). Undefined for a pre-journal conversation, which read() migrates first.
    */
   readThread(id: string): ConversationThread | undefined {
-    const row = this.db.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
+    const row = this.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     return row.history_version ? parseThreadRow<ConversationThread>(row.data_json) : undefined
   }
 
   /** Distinct tool names without loading full event payloads (keeps long-thread heap/RSS flat). */
   readToolNames(id: string): Array<{ id: string; name: string }> {
-    const row = this.db.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
+    const row = this.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) {
       const events = JSON.parse(row.events_json) as ThreadEvent[]
       return events.filter((e): e is Extract<ThreadEvent, { type: 'tool' }> => e.type === 'tool' && e.name !== 'Tool result').map(e => ({ id: e.id, name: e.name }))
     }
-    return this.db.prepare("SELECT json_extract(data_json, '$.id') AS id, json_extract(data_json, '$.name') AS name FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'tool' AND json_extract(data_json, '$.name') != 'Tool result' ORDER BY seq").all(id) as Array<{ id: string; name: string }>
+    return this.prepare("SELECT json_extract(data_json, '$.id') AS id, json_extract(data_json, '$.name') AS name FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'tool' AND json_extract(data_json, '$.name') != 'Tool result' ORDER BY seq").all(id) as Array<{ id: string; name: string }>
   }
 
   /** Background command subagent events only, without loading message/tool rows. */
   readBackgroundEvents(id: string): ThreadEvent[] {
-    const row = this.db.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
+    const row = this.prepare('SELECT history_version, events_json FROM conversation_threads WHERE id = ?').get(id) as { history_version: number; events_json: string } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) {
       const events = JSON.parse(row.events_json) as ThreadEvent[]
       return events.filter(e => e.type === 'subagent' && e.action === 'Background command')
     }
-    return (this.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'subagent' AND json_extract(data_json, '$.action') = 'Background command' ORDER BY seq").all(id) as { data_json: string }[]).map(v => JSON.parse(v.data_json))
+    return (this.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'subagent' AND json_extract(data_json, '$.action') = 'Background command' ORDER BY seq").all(id) as { data_json: string }[]).map(v => JSON.parse(v.data_json))
   }
 
 
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
   readWindow(id: string, limit = 250): ThreadSnapshot {
-    let row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
+    let row = this.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version) {
       this.write({ thread: JSON.parse(row.data_json), events: JSON.parse(row.events_json) })
-      row = this.db.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as typeof row
+      row = this.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as typeof row
     }
     const page = this.page(id, undefined, limit)
     const thread = parseThreadRow<ConversationThread>(row!.data_json)
     const turns = this.turns(id)
-    const live = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
+    const live = (this.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
     return {
       thread,
       events: page.events,
@@ -110,28 +122,28 @@ export class ThreadHistory {
    * Only live events are incremental; imported native pages change the epoch.
    */
   readSince(id: string, cursor: ThreadSyncCursor): ThreadDelta {
-    const row = this.db.prepare('SELECT data_json, history_version, epoch, revision FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number; epoch: string | null; revision: number } | undefined
+    const row = this.prepare('SELECT data_json, history_version, epoch, revision FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number; epoch: string | null; revision: number } | undefined
     if (!row) throw new MainRefusal('thread.notFound', {})
     if (!row.history_version || !row.epoch) return { ok: false, reset: 'unknown' }
     if (row.epoch !== cursor.epoch) return { ok: false, reset: 'epoch' }
     if (cursor.revision > row.revision) return { ok: false, reset: 'unknown' }
-    const rows = this.db.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND rev > ? ORDER BY seq LIMIT ?').all(id, cursor.revision, DELTA_LIMIT + 1) as { seq: number; data_json: string }[]
+    const rows = this.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND rev > ? ORDER BY seq LIMIT ?').all(id, cursor.revision, DELTA_LIMIT + 1) as { seq: number; data_json: string }[]
     if (rows.length > DELTA_LIMIT) return { ok: false, reset: 'limit' }
     const thread: ConversationThread = JSON.parse(row.data_json)
     const turns = this.turns(id)
-    const live = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
+    const live = (this.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
     return { ok: true, epoch: row.epoch, revision: row.revision, live, thread, turns,
       events: rows.map(value => ({ seq: value.seq, event: JSON.parse(value.data_json) as ThreadEvent })),
       deliveries: this.deliveries(id, thread, turns), pendingRequests: this.pendingRequests(id, thread) }
   }
 
   private cursor(id: string): ThreadSyncCursor | undefined {
-    const row = this.db.prepare('SELECT epoch, revision FROM conversation_threads WHERE id = ?').get(id) as { epoch: string | null; revision: number } | undefined
+    const row = this.prepare('SELECT epoch, revision FROM conversation_threads WHERE id = ?').get(id) as { epoch: string | null; revision: number } | undefined
     return row?.epoch ? { epoch: row.epoch, revision: row.revision } : undefined
   }
 
   private turns(id: string): ThreadTurn[] {
-    return (this.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json) as ThreadTurn)
+    return (this.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')").all(id) as { data_json: string }[]).map(value => JSON.parse(value.data_json) as ThreadTurn)
   }
 
   /**
@@ -140,7 +152,7 @@ export class ThreadHistory {
    * `pendingRequests` topic. CROSS JOIN keeps the waiting conversations as the outer loop, so only their events are read.
    */
   pendingRequestRows(limit = 200): Array<{ thread: ConversationThread; request: ThreadRequest }> {
-    const rows = this.db.prepare(`SELECT t.data_json AS thread_json, e.data_json AS event_json
+    const rows = this.prepare(`SELECT t.data_json AS thread_json, e.data_json AS event_json
       FROM conversation_threads t CROSS JOIN conversation_events e ON e.thread_id = t.id
       WHERE json_extract(t.data_json, '$.status') = 'approval' AND json_extract(e.data_json, '$.type') = 'request' AND json_extract(e.data_json, '$.request.state') = 'pending'
       ORDER BY e.thread_id, e.seq LIMIT ?`).all(limit) as { thread_json: string; event_json: string }[]
@@ -171,7 +183,7 @@ export class ThreadHistory {
 
   private pendingRequests(id: string, thread: ConversationThread): ThreadRequest[] {
     if (thread.status !== 'approval') return []
-    return (this.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'request' AND json_extract(data_json, '$.request.state') = 'pending' ORDER BY seq LIMIT 100").all(id) as { data_json: string }[])
+    return (this.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'request' AND json_extract(data_json, '$.request.state') = 'pending' ORDER BY seq LIMIT 100").all(id) as { data_json: string }[])
       .map(value => (JSON.parse(value.data_json) as Extract<ThreadEvent, { type: 'request' }>).request)
   }
 
@@ -185,7 +197,7 @@ export class ThreadHistory {
     for (const turn of turns.slice(-DELIVERY_LIMIT)) if (turn.operationId) byOperation.set(turn.operationId, turn.id)
     for (const item of thread.queue ?? []) if (item.operationId) byOperation.set(item.operationId, item.id)
     if (!byOperation.size) return {}
-    const rows = this.db.prepare("SELECT id, state, error, updated_at FROM conversation_operations WHERE thread_id = ? AND kind IN ('turn', 'queue') ORDER BY created_at DESC LIMIT ?")
+    const rows = this.prepare("SELECT id, state, error, updated_at FROM conversation_operations WHERE thread_id = ? AND kind IN ('turn', 'queue') ORDER BY created_at DESC LIMIT ?")
       .all(threadId, DELIVERY_LIMIT * 2) as { id: string; state: ThreadOperationState; error: string | null; updated_at: number }[]
     const result: Record<string, ThreadDelivery> = {}
     for (const row of rows) {
@@ -196,19 +208,19 @@ export class ThreadHistory {
   }
 
   artifact(threadId: string, id: string): ThreadArtifact {
-    const row = this.db.prepare('SELECT id, content, hash, bytes, truncated, source FROM conversation_artifacts WHERE thread_id = ? AND id = ?').get(threadId, id) as (Omit<ThreadArtifact, 'truncated'> & { truncated: number }) | undefined
+    const row = this.prepare('SELECT id, content, hash, bytes, truncated, source FROM conversation_artifacts WHERE thread_id = ? AND id = ?').get(threadId, id) as (Omit<ThreadArtifact, 'truncated'> & { truncated: number }) | undefined
     if (!row) throw Error('File evidence is not available in this conversation')
     return { ...row, truncated: Boolean(row.truncated) }
   }
 
   artifacts(threadId: string): ThreadArtifact[] {
-    return (this.db.prepare('SELECT id, content, hash, bytes, truncated, source FROM conversation_artifacts WHERE thread_id = ? ORDER BY id').all(threadId) as Array<Omit<ThreadArtifact, 'truncated'> & { truncated: number }>)
+    return (this.prepare('SELECT id, content, hash, bytes, truncated, source FROM conversation_artifacts WHERE thread_id = ? ORDER BY id').all(threadId) as Array<Omit<ThreadArtifact, 'truncated'> & { truncated: number }>)
       .map(row => ({ ...row, truncated: Boolean(row.truncated) }))
   }
 
   importArtifacts(threadId: string, artifacts: ThreadArtifact[]): void {
     this.db.transaction(() => {
-      for (const artifact of artifacts) this.db.prepare('INSERT INTO conversation_artifacts (thread_id, id, content, hash, bytes, truncated, source) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      for (const artifact of artifacts) this.prepare('INSERT INTO conversation_artifacts (thread_id, id, content, hash, bytes, truncated, source) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .run(threadId, artifact.id, artifact.content, artifact.hash, artifact.bytes, Number(artifact.truncated), artifact.source)
     })()
   }
@@ -220,7 +232,7 @@ export class ThreadHistory {
   debugEvents(threadId: string, options: { filter?: string; before?: number; limit?: number } = {}): ThreadDebugPage {
     const limit = Math.min(Math.max(options.limit ?? 200, 1), 500)
     const keep = compileDebugFilter(options.filter ?? '')
-    const rows = this.db.prepare(`SELECT e.seq, e.turn_id, e.data_json, v.event_id, v.operation_id, v.created_at
+    const rows = this.prepare(`SELECT e.seq, e.turn_id, e.data_json, v.event_id, v.operation_id, v.created_at
       FROM conversation_events e LEFT JOIN conversation_event_envelopes v ON v.thread_id = e.thread_id AND v.seq = e.seq
       WHERE e.thread_id = ? AND (? IS NULL OR e.seq < ?) ORDER BY e.seq DESC LIMIT ?`)
       .all(threadId, options.before ?? null, options.before ?? null, DEBUG_SCAN_LIMIT) as { seq: number; turn_id: string | null; data_json: string; event_id: string | null; operation_id: string | null; created_at: number | null }[]
@@ -252,14 +264,14 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
 
   page(threadId: string, before?: number, limit = 200): ThreadHistoryPage {
     if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw Error('Invalid history page size')
-    const exists = this.db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
+    const exists = this.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
     if (!exists) throw new MainRefusal('thread.notFound', {})
-    const liveCount = (this.db.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(threadId) as { count: number }).count
-    const native = this.db.prepare('SELECT COUNT(*) AS count, MIN(seq) AS first FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { count: number; first: number | null }
+    const liveCount = (this.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(threadId) as { count: number }).count
+    const native = this.prepare('SELECT COUNT(*) AS count, MIN(seq) AS first FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { count: number; first: number | null }
     const total = liveCount + native.count
     const upper = before === undefined ? liveCount : before
     if (!Number.isInteger(upper) || upper < (native.first ?? 0) || upper > liveCount) throw Error('Invalid history cursor')
-    const rows = this.db.prepare('SELECT seq, data_json FROM (SELECT seq, data_json FROM conversation_events WHERE thread_id = ? UNION ALL SELECT seq, data_json FROM conversation_native_history WHERE thread_id = ?) WHERE seq < ? ORDER BY seq DESC LIMIT ?').all(threadId, threadId, upper, limit) as { seq: number; data_json: string }[]
+    const rows = this.prepare('SELECT seq, data_json FROM (SELECT seq, data_json FROM conversation_events WHERE thread_id = ? UNION ALL SELECT seq, data_json FROM conversation_native_history WHERE thread_id = ?) WHERE seq < ? ORDER BY seq DESC LIMIT ?').all(threadId, threadId, upper, limit) as { seq: number; data_json: string }[]
     rows.reverse()
     const next = rows[0]?.seq ?? upper
     const hasMore = next > (native.first ?? 0) || Boolean((JSON.parse(exists.data_json) as ConversationThread).nativeHistoryCursor)
@@ -267,30 +279,30 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
   }
 
   hasImportedBefore(threadId: string, before: number): boolean {
-    return Boolean(this.db.prepare('SELECT 1 FROM conversation_native_history WHERE thread_id = ? AND seq < ? LIMIT 1').get(threadId, before))
+    return Boolean(this.prepare('SELECT 1 FROM conversation_native_history WHERE thread_id = ? AND seq < ? LIMIT 1').get(threadId, before))
   }
 
   /** Explicit export projection; never feed this back into the live event journal. */
   readImported(id: string): ThreadSnapshot {
     const snapshot = this.read(id)
-    const earlier = (this.db.prepare('SELECT data_json FROM conversation_native_history WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(row => JSON.parse(row.data_json) as ThreadEvent)
+    const earlier = (this.prepare('SELECT data_json FROM conversation_native_history WHERE thread_id = ? ORDER BY seq').all(id) as { data_json: string }[]).map(row => JSON.parse(row.data_json) as ThreadEvent)
     return { ...snapshot, events: [...earlier, ...snapshot.events] }
   }
 
   clearNativePages(id: string): void {
-    this.db.prepare('DELETE FROM conversation_native_history WHERE thread_id = ?').run(id)
+    this.prepare('DELETE FROM conversation_native_history WHERE thread_id = ?').run(id)
     this.resetEpoch(id)
   }
 
   /** Invalidates every client cursor; used when history is re-based rather than appended to. */
   private resetEpoch(id: string): void {
-    this.db.prepare('UPDATE conversation_threads SET epoch = ? WHERE id = ?').run(randomUUID(), id)
+    this.prepare('UPDATE conversation_threads SET epoch = ? WHERE id = ?').run(randomUUID(), id)
   }
 
   prependNative(threadId: string, events: ThreadEvent[]): void {
     this.db.transaction(() => {
-      const first = (this.db.prepare('SELECT MIN(seq) AS value FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { value: number | null }).value ?? 0
-      const insert = this.db.prepare('INSERT OR IGNORE INTO conversation_native_history (thread_id, seq, event_id, data_json) VALUES (?, ?, ?, ?)')
+      const first = (this.prepare('SELECT MIN(seq) AS value FROM conversation_native_history WHERE thread_id = ?').get(threadId) as { value: number | null }).value ?? 0
+      const insert = this.prepare('INSERT OR IGNORE INTO conversation_native_history (thread_id, seq, event_id, data_json) VALUES (?, ?, ?, ?)')
       events.forEach((event, index) => {
         if (event.type === 'message') insert.run(threadId, first - events.length + index, event.id, JSON.stringify(event))
       })
@@ -301,31 +313,31 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
   beginOperation(input: ThreadOperationInput): ThreadOperation {
     const now = input.createdAt ?? Date.now()
     const operation: ThreadOperation = { id: input.id ?? randomUUID(), threadId: input.threadId, ...(input.turnId ? { turnId: input.turnId } : {}), generation: input.generation, kind: input.kind, state: input.state ?? 'created', createdAt: now, updatedAt: now }
-    this.db.prepare('INSERT INTO conversation_operations (id, thread_id, turn_id, generation, kind, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    this.prepare('INSERT INTO conversation_operations (id, thread_id, turn_id, generation, kind, state, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run(operation.id, operation.threadId, operation.turnId ?? null, operation.generation, operation.kind, operation.state, operation.createdAt, operation.updatedAt)
     return operation
   }
 
   transitionOperation(threadId: string, operationId: string, state: ThreadOperationState, error?: string): ThreadOperation | undefined {
-    const row = this.db.prepare('SELECT * FROM conversation_operations WHERE thread_id = ? AND id = ?').get(threadId, operationId) as {
+    const row = this.prepare('SELECT * FROM conversation_operations WHERE thread_id = ? AND id = ?').get(threadId, operationId) as {
       id: string; thread_id: string; turn_id: string | null; generation: number; kind: ThreadOperationKind; state: ThreadOperationState; error: string | null; created_at: number; updated_at: number
     } | undefined
     if (!row || !canTransitionThreadOperation(row.state, state)) return row ? this.operationFromRow(row) : undefined
     const updatedAt = Date.now()
-    this.db.prepare('UPDATE conversation_operations SET state = ?, error = ?, updated_at = ? WHERE thread_id = ? AND id = ?')
+    this.prepare('UPDATE conversation_operations SET state = ?, error = ?, updated_at = ? WHERE thread_id = ? AND id = ?')
       .run(state, error ?? null, updatedAt, threadId, operationId)
     return { id: row.id, threadId: row.thread_id, ...(row.turn_id ? { turnId: row.turn_id } : {}), generation: row.generation, kind: row.kind, state, createdAt: row.created_at, updatedAt, ...(error ? { error } : {}) }
   }
 
   operations(threadId: string): ThreadOperation[] {
-    return (this.db.prepare('SELECT * FROM conversation_operations WHERE thread_id = ? ORDER BY created_at, id').all(threadId) as Array<{
+    return (this.prepare('SELECT * FROM conversation_operations WHERE thread_id = ? ORDER BY created_at, id').all(threadId) as Array<{
       id: string; thread_id: string; turn_id: string | null; generation: number; kind: ThreadOperationKind; state: ThreadOperationState; error: string | null; created_at: number; updated_at: number
     }>).map(row => this.operationFromRow(row))
   }
 
   /** Explicit evidence reconciliation, separate from monotonic live callbacks. */
   reconcileOperation(threadId: string, operationId: string, nativeTurnId: string, state: 'completed' | 'failed', confirmedLive = false): void {
-    this.db.prepare(`UPDATE conversation_operations SET state = ?, error = NULL, updated_at = ?
+    this.prepare(`UPDATE conversation_operations SET state = ?, error = NULL, updated_at = ?
       WHERE thread_id = ? AND id = ? AND (state IN ('unknown', 'failed', 'cancelled') OR (? = 1 AND state IN ('acknowledged', 'running')))
       AND EXISTS (SELECT 1 FROM conversation_turns t WHERE t.thread_id = conversation_operations.thread_id
         AND json_extract(t.data_json, '$.operationId') = conversation_operations.id
@@ -334,13 +346,13 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
 
   settleOpenOperations(threadId: string, state: Extract<ThreadOperationState, 'cancelled' | 'unknown'>, error: string): number {
     const now = Date.now()
-    const result = this.db.prepare("UPDATE conversation_operations SET state = ?, error = ?, updated_at = ? WHERE thread_id = ? AND state NOT IN ('completed', 'failed', 'cancelled', 'unknown')")
+    const result = this.prepare("UPDATE conversation_operations SET state = ?, error = ?, updated_at = ? WHERE thread_id = ? AND state NOT IN ('completed', 'failed', 'cancelled', 'unknown')")
       .run(state, error, now, threadId)
     return result.changes
   }
 
   updateThreadMetadata(thread: ConversationThread): void {
-    const result = this.db.prepare("UPDATE conversation_threads SET data_json = ?, events_json = '[]', history_version = 1 WHERE id = ?")
+    const result = this.prepare("UPDATE conversation_threads SET data_json = ?, events_json = '[]', history_version = 1 WHERE id = ?")
       .run(JSON.stringify(thread), thread.id)
     if (!result.changes) throw new MainRefusal('thread.notFound', {})
   }
@@ -358,20 +370,20 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
       throw Error('Cannot persist a paginated Thread projection as complete history')
     }
     this.db.transaction(() => {
-      const stamp = this.db.prepare('SELECT epoch, revision FROM conversation_threads WHERE id = ?').get(snapshot.thread.id) as { epoch: string | null; revision: number } | undefined
+      const stamp = this.prepare('SELECT epoch, revision FROM conversation_threads WHERE id = ?').get(snapshot.thread.id) as { epoch: string | null; revision: number } | undefined
       const revision = (stamp?.revision ?? 0) + 1
       const eventsFrom = Math.max(0, Math.min(options.eventsFrom ?? 0, snapshot.events.length))
-      let bytes = (this.db.prepare('SELECT COALESCE(SUM(bytes), 0) AS bytes FROM conversation_artifacts WHERE thread_id = ?').get(snapshot.thread.id) as { bytes: number }).bytes
-      const previous = new Map((this.db.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND seq >= ?').all(snapshot.thread.id, eventsFrom) as { seq: number; data_json: string }[]).map(row => [row.seq, row.data_json]))
-      const envelopes = new Map((this.db.prepare('SELECT seq, event_id, operation_id, created_at FROM conversation_event_envelopes WHERE thread_id = ? AND seq >= ?').all(snapshot.thread.id, eventsFrom) as { seq: number; event_id: string; operation_id: string | null; created_at: number }[]).map(row => [row.seq, row]))
+      let bytes = (this.prepare('SELECT COALESCE(SUM(bytes), 0) AS bytes FROM conversation_artifacts WHERE thread_id = ?').get(snapshot.thread.id) as { bytes: number }).bytes
+      const previous = new Map((this.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND seq >= ?').all(snapshot.thread.id, eventsFrom) as { seq: number; data_json: string }[]).map(row => [row.seq, row.data_json]))
+      const envelopes = new Map((this.prepare('SELECT seq, event_id, operation_id, created_at FROM conversation_event_envelopes WHERE thread_id = ? AND seq >= ?').all(snapshot.thread.id, eventsFrom) as { seq: number; event_id: string; operation_id: string | null; created_at: number }[]).map(row => [row.seq, row]))
       let turnId = eventsFrom > 0
-        ? ((this.db.prepare('SELECT turn_id FROM conversation_events WHERE thread_id = ? AND seq < ? ORDER BY seq DESC LIMIT 1').get(snapshot.thread.id, eventsFrom) as { turn_id: string | null } | undefined)?.turn_id ?? null)
+        ? ((this.prepare('SELECT turn_id FROM conversation_events WHERE thread_id = ? AND seq < ? ORDER BY seq DESC LIMIT 1').get(snapshot.thread.id, eventsFrom) as { turn_id: string | null } | undefined)?.turn_id ?? null)
         : null
       // One statement per write, not one per event: preparing ~2,000 of them blocked the main process ~20 ms when /resume
       // imported a long native session (OXE-157).
       const pending = snapshot.events.slice(eventsFrom)
-      const upsertEvent = pending.length ? this.db.prepare('INSERT INTO conversation_events (thread_id, seq, turn_id, data_json, rev) VALUES (?, ?, ?, ?, ?) ON CONFLICT(thread_id, seq) DO UPDATE SET turn_id = excluded.turn_id, data_json = excluded.data_json, rev = excluded.rev') : null
-      const upsertEnvelope = pending.length ? this.db.prepare(`INSERT INTO conversation_event_envelopes (thread_id, seq, event_id, operation_id, turn_id, generation, schema_version, created_at, updated_at)
+      const upsertEvent = pending.length ? this.prepare('INSERT INTO conversation_events (thread_id, seq, turn_id, data_json, rev) VALUES (?, ?, ?, ?, ?) ON CONFLICT(thread_id, seq) DO UPDATE SET turn_id = excluded.turn_id, data_json = excluded.data_json, rev = excluded.rev') : null
+      const upsertEnvelope = pending.length ? this.prepare(`INSERT INTO conversation_event_envelopes (thread_id, seq, event_id, operation_id, turn_id, generation, schema_version, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(thread_id, seq) DO UPDATE SET event_id = excluded.event_id, operation_id = excluded.operation_id, turn_id = excluded.turn_id, generation = excluded.generation, schema_version = excluded.schema_version, updated_at = excluded.updated_at`) : null
       pending.forEach((event, offset) => {
@@ -383,10 +395,10 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
           const input = Buffer.from(patch), truncated = input.length > PATCH_LIMIT || Boolean(file.truncated)
           const content = input.subarray(0, PATCH_LIMIT).toString('utf8')
           const hash = createHash('sha256').update(content).digest('hex'), id = `${metadata.source}:${hash}${truncated ? ':partial' : ''}`
-          const exists = this.db.prepare('SELECT 1 FROM conversation_artifacts WHERE thread_id = ? AND id = ?').get(snapshot.thread.id, id)
+          const exists = this.prepare('SELECT 1 FROM conversation_artifacts WHERE thread_id = ? AND id = ?').get(snapshot.thread.id, id)
           if (!exists && bytes + Buffer.byteLength(content) > ARTIFACT_LIMIT) return { ...metadata, truncated: true }
           if (!exists) {
-            this.db.prepare('INSERT INTO conversation_artifacts (thread_id, id, content, hash, bytes, truncated, source) VALUES (?, ?, ?, ?, ?, ?, ?)').run(snapshot.thread.id, id, content, hash, Buffer.byteLength(content), Number(truncated), metadata.source)
+            this.prepare('INSERT INTO conversation_artifacts (thread_id, id, content, hash, bytes, truncated, source) VALUES (?, ?, ?, ?, ?, ?, ?)').run(snapshot.thread.id, id, content, hash, Buffer.byteLength(content), Number(truncated), metadata.source)
             bytes += Buffer.byteLength(content)
           }
           const parsed = parseThreadPatch(content)
@@ -399,16 +411,16 @@ ${summary.text}`.slice(0, DEBUG_SEARCH_LIMIT).toLowerCase()
         upsertEnvelope!.run(snapshot.thread.id, seq, envelope.eventId, envelope.operationId ?? null, envelope.turnId ?? null, envelope.generation, envelope.schemaVersion, envelope.createdAt, envelope.updatedAt)
       })
       // Removing events (rewind, recovery) cannot be expressed as a delta.
-      const truncated = this.db.prepare('DELETE FROM conversation_events WHERE thread_id = ? AND seq >= ?').run(snapshot.thread.id, snapshot.events.length).changes > 0
+      const truncated = this.prepare('DELETE FROM conversation_events WHERE thread_id = ? AND seq >= ?').run(snapshot.thread.id, snapshot.events.length).changes > 0
       const epoch = truncated || !stamp?.epoch ? randomUUID() : stamp.epoch
       const turns = snapshot.turns ?? []
       const turnsFrom = Math.max(0, Math.min(options.turnsFrom ?? (options.eventsFrom === undefined ? 0 : Math.max(0, turns.length - 1)), turns.length))
-      const upsertTurn = turns.length > turnsFrom ? this.db.prepare('INSERT INTO conversation_turns (thread_id, id, data_json) VALUES (?, ?, ?) ON CONFLICT(thread_id, id) DO UPDATE SET data_json = excluded.data_json') : null
+      const upsertTurn = turns.length > turnsFrom ? this.prepare('INSERT INTO conversation_turns (thread_id, id, data_json) VALUES (?, ?, ?) ON CONFLICT(thread_id, id) DO UPDATE SET data_json = excluded.data_json') : null
       for (const turn of turns.slice(turnsFrom)) upsertTurn!.run(snapshot.thread.id, turn.id, JSON.stringify(turn))
       // Full rewrites (rewind/import/recovery) may remove turns. Tail writes only
       // append/update and must not scan the complete event table.
-      if (eventsFrom === 0 && turnsFrom === 0) this.db.prepare('DELETE FROM conversation_turns WHERE thread_id = ? AND id NOT IN (SELECT turn_id FROM conversation_events WHERE thread_id = ? AND turn_id IS NOT NULL)').run(snapshot.thread.id, snapshot.thread.id)
-      this.db.prepare("UPDATE conversation_threads SET data_json = ?, events_json = '[]', history_version = 1, epoch = ?, revision = ? WHERE id = ?").run(JSON.stringify(snapshot.thread), epoch, revision, snapshot.thread.id)
+      if (eventsFrom === 0 && turnsFrom === 0) this.prepare('DELETE FROM conversation_turns WHERE thread_id = ? AND id NOT IN (SELECT turn_id FROM conversation_events WHERE thread_id = ? AND turn_id IS NOT NULL)').run(snapshot.thread.id, snapshot.thread.id)
+      this.prepare("UPDATE conversation_threads SET data_json = ?, events_json = '[]', history_version = 1, epoch = ?, revision = ? WHERE id = ?").run(JSON.stringify(snapshot.thread), epoch, revision, snapshot.thread.id)
     })()
   }
 
