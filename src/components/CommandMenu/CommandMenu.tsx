@@ -22,7 +22,7 @@ interface CommandMenuProps {
   /** The full command registry (shared with the legacy palette) — cmd-J is now
    *  the unified surface for commands + file name + file content search. */
   actions: CommandPaletteAction[]
-  /** All open workspaces/worktrees, for jump-to (Orca cmd-J parity). */
+  /** All open workspaces/worktrees, for jump-to. */
   workspaces: Workspace[]
   onSelectWorkspace: (id: string) => void
   /** Focus a pane (agent/terminal) in the active workspace. */

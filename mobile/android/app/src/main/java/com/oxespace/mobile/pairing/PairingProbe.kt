@@ -25,7 +25,7 @@ fun interface PairingProbe {
 }
 
 /**
- * P3 (Orca's direct-endpoint probe): a C5 session with the new identity, and success means it reached `Ready`.
+ * P3 (a direct-endpoint probe): a C5 session with the new identity, and success means it reached `Ready`.
  * - A first session that closes gets one redial, within [graceMs].
  * - If that redial reaches the authentication step (the desktop answered), it gets [graceMs] once more.
  * - A dead network fails in about [timeoutMs], not after a long wait.
