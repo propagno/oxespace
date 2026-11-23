@@ -15,7 +15,7 @@ interface Call { args: string[]; shell?: boolean; timeoutMs?: number }
 
 function harness(options: { approve?: boolean; logcat?: string; visible?: boolean } = {}) {
   const adbCalls: Call[] = []
-  const emulatorCalls: string[][] = []
+  const emulatorArgs: string[][] = []
   const prompts: LifecyclePrompt[] = []
   const audit: Array<{ action: string; target: string; outcome: string }> = []
   const run: AdbRunner = async (args, opts) => {
@@ -27,7 +27,7 @@ function harness(options: { approve?: boolean; logcat?: string; visible?: boolea
     return { status: 1, stdout: '', stderr: `unexpected ${line}` }
   }
   const runEmulator: EmulatorRunner = async args => {
-    emulatorCalls.push(args)
+    emulatorArgs.push(args)
     if (args[0] === '-list-avds') return { status: 0, stdout: 'Pixel_8_API_36\n', stderr: '' } as AdbResult
     return { status: 0, stdout: '', stderr: '' }
   }
@@ -39,8 +39,8 @@ function harness(options: { approve?: boolean; logcat?: string; visible?: boolea
     agentsCanSee: () => options.visible ?? true,
     audit: { record: entry => { audit.push(entry) } },
   })
-  const spawned = () => adbCalls.length + emulatorCalls.filter(args => args[0] !== '-list-avds').length
-  return { lifecycle, adbCalls, emulatorCalls, prompts, audit, spawned }
+  const spawned = () => adbCalls.length + emulatorArgs.filter(args => args[0] !== '-list-avds').length
+  return { lifecycle, adbCalls, emulatorArgs, prompts, audit, spawned }
 }
 
 describe('OXE-111 (A) · CA-1: avd_start, apk_install and app_launch ask first, and run nothing when refused', () => {
@@ -63,7 +63,7 @@ describe('OXE-111 (A) · CA-1: avd_start, apk_install and app_launch ask first, 
     expect(await h.lifecycle.avdStart({ avdName: 'Pixel_8_API_36' })).toEqual({ ok: true })
     expect(await h.lifecycle.apkInstall({ serial: 'emulator-5554', apkPath: APK, workspaceRoot: WORKSPACE })).toEqual({ ok: true })
     expect(await h.lifecycle.appLaunch({ serial: 'emulator-5554', packageName: 'com.example.app' })).toEqual({ ok: true })
-    expect(h.emulatorCalls).toContainEqual(['-avd', 'Pixel_8_API_36'])
+    expect(h.emulatorArgs).toContainEqual(['-avd', 'Pixel_8_API_36'])
     expect(h.adbCalls).toEqual([
       { args: ['-s', 'emulator-5554', 'install', '-r', APK], shell: false, timeoutMs: 120_000 },
       { args: ['-s', 'emulator-5554', 'shell', 'monkey', '-p', 'com.example.app', '-c', 'android.intent.category.LAUNCHER', '1'], shell: false, timeoutMs: 15_000 },
