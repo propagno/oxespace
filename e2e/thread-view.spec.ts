@@ -8,7 +8,7 @@ import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
 import { pressUntilValueChanges } from './helpers/pressUntilValueChanges'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
-  test.setTimeout(120000)
+  test.setTimeout(108000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-thread-ui-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
   writeFileSync(join(repo, 'README.md'), '# Thread workbench fixture\n\nSearchable project content.\n')
@@ -784,8 +784,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    // OXE-401: --measure-chat widened from 800px to 1200px
-    expect(Math.abs(wideGeometry.readingWidth - 1200)).toBeLessThanOrEqual(1)
+    // OXE-401: --measure-chat widened from 800px to 1080px
+    expect(Math.abs(wideGeometry.readingWidth - 1080)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)

@@ -175,7 +175,7 @@ async function openConversation(page: Page, id: string): Promise<void> {
 }
 test.skip(process.platform === 'win32', 'the stand-in agent is a script; on Windows the app launches only a native .exe')
 
-test('AG-10 in the app: the prompt card on the one 1200 px axis (OXE-401), a quiet header, and Edit prompt sends the edited text as a new turn', async () => {
+test('AG-10 in the app: the prompt card on the one 1080 px axis (OXE-401), a quiet header, and Edit prompt sends the edited text as a new turn', async () => {
   test.setTimeout(300_000)
   const agent = standIn('f5-prompt')
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'dark', realClock: true, env: agent.env })
@@ -196,8 +196,8 @@ test('AG-10 in the app: the prompt card on the one 1200 px axis (OXE-401), a qui
     await expect(prompt).toContainText('Add an idempotency key to refunds')
     const box = async (selector: string) => (await page.locator(selector).first().boundingBox())!
     const columnBox = await box('[data-ui="chat-column"]')
-    // OXE-401: --measure-chat widened from 800px to 1200px
-    expect(Math.abs(columnBox.width - 1200), `the column is 1200 px wide (${columnBox.width})`).toBeLessThanOrEqual(1)
+    // OXE-401: --measure-chat widened from 800px to 1080px
+    expect(Math.abs(columnBox.width - 1080), `the column is 1080 px wide (${columnBox.width})`).toBeLessThanOrEqual(1)
     const promptBox = (await prompt.boundingBox())!
     expect(Math.abs(promptBox.x - columnBox.x), 'the prompt card starts on the column\'s left edge: no bubble on the right').toBeLessThanOrEqual(1)
     expect(Math.abs(promptBox.width - columnBox.width), 'the prompt card is the column\'s width').toBeLessThanOrEqual(1)

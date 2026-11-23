@@ -5,11 +5,11 @@ import { describe, expect, test } from 'vitest'
 const read = (rel: string): string => readFileSync(join(process.cwd(), rel), 'utf8').replace(/\r\n/g, '\n')
 
 describe('OXE-401 · OxeChat wide geometry, Light WCAG AA contrast and CSS hygiene', () => {
-  test('emits --measure-chat: 1200px in tokens.generated.css from scales.ts', () => {
+  test('emits --measure-chat: 1080px in tokens.generated.css from scales.ts', () => {
     const scales = read('src/design/tokens/scales.ts')
-    expect(scales).toMatch(/'measure-chat':\s*'1200px'/)
+    expect(scales).toMatch(/'measure-chat':\s*'1080px'/)
     const tokens = read('src/styles/tokens.generated.css')
-    expect(tokens).toMatch(/--measure-chat:\s*1200px;/)
+    expect(tokens).toMatch(/--measure-chat:\s*1080px;/)
   })
 
   test('removes the 72ch prose choke and undefined CSS variables in ThreadMarkdown.css and ThreadView.css', () => {
