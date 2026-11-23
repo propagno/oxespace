@@ -14,7 +14,17 @@ enum class AlertKind { NEEDS_YOU, DONE, FAILED }
 
 sealed interface AlertChange {
     /** Show (or update) the notification with [key]; [title] and [text] are already safe to display (displaySafe). */
-    data class Post(val key: String, val kind: AlertKind, val title: String, val text: String, val target: AlertTarget) : AlertChange
+    // OXE-380 (A6): for NEEDS_YOU the agent's own title (request.title) is never carried; [title] is empty, [text] is the
+    // conversation, and [requestKind] and [risk] (wire values) let the app say the rest in its own words.
+    data class Post(
+        val key: String,
+        val kind: AlertKind,
+        val title: String,
+        val text: String,
+        val target: AlertTarget,
+        val requestKind: String = "",
+        val risk: String? = null,
+    ) : AlertChange
     /** The reason for it is gone (answered elsewhere): take it down. */
     data class Cancel(val key: String) : AlertChange
 }
@@ -32,7 +42,17 @@ class AlertWatcher {
         val now = requests.associateBy { requestKey(it.threadId, it.requestId) }
         val changes = mutableListOf<AlertChange>()
         for ((key, request) in now) {
-            if (announced.add(key)) changes += AlertChange.Post(key, AlertKind.NEEDS_YOU, displaySafe(request.title), displaySafe(request.threadTitle), AlertTarget.Request(request.threadId, request.requestId))
+            if (announced.add(key)) {
+                changes += AlertChange.Post(
+                    key = key,
+                    kind = AlertKind.NEEDS_YOU,
+                    title = "",
+                    text = displaySafe(request.threadTitle, CONVERSATION_MAX),
+                    target = AlertTarget.Request(request.threadId, request.requestId),
+                    requestKind = request.kind,
+                    risk = request.risk,
+                )
+            }
         }
         val gone = announced.filter { it.startsWith(REQUEST) && it !in now }
         for (key in gone) {
@@ -63,6 +83,8 @@ class AlertWatcher {
     companion object {
         private const val REQUEST = "request:"
         private const val THREAD = "thread:"
+        /** A conversation's name in a "needs you" notification, in characters. */
+        private const val CONVERSATION_MAX = 80
         fun requestKey(threadId: String, requestId: String) = "$REQUEST$threadId/$requestId"
     }
 }

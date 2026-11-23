@@ -358,8 +358,10 @@ export function Menu({ trigger, items, align = 'start', label, testId, side, ope
  * hidden anchor that the caller places inside the element it belongs to (positioned), because the element itself may
  * not carry aria-expanded (a separator); on close, focus goes back where `returnFocus` says.
  */
-export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom', returnFocus }: {
+export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom', returnFocus, point }: {
   open: boolean; onOpenChange: (open: boolean) => void; label: string; items: MenuEntry[]; side?: 'top' | 'right' | 'bottom' | 'left'; returnFocus?: () => HTMLElement | null
+  /** Where a right click happened, in viewport pixels: the anchor is pinned there. Without it (Shift+F10, the ContextMenu key) the menu hangs from its element. */
+  point?: { x: number; y: number }
 }): ReactElement {
   // The content is portalled to the body, but React still bubbles its events to the element that holds the anchor:
   // a divider would start a drag on a click in the menu, an arrow key would resize, a tree row would open its file.
@@ -371,7 +373,8 @@ export function AnchoredMenu({ open, onOpenChange, label, items, side = 'bottom'
   // (DropdownMenu.Content takes no onOpenAutoFocus: the first item is focused once the menu is open.)
   useEffect(() => { if (open) focusFirstItem() }, [open])
   return <RadixMenu.Root modal={false} open={open} onOpenChange={onOpenChange}>
-    <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1} /></RadixMenu.Trigger>
+    <RadixMenu.Trigger asChild><span className={styles.menuAnchor} aria-hidden="true" tabIndex={-1}
+      style={point ? { position: 'fixed', left: `${point.x}px`, top: `${point.y}px` } : undefined} /></RadixMenu.Trigger>
     <RadixMenu.Portal>
       <RadixMenu.Content ref={content} className={cx(styles.floating, styles.menu)} side={side} sideOffset={6} collisionPadding={CHROME_COLLISION} aria-labelledby={undefined} aria-label={label}
         // Radix hands focus back a moment after the close, later on a busy machine. By then a choice has already put it

@@ -2,6 +2,7 @@ import type { IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import { homedir } from 'node:os'
 import type { AppDatabase } from '../../db/index'
 import { mainMessage } from '../../../../shared/messages'
+import { MainMessageError } from '../../ipc/main-message-error'
 import type { PaneAgentResume, TerminalStartInput } from '../../../../shared/types/ipc'
 import { defaultSplitShellProfileId, POSIX_SHELL_PROFILE_ID, WINDOWS_SHELL_PROFILE_ID } from '../shell-profile.defaults'
 import { recordRuntime } from '../runtime-diagnostics'
@@ -37,6 +38,8 @@ export interface SessionStartOptions {
   currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null
   /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
   assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
+  /** OXE-367: whether a pane's working folder is there; a pane whose folder is gone is refused before any spawn. */
+  rootExists?: (path: string) => boolean
   /** Where the providers keep their sessions; the user's own folders by default. For tests. */
   nativeSessionRoots?: NativeSessionRoots
 }
@@ -153,6 +156,8 @@ export class SessionStarter {
       ? launch.pane_root_path
       : launch.workspace_root_path
     if (input.requireCwd && (cwd !== input.requireCwd || !this.host.exists(input.requireCwd))) throw new Error('Delegated worktree is missing; refusing workspace-root fallback')
+    // OXE-367: a workspace whose folder was moved or deleted starts no PTY in nothing; the window offers Relink instead.
+    if (this.host.rootExists && !this.host.rootExists(cwd)) throw new MainMessageError(mainMessage('workspace.root.notFound', { path: cwd }), `The folder ${cwd} does not exist`)
 
     // B17 · On the pane's first start in this app run, go back to its agent's native session (herdr's native
     // session restore), with arguments main builds from the recorded id. A shell pane whose agent was typed by hand

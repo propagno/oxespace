@@ -227,6 +227,9 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     expect(requests()).toHaveLength(1)
   })
 
+  // OXE-398: its four git calls (init, add, commit, worktree add) took 4.0-4.4 s on a busy Windows runner
+  // (run 45089905158, every core busy: one of 8 rounds over 5 s), and a cold first round took 18.4 s (run 45094796008),
+  // so it gets 30 s; the default 5 s stays for the rest.
   it('a worktree with no accepted version starts from its primary checkout\'s', async () => {
     const primary = temp('oxe-b74-repo-')
     const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
@@ -238,11 +241,14 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     write(join(worktree, '.oxespace', 'policy.json'), policyText(rule('allow', 'mcp__oxespace__oxespace_db_*')))
     expect(policyDeniedToolNames(worktree)).not.toContain('mcp__oxespace__oxespace_db_*')
     await read()
+    // OXE-398: on a busy Windows runner this first check (a cold import of policy-change) can outlast settle()'s idle() cap
+    // (run 45093234793: 2 of 30 rounds read no request yet), so wait for the request the assertions below expect.
+    await vi.waitFor(() => expect(requests()).toHaveLength(1), { timeout: 15_000 })
     const decision = store.decide('tool.use', DB_EXECUTE, worktree)
     expect(decision.allowed).toBe(false)
     expect(requests().map(request => request.summary.code)).toContain('approvals.summary.policyChange.worktree')
     expect(policyFile).toBeTruthy()
-  })
+  }, 30_000)
 
   it('the managed layer is gated while people on this computer can write it, and not when it is protected', async () => {
     const gated = await accepted()

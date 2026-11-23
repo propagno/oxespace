@@ -8,7 +8,10 @@ const MAX_RESULTS = 8
 const CACHE_MS = 60_000
 const cache = new Map<string, { at: number; files: string[] }>()
 
-/** Ranks basename prefix matches first, then path substring matches. Pure, so it is testable. */
+/**
+ * Ranks basename prefix matches first, then path substring matches. Pure, so it is testable. Every file is scored: a
+ * cut after the first few hundred partial matches missed the exact name in a big repository (OXE-372).
+ */
 export function rankMentionFiles(files: string[], query: string, limit = MAX_RESULTS): string[] {
   const needle = query.trim().toLowerCase().replace(/\\/g, '/')
   if (!needle) return files.slice(0, limit)
@@ -18,7 +21,6 @@ export function rankMentionFiles(files: string[], query: string, limit = MAX_RES
     const base = lower.slice(lower.lastIndexOf('/') + 1)
     const score = base.startsWith(needle) ? 0 : base.includes(needle) ? 1 : lower.includes(needle) ? 2 : -1
     if (score >= 0) scored.push({ file, score })
-    if (scored.length > 400) break
   }
   return scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length).slice(0, limit).map(entry => entry.file)
 }
@@ -39,7 +41,8 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
   const mention = enabled ? activeMention(draft, caret) : null
   const [files, setFiles] = useState<string[]>([])
   const [selected, setSelected] = useState(0)
-  const [dismissed, setDismissed] = useState<string | null>(null)
+  // The start of the mention Escape closed: it stays closed while that mention is typed, a new one lists again (OXE-372).
+  const [dismissed, setDismissed] = useState<number | null>(null)
   const key = workspaceId && rootPath ? `${workspaceId}:${rootPath}` : null
 
   useEffect(() => {
@@ -57,7 +60,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
 
   const results = useMemo(() => mention ? rankMentionFiles(files, mention.query) : [], [files, mention?.query])
   useEffect(() => { setSelected(0) }, [mention?.query])
-  const open = Boolean(mention && results.length && dismissed !== `${mention.start}:${draft.length}`)
+  const open = Boolean(mention && results.length && dismissed !== mention.start)
 
   const pick = (file: string): void => {
     if (!mention) return
@@ -71,7 +74,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
     if (event.key === 'ArrowDown') { event.preventDefault(); setSelected(value => (value + 1) % results.length); return true }
     if (event.key === 'ArrowUp') { event.preventDefault(); setSelected(value => (value - 1 + results.length) % results.length); return true }
     if (event.key === 'Enter' || event.key === 'Tab') { event.preventDefault(); pick(results[selected] ?? results[0]); return true }
-    if (event.key === 'Escape' && mention) { event.preventDefault(); setDismissed(`${mention.start}:${draft.length}`); return true }
+    if (event.key === 'Escape' && mention) { event.preventDefault(); setDismissed(mention.start); return true }
     return false
   }
 

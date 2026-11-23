@@ -104,6 +104,8 @@ export interface MessageParams extends PlaceMessageParams {
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
+  /** OXE-366: a React crash in the window; a boundary contained it, or nothing did. */
+  'incident.window.rendererError': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
   'incident.ipc.senderRefused': Record<string, never>
@@ -399,6 +401,8 @@ export interface MessageParams extends PlaceMessageParams {
   'workspace.root.notAbsolute': { path: string }
   /** A workspace root that does not exist. */
   'workspace.root.notFound': { path: string }
+  /** Relinking a workspace to a folder another workspace already has (OXE-367). */
+  'workspace.root.taken': { path: string }
   /** A workspace root that is a file, not a folder. */
   'workspace.root.notDirectory': { path: string }
   /** A workspace root the app is not allowed to open or list. */
@@ -628,6 +632,7 @@ export const MESSAGE_CODES = [
   'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
+  'incident.window.rendererError',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
   'incident.ipc.senderRefused',
@@ -801,6 +806,7 @@ export const MESSAGE_CODES = [
   'workspace.root.empty',
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
+  'workspace.root.taken',
   'workspace.root.notDirectory',
   'workspace.root.unreadable',
   'approvals.title.agent',
