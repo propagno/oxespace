@@ -21,7 +21,7 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
-import { runWithTerminalAutoFocus, terminalKeyRoute } from '../../keyboard/terminalFocus'
+import { personActedElsewhereSince, runWithTerminalAutoFocus, terminalKeyRoute, watchPersonInput } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
 import { buildTerminalTheme, decodeOsc52ClipboardWrite, searchDecorations } from './terminalViewHelpers'
@@ -795,8 +795,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     prefs.backgroundOpacity
   ])
 
+  // OXE-395: a launch starts when the view mounts or the shell stops; the terminal takes focus when it starts running only
+  // if the person has not pressed a key or clicked elsewhere since, so a late shell never takes focus they moved.
+  const launchedAt = useRef(performance.now())
   useEffect(() => {
-    if (isRunning) runWithTerminalAutoFocus(() => terminalRef.current?.focus())
+    watchPersonInput()
+    if (!isRunning) { launchedAt.current = performance.now(); return }
+    if (personActedElsewhereSince(launchedAt.current, hostRef.current)) return
+    runWithTerminalAutoFocus(() => terminalRef.current?.focus())
   }, [isRunning])
 
   useEffect(() => {
