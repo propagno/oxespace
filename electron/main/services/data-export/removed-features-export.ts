@@ -207,17 +207,8 @@ function featureUse(deps: ExportDeps, id: RemovedFeatureId): { hadData: boolean;
   }
 }
 
-/** The version the app database had before this start migrated it; 0 when there is none or it cannot be read. */
-export function peekDatabaseVersion(databasePath: string): number {
-  if (!existsSync(databasePath)) return 0
-  try {
-    const handle = new Database(databasePath, { readonly: true, fileMustExist: true })
-    try {
-      const version = handle.pragma('user_version', { simple: true })
-      return typeof version === 'number' ? version : 0
-    } finally { handle.close() }
-  } catch { return 0 }
-}
+/** OXE-358: in its own module, so index.ts reads it at boot without pulling this exporter into the main entry. */
+export { peekDatabaseVersion } from './database-version'
 
 /** The full path of the newest export file, or null. */
 export function latestRemovedFeaturesExport(userData: string): string | null {

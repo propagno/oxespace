@@ -28,6 +28,8 @@ interface WorkspaceState {
   createWorkspace: (input: CreateWorkspaceInput) => Promise<Workspace>
   setActiveWorkspace: (id: string) => Promise<void>
   closeWorkspace: (id: string) => Promise<void>
+  /** OXE-367: the workspace's folder moved; main checks the new one as on create and the store takes the result. */
+  relinkWorkspace: (workspaceId: string, rootPath: string) => Promise<void>
   closePane: (id: string) => Promise<void>
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   createPane: (workspaceId: string) => Promise<string>
@@ -177,6 +179,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   splitPane: async (paneId, direction) => {
     const workspace = await window.oxe.workspace.splitPane({ paneId, direction })
     set(withSaved(workspace))
+  },
+
+  relinkWorkspace: async (workspaceId, rootPath) => {
+    const workspace = await window.oxe.workspace.relink({ workspaceId, rootPath })
+    if (isWorkspaceCreateRefusal(workspace)) {
+      // Nothing was written: say why in the interface language, as a refused create does.
+      const [{ messageKey, messageValues }, { i18n }] = await Promise.all([import('../../shared/messages'), import('../i18n')])
+      const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
+      throw new Error(tm(messageKey(workspace.message.code), messageValues(workspace.message, i18n.language)))
+    }
+    get().applyWorkspace(workspace)
   },
 
   applyWorkspace: (workspace) => {

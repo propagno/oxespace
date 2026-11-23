@@ -52,8 +52,10 @@ test('Thread main flow in Brazilian Portuguese', async () => {
 
     // A failed sign-in offers the way back in Portuguese.
     await setThreadState(app, workspaceRoot, 'auth-failure')
-    await expect(page.getByText('Entre no Claude Code', { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Reconectar', exact: true })).toBeVisible()
+    // OXE-167 (AG-11 6.2): the failure card is the failure's one owner and says to reconnect; no strip above the composer.
+    await expect(page.locator('[data-ui="failure-card"]').getByText('Reconecte a conta do seu agente nativo para continuar.', { exact: true })).toBeVisible()
+    await expect(page.locator('.thread-connection-notice')).toHaveCount(0)
+    await expect(page.locator('[data-ui="failure-card"]').getByRole('button', { name: 'Reconectar', exact: true })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   } finally {
     await app.close()
