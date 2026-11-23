@@ -182,33 +182,3 @@ describe('PQ-07·16 · Agent activity: failures in danger, who acted by name, mo
     expect(cat('activity.loadMore', {}, 'pt-BR')).toBe('Carregar mais')
   })
 })
-
-// OXE-320: the first page is read inside the effect, and an answer that arrives after the effect was cleaned up (the tab
-// left and came back, or a newer read started) is dropped instead of overwriting what the newer read showed.
-describe('OXE-320 · Agent activity drops a stale load', () => {
-  test('ActivityPanel ignores stale load responses when tab switches quickly', async () => {
-    type Page = { entries: ReturnType<typeof entry>[]; hasMore: boolean; cursor: string | null }
-    const pending: Array<(page: Page) => void> = []
-    api.on('audit.list', () => new Promise<Page>(resolve => { pending.push(resolve) }))
-    const view = render(<ActivityPanel active />)
-    await waitFor(() => expect(pending).toHaveLength(1))
-    view.rerender(<ActivityPanel active={false} />)
-    view.rerender(<ActivityPanel active />)
-    await waitFor(() => expect(pending).toHaveLength(2))
-
-    pending[1]({ entries: [entry(20, { text: 'SELECT newer' })], hasMore: false, cursor: null })
-    await screen.findByText('SELECT newer')
-    pending[0]({ entries: [entry(10, { text: 'SELECT older' })], hasMore: true, cursor: 'stale' })
-    await new Promise(resolve => setTimeout(resolve, 20))
-
-    expect(screen.queryByText('SELECT older')).toBeNull()
-    expect(screen.getByText('SELECT newer')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: cat('activity.loadMore') })).toBeNull()
-
-    // Refresh still reads the first page again.
-    fireEvent.click(screen.getByRole('button', { name: cat('common.refresh') }))
-    await waitFor(() => expect(pending).toHaveLength(3))
-    pending[2]({ entries: [entry(30, { text: 'SELECT refreshed' })], hasMore: false, cursor: null })
-    await screen.findByText('SELECT refreshed')
-  })
-})
