@@ -3,6 +3,7 @@ import { Command as Cmdk } from 'cmdk'
 import { Search } from 'lucide-react'
 import { Dialog as RadixDialog } from 'radix-ui'
 import { i18n } from '../i18n'
+import { takeHeldFocus } from '../lib/paletteFocus'
 import styles from './CommandPalette.module.css'
 
 /**
@@ -24,7 +25,8 @@ export function CommandDialog({ open, onOpenChange, children, title = i18n.t('ui
   const previous = useRef<HTMLElement | null>(null)
   const content = useRef<HTMLDivElement | null>(null)
   // Radix calls this before it moves focus into the dialog, so the active element is still the one to return to.
-  const remember = (): void => { previous.current = document.activeElement instanceof HTMLElement ? document.activeElement : null }
+  // OXE-397: opening took focus away from that element at once (holdFocusForPalette), so it is the one to return to.
+  const remember = (): void => { previous.current = takeHeldFocus() ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null) }
   const returnFocus = (event: Event): void => {
     onCloseAutoFocus?.(event)
     const target = previous.current

@@ -81,3 +81,24 @@ export function terminalPaneOf(element: Element | null): string | null {
 let autoFocusing = false
 export const isAutoFocusingTerminal = (): boolean => autoFocusing
 export const runWithTerminalAutoFocus = (fn: () => void): void => { autoFocusing = true; try { fn() } finally { autoFocusing = false } }
+
+/**
+ * OXE-395: the person's last key or pointer press, and where it went. A terminal that starts running gives itself focus
+ * only when the person has not acted elsewhere since its launch began: a shell that comes up late must not take the
+ * focus from the field the person already went to, nor send what they type next to the shell.
+ */
+let lastPersonInput: { at: number; target: EventTarget | null } | null = null
+let watching = false
+export function watchPersonInput(): void {
+  if (watching || typeof window === 'undefined') return
+  watching = true
+  const note = (event: Event): void => { lastPersonInput = { at: performance.now(), target: event.target } }
+  window.addEventListener('keydown', note, true)
+  window.addEventListener('pointerdown', note, true)
+}
+/** True when the person pressed a key or the pointer outside `own` after `since` (performance.now() time). */
+export function personActedElsewhereSince(since: number, own: Element | null): boolean {
+  if (!lastPersonInput || lastPersonInput.at < since) return false
+  const target = lastPersonInput.target
+  return !(own && target instanceof Node && own.contains(target))
+}

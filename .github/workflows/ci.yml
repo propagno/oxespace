@@ -64,6 +64,16 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The performance gate's failures this workflow accepts outside a release, and only these (OXE-389, decision of
+  # 23/11, option c): each is one exact test on one OS, its error matched whole, with the open card that fixes it.
+  # They still show in the record, the warnings and the summary; they just do not fail the run. Nothing else does
+  # pass: another error, a timeout or another budget fails as before (scripts/perf-gate-outcome.mjs). An entry
+  # leaves in the pull request that fixes its measure; no entry is ever added without its card and the user's OK.
+  PERF_GATE_KNOWN_FAILURES: >-
+    [{"card":"OXE-412","os":"Windows","test":"e2e/memory-footprint.spec.ts › memory footprint: one long Thread, four terminals, seeded history","error":"^browser private memory \\d+(\\.\\d+)? MB exceeded 270 MB$"},
+    {"card":"OXE-350","os":"Windows","test":"e2e/perceived-perf.spec.ts › perceived performance: first feedback, first content and blank time per surface","error":"^OxeChat \\(Thread\\) warm: first content against the 33 ms baseline( \\(round 1 \\d+, round 2 \\d+\\))?$"}]
+
 jobs:
   # What a pull request touched, so the expensive jobs only run when they can tell something.
   # A docs-only PR (docs/**, *.md, .claude/**) runs nothing but this job, which still gives it
@@ -530,7 +540,11 @@ jobs:
       fail-fast: false
       matrix:
         label: [windows-x64, linux-x64]
-        shard: [1, 2, 3]
+        # CI LEVE NO PR (the user, 23/11): a pull request runs only shard 2, and in it only the build and the brand
+        # conformance (marca/conformidade on the PR head). The full suite, the native and upgrade steps and the
+        # performance gate run on main, tags and every workflow_dispatch, which is how the merge train tests each
+        # batch and each car before it reaches main (merge-train.yml).
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[2]' || '[1, 2, 3]') }}
         include:
           - label: windows-x64
             os: windows-2022
@@ -662,7 +676,7 @@ jobs:
       # A packaged_smoke_only dispatch proves the packaged binary; the renderer perf budgets are proven by every PR and
       # main run and must not stand between a dispatch and packaging. Only the plan's output is read, in if: and env.
       - name: E2E smoke (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && github.event_name != 'pull_request'
         shell: pwsh
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
@@ -679,7 +693,7 @@ jobs:
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name != 'pull_request'
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
           E2E_SHARD: ${{ matrix.shard }}/3
@@ -722,7 +736,7 @@ jobs:
           path: test-results/**/trace.zip
 
       - name: Upload E2E blob report
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-blob-${{ matrix.label }}-${{ matrix.shard }}
@@ -759,17 +773,18 @@ jobs:
           set -o pipefail
           npm run bench:ui 2>&1 | tee perf-gate.log
 
-      # What the gate measured and whether it passed, for perf-plan and perf-recheck.
+      # What the gate measured and whether it passed, for perf-plan and perf-recheck. The outcome is the step of this
+      # job's own OS: the other OS's step is "skipped", which is truthy, so ordering the two with || hid Windows (OXE-389).
+      # A failure made only of the known failures above is recorded "known" (scripts/perf-gate-outcome.mjs).
       - name: Record the performance gate
         if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
         shell: bash
         env:
-          OUTCOME: ${{ steps.perf_linux.outcome || steps.perf_windows.outcome || 'skipped' }}
+          OUTCOME: ${{ (runner.os == 'Windows' && steps.perf_windows.outcome) || (runner.os == 'Linux' && steps.perf_linux.outcome) || 'skipped' }}
         run: |
           mkdir -p perf-gate
-          printf '{"label":"%s","os":"%s","outcome":"%s"}\n' "${{ matrix.label }}" "${{ matrix.os }}" "$OUTCOME" > perf-gate/outcome.json
+          node scripts/perf-gate-outcome.mjs record "${{ matrix.label }}" "${{ matrix.os }}" "$RUNNER_OS" "$OUTCOME" perf-gate.log perf-gate/outcome.json
           grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log > perf-gate/results.txt 2>/dev/null || true
-          echo "performance gate on ${{ matrix.label }}: $OUTCOME"
 
       - name: Upload the performance gate record
         if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
@@ -792,13 +807,15 @@ jobs:
   perf-plan:
     name: Performance gate recheck plan
     needs: [quick, e2e]
-    if: ${{ !cancelled() && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
+    # A pull request's e2e runs no performance gate (CI LEVE NO PR), so there is nothing to plan.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
     outputs:
       recheck: ${{ steps.plan.outputs.recheck }}
+      known: ${{ steps.plan.outputs.known }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -817,8 +834,15 @@ jobs:
             process.exit(1)
           }
           const recheck = records.filter(record => record.outcome === 'failure').map(({ label, os }) => ({ label, os }))
+          // "known": every failure was one ci.yml names with its card (PERF_GATE_KNOWN_FAILURES, OXE-389). Shown, not rechecked.
+          const known = records.filter(record => record.outcome === 'known').flatMap(record => (record.known ?? []).map(k => ({ label: record.label, ...k })))
+          for (const k of known) {
+            console.log(`::warning title=Known performance failure (${k.card})::${k.label}: ${k.test} — ${k.error}`)
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, `- known performance failure on ${k.label} (${k.card}, accepted while it is open): ${k.test} — ${k.error}\n`)
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `known=${JSON.stringify(known)}\n`)
           appendFileSync(process.env.GITHUB_OUTPUT, `recheck=${JSON.stringify(recheck)}\n`)
-          console.log(recheck.length ? `recheck on a fresh runner: ${recheck.map(r => r.label).join(', ')}` : 'every performance gate passed')
+          console.log(recheck.length ? `recheck on a fresh runner: ${recheck.map(r => r.label).join(', ')}` : known.length ? `no gate to recheck; ${known.length} known failure(s), each with its card` : 'every performance gate passed')
           EOF
 
   # The performance gate once more, on a fresh runner, for a platform whose gate failed in e2e. The first run's
@@ -921,6 +945,11 @@ jobs:
             echo "### Performance gate, second run (${{ matrix.label }}, fresh runner): $([ "$status" = 0 ] && echo passed || echo FAILED)"
             grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log | sed 's/^/    /' || true
           } >> "$GITHUB_STEP_SUMMARY"
+          # A second run whose every failure is a known one (PERF_GATE_KNOWN_FAILURES, each with its card) passes; any other fails.
+          if [ "$status" != 0 ] && node scripts/perf-gate-outcome.mjs recheck "$RUNNER_OS" "$status" perf-gate.log; then
+            echo "::notice title=Performance gate::the second run failed only on the known failures ci.yml names with their cards (${{ matrix.label }})"
+            exit 0
+          fi
           if [ "$status" != 0 ]; then echo "::error title=Performance gate::failed on two runners (${{ matrix.label }}): a real regression until the per-OS trend says otherwise (flakes.md FL-21)"; exit 1; fi
           echo "::notice title=Performance gate::the first run failed on one runner and the second passed on a fresh one (${{ matrix.label }}): runner noise, see FL-04"
 
@@ -1535,9 +1564,12 @@ jobs:
           // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
           // it planned must have passed on its fresh runner.
           const publishing = needs.quick.outputs?.should_release === 'true' || needs.quick.outputs?.packaged_smoke === 'true'
-          if (needs.e2e.result === 'success' && !publishing) {
+          // A pull request runs no performance gate (CI LEVE NO PR): its e2e is the build and the brand run only.
+          if (needs.e2e.result === 'success' && !publishing && !pr) {
             if (needs['perf-plan'].result !== 'success') problems.push(`perf-plan should have passed and is ${needs['perf-plan'].result}`)
             else if ((needs['perf-plan'].outputs?.recheck ?? '[]') !== '[]' && needs['perf-recheck'].result !== 'success') problems.push(`perf-recheck should have passed and is ${needs['perf-recheck'].result}`)
+            // Accepted only because ci.yml names them, each with its open card (PERF_GATE_KNOWN_FAILURES, OXE-389).
+            for (const k of JSON.parse(needs['perf-plan'].outputs?.known || '[]')) console.log(`::warning title=Known performance failure (${k.card})::accepted while ${k.card} is open: ${k.label} ${k.test} — ${k.error}`)
           }
           if (problems.length) {
             console.log(`::error title=CI failed::${[...new Set(problems)].join('; ')}`)

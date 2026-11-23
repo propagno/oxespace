@@ -177,7 +177,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, terminalPrefs.cavemanModeEnabled, terminalPrefs.resumeAgentSessions, workspaceId])
 
   useEffect(() => {
     if (!pane.originPaneId) return
@@ -303,12 +303,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
   const [moreOpen, setMoreOpen] = useState(false)
   // 1.5.0 · A phone that has this terminal open sizes it for its own screen; the pane says so and can take it back.
-  const [sizeLease, setSizeLease] = useState<{ cols: number; rows: number } | null>(null)
+  // The lease is kept with the pane it was read for, so another pane shows none until its own arrives (OXE-319).
+  const [leased, setLeased] = useState<{ paneId: string; lease: { cols: number; rows: number } | null } | null>(null)
+  const sizeLease = leased?.paneId === pane.id ? leased.lease : null
   useEffect(() => {
     let live = true
-    setSizeLease(null)
-    void window.oxe?.terminal?.sizeLease?.(pane.id).then(lease => { if (live) setSizeLease(lease) }).catch(() => undefined)
-    const off = window.oxe?.terminal?.onSizeLeaseChanged?.(pane.id, event => setSizeLease(event.lease))
+    const paneId = pane.id
+    void window.oxe?.terminal?.sizeLease?.(paneId).then(lease => { if (live) setLeased({ paneId, lease }) }).catch(() => undefined)
+    const off = window.oxe?.terminal?.onSizeLeaseChanged?.(paneId, event => setLeased({ paneId, lease: event.lease }))
     return () => { live = false; off?.() }
   }, [pane.id])
   const [restoreOpen, setRestoreOpen] = useState(false)

@@ -39,11 +39,15 @@ describe('pending changes across turns', () => {
       expect(JSON.parse(localStorage.getItem('oxe.thread.kept:th')!)).toEqual(['t2|c.ts'])
     })
 
-    it('undoes every file newest turn first, and hides while a turn runs', async () => {
+    it('undoes every file newest turn first after confirmation, and hides while a turn runs', async () => {
       const view = render(<ThreadDockChanges snapshot={snapshot} running={false} onViewChanges={() => {}} />)
       await screen.findByRole('button', { name: /2 files changed/ })
       turnFiles.mockResolvedValue([])
-      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Undo all' })) })
+      fireEvent.click(screen.getByRole('button', { name: 'Undo all' }))
+      expect(undoTurnFile).not.toHaveBeenCalled()
+      const dialog = await screen.findByRole('dialog')
+      const confirmBtn = Array.from(dialog.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Undo all')!
+      await act(async () => { fireEvent.click(confirmBtn) })
       expect(undoTurnFile.mock.calls).toEqual([['th', 't2', 'c.ts'], ['th', 't1', 'a.ts']])
       await waitFor(() => expect(screen.queryByTestId('thread-dock-changes')).toBeNull())
       view.rerender(<ThreadDockChanges snapshot={snapshot} running onViewChanges={() => {}} />)

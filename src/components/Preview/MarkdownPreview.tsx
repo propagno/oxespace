@@ -1,13 +1,19 @@
 import { type ReactElement } from 'react'
-import Markdown from 'react-markdown'
+import Markdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { i18n } from '../../i18n'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { parseExternalUrl } from '../../lib/externalLinks'
+import { inlineImageSource } from '../Threads/markdownImage'
 
 interface MarkdownPreviewProps {
   content: string
 }
+
+// react-markdown drops `data:` addresses by default; an inline raster image of a size worth drawing is kept as
+// written (the same rule as ThreadMarkdown), everything else goes through the default transform.
+const keepInlineImages = (url: string, key: string): string =>
+  key === 'src' && inlineImageSource(url) ? url : defaultUrlTransform(url)
 
 /**
  * #10 · Rendered Markdown for docs/READMEs/agent output. GFM enabled (tables,
@@ -19,18 +25,22 @@ export function MarkdownPreview({ content }: MarkdownPreviewProps): ReactElement
     <div className="markdown-preview" data-testid="markdown-preview">
       <Markdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={keepInlineImages}
         components={{
           // Links leave through openExternalLink, with the real host beside text that names somewhere else;
           // anything else (relative paths, other schemes) stays plain text instead of navigating the renderer.
           a: ({ href, children }) => href && parseExternalUrl(href)
             ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
             : <span className="markdown-preview-reference" title={href}>{children}</span>,
-          // Images inside markdown can't resolve workspace-relative paths under
-          // the CSP; keep remote/data ones and drop the rest to avoid broken icons.
-          img: ({ src, alt, ...props }) =>
-            typeof src === 'string' && /^(https?:|data:)/i.test(src)
-              ? <img {...props} src={src} alt={alt ?? ''} />
-              : <span className="markdown-preview-img-skipped">{i18n.t('editor.imageSkipped', { ns: 'code', name: alt || src || '?' })}</span>
+          // A file from the project is untrusted: an image that goes to the network is a request made on the
+          // person's behalf, and SVG or an oversized dump is not worth drawing. Only an inline raster image
+          // (inlineImageSource) is drawn; the rest stays a named reference.
+          img: ({ src, alt }) => {
+            const inline = inlineImageSource(typeof src === 'string' ? src : undefined)
+            return inline
+              ? <img src={inline} alt={alt ?? ''} />
+              : <span className="markdown-preview-img-skipped">{i18n.t('editor.imageSkipped', { ns: 'code', name: alt || (typeof src === 'string' ? src.slice(0, 200) : '') || '?' })}</span>
+          }
         }}
       >
         {content}

@@ -29,8 +29,14 @@ class PhonePreferences(private val store: PreferenceStore) {
 
     private fun alertKey(kind: AlertKind) = "alerts.${kind.name.lowercase()}"
 
+    /** OXE-383: "Connect over a VPN" (Tailscale, WireGuard). Only a stored "on" turns it on: off by default. */
+    var connectOverVpn: Boolean
+        get() = store.getString(VPN_KEY) == ON
+        set(value) = store.putString(VPN_KEY, if (value) ON else OFF)
+
     private companion object {
         const val THEME_KEY = "theme"
+        const val VPN_KEY = "network.vpn"
         const val ON = "on"
         const val OFF = "off"
     }
