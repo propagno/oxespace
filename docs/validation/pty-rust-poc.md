@@ -1,6 +1,6 @@
 # Prova de conceito: onde e com o quê hospedar o PTY (OXE-400)
 
-Estado: **medida, forma isolada** (23/11). Versão-alvo 1.7.0. Nada daqui vai para a main sem uma decisão nova do usuário; a decisão de trocar é do usuário.
+Estado: **medida na forma isolada e dentro do app** (23/11). Versão-alvo 1.7.0. O node-pty num `utilityProcess` está no app atrás de `OXESPACE_PTY_HOST=utility`, desligada por padrão; ligá-la por padrão é uma decisão do usuário.
 
 ## Resposta curta
 
@@ -17,6 +17,38 @@ Estado: **medida, forma isolada** (23/11). Versão-alvo 1.7.0. Nada daqui vai pa
 1. Primeiro, mover o node-pty para um `utilityProcess` (B), atrás de uma flag, repetindo o CA-1 e o CA-4 dentro do app.
 2. Só depois, se memória ou CPU com muitos terminais virarem problema medido no app, avaliar o binário em Rust (D).
 3. Descartar o C.
+
+## Fase dentro do app (23/11)
+
+O usuário aprovou a recomendação em 23/11. O node-pty passou a rodar num `utilityProcess` dentro do app, atrás de `OXESPACE_PTY_HOST=utility`, que fica desligada por padrão.
+
+**O que mudou:**
+- `electron/main/workers/pty-host.ts` é o host. Ele roda o node-pty, e todos os callbacks do node-pty estão protegidos.
+- `electron/main/services/terminal/utility-pty.ts` é o `IPty` que o `TerminalService` recebe pela costura que já existia (`PtyModule`). Ele só é carregado com a flag ligada. Com a flag desligada, a entrada principal ganha apenas a linha da flag: ficou em 568 kB, com 8,4% de folga.
+- **Diferenças com a flag ligada:**
+  - o `pid` chega alguns milissegundos depois do spawn;
+  - o nome do processo em primeiro plano é o último informado pelo host, no máximo a cada 500 ms;
+  - um spawn que falha mostra o motivo no terminal e o encerra;
+  - se o host morre, os terminais dele terminam e o app continua aberto. O próximo terminal sobe um host novo.
+
+**Provas na CI** (`.github/workflows/pty-host.yml`, app construído, PTY reais, em `windows-2022` e `ubuntu-22.04`):
+
+**CA-1** (`e2e/perf/pty-rust-isolation.spec.ts › a crash in the PTY host leaves the app running`): passou nos dois sistemas. O teste abre 2 terminais e mata o host com SIGKILL. Os dois painéis vão para "exited", o processo principal continua vivo e a janela segue respondendo.
+
+**CA-4** (`e2e/perf/pty-rust-quit.spec.ts › quitting with live shells never aborts`): 4 shells vivos e 30 rodadas de cada caminho por braço. Cada rodada confere que o host existe no braço B e não no A. Execuções [45194045441](https://github.com/propagno/oxespace/actions/runs/45194045441) e [45197475788](https://github.com/propagno/oxespace/actions/runs/45197475788):
+
+| Braço | Windows: limpas | Windows: sujas | Linux: limpas | Linux: sujas |
+| --- | --- | --- | --- | --- |
+| A, node-pty no processo principal (hoje) | 79/90 e 79/90 | 0xE06D7363 (exceção C++ não tratada) ao fechar a janela e pelo menu; uma 0xC0000005 | 90/90 e 89/90 | um SIGABRT por `app.quit()` |
+| B, node-pty no `utilityProcess` | **90/90 e 90/90** | — | **90/90 e 90/90** | — |
+
+- No Windows, o braço A falha com 0xE06D7363. Esse é o código que o Windows dá a uma exceção C++ que ninguém trata, o `Napi::Error` do OXE-392.
+- No Linux, o SIGABRT do OXE-392 aparece no app em 1 de 90 saídas. O harness isolado não o tinha visto.
+- Com o node-pty fora do processo principal, as 360 saídas foram limpas.
+
+**Testes de unidade:** `tests/utility-pty.test.ts` cobre o proxy com um host falso: spawn, pid, dados, entrada, encerramento único, morte do host, spawn que falha e `dispose`.
+
+**Fora do smoke:** o `playwright.config.ts` ignora `e2e/perf/`. São 180 lançamentos do app, que rodam só no `pty-host.yml`.
 
 ## Pergunta
 
@@ -197,5 +229,6 @@ O usuário aceitou as recomendações em 23/11.
 ## Referências
 
 - Card OXE-400; OXE-392, OXE-349, OXE-122, OXE-396.
-- Harness e host: `poc/pty-host/`; workflow `.github/workflows/pty-rust-poc.yml`.
+- Harness e host em Rust da forma isolada: `poc/pty-host/` e `.github/workflows/pty-rust-poc.yml`, no ramo `oxe-400-rust-pty-poc` (não vão para a main).
+- Fase dentro do app: `electron/main/workers/pty-host.ts`, `electron/main/services/terminal/utility-pty.ts`, `e2e/perf/pty-rust-*.spec.ts`, `.github/workflows/pty-host.yml`.
 - `electron/main/services/terminal.service.ts`, `electron/main/services/terminal/`, `electron-builder.yml`.
