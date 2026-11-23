@@ -2224,7 +2224,15 @@
     "origin": "Origin",
     "handoffRevision": "Handoff revision",
     "knowledge": "Knowledge included",
-    "conversation": "Conversation",
+    "sourceKind": {
+      "handoff": "Handoff",
+      "acceptance": "Acceptance criteria",
+      "evidence": "Evidence",
+      "memory": "AI Memory",
+      "code": "Code",
+      "checkpoint": "Checkpoint",
+      "session": "Conversation"
+    },
     "noKnowledge": "The knowledge bundle is being prepared or no optional source was available.",
     "memoryEmpty": "AI Memory was requested but provided no context for this handoff. Check the project memory settings before retrying.",
     "loadMore": "Load more",
