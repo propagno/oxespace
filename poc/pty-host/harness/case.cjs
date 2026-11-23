@@ -26,6 +26,12 @@ const uncaught = []
 // The app's own handler (electron/main/index.ts): log and carry on. A native abort never reaches it.
 process.on('uncaughtException', error => { uncaught.push(String(error?.message ?? error)) })
 
+const T0 = performance.now()
+/** POC_DEBUG=1: a timestamped trace on stderr, for diagnosing a case on CI. */
+function trace(...parts) {
+  if (process.env.POC_DEBUG) process.stderr.write(`[case ${suite} ${arm} +${Math.round(performance.now() - T0)}ms] ${parts.join(' ')}\n`)
+}
+
 function result(value) {
   process.stdout.write(`POC_RESULT ${JSON.stringify({ suite, arm, ...value })}\n`)
 }
@@ -133,10 +139,14 @@ async function throughput() {
   for (let index = 0; index < terminals; index++) {
     const tag = `${process.pid}x${index}`
     const term = await host.spawn(options({ file: NODE, args: [GEN, 'bytes', String(perTerminal), kind, tag] }))
-    term.onData(text => { received += text.length })
-    finished.push(waitFor(term, `__POC_END_${tag}__`, 300000))
+    let head = ''
+    term.onData(text => { received += text.length; if (head.length < 3000) head += text.slice(0, 3000 - head.length) })
+    term.onExit(code => trace('exit', index, code, 'received', received, head.length < 3000 ? JSON.stringify(head) : ''))
+    finished.push(waitFor(term, `__POC_END_${tag}__`, 150000).then(ok => { trace('end', index, ok); return ok }))
   }
+  trace('spawned', terminals)
   const ends = await Promise.all(finished)
+  const hostStats = ends.every(Boolean) ? null : await host.stats?.()
   const seconds = (performance.now() - t0) / 1000
   const cpu = process.cpuUsage(cpu0)
   clearInterval(sampler)
@@ -146,7 +156,7 @@ async function throughput() {
     terminals, kind, totalBytes: perTerminal * terminals, complete: ends.every(Boolean), seconds,
     mbPerSecond: (perTerminal * terminals) / MB / seconds,
     mainCpuPercent: ((cpu.user + cpu.system) / 1000 / (seconds * 1000)) * 100,
-    receivedChars: received,
+    receivedChars: received, hostStats,
     memoryBeforeMb: before.main, memoryPeakMb: peak, memoryPerTerminalMb: (peak - before.main) / terminals,
   })
 }
@@ -198,7 +208,8 @@ async function isolation() {
   const t0 = performance.now()
   let endedAt = null
   let endedWith = null
-  term.onExit(code => { endedAt = performance.now(); endedWith = code })
+  term.onExit(code => { endedAt = performance.now(); endedWith = code; trace('ended', code) })
+  trace('inject', fault)
   if (fault === 'listener-throws-on-exit') {
     // The app's exit listener throws (as one could while the app quits and its stores are closed).
     term.onExit(() => { throw new Error('OXE-400: injected exception in the exit listener') })
@@ -221,6 +232,7 @@ async function isolation() {
     term.write('echo ok-after\r')
     stillWorks = await seen
   }
+  trace('report')
   result({
     fault, survived: true, ended: endedAt !== null, endedMs: endedAt === null ? null : endedAt - t0, endedWith,
     stillWorks, uncaught: uncaught.length, hostAlive: arm === 'A' ? true : Boolean(host.alive),
@@ -248,13 +260,19 @@ async function quit() {
   app.on('before-quit', event => {
     if (stopping) return
     stopping = true
+    trace('before-quit')
     event.preventDefault()
     for (const term of terms) { try { term.kill() } catch {} }
     host.close()
-    setTimeout(() => { app.quit(); setTimeout(() => app.exit(0), 5000).unref() }, 50)
+    // The 5 s cap of the app; when it is what ends the process, run.cjs counts the quit as stalled.
+    setTimeout(() => { app.quit(); setTimeout(() => { process.stdout.write('POC_FALLBACK_EXIT\n'); app.exit(0) }, 5000).unref() }, 50)
   })
-  app.on('window-all-closed', () => app.quit())
+  app.on('window-all-closed', () => { trace('window-all-closed'); app.quit() })
+  app.on('will-quit', () => trace('will-quit'))
+  app.on('quit', () => trace('quit'))
+  for (const term of terms) term.onExit(code => trace('term exit', code))
   result({ path, shells, phase: 'quitting' })
+  trace('quitting via', path)
   if (path === 'menu') Menu.getApplicationMenu().items[0].submenu.items[0].click()
   else if (path === 'window') window.close()
   else app.quit()
@@ -265,6 +283,7 @@ const suites = { throughput, echo, isolation, quit }
 app.whenReady().then(async () => {
   try {
     await suites[suite]()
+    trace('exit(0)')
     if (suite !== 'quit') app.exit(0)
   } catch (error) {
     result({ error: String(error?.stack ?? error) })

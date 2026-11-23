@@ -20,13 +20,17 @@ function terminal(pid, actions) {
   const data = emitter()
   const exit = emitter()
   let ended = false
+  const buffered = []
+  let listening = false
   return {
     pid,
     ...actions,
-    onData: data.on,
+    // Bytes that come before anyone listens (the shell's first prompt) are kept for the first data listener.
+    _buffered: buffered,
+    onData: fn => { const off = data.on(fn); if (!listening) { listening = true; for (const text of buffered.splice(0)) data.emit(text) } return off },
     onExit: exit.on,
     get ended() { return ended },
-    _data: text => data.emit(text),
+    _data: text => { if (listening) data.emit(text); else buffered.push(text) },
     _exit: code => { if (ended) return; ended = true; exit.emit(code) },
   }
 }
@@ -79,7 +83,9 @@ async function openUtility(arm) {
       if (typeof message.data === 'string') term._data(message.data)
       else term._data(decoders.get(message.id).decode(message.data, { stream: true }))
     } else if (message.t === 'exit') terms.get(message.id)?._exit(message.code)
+    else if (message.t === 'stats') statsWaiter?.(message)
   })
+  let statsWaiter = null
   // The host is gone (crash, kill): every terminal it held has ended; the main process carries on.
   child.on('exit', code => {
     alive = false
@@ -94,19 +100,27 @@ async function openUtility(arm) {
     async spawn(options) {
       const id = nextId++
       decoders.set(id, new TextDecoder('utf-8'))
-      const pid = await new Promise((resolve, reject) => {
-        waiting.set(id, { resolve, reject })
-        child.postMessage({ t: 'spawn', id, ...options })
-      })
-      const term = terminal(pid, {
+      const term = terminal(0, {
         write: text => child.postMessage({ t: 'write', id, data: text }),
         resize: (cols, rows) => child.postMessage({ t: 'resize', id, cols, rows }),
         kill: () => child.postMessage({ t: 'kill', id }),
       })
       terms.set(id, term)
+      term.pid = await new Promise((resolve, reject) => {
+        waiting.set(id, { resolve, reject })
+        child.postMessage({ t: 'spawn', id, ...options })
+      })
       return term
     },
     panic() { child.postMessage({ t: 'host-panic' }) },
+    stats() {
+      if (!alive) return Promise.resolve({ alive: false })
+      return new Promise(resolve => {
+        const timer = setTimeout(() => resolve({ timeout: true }), 3000)
+        statsWaiter = message => { clearTimeout(timer); statsWaiter = null; resolve({ bytesIn: message.bytesIn, sessions: message.sessions }) }
+        child.postMessage({ t: 'stats' })
+      })
+    },
     close() { if (alive) child.kill() },
   }
 }
@@ -138,16 +152,16 @@ async function openD() {
     async spawn(options) {
       const id = nextId++
       decoders.set(id, new TextDecoder('utf-8'))
-      const pid = await new Promise((resolve, reject) => {
-        waiting.set(id, { resolve, reject })
-        send(frames.KIND.SPAWN, id, frames.spawnPayload(options))
-      })
-      const term = terminal(pid, {
+      const term = terminal(0, {
         write: text => send(frames.KIND.WRITE, id, Buffer.from(text)),
         resize: (cols, rows) => { const size = Buffer.alloc(4); size.writeUInt16LE(cols, 0); size.writeUInt16LE(rows, 2); send(frames.KIND.RESIZE, id, size) },
         kill: () => send(frames.KIND.KILL, id),
       })
       terms.set(id, term)
+      term.pid = await new Promise((resolve, reject) => {
+        waiting.set(id, { resolve, reject })
+        send(frames.KIND.SPAWN, id, frames.spawnPayload(options))
+      })
       return term
     },
     panic() { send(frames.KIND.CRASH, 0) },

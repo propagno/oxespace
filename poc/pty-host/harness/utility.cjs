@@ -6,6 +6,7 @@ const arm = process.env.POC_ARM
 const port = process.parentPort
 const sessions = new Map()
 let throwOnNativeExit = false
+const bytesIn = {}
 
 const rust = arm === 'C' ? require(process.env.POC_NAPI_MODULE) : null
 const nodePty = arm === 'B' ? require('node-pty') : null
@@ -33,7 +34,7 @@ function spawn(message) {
   }
   const envPairs = Object.entries(env).map(([key, value]) => `${key}=${value}`)
   const pty = rust.spawn({ file, args, cwd, env: envPairs, cols, rows },
-    bytes => send({ t: 'data', id, data: bytes }),
+    bytes => { bytesIn[id] = (bytesIn[id] ?? 0) + bytes.length; send({ t: 'data', id, data: bytes }) },
     code => send({ t: 'exit', id, code: Number(code) }))
   sessions.set(id, { write: data => pty.write(Buffer.from(data)), resize: (c, r) => pty.resize(c, r), kill: () => pty.kill(), pid: pty.pid })
   send({ t: 'spawned', id, pid: pty.pid })
@@ -45,6 +46,7 @@ port.on('message', ({ data: message }) => {
     else if (message.t === 'write') sessions.get(message.id)?.write(message.data)
     else if (message.t === 'resize') sessions.get(message.id)?.resize(message.cols, message.rows)
     else if (message.t === 'kill') sessions.get(message.id)?.kill()
+    else if (message.t === 'stats') send({ t: 'stats', bytesIn, sessions: sessions.size })
     else if (message.t === 'host-panic') {
       if (arm === 'C') rust.crash()
       else {

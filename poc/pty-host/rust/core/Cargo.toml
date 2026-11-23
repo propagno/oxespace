@@ -6,7 +6,10 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
-portable-pty = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
+portable-pty = { workspace = true }
 libloading = "0.8"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

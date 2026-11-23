@@ -7,7 +7,6 @@
 const { spawn } = require('node:child_process')
 const { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } = require('node:fs')
 const { join } = require('node:path')
-const electron = require('electron')
 
 const out = process.env.POC_RESULTS || join(process.cwd(), 'results', 'pty-rust-poc')
 mkdirSync(out, { recursive: true })
@@ -15,6 +14,9 @@ const ndjson = join(out, 'results.ndjson')
 const ARMS = (process.env.POC_ARMS || 'A,B,C,D').split(',')
 const ROUNDS = Number(process.env.POC_ROUNDS || 5)
 const QUIT_ROUNDS = Number(process.env.POC_QUIT_ROUNDS || 30)
+const THROUGHPUT = (process.env.POC_THROUGHPUT || '1,4,16').split(',').map(Number)
+const KINDS = (process.env.POC_KINDS || 'plain,ansi').split(',')
+const QUIT_PATHS = (process.env.POC_QUIT_PATHS || 'menu,window,quit').split(',')
 const SUITES = (process.env.POC_SUITES || 'throughput,echo,isolation,quit').split(',')
 const CASE = join(__dirname, 'case.cjs')
 const FAULTS = {
@@ -34,7 +36,7 @@ function runCase(suite, arm, params, round, timeoutMs = 240000) {
   return new Promise(resolve => {
     const started = Date.now()
     const args = [...(process.platform === 'linux' ? ['--no-sandbox'] : []), CASE]
-    const child = spawn(electron, args, {
+    const child = spawn(require('electron'), args, {
       env: env({ POC_SUITE: suite, POC_ARM: arm, POC_PARAMS: JSON.stringify(params) }),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -42,7 +44,7 @@ function runCase(suite, arm, params, round, timeoutMs = 240000) {
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', chunk => { stdout += chunk })
-    child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000) })
+    child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); if (process.env.POC_DEBUG) process.stderr.write(chunk) })
     const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
     child.on('close', (exitCode, signal) => {
       clearTimeout(timer)
@@ -51,7 +53,7 @@ function runCase(suite, arm, params, round, timeoutMs = 240000) {
       try { reported = line ? JSON.parse(line.slice('POC_RESULT '.length)) : null } catch {}
       const record = {
         os: process.platform, suite, arm, round, params, exitCode, signal, wallMs: Date.now() - started,
-        reported, stderrTail: exitCode === 0 && !signal ? undefined : stderr.split(/\r?\n/).slice(-15).join('\n'),
+        reported, fallbackExit: stdout.includes('POC_FALLBACK_EXIT'), stderrTail: exitCode === 0 && !signal ? undefined : stderr.split(/\r?\n/).slice(-15).join('\n'),
       }
       appendFileSync(ndjson, `${JSON.stringify(record)}\n`)
       resolve(record)
@@ -75,8 +77,8 @@ async function main() {
   if (SUITES.includes('throughput')) {
     for (let round = 1; round <= ROUNDS; round++)
       for (const arm of rotation(round))
-        for (const terminals of [1, 4, 16])
-          for (const kind of ['plain', 'ansi']) log(await runCase('throughput', arm, { terminals, kind }, round))
+        for (const terminals of THROUGHPUT)
+          for (const kind of KINDS) log(await runCase('throughput', arm, { terminals, kind }, round, 180000))
   }
   if (SUITES.includes('echo')) {
     for (let round = 1; round <= ROUNDS; round++)
@@ -85,12 +87,12 @@ async function main() {
   if (SUITES.includes('isolation')) {
     for (let round = 1; round <= ROUNDS; round++)
       for (const arm of rotation(round))
-        for (const fault of FAULTS[arm]) log(await runCase('isolation', arm, { fault }, round, 60000))
+        for (const fault of FAULTS[arm].filter(f => !process.env.POC_FAULTS || process.env.POC_FAULTS.split(',').includes(f))) log(await runCase('isolation', arm, { fault }, round, 60000))
   }
   if (SUITES.includes('quit')) {
     for (let round = 1; round <= QUIT_ROUNDS; round++)
       for (const arm of rotation(round))
-        for (const path of ['menu', 'window', 'quit']) log(await runCase('quit', arm, { path }, round, 60000))
+        for (const path of QUIT_PATHS) log(await runCase('quit', arm, { path }, round, 60000))
   }
   writeFileSync(join(out, 'summary.md'), summarize(readFileSync(ndjson, 'utf8')))
   console.log(readFileSync(join(out, 'summary.md'), 'utf8'))
@@ -117,6 +119,7 @@ function summarize(text) {
     lines.push('| Braço | Terminais | Saída | MB/s | CPU principal % | Memória por terminal MB | Rodadas completas |', '| --- | --- | --- | --- | --- | --- | --- |')
     for (const arm of ARMS) for (const terminals of [1, 4, 16]) for (const kind of ['plain', 'ansi']) {
       const rows = tp.filter(r => r.arm === arm && r.params.terminals === terminals && r.params.kind === kind)
+      if (rows.length === 0) continue
       const ok = rows.filter(r => r.reported?.complete)
       const values = key => ok.map(r => r.reported[key])
       const worstLow = list => (list.length ? Math.min(...list) : null)
@@ -132,6 +135,7 @@ function summarize(text) {
     lines.push('| Braço | Parado p50 | Sob carga p50 | p95 | p99 | Pior p95 de rodada | Laço principal p95 (mediana) | Sem eco | ConPTY |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |')
     for (const arm of ARMS) {
       const rows = by('echo', arm).filter(r => r.reported && !r.reported.error)
+      if (rows.length === 0) continue
       const load = rows.flatMap(r => r.reported.loadMs)
       const idle = rows.flatMap(r => r.reported.idleMs)
       const consoles = [...new Set(rows.flatMap(r => r.reported.consoles ?? []))].join(', ') || '—'
@@ -146,10 +150,11 @@ function summarize(text) {
     lines.push('| Braço | Falha | Principal vivo | Terminal encerrado | Terminal segue funcionando | Saídas do processo quando abortou |', '| --- | --- | --- | --- | --- | --- |')
     for (const arm of ARMS) for (const fault of FAULTS[arm]) {
       const rows = iso.filter(r => r.arm === arm && r.params.fault === fault)
+      if (rows.length === 0) continue
       const alive = rows.filter(r => r.reported?.survived && clean(r))
       const ended = alive.filter(r => r.reported.ended)
       const works = alive.filter(r => r.reported.stillWorks === true)
-      const deaths = [...new Set(rows.filter(r => !r.reported?.survived).map(r => r.signal ?? r.exitCode))].join(', ') || '—'
+      const deaths = [...new Set(rows.filter(r => !clean(r)).map(r => (r.reported?.survived ? `ao sair depois: ${r.signal ?? r.exitCode}` : `${r.signal ?? r.exitCode}`)))].join(', ') || '—'
       const endedCell = fault === 'listener-throws-on-data' ? 'não se aplica' : `${ended.length}/${rows.length}`
       const worksCell = fault === 'listener-throws-on-data' ? `${works.length}/${rows.length}` : 'não se aplica'
       lines.push(`| ${arm} | ${fault} | ${alive.length}/${rows.length} | ${endedCell} | ${worksCell} | ${deaths} |`)
@@ -160,11 +165,14 @@ function summarize(text) {
   const quit = records.filter(record => record.suite === 'quit')
   if (quit.length) {
     lines.push('### CA-4 Saída com 4 shells vivos (saídas limpas, código 0 e sem sinal)', '')
-    lines.push('| Braço | Menu Sair | Fechar a janela | app.quit() | Saídas não limpas |', '| --- | --- | --- | --- | --- |')
+    lines.push('| Braço | Menu Sair | Fechar a janela | app.quit() | Saídas não limpas | Saídas só pelo limite de 5 s | Tempo até sair, mediana / pior (ms) |', '| --- | --- | --- | --- | --- | --- | --- |')
     for (const arm of ARMS) {
       const cell = path => { const rows = quit.filter(r => r.arm === arm && r.params.path === path); return `${rows.filter(clean).length}/${rows.length}` }
       const bad = [...new Set(quit.filter(r => r.arm === arm && !clean(r)).map(r => `${r.params.path}:${r.signal ?? r.exitCode}`))].join(', ') || '—'
-      lines.push(`| ${arm} | ${cell('menu')} | ${cell('window')} | ${cell('quit')} | ${bad} |`)
+      const rows = quit.filter(r => r.arm === arm)
+      if (rows.length === 0) continue
+      const walls = rows.map(r => r.wallMs)
+      lines.push(`| ${arm} | ${cell('menu')} | ${cell('window')} | ${cell('quit')} | ${bad} | ${rows.filter(r => r.fallbackExit).length}/${rows.length} | ${fmt(median(walls), 0)} / ${fmt(walls.length ? Math.max(...walls) : null, 0)} |`)
     }
     lines.push('')
   }
