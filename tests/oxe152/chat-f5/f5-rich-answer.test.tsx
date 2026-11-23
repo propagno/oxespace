@@ -231,11 +231,11 @@ const bar = (block: Element): HTMLElement => block.querySelector<HTMLElement>('.
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('A8 · prose, checklist and links (row 3.1)', () => {
-  test('[css] the prose reads at most 72ch', () => {
+  test('[css] the prose fills the wide chat measure (OXE-401)', () => {
     render(<Markdown text={'The refund handler retries on a timeout, which can post the same refund twice.\n\n- one\n- two'} />)
     const paragraph = screen.getByText(/The refund handler retries/)
     const measures = [paragraph, paragraph.parentElement!].map(node => css(node, 'max-width')).filter(Boolean)
-    expect(measures, 'a 72ch measure').toContain('72ch')
+    expect(measures, 'full column width measure (OXE-401)').toContain('100%')
   })
 
   test('a checklist renders checked, read-only boxes, and file:line is a link that opens the file at the line', () => {

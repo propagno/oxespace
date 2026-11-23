@@ -21,6 +21,8 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
   const [failure, setFailure] = useState('')
   const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string; ephemeral: boolean } | null>(null)
   const [menuKey, setMenuKey] = useState<string | null>(null)
+  // Where the right click happened; undefined when the keyboard opened the menu.
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | undefined>(undefined)
   const listRef = useRef<HTMLElement | null>(null)
   const sections = useMemo(() => organize(connections, search), [connections, search])
   const store = useOxeQueryStore.getState
@@ -65,10 +67,10 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
     const tooltip = `${connection.engine} · ${connection.host}:${connection.port}${connection.ephemeral ? ` · ${t('connections.notSaved')}` : ''}`
     return (
       <div key={key} className="oq-connection-row" data-connection-key={key}
-        onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setMenuKey(key) }}>
+        onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setMenuPoint({ x: event.clientX, y: event.clientY }); setMenuKey(key) }}>
         <SidebarRow
           className="oq-connection-item"
-          onKeyDownCapture={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); setMenuKey(key) } }}
+          onKeyDownCapture={event => { if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); setMenuPoint(undefined); setMenuKey(key) } }}
           selected={activeTab === `connection:${connection.id}`}
           lead={connection.color ? <i className="oq-color-dot" data-color={connection.color} aria-hidden="true" /> : <Database size={14} aria-hidden="true" />}
           title={<span title={tooltip}>{connection.name}</span>}
@@ -113,7 +115,7 @@ export function ConnectionList({ activeTab }: { activeTab: string }): ReactEleme
             />
           </>}
         />
-        {menuKey === key && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuKey(null) }} label={t('contextMenu.connectionLabel', { name: connection.name })}
+        {menuKey === key && <AnchoredMenu open point={menuPoint} onOpenChange={open => { if (!open) setMenuKey(null) }} label={t('contextMenu.connectionLabel', { name: connection.name })}
           items={connectionMenuItems(connection)} returnFocus={() => [...(listRef.current?.querySelectorAll<HTMLElement>('[data-connection-key]') ?? [])].find(el => el.dataset.connectionKey === key)?.querySelector<HTMLElement>('[data-ui="sidebar-row"]') ?? null} />}
       </div>
     )

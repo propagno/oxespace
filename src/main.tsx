@@ -72,13 +72,15 @@ void Promise.all([initI18n().catch(error => console.error('[i18n] could not star
       <TooltipProvider>
         {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
         <ErrorBoundary id="root" page label="OXESpace"><App /></ErrorBoundary>
-        <ShortcutGuideHost />
-        <TerminalFocusHost />
-        <ReportProblemHost />
-        <AboutHost />
-        <WhatsNewHost />
+        {/* OXE-366: each global host has a boundary of its own. A crash in one draws nothing in its place and goes to
+            the incident journal; the app and the other hosts stay on screen. */}
+        <ErrorBoundary id="host" component="ShortcutGuideHost" fallback={null}><ShortcutGuideHost /></ErrorBoundary>
+        <ErrorBoundary id="host" component="TerminalFocusHost" fallback={null}><TerminalFocusHost /></ErrorBoundary>
+        <ErrorBoundary id="host" component="ReportProblemHost" fallback={null}><ReportProblemHost /></ErrorBoundary>
+        <ErrorBoundary id="host" component="AboutHost" fallback={null}><AboutHost /></ErrorBoundary>
+        <ErrorBoundary id="host" component="WhatsNewHost" fallback={null}><WhatsNewHost /></ErrorBoundary>
         {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
-        <ApprovalsHost />
+        <ErrorBoundary id="approvals" component="ApprovalsHost" fallback={null}><ApprovalsHost /></ErrorBoundary>
         <StartupInteractiveMark />
       </TooltipProvider>
     </React.StrictMode>
