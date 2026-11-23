@@ -24,7 +24,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -82,6 +81,7 @@ import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeType
 import com.oxespace.mobile.ui.components.EmptyState
+import com.oxespace.mobile.ui.components.OxeIconButton
 import com.oxespace.mobile.ui.components.OxeMark
 import com.oxespace.mobile.agents.AgentState
 import com.oxespace.mobile.ui.components.ProviderAvatar
@@ -147,13 +147,18 @@ fun LiveHome(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onSettings, modifier = Modifier.size(HeaderTarget)) {
-                        Icon(OxeIcons.Settings, contentDescription = stringResource(R.string.live_menu_settings))
-                    }
+                    OxeIconButton(
+                        icon = OxeIcons.Settings,
+                        contentDescription = stringResource(R.string.live_menu_settings),
+                        onClick = onSettings,
+                        modifier = Modifier.size(HeaderTarget),
+                    )
                     Box {
-                        IconButton(onClick = { menu = true }) {
-                            Icon(ImageVector.vectorResource(R.drawable.ic_more), contentDescription = stringResource(R.string.live_menu))
-                        }
+                        OxeIconButton(
+                            icon = ImageVector.vectorResource(R.drawable.ic_more),
+                            contentDescription = stringResource(R.string.live_menu),
+                            onClick = { menu = true },
+                        )
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_enter_address)) }, onClick = { menu = false; onEnterAddress() })
                             DropdownMenuItem(text = { Text(stringResource(R.string.home_unpair)) }, onClick = { menu = false; confirmingUnpair = true })

@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 /* Fills its host on both axes: in a row-flex host (the conversation's tool panel) it otherwise shrank to its content
    and sat at the left, so the empty state was off centre (1.5.0, user report 13/11). */
 .android-panel {
@@ -97,4 +98,5 @@
   margin: 0;
   font-size: var(--fs-xs);
   color: var(--tx-secondary);
+}
 }

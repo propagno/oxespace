@@ -7,6 +7,8 @@ export type DiffMode = 'unified' | 'side-by-side'
 
 interface WorkspaceGitState {
   diff: GitDiff | null
+  /** The root of the last loadDiff; watcher updates of any other root are not this workspace's. */
+  rootPath: string | null
   isLoading: boolean
   error: string | null
   base: string
@@ -48,6 +50,7 @@ interface GitStoreState {
 
 const DEFAULT_STATE: WorkspaceGitState = {
   diff: null,
+  rootPath: null,
   isLoading: false,
   error: null,
   base: 'origin/main',
@@ -77,12 +80,17 @@ function patch(
   }))
 }
 
+/** workspaceId → its newest loadDiff; the answer of an older one is dropped. */
+const latestLoad = new Map<string, symbol>()
+
 export const useGitStore = create<GitStoreState>((set, get) => ({
   byWorkspaceId: {},
 
   loadDiff: async (workspaceId, rootPath) => {
     const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE
-    patch(set, workspaceId, { isLoading: true, error: null })
+    const request = Symbol(workspaceId)
+    latestLoad.set(workspaceId, request)
+    patch(set, workspaceId, { rootPath, isLoading: true, error: null })
     try {
       const diff = await window.oxe.git.getDiff({
         workspaceId,
@@ -91,8 +99,10 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
         includeUncommitted: ws.includeUncommitted,
         ...(ws.head ? { head: ws.head } : {})
       })
+      if (latestLoad.get(workspaceId) !== request) return
       patch(set, workspaceId, { diff, isLoading: false, error: null })
     } catch (error) {
+      if (latestLoad.get(workspaceId) !== request) return
       patch(set, workspaceId, { isLoading: false, error: toMessage(error) })
     }
   },
@@ -110,6 +120,8 @@ export const useGitStore = create<GitStoreState>((set, get) => ({
       // comparison of two refs, or to a base chosen since.
       const ws = get().byWorkspaceId[workspaceId] ?? DEFAULT_STATE
       if (ws.head || diff.base !== ws.base) return
+      // Every window and workspace hears every watcher.
+      if (diff.rootPath !== undefined && diff.rootPath !== ws.rootPath) return
       patch(set, workspaceId, { diff, error: null })
     }),
 

@@ -75,8 +75,8 @@ test('a conversation can work in its own worktree, shows its branch, and is clea
     const heading = page.locator('.thread-heading')
     const headingWidth = await heading.evaluate(element => element.getBoundingClientRect().width)
     expect(headingWidth, 'the header must be wider than its 700px fold for this check').toBeGreaterThan(700)
-    await expect(heading.locator('.thread-heading-branch')).toHaveText('feature/e2e')
-    await expect(heading.locator('.thread-heading-branch')).toBeVisible()
+    // OXE-167 (AG-10, the quiet header): the sub-line left the header; the worktree chip next to the title names the branch.
+    await expect(heading.locator('.thread-heading-worktree')).toHaveText('feature/e2e')
     await expect(heading.locator('.thread-heading-worktree')).toBeVisible()
     await page.screenshot({ path: test.info().outputPath('thread-header-worktree-branch.png') })
     const calls = () => app.evaluate(() => (globalThis as Record<string, unknown>).worktreeCalls as { create: unknown[]; finish: unknown[] })

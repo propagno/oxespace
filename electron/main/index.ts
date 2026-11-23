@@ -4,8 +4,9 @@ import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from '
 import { APP_VERSION } from './services/app-info'
 import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
-import { RendererRecoveryPolicy } from './renderer-recovery'
+import { RendererRecoveryPolicy, showRendererGiveUp } from './renderer-recovery'
 import { installCloseGuard } from './window-close-guard'
+import { flushStorage } from './storage-flush'
 import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { mainLanguage, systemLocale, tMain } from './i18n'
 import { messageKey, messageValues } from '../../shared/messages'
@@ -30,7 +31,7 @@ import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
 import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
 import { peekDatabaseVersion } from './services/data-export/removed-features-export'
 import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
-import { registerNotificationsIpc } from './ipc/notifications.ipc'
+import { notificationsEnabled, registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
 import { singleInstanceDisabled } from './test-switches'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
@@ -520,7 +521,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       return { close: () => notification.close() }
     },
     focused: () => BrowserWindow.getAllWindows().some(win => !win.isDestroyed() && win.isFocused()),
-    enabled: () => true,
+    enabled: notificationsEnabled,
     focusWindow: () => {
       const win = BrowserWindow.getAllWindows().find(item => !item.isDestroyed())
       if (!win) return
@@ -688,7 +689,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -914,9 +915,7 @@ function createMainWindow(): BrowserWindow {
     if (next === 'reload' && !mainWindow.isDestroyed()) {
       setTimeout(() => { if (!mainWindow.isDestroyed()) mainWindow.webContents.reload() }, 250)
     } else if (next === 'give-up' && !mainWindow.isDestroyed()) {
-      const options: Electron.MessageBoxOptions = { type: 'error', title: tMain('crash.rendererGone.title'), message: tMain('crash.rendererGone.message'),
-        detail: tMain('crash.rendererGone.detail'), buttons: [tMain('crash.rendererGone.ok')], defaultId: 0 }
-      void import('./dialog-icon').then(({ withDialogIcon }) => withDialogIcon(options), () => options).then(shown => { if (!mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, shown) }).catch(() => {})
+      void showRendererGiveUp(mainWindow, { app, t: tMain, show: options => dialog.showMessageBox(mainWindow, options) })
     }
   })
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {

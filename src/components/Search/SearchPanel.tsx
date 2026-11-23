@@ -65,6 +65,9 @@ export function SearchPanel({ workspace, rootPath, onOpenFile }: SearchPanelProp
     return () => window.clearTimeout(handle)
   }, [query, options, run, workspace.id, root])
 
+  // Closing the panel stops its search.
+  useEffect(() => () => useSearchStore.getState().cancel(), [])
+
   // A match opens its file at the matched line.
   const openMatch = useCallback((path: string, line?: number) => {
     void useEditorStore.getState().openFile({ workspaceId: workspace.id, rootPath: root, relativePath: path, line })

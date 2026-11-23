@@ -250,7 +250,9 @@ export async function checkForAppUpdates(manual = false): Promise<AppUpdateState
 
 export function quitAndInstallUpdate(): boolean {
   if (!autoUpdaterRef || state.status !== 'downloaded' || loopbackUpdateFeed() !== null) return false
-  // F26: the install quits without asking the window; autosaved drafts cover it.
+  // F26: main does not ask here, on purpose. The window asked before it called this (useUpdaterStore.quitAndInstall
+  // awaits confirmClose('quit'): unsaved work or a turn in progress opens the dialog, and Cancel never gets here).
+  // Autosaved drafts alone do not cover it: a turn in progress would stop without a word.
   const askAgain = bypassCloseGuard()
   try {
     // isSilent=false, isForceRunAfter=true — restart into the new version.

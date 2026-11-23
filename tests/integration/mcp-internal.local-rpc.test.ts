@@ -1,5 +1,6 @@
 import http from 'node:http'
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -122,20 +123,26 @@ describe('Internal MCP local RPC server', () => {
   })
 
   test('retrieval tools resolve a Thread to its checkout instead of refusing it', async () => {
-    const env = ctx.executions.register({ owner: { kind: 'thread', id: 'reader-thread' }, workspaceId: 'thread:project', cwd: process.cwd() })
+    const root = mkdtempSync(join(tmpdir(), 'oxe-quality-thread-'))
+    execFileSync('git', ['init', '-q'], { cwd: root })
+    // The term is only in the content, so evidence for it proves the file was read.
+    writeFileSync(join(root, 'notes.txt'), 'orchestrator\n')
+    const env = ctx.executions.register({ owner: { kind: 'thread', id: 'reader-thread' }, workspaceId: 'thread:project', cwd: root })
     const headers = { Authorization: `Bearer ${TOKEN}`, 'x-oxe-workspace-id': 'thread:project',
       'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID, 'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN }
     const call = async (name: string) => {
-      const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 90, method: 'tools/call', params: { name, arguments: { query: 'orchestrator' } } })
+      const { json } = await postRpc(ctx.port, headers, { jsonrpc: '2.0', id: 90, method: 'tools/call', params: { name, arguments: { acceptanceCriteria: ['orchestrator'] } } })
       return (json as { result: { isError?: boolean; content: Array<{ text: string }> } }).result
     }
-    // The quality check resolves the Thread to its project scope, then says it reads files through a Code workspace.
+    // The quality check resolves the Thread to its project scope and reads its checkout without a Code workspace.
     const quality = await call('oxespace_quality_check')
     expect(quality.content[0].text).not.toMatch(/requires a Code workspace|could not be verified/)
-    expect(quality.content[0].text).toContain('Open this project in Code once')
+    expect(quality.content[0].text).toContain('outcome=validation')
+    expect(quality.content[0].text).toContain('Acceptance evidence: 1/1')
     // A Thread whose execution cannot be verified is still refused.
     const { json } = await postRpc(ctx.port, { ...headers, 'x-oxe-execution-token': 'wrong' }, { jsonrpc: '2.0', id: 91, method: 'tools/call', params: { name: 'oxespace_quality_check', arguments: {} } })
     expect(JSON.stringify(json)).toMatch(/could not be verified/)
+    removeTempDir(root)
   })
 
   test('passes the documentation runtime through RPC to preview interaction', async () => {

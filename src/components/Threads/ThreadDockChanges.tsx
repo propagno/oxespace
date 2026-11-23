@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FileCode2, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState, Spinner } from '../../ui'
@@ -6,7 +6,7 @@ import type { ThreadSnapshot } from '../../../shared/types/thread'
 import { humanizeError } from '../../utils/humanizeError'
 
 /** One file a turn changed that is still as the turn left it: not undone, not edited since, not kept. */
-export interface PendingChange { turnId: string; path: string }
+export interface PendingChange { turnId: string; path: string; additions?: number; deletions?: number }
 
 /** How many of the latest turns are checked; older turns are reviewed in place. */
 const TURNS_CHECKED = 20
@@ -27,10 +27,15 @@ function writeKept(threadId: string, kept: Set<string>): void {
  * Collects the changes still pending review across the latest finished turns: newest turn first, one entry
  * per file and turn, minus what the person kept. Pure, for tests.
  */
-export function pendingChanges(results: Array<{ turnId: string; files: Array<{ path: string; state: string }> }>, kept: ReadonlySet<string>): PendingChange[] {
+export function pendingChanges(results: Array<{ turnId: string; files: Array<{ path: string; state: string; additions?: number; deletions?: number }> }>, kept: ReadonlySet<string>): PendingChange[] {
   return [...results].reverse().flatMap(({ turnId, files }) => files
     .filter(file => file.state === 'pending')
-    .map(file => ({ turnId, path: file.path }))
+    .map(file => ({
+      turnId,
+      path: file.path,
+      ...(file.additions !== undefined ? { additions: file.additions } : {}),
+      ...(file.deletions !== undefined ? { deletions: file.deletions } : {})
+    }))
     .filter(change => !kept.has(changeKey(change))))
 }
 
@@ -82,25 +87,32 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
     }
   }
   const files = new Set(changes.map(change => change.path)).size
+  const totalAdditions = changes.reduce((sum, change) => sum + (change.additions ?? 0), 0)
+  const totalDeletions = changes.reduce((sum, change) => sum + (change.deletions ?? 0), 0)
 
   // A header with one toggle and the actions beside it: controls are never nested inside the toggle.
-  return <section className="thread-dock-changes" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} aria-label={t('dockChanges.label')}>
+  return <section className="thread-dock-changes" data-ui="working-set" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} aria-label={t('dockChanges.label')}>
     <div className="thread-dock-changes-header">
       <button type="button" className="thread-dock-changes-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
-        <FileCode2 size={14} aria-hidden="true" />
-        <strong>{t('dockChanges.files', { count: files })}</strong>
-        <span className="thread-dock-changes-hint">{t('dockChanges.hint')}</span>
         <ChevronDown size={14} aria-hidden="true" className="thread-dock-changes-chevron" />
+        <strong>{t('dockChanges.files', { count: files })}</strong>
+        {totalAdditions > 0 && <>{' '}<span className="thread-working-set-add">+{totalAdditions}</span></>}
+        {totalDeletions > 0 && <>{' '}<span className="thread-working-set-del">−{totalDeletions}</span></>}
       </button>
       <span className="thread-dock-changes-actions">
         <button type="button" disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" />{t('dockChanges.keepAll')}</button>
         <button type="button" disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo(changes)}>{busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />}{t('dockChanges.undoAll')}</button>
-        <button type="button" onClick={onViewChanges}>{t('dockChanges.review')}</button>
+        <button type="button" onClick={onViewChanges}>{t('files.view')}</button>
       </span>
     </div>
     {error && <ErrorState compact title={error} />}
-    <ul id={listId} hidden={!open}>{changes.map(change => <li key={changeKey(change)}>
+    <ul id={listId} hidden={!open}>{changes.map(change => <li key={changeKey(change)} data-ui="working-set-file">
       <span className="thread-dock-changes-path" title={change.path}>{change.path}</span>
+      {((change.additions ?? 0) > 0 || (change.deletions ?? 0) > 0) && <span className="thread-working-set-stats">
+        {(change.additions ?? 0) > 0 && <span className="thread-working-set-add">+{change.additions}</span>}
+        {(change.additions ?? 0) > 0 && (change.deletions ?? 0) > 0 && ' '}
+        {(change.deletions ?? 0) > 0 && <span className="thread-working-set-del">−{change.deletions}</span>}
+      </span>}
       <button type="button" aria-label={t('dockChanges.keep', { path: change.path })} disabled={busy !== null} onClick={() => keep([change])}><Check size={13} aria-hidden="true" /></button>
       <button type="button" aria-label={t('dockChanges.undo', { path: change.path })} disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo([change])}>{busy === changeKey(change) ? <Spinner size="sm" label={t('dockChanges.undoing')} /> : <Undo2 size={13} aria-hidden="true" />}</button>
     </li>)}</ul>

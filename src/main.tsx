@@ -14,6 +14,7 @@ import { WhatsNewHost } from './components/Updates/whatsNew'
 import { ApprovalsHost } from './components/Approvals/ApprovalsHost'
 import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
+import { TooltipProvider } from './ui'
 import { installRendererErrorReporting } from './lib/rendererErrorsBoot'
 import { applyMode, resolveMode, savedAppearance } from './design/mode'
 import { initI18n } from './i18n'
@@ -68,16 +69,18 @@ void Promise.all([initI18n().catch(error => console.error('[i18n] could not star
   }
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
-      {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
-      <ErrorBoundary id="root" page label="OXESpace"><App /></ErrorBoundary>
-      <ShortcutGuideHost />
-      <TerminalFocusHost />
-      <ReportProblemHost />
-      <AboutHost />
-      <WhatsNewHost />
-      {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
-      <ApprovalsHost />
-      <StartupInteractiveMark />
+      <TooltipProvider>
+        {/* A crash anywhere above the views' own boundaries shows OXESpace's message, never a blank window. */}
+        <ErrorBoundary id="root" page label="OXESpace"><App /></ErrorBoundary>
+        <ShortcutGuideHost />
+        <TerminalFocusHost />
+        <ReportProblemHost />
+        <AboutHost />
+        <WhatsNewHost />
+        {/* Approval requests from main, in the window instead of a native dialog (F18). Its window loads at idle. */}
+        <ApprovalsHost />
+        <StartupInteractiveMark />
+      </TooltipProvider>
     </React.StrictMode>
   )
 }).catch(error => console.error('[startup] the first screen could not load', error))

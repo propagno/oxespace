@@ -101,8 +101,9 @@ import { useIntegrationStore } from './store/integration.store'
 import { useWorktreeStore } from './store/worktree.store'
 import { useAgentHookStatus } from './hooks/useAgentHookStatus'
 import { startToolOutputCuts } from './store/tool-output-cut.store'
-import { QUOTA_NOTIFICATION_PANE_PREFIX, THREAD_NOTIFICATION_PANE_PREFIX } from './hooks/notificationPrefixes'
+import { activateNotification, startNotificationPreferenceSync } from './app/desktopNotifications'
 import { useThreadShortcuts } from './hooks/useThreadShortcuts'
+import { onThreadOpenInCode } from './components/Threads/threadMoreActions'
 import { setKeyboardView, useKeybindings, type AppView } from './keyboard/keybindings'
 import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZE_MAX } from './store/terminal-prefs.store'
 import { RemotePairingHost } from './components/Remote/RemotePairingHost'
@@ -442,21 +443,15 @@ export function App(): ReactElement {
   useEffect(() => {
     const api = window.oxe?.notifications
     if (!api) return
-    return api.onActivate(({ paneId, workspaceId }) => {
-      if (paneId.startsWith(QUOTA_NOTIFICATION_PANE_PREFIX)) return
-      if (paneId.startsWith(THREAD_NOTIFICATION_PANE_PREFIX)) {
-        setFirstRunExited(true)
-        setHasOpenedThread(true)
-        setApplicationView('thread')
-        void useThreadStore.getState().select(paneId.slice(THREAD_NOTIFICATION_PANE_PREFIX.length))
-        return
-      }
-      if (useWorkspaceStore.getState().activeWorkspaceId !== workspaceId) {
-        void setActiveWorkspace(workspaceId)
-      }
-      setActiveTerminalPaneId(paneId)
-    })
-  }, [setActiveWorkspace, setActiveTerminalPaneId])
+    return api.onActivate(target => activateNotification(target, {
+      activeWorkspaceId: useWorkspaceStore.getState().activeWorkspaceId,
+      showCode: () => selectMode('code'),
+      showThread: id => { setFirstRunExited(true); setHasOpenedThread(true); setApplicationView('thread'); void useThreadStore.getState().select(id) },
+      activateWorkspace: id => { void setActiveWorkspace(id) },
+      setActivePane: id => { useUIStore.getState().setActivePane(id); setActiveTerminalPaneId(id) }
+    }))
+  }, [selectMode, setActiveWorkspace, setActiveTerminalPaneId])
+  useEffect(() => startNotificationPreferenceSync(), [])
 
   const handleLaunch = async (input: WizardLaunchInput): Promise<void> => {
     const knownIds = new Set(useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id))
@@ -640,6 +635,14 @@ export function App(): ReactElement {
     openTools: { editor: activeWorkspace?.editorVisible, github: activeWorkspace?.githubPanelVisible, review: activeWorkspace?.reviewPanelVisible, background: activeWorkspace?.backgroundPanelVisible, worktrees: activeWorkspace?.worktreePanelVisible, search: isSearchPanelOpen, 'http-calls': isHttpCallsPanelOpen, android: isAndroidPanelOpen, 'web-preview': activeWorkspace ? webPreviewOpenByWorkspace[activeWorkspace.id] : false },
     splitActivePane, toggleActivePaneMaximize, openDesignSystem: () => setDesignSystemOpen(true) }
   const commandActions = useContributedCommands()
+  const openThreadInCode = async (rootPath: string): Promise<void> => {
+    const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
+    if (existing) await setActiveWorkspace(existing.id)
+    else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
+    setFirstRunExited(true)
+    setApplicationView('code')
+  }
+  useEffect(() => onThreadOpenInCode(path => { void openThreadInCode(path) }))
   useEffect(() => { setKeyboardView(applicationView); setShownView(applicationView) }, [applicationView])
   const terminalPane = activePane?.type === 'terminal' ? activePane : null
   const zoomTerminal = (delta: 1 | -1 | 0): void => {
@@ -742,13 +745,7 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={async rootPath => {
-        const existing = (await window.oxe.workspace.list()).find(workspace => isSameRootPath(workspace.rootPath, rootPath, window.oxe.app.platform))
-        if (existing) await setActiveWorkspace(existing.id)
-        else await createWorkspace({ rootPath, layoutPreset: 1, autoStart: false })
-        setFirstRunExited(true)
-        setApplicationView('code')
-      }} /></ThreadSidebarBoundary> : <Sidebar
+      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={openThreadInCode} /></ThreadSidebarBoundary> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}

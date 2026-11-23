@@ -25,8 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,7 +50,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.oxespace.mobile.R
 import com.oxespace.mobile.pairing.PairingFailure
@@ -70,6 +67,7 @@ import com.oxespace.mobile.ui.components.Viewfinder
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
 import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.live.LocalClock
 import kotlinx.coroutines.delay
@@ -88,9 +86,12 @@ private fun TopBar(onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.size(TouchTarget)) {
-            Icon(OxeIcons.ArrowLeft, contentDescription = stringResource(R.string.pairing_back), tint = Oxe.colors.textPrimary)
-        }
+        OxeIconButton(
+            icon = OxeIcons.ArrowLeft,
+            contentDescription = stringResource(R.string.pairing_back),
+            onClick = onBack,
+            modifier = Modifier.size(TouchTarget),
+        )
         Text(
             stringResource(R.string.pairing_title),
             style = MaterialTheme.typography.titleMedium,
