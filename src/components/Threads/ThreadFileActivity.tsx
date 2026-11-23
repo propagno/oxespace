@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ErrorState, LoadingState } from '../../ui'
 import { parseThreadPatch } from '../../../shared/threadPatch'
+import type { GitDiffLine } from '../../../shared/types/git'
 import type { ThreadArtifact, ThreadFileHunk, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { ThreadPatch } from './ThreadPatch'
 import type { ThreadEvent } from '../../../shared/types/thread'
@@ -40,7 +41,7 @@ function FileActivityRow({ entry, root, roots, threadId, workspaceId, onOpen }: 
   </div>
 }
 
-function ThreadInlineEvidence({ threadId, artifactId }: { threadId: string; artifactId: string }) {
+export function ThreadInlineEvidence({ threadId, artifactId, onComment }: { threadId: string; artifactId: string; onComment?(line: GitDiffLine, body: string): void }) {
   const { t } = useTranslation('thread')
   const [artifact, setArtifact] = useState<ThreadArtifact | null>(null), [error, setError] = useState(''), [revision, setRevision] = useState(0)
   useEffect(() => {
@@ -52,7 +53,7 @@ function ThreadInlineEvidence({ threadId, artifactId }: { threadId: string; arti
     return () => { active = false }
   }, [threadId, artifactId, revision, t])
   const parsed = artifact && artifact.source !== 'tool-input' ? parseThreadPatch(artifact.content) : null
-  return <div className="thread-inline-evidence">{error ? <ErrorState compact title={error} onRetry={() => setRevision(value => value + 1)} retryLabel={t('files.retry')} /> : !artifact ? <LoadingState label={t('files.loadingEvidence')} /> : <>{artifact.truncated && <p>{t('files.incomplete')}</p>}{artifact.source === 'tool-input' && <p>{t('files.toolInput')}</p>}{artifact.source === 'working-tree-observation' && <p>{t('files.observation')}</p>}{parsed?.hunks.length ? <ThreadPatch hunks={parsed.hunks} /> : <pre>{artifact.content}</pre>}</>}</div>
+  return <div className="thread-inline-evidence">{error ? <ErrorState compact title={error} onRetry={() => setRevision(value => value + 1)} retryLabel={t('files.retry')} /> : !artifact ? <LoadingState label={t('files.loadingEvidence')} /> : <>{artifact.truncated && <p>{t('files.incomplete')}</p>}{artifact.source === 'tool-input' && <p>{t('files.toolInput')}</p>}{artifact.source === 'working-tree-observation' && <p>{t('files.observation')}</p>}{parsed?.hunks.length ? <ThreadPatch hunks={parsed.hunks} onComment={onComment} /> : <pre>{artifact.content}</pre>}</>}</div>
 }
 export function FileStats({ file }: { file: ThreadChangeEntry['file'] }) {
   return file.additions !== undefined && file.deletions !== undefined && !file.truncated ? <span className="thread-file-stats"><span>+{file.additions}</span><span>−{file.deletions}</span></span> : null
@@ -69,6 +70,7 @@ const relativeKey = (path: string, roots: Array<string | null | undefined>): str
 
 export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpen, onViewChanges, onUndo, loadFileStates, onUndoFile, loadHunks, onUndoHunk, onComment, openFirst = false }: { openFirst?: boolean; events: ThreadEvent[]; root: string; roots?: Array<string | null | undefined>; workspaceId?: string; onOpen(entry: ThreadChangeEntry): void; onViewChanges?(): void; onUndo?(): Promise<void>; loadFileStates?(): Promise<ThreadTurnFileStatus[]>; onUndoFile?(path: string): Promise<void>; loadHunks?(path: string): Promise<ThreadFileHunk[]>; onUndoHunk?(path: string, hunkId: string): Promise<void>; onComment?(text: string): void }) {
   const { t } = useTranslation('thread')
+  const [expanded, setExpanded] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const [undo, setUndo] = useState<'idle' | 'confirm' | 'working'>('idle')
   const [undoError, setUndoError] = useState('')
@@ -136,12 +138,17 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
   }
   const owned = files.map(own)
   const turnTotal = owned.every(Boolean) ? { additions: owned.reduce((sum, value) => sum + value!.additions, 0), deletions: owned.reduce((sum, value) => sum + value!.deletions, 0) } : undefined
-  return <section className="thread-change-summary" aria-label={t('files.label')}>
+  const totals = turnTotal ?? (summary.exact ? { additions: summary.additions, deletions: summary.deletions } : undefined)
+  return <section className="thread-change-summary" data-ui="turn-changes" aria-label={t('files.label')}>
     <header>
-      <FileCode2 size={14} aria-hidden="true" />
-      <span><strong>{t('files.edited', { count: summary.files })}</strong>{turnTotal ? <FileStats file={{ ...entries[0].file, ...turnTotal, truncated: false }} /> : summary.exact ? <FileStats file={{ ...entries[0].file, additions: summary.additions, deletions: summary.deletions }} /> : <small>{t('files.operations', { count: summary.operations })}</small>}</span>
+      <button type="button" className="thread-change-toggle" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+        <FileCode2 size={14} aria-hidden="true" />
+        <strong>{t('dockChanges.files', { count: summary.files })}</strong>
+        {totals ? <span className="thread-file-stats"> (+{totals.additions} −{totals.deletions})</span> : <small>{t('files.operations', { count: summary.operations })}</small>}
+      </button>
+      {totals && <span className="thread-sr-only" aria-hidden="true">+{totals.additions}−{totals.deletions}</span>}
       {onUndo && (undo === 'idle'
-        ? <button type="button" className="thread-change-view" onClick={() => { setUndoError(''); setUndo('confirm') }}>{t('files.undo')}</button>
+        ? <button type="button" className="thread-change-view" onClick={() => { setUndoError(''); setUndo('confirm') }}>{t('files.undoTurn')}</button>
         : <span className="thread-change-confirm" role="group" aria-label={t('files.undoGroup')}>
           <button type="button" className="thread-change-view is-danger" disabled={undo === 'working'} onClick={() => {
             setUndo('working')
@@ -152,24 +159,26 @@ export function ThreadTurnChanges({ events, root, roots = [], workspaceId, onOpe
       <button type="button" className="thread-change-view" onClick={() => onViewChanges ? onViewChanges() : onOpen(files[0])}>{t('files.view')}</button>
     </header>
     {undoError && <ErrorState compact title={undoError} />}
-    <div>{shown.map(entry => {
-      const status = fileStates[relativeKey(entry.file.path, allRoots)]
-      const label = relativeTurnPath(entry.file.path, allRoots).label
-      return <div key={entry.key} className="thread-change-file">
-        {/* F33: the path menu on a changed file of the conversation's project. */}
-        <WithPathMenu {...(() => { const target = conversationPathMenu(entry.file.path, workspaceId, root, allRoots); return { request: target?.request ?? null, copyOnly: target?.copyOnly } })()} openInOxespace={() => onOpen(entry)}
-          render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{own(entry) ? <FileStats file={{ ...entry.file, ...own(entry), truncated: false }} /> : entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
-        {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
-        {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}
-        {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={t('files.undoFileLabel', { path: label })} onClick={() => {
-          setUndoError(''); setUndoingFile(status.path)
-          void onUndoFile(status.path).then(refreshStates, cause => setUndoError(humanizeError(cause, t('files.undoFileFailed')))).finally(() => setUndoingFile(null))
-        }}>{undoingFile === status.path ? t('files.undoing') : t('files.undoFile')}</button>}
-        {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={t('files.reviewLabel', { path: label })} onClick={() => { setOpenedByItself(null); setReviewing(reviewing === status.path ? null : status.path) }}>{reviewing === status.path ? t('files.closeReview') : t('files.review')}</button>}
-        {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview key={`${status.path}:${openedByItself === status.path}`} firstOnly={openedByItself === status.path} path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
-          onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
-      </div>
-    })}</div>
-    {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? t('files.showLess') : t('files.showMore', { count: files.length - CHANGE_PREVIEW_FILES })}<ChevronDown size={14} aria-hidden="true" /></button>}
+    {expanded && <>
+      <div>{shown.map(entry => {
+        const status = fileStates[relativeKey(entry.file.path, allRoots)]
+        const label = relativeTurnPath(entry.file.path, allRoots).label
+        return <div key={entry.key} className="thread-change-file">
+          {/* F33: the path menu on a changed file of the conversation's project. */}
+          <WithPathMenu {...(() => { const target = conversationPathMenu(entry.file.path, workspaceId, root, allRoots); return { request: target?.request ?? null, copyOnly: target?.copyOnly } })()} openInOxespace={() => onOpen(entry)}
+            render={onContextMenu => <button type="button" onClick={() => onOpen(entry)} onContextMenu={onContextMenu} title={entry.file.path}><span className="thread-change-file-name"><TurnPath path={entry.file.path} roots={allRoots} /></span>{own(entry) ? <FileStats file={{ ...entry.file, ...own(entry), truncated: false }} /> : entries.filter(value => value.file.path === entry.file.path).length === 1 && <FileStats file={entry.file} />}</button>} />
+          {status?.state === 'reverted' && <span className="thread-change-file-state">{t('files.reverted')}</span>}
+          {status?.state === 'modified' && <span className="thread-change-file-state" title={t('files.editedLaterTitle')}>{t('files.editedLater')}</span>}
+          {status?.state === 'pending' && onUndoFile && <button type="button" className="thread-change-view" disabled={undoingFile !== null || undo === 'working'} aria-label={t('files.undoFileLabel', { path: label })} onClick={() => {
+            setUndoError(''); setUndoingFile(status.path)
+            void onUndoFile(status.path).then(refreshStates, cause => setUndoError(humanizeError(cause, t('files.undoFileFailed')))).finally(() => setUndoingFile(null))
+          }}>{undoingFile === status.path ? t('files.undoing') : t('files.undoFile')}</button>}
+          {status?.state === 'pending' && loadHunks && onUndoHunk && <button type="button" className="thread-change-view" aria-expanded={reviewing === status.path} aria-label={t('files.reviewLabel', { path: label })} onClick={() => { setOpenedByItself(null); setReviewing(reviewing === status.path ? null : status.path) }}>{reviewing === status.path ? t('files.closeReview') : t('files.review')}</button>}
+          {reviewing === status?.path && loadHunks && onUndoHunk && <ThreadHunkReview key={`${status.path}:${openedByItself === status.path}`} firstOnly={openedByItself === status.path} path={status.path} disabled={undoingFile !== null || undo === 'working'} loadHunks={() => loadHunks(status.path)}
+            onUndoHunk={async hunkId => { await onUndoHunk(status.path, hunkId); refreshStates() }} onComment={text => onComment?.(text)} />}
+        </div>
+      })}</div>
+      {files.length > CHANGE_PREVIEW_FILES && <button type="button" className="thread-change-more" aria-expanded={showAll} onClick={() => setShowAll(value => !value)}>{showAll ? t('files.showLess') : t('files.showMore', { count: files.length - CHANGE_PREVIEW_FILES })}<ChevronDown size={14} aria-hidden="true" /></button>}
+    </>}
   </section>
 }

@@ -164,11 +164,27 @@ class PairingFlow(
         if (current !is PairingState.Contacting) mutableState.value = PairingState.Scanning
     }
 
+    /**
+     * OXE-363 (A5): the person's Back or Cancel while the phone contacts the desktop or waits for it. The attempt in
+     * flight is dropped: its key is deleted, nothing is saved even if the desktop then answers "paired", the session
+     * is not started, and the flow is back at Scanning, so "Parear" opens a fresh camera. A saved pairing stays.
+     */
+    fun cancel() {
+        if (mutableState.value is PairingState.Paired) return
+        held = null
+        attempt?.cancel()
+        attempt = null
+        mutableState.value = PairingState.Scanning
+    }
+
     private fun start(qr: PairingQr) {
         val alias = newAlias()
         val keys = keysFor(alias)
         mutableState.value = PairingState.Contacting(qr.desktopName)
-        attempt = scope.launch {
+        // Whether the attempt's body ran: one cancelled before it started never reaches its own cleanup below.
+        var begun = false
+        val job = scope.launch {
+            begun = true
             // Set once the pairing is in the store: from then on the key belongs to it and is never deleted here.
             var saved = false
             try {
@@ -214,6 +230,11 @@ class PairingFlow(
                 throw cancelled
             }
         }
+        // A Back right after the scan cancels the attempt before it ran: its key is deleted here instead.
+        job.invokeOnCompletion { cause ->
+            if (cause is CancellationException && !begun) scope.launch(NonCancellable + io) { keys.delete() }
+        }
+        attempt = job
     }
 
     private fun failureOfProbe(result: ProbeResult): PairingFailure = when (result) {

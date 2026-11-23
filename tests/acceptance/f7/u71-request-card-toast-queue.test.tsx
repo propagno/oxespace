@@ -40,28 +40,28 @@ async function renderCard(impact: Props) {
   render(<Card request={request('r1', impact)} agent="Claude" disabled={false} onRespond={onRespond} conversationId="t-1" />)
   return onRespond
 }
-const actionButtons = () => screen.getAllByRole('button').map(button => button.textContent?.replace(/\s+[DA]$/, '').trim())
+const actionButtons = () => screen.getAllByRole('button').map(button => (button.textContent?.trim() || button.getAttribute('aria-label') || '').replace(/\s+[DA]$/, '').trim())
 
 afterEach(async () => { cleanup(); vi.useRealTimers(); await changeLanguage('en') })
 
 describe('U7.1 · A request comes to you', () => {
   test('a reversible card names the agent, the why, the facts and the exact text, with Deny first and focused', { timeout: 30_000 }, async () => {
     await renderCard(REVERSIBLE)
-    expect(await screen.findByText('Claude needs your approval')).toBeInTheDocument()
-    expect(screen.getByText('Edit two files')).toBeInTheDocument()
+    expect(await screen.findByText('Change files')).toBeInTheDocument()
+    expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Runs the unit tests before the commit.')).toBeInTheDocument()
     expect(screen.getByText(/shop/)).toBeInTheDocument()
     expect(screen.getByText(/2 files/)).toBeInTheDocument()
     expect(screen.getByText('Can be undone')).toBeInTheDocument()
     expect(screen.getByText('apply_patch src/a.ts src/b.ts')).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Deny', 'Allow', 'Copy exact text'])
+    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'Allow once', 'More ways to allow'])
     expect(screen.getByRole('button', { name: /^Deny/ })).toHaveFocus()
   })
 
   test('an irreversible card says it cannot be undone and offers See impact, never Allow', { timeout: 30_000 }, async () => {
     const onRespond = await renderCard(IRREVERSIBLE)
     expect(await screen.findByText("Can't be undone")).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Deny', 'See impact', 'Copy exact text'])
+    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'See impact'])
     expect(screen.queryByRole('button', { name: /^(Allow|Approve)/ })).toBeNull()
     expect(onRespond).not.toHaveBeenCalled()
   })
@@ -69,7 +69,7 @@ describe('U7.1 · A request comes to you', () => {
   test('a high, irreversible card (a dev database write) is the same two steps: Deny and See impact, never Allow', { timeout: 30_000 }, async () => {
     const onRespond = await renderCard({ ...IRREVERSIBLE, risk: 'high', kind: 'db', affects: { count: 42, unit: 'rows' }, text: 'DELETE FROM carts WHERE id = 1', lang: 'sql' })
     expect(await screen.findByText("Can't be undone")).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Deny', 'See impact', 'Copy exact text'])
+    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'See impact'])
     expect(onRespond).not.toHaveBeenCalled()
   })
 
@@ -99,9 +99,10 @@ describe('U7.1 · A request comes to you', () => {
   test('the card reads in pt-BR', { timeout: 30_000 }, async () => {
     await changeLanguage('pt-BR')
     await renderCard(IRREVERSIBLE)
-    expect(await screen.findByText('Claude precisa da sua aprovação')).toBeInTheDocument()
+    expect(await screen.findByText('Enviar ao remoto')).toBeInTheDocument()
+    expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Não dá para desfazer')).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Negar', 'Ver impacto', 'Copiar o texto exato'])
+    expect(actionButtons()).toEqual(['Copiar o texto exato', 'Negar', 'Ver impacto'])
   })
 
   async function renderToast(impact: Props) {
@@ -115,7 +116,7 @@ describe('U7.1 · A request comes to you', () => {
     const toast = await renderToast(REVERSIBLE)
     const status = await screen.findByText('Needs you: Run npm publish · Claude')
     expect(status.closest('[aria-live]')).toHaveAttribute('aria-live', 'polite')
-    expect(actionButtons()).toEqual(['', 'Deny', 'Allow once'])
+    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'Allow once'])
     expect(screen.getByRole('button', { name: /^Deny/ })).toHaveFocus()
     await userEvent.click(screen.getByRole('button', { name: /^Allow/ }))
     expect(toast.onRespond).toHaveBeenCalledTimes(1)
@@ -124,7 +125,7 @@ describe('U7.1 · A request comes to you', () => {
 
   test('an irreversible toast offers only Deny and See impact; See impact opens the preview and answers nothing', async () => {
     const toast = await renderToast(IRREVERSIBLE)
-    expect(actionButtons()).toEqual(['', 'Deny', 'See impact'])
+    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'See impact'])
     await userEvent.click(screen.getByRole('button', { name: 'See impact' }))
     expect(toast.onSeeImpact).toHaveBeenCalledTimes(1)
     expect(toast.onRespond).not.toHaveBeenCalled()
@@ -164,7 +165,7 @@ describe('U7.1 · A request comes to you', () => {
     await changeLanguage('pt-BR')
     await renderToast(IRREVERSIBLE)
     expect(await screen.findByText('Precisa de você: Run npm publish · Claude')).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['', 'Negar', 'Ver impacto'])
+    expect(actionButtons()).toEqual(['Copiar o texto exato', 'Negar', 'Ver impacto'])
   })
 
   async function renderQueue() {
