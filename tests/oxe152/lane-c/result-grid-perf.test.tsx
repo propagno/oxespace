@@ -48,13 +48,23 @@ describe('OXE-351 (a) · ResultGrid hot paths', () => {
     expect(Number(firstRow())).toBeGreaterThan(100)
   })
 
-  it('filters on a deferred value and still shows the matches', () => {
-    render(<ResultGrid columns={columns} rows={rows} onCopy={vi.fn()} onSelect={vi.fn()} />)
+  it('filters a large result after a pause in typing, and a small one at once', () => {
+    const small = render(<ResultGrid columns={columns} rows={rows} onCopy={vi.fn()} onSelect={vi.fn()} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'text 3' } })
-    expect(screen.getAllByRole('rowheader').map(cell => cell.textContent)).toEqual(['4'])
+    expect(screen.getAllByRole('rowheader').map(cell => cell.textContent), 'a small result filters at once').toEqual(['4'])
+    small.unmount()
+
+    vi.useFakeTimers()
+    const large: unknown[][] = Array.from({ length: 6_000 }, (_, i) => [i + 1, null, `row ${i}`])
+    render(<ResultGrid columns={columns} rows={large} onCopy={vi.fn()} onSelect={vi.fn()} />)
+    const box = screen.getByRole('searchbox')
+    for (const text of ['r', 'ro', 'row 5999']) fireEvent.change(box, { target: { value: text } })
+    expect(box).toHaveValue('row 5999')
+    expect(screen.getAllByRole('rowheader')[0].textContent, 'not filtered while typing').toBe('1')
+    act(() => { vi.advanceTimersByTime(150) })
+    expect(screen.getAllByRole('rowheader').map(cell => cell.textContent), 'filtered once, after the pause').toEqual(['6000'])
     const source = readFileSync(join(process.cwd(), 'src/components/OxeQuery/ResultGrid.tsx'), 'utf8')
-    expect(source).toMatch(/useDeferredValue\(filter\)/)
-    expect(source).toMatch(/viewOrder\(rows, deferredFilter/)
+    expect(source).toMatch(/viewOrder\(rows, appliedFilter/)
   })
 
   it('leaves no resize listener behind when it unmounts in the middle of a resize', () => {
