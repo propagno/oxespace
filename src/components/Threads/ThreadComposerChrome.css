@@ -99,7 +99,7 @@
 .thread-composer [data-ui='working-set'] .thread-dock-changes-actions { flex-shrink: 0; gap: var(--space-1); }
 .thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { flex-shrink: 0; white-space: nowrap; height: var(--bar-sm); min-height: var(--bar-sm); padding: 0 var(--space-1-5); border: 0; }
 .thread-composer [data-ui='working-set'] ul { padding: var(--space-1) var(--space-2) var(--space-1-5); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
-.thread-composer [data-ui='working-set'] li button.thread-dock-changes-path { width: auto; flex: 1 1 auto; min-width: 0; justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--tx-primary); height: auto; min-height: var(--control-xs); padding: 0 var(--space-1); }
+.thread-composer [data-ui='working-set'] li button.thread-dock-changes-path { width: auto; flex: 1 1 auto; min-width: 0; justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--tx-primary); height: auto; min-height: var(--control-sm); padding: 0 var(--space-1); }
 @container thread-composer (max-width: 480px) {
   .thread-composer [data-ui='working-set'] .thread-dock-changes-header { gap: var(--space-1); padding: 0 var(--space-1-5); }
   .thread-composer [data-ui='working-set'] .thread-dock-changes-actions { gap: var(--space-0-5); }
