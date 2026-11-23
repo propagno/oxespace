@@ -8,7 +8,7 @@
  * (.github/workflows/pty-host.yml).
  */
 import { expect, test } from '@playwright/test'
-import { forceKill, launchWithShells, processEnd, ptyHostPid } from '../helpers/pty-host'
+import { forceKill, launchWithShells, processEnd, ptyHost } from '../helpers/pty-host'
 
 test.describe.serial('the PTY host (OXE-400 CA-1)', () => {
   test('a crash in the PTY host leaves the app running', async () => {
@@ -16,8 +16,8 @@ test.describe.serial('the PTY host (OXE-400 CA-1)', () => {
     test.info().annotations.push({ type: 'baseline', description: 'arm A: node-pty runs in the main process; a fault there is the app ending (docs/validation/pty-rust-poc.md, CA-1)' })
     const { app, page, child } = await launchWithShells('B', 2)
     try {
-      const pid = await ptyHostPid(app)
-      expect(pid, 'the PTY host utility process runs').not.toBeNull()
+      const { pid, processes } = await ptyHost(app)
+      expect(pid, `the PTY host utility process runs (utility processes: ${processes.join(', ') || 'none'})`).not.toBeNull()
       process.kill(pid as number, 'SIGKILL')
 
       const host = page.locator('.workspace-host:not(.workspace-host-hidden)')

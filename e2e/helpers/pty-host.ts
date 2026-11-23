@@ -55,10 +55,17 @@ export async function launchWithShells(arm: PtyArm, panes: number): Promise<ArmA
   return { app, page, root, child }
 }
 
-/** The PTY host utility process's pid (arm B), from the app's own process list; null when there is none. */
-export async function ptyHostPid(app: ElectronApplication): Promise<number | null> {
-  return await app.evaluate(({ app: electronApp }) =>
-    electronApp.getAppMetrics().find(metric => metric.type === 'Utility' && metric.serviceName === 'oxespace-pty-host')?.pid ?? null)
+/**
+ * The PTY host utility process (arm B), from the app's own process list: the utility process forked with
+ * serviceName 'oxespace-pty-host', which getAppMetrics reports as its `name`. `processes` lists every utility
+ * process the app runs, for the failure message when there is no host.
+ */
+export async function ptyHost(app: ElectronApplication): Promise<{ pid: number | null; processes: string[] }> {
+  return await app.evaluate(({ app: electronApp }) => {
+    const utilities = electronApp.getAppMetrics().filter(metric => metric.type === 'Utility')
+    const host = utilities.find(metric => metric.name === 'oxespace-pty-host' || metric.serviceName === 'oxespace-pty-host')
+    return { pid: host?.pid ?? null, processes: utilities.map(metric => `${metric.pid}:${metric.name ?? ''}:${metric.serviceName ?? ''}`) }
+  })
 }
 
 /** How the app's process ended: its exit code and signal, or `hung` when it was still running after `ms`. */

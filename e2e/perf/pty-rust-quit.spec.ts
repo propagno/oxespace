@@ -11,7 +11,7 @@
  * Lines: `[PTY-QUIT] <arm> <way> clean=<n>/<total> unclean=<codes>`. Built app, real PTYs, CI only.
  */
 import { expect, test, type ElectronApplication } from '@playwright/test'
-import { forceKill, launchWithShells, processEnd, type PtyArm } from '../helpers/pty-host'
+import { forceKill, launchWithShells, processEnd, ptyHost, type PtyArm } from '../helpers/pty-host'
 
 const ROUNDS = Number(process.env.OXESPACE_PTY_QUIT_ROUNDS ?? 3)
 const ARMS = (process.env.OXESPACE_PTY_QUIT_ARMS ?? 'A,B').split(',') as PtyArm[]
@@ -59,6 +59,9 @@ test.describe.serial('the PTY host (OXE-400 CA-4)', () => {
           results.set(key, entry)
           const { app, page, child } = await launchWithShells(arm, 4)
           try {
+            // Each arm runs where it says: the host exists in B only.
+            const { pid, processes } = await ptyHost(app)
+            expect(pid !== null, `arm ${arm}: PTY host ${pid === null ? 'absent' : 'present'} (utility processes: ${processes.join(', ') || 'none'})`).toBe(arm === 'B')
             if (!(await quit(app, way))) { entry.unmeasured++; continue }
             // If the app asks before quitting (F26 close guard), the person goes ahead.
             void page.getByTestId('running-turns-proceed').or(page.getByTestId('unsaved-work-discard')).click({ timeout: 5_000 }).catch(() => undefined)
