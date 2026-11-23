@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { installThreadFixtures, registerThreadProject, setThreadState } from './helpers/thread-fixtures'
 import { launchForPerf } from './helpers/perf-launch'
+import { LAST_ANSWER_TEXT, setLongConversation } from './helpers/thread-fixtures'
 
 const LAUNCHES = Number(process.env.OXESPACE_PERF_LAUNCHES ?? 5)
 const BLANK_GOAL_MS = 100
@@ -96,6 +97,13 @@ const PLATFORM_COLD_BASELINE_MS: Record<Platform, Record<string, number>> = {
   linux: { 'OxeCode (Code)': 52, 'OxeChat (Thread)': 162, OxeQuery: 54, 'Settings · Agents': 38, 'Settings · Appearance': 35 },
   windows: { 'OxeCode (Code)': 58, 'OxeChat (Thread)': 175, OxeQuery: 66, 'Settings · Agents': 41, 'Settings · Appearance': 37 }
 }
+/**
+ * OXE-125 A4 (CA-1, user decision 23/11: 125 PROPOSTA), frozen by the planner of program 160-125: the long rich
+ * conversation (e2e/helpers/long-conversation.ts, 80 turns) opened cold, in launches of its own, holds the short
+ * conversation's cold baseline, so its limit is the short one's (178.7 ms linux, 192.5 ms windows).
+ */
+const LONG_CONVERSATION = 'OxeChat (long conversation)'
+for (const platform of ['linux', 'windows'] as const) PLATFORM_COLD_BASELINE_MS[platform][LONG_CONVERSATION] = PLATFORM_COLD_BASELINE_MS[platform]['OxeChat (Thread)']
 /** A surface much slower on windows than on linux is a finding to explain, not a baseline to accept (FL-21). */
 const MAX_WINDOWS_TO_LINUX = 1.5
 /** The surfaces whose windows baseline is more than 1.5× linux's, in one phase's table; the gate fails while any is listed. */
@@ -462,9 +470,46 @@ function gateChecks(round: Results): Check[] {
 const CONFIRM = (process.env.CI === 'true' || process.env.OXESPACE_PERF_GATE === '1') && process.env.OXESPACE_PERF_CONFIRM !== '0'
 
 
+/** OXE-125 A4: the long conversation's own surface, opened cold as the first OxeChat open of a launch, then warm. */
+const LONG_SURFACE: Surface = { name: LONG_CONVERSATION, arm: armMode('OxeChat'), probe: { ...MODE_PROBE, sidebar: true, text: LAST_ANSWER_TEXT, content: ['.thread-host .thread-timeline', 'aside.thread-navigation'] } }
+
+/** One launch for the long conversation: the workspace and the conversation set up untimed, then its cold and warm opens. */
+async function longSession(): Promise<void> {
+  const { app, page, repo } = await launch()
+  try {
+    // As session(): wait for the first painted screen before anything (boot numbers are session()'s, not recorded here).
+    await readBoot(app, page)
+    await installThreadFixtures(app, repo)
+    await page.getByTestId('btn-new-workspace').click()
+    await page.getByTestId('wizard-dir-input').fill(repo)
+    await page.getByTestId('wizard-layout-card-1').click()
+    await page.getByTestId('wizard-launch-btn').click()
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    // As session(): the first run stays at Step 2, and its footer OxeCode leaves it; the same probe, not recorded.
+    await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).waitFor({ state: 'visible', timeout: 30_000 })
+    await page.waitForTimeout(300)
+    await measure(page, CODE_COLD, 'cold', false)
+    await registerThreadProject(app, page, repo)
+    await page.evaluate(() => window.oxe.thread!.create({ provider: 'claude' } as never))
+    await setLongConversation(app)
+    await page.waitForTimeout(300)
+    for (const phase of ['cold', 'warm'] as const) {
+      push(results[phase], LONG_SURFACE.name, await measure(page, LONG_SURFACE, phase, false))
+      await modeButton(page, 'OxeCode').click()
+      await expect(modeButton(page, 'OxeCode')).toHaveAttribute('aria-selected', 'true')
+      await page.waitForTimeout(250)
+    }
+  } finally {
+    await app.close().catch(() => undefined)
+  }
+}
+
 async function measureRound(): Promise<void> {
   for (let i = 0; i < LAUNCHES; i++) {
     try { await session(false) } catch (error) { console.log(`[RESULT] launch ${i + 1} failed: ${(error as Error).message.split('\n')[0]}`) }
+  }
+  for (let i = 0; i < LAUNCHES; i++) {
+    try { await longSession() } catch (error) { console.log(`[RESULT] long conversation launch ${i + 1} failed: ${(error as Error).message.split('\n')[0]}`) }
   }
   reportAll()
 }

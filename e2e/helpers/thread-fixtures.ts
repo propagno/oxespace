@@ -388,3 +388,54 @@ export async function setThreadState(app: ElectronApplication, root: string, sta
     ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
   }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, turns: definition.turns, turnFiles: definition.turnFiles, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
 }
+
+// OXE-125 (program 160-125, A4 and A5), frozen by the planner: the long rich conversation of the card, 80 turns whose
+// answers carry a GFM table, a highlighted TypeScript block, a diff, a display formula, an inline path and a link, with
+// a Mermaid diagram every tenth turn. It lives here because perf-gate.yml copies this helper onto every ref it measures.
+
+export const LONG_TURNS = 80
+/** The words of the last answer: what a probe waits for once the conversation is drawn (it opens at the bottom). */
+export const LAST_ANSWER_TEXT = `Answer ${LONG_TURNS - 1} of the long conversation`
+
+function richAnswer(turn: number): string {
+  return [
+    turn === LONG_TURNS - 1 ? LAST_ANSWER_TEXT : `Answer ${turn} of the long conversation`,
+    '',
+    '| Area | Status | Owner |',
+    '| --- | --- | --- |',
+    `| Parser ${turn} | **done** | \`src/parser/${turn}.ts\` |`,
+    `| Renderer ${turn} | in review | [notes](https://example.com/notes/${turn}) |`,
+    '',
+    '```ts',
+    `export function total${turn}(items: number[]): number {`,
+    '  return items.reduce((sum, item) => sum + item, 0)',
+    '}',
+    '```',
+    '',
+    '```diff',
+    `- const limit = ${turn}`,
+    `+ const limit = ${turn + 1}`,
+    '```',
+    '',
+    '$$',
+    `\\sum_{i=1}^{${turn + 2}} i^2 = \\frac{n(n+1)(2n+1)}{6}`,
+    '$$',
+    ...(turn % 10 === 0 ? ['', '```mermaid', 'graph TD', `  A${turn}[Start] --> B${turn}[Parse]`, `  B${turn} --> C${turn}[Render]`, '```'] : [])
+  ].join('\n')
+}
+
+/** User message, answer and completion for each turn: the event shapes of the Thread fixture. */
+export function longRichEvents(turns: number = LONG_TURNS): unknown[] {
+  return Array.from({ length: turns }, (_, turn) => [
+    { type: 'message', id: `long-u-${turn}`, role: 'user', text: `Question ${turn}: review the parser and renderer changes` },
+    { type: 'message', id: `long-a-${turn}`, role: 'assistant', text: richAnswer(turn) },
+    { type: 'completed', status: 'completed' }
+  ]).flat()
+}
+
+/** Replaces the fixture conversation with the long one (installThreadFixtures must have run). */
+export async function setLongConversation(app: ElectronApplication): Promise<void> {
+  await app.evaluate((_context, events) => {
+    ;(globalThis as Record<string, (state: unknown) => void>).applyThreadState({ status: 'idle', title: 'Long conversation', events })
+  }, longRichEvents())
+}
