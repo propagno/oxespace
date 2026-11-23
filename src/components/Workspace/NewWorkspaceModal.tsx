@@ -2,7 +2,7 @@ import { Check, FolderOpen, Minus, Plus, Terminal } from 'lucide-react'
 import { useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { PaneAgentBinding, ShellProfile, Workspace, WorkspaceLayoutPreset } from '../../../shared/types/workspace'
-import { isSameRootPath } from '../../../shared/utils/path'
+import { isSameRootPath, normalizeWorkspaceRoot } from '../../../shared/utils/path'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { buildAgentSlots, type AgentCount } from './fleetUtils'
 import { LAYOUT_PRESETS } from './workspaceOptions'
@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next'
 export interface WizardLaunchInput {
   rootPath: string
   layoutPreset: WorkspaceLayoutPreset
-  defaultShellProfileId: string
+  defaultShellProfileId?: string
   agentSlots: string[]
   agentBindings: PaneAgentBinding[]
 }
@@ -64,7 +64,10 @@ export function NewWorkspaceModal({
   const [error, setError] = useState<string | null>(null)
   const [selectedExistingId, setSelectedExistingId] = useState<string | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null)
+  // A14 (OXE-367): while the workspace is being created, Cancel and Escape do nothing, so no creation is left behind
+  // with its dialog gone; a failed submit ends that, and the dialog closes again.
   const closeAndRestoreFocus = (): void => {
+    if (isSubmitting) return
     onClose()
   }
 
@@ -73,16 +76,21 @@ export function NewWorkspaceModal({
   // rather than from a hardcoded product name.
   const shellProfile = shellProfiles.find((profile) => !AGENT_SHELL_PROFILE_IDS.has(profile.id)) ?? null
   const shellLabel = shellProfile?.name ?? t('newWorkspace.shell')
+  // No neutral shell (every slot an agent): fall back to the first shell profile there is, else none (main picks its default).
+  const fallbackShellProfileId = (shellProfile ?? shellProfiles[0])?.id
 
   const totalSelected = Object.values(agentCounts).reduce((a, b) => a + b, 0) + shellCount
   const remaining = Math.max(0, layoutPreset - totalSelected)
-  const hasFolder = rootPath.trim().length > 0
-  const matchingWorkspaces = hasFolder ? existingWorkspaces.filter((workspace) => isSameRootPath(workspace.rootPath, rootPath.trim(), platform)) : []
+  // A15 (OXE-367): the folder as main stores it (a pasted path's surrounding quotes removed), so it finds the
+  // workspace already open on it.
+  const folder = normalizeWorkspaceRoot(rootPath)
+  const hasFolder = folder.length > 0
+  const matchingWorkspaces = hasFolder ? existingWorkspaces.filter((workspace) => isSameRootPath(workspace.rootPath, folder, platform)) : []
   const selectedExisting = matchingWorkspaces.find((workspace) => workspace.id === selectedExistingId)
     ?? matchingWorkspaces.find((workspace) => workspace.id === activeWorkspaceId)
     ?? matchingWorkspaces[0]
   const folderBasename = hasFolder
-    ? rootPath.trim().split(/[\\/]/).filter(Boolean).at(-1) ?? rootPath.trim()
+    ? folder.split(/[\\/]/).filter(Boolean).at(-1) ?? folder
     : null
 
   const handlePickFolder = async (): Promise<void> => {
@@ -110,13 +118,34 @@ export function NewWorkspaceModal({
     })
   }
 
+  // A11 (OXE-367): a smaller layout never keeps more slots than it has panes. Shells go first, then agents from the
+  // last one in the list, so what the person picked first stays.
+  const chooseLayout = (preset: WorkspaceLayoutPreset): void => {
+    setLayoutPreset(preset)
+    let excess = totalSelected - preset
+    if (excess <= 0) return
+    const shellsKept = Math.max(0, shellCount - excess)
+    excess -= shellCount - shellsKept
+    setShellCount(shellsKept)
+    if (excess <= 0) return
+    const next = { ...agentCounts }
+    for (const agent of [...agentProfiles].reverse()) {
+      const current = next[agent.agentProfileId] ?? 0
+      const removed = Math.min(current, excess)
+      if (removed > 0) next[agent.agentProfileId] = current - removed
+      excess -= removed
+      if (excess <= 0) break
+    }
+    setAgentCounts(next)
+  }
+
   const clearAgents = (): void => {
     setAgentCounts({})
     setShellCount(0)
   }
 
   const handleLaunch = async (): Promise<void> => {
-    if (!rootPath.trim()) {
+    if (!folder) {
       setError(t('newWorkspace.needFolder'))
       return
     }
@@ -151,13 +180,13 @@ export function NewWorkspaceModal({
         if (!profile) return []
         return [{ paneIndex, agentProfileId: profile.agentProfileId, agentName: profile.name }]
       })
-      const shellBindings = agentSlots.flatMap((command, paneIndex) => command
+      const shellBindings = agentSlots.flatMap((command, paneIndex) => command || !shellProfile
         ? []
-        : [{ paneIndex, shellProfileId: shellProfile!.id }])
+        : [{ paneIndex, shellProfileId: shellProfile.id }])
       await onLaunch({
-        rootPath: rootPath.trim(),
+        rootPath: folder,
         layoutPreset,
-        defaultShellProfileId: shellProfile!.id,
+        defaultShellProfileId: fallbackShellProfileId,
         agentSlots,
         agentBindings: [...agentBindings, ...shellBindings]
       })
@@ -259,7 +288,7 @@ export function NewWorkspaceModal({
                     role="radio"
                     aria-checked={selected}
                     className={`new-workspace-layout-card${selected ? ' selected' : ''}`}
-                    onClick={() => setLayoutPreset(preset)}
+                    onClick={() => chooseLayout(preset)}
                     data-testid={`wizard-layout-card-${preset}`}
                     title={meta.description}
                   >
