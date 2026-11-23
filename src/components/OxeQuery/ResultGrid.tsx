@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpDown, Columns3, Copy, Eye, FileJson, Pin, X } from 'lucide-react'
 import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, type CellRange, type CopyFormat } from './grid-format'
@@ -67,6 +67,24 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const scroller = useRef<HTMLDivElement | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [height, setHeight] = useState(360)
+  // OXE-351: a scroll is applied once per animation frame; a resize in progress is ended with the grid.
+  const scrollFrame = useRef<number | null>(null)
+  const endResize = useRef<(() => void) | null>(null)
+  useEffect(() => () => {
+    if (scrollFrame.current !== null) cancelAnimationFrame(scrollFrame.current)
+    endResize.current?.()
+  }, [])
+  // The grid's height, measured when it mounts and whenever it is resized, instead of on every render.
+  useLayoutEffect(() => {
+    const element = scroller.current
+    if (!element) return
+    const measure = (): void => { if (element.clientHeight) setHeight(element.clientHeight) }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
   const [localSort, setLocalSort] = useState<GridSort | null>(null)
   const sort = controlledSort !== undefined ? controlledSort : localSort
   const [overrides, setOverrides] = useState<Record<number, number>>({})
@@ -150,7 +168,9 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
       }
     ]
   }
-  const order = useMemo(() => viewOrder(rows, filter, onSort ? null : sort), [rows, filter, sort, onSort])
+  // OXE-351: the filter runs on a deferred value, so typing in a large result is not held up by filtering every cell.
+  const deferredFilter = useDeferredValue(filter)
+  const order = useMemo(() => viewOrder(rows, deferredFilter, onSort ? null : sort), [rows, deferredFilter, sort, onSort])
   const count = order ? order.length : rows.length
   const pinLeft = useMemo(() => pinOffsets(visible, pinned, widthOf, INDEX_WIDTH), [visible, pinned, widthOf])
   const stickyStyle = (column: number, width: number): CSSProperties => (pinLeft.has(column) ? { width, position: 'sticky', left: pinLeft.get(column) } : { width })
@@ -244,7 +264,9 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     const startX = event.clientX
     const startWidth = widthOf(index)
     const onMove = (pointer: globalThis.MouseEvent): void => setOverrides(current => ({ ...current, [index]: Math.max(MIN_WIDTH, startWidth + pointer.clientX - startX) }))
-    const onUp = (): void => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    const onUp = (): void => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); endResize.current = null }
+    endResize.current?.()
+    endResize.current = onUp
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
   }
 
@@ -268,8 +290,12 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
     </div>
     <div className="oq-grid" role="grid" aria-label={label} aria-rowcount={count + 1} aria-colcount={visible.length} aria-multiselectable="true" tabIndex={0}
     aria-activedescendant={focus ? `${label}-cell-${focus.row}-${focus.column}` : undefined} onKeyDown={onKeyDown}
-    ref={element => { scroller.current = element; if (element && element.clientHeight && element.clientHeight !== height) setHeight(element.clientHeight) }}
-    onScroll={event => setScrollTop(event.currentTarget.scrollTop)}>
+    ref={scroller}
+    onScroll={event => {
+      const top = event.currentTarget.scrollTop
+      if (scrollFrame.current !== null) cancelAnimationFrame(scrollFrame.current)
+      scrollFrame.current = requestAnimationFrame(() => { scrollFrame.current = null; setScrollTop(top) })
+    }}>
     <div className="oq-grid-inner" style={{ width: total, height: (count + 1) * ROW_HEIGHT }}>
       <div className="oq-grid-header" role="row" style={{ width: total }}>
         <span className="oq-grid-index" role="columnheader">
@@ -297,10 +323,12 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
           <span className="oq-grid-index" role="rowheader" title={t('grid.openRow')} onClick={() => onSelect?.(index)}>{index + 1}</span>
           {visible.map((column, columnPosition) => {
             const value = row[column]
+            // OXE-351: the cell's text, made once and used for its title and its content.
+            const plain = value === null || value === undefined ? null : plainCell(value)
             const active = focus?.row === position && focus.column === columnPosition
             const classes = [pinLeft.has(column) ? 'is-pinned' : '', value === null || value === undefined ? 'is-null' : typeof value === 'number' ? 'is-number' : '', inRange(position, columnPosition) ? 'is-range' : '', active ? 'is-focus' : ''].filter(Boolean).join(' ')
             return <span key={`${columns[column]}:${column}`} id={`${label}-cell-${position}-${columnPosition}`} role="gridcell" aria-selected={inRange(position, columnPosition)}
-              className={classes || undefined} style={stickyStyle(column, widthOf(column))} title={value === null || value === undefined ? t('grid.nullTitle') : plainCell(value).slice(0, 500)}
+              className={classes || undefined} style={stickyStyle(column, widthOf(column))} title={plain === null ? t('grid.nullTitle') : plain.slice(0, 500)}
               onMouseDown={event => startDrag({ row: position, column: columnPosition }, event)}
               onMouseEnter={() => { if (dragging.current) setFocus({ row: position, column: columnPosition }) }}
               onContextMenu={event => {
@@ -311,7 +339,7 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
                 setCellPoint({ x: event.clientX, y: event.clientY })
                 setCellMenu({ position, columnPosition, rowIndex: index, columnIndex: column })
               }}
-              onDoubleClick={() => onOpenCell ? onOpenCell({ column: columns[column], ...(types?.[column] ? { type: types[column] } : {}), value, row: index }) : onCopy?.(plainCell(value))}>{shown(value)}</span>
+              onDoubleClick={() => onOpenCell ? onOpenCell({ column: columns[column], ...(types?.[column] ? { type: types[column] } : {}), value, row: index }) : onCopy?.(plain ?? plainCell(value))}>{plain === null ? SQL_NULL : value === SQL_NULL ? `"${SQL_NULL}"` : plain}</span>
           })}
           {cellMenu?.position === position && <AnchoredMenu open point={cellPoint} onOpenChange={open => { if (!open) setCellMenu(null) }}
             label={t('contextMenu.cellLabel', { column: columns[cellMenu.columnIndex] ?? '' })}
