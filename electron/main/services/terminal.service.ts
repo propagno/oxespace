@@ -18,6 +18,7 @@ import { resolveExecutable as resolveWithProbe } from './terminal/executable'
 import { SessionStarter, type ManagedTerminalStart, type PtyModule, type SessionStartOptions, type StartedProcess } from './terminal/session-start'
 import { CONPTY_START_SCREEN, SessionOutput, type TerminalSession } from './terminal/session-output'
 import { SessionExits } from './terminal/session-exit'
+import { PtyExitDrain, QUIT_TREE_GRACE_MS, type QuitDrainOptions, type QuitDrainResult } from './terminal/quit-drain'
 import { ShellCwdScanner } from './terminal/shell-cwd'
 import { ShellCommandOscScanner } from './terminal/shell-command-osc'
 import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
@@ -69,6 +70,9 @@ export class TerminalManager {
   private readonly starter: SessionStarter
   private readonly output: SessionOutput
   private readonly exits = new SessionExits()
+  /** OXE-392: processes whose exit has not reached JS yet; on quit they are waited for before teardown. */
+  private readonly exitDrain = new PtyExitDrain<StartedProcess['ptyProcess']>()
+  private quitting = false
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
@@ -145,6 +149,8 @@ export class TerminalManager {
   }
 
   async start(input: ManagedTerminalStart): Promise<void> {
+    // OXE-392: nothing starts once the app is quitting; the drain could not wait for it.
+    if (this.quitting) return
     const pending = this.starting.get(input.paneId)
     if (pending) return pending
     const controller = new AbortController()
@@ -196,6 +202,7 @@ export class TerminalManager {
     // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
     if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    this.exitDrain.track(ptyProcess)
     this.trackBranch(input.paneId, cwd)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, command)
     ptyProcess.onData((data) => {
@@ -204,6 +211,7 @@ export class TerminalManager {
       this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
+      this.exitDrain.settle(ptyProcess)
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
@@ -411,7 +419,7 @@ export class TerminalManager {
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
-    void terminatePty(session.pty)
+    void terminatePty(session.pty, this.quitting ? { graceMs: QUIT_TREE_GRACE_MS } : {})
     this.sessions.delete(input.paneId)
     this.sizes.forget(input.paneId)
     session.revokeProxy?.()
@@ -479,6 +487,22 @@ export class TerminalManager {
     for (const paneId of [...this.sessions.keys()]) {
       this.stop({ paneId })
     }
+  }
+
+  /**
+   * OXE-392, on quit: no new start, every launch aborted and every terminal stopped, then each exit awaited while JS
+   * still runs (see quit-drain.ts). A terminal that exits on its signal at once is drained in milliseconds.
+   */
+  stopAllAndDrain(options: Partial<QuitDrainOptions<StartedProcess['ptyProcess']>> = {}): Promise<QuitDrainResult> {
+    this.quitting = true
+    this.stopAll()
+    return this.exitDrain.drain({ ...options, forceKill: options.forceKill ?? (pty => this.forceKill(pty)) })
+  }
+
+  private forceKill(pty: StartedProcess['ptyProcess']): void {
+    const pid = pty.pid
+    if (this.platform !== 'win32' && Number.isInteger(pid) && pid > 1) process.kill(pid, 'SIGKILL')
+    else pty.kill()
   }
 
   hasSession(paneId: string): boolean {

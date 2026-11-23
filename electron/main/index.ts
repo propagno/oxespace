@@ -677,7 +677,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     event.preventDefault()
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
-    terminalManager.stopAll()
+    const terminalsDrained = terminalManager.stopAllAndDrain() // OXE-392: every terminal exit reaches JS before teardown
     // Quitting can still stall after the drain, for example on a native handle a terminal left
     // open on Windows; the window is gone by then, so end the process instead of lingering.
     const quit = (): void => {
@@ -689,7 +689,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
