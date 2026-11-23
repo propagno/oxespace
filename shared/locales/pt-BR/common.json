@@ -1029,6 +1029,18 @@
     "saveFailed_one": "{{count}} alteração não pôde ser salva, então nada foi fechado. Confira e tente de novo.",
     "saveFailed_many": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
     "saveFailed_other": "{{count}} alterações não puderam ser salvas, então nada foi fechado. Confira e tente de novo.",
+    "workTitleClose": "Fechar com trabalho em andamento?",
+    "workTitleQuit": "Sair com trabalho em andamento?",
+    "workDescription_one": "{{count}} item ainda está em execução. Fechar o interrompe.",
+    "workDescription_many": "{{count}} itens ainda estão em execução. Fechar os interrompe.",
+    "workDescription_other": "{{count}} itens ainda estão em execução. Fechar os interrompe.",
+    "workListLabel": "Trabalho em andamento",
+    "workAlso_one": "{{count}} item também ainda está em execução. Fechar o interrompe.",
+    "workAlso_many": "{{count}} itens também ainda estão em execução. Fechar os interrompe.",
+    "workAlso_other": "{{count}} itens também ainda estão em execução. Fechar os interrompe.",
+    "workAgentIn": "Agente no terminal · {{workspace}}",
+    "workJobIn": "Tarefa em segundo plano · {{workspace}}",
+    "workTurn": "Conversa com turno em andamento",
     "inEditor": "Editor do OxeCode · {{folder}}"
   },
   "links": {
