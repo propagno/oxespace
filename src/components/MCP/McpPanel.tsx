@@ -591,6 +591,12 @@ export const MCP_TEMPLATES: Array<{
     fill: { name: 'playwright', command: 'npx', argsText: '-y @playwright/mcp@latest' }
   },
   {
+    id: 'github',
+    name: 'GitHub',
+    category: 'Coding',
+    fill: { name: 'github', command: 'npx', argsText: '-y mcp-remote https://api.githubcopilot.com/mcp/', envText: 'GITHUB_PERSONAL_ACCESS_TOKEN=' }
+  },
+  {
     id: 'git',
     name: 'Git',
     category: 'Coding',
@@ -855,7 +861,7 @@ function McpCreateForm({ workspaceId, initial, editing, onCancel, onCreated }: M
           ) : isEditingRemote ? (
             <label>
               URL
-              <TextField value={url} onChange={(event) => setUrl(event.currentTarget.value)} placeholder="https://..." disabled={busy} />
+              <TextField value={url} onChange={(event) => setUrl(event.currentTarget.value)} placeholder={tc('mcp.form.urlPlaceholder')} disabled={busy} />
             </label>
           ) : (
             <>

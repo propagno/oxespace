@@ -1915,6 +1915,7 @@
       "global": "Global",
       "workspaceOnly": "This workspace only",
       "command": "Command",
+      "urlPlaceholder": "https://...",
       "args": "Args (separated by spaces)",
       "values": "Values (KEY=VAL, one per line; sent in the request headers)",
       "headers": "Headers (KEY=VAL, one per line; optional)",

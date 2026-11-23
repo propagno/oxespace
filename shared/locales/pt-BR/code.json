@@ -1987,6 +1987,7 @@
       "global": "Global",
       "workspaceOnly": "Só este workspace",
       "command": "Comando",
+      "urlPlaceholder": "https://...",
       "args": "Argumentos (separados por espaço)",
       "values": "Valores (CHAVE=VALOR, um por linha; enviados nos cabeçalhos da requisição)",
       "headers": "Cabeçalhos (CHAVE=VALOR, um por linha; opcional)",

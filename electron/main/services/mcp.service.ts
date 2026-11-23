@@ -658,7 +658,7 @@ const PACKAGE_RUNNER_RE = /^(?:npx|uvx|bunx|pnpm|yarn|npm)(?:\.(?:cmd|exe|bat|ps
 
 /** True when the command invokes a package runner whose first cold start may download packages. */
 export function isPackageRunnerCommand(command: string): boolean {
-  return PACKAGE_RUNNER_RE.test(path.basename(command.trim()))
+  return PACKAGE_RUNNER_RE.test((command.trim().split(/[\\/]/).pop() ?? '').toLowerCase())
 }
 
 /** Handshake timeout for a stdio server: 5 min for OAuth bridges, 60 s for package runners, 15 s otherwise. */
