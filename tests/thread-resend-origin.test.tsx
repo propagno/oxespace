@@ -175,7 +175,7 @@ describe('a stored message resent from the window never runs as a command', () =
       expect(found).not.toBeNull()
       return found!
     })
-    fireEvent.click(within(card).getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(w.settled).toHaveLength(1), { timeout: 10_000 })
     expect(w.access()).toBe('read-only')
     expect(w.settled[0].error).toBe('thread.command.windowOnly')
@@ -189,7 +189,7 @@ describe('a stored message resent from the window never runs as a command', () =
       expect(found).not.toBeNull()
       return found!
     })
-    fireEvent.click(within(card).getByRole('button', { name: 'Retry turn' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(w.settled).toHaveLength(1), { timeout: 10_000 })
     expect(w.settled[0].channel).toBe(IPC_CHANNELS.thread.retryTurn)
     expect(w.access()).toBe('read-only')

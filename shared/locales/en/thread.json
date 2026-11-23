@@ -703,7 +703,7 @@
     "compact": "Compact conversation",
     "reviewPermissions": "Review permissions",
     "changeConfiguration": "Change configuration",
-    "retry": "Retry turn",
+    "retry": "Try again",
     "retryGroup": "Retry this turn",
     "changedFiles": "This turn changed files.",
     "undoAndRetry": "Undo its changes and retry",
@@ -764,6 +764,7 @@
     "operations_one": "{{count}} operation",
     "operations_other": "{{count}} operations",
     "undo": "Undo",
+    "undoTurn": "Undo turn",
     "confirmUndo": "Confirm undo",
     "undoGroup": "Confirm undo",
     "undoFailed": "Could not undo these changes.",
@@ -1131,7 +1132,8 @@
   "plan": {
     "title": "Plan",
     "progress": "{{done}}/{{total}} completed",
-    "inProgress": "In progress"
+    "inProgress": "In progress",
+    "run": "Run plan"
   },
   "projectSettings": {
     "saveFailed": "Could not save project settings.",
@@ -1192,6 +1194,17 @@
     "minutes": "{{minutes}}m {{seconds}}s",
     "seconds": "{{seconds}}s"
   },
+  "explore": {
+    "summary": "Explored {{files}} files and {{searches}} searches · {{duration}}",
+    "read": "Read",
+    "searched": "Searched",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} result",
+    "hits_other": "{{count}} results"
+  },
+  "steps": {
+    "showMoreLines": "Show {{count}} more lines"
+  },
   "request": {
     "reviewPlan": "Review plan",
     "mcpApproval": "Approve MCP tool request",
@@ -1230,6 +1243,18 @@
     "cancel": "Cancel",
     "decline": "Decline",
     "deny": "Deny",
+    "allowMenu": "More ways to allow",
+    "alwaysAllowProject": "Always allow in this project…",
+    "allowedOnce": "Allowed once",
+    "denied": "Denied",
+    "otherOption": "Other option…",
+    "kind": {
+      "command": "Run a command in the terminal",
+      "db": "Change the database",
+      "file": "Change files",
+      "container": "Change a container",
+      "push": "Push to the remote"
+    },
     "holdWaiting": "Critical risk: Approve is available in {{seconds}} s. Read the command first.",
     "holdReady": "Approve is available. Enter does not approve a critical command; use Space or click.",
     "guarded": "Agent-steering file",
@@ -1589,6 +1614,7 @@
     "decline": "Deny",
     "usageUnavailable": "Usage unavailable",
     "interrupted": "Interrupted",
+    "contextCompacted": "Context compacted",
     "noPublicMessages": "No public messages in this section. Continue loading earlier messages if available."
   },
   "turnReview": {
@@ -2156,6 +2182,7 @@
   "backgroundShells": {
     "region": "Background shells",
     "running": "Running",
+    "runningOnPort": "Running · port {{port}}",
     "stopped": "Stopped",
     "exitCode": "exit {{code}}",
     "unknownSince": "State unknown since {{time}}",
