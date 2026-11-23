@@ -25,7 +25,7 @@ describe('ThreadFailureCard actions', () => {
 
   it('offers Retry for a network failure', () => {
     render(<ThreadFailureCard event={{ type: 'completed', status: 'failed', failure: { id: 'f', occurredAt: 1, code: 'network', message: 'Lost' } }} latest onRetry={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Retry turn' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 })
 

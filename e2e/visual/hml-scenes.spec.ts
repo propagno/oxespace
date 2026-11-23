@@ -7,7 +7,6 @@ import { launchApp, layoutAtWidth, openDemoWorkspace, pinWorkspaceColor } from '
 import { withoutLiveApp } from '../helpers/live-app-env'
 import { togglePanel } from '../helpers/panels'
 import { seedGitRepo } from '../helpers/seed'
-import { openSettings } from '../helpers/settings'
 import { installThreadFixtures, openThreadWithState, registerThreadProject, setThreadState } from '../helpers/thread-fixtures'
 
 /**
@@ -17,6 +16,8 @@ import { installThreadFixtures, openThreadWithState, registerThreadProject, setT
  *
  * RT-1: layoutAtWidth + app-ready wait (G40), case-insensitive name regexes (G40b).
  * RT-2: existing hooks only (__oxeE2eAgentState, installThreadFixtures, seedGitRepo, app:update-state).
+ * OXE-364: every scene asserts its target before it captures, so one that does not reach it fails instead of
+ * shooting the wrong screen.
  */
 const SHOTS_DIR = process.env.HML_SHOTS_DIR || join('test-results', 'hml-scenes')
 
@@ -97,6 +98,7 @@ test.describe('OXE-286 homologation scenes', () => {
 
       // Second capture (OXE-128): pressing Ctrl+Shift+U focuses the waiting pane.
       await page.keyboard.press('Control+Shift+U')
+      await expect(page.locator(`[data-testid="pane-container"][data-pane-id="${paneId}"] [data-ui="pane-header"][data-focused="true"]`)).toBeVisible({ timeout: 10_000 })
       await capture(page, 'code-needs-you-ring-2-focused')
     } finally {
       await app.close()
@@ -116,16 +118,17 @@ test.describe('OXE-286 homologation scenes', () => {
       const panel = page.getByTestId('changes-panel')
       await expect(panel).toBeVisible({ timeout: 15_000 })
       const fileItem = panel.getByRole('treeitem', { name: /app\.ts/i }).first()
-      if (await fileItem.isVisible().catch(() => false)) {
-        await fileItem.click()
-      }
+      await expect(fileItem).toBeVisible({ timeout: 15_000 })
+      await fileItem.click()
+      const diff = panel.locator('.changes-editor .monaco-diff-editor')
+      await expect(panel.locator('.changes-file-path')).toContainText(/app\.ts/i, { timeout: 15_000 })
+      await expect(diff).toBeVisible({ timeout: 15_000 })
       await capture(page, 'code-changes-comments-1-diff')
 
-      // Second capture (OXE-129): review surface with diff visible.
-      const commentBtn = panel.getByRole('button', { name: /comment|review|coment/i }).first()
-      if (await commentBtn.isVisible().catch(() => false)) {
-        await commentBtn.hover()
-      }
+      // Second capture (OXE-129): the review surface, the pointer on a line of the loaded diff.
+      await diff.locator('.editor.modified .view-line').first().hover()
+      await expect(diff).toBeVisible()
+      await expect(panel.locator('.changes-tree')).toBeVisible()
       await capture(page, 'code-changes-comments-2-review')
     } finally {
       await app.close()
@@ -143,6 +146,7 @@ test.describe('OXE-286 homologation scenes', () => {
       await registerThreadProject(app, page, workspaceRoot)
       await openThreadWithState(app, page, workspaceRoot, 'conversation')
       await setThreadState(app, workspaceRoot, 'running')
+      await expect(page.locator('form[data-ui="composer"][data-state="running"]')).toBeVisible({ timeout: 10_000 })
       await capture(page, 'thread-parallel')
     } finally {
       await app.close()
@@ -155,13 +159,16 @@ test.describe('OXE-286 homologation scenes', () => {
     try {
       await waitAppReady(app, page)
       await openDemoWorkspace(page, workspaceRoot)
-      await openSettings(page)
-      const dialog = page.getByRole('dialog', { name: /settings|configurações/i })
-      await expect(dialog).toBeVisible({ timeout: 10_000 })
-      const usageNav = dialog.locator('.settings-center-nav').getByRole('button', { name: /usage|uso/i }).first()
-      if (await usageNav.isVisible().catch(() => false)) {
-        await usageNav.click()
-      }
+      // The real Usage page (OXE-174): the Usage & limits window, opened from its palette command, with the Antigravity card.
+      await page.locator('[data-ui="sidebar-header"] strong').last().click()
+      await page.keyboard.press('Control+Shift+P')
+      await page.locator('input[placeholder="Search files and commands…"]').fill('usage')
+      const usageCommand = page.locator('[cmdk-item][data-value="cmd-open-usage"]')
+      await expect(usageCommand).toBeVisible({ timeout: 10_000 })
+      await usageCommand.click()
+      const usage = page.getByTestId('usage-modal')
+      await expect(usage).toBeVisible({ timeout: 10_000 })
+      await expect(usage.getByTestId('usage-card-antigravity')).toBeVisible({ timeout: 10_000 })
       await capture(page, 'usage-antigravity-groups')
     } finally {
       await app.close()

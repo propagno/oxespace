@@ -78,7 +78,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tree-row:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
 .oq-tree-row[aria-selected='true']:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .oq-tree-row[data-kind='schema'], .oq-tree-row[data-kind='extensions'], .oq-tree-row[data-kind='pinned'] { font-weight: 600; }
-.oq-tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.oq-tree-label { flex: 1; min-width: 8ch; overflow: hidden; text-overflow: ellipsis; }
 .oq-tree-row small { flex: none; color: var(--tx-muted); }
 .oq-tree-spacer { display: inline-block; width: 13px; flex: none; }
 /* PQ-07·2: a table's actions take no room at rest (the selected row included), so the name keeps the row's width;
