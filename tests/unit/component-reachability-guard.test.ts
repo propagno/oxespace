@@ -30,7 +30,10 @@ const ALLOWED_UNMOUNTED_FILES = new Set([
   'src/components/Threads/ThreadSubline.tsx',
   // OXE-167 (F5 T5; ÓRFÃOS F5 A, user 22/11 on OXE-388): the quiet header has no status strip; the 1.5.0 frozen f6/u61
   // still renders NowLine alone, so it stays until that test is released with it.
-  'src/components/Threads/NowLine.tsx'
+  'src/components/Threads/NowLine.tsx',
+  // OXE-169 (F5 T17, A27): the conversation has no tab row; its Queries and Containers open from Mais painéis. The 1.5.0
+  // frozen f4/u48 and f6/u61 still render ThreadToolTabs alone, so it stays until those tests are released with it.
+  'src/components/Threads/ThreadToolTabs.tsx'
 ])
 
 function walk(dir: string, predicate: (fullPath: string) => boolean): string[] {
