@@ -26,6 +26,7 @@ const RESTART_GRACE_MS = 2000
 const MAX_OUTPUT = 20_000
 /** The address each server printed, by project: the menu opens the real one also after the panel was closed and reopened. */
 const printedUrls = new Map<string, Record<string, string>>()
+const NO_SERVERS: DevServerConfig[] = []
 
 const joinPath = (root: string, relative: string): string => `${root.replace(/[\\/]+$/, '')}${root.includes('\\') ? '\\' : '/'}${root.includes('\\') ? relative.replace(/\//g, '\\') : relative}`
 const readText = (project: Project, relativePath: string): Promise<string | null> =>
@@ -59,13 +60,11 @@ export function useDevServers(project: Project, threadId?: string): DevServers {
   const [started, setStarted] = useState<{ configId: string; name: string; url: string; since: number; jobId: string | null } | null>(null)
   const [, setTick] = useState(0)
   const printedKey = threadId ? `thread:${threadId}` : project.id
-  const [printed, setPrintedState] = useState<Record<string, string>>(() => printedUrls.get(printedKey) ?? {})
-  const setPrinted = useCallback((update: (current: Record<string, string>) => Record<string, string>): void => setPrintedState(current => { const next = update(current); printedUrls.set(printedKey, next); return next }), [printedKey])
   const jobs = useBackgroundStore(selectJobs(project.id))
   const jobOutput = useBackgroundStore(state => (started?.jobId ? state.outputByJob[started.jobId] : undefined))
   useEffect(() => {
     let cancelled = false
-    if (!project.rootPath) { setServers([]); setAutoVerify(null); return }
+    if (!project.rootPath) return
     void Promise.all([
       readText(project, '.claude/launch.json'),
       readText(project, 'package.json'),
@@ -122,9 +121,18 @@ export function useDevServers(project: Project, threadId?: string): DevServers {
   const printedUrl = started ? urlFromOutput(output) : null
   const starting = useMemo(() => started ? { name: started.name, url: started.url, since: started.since, printedUrl } : null, [started, printedUrl])
   const startedId = started?.configId
-  useEffect(() => { if (startedId && printedUrl) setPrinted(current => current[startedId] === printedUrl ? current : { ...current, [startedId]: printedUrl }) }, [startedId, printedUrl, setPrinted])
+  // OXE-306: the address a server printed, kept per project (or conversation) across mounts in printedUrls. The current
+  // run's address is read from its output while it runs, and kept in the cache by an effect that sets no state.
+  const printed = useMemo(() => {
+    const kept = printedUrls.get(printedKey) ?? {}
+    return startedId && printedUrl && kept[startedId] !== printedUrl ? { ...kept, [startedId]: printedUrl } : kept
+  }, [printedKey, startedId, printedUrl])
+  useEffect(() => { if (startedId && printedUrl) printedUrls.set(printedKey, printed) }, [printedKey, startedId, printedUrl, printed])
   const urlOf = useCallback((config: DevServerConfig): string => printed[config.id] ?? config.url, [printed])
-  return useMemo(() => ({ servers, autoVerify, isRunning, urlOf, starting, settle, start, stop, refresh }), [servers, autoVerify, isRunning, urlOf, starting, settle, start, stop, refresh])
+  // A project with no folder has no dev servers, whatever an earlier project found (derived, not reset by the effect).
+  const shownServers = project.rootPath ? servers : NO_SERVERS
+  const shownAutoVerify = project.rootPath ? autoVerify : null
+  return useMemo(() => ({ servers: shownServers, autoVerify: shownAutoVerify, isRunning, urlOf, starting, settle, start, stop, refresh }), [shownServers, shownAutoVerify, isRunning, urlOf, starting, settle, start, stop, refresh])
 }
 
 interface DevServerMenuProps {
