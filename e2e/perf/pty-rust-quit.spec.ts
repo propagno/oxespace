@@ -4,9 +4,10 @@
  * The built app with 4 running shells quits by the three ways a person does it: the menu's Quit (the role:'quit' item
  * of the application menu), closing the window, and app.quit(). Each way runs OXESPACE_PTY_QUIT_ROUNDS times (30 in
  * .github/workflows/pty-host.yml) for each arm:
- *  - A, node-pty in the main process (today): the baseline of OXE-392, reported and never asserted. The isolated proof
+ *  - A, node-pty in the main process (OXESPACE_PTY_HOST=main, the app before OXE-400): the baseline of OXE-392,
+ *    reported and never asserted. The isolated proof
  *    measured 7 to 10 unclean quits in 90 on Windows (access violations and hangs).
- *  - B, node-pty in the PTY host utility process (OXESPACE_PTY_HOST=utility): every quit must be clean, exit code 0
+ *  - B, node-pty in the PTY host utility process (the default): every quit must be clean, exit code 0
  *    and no signal, within 30 s.
  * Lines: `[PTY-QUIT] <arm> <way> clean=<n>/<total> unclean=<codes>`. Built app, real PTYs, CI only.
  */

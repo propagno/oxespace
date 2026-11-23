@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from 'vitest'
-import { HOST_GONE_EXIT_CODE, type PtyHostEvent, type PtyHostRequest } from '../electron/main/services/terminal/pty-host-protocol'
-import { utilityPtyModule, type PtyHostProcess } from '../electron/main/services/terminal/utility-pty'
+import { HOST_GONE_EXIT_CODE, ptyHostMode, type PtyHostEvent, type PtyHostRequest } from '../electron/main/services/terminal/pty-host-protocol'
+import { appPtyOption, utilityPtyModule, type PtyHostProcess } from '../electron/main/services/terminal/utility-pty'
 
 /*
- * OXE-400 · node-pty in a utility process (OXESPACE_PTY_HOST=utility). The main side is an IPty proxy over messages;
+ * OXE-400 · node-pty in a utility process, the app's default (OXESPACE_PTY_HOST=main keeps it in the main process). The main side is an IPty proxy over messages;
  * these tests drive it with a fake host. The real host and the app are covered by e2e/perf/pty-rust-*.spec.ts.
  */
 class FakeHost implements PtyHostProcess {
@@ -137,5 +137,21 @@ describe('the PTY host proxy (OXE-400)', () => {
     module.spawn('/bin/bash', [], OPTIONS)
     module.dispose()
     expect(hosts[0].killed).toBe(true)
+  })
+})
+
+describe('where node-pty runs (OXE-400)', () => {
+  test('the PTY host is the default; OXESPACE_PTY_HOST=main is the way back', () => {
+    expect(ptyHostMode({})).toBe('utility')
+    expect(ptyHostMode({ OXESPACE_PTY_HOST: 'utility' })).toBe('utility')
+    expect(ptyHostMode({ OXESPACE_PTY_HOST: '' })).toBe('utility')
+    expect(ptyHostMode({ OXESPACE_PTY_HOST: 'main' })).toBe('main')
+    expect(ptyHostMode({ OXESPACE_PTY_HOST: ' MAIN ' })).toBe('main')
+  })
+
+  test('with OXESPACE_PTY_HOST=main the app gets no PTY module, so TerminalManager keeps node-pty in main', async () => {
+    const warn = vi.fn()
+    await expect(appPtyOption({ OXESPACE_PTY_HOST: 'main' }, '/out/main/pty-host.js', warn)).resolves.toEqual({})
+    expect(warn).not.toHaveBeenCalled()
   })
 })

@@ -1,7 +1,7 @@
 /**
  * OXE-400 CA-1 · A crash of the PTY host leaves the app running, and the pane shows its terminal ended.
  *
- * Arm B: node-pty in the PTY host utility process (OXESPACE_PTY_HOST=utility), the recommendation of the measured
+ * Arm B: node-pty in the PTY host utility process (the app's default), the recommendation of the measured
  * proof (docs/validation/pty-rust-poc.md). The host is killed from outside, the way a native crash in node-pty ends
  * it. Baseline, arm A: node-pty runs in the main process, so the same fault is the app itself ending; the proof
  * measured it (a thrown data listener aborts the app on quit, 5/5 on Windows). Built app, real PTYs, CI only

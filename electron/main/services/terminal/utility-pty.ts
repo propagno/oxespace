@@ -1,6 +1,6 @@
 /**
  * OXE-400 · A PtyModule whose terminals live in the PTY host utility process (electron/main/workers/pty-host.ts)
- * instead of the main process. Loaded only when OXESPACE_PTY_HOST=utility; the default keeps node-pty in main.
+ * instead of the main process. The default since 23/11; OXESPACE_PTY_HOST=main keeps node-pty in the main process.
  *
  * Each terminal is a HostedPty, an IPty the rest of the app uses as it uses node-pty's. What changes:
  * - `pid` is 0 until the host reports the spawn, a few milliseconds later; `process` is the last name the host
@@ -12,7 +12,7 @@
  */
 import type { IDisposable, IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import type { PtyModule } from './session-start'
-import { HOST_GONE_EXIT_CODE, type PtyHostEvent, type PtyHostRequest } from './pty-host-protocol'
+import { HOST_GONE_EXIT_CODE, ptyHostMode, type PtyHostEvent, type PtyHostRequest } from './pty-host-protocol'
 
 /** What this module needs of the host process: Electron's UtilityProcess in the app, a fake in tests. */
 export interface PtyHostProcess {
@@ -143,7 +143,15 @@ export function utilityPtyModule(forkHost: () => PtyHostProcess, onHostExit?: (c
   }
 }
 
-/** The app's PtyModule when OXESPACE_PTY_HOST=utility (electron/main/index.ts): the built worker at `entry`. */
+/**
+ * The TerminalManager option electron/main/index.ts spreads: the PTY host (the built worker at `entry`) by default,
+ * nothing (node-pty in main) when OXESPACE_PTY_HOST=main. The host process itself starts with the first terminal.
+ */
+export async function appPtyOption(env: NodeJS.ProcessEnv, entry: string, warn: (message: string) => void): Promise<{ pty?: UtilityPtyModule }> {
+  return ptyHostMode(env) === 'main' ? {} : { pty: await appPtyHost(entry, warn) }
+}
+
+/** The app's PtyModule over the built worker at `entry`. */
 export async function appPtyHost(entry: string, warn: (message: string) => void): Promise<UtilityPtyModule> {
   return utilityPtyModule(await forkUtilityPtyHost(entry), code => warn(`[terminal] PTY host exited (${code}); its terminals ended`))
 }

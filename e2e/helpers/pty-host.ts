@@ -6,8 +6,8 @@ import { join } from 'node:path'
 import { launchForPerf } from './perf-launch'
 
 /**
- * OXE-400 · The built app with real PTYs, node-pty where it runs today (arm A, the baseline) or in the PTY host
- * utility process (arm B, OXESPACE_PTY_HOST=utility). Used by e2e/perf/pty-rust-*.spec.ts, which run in
+ * OXE-400 · The built app with real PTYs, node-pty in the main process (arm A, OXESPACE_PTY_HOST=main, the app before
+ * OXE-400) or in the PTY host utility process (arm B, the default). Used by e2e/perf/pty-rust-*.spec.ts, which run in
  * .github/workflows/pty-host.yml, never in the smoke run.
  */
 export type PtyArm = 'A' | 'B'
@@ -23,7 +23,8 @@ export function armEnv(arm: PtyArm, root: string): Record<string, string> {
     OXESPACE_DISABLE_SINGLE_INSTANCE: '1',
     OXESPACE_E2E_MOCK_NATIVE: '0',
     OXESPACE_DB_PATH: join(root, 'db.sqlite3'),
-    ...(arm === 'B' ? { OXESPACE_PTY_HOST: 'utility' } : {})
+    // Explicit for both arms: the PTY host is the app's default since OXE-400; main is the way back.
+    OXESPACE_PTY_HOST: arm === 'B' ? 'utility' : 'main'
   }
 }
 

@@ -24,8 +24,13 @@ export type PtyHostEvent =
   | { t: 'process'; id: number; process: string }
   | { t: 'exit'; id: number; exitCode: number; signal?: number }
 
-/** The environment switch: unset (the default) keeps node-pty in the main process. */
+/** The environment switch. The PTY host is the default since OXE-400 (23/11, the user's decision after the proof). */
 export const PTY_HOST_ENV = 'OXESPACE_PTY_HOST'
+
+/** Where node-pty runs: the PTY host utility process, unless OXESPACE_PTY_HOST=main asks for the main process. */
+export function ptyHostMode(env: NodeJS.ProcessEnv): 'utility' | 'main' {
+  return env[PTY_HOST_ENV]?.trim().toLowerCase() === 'main' ? 'main' : 'utility'
+}
 
 /** The exit code a terminal reports when its host process ended under it (crash, kill, quit). */
 export const HOST_GONE_EXIT_CODE = 1

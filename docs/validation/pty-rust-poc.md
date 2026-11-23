@@ -1,6 +1,6 @@
 # Prova de conceito: onde e com o quê hospedar o PTY (OXE-400)
 
-Estado: **medida na forma isolada e dentro do app** (23/11). Versão-alvo 1.7.0. O node-pty num `utilityProcess` está no app atrás de `OXESPACE_PTY_HOST=utility`, desligada por padrão; ligá-la por padrão é uma decisão do usuário.
+Estado: **medida na forma isolada e dentro do app; o host é o padrão** (23/11). Pelo card, o alvo era a 1.7.0; o usuário decidiu em 23/11 ligar o host por padrão já na 1.6.0. `OXESPACE_PTY_HOST=main` volta o node-pty para o processo principal.
 
 ## Resposta curta
 
@@ -20,12 +20,12 @@ Estado: **medida na forma isolada e dentro do app** (23/11). Versão-alvo 1.7.0.
 
 ## Fase dentro do app (23/11)
 
-O usuário aprovou a recomendação em 23/11. O node-pty passou a rodar num `utilityProcess` dentro do app, atrás de `OXESPACE_PTY_HOST=utility`, que fica desligada por padrão.
+O usuário aprovou a recomendação em 23/11. O node-pty passou a rodar num `utilityProcess` dentro do app. Depois das provas abaixo, o usuário decidiu ligá-lo por padrão: o host é o padrão, e `OXESPACE_PTY_HOST=main` é a saída de emergência para o comportamento anterior.
 
 **O que mudou:**
 - `electron/main/workers/pty-host.ts` é o host. Ele roda o node-pty, e todos os callbacks do node-pty estão protegidos.
-- `electron/main/services/terminal/utility-pty.ts` é o `IPty` que o `TerminalService` recebe pela costura que já existia (`PtyModule`). Ele só é carregado com a flag ligada. Com a flag desligada, a entrada principal ganha apenas a linha da flag: ficou em 568 kB, com 8,4% de folga.
-- **Diferenças com a flag ligada:**
+- `electron/main/services/terminal/utility-pty.ts` é o `IPty` que o `TerminalService` recebe pela costura que já existia (`PtyModule`). Ele é carregado sob demanda: a entrada principal ganha apenas a linha da flag e ficou em 568 kB, com 8,4% de folga. O processo do host só sobe com o primeiro terminal.
+- **Diferenças em relação ao node-pty no processo principal:**
   - o `pid` chega alguns milissegundos depois do spawn;
   - o nome do processo em primeiro plano é o último informado pelo host, no máximo a cada 500 ms;
   - um spawn que falha mostra o motivo no terminal e o encerra;
