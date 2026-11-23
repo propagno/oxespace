@@ -17,6 +17,12 @@
   border-color: var(--intent-warning-border);
   background: var(--intent-warning-bg);
 }
+/* The lean request: a 3 px --attn rule on the left, the rest of the border in --attn-border. */
+.impact {
+  border: 1px solid var(--attn-border);
+  border-left: 3px solid var(--attn);
+  border-radius: var(--radius-lg);
+}
 
 .question { display: flex; flex-direction: column; max-height: min(620px, calc(100dvh - 260px)); }
 :global(.thread-pending-requests) .question { max-height: calc(var(--request-cap) - 6px); }
@@ -25,6 +31,8 @@
 :global(.thread-pending-requests) .root:not(.question) > * { flex-shrink: 0; }
 :global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy, .factsWrap) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .question > header, .question > nav, .question > footer { flex-shrink: 0; }
+/* The question's sun: its title is text, so it takes the attention text token (--attn is 3.5:1 on the card, under AA). */
+.question > header { color: var(--attn-fg); }
 
 .root > header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--bd-subtle); }
 .amber > header { border-bottom-color: var(--intent-warning-border); }
@@ -38,6 +46,26 @@
 .root > header p { margin: var(--space-1) 0 0; color: var(--tx-secondary); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .context { margin: var(--space-2) var(--space-4); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
+.origin { margin: 0 var(--space-4) var(--space-2); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.command {
+  position: relative;
+  margin: 0 var(--space-4) var(--space-2);
+  padding: var(--space-3) var(--space-8) var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--tx-primary);
+}
+.command code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.copy { position: absolute; top: var(--space-1); inset-inline-end: var(--space-1); }
+.live { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.split { display: inline-flex; }
+.decided { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; color: var(--tx-secondary); font-size: var(--fs-sm); }
 .factsWrap { padding: var(--space-2) var(--space-4); }
 
 .policy { margin: var(--space-2) var(--space-4); padding: var(--space-2) var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }

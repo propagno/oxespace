@@ -12,7 +12,7 @@ import { mainLanguage, systemLocale, tMain } from './i18n'
 import { messageKey, messageValues } from '../../shared/messages'
 import { ApprovalNotifier } from './services/approvals/approval-notifier'
 import { randomUUID } from 'node:crypto'
-import { realpathSync } from 'node:fs'
+import { existsSync, realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -280,6 +280,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
   const terminalManager: TerminalManager = new TerminalManager(db, {
+    rootExists: existsSync, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     grantProxy: origin => hostsProxy.grant(origin),
     observer: agentState,

@@ -101,23 +101,23 @@ export function summarizeThreadEvents(events: ThreadEvent[]): ThreadEventSummary
   return summary
 }
 
-/** Rows a fold never hides: what was asked, the answer, and anything that still needs the person. */
+/** Rows a fold never hides: what was asked, the answer, a plan (a decision stays open), and anything that still needs the person. */
 function staysVisible(row: ThreadTimelineRow, finalAnswerKey: string | undefined): boolean {
   const event = row.event
   if (event.type === 'message') return event.role === 'user' || row.key === finalAnswerKey
-  return event.type === 'completed' || event.type === 'turn-fold'
+  return event.type === 'completed' || event.type === 'turn-fold' || event.type === 'plan'
 }
 
-/** Counts the steps a fold stands for: each action inside a group, otherwise one per row. */
+/** Counts the tool steps a fold stands for. Thoughts and messages are not actions. */
 function stepCount(rows: ThreadTimelineRow[]): number {
-  // A thought is not a step: "Completed 3 steps" counts what the agent did.
-  return rows.reduce((sum, row) => sum + (row.event.type === 'activity-group' ? row.event.events.length : row.event.type === 'reasoning' ? 0 : 1), 0)
+  return rows.reduce((sum, row) => sum + (row.event.type === 'activity-group' ? row.event.events.length : row.event.type === 'tool' ? 1 : 0), 0)
 }
 
 /**
  * Folds the intermediate rows of finished turns, so a long conversation reads as questions and answers.
- * A turn folds only when it completed successfully, has at least two intermediate rows, and no unresolved
- * request; failures, interruptions and the running turn stay open. `expanded` lists the turns the person opened.
+ * A turn folds only when it completed successfully, has at least two tool steps (or one tool step beside
+ * another hidden row), and no unresolved request; failures, interruptions and the running turn stay open.
+ * `expanded` lists the turns the person opened.
  */
 export function foldFinishedTurns(turns: ThreadTimelineTurn[], expanded: ReadonlySet<string>, unresolvedRequestIds: ReadonlySet<string> = new Set()): ThreadTimelineTurn[] {
   return turns.map(turn => {
@@ -140,8 +140,10 @@ function foldTurn(turn: ThreadTimelineTurn, open: boolean): ThreadTimelineTurn {
   const answers = turn.rows.filter(row => row.event.type === 'message' && row.event.role === 'assistant')
   const finalAnswerKey = answers.at(-1)?.key
   const hidden = turn.rows.filter(row => !staysVisible(row, finalAnswerKey))
-  if (hidden.length < 2) return turn
-  const fold: ThreadTimelineRow = { key: `${turn.id}:turn-fold`, event: { type: 'turn-fold', id: turn.id, steps: stepCount(hidden), expanded: open } }
+  const steps = stepCount(hidden)
+  // One lone tool stays open. Two tools in a single group, or one tool beside another hidden row, fold.
+  if (steps < 1 || (steps < 2 && hidden.length < 2)) return turn
+  const fold: ThreadTimelineRow = { key: `${turn.id}:turn-fold`, event: { type: 'turn-fold', id: turn.id, steps, expanded: open } }
   // The fold sits where the work started: after the prompt, before the first hidden row.
   const firstHidden = turn.rows.indexOf(hidden[0])
   const rows = open
