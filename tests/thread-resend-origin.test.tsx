@@ -109,15 +109,16 @@ async function windowWith(events: ThreadEvent[], status: 'idle' | 'failed' = 'fa
 const prompt = (): ThreadEvent => ({ type: 'message', id: 'turn-1', role: 'user', text: STORED })
 
 describe('a stored message resent from the window never runs as a command', () => {
-  it('the status line\'s Retry', async () => {
+  // The header has no status line since #1025: a failed step's Retry is the failure card's, in the timeline.
+  it('the failure card\'s Retry', async () => {
     const w = await windowWith([prompt(), { type: 'completed', status: 'failed', error: 'The connection dropped' }])
     const { container } = render(<ThreadView workspace={w.workspace} />)
-    const line = await waitFor(() => {
-      const found = container.querySelector<HTMLElement>('.thread-now-line[data-kind="error"]')
+    const card = await waitFor(() => {
+      const found = container.querySelector<HTMLElement>('.thread-failure-card')
       expect(found).not.toBeNull()
       return found!
     })
-    fireEvent.click(within(line).getByRole('button', { name: 'Retry the failed step' }))
+    fireEvent.click(within(card).getByRole('button', { name: 'Retry turn' }))
     await waitFor(() => expect(w.settled).toHaveLength(1), { timeout: 10_000 })
     expect(w.access()).toBe('read-only')
     expect(w.settled[0].error).toBe('thread.command.windowOnly')
