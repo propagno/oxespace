@@ -31,22 +31,31 @@ async function renderCard(alwaysAllow: Props, text?: string) {
   render(<><Card request={request(alwaysAllow, text)} agent="Claude" disabled={false} onRespond={onRespond} conversationId="t-1" /><Toaster /></>)
   return onRespond
 }
-const actionButtons = () => screen.getAllByRole('button').map(button => button.textContent?.replace(/\s+[DA]$/, '').trim()).filter(label => label !== 'Copy exact text')
+const actionButtons = () => screen.getAllByRole('button').map(button => (button.textContent?.trim() || button.getAttribute('aria-label') || '').replace(/\s+[DA]$/, '').trim()).filter(label => label !== 'Copy exact text')
+
+async function openAlwaysAllow(label = 'Always allow in this project…') {
+  const menuTrigger = await screen.findByRole('button', { name: /More ways to allow|Mais opções para permitir/ })
+  await userEvent.click(menuTrigger)
+  await userEvent.click(await screen.findByRole('menuitem', { name: label }))
+}
 
 afterEach(async () => { cleanup(); await changeLanguage('en') })
 
 describe('U7.3 · Always allow, with the provider rule', () => {
-  test('an offered command reads Deny, Allow once, Always allow…', { timeout: 30_000 }, async () => {
+  test('an offered command reads Deny, Allow once, and offers Always allow in the allow menu', { timeout: 30_000 }, async () => {
     mockMain()
     await renderCard(CLAUDE_RULE)
-    await screen.findByRole('button', { name: 'Always allow…' })
-    expect(actionButtons()).toEqual(['Deny', 'Allow once', 'Always allow…'])
+    const menuTrigger = await screen.findByRole('button', { name: 'More ways to allow' })
+    expect(menuTrigger).toHaveAttribute('data-ui', 'allow-menu')
+    expect(actionButtons()).toEqual(['Deny', 'Allow once', 'More ways to allow'])
+    await userEvent.click(menuTrigger)
+    expect(await screen.findByRole('menuitem', { name: 'Always allow in this project…' })).toBeInTheDocument()
   })
 
   test('Always allow… shows the exact Claude project rule with Cancel focused; Cancel writes nothing', { timeout: 30_000 }, async () => {
     const main = mockMain()
     const onRespond = await renderCard(CLAUDE_RULE)
-    await userEvent.click(await screen.findByRole('button', { name: 'Always allow…' }))
+    await openAlwaysAllow()
     const confirm = await screen.findByRole('dialog')
     expect(within(confirm).getByText(/Adds to this project's Claude Code rules:/)).toBeInTheDocument()
     expect(within(confirm).getByText('Bash(npm test:*)')).toBeInTheDocument()
@@ -59,7 +68,7 @@ describe('U7.3 · Always allow, with the provider rule', () => {
   test('confirming writes the rule through main, answers accept, and the toast offers Open to revoke it', { timeout: 30_000 }, async () => {
     const main = mockMain()
     const onRespond = await renderCard(CLAUDE_RULE)
-    await userEvent.click(await screen.findByRole('button', { name: 'Always allow…' }))
+    await openAlwaysAllow()
     const confirm = await screen.findByRole('dialog')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Always allow' }))
     expect(main.alwaysAllow).toHaveBeenCalledWith('r1')
@@ -71,7 +80,7 @@ describe('U7.3 · Always allow, with the provider rule', () => {
   test('a refusal from main answers nothing and shows no Always allowed toast', { timeout: 30_000 }, async () => {
     const main = mockMain({ ok: false, code: 'approvals.alwaysAllow.outsideProject' })
     const onRespond = await renderCard(CLAUDE_RULE)
-    await userEvent.click(await screen.findByRole('button', { name: 'Always allow…' }))
+    await openAlwaysAllow()
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Always allow' }))
     await waitFor(() => expect(main.alwaysAllow).toHaveBeenCalledWith('r1'))
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -82,7 +91,7 @@ describe('U7.3 · Always allow, with the provider rule', () => {
   test("a rule for a project script says it runs this project's code, and where the script is defined", { timeout: 30_000 }, async () => {
     mockMain()
     await renderCard({ ...CLAUDE_RULE, runsProjectCode: true, definedIn: 'package.json' })
-    await userEvent.click(await screen.findByRole('button', { name: 'Always allow…' }))
+    await openAlwaysAllow()
     const confirm = await screen.findByRole('dialog')
     expect(within(confirm).getByText(/runs this project's code/)).toBeInTheDocument()
     expect(within(confirm).getByText(/package.json/)).toBeInTheDocument()
@@ -91,7 +100,8 @@ describe('U7.3 · Always allow, with the provider rule', () => {
   test('a Codex rule says it is for this Codex session only', { timeout: 30_000 }, async () => {
     mockMain({ ok: true, rule: CODEX_RULE.rule })
     await renderCard(CODEX_RULE)
-    await userEvent.click(await screen.findByRole('button', { name: 'Always allow…' }))
+    // liberação de teste congelado: coordenação 22/11, constraint do 8e: a regra de sessão do Codex não promete o projeto; o item é o f7.card.alwaysAllowEllipsis
+    await openAlwaysAllow('Always allow…')
     expect(within(await screen.findByRole('dialog')).getByText('Allowed for this Codex session only.')).toBeInTheDocument()
   })
 
@@ -115,7 +125,7 @@ describe('U7.3 · Always allow, with the provider rule', () => {
     await changeLanguage('pt-BR')
     mockMain()
     await renderCard(CLAUDE_RULE)
-    await userEvent.click(await screen.findByRole('button', { name: 'Sempre permitir…' }))
+    await openAlwaysAllow('Sempre permitir neste projeto…')
     expect(within(await screen.findByRole('dialog')).getByText(/Adiciona às regras do Claude Code deste projeto:/)).toBeInTheDocument()
     cleanup()
     mockMain()

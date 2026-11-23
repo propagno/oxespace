@@ -84,7 +84,7 @@ describe('Thread command approval', () => {
     expect(within(shown).getByRole('listitem')).toHaveTextContent('Multiply each price by its quantity')
     expect(container.querySelector('pre')).toBeNull()
     expect(container).not.toHaveTextContent('## Context')
-    expect(screen.getByRole('button', { name: 'Allow' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible()
   })
   it('renders ExitPlanMode plans as readable Markdown while retaining the exact request', () => {
     const plan = '# Delivery plan\n\n- Verify the UI\n- Publish after approval'

@@ -38,8 +38,8 @@ export interface FoldSummary {
 
 const TARGET_LIMIT = 160
 const READ_NAMES = new Set(['Read', 'Grep', 'Glob', 'LS', 'read_file', 'list_dir', 'grep_files'])
-const EDIT_NAMES = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch'])
-const RUN_NAMES = new Set(['Bash', 'PowerShell', 'BashOutput', 'KillShell', 'shell', 'command', 'exec_command', 'write_stdin', 'local_shell', 'unified_exec'])
+const EDIT_NAMES = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'apply_patch', 'fileChange'])
+const RUN_NAMES = new Set(['Bash', 'PowerShell', 'BashOutput', 'KillShell', 'shell', 'command', 'exec_command', 'write_stdin', 'local_shell', 'unified_exec', 'commandExecution'])
 const HTTP_NAMES = new Set(['WebFetch', 'WebSearch', 'web_search'])
 const OTHER_NAMES = new Set(['update_plan', 'Task', 'ExitPlanMode', 'AskUserQuestion', 'Skill'])
 const TRAILING_PUNCT = /[.,;:!?)\]}]+$/

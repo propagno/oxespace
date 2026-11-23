@@ -8,8 +8,10 @@
  * and DB latency are measured separately (see the boot-timing harness / DevTools).
  *
  * Run: npx vitest bench --run tests/bench/hotpaths.bench.ts
+ *
+ * Vitest 5 (OXE-352): `bench` is the test context's fixture, not an export of `vitest`; one test compares the group.
  */
-import { bench, describe } from 'vitest'
+import { test } from 'vitest'
 import { stripTerminalControl, sanitizeTerminalPreview } from '../../src/utils/paneDisplay'
 
 // ─── Terminal hot path fixtures ─────────────────────────────────────────────
@@ -34,10 +36,12 @@ const plain2k = 'building module abcdefg '.repeat(85)
 // eslint-disable-next-line no-console
 console.log(`[fixtures] ansi2k=${ansi2k.length}B  ansi16k=${ansi16k.length}B  plain2k=${plain2k.length}B`)
 
-describe('terminal hot path — runs per PTY chunk (10s-100s/sec during streaming)', () => {
-  bench('stripTerminalControl — 2KB ANSI chunk', () => { stripTerminalControl(ansi2k) })
-  bench('stripTerminalControl — 16KB ANSI chunk', () => { stripTerminalControl(ansi16k) })
-  bench('stripTerminalControl — 2KB plain (no ANSI)', () => { stripTerminalControl(plain2k) })
-  bench('sanitizeTerminalPreview — 2KB ANSI chunk', () => { sanitizeTerminalPreview(ansi2k) })
-  bench('sanitizeTerminalPreview — 16KB ANSI chunk', () => { sanitizeTerminalPreview(ansi16k) })
+test('terminal hot path — runs per PTY chunk (10s-100s/sec during streaming)', async ({ bench }) => {
+  await bench.compare(
+    bench('stripTerminalControl — 2KB ANSI chunk', () => { stripTerminalControl(ansi2k) }),
+    bench('stripTerminalControl — 16KB ANSI chunk', () => { stripTerminalControl(ansi16k) }),
+    bench('stripTerminalControl — 2KB plain (no ANSI)', () => { stripTerminalControl(plain2k) }),
+    bench('sanitizeTerminalPreview — 2KB ANSI chunk', () => { sanitizeTerminalPreview(ansi2k) }),
+    bench('sanitizeTerminalPreview — 16KB ANSI chunk', () => { sanitizeTerminalPreview(ansi16k) })
+  )
 })
