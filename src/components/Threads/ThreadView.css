@@ -84,11 +84,11 @@
 /* One column: its content box is the message box's box (the dock pads by the same gutter), at every width. Beside
    a second pane the canvas is a little narrower. */
 .thread-grid.is-split .thread-reading-column, .thread-grid.is-split .thread-composer-column { --thread-canvas-max: 760px; }
-/* One left axis (AG-10 §2.1, OXE-167): the reading column is the generated --measure-chat (800 px); the gutter is the timeline's. */
+/* One left axis (AG-10 §2.1, OXE-167, OXE-401): the reading column tracks --thread-canvas-max (defaulting to --measure-chat: 1200 px) so single and split modes stay aligned with the composer; the gutter is the timeline's. */
 .thread-timeline { padding-inline: var(--thread-gutter); }
-.thread-reading-column { width: 100%; max-width: var(--measure-chat); padding: var(--space-5) 0; margin: 0 auto; }
-/* The workbench's reading-column rule is older and more specific: the chat column keeps the one 800 px axis. */
-.thread-workbench .thread-timeline > .thread-reading-column[data-ui="chat-column"] { width: 100%; padding-inline: 0; max-width: var(--measure-chat); }
+.thread-reading-column { width: 100%; max-width: var(--thread-canvas-max, var(--measure-chat)); padding: var(--space-5) 0; margin: 0 auto; }
+/* The workbench's reading-column rule is older and more specific: the chat column keeps the unified canvas axis. */
+.thread-workbench .thread-timeline > .thread-reading-column[data-ui="chat-column"] { width: 100%; padding-inline: 0; max-width: var(--thread-canvas-max, var(--measure-chat)); }
 .thread-timeline-request { margin: 12px 0; }
 .thread-virtual-space { width: 100%; min-height: 1px; }
 .thread-virtual-row { display: flow-root; width: 100%; }
@@ -125,7 +125,7 @@
 .thread-delivery-note.is-rejected { color: var(--intent-danger-solid); }
 /* A long reason wraps in its own column; the button beside it keeps its words on one line. */
 .thread-delivery-text { min-width: 0; overflow-wrap: anywhere; }
-.thread-delivery-note button { flex: none; white-space: nowrap; margin-left: auto; padding: 2px 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.thread-delivery-note button { flex: none; white-space: nowrap; margin-left: auto; padding: 2px 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .thread-delivery-note button:disabled { opacity: 0.5; cursor: default; }
 .thread-long-prompt-preview { margin: 0; color: var(--tx-primary); line-height: 1.55; }
 .thread-view .thread-long-prompt > button { margin-top: 8px; padding: 3px 0; color: var(--tx-secondary); font-size: var(--fs-2xs); }
@@ -212,14 +212,14 @@
 .thread-live-activity { max-width: min(100%, var(--thread-prose-max)); margin: 8px 0 12px; padding: 2px 0; border: 0; border-radius: 0; background: transparent; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-live-activity.is-stale { padding: 8px 10px; border: 1px solid var(--intent-warning-solid); border-radius: var(--radius-md); }
 .thread-live-activity.is-awaiting-input { padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--intent-warning-solid) 55%, var(--bd-default)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--intent-warning-solid) 6%, var(--surface-raised)); }
-.thread-live-activity.is-awaiting-input .thread-live-activity-main > svg, .thread-live-activity.is-reconnecting .thread-live-activity-main > svg { color: var(--intent-warning-solid); }
+.thread-live-activity.is-awaiting-input .thread-live-activity-main > svg, .thread-live-activity.is-reconnecting .thread-live-activity-main > svg { color: var(--intent-warning-fg); }
 .thread-live-activity-main, .thread-live-activity-meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .thread-live-activity-main { color: var(--tx-primary); }
 .thread-live-activity-main > svg { flex-shrink: 0; }
 .thread-live-activity-main > span[role="status"] { display: flex; align-items: baseline; flex: 1; min-width: 0; }
 /* The running step's own clock and, past three times its usual run here, a quiet note that it is slow. */
 .thread-live-activity-tool, .thread-live-activity-slow { flex: none; white-space: pre; font-variant-numeric: tabular-nums; color: var(--tx-muted); }
-.thread-live-activity-slow { color: var(--intent-warning-solid); }
+.thread-live-activity-slow { color: var(--intent-warning-fg); }
 .thread-live-activity-main strong { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .thread-live-activity-main time { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--tx-muted); }
 .thread-live-activity-main time { flex-shrink: 0; }
@@ -311,7 +311,7 @@
 .thread-prompt-queue { margin-bottom: 8px; overflow: hidden; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
 .thread-prompt-queue > header { display: flex; align-items: center; gap: 7px; padding: 7px 10px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-prompt-queue > header small { margin-left: auto; }
-.thread-queue-pause { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 10px; border-top: 1px solid var(--bd-default); color: var(--intent-warning-solid); font-size: var(--fs-xs); }
+.thread-queue-pause { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 10px; border-top: 1px solid var(--bd-default); color: var(--intent-warning-fg); font-size: var(--fs-xs); }
 .thread-queue-pause > span { flex: 1 1 100%; }
 .thread-queue-pause button { padding: 3px 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-primary); background: transparent; font: inherit; }
 .thread-queue-item { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 8px 7px 10px; border-top: 1px solid var(--bd-default); font-size: var(--fs-xs); }
@@ -319,7 +319,7 @@
 .thread-queue-item > span, .thread-queue-item > input { flex: 1; min-width: 0; }
 .thread-queue-item > input { padding: 5px 7px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-primary); background: var(--surface-base); font: inherit; }
 .thread-queue-item > small { flex-shrink: 0; color: var(--tx-muted); }
-.thread-queue-item > p { order: 2; flex-basis: 100%; display: flex; align-items: center; gap: 6px; margin: 2px 0 0; color: var(--intent-warning-solid); font-size: var(--fs-2xs); }
+.thread-queue-item > p { order: 2; flex-basis: 100%; display: flex; align-items: center; gap: 6px; margin: 2px 0 0; color: var(--intent-warning-fg); font-size: var(--fs-2xs); }
 .thread-queue-item button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--tx-muted); }
 .thread-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .thread-attachments > div { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 5px 7px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); font-size: var(--fs-2xs); }
@@ -328,11 +328,11 @@
 .thread-message-attachments small { color: var(--tx-muted); }
 .thread-attachments span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-attachments small { color: var(--tx-muted); white-space: nowrap; }
-.thread-attachments button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; }
+.thread-attachments button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; }
 .thread-command-popup { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: var(--layer-dropdown); display: flex; flex-direction: column; max-height: min(360px, calc(100dvh - 240px)); overflow: hidden; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-3); }
 .thread-command-popup>header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: var(--tx-secondary); font-size: var(--fs-xs); border-bottom: 1px solid var(--bd-default); }
 .thread-command-popup>header small { margin-left: auto; color: var(--tx-muted); }
-.thread-command-popup>header>button { margin-left: auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--tx-muted); cursor: pointer; }
+.thread-command-popup>header>button { margin-left: auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; }
 .thread-command-popup>header>button:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .thread-command-popup>header>button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thread-command-popup>header>button:disabled { opacity: .5; cursor: default; }
@@ -364,7 +364,7 @@
 .thread-connection-notice>svg { flex-shrink: 0; }
 .thread-connection-notice button { border: 1px solid var(--bd-default); padding: 4px 9px; font-size: var(--fs-2xs); flex-shrink: 0; }
 .thread-connection-notice button:first-of-type { margin-left: auto; }
-.thread-connection-notice.is-warning { color: var(--intent-warning-solid); }
+.thread-connection-notice.is-warning { color: var(--intent-warning-fg); }
 .thread-connection-notice.is-connected { color: var(--tx-muted); }
 .thread-action-error { max-height: 120px; overflow: auto; overflow-wrap: anywhere; }
 /* :where keeps this at the specificity it always had, so the agent cards' own label rule still wins. */
@@ -453,9 +453,9 @@
 .thread-tool-diagnostic-meta { display: flex; align-items: center; gap: 8px; min-height: 22px; }
 .thread-tool-diagnostic-meta span { display: inline-flex; align-items: center; min-height: 20px; padding: 0 7px; border: 1px solid var(--bd-default); border-radius: var(--radius-full); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 600; }
 .thread-tool-diagnostic-meta .is-infrastructure, .thread-tool-diagnostic-meta .is-failure { color: var(--intent-danger-solid); border-color: color-mix(in srgb, var(--intent-danger-solid) 40%, var(--bd-default)); background: color-mix(in srgb, var(--intent-danger-solid) 8%, transparent); }
-.thread-tool-diagnostic-meta .is-validation-warning { color: var(--intent-warning-solid); border-color: color-mix(in srgb, var(--intent-warning-solid) 40%, var(--bd-default)); background: color-mix(in srgb, var(--intent-warning-solid) 8%, transparent); }
+.thread-tool-diagnostic-meta .is-validation-warning { color: var(--intent-warning-fg); border-color: color-mix(in srgb, var(--intent-warning-solid) 40%, var(--bd-default)); background: color-mix(in srgb, var(--intent-warning-solid) 8%, transparent); }
 .thread-tool-diagnostic-meta .is-validation { color: var(--intent-success-solid); border-color: color-mix(in srgb, var(--intent-success-solid) 36%, var(--bd-default)); background: color-mix(in srgb, var(--intent-success-solid) 7%, transparent); }
-.thread-tool-diagnostic-meta .is-unconfirmed { color: var(--intent-warning-solid); border-color: color-mix(in srgb, var(--intent-warning-solid) 36%, var(--bd-default)); background: color-mix(in srgb, var(--intent-warning-solid) 7%, transparent); }
+.thread-tool-diagnostic-meta .is-unconfirmed { color: var(--intent-warning-fg); border-color: color-mix(in srgb, var(--intent-warning-solid) 36%, var(--bd-default)); background: color-mix(in srgb, var(--intent-warning-solid) 7%, transparent); }
 .thread-tool-diagnostic-meta time { color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-tool-technical { margin-top: 6px; }
 .thread-tool-technical>summary { display: inline-flex; min-height: 28px; padding: 0 7px; border: 1px solid var(--bd-default); color: var(--tx-secondary); }
@@ -581,7 +581,7 @@
 .thread-project-terminal .thread-shell-tab-main { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); white-space: nowrap; }
 .thread-shell-tab.is-selected .thread-shell-tab-main { color: var(--tx-primary); }
 .thread-project-terminal .thread-shell-tab-close, .thread-project-terminal .thread-terminal-icon { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); }
-.thread-project-terminal .thread-shell-tab-close { width: 20px; height: 20px; margin-right: 3px; }
+.thread-project-terminal .thread-shell-tab-close { width: 24px; height: 24px; margin-right: 3px; }
 .thread-project-terminal .thread-shell-tab-close:hover, .thread-project-terminal .thread-terminal-icon:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .thread-project-terminal .thread-terminal-icon:disabled { opacity: .4; }
 .thread-terminal-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tx-disabled); }
@@ -595,7 +595,7 @@
 .thread-project-terminal-content { flex: 1; min-height: 0; position: relative; }
 
 /* Permissions popover: sections, switch row and compact trigger badge. */
-.thread-config-badge { padding: 1px 6px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--intent-warning-solid) 16%, transparent); color: var(--intent-warning-solid); font-style: normal; font-size: var(--fs-2xs); white-space: nowrap; }
+.thread-config-badge { padding: 1px 6px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--intent-warning-solid) 16%, transparent); color: var(--intent-warning-fg); font-style: normal; font-size: var(--fs-2xs); white-space: nowrap; }
 .thread-config-popover .thread-access-directory { margin: 2px 0 6px; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-config-popover .thread-config-section-label { margin: 8px 0 2px; padding: 0 8px; font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-secondary); }
 .thread-config-popover .thread-config-hint { margin: 8px 0 2px; padding: 8px; border-top: 1px solid var(--bd-default); font-size: var(--fs-2xs); color: var(--tx-muted); }
@@ -603,8 +603,8 @@
 .thread-config-switch strong, .thread-config-switch small { display: block; }
 .thread-config-switch strong { font-weight: 500; }
 .thread-config-switch small { margin-top: 3px; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-config-switch > i { position: relative; flex: none; width: 28px; height: 16px; border-radius: var(--radius-full); background: var(--bd-default); transition: background var(--transition-fast); }
-.thread-config-switch > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--transition-fast); }
+.thread-config-switch > i { position: relative; flex: none; width: 28px; height: 16px; border-radius: var(--radius-full); background: var(--bd-default); transition: background var(--duration-fast) var(--ease-standard); }
+.thread-config-switch > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-config-switch[aria-checked='true'] > i { background: var(--accent); }
 .thread-config-switch[aria-checked='true'] > i::after { transform: translateX(12px); }
 
@@ -670,12 +670,12 @@
 .thread-sent-brief { margin-top: 4px; color: var(--tx-secondary); font-size: var(--fs-2xs); }
 .thread-sent-brief summary { cursor: pointer; }
 .thread-sent-brief pre { margin: 4px 0 0; padding: 6px 8px; border: 1px solid var(--bd-default); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.thread-find { display: flex; align-items: center; flex-shrink: 0; gap: 4px; margin: 0 auto; padding: 6px 12px; width: min(100%, var(--thread-reading-width, 820px)); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-find { display: flex; align-items: center; flex-shrink: 0; gap: 4px; margin: 0 auto; padding: 6px 12px; width: min(100%, var(--thread-canvas-max, var(--measure-chat))); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-find input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--bd-default); border-radius: 6px; color: var(--tx-primary); background: var(--surface-canvas); font: inherit; }
 .thread-find span { min-width: 64px; text-align: right; }
 .thread-find button { display: inline-flex; padding: 4px; border: 0; color: inherit; background: transparent; cursor: pointer; }
 .thread-find button:disabled { opacity: .4; cursor: default; }
-::highlight(thread-find) { color: var(--tx-on-accent); background-color: var(--intent-warning-solid); }
+::highlight(thread-find) { color: var(--tx-primary); background-color: var(--intent-warning-bg); }
 .thread-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .thread-welcome-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
