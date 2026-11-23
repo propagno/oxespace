@@ -84,8 +84,10 @@ class PhoneChatParityTest {
     fun settingsKeepsItsSubpageAndWarnsWhenNotificationsAreBlocked() {
         val settings = code("src/main/java/com/oxespace/mobile/ui/settings/SettingsScreen.kt")
         assertTrue("the open subpage survives a configuration change", Regex("""var destination by rememberSaveable""").containsMatchIn(settings))
-        assertTrue("the permission is read again on resume", Regex("""LifecycleResumeEffect[\s\S]{0,200}Notifications\(context\)\.allowed\(\)""").containsMatchIn(settings))
-        assertTrue("a Notice says notifications are blocked", Regex("""if \(!notificationsAllowed\)\s*\{\s*Notice\(""").containsMatchIn(settings))
+        assertTrue("the permission is read again on resume", Regex("""LifecycleResumeEffect[\s\S]{0,200}alertsAllowed = notificationsAllowed\(\)""").containsMatchIn(settings))
+        assertTrue("a Notice says notifications are blocked", Regex("""if \(!alertsAllowed\)\s*\{\s*Notice\(""").containsMatchIn(settings))
+        val activity = code("src/main/java/com/oxespace/mobile/MainActivity.kt")
+        assertTrue("the app passes Android's own answer", Regex("""notificationsAllowed = \{ Notifications\(this@MainActivity\)\.allowed\(\) \}""").containsMatchIn(activity))
         assertTrue("its action opens the app's settings", Regex("""settings_alerts_open_settings\)\)\s*\{\s*LocalNetworkAccess\.openAppSettings\(context\)""").containsMatchIn(settings))
     }
 }

@@ -29,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
@@ -40,7 +39,6 @@ import androidx.core.content.edit
 import com.oxespace.mobile.R
 import com.oxespace.mobile.approval.CRITICAL_ALLOW_HOLD_MS
 import com.oxespace.mobile.notify.AlertKind
-import com.oxespace.mobile.notify.Notifications
 import com.oxespace.mobile.ui.LocalNetworkAccess
 import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeAction
@@ -117,6 +115,9 @@ fun SettingsScreen(
     version: String? = null,
     onEnterAddress: (() -> Unit)? = null,
     onUnpair: (() -> Unit)? = null,
+    // OXE-385: whether Android lets the app post notifications (MainActivity reads Notifications.allowed()); read again on
+    // every resume. The default is the allowed state, which previews and snapshots draw.
+    notificationsAllowed: () -> Boolean = { true },
     onBack: () -> Unit,
 ) {
     var theme by remember { mutableStateOf(preferences.theme) }
@@ -126,11 +127,10 @@ fun SettingsScreen(
     // OXE-385: the open subpage survives a rotation (and any other configuration change).
     var destination by rememberSaveable { mutableStateOf(SettingsDestination.TOP) }
     // OXE-385: on Android 13+ the person may have blocked notifications; then the switches below do nothing. Read again on
-    // every resume, so coming back from the system settings updates it. Previews and snapshots draw the allowed state.
-    val inspecting = LocalInspectionMode.current
-    var notificationsAllowed by remember { mutableStateOf(true) }
+    // every resume, so coming back from the system settings updates it.
+    var alertsAllowed by remember { mutableStateOf(notificationsAllowed()) }
     LifecycleResumeEffect(Unit) {
-        if (!inspecting) notificationsAllowed = Notifications(context).allowed()
+        alertsAllowed = notificationsAllowed()
         onPauseOrDispose { }
     }
     if (confirmingUnpair && computer != null && onUnpair != null) {
@@ -199,7 +199,7 @@ fun SettingsScreen(
                     }
                     // (3) Notifications: one switch per kind (CR-A42b-2: a SettingsRow with its OxeSwitch).
                     SettingsCard(title = stringResource(R.string.settings_alerts_title), icon = OxeIcons.Bell) {
-                        if (!notificationsAllowed) {
+                        if (!alertsAllowed) {
                             Notice(
                                 intent = NoticeIntent.WARNING,
                                 title = stringResource(R.string.settings_alerts_blocked),
