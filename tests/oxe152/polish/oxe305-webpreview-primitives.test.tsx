@@ -18,7 +18,7 @@ describe('OXE-305 · Web Preview controls are src/ui primitives', () => {
       ? new Promise<BrowserPreviewSessionState>(resolve => { ready = resolve })
       : Promise.resolve({ ownerKey: 'project', activeTabId: 't-1', tabs: [] } as unknown as BrowserPreviewSessionState))
     const previous = window.oxe
-    Object.defineProperty(window, 'oxe', { configurable: true, value: { browserPreview: { session, onEvent: () => () => {}, designMode: vi.fn(async () => undefined), setAccess: vi.fn(async () => undefined) } } })
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { browserPreview: { session, onEvent: () => () => {}, designMode: vi.fn(async () => undefined), setAccess: vi.fn(async () => undefined), mount: vi.fn(async () => ({ lease: 1 })), close: vi.fn(async () => undefined), setZoom: vi.fn(async () => undefined) } } })
     try {
       render(<WebPreviewPanel workspace={{ id: 'project', name: 'Project' } as Workspace} onClose={() => {}} />)
       await act(async () => ready({ ownerKey: 'project', activeTabId: 't-1', tabs: [
