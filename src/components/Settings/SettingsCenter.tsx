@@ -3,7 +3,7 @@ import { i18n } from '../../i18n'
 import { Suspense, useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModalRoot, ModalSurface, ModalTitle } from '../../ui/Modal'
-import { EmptyState, SegmentedControl, SettingRow, SettingsSection as SettingsGroup, Skeleton, TextField } from '../../ui'
+import { EmptyState, IconButton, SegmentedControl, SettingRow, SettingsSection as SettingsGroup, Skeleton, TextField } from '../../ui'
 import { SettingsPageTitle } from '../../ui/Settings'
 import type { SettingsModalProps, SettingsSection } from './SettingsModal'
 import { SETTINGS_PAGES } from '../Workspace/workspaceSettingsPages'
@@ -299,7 +299,7 @@ export function SettingsCenter(props: SettingsModalProps & {
       </aside>
       <main className="settings-center-main">
         <header className="settings-center-toolbar">
-          <button type="button" aria-label={t('center.close')} title={t('center.closeTitle')} onClick={close}><X size={16} aria-hidden="true" /></button>
+          <IconButton variant="ghost" className="settings-center-close" label={t('center.close')} title={t('center.closeTitle')} icon={<X size={16} aria-hidden="true" />} onClick={close} />
         </header>
         <div ref={content} role="region" aria-label={t('center.title')} tabIndex={0} className={`settings-center-content${destination.scope === 'workspace' ? ' is-workspace' : ''}`}><ErrorBoundary id="settings-page" component="SettingsCenter" compact label={t('center.title')} onReset={retryPages}><Suspense fallback={<Skeleton lines={6} label={t('center.title')} />}>
           {destination.scope === 'workspace' ? workspace ? <WorkspaceSettingsModal key={workspace.id} embedded workspace={workspace} selectedPageId={destination.page}
