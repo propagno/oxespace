@@ -1007,6 +1007,15 @@
     "width": "Largura da barra lateral",
     "workspaces": "Workspaces",
     "filter": "Filtrar workspaces",
+    "stateFilter": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "emptyNeedsYou": "Nada precisa de você agora",
+      "emptyWorking": "Nada trabalhando agora",
+      "showAll": "Mostrar todos"
+    },
     "filterPlaceholder": "Filtrar…",
     "integrationGroups": "Grupos de integração",
     "integrations": "Integrações",
