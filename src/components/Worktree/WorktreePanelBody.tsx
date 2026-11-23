@@ -24,6 +24,8 @@ interface PendingRemoval {
   branch: string | null
   /** null when the status probe failed — we then defer to git's own refusal. */
   status: GitHubWorktreeStatus | null
+  /** The probe ran and failed: its own state, neither "checking" nor "clean". The removal is then confirmed without force. */
+  probeFailed: boolean
 }
 
 interface WorktreePanelBodyProps {
@@ -194,11 +196,11 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
    */
   const askRemove = async (path: string, branch: string | null): Promise<void> => {
     setLocalError(null)
-    setPendingRemoval({ path, branch, status: null })
+    setPendingRemoval({ path, branch, status: null, probeFailed: false })
     const status = await worktreeStatus(workspaceRootPath, path)
     // Guard against the user cancelling (or picking another row) while the
     // probe was in flight — the answer would then belong to a stale prompt.
-    setPendingRemoval((current) => (current?.path === path ? { ...current, status } : current))
+    setPendingRemoval((current) => (current?.path === path ? { ...current, status, probeFailed: status === null } : current))
   }
 
   /**
@@ -211,24 +213,25 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     setBusy(true)
     setLocalError(null)
     try {
-      // Release any pane whose cwd is inside the target worktree FIRST. On
-      // Windows a directory can't be deleted while a process (the pane's shell)
-      // holds it as cwd — git de-registers the worktree but fails with
-      // "Permission denied" on the file delete. Move those panes back to the
-      // main worktree and stop their terminals so the handle is freed, then
-      // give the OS a beat to release it before asking git to remove.
-      const workspace = useWorkspaceStore.getState().workspaces.find((w) => w.id === workspaceId)
-      const panesInTree = (workspace?.panes ?? []).filter((p) => isPathWithin(p.rootPath, path))
-      for (const p of panesInTree) {
-        await setPaneRootPath(p.id, null)
-        try { await window.oxe.terminal.stop({ paneId: p.id }) } catch { /* maybe already idle */ }
-      }
-      if (panesInTree.length > 0) await new Promise((resolve) => setTimeout(resolve, 450))
-
-      await removeWorktree(workspaceId, workspaceRootPath, path, force)
+      // Nothing is stopped or moved before main validated the removal: main stops the terminals inside the
+      // worktree itself, after its checks. A refusal leaves every pane and terminal as it was (OXE-369).
+      const leftGit = await removeWorktree(workspaceId, workspaceRootPath, path, force).then(() => true, (err: unknown) => {
+        setLocalError(friendlyRemoveError(err))
+        // Git can let go of the worktree and still fail on its folder. The store refreshed the list before it
+        // re-threw: a worktree absent from a list that did load has left Git.
+        const store = useWorktreeStore.getState()
+        const listed = store.byRoot[workspaceRootPath]
+        return listed !== undefined && !store.error[workspaceRootPath] && !listed.some((w) => isSamePath(w.path, path))
+      })
+      if (!leftGit) return
       setPendingRemoval(null)
+      // The folder is no longer a worktree: the panes that pointed into it go back to the main worktree.
+      const workspace = useWorkspaceStore.getState().workspaces.find((w) => w.id === workspaceId)
+      for (const p of (workspace?.panes ?? []).filter((candidate) => isPathWithin(candidate.rootPath, path))) {
+        await setPaneRootPath(p.id, null)
+      }
     } catch (err) {
-      setLocalError(friendlyRemoveError(err))
+      setLocalError(humanizeError(err))
     } finally {
       setBusy(false)
     }
@@ -634,15 +637,17 @@ function WorktreeRemovalConfirm({ busy, onCancel, onConfirm, pending }: {
   return (
     <ConfirmDialog
       title={t('worktree.removal.title', { name: label })}
-      description={status === null
-        ? t('worktree.removal.checking')
-        : losses.length === 0
-          ? t('worktree.removal.clean')
-          : t(needsForce ? 'worktree.removal.losesWork' : 'worktree.removal.losesFolder', { losses: losses.join(', ') })}
+      description={pending.probeFailed
+        ? t('worktree.removal.unknown')
+        : status === null
+          ? t('worktree.removal.checking')
+          : losses.length === 0
+            ? t('worktree.removal.clean')
+            : t(needsForce ? 'worktree.removal.losesWork' : 'worktree.removal.losesFolder', { losses: losses.join(', ') })}
       confirmLabel={needsForce ? t('worktree.removal.force') : t('worktree.remove')}
-      danger={needsForce || losses.length > 0}
+      danger={needsForce || losses.length > 0 || pending.probeFailed}
       busy={busy}
-      confirmDisabled={status === null}
+      confirmDisabled={status === null && !pending.probeFailed}
       onCancel={onCancel}
       onConfirm={() => onConfirm(needsForce)}
     />
@@ -740,6 +745,9 @@ function deriveWorktreePath(options: {
  */
 function friendlyCreateError(err: unknown, path: string, createNewBranch: boolean, baseRef: string): string {
   const raw = errorText(err)
+  // Git says "already exists" for a branch and for a folder: the branch is told apart first.
+  const existingBranch = /a branch named '([^']+)' already exists/i.exec(raw)
+  if (existingBranch) return tc('worktree.createError.branchExists', { branch: existingBranch[1] })
   if (/already exists/i.test(raw)) return tc('worktree.createError.folderExists', { path })
   if (/already used by worktree/i.test(raw)) return tc('worktree.createError.branchInUse')
   if (/no possible source branch/i.test(raw)) {

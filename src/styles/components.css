@@ -209,7 +209,7 @@
 }
 .path-input:focus-within {
   border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(35, 139, 255, 0.38);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 22%, transparent);
 }
 .path-input svg { color: var(--tx-muted); flex-shrink: 0; }
 
@@ -326,7 +326,7 @@
 }
 .form-group-control input[type="text"]:focus,
 .form-group-control select:focus {
-  box-shadow: 0 0 0 3px rgba(35, 139, 255, 0.38);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 22%, transparent);
 }
 .form-group-control select {
   appearance: none;
@@ -1473,11 +1473,9 @@
 .field input[type="text"]:focus,
 .field select:focus,
 .field textarea:focus {
-  /* Keep the accent teal identity but soften the focus halo — the previous
-     blue (#238BFF) was off-brand and the alpha was loud. */
   border-color: var(--bd-focus);
   background: var(--fill-hover);
-  box-shadow: 0 0 0 3px rgba(18, 199, 154, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus-ring) 18%, transparent);
 }
 .field input[type="text"]::placeholder,
 .field textarea::placeholder { color: var(--tx-muted); }

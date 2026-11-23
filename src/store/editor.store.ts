@@ -69,6 +69,9 @@ function sortTabs(tabs: EditorTab[]): EditorTab[] {
   return [...tabs].sort((a, b) => Number(b.pinned) - Number(a.pinned))
 }
 
+/** Reads in flight by workspace, root and path: opening a file again joins the one that is running. */
+const pendingLoads = new Map<string, Promise<void>>()
+
 export const useEditorStore = create<EditorState>()(
   persist(
     (set, get) => ({
@@ -120,45 +123,47 @@ export const useEditorStore = create<EditorState>()(
 
         if (binary || alreadyLoaded) return
 
-        try {
-          const target = { workspaceId: input.workspaceId, rootPath: input.rootPath, relativePath: input.relativePath }
-          const result = await window.oxe.fs.readFile(target)
-          const watch = await window.oxe.fs.watchFile(target)
-          set((state) => {
-            const current = state.files[input.workspaceId]?.[input.relativePath]
-            if (!current) return state
-            return {
-              files: {
-                ...state.files,
-                [input.workspaceId]: {
-                  ...state.files[input.workspaceId],
-                  [input.relativePath]: {
-                    ...current,
-                    content: result.content,
-                    language: detectEditorLanguage(result.relativePath),
-                    watchId: watch.watchId,
-                    isLoading: false,
-                    error: null
-                  }
-                }
-              }
-            }
-          })
-        } catch (error) {
-          set((state) => {
-            const current = state.files[input.workspaceId]?.[input.relativePath]
-            if (!current) return state
-            return {
-              files: {
-                ...state.files,
-                [input.workspaceId]: {
-                  ...state.files[input.workspaceId],
-                  [input.relativePath]: { ...current, isLoading: false, error: toMessage(error, input.rootPath) }
-                }
-              }
-            }
-          })
+        const key = JSON.stringify([input.workspaceId, input.rootPath, input.relativePath])
+        const pending = pendingLoads.get(key)
+        if (pending) return pending
+
+        // The entry still waiting for this read: not closed, reopened from another root or already watched.
+        const waitingEntry = (): EditorFileState | null => {
+          const file = get().files[input.workspaceId]?.[input.relativePath]
+          return file && file.rootPath === input.rootPath && !file.watchId ? file : null
         }
+        const update = (file: EditorFileState): void => {
+          set((state) => ({
+            files: { ...state.files, [input.workspaceId]: { ...state.files[input.workspaceId], [input.relativePath]: file } }
+          }))
+        }
+        const load = async (): Promise<void> => {
+          try {
+            const target = { workspaceId: input.workspaceId, rootPath: input.rootPath, relativePath: input.relativePath }
+            const result = await window.oxe.fs.readFile(target)
+            const watch = await window.oxe.fs.watchFile(target)
+            const current = waitingEntry()
+            if (!current) {
+              // closeTab could not release this watcher: it had no id yet.
+              void window.oxe.fs.unwatchFile({ watchId: watch.watchId }).catch(() => undefined)
+              return
+            }
+            update({
+              ...current,
+              content: result.content,
+              language: detectEditorLanguage(result.relativePath),
+              watchId: watch.watchId,
+              isLoading: false,
+              error: null
+            })
+          } catch (error) {
+            const current = waitingEntry()
+            if (current) update({ ...current, isLoading: false, error: toMessage(error, input.rootPath) })
+          }
+        }
+        const loading = load().finally(() => pendingLoads.delete(key))
+        pendingLoads.set(key, loading)
+        await loading
       },
 
       closeTab: (workspaceId, relativePath) => {

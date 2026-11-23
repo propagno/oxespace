@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 .http-calls-panel {
   display: flex;
   flex-direction: column;
@@ -194,4 +195,5 @@
     border-left: none;
     border-top: 1px solid var(--bd-default);
   }
+}
 }

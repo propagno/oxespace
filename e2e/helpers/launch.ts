@@ -136,7 +136,9 @@ export async function layoutAtWidth(app: ElectronApplication, page: Page, width:
   await expect.poll(async () => {
     await app.evaluate(({ BrowserWindow }, wanted) => {
       const win = BrowserWindow.getAllWindows()[0]
-      const factor = Math.min(1, win.getContentBounds().width / wanted)
+      const fit = win.getContentBounds().width / wanted
+      // Below the app's minimum width the window can't shrink, so the page zooms in; from the minimum up it only zooms out.
+      const factor = wanted < win.getMinimumSize()[0] ? fit : Math.min(1, fit)
       if (Math.abs(win.webContents.getZoomFactor() - factor) > 0.001) win.webContents.setZoomFactor(factor)
     }, width)
     return Math.abs(await shellWidth() - width) <= 2

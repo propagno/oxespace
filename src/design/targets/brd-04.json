@@ -22,7 +22,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.tabs.count",
@@ -87,7 +87,7 @@
       "select": "[data-ui=chat-column]",
       "prop": "width",
       "expect": {
-        "px": 800
+        "token": "--measure-chat"
       },
       "tolerance": 0.5,
       "densities": [
@@ -98,7 +98,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.user-message.radius",
@@ -117,7 +117,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.user-message.font-size",
@@ -136,7 +137,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.turn-line.font-size",
@@ -174,7 +176,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.composer-toolbar.height",
@@ -193,7 +195,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.button.height",
@@ -216,12 +218,12 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.button.font-weight",
       "scene": "chat-conversation",
-      "select": "[data-ui=button]",
+      "select": "[data-ui=chat-column] [data-ui=button], [data-ui=composer-toolbar] [data-ui=button]",
       "prop": "font-weight",
       "expect": {
         "token": "--weight-medium"
@@ -235,7 +237,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.icon-button.height",
@@ -258,7 +260,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.raw-button.count",

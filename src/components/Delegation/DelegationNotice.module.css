@@ -1,0 +1,11 @@
+.notice {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--layer-toast);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--bd-subtle);
+  max-width: 340px;
+}

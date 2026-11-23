@@ -1,6 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react'
-import { threadAgentName } from '../../../shared/threadProviders'
-import { Archive, Download, GitFork, History, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
+import { Archive, Code, Download, ExternalLink, GitBranch, GitFork, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
@@ -12,13 +11,11 @@ import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
 import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
-import { withShortcut } from '../../keyboard/keybindings'
 import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
-import { NowLine, type NowLineAction } from './NowLine'
 import { parityState } from './parity'
 import { ThreadCellClose } from './ThreadCellClose'
-import { ThreadSubline } from './ThreadSubline'
-import { THREAD_MORE_ACTIONS, type ThreadMoreActionId } from './threadMoreActions'
+import { CollisionChips } from './CollisionChips'
+import { THREAD_MORE_ACTION_GROUPS, THREAD_MORE_ACTIONS, type NowLineAction, type ThreadMoreActionId } from './threadMoreActions'
 import { THREAD_TOOL_PANELS } from './threadToolPanels'
 import './ThreadHeaderChrome.css'
 
@@ -51,15 +48,14 @@ export function ThreadAddToolMenu({
   )
 }
 
-/** Title row, A19 sub-line without cost, NowLine, "+ Tool", and the cockpit ⋯ menu (DESIGN U6.1, U6.5). */
+/**
+ * The quiet header of AG-10 §2.6 (OXE-167): the title, the conversation's own worktree when it has one, the collision
+ * chip (frozen 1.5.0 CR-F4-8) and the ⋯ menu in four groups. The agent · workspace?.name · access line and the NowLine
+ * strip are no longer drawn here: the sidebar and the composer say them, the request and failure cards own their actions.
+ */
 export function ThreadHeader({
   thread,
   workspace,
-  branch,
-  moved,
-  activity,
-  irreversible,
-  hasPullRequest,
   pending,
   running,
   activePanel,
@@ -70,8 +66,9 @@ export function ThreadHeader({
   onExport,
   onDelegate,
   onPin,
+  onOpenInCode,
+  hasPullRequest = false,
   onNowAction,
-  requestInView,
   onCloseCell
 }: {
   thread?: ConversationThread
@@ -92,8 +89,10 @@ export function ThreadHeader({
   onImport?: () => void
   onDelegate: () => void
   onPin: () => void
+  /** Opens a folder in OxeCode: the conversation's own worktree, else its root (the project menu's handler). */
+  onOpenInCode?: (path: string) => void | Promise<void>
   onNowAction?: (action: NowLineAction) => void
-  /** The pending request's own buttons are on screen: the status line shows no second pair. */
+  /** The pending request's own buttons are on screen. */
   requestInView?: boolean
   onCloseCell?: () => void
 }) {
@@ -135,7 +134,7 @@ export function ThreadHeader({
       }]
     }
     const forkParity = parityState({ manifest: thread.capabilities, provider: thread.provider }, 'fork')
-    return THREAD_MORE_ACTIONS.map((entry): MenuEntry => {
+    const toEntry = (entry: { id: string; label: string }): MenuEntry => {
       const id = entry.id as ThreadMoreActionId
       switch (id) {
         case 'rename':
@@ -167,40 +166,52 @@ export function ThreadHeader({
             label: entry.label,
             icon: iconFor(id),
             disabled: pending || !forkParity.enabled,
-            hint: !forkParity.enabled ? (forkParity.reason ?? t('moreActions.forkCodexOnly')) : undefined,
+            // Fork is a Codex feature: the reason names where it is available, not only where it is not (BRD-21).
+            hint: !forkParity.enabled ? t('moreActions.forkCodexOnly') : undefined,
             onSelect: () => onCommand('/fork')
           }
         case 'export':
           return { label: entry.label, icon: iconFor(id), disabled: !onExport || pending, onSelect: () => onExport?.() }
+        // Archive and delete are the destructive group: last, after one separator (BRD-21).
         case 'archive':
-          return { label: entry.label, icon: iconFor(id), disabled: pending, onSelect: () => onCommand('/archive') }
+          return { label: entry.label, icon: iconFor(id), danger: true, disabled: pending, onSelect: () => onCommand('/archive') }
         case 'delete':
           return { label: entry.label, icon: iconFor(id), danger: true, disabled: pending, onSelect: () => onCommand('/delete') }
       }
-    })
+    }
+    const byId = new Map(THREAD_MORE_ACTIONS.map((entry): [string, MenuEntry] => [entry.id, toEntry(entry)]))
+    const openPath = thread.ownedWorktree?.path ?? thread.rootPath
+    const openInCode: MenuEntry = {
+      label: thread.ownedWorktree ? t('moreActions.openWorktreeInCode') : t('moreActions.openInCode'),
+      icon: <Code size={14} aria-hidden="true" />,
+      disabled: !onOpenInCode,
+      onSelect: () => { void onOpenInCode?.(openPath) }
+    }
+    const openPullRequest: MenuEntry[] = hasPullRequest && onNowAction
+      ? [{ label: t('nowLine.actions.openPr'), icon: <ExternalLink size={14} aria-hidden="true" />, onSelect: () => onNowAction('open-pr') }]
+      : []
+    return THREAD_MORE_ACTION_GROUPS.flatMap((group, index): MenuEntry[] => [
+      ...(index > 0 ? [{ type: 'separator' } as MenuEntry] : []),
+      ...group.flatMap(id => id === 'open-in-code' ? [openInCode] : id === 'open-pull-request' ? openPullRequest : byId.has(id) ? [byId.get(id)!] : [])
+    ])
   }
-
-  const sublineWorkspace = workspace
-    ? { id: workspace.id, name: workspace?.name, color: workspace.color, rootPath: thread?.rootPath ?? workspace.rootPath }
-    : undefined
-
-  const statusKind = activity?.kind
-    ?? (thread?.status === 'approval' ? 'needs-you'
-      : running ? 'working'
-        : thread?.status === 'failed' ? 'error'
-          : thread?.status === 'interrupted' ? 'paused'
-            : thread ? 'ready' : undefined)
 
   // A conversation gets its title from its first message; until then its title is empty and the heading said nothing.
   const heading = thread?.title?.trim() || (thread ? t('view.newConversation') : t('header.projectConversations'))
 
   return (
-    <header className="thread-heading" {...(workspace ? workspaceColorAttrs(workspace) : {})}>
+    <header className="thread-heading" data-ui="chat-header" {...(workspace ? workspaceColorAttrs(workspace) : {})}>
       <div className="thread-heading-identity">
         <div className="thread-heading-title-row">
           <div className="thread-heading-title-main">
-            {statusKind && <span className="thread-heading-glyph" data-kind={statusKind} aria-hidden="true" />}
-            <h1 ref={headingRef} tabIndex={-1} title={heading}>{heading}</h1>
+            <h1 ref={headingRef} tabIndex={-1} title={heading} data-ui="chat-title">{heading}</h1>
+            {thread?.ownedWorktree && (
+              <span className="thread-heading-worktree" data-ui="chat-worktree" title={thread.ownedWorktree.path}>
+                <GitBranch size={12} aria-hidden="true" />
+                <span>{thread.ownedWorktree.branch}</span>
+              </span>
+            )}
+            {thread?.id && <CollisionChips threadId={thread.id} />}
           </div>
           <div className="thread-heading-actions">
             {thread && showAddTool && (
@@ -236,27 +247,6 @@ export function ThreadHeader({
             {(cell === 'secondary' || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}
           </div>
         </div>
-        <ThreadSubline
-          provider={thread?.provider}
-          model={thread?.model}
-          workspace={sublineWorkspace}
-          branch={branch}
-          moved={moved}
-          ownedWorktree={thread?.ownedWorktree ?? null}
-          access={thread?.access}
-          startedAt={thread?.createdAt}
-          threadId={thread?.id}
-        />
-        {thread && activity && (
-          <NowLine
-            activity={activity}
-            agent={threadAgentName(thread.provider)}
-            irreversible={irreversible}
-            hasPullRequest={hasPullRequest}
-            requestInView={requestInView}
-            onAction={action => onNowAction?.(action)}
-          />
-        )}
       </div>
     </header>
   )

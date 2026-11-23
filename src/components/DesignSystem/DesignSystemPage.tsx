@@ -1,17 +1,25 @@
-import { useState, type ReactElement, type ReactNode } from 'react'
-import { Bell, Copy, GitBranch, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
+import { Bell, Copy, Filter, FolderGit2, GitBranch, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react'
 import { OxeLogo } from '../Brand/OxeLogo'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, BrandLoader, Button, ButtonGroup, Checkbox, Dialog, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SegmentedControl, Select, Skeleton, Slider, Spinner, StatusDot, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, BrandLoader, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, DockPanel, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SearchInput, SegmentedControl, Select, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Slider, Spinner, StatusDot, StatusSignal, SIGNAL_STATES, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
-type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'states'
+type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'primitives' | 'states'
 const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'brand', label: 'Brand' }, { id: 'color', label: 'Color' }, { id: 'type', label: 'Type' },
-  { id: 'shape', label: 'Space, shape, depth' }, { id: 'motion', label: 'Motion' }, { id: 'components', label: 'Components' }, { id: 'states', label: 'States' }
+  { id: 'shape', label: 'Space, shape, depth' }, { id: 'motion', label: 'Motion' }, { id: 'components', label: 'Components' },
+  { id: 'primitives', label: '1.5.2 Primitives' }, { id: 'states', label: 'States' }
 ]
+
+/** Maps semantic role keys from semantic.ts to canonical CSS custom property names in tokens.generated.css. */
+function toCssVarName(role: string): string {
+  if (role.startsWith('text-')) return role.replace(/^text-/, 'tx-')
+  if (role.startsWith('border-')) return role.replace(/^border-/, 'bd-')
+  return role
+}
 
 /** Renders `children` twice, once per mode, using data-mode subtrees. */
 function BothModes({ children }: { children: () => ReactNode }): ReactElement {
@@ -57,7 +65,10 @@ function ColorSection(): ReactElement {
   return <>
     {groups.map(([title, match]) => <div key={title}>
       <h2 className={styles.sectionTitle}>{title}</h2>
-      <BothModes>{() => <div className={styles.swatches}>{roles.filter(match).map(name => <div key={name} className={styles.swatch}><span className={styles.chip} style={{ background: `var(--${name})` }} /><code>--{name}</code></div>)}</div>}</BothModes>
+      <BothModes>{() => <div className={styles.swatches}>{roles.filter(match).map(name => {
+        const cssVar = toCssVarName(name)
+        return <div key={name} className={styles.swatch}><span className={styles.chip} style={{ background: `var(--${cssVar})` }} /><code>--{cssVar}</code></div>
+      })}</div>}</BothModes>
     </div>)}
     <h2 className={styles.sectionTitle}>Scales</h2>
     <BothModes>{() => <ScaleList names={Object.keys(SCALE_SPECS) as ScaleName[]} />}</BothModes>
@@ -174,12 +185,90 @@ function Gallery(): ReactElement {
   </div>
 }
 
+/** 1.5.2 primitives and new Mandacaru building blocks: StatusSignal, Chip, SearchInput, Card, DockPanel and Sidebar. */
+function Primitives152Gallery(): ReactElement {
+  const [activeFilter, setActiveFilter] = useState(true)
+  const [tags, setTags] = useState(['mandacaru', 'wcag-2.5.8'])
+  const [query, setQuery] = useState('')
+  const [sidebarQuery, setSidebarQuery] = useState('')
+  const [selectedCard, setSelectedCard] = useState<'raised' | 'sunken' | 'base'>('raised')
+
+  return <div className={styles.stack}>
+    <h3 className={styles.sectionTitle}>StatusSignal</h3>
+    <div className={styles.signalGrid}>
+      {SIGNAL_STATES.map(state => (
+        <div key={state} className={styles.signalItem}>
+          <StatusSignal state={state} label={state} />
+          <code>{state}</code>
+        </div>
+      ))}
+    </div>
+
+    <h3 className={styles.sectionTitle}>Chip</h3>
+    <div className={styles.row}>
+      <Chip icon={<Filter size={12} />} pressed={activeFilter} onClick={() => setActiveFilter(prev => !prev)}>Active filter</Chip>
+      <Chip variant="accent" pressed>Accent</Chip>
+      <Chip variant="attention">Needs you</Chip>
+      <Chip variant="danger" size="sm">Failed</Chip>
+      {tags.map(tag => (
+        <Chip key={tag} size="sm" onRemove={() => setTags(prev => prev.filter(item => item !== tag))}>{tag}</Chip>
+      ))}
+    </div>
+
+    <h3 className={styles.sectionTitle}>SearchInput</h3>
+    <SearchInput aria-label="Search primitives" placeholder="Filter tokens, components, or states…" value={query} onChange={setQuery} />
+
+    <h3 className={styles.sectionTitle}>Card</h3>
+    <div className={styles.previewGrid}>
+      <Card surface="raised" padding="sm"><strong>Raised</strong><p className={styles.cardCopy}>Default elevated container.</p></Card>
+      <Card surface="sunken" padding="md"><strong>Sunken</strong><p className={styles.cardCopy}>Recessed grouping surface.</p></Card>
+      <Card surface="base" padding="md" interactive onClick={() => setSelectedCard(prev => prev === 'base' ? 'raised' : 'base')}>
+        <strong>Interactive ({selectedCard})</strong>
+        <p className={styles.cardCopy}>Keyboard-focusable card button.</p>
+      </Card>
+    </div>
+
+    <h3 className={styles.sectionTitle}>DockPanel &amp; Sidebar</h3>
+    <div className={styles.sidebarPreview}>
+      <DockPanel
+        icon={<FolderGit2 size={14} />}
+        title="Workspaces"
+        count="2 active"
+        close={<IconButton label="Close preview panel" icon={<X size={14} />} size="sm" />}
+      >
+        <SidebarHeader title="Projects" actions={<IconButton label="Add project" icon={<Plus size={14} />} size="sm" />} />
+        <SidebarFilter aria-label="Filter preview sidebar" placeholder="Filter…" value={sidebarQuery} onChange={event => setSidebarQuery(event.target.value)} onClear={() => setSidebarQuery('')} clearLabel="Clear filter" />
+        <SidebarSection label="Active" />
+        <SidebarGroup title="oxespace" meta="2" />
+        <SidebarRow lead={<StatusSignal state="working" label="Working" size={14} />} title="feat/oxe-373" meta="2m" selected />
+        <SidebarRow lead={<StatusSignal state="needs-you" label="Needs you" size={14} />} title="review-pr" detail="Waiting for approval" meta="5m" />
+      </DockPanel>
+    </div>
+  </div>
+}
+
 /** The design system, rendered from its own source: tokens, scales and every primitive in both modes. */
 export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactElement {
   const [section, setSection] = useState<Section>('components')
+  const [density, setDensity] = useState<'compact' | 'comfortable'>(() =>
+    document.documentElement.dataset.density === 'comfortable' ? 'comfortable' : 'compact'
+  )
   const current = SECTIONS.find(item => item.id === section)!
   const surface = useModalSurface<HTMLDivElement>(onClose)
-  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" {...surface}>
+
+  useEffect(() => {
+    const previous = document.documentElement.dataset.density
+    return () => {
+      if (previous === undefined) delete document.documentElement.dataset.density
+      else document.documentElement.dataset.density = previous
+    }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.density = density
+  }, [density])
+
+  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" data-density={density} {...surface}>
     <ScaleVariables />
     <nav className={styles.nav} aria-label="Design system sections">
       <h1 className={styles.navTitle}><OxeLogo size={20} variant="compact" />Design system</h1>
@@ -189,9 +278,17 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
     <main className={styles.main}>
       <header className={styles.header}>
         <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
-        <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
+        <div className={styles.headerControls}>
+          <SegmentedControl
+            label="Density"
+            value={density}
+            onChange={setDensity}
+            options={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }]}
+          />
+          <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
+        </div>
       </header>
-      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'motion' ? <MotionSection /> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
+      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'motion' ? <MotionSection /> : section === 'primitives' ? <BothModes>{() => <Primitives152Gallery />}</BothModes> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
     </main>
   </div>
 }

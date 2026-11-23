@@ -53,6 +53,21 @@ export interface ThreadWorktreeEndDeps {
 }
 
 /**
+ * The conversation's worktree no longer exists on disk. Git may still hold its record: the guarded remover clears
+ * that one record (a targeted prune: no force, and the branch stays), and the folder leaves the project's list.
+ * Git having no record of it is fine, so the remover's refusal is not an error here. A path outside the project's
+ * worktree folder is never passed on.
+ */
+async function forgetGoneWorktree(deps: ThreadWorktreeEndDeps, projectId: string, owned: OwnedThreadWorktree): Promise<ThreadWorktreeFinishResult> {
+  if (!isOwnedWorktreePath(owned)) return { removed: false, left: 'missing' }
+  try {
+    await deps.remover?.removeWorktree({ rootPath: owned.projectRoot, path: owned.path, force: false, deleteBranch: false })
+  } catch { /* Git had no record of it, or refused: the folder is gone either way */ }
+  deps.removeContext(projectId, owned.path)
+  return { removed: false, left: 'missing' }
+}
+
+/**
  * Archives or deletes a conversation, then deals with its own worktree as the person chose. The conversation
  * ends first, which stops its agent (that would hold the folder open); if that fails nothing is removed.
  */
@@ -61,6 +76,8 @@ export async function endThreadWithWorktree(deps: ThreadWorktreeEndDeps, threadI
   const owned = thread.ownedWorktree
   await deps.command(threadId, `/${action} confirm`)
   if (!owned) return { removed: false, left: 'missing' }
+  // The folder was deleted by hand: whatever was chosen (keep included), its record is cleared and it is forgotten.
+  if (!existsSync(owned.path)) return forgetGoneWorktree(deps, thread.projectId, owned)
   if (choice === 'keep') return { removed: false, left: 'chosen' }
   if (!deps.remover) return { removed: false, left: 'refused', detail: 'Worktrees are unavailable in this session.' }
   const result = await finishThreadWorktree(deps.remover, owned, choice, () => deps.otherThreadsInside(owned.path, threadId))

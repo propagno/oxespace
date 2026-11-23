@@ -25,6 +25,9 @@ interface ThreadStateDefinition {
   title: string
   provider?: 'claude' | 'codex'
   extra?: Record<string, unknown>
+  /** The snapshot's turns and, per turn, the files it left pending (the working-set bar reads them). */
+  turns?: Array<{ id: string; sequence: number; status: string }>
+  turnFiles?: Record<string, Array<{ path: string; state: string; preExists: boolean; postExists: boolean; additions?: number; deletions?: number }>>
   /** The events, or a function of the fixture root for states that name paths under it. */
   events: unknown[] | ((ctx: { root: string }) => unknown[])
 }
@@ -203,7 +206,12 @@ export const THREAD_STATES: Record<ThreadStateName, ThreadStateDefinition> = {
     status: 'failed',
     title: 'Harden the session cookie',
     extra: { lastTurnStatus: 'failed' },
+    turns: [{ id: 'anatomy-t1', sequence: 1, status: 'completed' }, { id: 'anatomy-t2', sequence: 2, status: 'failed' }],
+    turnFiles: { 'anatomy-t2': ['src/auth/callback.ts', 'src/auth/session.ts', 'tests/auth.test.ts'].map((path, index) => ({ path, state: 'pending', preExists: index < 2, postExists: true, additions: 6 + index, deletions: index ? 0 : 2 })) },
     events: [
+      user('u0', 'Where is the session cookie set?'),
+      answer('anatomy-a0', 'In the auth callback, src/auth/callback.ts.'),
+      { type: 'completed', status: 'completed' },
       user('u1', 'Find where the session cookie is set and harden it.'),
       { type: 'reasoning', id: 'anatomy-reasoning', text: 'The cookie is set in the auth callback. Read the session helpers before changing it.', startedAt: NOW - 60_000, completedAt: NOW - 48_000 },
       ...([['Read', 'README.md'], ['Grep', 'res.cookie'], ['Glob', 'src/auth/**/*.ts'], ['Read', 'src/auth/callback.ts'], ['Read', 'src/auth/session.ts']] as const).map(([name, detail], index) => ({
@@ -271,16 +279,18 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
         w.webContents.send('thread:tool-tabs-changed', { threadId: 'e2e-thread' })
       }
     }
-    g.applyThreadState = (state: { status: string; title: string; provider?: string; extra?: Record<string, unknown>; events: unknown[] }) => {
+    g.applyThreadState = (state: { status: string; title: string; provider?: string; extra?: Record<string, unknown>; events: unknown[]; turns?: unknown[]; turnFiles?: Record<string, unknown[]> }) => {
       const thread = snapshot!.thread as Record<string, unknown>
       Object.assign(thread, { status: state.status, title: state.title, ...(state.provider ? { provider: state.provider } : {}), ...(state.extra ?? {}) })
       snapshot!.events = state.events
+      ;(snapshot as Record<string, unknown>).turns = state.turns
+      g.e2eTurnFiles = state.turnFiles ?? {}
       changed()
     }
     for (const channel of ['commands', 'list', 'read', 'create', 'send', 'pin', 'projects', 'models', 'configure', 'command', 'artifact', 'project-diff', 'observe', 'respond', 'turn-files', 'timeline', 'tool-tabs', 'background', 'pending-requests-all']) {
       ipcMain.removeHandler(`thread:${channel}`)
     }
-    ipcMain.handle('thread:turn-files', () => [])
+    ipcMain.handle('thread:turn-files', (_event, _threadId: string, turnId: string) => (g.e2eTurnFiles as Record<string, unknown[]> | undefined)?.[turnId] ?? [])
     ipcMain.handle('thread:create', (_event, input) => {
       snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: now, updatedAt: now }, events: [] }
       changed(); return snapshot
@@ -376,5 +386,5 @@ export async function setThreadState(app: ElectronApplication, root: string, sta
   const definition = state === 'approval-sql' ? THREAD_SQL_APPROVAL_STATE : THREAD_STATES[state]
   await app.evaluate((_context, payload) => {
     ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
-  }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
+  }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, turns: definition.turns, turnFiles: definition.turnFiles, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
 }

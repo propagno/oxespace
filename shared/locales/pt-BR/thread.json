@@ -399,6 +399,7 @@
     "commandsTitle": "Comandos e skills · Ctrl+/",
     "add": "Adicionar ao prompt",
     "addTitle": "Anexar, mencionar um arquivo ou conectar ferramentas",
+    "context": "Contexto",
     "attach": "Anexar imagem",
     "mention": "Mencionar um arquivo",
     "steer": "Orientar o turno ativo",
@@ -420,6 +421,7 @@
     "applyFailed": "Não foi possível aplicar a configuração",
     "refreshModels": "Atualizar os modelos",
     "label": "Configuração da conversa",
+    "turnSettings": "Configuração do turno",
     "mode": "Modo",
     "modeTitle": "Planejar: o agente planeja primeiro e não muda nada até você aprovar. Agente: ele trabalha na tarefa.",
     "plan": "Planejar",
@@ -438,7 +440,15 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
-    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
+    "effortLevel": {
+      "none": "Nenhum",
+      "minimal": "Mínimo",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "xhigh": "Extra alto",
+      "max": "Máximo"
+    },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
@@ -962,6 +972,7 @@
     "showDiagram": "Ver o diagrama",
     "alert": {
       "note": "Nota",
+      "tip": "Dica",
       "important": "Importante",
       "warning": "Atenção",
       "caution": "Cuidado"
@@ -1021,7 +1032,11 @@
     "copyResponse": "Copiar a resposta",
     "copied": "Copiado",
     "copy": "Copiar",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copiar prompt",
+    "editPrompt": "Editar prompt",
+    "undoTurnChanges": "Desfazer as alterações deste turno",
+    "promptEdited": "Editado · reenviado abaixo"
   },
   "modelPicker": {
     "title": "Escolher modelo",
@@ -2190,7 +2205,9 @@
     "forkCodexOnly": "Bifurcar está disponível para conversas do Codex",
     "export": "Exportar",
     "archive": "Arquivar",
-    "delete": "Excluir…"
+    "delete": "Excluir…",
+    "openInCode": "Abrir no OxeCode",
+    "openWorktreeInCode": "Abrir a worktree no OxeCode"
   },
   "composerModel": {
     "idle": "Pergunte, ou digite / para comandos",

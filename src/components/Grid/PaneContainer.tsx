@@ -208,6 +208,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState('')
   const renameInputRef = useRef<HTMLInputElement | null>(null)
+  const titleButtonRef = useRef<HTMLButtonElement | null>(null)
   const commitGuardRef = useRef(false)
 
   // Overflow menu (⋯) holds secondary actions so the header stays compact:
@@ -319,6 +320,20 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
     setDraftName('')
   }
 
+  function renameFromKey(event: React.KeyboardEvent): void {
+    if ((event.key !== 'Enter' && event.key !== 'F2') || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return
+    // Stopped here: on the title F2 renames, elsewhere it is the split-layout shortcut.
+    event.preventDefault()
+    event.stopPropagation()
+    if (showAttentionRing) setRingDismissed(true)
+    startRename()
+  }
+
+  // The field unmounts when a key closes it; focus goes back to the title instead of the page.
+  function focusTitle(): void {
+    setTimeout(() => titleButtonRef.current?.focus(), 0)
+  }
+
   function runMenuAction(action: () => void): void {
     setMenuOpen(false)
     action()
@@ -328,6 +343,8 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const [submenu, setSubmenu] = useState<string | null>(null)
   useEffect(() => { if (!menuOpen) setSubmenu(null) }, [menuOpen])
   const toggleSubmenu = (id: string): void => setSubmenu(current => current === id ? null : id)
+  // At most 8 items (BRD-16): where the Arrange group takes the last place, Rename is that group's first item.
+  const renameItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => startRename()) }}><Pencil size={14} aria-hidden="true" />{tc('paneMenu.rename')}</Button>
   const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
 
   return (
@@ -380,8 +397,8 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
               onMouseDown={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
                 e.stopPropagation()
-                if (e.key === 'Enter') { e.preventDefault(); void commitRename() }
-                if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+                if (e.key === 'Enter') { e.preventDefault(); void commitRename(); focusTitle() }
+                if (e.key === 'Escape') { e.preventDefault(); cancelRename(); focusTitle() }
               }}
               onBlur={() => void commitRename()}
               aria-label={tc('paneMenu.rename')}
@@ -389,7 +406,9 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
           ) : (
             <button
               type="button"
+              ref={titleButtonRef}
               className="pane-intent pane-intent-button"
+              onKeyDown={renameFromKey}
               title={tc('paneMenu.titleHint', { title: display.lastCommand ? `${display.title} · ${display.lastCommand}` : display.title })}
               onDoubleClick={(e) => startRename(e)}
               onClick={(e) => e.stopPropagation()}
@@ -463,9 +482,11 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
                   </PaneSubmenu>
                   <div role="separator" className="pane-actions-popover-sep" />
                 </> : null}
+                {onArrange ? null : renameItem}
                 <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onSplitVertical?.(pane.id)) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.splitRight')}</Button>
                 <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onSplitHorizontal?.(pane.id)) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.splitDown')}</Button>
                 {onArrange ? <PaneSubmenu id="arrange" label={tc('paneMenu.arrange')} icon={<LayoutGrid size={14} aria-hidden="true" />} open={submenu === 'arrange'} onToggle={toggleSubmenu}>
+                  {renameItem}
                   {hasPreviousPane ? <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('bottom')) }}><PanelBottom size={14} aria-hidden="true" />{tc('paneMenu.moveBelow')}</Button> : null}
                   {hasPreviousPane ? <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('right')) }}><PanelRight size={14} aria-hidden="true" />{tc('paneMenu.moveRight')}</Button> : null}
                   <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => onArrange('balance')) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.balance')}</Button>

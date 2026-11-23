@@ -38,11 +38,11 @@ import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
+import com.oxespace.mobile.ui.components.OxeIconButton
+import com.oxespace.mobile.ui.components.OxeTextField
 import com.oxespace.mobile.ui.components.noticeIcon
 import com.oxespace.mobile.ui.components.CriticalDelayAllow
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -133,7 +133,13 @@ fun RequestScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.request_title), modifier = Modifier.semantics { heading() }) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(ImageVector.vectorResource(R.drawable.ic_back), contentDescription = stringResource(R.string.live_back)) } },
+                navigationIcon = {
+                    OxeIconButton(
+                        icon = ImageVector.vectorResource(R.drawable.ic_back),
+                        contentDescription = stringResource(R.string.live_back),
+                        onClick = onBack,
+                    )
+                },
             )
         },
     ) { padding ->
@@ -270,10 +276,10 @@ fun RequestScreen(
 
             // The only box on the screen that looks editable.
             if ("decline" in decisions) {
-                OutlinedTextField(
+                OxeTextField(
                     value = reason,
                     onValueChange = { reason = it.take(500) },
-                    label = { Text(stringResource(R.string.request_decline_reason)) },
+                    label = stringResource(R.string.request_decline_reason),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
