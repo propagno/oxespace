@@ -3,7 +3,7 @@ import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy, Info, Lightbulb, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ErrorState } from '../../ui'
+import { Button, ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import { parseExternalUrl } from '../../lib/externalLinks'
 import './ThreadMarkdown.css'
@@ -90,11 +90,11 @@ function CodeBlock({ children, language, ...props }: ComponentPropsWithoutRef<'p
     return () => clearTimeout(timer)
   }, [copied])
   return <div className="thread-code-block">
-    <div className="thread-code-toolbar">{name ? <span data-testid="thread-code-language">{name}</span> : null}<button type="button" aria-label={t('markdown.copyCode')} onClick={async event => {
+    <div className="thread-code-toolbar">{name ? <span data-testid="thread-code-language">{name}</span> : null}<Button variant="ghost" size="sm" aria-label={t('markdown.copyCode')} onClick={async event => {
       const code = (event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? '').replace(/\n$/, '')
       try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
       catch { setError(true); setCopied(false) }
-    }}>{copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}<span role="status" aria-live="polite">{copied ? t('markdown.copied') : t('markdown.copy')}</span></button></div>
+    }}>{copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}<span role="status" aria-live="polite">{copied ? t('markdown.copied') : t('markdown.copy')}</span></Button></div>
     <pre {...props}>{children}</pre>
     {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>

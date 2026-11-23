@@ -1,9 +1,9 @@
 import { withShortcut, type KeybindingId } from '../../keyboard/keybindings'
-import { Activity, Box, Code2, Info, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Network, Search, Smartphone, TerminalSquare, type LucideIcon } from 'lucide-react'
+import { Activity, Box, Code2, Database, Info, FileCode2, FolderTree, GitCompareArrows, GitPullRequest, Globe, Network, Search, Smartphone, TerminalSquare, type LucideIcon } from 'lucide-react'
 import { i18n } from '../../i18n'
 
 /** The side panels Code and Thread share. One name, icon and shortcut for each, whichever mode opens it. */
-export type WorkbenchPanelId = 'session' | 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'worktrees' | 'background' | 'httpCalls' | 'android' | 'containers'
+export type WorkbenchPanelId = 'session' | 'terminal' | 'changes' | 'browser' | 'git' | 'files' | 'search' | 'worktrees' | 'background' | 'httpCalls' | 'android' | 'containers' | 'queries'
 
 export interface WorkbenchPanelMeta {
   /** Read in the interface language each time it is used; do not keep a copy. */
@@ -29,7 +29,9 @@ export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
   background: panel('background', Activity),
   httpCalls: panel('httpCalls', Network),
   android: panel('android', Smartphone),
-  containers: panel('containers', Box)
+  containers: panel('containers', Box),
+  /** Thread only: the conversation's database queries, in Mais painéis when main reports them (OXC-4). */
+  queries: panel('queries', Database)
 }
 
 /** Panels shown as buttons in the bar; the rest live in the Panels menu. */

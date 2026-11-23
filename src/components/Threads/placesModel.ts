@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { GitDiff } from '../../../shared/types/git'
 import type { ThreadPlace, ThreadPlaceDiff, ThreadPlaceDrift, ThreadPlaceDriftAnswer, ThreadPlaceKind, ThreadPlaces, ThreadPlaceWrite } from '../../../shared/types/thread-places'
 
@@ -110,6 +111,39 @@ export function middlePath(path: string, max = 48): string {
   const last = parts.length > 1 ? `${sep}${parts[parts.length - 1]}` : ''
   const keep = Math.max(1, max - last.length - 1)
   return `${path.slice(0, keep)}…${last}`
+}
+
+function samePlacePath(a: string, b: string): boolean {
+  const key = (path: string): string => { const normalized = path.replace(/\\/g, '/').replace(/\/+$/, ''); return /^[a-z]:\//i.test(normalized) ? normalized.toLowerCase() : normalized }
+  return key(a) === key(b)
+}
+
+/**
+ * OXC-4: the files the Changes panel lists for a conversation with its OWN worktree, the worktree place's diff against
+ * its base (placeDiff, as PlacesChanges reads it). Null while unread or without a worktree path.
+ */
+export function useOwnWorktreeFileCount(threadId: string | undefined, worktreePath: string | undefined): number | null {
+  const key = threadId && worktreePath ? `${threadId}\n${worktreePath}` : ''
+  const [count, setCount] = useState<{ key: string; files: number } | null>(null)
+  useEffect(() => {
+    if (!threadId || !worktreePath) return
+    const api = placesBridge()
+    if (!api?.places || !api.placeDiff) return
+    let alive = true
+    const read = async (): Promise<void> => {
+      try {
+        const result = await api.places!(threadId)
+        const own = result.places.find(place => place.kind === 'worktree' && samePlacePath(place.path, worktreePath))
+        if (!own) { if (alive) setCount({ key, files: 0 }); return }
+        const diff = await api.placeDiff!(threadId, own.id)
+        if (alive) setCount({ key, files: groupFileCount(placeGroups(diff)) })
+      } catch { /* The last count stays; the panel says what failed. */ }
+    }
+    void read()
+    const off = api.onPlacesChanged?.(event => { if (event.threadId === threadId) void read() })
+    return () => { alive = false; off?.() }
+  }, [threadId, worktreePath, key])
+  return key && count?.key === key ? count.files : null
 }
 
 /** The short base commit the place diffs against. */

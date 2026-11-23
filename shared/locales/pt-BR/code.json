@@ -18,7 +18,8 @@
     "needsWorkspace": "Abra um workspace para usar os painéis dele",
     "httpCalls": "Chamadas HTTP",
     "android": "Dispositivo Android",
-    "containers": "Contêineres"
+    "containers": "Contêineres",
+    "queries": "Consultas"
   },
   "tools": {
     "team": {

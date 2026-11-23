@@ -109,6 +109,10 @@
 }
 
 .thread-heading .thread-panel-toggle span { display: none; }
+/* OXC-4: the four panel toggles of the chat header carry the Changes badge in their corner. */
+.thread-heading .thread-header-panel { position: relative; flex-shrink: 0; }
+.thread-heading .thread-header-panel[aria-pressed='true'] { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-heading-separator { flex-shrink: 0; width: 1px; height: var(--control-sm); background: var(--bd-subtle); }
 .thread-heading .thread-heading-actions .thread-panel-toggle { width: 28px; height: 28px; padding: 0; justify-content: center; }
 .thread-heading .thread-heading-actions .thread-panel-toggle:not([aria-pressed='true']) { border-color: transparent; background: transparent; }
 

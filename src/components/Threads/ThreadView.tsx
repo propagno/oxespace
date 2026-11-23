@@ -41,8 +41,9 @@ import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
 import { useUIStore } from '../../store/ui.store'
 import { CONVERSATION_MIN_WIDTH, REVIEW_MIN_WIDTH, useThreadWorkbenchStore, type ThreadPanel } from '../../store/thread-workbench.store'
 import { authText, ThreadMessageBody } from './ThreadMessageRow'
-import { ThreadAddToolMenu, ThreadHeader } from './ThreadHeader'
-import { ThreadToolTabs, type ThreadTabId } from './ThreadToolTabs'
+import { ThreadHeader } from './ThreadHeader'
+import { useOwnWorktreeFileCount } from './placesModel'
+import { useThreadToolTabs } from './useThreadToolTabs'
 import { deriveThreadActivity } from './deriveThreadActivity'
 import { useCompactFeedback } from './useCompactFeedback'
 import type { NowLineAction } from './threadMoreActions'
@@ -70,7 +71,7 @@ export const THREAD_REVIEW_HOST_CHUNK = chunk(() => import('./ThreadReviewHost')
 const ThreadCommandDialog = lazyFrom(THREAD_COMMAND_DIALOG_CHUNK, module => module.default)
 const ThreadReviewHost = lazyFrom(THREAD_REVIEW_HOST_CHUNK, module => module.default)
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
-import { threadWorkingRoot } from './threadChanges'
+import { changeSummary, threadChanges, threadWorkingRoot } from './threadChanges'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
 import './ThreadWorkbench.css'
 import './ThreadView.css'
@@ -444,33 +445,38 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     if (act === 'open-pr' && hasPullRequest && prOfThread?.url) void openExternalLink(prOfThread.url, { source: 'github' })
   }
   const welcomeStarters = useMemo(() => threadStarters(), [t])
-  const [activeToolTab, setActiveToolTab] = useState<ThreadTabId>('conversation')
-  useEffect(() => { setActiveToolTab('conversation') }, [snapshot?.thread.id])
+  // OXC-4: the Changes badge counts what its panel opens to. With the conversation's own worktree, that worktree's diff
+  // against its base; in a shared folder, only the files the conversation's turns changed (tool evidence).
+  const ownWorktreePath = snapshot?.thread.ownedWorktree?.path
+  const worktreeFiles = useOwnWorktreeFileCount(snapshot?.thread.id, ownWorktreePath)
+  const turnFiles = useMemo(() => changeSummary(threadChanges(events)).files, [events])
+  const changesCount = ownWorktreePath ? worktreeFiles ?? 0 : turnFiles
+  // The tool tabs main lists (read again on every push) open from Mais painéis: the conversation has no tab row (A27).
+  const toolTabs = useThreadToolTabs(snapshot?.thread.id)
+  const toolPanels = useMemo(() => toolTabs.flatMap(entry => entry.tab === 'queries' || entry.tab === 'containers' ? [entry.tab] : []), [toolTabs])
+  // The panel width follows the conversation shown in the active cell (one width per conversation, OXC-4).
+  useEffect(() => { if (active && shownId) useThreadWorkbenchStore.getState().focus(shownId) }, [active, shownId])
   const orphanPendingRequests = useMemo(
     () => (snapshot ? pendingRequests.filter(req => !snapshot.events.some(ev => ev.type === 'request' && ev.request.id === req.id)) : NO_REQUESTS),
     [snapshot, pendingRequests]
   )
-  const showingToolTab = Boolean(snapshot && activeToolTab !== 'conversation')
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
-    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} cell={cell}
+    <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} changesCount={changesCount} toolPanels={toolPanels} cell={cell}
       activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
       onTogglePanel={togglePanel} onCloseCell={onCloseCell} onOpenInCode={requestThreadOpenInCode}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
-    {snapshot && <ThreadToolTabs key={snapshot.thread.id} threadId={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={threadWorkingRoot(snapshot.thread)} branch={branch?.branch ?? undefined}
-      activeTab={activeToolTab} onOpen={tab => setActiveToolTab(tab)} onSendToConversation={appendToConversation}
-      trailing={<ThreadAddToolMenu activePanel={review?.panel} onTogglePanel={togglePanel} />} />}
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
-    <div ref={timeline} className="thread-timeline" hidden={showingToolTab} role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
+    <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
       <div ref={scroll.content} className="thread-reading-column" data-ui="chat-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
-        {snapshot?.page?.hasMore && <button type="button" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()}>{scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} />}{t('view.loadEarlier')}</button>}
+        {snapshot?.page?.hasMore && <Button size="sm" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()} icon={scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} aria-hidden="true" />}>{t('view.loadEarlier')}</Button>}
         {scroll.historyFeedback?.id === shownId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
         {!snapshot && selectedId && <div className={cx('thread-opening', skeletonStyles.viewSkeleton)} role="status" aria-label={t('view.opening')} data-view-skeleton=""><Skeleton decorative lines={2} /><Skeleton decorative variant="block" /><Skeleton decorative lines={3} /></div>}
         {!snapshot && !selectedId && <div className="thread-welcome">
@@ -494,7 +500,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>
     </div>
-    {(Boolean(snapshot) || Boolean(error) || !api) && !showingToolTab && <div className="thread-composer-dock"><div className="thread-composer-column">
+    {(Boolean(snapshot) || Boolean(error) || !api) && <div className="thread-composer-dock"><div className="thread-composer-column">
       {snapshot && <ThreadAnnouncer thread={snapshot.thread} pendingRequests={pendingRequests.length} />}
       {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={orphanPendingRequests} waiting={pendingRequests.length} pending={pending} action={action} />}
       {scroll.showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />{scroll.newMessages > 0 ? t('view.latestCount', { count: scroll.newMessages }) : t('view.latest')}</button>}

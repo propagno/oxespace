@@ -1,7 +1,7 @@
-import { useEffect, useRef, type ReactElement } from 'react'
-import { Archive, Code, Download, ExternalLink, GitBranch, GitFork, Info, MoreHorizontal, Pencil, Pin, Plug, Plus, Trash2, Type, Waypoints } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { Archive, Code, Download, ExternalLink, GitBranch, GitFork, Info, MoreHorizontal, Pencil, Pin, Plug, Trash2, Type, Waypoints } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button, Menu, type MenuEntry } from '../../ui'
+import { IconButton, Menu, type MenuEntry } from '../../ui'
 import type { ThreadActivity } from '../../../shared/types/agents'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -10,48 +10,29 @@ import { THREAD_FONT_DEFAULT, THREAD_FONT_MAX, useThreadPrefs } from '../../stor
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import type { ThreadPanel } from '../../store/thread-workbench.store'
 import { useUIStore } from '../../store/ui.store'
-import { WorkbenchPanelToggle } from '../Workbench/WorkbenchPanelMenu'
-import { threadPanelLabel, threadPanelTitle } from './threadPanelLabels'
+import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
+import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS, panelTitle, type WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { parityState } from './parity'
 import { ThreadCellClose } from './ThreadCellClose'
 import { CollisionChips } from './CollisionChips'
 import { THREAD_MORE_ACTION_GROUPS, THREAD_MORE_ACTIONS, type NowLineAction, type ThreadMoreActionId } from './threadMoreActions'
-import { THREAD_TOOL_PANELS } from './threadToolPanels'
 import './ThreadHeaderChrome.css'
 
-export function ThreadAddToolMenu({
-  activePanel,
-  onTogglePanel
-}: {
-  activePanel?: ThreadPanel | null
-  onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
-}): ReactElement {
-  const { t } = useTranslation('thread')
-  const rawLabel = t('toolPanels.addTool')
-  const visibleLabel = rawLabel.replace(/^\+\s*/, '')
-  return (
-    <Menu
-      label={rawLabel}
-      align="end"
-      items={THREAD_TOOL_PANELS.map(item => ({
-        type: 'check' as const,
-        label: item.label,
-        checked: activePanel === item.panel,
-        onSelect: () => onTogglePanel(item.panel)
-      }))}
-      trigger={
-        <Button size="sm" variant="ghost" className="thread-add-tool-btn" icon={<Plus size={13} aria-hidden="true" />}>
-          {visibleLabel}
-        </Button>
-      }
-    />
-  )
+/** The conversation's DockPanel each shared panel opens (the Browser is the conversation's preview). */
+const THREAD_PANEL_OF: Partial<Record<WorkbenchPanelId, ThreadPanel>> = {
+  session: 'session', terminal: 'terminal', changes: 'changes', browser: 'preview', git: 'git', files: 'files', search: 'search', background: 'background',
+  queries: 'queries', containers: 'containers'
+}
+
+/** The badge's short count: none at 0, "99+" above 99 (OXC-4). */
+function changesBadge(count: number): string | undefined {
+  return count > 0 ? (count > 99 ? '99+' : String(count)) : undefined
 }
 
 /**
- * The quiet header of AG-10 §2.6 (OXE-167): the title, the conversation's own worktree when it has one, the collision
- * chip (frozen 1.5.0 CR-F4-8) and the ⋯ menu in four groups. The agent · workspace?.name · access line and the NowLine
- * strip are no longer drawn here: the sidebar and the composer say them, the request and failure cards own their actions.
+ * The quiet header of AG-10 §2.6 (OXE-167) with OXC-4's panels (OXE-169): the title, the conversation's own worktree
+ * when it has one, the collision chip (frozen 1.5.0 CR-F4-8), then the four panel toggles of THREAD_BAR_PANELS, Mais
+ * painéis, a separator and the ⋯ menu in four groups. The panels open to the right, one at a time.
  */
 export function ThreadHeader({
   thread,
@@ -59,7 +40,8 @@ export function ThreadHeader({
   pending,
   running,
   activePanel,
-  showAddTool = false,
+  changesCount = 0,
+  toolPanels = [],
   cell,
   onTogglePanel,
   onCommand,
@@ -81,7 +63,10 @@ export function ThreadHeader({
   pending: boolean
   running: boolean
   activePanel?: ThreadPanel | null
-  showAddTool?: boolean
+  /** The files the Changes panel lists: the own worktree's diff, or the files the turns changed in a shared folder. */
+  changesCount?: number
+  /** The tool tabs main lists for the conversation (Queries, Containers): Mais painéis offers them after its own (OXC-4). */
+  toolPanels?: readonly WorkbenchPanelId[]
   cell?: 'primary' | 'secondary'
   onTogglePanel: (panel: ThreadPanel, keepOpen?: boolean) => void
   onCommand: (command: string) => void
@@ -196,6 +181,21 @@ export function ThreadHeader({
     ])
   }
 
+  /** One shared panel as this conversation's toggle or menu entry; the Changes one carries its file count. */
+  const panelItem = (id: WorkbenchPanelId): WorkbenchPanelItem[] => {
+    const panel = THREAD_PANEL_OF[id]
+    if (!panel) return []
+    const counted = id === 'changes' && changesCount > 0
+    return [{
+      id,
+      label: counted ? t('panels.changesCount', { count: changesCount }) : WORKBENCH_PANELS[id].label,
+      title: panelTitle(id),
+      active: activePanel === panel,
+      onToggle: () => onTogglePanel(panel),
+      badge: id === 'changes' ? changesBadge(changesCount) : undefined
+    }]
+  }
+
   // A conversation gets its title from its first message; until then its title is empty and the heading said nothing.
   const heading = thread?.title?.trim() || (thread ? t('view.newConversation') : t('header.projectConversations'))
 
@@ -214,34 +214,23 @@ export function ThreadHeader({
             {thread?.id && <CollisionChips threadId={thread.id} />}
           </div>
           <div className="thread-heading-actions">
-            {thread && showAddTool && (
-              <ThreadAddToolMenu activePanel={activePanel} onTogglePanel={onTogglePanel} />
-            )}
-            {thread && (
-              <WorkbenchPanelToggle
-                className="thread-review-trigger thread-panel-toggle"
-                item={{
-                  id: 'session',
-                  label: threadPanelLabel('session'),
-                  title: threadPanelTitle('session'),
-                  active: activePanel === 'session',
-                  onToggle: () => onTogglePanel('session')
-                }}
-              />
-            )}
+            {thread && THREAD_BAR_PANELS.flatMap(panelItem).map(item => (
+              <WorkbenchPanelToggle key={item.id} ui="panel-toggle" iconOnly className="thread-header-panel" item={item} />
+            ))}
+            {thread && <WorkbenchPanelMenu items={[...THREAD_MENU_PANELS, ...toolPanels].flatMap(panelItem)} />}
+            {thread && <span className="thread-heading-separator" aria-hidden="true" />}
             <Menu
               label={t('header.moreActions')}
               align="end"
               items={buildMenuItems()}
               trigger={
-                <button
-                  type="button"
+                <IconButton
+                  size="md"
                   className="thread-icon-action"
-                  aria-label={t('header.moreActions')}
+                  label={t('header.moreActions')}
                   title={t('header.moreActions')}
-                >
-                  <MoreHorizontal size={16} />
-                </button>
+                  icon={<MoreHorizontal size={16} aria-hidden="true" />}
+                />
               }
             />
             {(cell === 'secondary' || onCloseCell) && <ThreadCellClose cell={cell ?? 'secondary'} onClose={onCloseCell} />}

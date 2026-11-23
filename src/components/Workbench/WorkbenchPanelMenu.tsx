@@ -44,16 +44,18 @@ export function panelMenuEntries(items: WorkbenchPanelItem[]): MenuEntry[] {
  * A bar button that opens or closes one panel, with the shared label and shortcut. A src/ui primitive (BRD-03): an
  * IconButton when the bar shows only icons (`iconOnly`), a ghost Button with the label otherwise.
  */
-export function WorkbenchPanelToggle({ item, className, iconOnly = false }: { item: WorkbenchPanelItem; className: string; iconOnly?: boolean }): ReactElement {
+export function WorkbenchPanelToggle({ item, className, iconOnly = false, ui }: { item: WorkbenchPanelItem; className: string; iconOnly?: boolean; ui?: string }): ReactElement {
+  // `ui`: the data-ui the brand measures read ("panel-toggle" in the chat header); without it the primitive keeps its own.
+  const own = ui ? { 'data-ui': ui } : undefined
   useTranslation('code')
   const { icon: Icon } = WORKBENCH_PANELS[item.id], label = item.label ?? WORKBENCH_PANELS[item.id].label
   const title = item.title ?? panelTitle(item.id)
   const badge = item.badge ? <span className="workspace-topbar-alert" aria-hidden="true" data-testid={`panel-badge-${item.id}`}>{item.badge}</span> : null
   if (iconOnly) {
-    return <IconButton size="md" className={className} label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}
+    return <IconButton size="md" className={className} label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle} {...own}
       icon={<><Icon size={14} aria-hidden="true" />{badge}</>} />
   }
-  return <Button variant="ghost" size="md" className={className} aria-label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle}
+  return <Button variant="ghost" size="md" className={className} aria-label={label} title={title} aria-pressed={item.active} disabled={item.disabled} onClick={item.onToggle} {...own}
     icon={<Icon size={14} aria-hidden="true" />}><span>{label}</span>{badge}</Button>
 }
 

@@ -217,7 +217,9 @@ describe('design lint', () => {
       // OXE-161 (#1009 after main): 359.
       // OXE-167 + OXE-172 (#1023 after #1025 and #1081, the union): 352.
       // OXE-168 (F5 T15): the opening's starters are src/ui Buttons, 351.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(351)
+      // OXE-169 (F5 T17): the chat header's Mais ações, the timeline's Load earlier and the three turn actions (Copy code,
+      // Quote in reply, Copy final response; CR-62's chat-column measure) are src/ui primitives, 346.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(346)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)

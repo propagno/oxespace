@@ -17,7 +17,8 @@
     "needsWorkspace": "Open a workspace to use its panels",
     "httpCalls": "HTTP calls",
     "android": "Android device",
-    "containers": "Containers"
+    "containers": "Containers",
+    "queries": "Queries"
   },
   "tools": {
     "team": {
