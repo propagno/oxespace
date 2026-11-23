@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUpDown, Columns3, Copy, Eye, FileJson, Pin, X } from 'lucide-react'
 import { SQL_NULL, displayCell as plainCell, formatRows, normalizeRange, sliceRange, type CellRange, type CopyFormat } from './grid-format'
@@ -26,6 +26,10 @@ function isNumericColumn(type: string | undefined, rows: unknown[][], index: num
   const sample = rows.slice(0, 50).map(row => row[index]).find(value => value !== null && value !== undefined)
   return typeof sample === 'number'
 }
+
+/** OXE-351: above this many rows the filter waits for a pause in typing; below it, filtering every cell is instant. */
+const FILTER_PAUSE_ROWS = 5_000
+const FILTER_PAUSE_MS = 150
 
 /** A real NULL and the text "NULL" must not look alike. */
 function shown(value: unknown): string {
@@ -99,10 +103,15 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   // A different result starts with a clean slate: widths, hidden columns and selection belong to it. Reset while
   // rendering the new result (OXE-322), not in an effect after it painted with the old result's state.
   const identity = columns.join('\u0000')
+  // OXE-351: on a large result the filter applies after a pause in typing (every keystroke would filter every cell);
+  // a small one filters at once. A pending pause goes with the result it was typed for.
+  const [pausedFilter, setPausedFilter] = useState<GridFilter>(EMPTY_FILTER)
+  const filterPause = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (filterPause.current !== null) clearTimeout(filterPause.current) }, [identity])
   const [shownIdentity, setShownIdentity] = useState(identity)
   if (shownIdentity !== identity) {
     setShownIdentity(identity)
-    setOverrides({}); setHidden(new Set()); setPinned(new Set()); setFilter(EMPTY_FILTER); setFilterColumn(-1); setAnchor(null); setFocus(null)
+    setOverrides({}); setHidden(new Set()); setPinned(new Set()); setFilter(EMPTY_FILTER); setPausedFilter(EMPTY_FILTER); setFilterColumn(-1); setAnchor(null); setFocus(null)
   }
 
   const visible = useMemo(() => pinColumns(columns.map((_, index) => index).filter(index => !hidden.has(index)), pinned), [columns, hidden, pinned])
@@ -168,9 +177,8 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
       }
     ]
   }
-  // OXE-351: the filter runs on a deferred value, so typing in a large result is not held up by filtering every cell.
-  const deferredFilter = useDeferredValue(filter)
-  const order = useMemo(() => viewOrder(rows, deferredFilter, onSort ? null : sort), [rows, deferredFilter, sort, onSort])
+  const appliedFilter = rows.length > FILTER_PAUSE_ROWS ? pausedFilter : filter
+  const order = useMemo(() => viewOrder(rows, appliedFilter, onSort ? null : sort), [rows, appliedFilter, sort, onSort])
   const count = order ? order.length : rows.length
   const pinLeft = useMemo(() => pinOffsets(visible, pinned, widthOf, INDEX_WIDTH), [visible, pinned, widthOf])
   const stickyStyle = (column: number, width: number): CSSProperties => (pinLeft.has(column) ? { width, position: 'sticky', left: pinLeft.get(column) } : { width })
@@ -275,7 +283,12 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   // A changed filter starts at the top with nothing selected: reset where the filter changes (OXE-322), not in an
   // effect after the render; the effect below only scrolls the element back up.
   const changeFilter = (next: GridFilter | ((current: GridFilter) => GridFilter)): void => {
-    setFilter(next); setScrollTop(0); setAnchor(null); setFocus(null)
+    const value = typeof next === 'function' ? next(filter) : next
+    setFilter(value); setScrollTop(0); setAnchor(null); setFocus(null)
+    if (filterPause.current !== null) clearTimeout(filterPause.current)
+    filterPause.current = null
+    if (rows.length > FILTER_PAUSE_ROWS) filterPause.current = setTimeout(() => { filterPause.current = null; setPausedFilter(value) }, FILTER_PAUSE_MS)
+    else setPausedFilter(value)
   }
   const setFilterText = (text: string): void => changeFilter(current => filterColumn < 0 ? { ...current, text } : { ...current, columns: { ...current.columns, [filterColumn]: text } })
   const filterText = filterColumn < 0 ? filter.text : filter.columns[filterColumn] ?? ''
