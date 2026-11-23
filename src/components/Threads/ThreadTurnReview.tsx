@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../ui'
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { TurnPath } from './ThreadFileActivity'
 import { threadChanges } from './threadChanges'
+import { placeGroups, placesBridge, placesStats } from './placesModel'
 import { WithPathMenu } from '../PathMenu/usePathMenu'
 import { parseProjectPath } from '../../lib/projectPath'
 
@@ -33,13 +34,28 @@ export function ThreadTurnReview({ snapshot, turnId, onShowAll, onComment }: {
   useEffect(() => {
     let active = true
     if (!api?.turnFiles) { setFiles([]); return }
-    void api.turnFiles(id, turnId).then(value => {
+    void api.turnFiles(id, turnId).then(async value => {
       if (!active) return
+      if (value.length === 0) {
+        const bridge = placesBridge()
+        if (bridge?.places) {
+          const result = await bridge.places(id).catch(() => null)
+          if (!active) return
+          const hasDirectFiles = Boolean(result?.places.some(place => (place.files?.length ?? 0) > 0 || place.writes > 0))
+          if (hasDirectFiles) { onShowAll(); return }
+          if (result?.places.length && bridge.placeDiff) {
+            const diffs = await Promise.all(result.places.map(place => bridge.placeDiff!(id, place.id).catch(() => null)))
+            if (!active) return
+            const stats = placesStats(diffs.map(diff => (diff ? placeGroups(diff) : null)))
+            if (stats.files > 0) { onShowAll(); return }
+          }
+        }
+      }
       setFiles(value)
       setSelected(current => current && value.some(file => file.path === current) ? current : value[0]?.path ?? null)
     }, cause => { if (active) { setFiles([]); setError(humanizeError(cause, t('turnReview.loadFailed'))) } })
     return () => { active = false }
-  }, [api, id, turnId, revision])
+  }, [api, id, turnId, revision, onShowAll])
   const turn = snapshot.turns?.find(value => value.id === turnId)
   const running = snapshot.thread.status === 'running'
   const checkout = files?.find(file => file.root)?.root

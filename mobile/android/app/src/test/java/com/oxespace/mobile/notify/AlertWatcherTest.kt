@@ -19,10 +19,13 @@ class AlertWatcherTest {
     fun announcesEachRequestOnceAndTakesItDownWhenAnswered() {
         val watcher = AlertWatcher()
         val first = watcher.onRequests(listOf(request("r1")))
-        assertEquals(
-            listOf(AlertChange.Post("request:t-1/r1", AlertKind.NEEDS_YOU, "Run r1", "Fix login", AlertTarget.Request("t-1", "r1"))),
-            first,
-        )
+        // OXE-380 (A6): the announcement is the app's words and the conversation, never the request's title.
+        val post = first.single() as AlertChange.Post
+        assertEquals("request:t-1/r1", post.key)
+        assertEquals(AlertKind.NEEDS_YOU, post.kind)
+        assertEquals("Fix login", post.text)
+        assertEquals(AlertTarget.Request("t-1", "r1"), post.target)
+        assertTrue("the agent's title is not announced: $post", !post.toString().contains("Run r1"))
         // The same list again (a reconnection, the phone waking from Doze) announces nothing new.
         assertTrue(watcher.onRequests(listOf(request("r1"))).isEmpty())
         val next = watcher.onRequests(listOf(request("r2")))
@@ -34,9 +37,9 @@ class AlertWatcherTest {
     fun desktopTextReachesTheNotificationWithoutHiddenOrReorderingCharacters() {
         val hostile = request("r1").copy(title = "Open report‮exe.txt‬", threadTitle = "Fix​ login⁦" + "x".repeat(300))
         val post = AlertWatcher().onRequests(listOf(hostile)).single() as AlertChange.Post
-        assertEquals("Open reportexe.txt", post.title)
+        assertTrue("the agent's title is not announced: $post", !post.toString().contains("exe.txt"))
         assertTrue(post.text.startsWith("Fix loginxxx"))
-        assertEquals(120, post.text.codePointCount(0, post.text.length))
+        assertEquals(80, post.text.codePointCount(0, post.text.length))
     }
 
     @Test

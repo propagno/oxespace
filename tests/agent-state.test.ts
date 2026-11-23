@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { detect, loadManifests, manifestFor, parseManifest, region, translateRegex } from '../electron/main/services/agent-state/manifest'
 import { AgentStateService, agentFromCommand, type PaneAgentState } from '../electron/main/services/agent-state/agent-state.service'
@@ -12,7 +13,7 @@ const PROMPT_BOX = ['─'.repeat(60), '❯ ', '─'.repeat(60), '  ? for shortcu
 describe('herdr manifests', () => {
   it('all bundled manifests load with every rule', () => {
     expect(warnings).toEqual([])
-    expect([...manifests.keys()].sort()).toEqual(['amp', 'claude', 'codex', 'copilot', 'cursor', 'droid', 'gemini', 'grok', 'kimi', 'opencode', 'qwen'])
+    expect([...manifests.keys()].sort()).toEqual(['agy', 'amp', 'claude', 'codex', 'copilot', 'cursor', 'droid', 'gemini', 'grok', 'kimi', 'opencode', 'qwen'])
     expect(manifestFor(manifests, 'claude-code')?.id).toBe('claude')
   })
 
@@ -187,5 +188,69 @@ describe('pane tone from the agent state', () => {
     expect(deriveStatusTone({ ...base, agentState: 'working' })).toBe('thinking')
     expect(deriveStatusTone({ ...base, agentState: 'unknown' })).toBe('thinking')
     expect(deriveStatusTone({ ...base, status: 'exited', agentState: 'working' })).toBe('exited')
+  })
+})
+
+// OXE-315: the Antigravity CLI (agy) had no screen manifest, so its panes were never working or blocked. The screens
+// below follow the evidence in herdr's antigravity.toml (Antigravity CLI 1.1.28 through 1.2.17): dialogs end with a
+// key-hint row right above the "esc to cancel" footer, a working turn draws that footer under the prompt box's bottom
+// border or a braille spinner above the box, and the idle footer reads "? for shortcuts".
+describe('Antigravity CLI screen detection (OXE-315)', () => {
+  const rule = '─'.repeat(60)
+  const lines = (...rows: string[]) => rows.join('\n')
+  const promptBox = (footer: string) => lines(rule, '> ', rule, footer)
+  const dialog = (...rows: string[]) => lines('Antigravity wants to run a command', '', ...rows, '  esc to cancel')
+
+  it('antigravity manifest detects working, blocked and idle states accurately', async () => {
+    const agy = manifestFor(manifests, 'antigravity')!
+    expect(agy).toMatchObject({ id: 'agy', aliases: ['antigravity', 'antigravity-cli'] })
+    expect(manifestFor(manifests, 'agy')).toBe(agy)
+
+    const working = detect(agy, screen(lines('Reading the changed files', '', rule, '> ', rule, '  esc to cancel')))
+    expect(working).toMatchObject({ state: 'working', visibleWorking: true, matchedRule: { id: 'esc_cancel_footer_working' } })
+    expect(detect(agy, screen(lines('⠋ Planning the refactor', '', promptBox('  ? for shortcuts'))))).toMatchObject({ state: 'working', matchedRule: { id: 'spinner_working' } })
+
+    const permission = detect(agy, screen(dialog('   npm test', '', '↑/↓ Navigate · tab Amend · ctrl+g edit/expand command')))
+    expect(permission).toMatchObject({ state: 'blocked', visibleBlocker: true, matchedRule: { id: 'permission_prompt' } })
+    expect(detect(agy, screen(dialog('   src/app.ts +3 -1', '', '↑/↓ Navigate · tab Amend · f full diff'))).matchedRule?.id).toBe('permission_prompt')
+    expect(detect(agy, screen(dialog('Which test runner should I use?', '❯ Vitest', '  Jest', '', '↑/↓ Navigate · enter Select · esc Skip')))).toMatchObject({ state: 'blocked', matchedRule: { id: 'question_prompt' } })
+    expect(detect(agy, screen(dialog('Do you trust the contents of this project?', '❯ Yes, I trust this folder', '  No, exit', '', '↑/↓ Navigate · enter Confirm')))).toMatchObject({ state: 'blocked', matchedRule: { id: 'trust_prompt' } })
+    expect(detect(agy, screen(lines('Requesting permission for: rm -rf build', 'Do you want to proceed?', '❯ Yes', '  No')))).toMatchObject({ state: 'blocked', matchedRule: { id: 'legacy_permission_prompt' } })
+
+    expect(detect(agy, screen(lines('Done. Updated 2 files.', '', promptBox('  ? for shortcuts'))))).toMatchObject({ state: 'idle', matchedRule: null, fallbackReason: 'default_known_agent_idle_fallback' })
+    // The slash-command menu is a key-hint row too, but it waits for typing, not for a decision.
+    expect(detect(agy, screen(lines('/help   Show help', '/model  Choose a model', '', '↑/↓ Navigate · enter Select · tab Complete', '  ? for shortcuts'))).state).toBe('idle')
+    // RN-2: an answer that only talks about confirmations is not a dialog.
+    const prose = 'Do you want to proceed? Navigate to Settings, press tab, amend the entry and skip the rest with esc.'
+    expect(detect(agy, screen(lines(prose, '', promptBox('  ? for shortcuts')))).state).toBe('idle')
+
+    // RN-1: an agy pane showing a dialog is blocked, the state oxespace_agents_change refuses to write to.
+    vi.useFakeTimers()
+    try {
+      const service = new AgentStateService({ manifests: () => manifests, emit: () => undefined })
+      service.start('p-agy', 'w1', 80, 24, 'agy')
+      service.output('p-agy', dialog('   npm test', '', '↑/↓ Navigate · tab Amend · ctrl+g edit/expand command').split('\n').join('\r\n'))
+      const wait = service.waitFor('p-agy', ['blocked'], 2000)
+      await vi.advanceTimersByTimeAsync(2_000)
+      expect(await wait).toMatchObject({ timedOut: false, state: { agent: 'antigravity', state: 'blocked', source: 'screen' } })
+      service.exit('p-agy')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('bundled manifests include valid antigravity.toml schema', async () => {
+    const { BUNDLED_MANIFESTS } = await import('../electron/main/services/agent-state/bundled-manifests')
+    const onDisk = readdirSync('resources/agent-detection').filter(file => file.endsWith('.toml')).sort()
+    expect(onDisk).toContain('antigravity.toml')
+    expect(BUNDLED_MANIFESTS.map(manifest => manifest.file).sort()).toEqual(onDisk)
+    const bundled = loadManifests(BUNDLED_MANIFESTS)
+    expect(bundled.warnings).toEqual([])
+    const agy = manifestFor(bundled.manifests, 'antigravity')!
+    expect(agy).toMatchObject({ id: 'agy', source: 'bundled', skipped: [] })
+    expect(agy.rules.map(rule => [rule.id, rule.state])).toEqual([
+      ['permission_prompt', 'blocked'], ['question_prompt', 'blocked'], ['trust_prompt', 'blocked'], ['legacy_permission_prompt', 'blocked'],
+      ['esc_cancel_footer_working', 'working'], ['spinner_working', 'working']
+    ])
   })
 })

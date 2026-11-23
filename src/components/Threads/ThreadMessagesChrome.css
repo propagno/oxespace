@@ -102,3 +102,33 @@
 .thread-live-activity-stop { flex: none; }
 .thread-nav-search { padding: 0 var(--space-2) var(--space-2); }
 .thread-message-outgoing { opacity: 0.88; }
+.thread-compaction-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  text-align: center;
+}
+.thread-compaction-divider::before,
+.thread-compaction-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--bd-subtle);
+}
+.thread-change-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

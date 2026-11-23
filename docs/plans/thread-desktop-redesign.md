@@ -15,7 +15,7 @@ Electron real com mensagens e contas simuladas, sem revelar dados de contas reai
 | --- | --- |
 | T01 | Reproduzido antes da correção em 900x600: shell/surface cresceram para 27.807 px, composer terminou em y=767,75 e foi cortado. Causa confirmada: linha intrínseca do grid sem limite e ancestrais sem min-height:0 |
 | T02 | Codex instalado passou initialize/initialized; ambos os clientes passaram account/read ou auth status --json. Fonte embarcada do Claude 2.1.274 confirma auth login com readline(process.stdin), prompt de código e saída process.exit(0). Pipes são compatíveis com esse comando; OAuth real não foi concluído neste teste |
-| T03 | Thread shell usa linha minmax(0,1fr), sidebar próprio 248/224–320 e cabeçalho 48. A regra antiga orca-shell.css de inset que cobria a barra Code foi corrigida. Hosts/terminais Code continuam montados |
+| T03 | Thread shell usa linha minmax(0,1fr), sidebar próprio 248/224–320 e cabeçalho 48. A regra antiga project-shell.css de inset que cobria a barra Code foi corrigida. Hosts/terminais Code continuam montados |
 | T04 | Catálogo usa MemoryProjectService/git-common-dir com concorrência 4; SQLite+Git real comprova main/worktree convergindo e pane em repositório homônimo separado, com contexto indisponível reportado |
 | T05 | Turnos agrupados sem reescrever DB; timeline independente, composer 96 px na altura curta e bottom=592/600. Seguir streaming somente junto ao fim; drafts/scroll por thread e botão Latest messages |
 | T06 | Estados/IPC tipados, parsers sanitizados, URLs HTTPS oficiais, cancelamento/timeout, dedupe e callbacks tardios; credenciais ambientais de API/OAuth omitidas nos processos Thread |

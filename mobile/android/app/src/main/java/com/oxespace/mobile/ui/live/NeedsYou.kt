@@ -2,6 +2,7 @@ package com.oxespace.mobile.ui.live
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,9 +17,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +71,9 @@ import kotlinx.coroutines.launch
 
 private const val PROVIDER_LIMIT = 40
 private const val TEXT_LIMIT = 200
+/** A9: the command a card shows whole, in lines, and the characters a line of it takes before it wraps. */
+private const val COMMAND_LINES = 3
+private const val COMMAND_LINE_CHARS = 40
 
 /** The lines after which the card's buttons stay on: nothing reached the computer, so trying again is safe. */
 private val RETRYABLE = setOf(R.string.request_not_confirmed, R.string.needs_you_offline)
@@ -163,13 +170,20 @@ private fun NeedsYouCard(
     val question = request.kind == "question" || request.kind == "elicitation"
     val canDeny = "decline" in request.decisions
     val canAllow = "accept" in request.decisions && request.truncated != true
-    val answersHere = !question && !critical && request.answerable && (canDeny || canAllow)
+    // OXE-380 (A9): a direct answer only for what the card shows whole and lets the person judge here: a known risk
+    // below high, no warnings, no paths, and a command of at most three lines (measured too, for one that wraps).
+    // Anything else is answered on the Request screen, through Review, as a critical request is.
+    var commandCut by remember(request.requestId, request.generation) { mutableStateOf(commandCutAtThreeLines(request.command)) }
+    val level = request.risk?.let { riskLevel(it) }
+    val judgeable = level != null && level != RemoteApprovalRisk.HIGH && level != RemoteApprovalRisk.CRITICAL &&
+        request.warnings.isNullOrEmpty() && request.paths.isNullOrEmpty() && !commandCut
+    val answersHere = !question && judgeable && request.answerable && (canDeny || canAllow)
     Column(
         Modifier.padding(horizontal = OxeSpace.space4).fillMaxWidth().clip(shape).background(c.surfaceRaised).border(1.dp, c.borderDefault, shape),
     ) {
         NeedsYouHeader(request, critical, question)
         Column(Modifier.fillMaxWidth().padding(OxeSpace.space3), verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
-            NeedsYouSummary(request, provider, question)
+            NeedsYouSummary(request, provider, question, onOpen = onReview, onCommandCut = { commandCut = true })
             when {
                 question -> OxeButton(stringResource(R.string.needs_you_reply), onClick = onReply, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.PRIMARY)
                 !answersHere -> OxeButton(stringResource(R.string.thread_review), onClick = onReview, modifier = Modifier.fillMaxWidth(), kind = OxeButtonKind.PRIMARY)
@@ -273,14 +287,21 @@ private fun NeedsYouHeader(request: RemotePendingRequest, critical: Boolean, que
 
 /** "<agente> pede para <ação>", one TalkBack stop before the buttons. */
 @Composable
-private fun NeedsYouSummary(request: RemotePendingRequest, provider: String?, question: Boolean) {
+private fun NeedsYouSummary(request: RemotePendingRequest, provider: String?, question: Boolean, onOpen: () -> Unit, onCommandCut: () -> Unit) {
     val agent = provider?.let { providerName(displaySafe(it, PROVIDER_LIMIT)) } ?: stringResource(R.string.needs_you_agent)
     val command = request.command
-    Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
+    // A9: the body of every card opens the Request screen, where the whole request is shown.
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(OxeSpace.space1)) {
         when {
             command != null -> {
                 Text(stringResource(R.string.needs_you_asks_run, agent), style = MaterialTheme.typography.titleSmall)
-                Text(showHidden(command), style = OxeCodeStyle, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(
+                    showHidden(command),
+                    style = OxeCodeStyle,
+                    maxLines = COMMAND_LINES,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { if (it.hasVisualOverflow) onCommandCut() },
+                )
             }
             question -> {
                 Text(stringResource(R.string.needs_you_asks_question, agent), style = MaterialTheme.typography.titleSmall)
@@ -301,6 +322,13 @@ private fun NeedsYouSummary(request: RemotePendingRequest, provider: String?, qu
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+/** OXE-380 (A9): a command the card cannot show whole: more than three lines, or long enough to wrap past them. */
+internal fun commandCutAtThreeLines(command: String?): Boolean {
+    if (command == null) return false
+    val text = showHidden(command)
+    return text.lines().size > COMMAND_LINES || text.length > COMMAND_LINES * COMMAND_LINE_CHARS
 }
 
 /** The header's time, short: "agora", "3 min", then the clock time. */

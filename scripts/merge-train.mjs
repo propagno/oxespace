@@ -205,6 +205,15 @@ export const ACTIONS_APP_ID = 15368
 export const ACTIONS_APP_SLUG = 'github-actions'
 /** Events whose runs on the head count; a pull_request_target or workflow_run run tests nothing of the PR. */
 export const COUNTED_EVENTS = new Set(['push', 'pull_request', 'workflow_dispatch'])
+
+/**
+ * OXE-404 (CI LEVE NO PR): ci.yml runs only shard 2's build and brand conformance on a pull_request event, so the
+ * PR's own run of it is evidence for the PR, not for a merge. A car merges only on a push or a workflow_dispatch run
+ * of ci.yml (the full shape). Other watched workflows (Android) keep counting their pull_request runs.
+ */
+export function lightPullRequestRun(run) {
+  return run?.name === CI_WORKFLOW && run?.event === 'pull_request'
+}
 /** Collaborator roles that may put a PR in the queue. */
 export const LABELER_ROLES = new Set(['admin', 'maintain', 'write'])
 // Only a marker that ends the comment counts: text the train copies into the line above it (check names
@@ -403,8 +412,11 @@ export function step(input) {
 
   const head = pr.headSha
   // A run that tested nothing (an unapproved bot run, or one with every job skipped) never stands for CI on the head.
+  // OXE-404 (CI LEVE NO PR): a pull request's own CI run is the light shape (no E2E suite, no performance gate), so it
+  // never stands for the CI a car merges on. Only a push or a dispatched run counts; with just the PR's run on the
+  // head, CI has not started there, and the train dispatches the full check.
   const runs = latestByName(
-    (input.runs ?? []).filter((r) => r.headSha === head && WATCHED_WORKFLOWS.includes(r.name) && !UNTESTED_RUN_CONCLUSIONS.has(r.conclusion)),
+    (input.runs ?? []).filter((r) => r.headSha === head && WATCHED_WORKFLOWS.includes(r.name) && !UNTESTED_RUN_CONCLUSIONS.has(r.conclusion) && !lightPullRequestRun(r)),
   )
   if (!runs.some((r) => r.name === CI_WORKFLOW)) {
     // Nothing started CI on this head (a GITHUB_TOKEN update starts no workflow, and the dispatch right after it
@@ -1300,6 +1312,8 @@ export function createGitHubApi({ token, repo, base = 'main', fetchImpl = global
         // An unlisted workflow file is never one of the watched workflows, whatever it calls itself.
         name: workflowName(run.path, null),
         path: run.path,
+        // OXE-404: a pull_request run of ci.yml is the light shape and never counts for a merge (lightPullRequestRun).
+        event: run.event,
         headSha: run.head_sha,
         status: run.status,
         conclusion: run.conclusion,

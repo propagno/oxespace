@@ -487,18 +487,19 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.workbench-titlebar')).not.toContainText('Authentication flow')
     const failureCard = page.locator('.thread-failure-card')
     await expect(failureCard.getByText('Usage allowance exhausted', { exact: true })).toBeVisible()
-    await expect(failureCard.getByLabel('Technical details')).toContainText('hit the session usage limit')
-    await expect(failureCard.getByText('100% used', { exact: true })).toBeVisible()
+    await failureCard.locator('.thread-failure-technical > summary').click()
+    await expect(failureCard.getByLabel('Technical details', { exact: true })).toContainText('hit the session usage limit')
+    await expect(failureCard.getByText(/^Session · 5 hours · 100% used · Resets in (59m|60m|1h)$/)).toBeVisible()
     await expect(failureCard.locator('.thread-usage-window time')).toHaveCount(2)
     await failureCard.getByRole('button', { name: 'Refresh usage', exact: true }).click()
-    await expect(failureCard.getByText('72% used', { exact: true })).toBeVisible()
+    await expect(failureCard.getByText(/^Weekly · 72% used · Resets in (23h|24h)$/)).toBeVisible()
     for (const width of [900, 1280]) {
       await page.setViewportSize({ width, height: 720 })
       await expect(failureCard.getByRole('button', { name: 'Refresh usage', exact: true })).toBeVisible()
       expect(await failureCard.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
       await page.screenshot({ path: `test-results/thread-failure-usage-${width}.png` })
     }
-    await failureCard.locator('summary').click()
+    await failureCard.locator(':scope > summary').click()
     await expect(failureCard).not.toHaveAttribute('open')
     await expect(native).toHaveCount(0)
     await page.setViewportSize({ width: 1440, height: 900 })
@@ -507,9 +508,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
     await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
-    await expect(page.getByText('Sign in to Claude Code', { exact: true })).toBeVisible()
+    const authCard = page.locator('[data-ui="failure-card"]')
+    await expect(authCard.getByText('Reconnect your native agent account to continue.', { exact: true })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })
-    await page.getByRole('button', { name: 'Reconnect', exact: true }).click()
+    await authCard.getByRole('button', { name: 'Reconnect', exact: true }).click()
     const accountsDialog = page.getByRole('dialog', { name: 'Agent accounts' })
     await expect(accountsDialog).toBeVisible()
     await expect.poll(() => accountsDialog.locator('.thread-account-heading .agent-provider-icon').first().evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(28)
@@ -519,7 +521,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(claude.getByText('Complete sign-in in your browser.')).toBeVisible()
     await claude.getByRole('button', { name: 'Cancel sign-in', exact: true }).click()
     await accountsDialog.getByRole('button', { name: 'Close', exact: true }).click()
-    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await authCard.getByRole('button', { name: 'Try again', exact: true }).click()
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
     await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Finished')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
@@ -831,7 +833,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(conversation).toBeVisible()
     await expect(reviewHost).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
-    await expect(page.locator('.thread-change-summary')).toContainText('Edited 3 files')
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed (+9 −3)')
     await page.screenshot({ path: 'test-results/thread-change-card.png' })
     // View changes opens exactly what the turn changed, in its worktree, not the branch diff.
     await page.locator('.thread-change-summary').last().getByRole('button', { name: 'View changes', exact: true }).click()
@@ -863,14 +865,14 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.getByRole('button', { name: 'More actions' }).click()
     await page.getByRole('menuitemcheckbox', { name: 'Show every tool call' }).click()
     await expect(inlineRows).toHaveCount(0)
-    // A finished turn folds its work under one line that names what it opens ("6 steps"); the turn is closed once,
+    // A finished turn folds its work under one line that names what it opens ("6 actions"); the turn is closed once,
     // under the answer. Opening the fold shows the one-line action summaries.
     const fold = page.getByTestId('thread-turn-fold').first()
-    await expect(fold).toHaveText(/^\d+ steps?/)
+    await expect(fold).toHaveText(/^\d+ actions?/)
     await expect(fold).toHaveAttribute('aria-expanded', 'false')
     await fold.click()
     await expect(fold).toHaveAttribute('aria-expanded', 'true')
-    await expect(page.locator('.thread-activity-group, .thread-activity-single').first()).toBeVisible()
+    await expect(page.locator('[data-ui="step"][data-kind="run"]').filter({ hasText: 'npm run typecheck' })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-view-normal.png' })
     // Once a turn's prompt scrolls away while its work is read, it stays at the top edge and leads back.
     const sticky = page.getByTestId('thread-sticky-prompt')
@@ -907,8 +909,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.keyboard.press('Control+o') // normal → verbose
     await expect(inlineRows.first()).toBeVisible()
     await page.keyboard.press('Control+o') // verbose → summary
-    await expect(page.locator('.thread-activity-group, .thread-activity-single')).toHaveCount(0)
-    await expect(page.locator('.thread-change-summary')).toContainText('Edited 3 files')
+    await expect(page.locator('.thread-activity-group, .thread-activity-single, [data-ui="explore-group"], [data-ui="step"]')).toHaveCount(0)
+    await expect(page.locator('.thread-change-summary')).toContainText('3 files changed (+9 −3)')
     await page.screenshot({ path: 'test-results/thread-view-summary.png' })
     await page.keyboard.press('Control+o') // summary → normal
     await page.keyboard.press('Control+o') // normal → verbose
