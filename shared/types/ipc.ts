@@ -115,6 +115,10 @@ export const IPC_CHANNELS = {
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
+    /** OXE-367: whether the workspace's folder is still there. */
+    rootStatus: 'workspace:root-status',
+    /** OXE-367: points a workspace whose folder moved at another folder; same checks as create. */
+    relink: 'workspace:relink',
     shellProfiles: 'workspace:shell-profiles',
     createGitHubTerminalPane: 'workspace:create-github-terminal-pane'
   },
@@ -507,6 +511,10 @@ export interface WorkspaceApi {
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
+  /** OXE-367: whether the workspace's folder is still there (an existing folder that can be listed). */
+  rootStatus(id: string): Promise<{ available: boolean }>
+  /** OXE-367: the same workspace and panes on another folder, or the refusal of that folder (nothing was written then). */
+  relink(input: { workspaceId: string; rootPath: string }): Promise<Workspace | WorkspaceCreateRefusal>
   shellProfiles(): Promise<ShellProfile[]>
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }

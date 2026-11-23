@@ -269,6 +269,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'workspace.root.empty': [],
   'workspace.root.notAbsolute': ['path'],
   'workspace.root.notFound': ['path'],
+  'workspace.root.taken': ['path'],
   'workspace.root.notDirectory': ['path'],
   'workspace.root.unreadable': ['path'],
   'approvals.title.agent': [],

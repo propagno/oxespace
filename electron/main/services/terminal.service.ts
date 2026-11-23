@@ -128,7 +128,8 @@ export class TerminalManager {
       assignSession: options.assignSession,
       clearSession: options.clearSession,
       currentSession: options.currentSession,
-      nativeSessionRoots: options.nativeSessionRoots
+      nativeSessionRoots: options.nativeSessionRoots,
+      rootExists: options.rootExists
     })
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.output = new SessionOutput({

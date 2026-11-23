@@ -399,6 +399,8 @@ export interface MessageParams extends PlaceMessageParams {
   'workspace.root.notAbsolute': { path: string }
   /** A workspace root that does not exist. */
   'workspace.root.notFound': { path: string }
+  /** Relinking a workspace to a folder another workspace already has (OXE-367). */
+  'workspace.root.taken': { path: string }
   /** A workspace root that is a file, not a folder. */
   'workspace.root.notDirectory': { path: string }
   /** A workspace root the app is not allowed to open or list. */
@@ -801,6 +803,7 @@ export const MESSAGE_CODES = [
   'workspace.root.empty',
   'workspace.root.notAbsolute',
   'workspace.root.notFound',
+  'workspace.root.taken',
   'workspace.root.notDirectory',
   'workspace.root.unreadable',
   'approvals.title.agent',
