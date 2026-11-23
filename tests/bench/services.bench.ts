@@ -3,8 +3,11 @@
  *
  * Fixtures are created once in the OS temp directory so measured samples cover
  * SearchService/GitService work rather than fixture generation.
+ *
+ * Vitest 5 (OXE-352): `bench` is the test context's fixture, not an export of `vitest`; each group is one test that
+ * compares its benchmarks with the run options below.
  */
-import { afterAll, beforeAll, bench, describe } from 'vitest'
+import { afterAll, beforeAll, test } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -60,56 +63,57 @@ const serviceBenchOptions = {
   warmupIterations: 1
 }
 
-describe('SearchService — real bundled ripgrep over 2,000 files', () => {
+test('SearchService — real bundled ripgrep over 2,000 files', async ({ bench }) => {
   const service = new SearchService()
 
-  bench('listFiles — 2,000 files', async () => {
-    await service.listFiles(searchRoot)
-  }, serviceBenchOptions)
-
-  bench('literal search — 200 matching files', async () => {
-    await service.search({
-      workspaceId: 'perf',
-      rootPath: searchRoot,
-      query: 'PERFORMANCE_NEEDLE'
-    })
-  }, serviceBenchOptions)
-
-  bench('no-result search — 2,000 files', async () => {
-    await service.search({
-      workspaceId: 'perf',
-      rootPath: searchRoot,
-      query: 'THIS_TOKEN_DOES_NOT_EXIST'
-    })
-  }, serviceBenchOptions)
+  await bench.compare(
+    bench('listFiles — 2,000 files', async () => {
+      await service.listFiles(searchRoot)
+    }),
+    bench('literal search — 200 matching files', async () => {
+      await service.search({
+        workspaceId: 'perf',
+        rootPath: searchRoot,
+        query: 'PERFORMANCE_NEEDLE'
+      })
+    }),
+    bench('no-result search — 2,000 files', async () => {
+      await service.search({
+        workspaceId: 'perf',
+        rootPath: searchRoot,
+        query: 'THIS_TOKEN_DOES_NOT_EXIST'
+      })
+    }),
+    serviceBenchOptions
+  )
 })
 
-describe('GitService — real Git repo with 300 files / 100 modified', () => {
+test('GitService — real Git repo with 300 files / 100 modified', async ({ bench }) => {
   const service = new GitService()
   const githubService = new GitHubService(null as unknown as AppDatabase)
   let commitSequence = 0
 
-  bench('getBranch', async () => {
-    await service.getBranch(gitRoot)
-  }, serviceBenchOptions)
-
-  bench('buildDiff — 100 modified files', async () => {
-    await service.buildDiff(gitRoot, 'HEAD', true)
-  }, serviceBenchOptions)
-
-  bench('stage + unstage — one file', async () => {
-    await githubService.stageFile({ workspaceId: 'perf', rootPath: gitRoot, path: 'file-0.txt' })
-    await githubService.unstageFile({ workspaceId: 'perf', rootPath: gitRoot, path: 'file-0.txt' })
-  }, serviceBenchOptions)
-
-  bench('stage + commit — one new file', async () => {
-    const path = `commit-perf-${commitSequence++}.txt`
-    writeFileSync(join(gitRoot, path), `commit benchmark ${commitSequence}\n`)
-    await githubService.stageFile({ workspaceId: 'perf', rootPath: gitRoot, path })
-    await githubService.commit({
-      workspaceId: 'perf',
-      rootPath: gitRoot,
-      message: `perf: sample ${commitSequence}`
-    })
-  }, serviceBenchOptions)
+  await bench.compare(
+    bench('getBranch', async () => {
+      await service.getBranch(gitRoot)
+    }),
+    bench('buildDiff — 100 modified files', async () => {
+      await service.buildDiff(gitRoot, 'HEAD', true)
+    }),
+    bench('stage + unstage — one file', async () => {
+      await githubService.stageFile({ workspaceId: 'perf', rootPath: gitRoot, path: 'file-0.txt' })
+      await githubService.unstageFile({ workspaceId: 'perf', rootPath: gitRoot, path: 'file-0.txt' })
+    }),
+    bench('stage + commit — one new file', async () => {
+      const path = `commit-perf-${commitSequence++}.txt`
+      writeFileSync(join(gitRoot, path), `commit benchmark ${commitSequence}\n`)
+      await githubService.stageFile({ workspaceId: 'perf', rootPath: gitRoot, path })
+      await githubService.commit({
+        workspaceId: 'perf',
+        rootPath: gitRoot,
+        message: `perf: sample ${commitSequence}`
+      })
+    }),
+    serviceBenchOptions
+  )
 })

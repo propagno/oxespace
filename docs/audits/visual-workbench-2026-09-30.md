@@ -4,7 +4,7 @@ Scope: the current 0.16.0-beta.1 checkout in Windows Electron. This is an intera
 
 | Surface | Representative states and checks | Automated coverage |
 | --- | --- | --- |
-| Code | New workspace, four-pane grid, selected pane, long sidebar, collapsed navigation, editor, local Git, panel resizing | `workspace`, `code-sidebar-overflow`, `navigation-redesign`, `pane-layout-resize`, `orca-shell`, `workspace-panel-stack` |
+| Code | New workspace, four-pane grid, selected pane, long sidebar, collapsed navigation, editor, local Git, panel resizing | `workspace`, `code-sidebar-overflow`, `navigation-redesign`, `pane-layout-resize`, `project-shell`, `workspace-panel-stack` |
 | Compact Code | 600px width, no page-wide horizontal overflow, one visible pane while all four remain mounted, switching panes from the sidebar, no repeated breadcrumb/status data | `workspace-settings-design` |
 | Settings and dialogs | Application tabs, workspace categories at 1360px and 600px, persisted theme, short-window layout, updater states, keyboard opening/closing and focus restoration | `settings-tabs`, `settings-desktop`, `workspace-settings-design`, `keyboard-accessibility` |
 | Thread | Navigation after restart, message/approval/question states, account recovery, session actions, delegation, long messages, responsive composer | `thread-view`, `thread-project-navigation`, `thread-session-actions`, `delegation-worktree-continuity` |

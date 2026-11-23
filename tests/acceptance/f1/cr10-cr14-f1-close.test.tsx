@@ -1,6 +1,7 @@
 // Frozen acceptance test for the 1.5.0 F1 close (OXE phase F1, task T13): CR-10, CR-12, CR-13, CR-14. The executor must not edit it.
-// CR-10 (FRONTEND review of #616): U6 removed the sign-in card's own action, so its onAccounts prop is dead code
-//         in both components that pass it down. The typecheck stays green without it.
+// CR-10 (FRONTEND review of #616), amended by LOGIN A (user 22/11, OXE-388): the dead onAccounts prop stays gone. The
+//         card's one action is Reconnect, live, on the current failure, and it opens the accounts surface.
+// liberação de teste congelado: coordenação 22/11, LOGIN A (usuário, OXE-388): only this header changes; the assertions do not
 // CR-12 (HML-F1-1): the pt-BR startup failure screen shows the raw English error under "Detalhes". The fold is labelled
 //         as the technical message, so a Portuguese reader knows why it isn't translated.
 // CR-13 (HML-F1-2): the screen's Quit/Sair is plain text at rest. Every text button has a visible shape at rest

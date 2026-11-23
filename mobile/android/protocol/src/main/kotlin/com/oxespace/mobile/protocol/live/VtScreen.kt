@@ -1,7 +1,23 @@
 package com.oxespace.mobile.protocol.live
 
-/** A run of one style inside a [VtLine]: [start] until [end] (exclusive), color 0–15 or null for the default. */
-data class VtRun(val start: Int, val end: Int, val color: Int?, val bold: Boolean)
+/**
+ * A run of one style inside a [VtLine]: [start] until [end] (exclusive), color 0–15 or null for the default. OXE-384:
+ * [background] 0–15 or null, and reverse video ([inverse], SGR 7), [dim] (SGR 2) and [underline] (SGR 4), which a
+ * full-screen CLI uses to show its selection.
+ */
+data class VtRun(
+    val start: Int,
+    val end: Int,
+    val color: Int?,
+    val bold: Boolean,
+    val background: Int? = null,
+    val inverse: Boolean = false,
+    val dim: Boolean = false,
+    val underline: Boolean = false,
+)
+
+/** Where the next character goes: [row] is an index into [VtScreen.lines], [col] the character index in that line. */
+data class VtCursor(val row: Int, val col: Int)
 
 /** One rendered line: its text and the styled runs over it. Immutable, so a view can keep it while nothing changes. */
 data class VtLine(val text: String, val runs: List<VtRun>)
@@ -16,12 +32,13 @@ data class VtLine(val text: String, val runs: List<VtRun>)
  * - cursor moves CUU CUD CUF CUB CNL CPL CHA VPA CUP HVP, and DECSC/DECRC or CSI s/u;
  * - erases EL ED ECH, and DCH ICH;
  * - CR, LF (taken as a new line, as the PTY's onlcr writes it), BS and TAB;
- * - SGR colors 0–15 and bold, as before;
+ * - SGR colors 0–15 and bold, as before; (OXE-384) background colors 0–15, reverse video, dim and underline;
+ * - (OXE-384) the cursor's position and whether it is shown (?25), see [cursor];
  * - (1.5.2 A5) the scroll region DECSTBM, IL/DL, SU/SD, IND/NEL and RI, as xterm: LF at the bottom of the region
  *   scrolls only the region, RI at its top scrolls it down, and LF on the last row of the alternate screen (its height
  *   known) scrolls instead of growing a line, so full-screen CLIs (Codex, vim, less, htop) keep their rows.
  *
- * Everything else is read and dropped: OSC titles and links, other modes (?25 included), charsets.
+ * Everything else is read and dropped: OSC titles and links, other modes, charsets, 256-color and true-color.
  *
  * The width (1.5.0 A45): with the desktop's columns known from its snapshot ([reset] with cols), the grid is exactly
  * that wide, as xterm's: a line wraps at the edge (autowrap, the wrap pending until the next printed character), CUP,
@@ -76,7 +93,11 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
             for (i in 1..chars.length) {
                 if (i == chars.length || styles[i] != styles[start]) {
                     val s = styles[start]
-                    runs += VtRun(start, i, (s and COLOR_MASK).let { if (it == 0) null else it - 1 }, s and BOLD != 0)
+                    runs += VtRun(
+                        start, i, (s and COLOR_MASK).let { if (it == 0) null else it - 1 }, s and BOLD != 0,
+                        background = ((s and BG_MASK) shr BG_SHIFT).let { if (it == 0) null else it - 1 },
+                        inverse = s and INVERSE != 0, dim = s and DIM != 0, underline = s and UNDERLINE != 0,
+                    )
                     start = i
                 }
             }
@@ -111,12 +132,21 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
     /** A blank screen; the width stays what the last snapshot set (a RIS or a truncated ring doesn't change the pane). */
     fun reset() {
         main = mutableListOf(Line()); alt = null; top = 0; row = 0; col = 0; style = 0
-        savedMain = null; saved = null; chars = 1; pending.setLength(0); high = null; rows = 0
+        savedMain = null; saved = null; chars = 1; pending.setLength(0); high = null; rows = 0; cursorShown = true
         marginTop = 0; marginBottom = -1; version++
     }
 
     /** The lines to show: the alternate screen while a full-screen program has it, else the main screen with its scrollback. */
     fun lines(): List<VtLine> = lines.map { it.render() }
+
+    /** Whether the program shows the cursor (DECTCEM, ?25). */
+    private var cursorShown = true
+
+    /**
+     * The cursor in [lines]: the row and the character index where the next character goes, or null while the program
+     * hides it. With a width known, a wrap still pending shows it on the last column, as xterm does.
+     */
+    fun cursor(): VtCursor? = if (!cursorShown) null else VtCursor(row, clampCol(col))
 
     /** The screen as plain text, trailing spaces trimmed, for tests and accessibility. */
     fun text(): String = lines.joinToString("\n") { it.chars.toString().trimEnd() }
@@ -359,7 +389,8 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
         when (code) {
             1049 -> if (on) { savedMain = Saved(row - top, col, style); enterAlt() } else { leaveAlt(); restore(savedMain) }
             1047, 47 -> if (on) enterAlt() else leaveAlt()
-            // ?25 (cursor), ?1 (keypad), ?2004 (bracketed paste), mouse modes: nothing to show.
+            25 -> cursorShown = on
+            // ?1 (keypad), ?2004 (bracketed paste), mouse modes: nothing to show.
         }
     }
 
@@ -433,13 +464,21 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
             when (val code = codes[p] ?: 0) {
                 0 -> style = 0
                 1 -> style = style or BOLD
-                22 -> style = style and BOLD.inv()
+                2 -> style = style or DIM
+                22 -> style = style and (BOLD or DIM).inv()
+                4 -> style = style or UNDERLINE
+                24 -> style = style and UNDERLINE.inv()
+                7 -> style = style or INVERSE
+                27 -> style = style and INVERSE.inv()
+                in 40..47 -> style = (style and BG_MASK.inv()) or ((code - 40 + 1) shl BG_SHIFT)
+                in 100..107 -> style = (style and BG_MASK.inv()) or ((code - 100 + 8 + 1) shl BG_SHIFT)
+                49 -> style = style and BG_MASK.inv()
                 in 30..37 -> style = (style and COLOR_MASK.inv()) or (code - 30 + 1)
                 in 90..97 -> style = (style and COLOR_MASK.inv()) or (code - 90 + 8 + 1)
                 39 -> style = style and COLOR_MASK.inv()
                 // 256-color and true-color: skip their arguments, keep the default color.
                 38 -> { p += if (codes.getOrNull(p + 1) == 5) 2 else 4; style = style and COLOR_MASK.inv() }
-                48 -> p += if (codes.getOrNull(p + 1) == 5) 2 else 4
+                48 -> { p += if (codes.getOrNull(p + 1) == 5) 2 else 4; style = style and BG_MASK.inv() }
             }
             p++
         }
@@ -469,5 +508,10 @@ class VtScreen(private val capacity: Int = 256 * 1024) {
         const val BEL = '\u0007'
         const val COLOR_MASK = 0x1F
         const val BOLD = 0x20
+        const val BG_SHIFT = 6
+        const val BG_MASK = 0x1F shl BG_SHIFT
+        const val DIM = 0x800
+        const val UNDERLINE = 0x1000
+        const val INVERSE = 0x2000
     }
 }

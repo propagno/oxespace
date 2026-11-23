@@ -115,6 +115,10 @@ export const IPC_CHANNELS = {
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
+    /** OXE-367: whether the workspace's folder is still there. */
+    rootStatus: 'workspace:root-status',
+    /** OXE-367: points a workspace whose folder moved at another folder; same checks as create. */
+    relink: 'workspace:relink',
     shellProfiles: 'workspace:shell-profiles',
     createGitHubTerminalPane: 'workspace:create-github-terminal-pane'
   },
@@ -381,7 +385,6 @@ export const IPC_CHANNELS = {
     getStatus: 'mcp-internal:get-status',
     toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode', toolRules: 'mcp-internal:tool-rules', setToolRule: 'mcp-internal:set-tool-rule',
     regenerateToken: 'mcp-internal:regenerate-token',
-    captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed',
     actionAudit: 'mcp-internal:action-audit',
@@ -444,7 +447,8 @@ export const IPC_CHANNELS = {
     recordFirstAnswer: 'diagnostics:record-first-answer',
     watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
     clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
-    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf'
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf',
+    reportRendererError: 'diagnostics:report-renderer-error'
   },
   policy: {
     get: 'policy:get',
@@ -508,6 +512,10 @@ export interface WorkspaceApi {
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
+  /** OXE-367: whether the workspace's folder is still there (an existing folder that can be listed). */
+  rootStatus(id: string): Promise<{ available: boolean }>
+  /** OXE-367: the same workspace and panes on another folder, or the refusal of that folder (nothing was written then). */
+  relink(input: { workspaceId: string; rootPath: string }): Promise<Workspace | WorkspaceCreateRefusal>
   shellProfiles(): Promise<ShellProfile[]>
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }
@@ -832,8 +840,6 @@ export interface PaneConversationApi {
 export interface McpInternalApi {
   getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
   regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
-  /** Copies the visible Web Preview frame to the system clipboard. */
-  captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
   /** Recent changes agents made through the OXESpace MCP tools, newest first. */

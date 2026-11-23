@@ -94,7 +94,7 @@ class DesktopSessionController(
     }
 
     /**
-     * The app came back to the foreground (P6, Orca issue #5049): a retry waiting out its backoff, up to a minute,
+     * The app came back to the foreground (P6): a retry waiting out its backoff, up to a minute,
      * goes now. A live or connecting session is left alone; one that isn't running starts.
      */
     fun resume() {

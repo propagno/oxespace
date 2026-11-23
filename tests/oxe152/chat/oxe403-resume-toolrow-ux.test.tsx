@@ -69,23 +69,19 @@ describe('OXE-403 · ThreadActivityGroup normal mode clickable ToolRowView (OXE-
     }
     const { container } = render(<ThreadActivityGroup events={[toolEvent]} mode="normal" rootPath="/repo" />)
 
-    // Open the summary fold
-    const details = container.querySelector('details.thread-activity-group') as HTMLDetailsElement
-    details.open = true
-
     const rowButton = screen.getByRole('button', { name: /npm test/i })
     expect(rowButton).toHaveAttribute('aria-expanded', 'false')
-    expect(container.querySelector('.thread-tool-diagnostic')).toBeNull()
+    expect(container.querySelector('[data-ui="step-output"]')).toBeNull()
 
     await user.click(rowButton)
     expect(rowButton).toHaveAttribute('aria-expanded', 'true')
-    const diagnostic = container.querySelector('.thread-tool-diagnostic')
-    expect(diagnostic).not.toBeNull()
-    expect(diagnostic?.textContent).toContain('All 42 specs passed')
+    const output = container.querySelector('[data-ui="step-output"]')
+    expect(output).not.toBeNull()
+    expect(output?.textContent).toContain('All 42 specs passed')
 
     await user.click(rowButton)
     expect(rowButton).toHaveAttribute('aria-expanded', 'false')
-    expect(container.querySelector('.thread-tool-diagnostic')).toBeNull()
+    expect(container.querySelector('[data-ui="step-output"]')).toBeNull()
   })
 })
 
