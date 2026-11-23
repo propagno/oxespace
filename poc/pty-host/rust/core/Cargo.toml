@@ -1,0 +1,12 @@
+[package]
+name = "pty-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+portable-pty = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+libloading = "0.8"

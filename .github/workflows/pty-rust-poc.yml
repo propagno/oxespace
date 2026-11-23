@@ -1,0 +1,124 @@
+# OXE-400: the measured PTY host proof, isolated from the app. poc/pty-host builds a Rust PTY host (portable-pty, as a
+# Node-API module and as its own binary) and measures four arms in fresh Electron processes, interleaved round by round
+# on the same runner: A node-pty in the main process (today), B node-pty in a utility process, C the Rust module in a
+# utility process, D the Rust binary over a pipe. Runs only on pushes to ci/pty-rust-poc-* (never on main or a PR);
+# the tables land in the job summary and the artifact, and docs/validation/pty-rust-poc.md reports them.
+name: PTY host proof (OXE-400)
+run-name: PTY host proof (OXE-400) · ${{ github.ref_name }}
+
+on:
+  push:
+    branches: ["ci/pty-rust-poc-*"]
+
+concurrency:
+  group: pty-rust-poc-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    name: Proof (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 170
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            os: windows-2022
+          - label: linux-x64
+            os: ubuntu-22.04
+    env:
+      POC_RESULTS: ${{ github.workspace }}/results/pty-rust-poc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
+          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
+          if ! dpkg -s "${req[@]}" >/dev/null 2>&1; then
+            timeout 180 sudo apt-get "${apt_opts[@]}" update
+            timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends "${req[@]}"
+          fi
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install the pinned Electron runtime
+        run: npm rebuild electron
+
+      - name: Prepare and verify native modules for Electron
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm run rebuild:native:node
+          npm run fix:native
+
+      - name: Build the Rust host from cold (CA-5)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$POC_RESULTS" poc/pty-host/dist
+          cargo --version
+          start=$(date +%s)
+          cargo build --release --locked --manifest-path poc/pty-host/rust/Cargo.toml --workspace
+          seconds=$(( $(date +%s) - start ))
+          target=poc/pty-host/rust/target/release
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            cp "$target/pty_napi_host.dll" poc/pty-host/dist/pty_napi_host.node
+            cp "$target/pty-bin-host.exe" poc/pty-host/dist/pty-bin-host.exe
+          else
+            cp "$target/libpty_napi_host.so" poc/pty-host/dist/pty_napi_host.node
+            cp "$target/pty-bin-host" poc/pty-host/dist/pty-bin-host
+          fi
+          node poc/pty-host/harness/build-report.cjs "$seconds" "$(cargo --version)" > "$POC_RESULTS/build.json"
+          cat "$POC_RESULTS/build.json"
+
+      - name: Measure the four arms
+        shell: bash
+        run: |
+          set -euo pipefail
+          export POC_NODE="$(node -p process.execPath)"
+          export POC_NAPI_MODULE="$(node -p "require('path').resolve('poc/pty-host/dist/pty_napi_host.node')")"
+          export POC_BIN_HOST="$(node -p "require('path').resolve('poc/pty-host/dist/pty-bin-host' + (process.platform === 'win32' ? '.exe' : ''))")"
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            # node-pty's own ConPTY (useConptyDll), the one the app uses: loaded first by the Rust arms too.
+            export POC_CONPTY_DLL="$(node poc/pty-host/harness/conpty-dll.cjs)"
+            echo "ConPTY: $POC_CONPTY_DLL"
+            node poc/pty-host/harness/run.cjs 2>&1 | tee "$POC_RESULTS/run-log.txt"
+          else
+            bash scripts/run-with-xvfb.sh node poc/pty-host/harness/run.cjs 2>&1 | tee "$POC_RESULTS/run-log.txt"
+          fi
+
+      - name: Summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          {
+            echo "## PTY host proof (${{ matrix.label }})"
+            echo
+            if [[ -f "$POC_RESULTS/build.json" ]]; then echo '```json'; cat "$POC_RESULTS/build.json"; echo '```'; fi
+            if [[ -f "$POC_RESULTS/summary.md" ]]; then cat "$POC_RESULTS/summary.md"; else echo "no summary.md"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pty-rust-poc-${{ matrix.label }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: results/pty-rust-poc/

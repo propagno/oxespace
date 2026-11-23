@@ -1,0 +1,15 @@
+# OXE-400: the measured PTY host proof. Not part of the app build; .github/workflows/pty-rust-poc.yml builds it.
+[workspace]
+members = ["core", "napi-host", "bin-host"]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+portable-pty = "0.9"
+
+[profile.release]
+# A panic is a native crash of the host, as a fault in node-pty would be: it ends the process (CA-1).
+panic = "abort"
+lto = "thin"
+codegen-units = 1
+strip = true

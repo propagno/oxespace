@@ -1,0 +1,17 @@
+[package]
+name = "pty-napi-host"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", default-features = false, features = ["napi4"] }
+napi-derive = "2"
+anyhow = { workspace = true }
+pty-core = { path = "../core" }
+
+[build-dependencies]
+napi-build = "2"

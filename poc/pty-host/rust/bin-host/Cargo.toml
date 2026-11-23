@@ -1,0 +1,8 @@
+[package]
+name = "pty-bin-host"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+pty-core = { path = "../core" }
