@@ -712,6 +712,15 @@ export class WorkspaceService {
     return workspace
   }
 
+  /** OXE-367: the workspace's folder moved; the same workspace and panes now point at `rootPath`. Writes no folder. */
+  relinkRoot(workspaceId: string, rootPath: string): Workspace {
+    const result = this.db.prepare('UPDATE workspaces SET root_path = ? WHERE id = ?').run(rootPath, workspaceId)
+    if (result.changes === 0) throw new Error(`Workspace ${workspaceId} not found`)
+    const workspace = this.get(workspaceId)
+    if (!workspace) throw new Error('Workspace not found after relink')
+    return workspace
+  }
+
   setPaneRootPath(paneId: string, rootPath: string | null): Workspace {
     const exists = this.db.prepare('SELECT workspace_id FROM panes WHERE id = ?').get(paneId) as { workspace_id: string } | undefined
     if (!exists) throw new Error(`Pane ${paneId} not found`)

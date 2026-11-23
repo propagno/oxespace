@@ -8,7 +8,7 @@ import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
 import { pressUntilValueChanges } from './helpers/pressUntilValueChanges'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
-  test.setTimeout(120000)
+  test.setTimeout(108000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-thread-ui-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
   writeFileSync(join(repo, 'README.md'), '# Thread workbench fixture\n\nSearchable project content.\n')
@@ -770,7 +770,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
     await app.evaluate(() => ((globalThis as Record<string, unknown>).finishThreadFixture as () => void)())
     await expect(page.getByRole('button', { name: 'Stop turn' })).toHaveCount(0)
-    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.setViewportSize({ width: 1640, height: 900 })
     const wideGeometry = await page.evaluate(() => {
       const view = document.querySelector('.thread-view')!.getBoundingClientRect()
       const column = document.querySelector('.thread-reading-column')!
@@ -786,7 +786,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    expect(Math.abs(wideGeometry.readingWidth - 800)).toBeLessThanOrEqual(1)
+    // OXE-401: --measure-chat widened from 800px to 1080px
+    expect(Math.abs(wideGeometry.readingWidth - 1080)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)

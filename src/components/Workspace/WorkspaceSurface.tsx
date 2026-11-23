@@ -75,6 +75,7 @@ function prefetchPanelChunks(): void {
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
 const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
 import { ErrorBoundary } from '../common/ErrorBoundary'
+import { useWorkspaceRootAvailable, WorkspaceMissingRoot } from './WorkspaceMissingRoot'
 import './CodeChrome.css'
 import { i18n } from '../../i18n'
 import { useTranslation } from 'react-i18next'
@@ -509,7 +510,9 @@ function WorkspaceSurfaceComponent({
     })
   }
 
-  const grid = <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
+  // OXE-367: a workspace whose folder is gone shows Relink or Remove in place of the grid, so no pane starts in it.
+  const rootAvailable = useWorkspaceRootAvailable(workspace.id, workspace.rootPath)
+  const grid = rootAvailable === false ? <WorkspaceMissingRoot workspace={workspace} /> : <ErrorBoundary id="workspace-grid" label={tc('workspace.gridBoundary')}>{splitLayoutEnabled ? (
     <WorkspaceSplitGrid
       workspace={workspace}
       tree={tree}
