@@ -228,6 +228,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       reorder: (orderedIds) => ipc.invoke(IPC_CHANNELS.workspace.reorder, orderedIds) as Promise<Workspace[]>,
       updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
       pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
+      rootStatus: (id) => ipc.invoke(IPC_CHANNELS.workspace.rootStatus, id) as Promise<{ available: boolean }>,
+      relink: (input) => ipc.invoke(IPC_CHANNELS.workspace.relink, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
       shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,
       createGitHubTerminalPane: (workspaceId) =>
         ipc.invoke(IPC_CHANNELS.workspace.createGitHubTerminalPane, workspaceId) as Promise<{ id: string }>

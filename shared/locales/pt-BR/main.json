@@ -635,6 +635,7 @@
         "empty": "Escolha a pasta deste workspace.",
         "notAbsolute": "Use o caminho completo da pasta, a partir da unidade ou de /. “{{path}}” é um caminho relativo.",
         "notFound": "A pasta {{path}} não existe. Crie a pasta ou escolha outra.",
+        "taken": "Outro workspace já usa {{path}}. Escolha outra pasta.",
         "notDirectory": "{{path}} é um arquivo, não uma pasta. Escolha uma pasta.",
         "unreadable": "O OXESpace não consegue abrir a pasta {{path}}. Confira as permissões ou escolha outra pasta."
       }

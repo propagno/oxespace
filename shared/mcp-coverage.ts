@@ -50,7 +50,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.workspace_admin': {
     label: 'Create, delete, reorder or switch workspaces; change their settings and panel layout',
     excluded: 'The person\'s layout and preferences. Deleting a workspace is never exposed.',
-    ipc: ['workspace.create', 'workspace.setActive', 'workspace.delete', 'workspace.reorder', 'workspace.pickFolder', 'workspace.updateSettings', 'workspace.shellProfiles',
+    ipc: ['workspace.create', 'workspace.setActive', 'workspace.delete', 'workspace.reorder', 'workspace.pickFolder', 'workspace.rootStatus', 'workspace.relink', 'workspace.updateSettings', 'workspace.shellProfiles',
       'workspace.update*State', 'workspace.splitPane', 'workspace.updatePaneType', 'workspace.updatePaneName', 'workspace.setPaneRootPath', 'workspace.createGitHubTerminalPane']
   },
   'code.panes': {

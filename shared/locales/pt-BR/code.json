@@ -1155,6 +1155,12 @@
     "closeFailed": "Não foi possível fechar o workspace",
     "settingsFailed": "Não foi possível salvar as configurações do workspace",
     "gridBoundary": "os painéis deste workspace",
+    "missingRoot": {
+      "title": "A pasta deste workspace sumiu",
+      "message": "{{path}} foi movida ou apagada, então os terminais não podem iniciar. Aponte o workspace para o novo lugar da pasta ou remova o workspace; nada no disco muda.",
+      "relink": "Religar pasta",
+      "relinkFailed": "Não foi possível religar a pasta"
+    },
     "panel": {
       "restore": "Restaurar a largura do painel",
       "expand": "Expandir o painel",
