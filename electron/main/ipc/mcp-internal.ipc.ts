@@ -1,4 +1,4 @@
-import { BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
@@ -27,33 +27,6 @@ export function registerMcpInternalIpc(handle: InternalMcpHandle): void {
     if (result.canceled || !result.filePath) return null
     await writeFile(result.filePath, handle.exportAudit(), { encoding: 'utf8', mode: 0o600 })
     return result.filePath
-  })
-  ipcMain.handle(IPC_CHANNELS.mcpInternal.captureWebPreview, async (event) => {
-    const win = BrowserWindow.getAllWindows().find((item) => !item.isDestroyed())
-    if (!win) throw new Error('No application window found')
-
-    const rectJson = await win.webContents.executeJavaScript(`
-      (() => {
-        const frame = [...document.querySelectorAll('webview[title="Workspace web preview"]')].find(el => {
-          const r = el.getBoundingClientRect()
-          return r.width > 0 && r.height > 0 && el.checkVisibility()
-        })
-        if (!frame) return null
-        const rect = frame.getBoundingClientRect()
-        if (rect.width < 1 || rect.height < 1) return null
-        return JSON.stringify({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
-      })()
-    `)
-    if (!rectJson) throw new Error('Open a visible Web Preview before capturing it.')
-
-    const rect = JSON.parse(rectJson) as { x: number; y: number; width: number; height: number }
-    const image = await win.webContents.capturePage({
-      x: Math.round(rect.x),
-      y: Math.round(rect.y),
-      width: Math.round(rect.width),
-      height: Math.round(rect.height)
-    })
-    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
   })
 
   // Push-channel: we don't ipcMain.handle this — instead we broadcast on the
