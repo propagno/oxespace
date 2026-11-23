@@ -1013,6 +1013,16 @@
     "runningAlso_other": "{{count}} conversations are also in the middle of a turn. Closing stops them; they reopen paused.",
     "saveFailed_one": "{{count}} change could not be saved, so nothing was closed. Check it and try again.",
     "saveFailed_other": "{{count}} changes could not be saved, so nothing was closed. Check them and try again.",
+    "workTitleClose": "Close while work is in progress?",
+    "workTitleQuit": "Quit while work is in progress?",
+    "workDescription_one": "{{count}} item is still running. Closing stops it.",
+    "workDescription_other": "{{count}} items are still running. Closing stops them.",
+    "workListLabel": "Work in progress",
+    "workAlso_one": "{{count}} item is also still running. Closing stops it.",
+    "workAlso_other": "{{count}} items are also still running. Closing stops them.",
+    "workAgentIn": "Terminal agent · {{workspace}}",
+    "workJobIn": "Background job · {{workspace}}",
+    "workTurn": "Conversation with a turn in progress",
     "inEditor": "OxeCode editor · {{folder}}"
   },
   "links": {

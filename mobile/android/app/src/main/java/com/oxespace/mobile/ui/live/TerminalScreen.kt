@@ -67,7 +67,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
@@ -434,6 +437,16 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         }
     }
 
+    // SECURITY #386: hidden characters are shown, not sent; several lines ask first. This covers Colar and the keyboard's
+    // own paste alike. The Send button and the keyboard's Send key (OXE-384) both come here.
+    fun submit() {
+        when (val check = lineCheck(text)) {
+            is LineCheck.Hidden -> { text = check.shown; message = R.string.terminal_hidden_shown }
+            is LineCheck.Lines -> askLines = check.count
+            LineCheck.Clear -> sendLine()
+        }
+    }
+
     if (askLines > 0) {
         AlertDialog(
             onDismissRequest = { askLines = 0 },
@@ -476,18 +489,13 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
                 modifier = Modifier.weight(1f),
+                // OXE-384: the keyboard's action key is Send and does what the button does, under the same conditions.
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { if (!busy && text.isNotEmpty()) submit() }),
             )
             OxeButton(
                 stringResource(R.string.terminal_input_send),
-                onClick = {
-                    // SECURITY #386: hidden characters are shown, not sent; several lines ask first. This covers Colar and
-                    // the keyboard's own paste alike.
-                    when (val check = lineCheck(text)) {
-                        is LineCheck.Hidden -> { text = check.shown; message = R.string.terminal_hidden_shown }
-                        is LineCheck.Lines -> askLines = check.count
-                        LineCheck.Clear -> sendLine()
-                    }
-                },
+                onClick = { submit() },
                 // OXE-102 CA-4: off with an empty field (the key row's Enter key covers a bare Enter); as tall as the field.
                 modifier = Modifier.fillMaxHeight(),
                 enabled = !busy && text.isNotEmpty(),

@@ -98,10 +98,10 @@ class DesktopSessionController(
     }
 
     /**
-     * The app came back to the foreground (P6, Orca issue #5049): a retry waiting out its backoff, up to a minute,
-     * goes now. The token is checked at once: a renewal that slept past the token's end (the phone dozed) signs in
-     * again now instead of waiting for the desktop to refuse it. Otherwise a live or connecting session is left alone;
-     * one that isn't running starts.
+     * The app came back to the foreground (P6): a retry waiting out its backoff, up to a minute, goes now. The
+     * token is checked at once: a renewal that slept past the token's end (the phone dozed) signs in again now
+     * instead of waiting for the desktop to refuse it. Otherwise a live or connecting session is left alone; one
+     * that isn't running starts.
      */
     fun resume() {
         if (!running) return start()

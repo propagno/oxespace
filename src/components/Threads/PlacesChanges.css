@@ -8,6 +8,8 @@
 .places-send-notice { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .places-send-notice.is-failed { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); color: var(--intent-danger-fg); }
 .places-summary { margin: 0; color: var(--tx-secondary); }
+.places-add { color: var(--intent-success-fg); }
+.places-del { color: var(--intent-danger-fg); }
 .place-section { display: flex; flex-direction: column; gap: var(--space-2); }
 .place-head { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .place-title { margin: 0; font-size: var(--fs-sm); }
@@ -24,8 +26,13 @@
 .place-hunk-lines { margin: 0; overflow: auto; font-family: var(--font-mono); font-size: var(--fs-xs); }
 .place-hunk-row { display: flex; flex-direction: column; }
 .place-hunk-line { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.place-hunk-line[data-line-type="added"] { background: var(--diff-add-bg); }
+.place-hunk-line[data-line-type="removed"] { background: var(--diff-del-bg); }
 .place-hunk-lineno { flex: none; min-width: 3ch; text-align: right; color: var(--tx-muted); font-variant-numeric: tabular-nums; user-select: none; }
 .place-hunk-code { flex: 1; min-width: 0; white-space: pre; }
+.place-hunk-line[data-line-type="added"] .place-hunk-code::before { content: '+'; display: inline-block; width: 2ch; color: var(--intent-success-fg); user-select: none; }
+.place-hunk-line[data-line-type="removed"] .place-hunk-code::before { content: '−'; display: inline-block; width: 2ch; color: var(--intent-danger-fg); user-select: none; }
+.place-hunk-line[data-line-type="context"] .place-hunk-code::before { content: ' '; display: inline-block; width: 2ch; user-select: none; }
 .place-line-comment-trigger { flex: none; opacity: 0.7; }
 .place-hunk-line:hover .place-line-comment-trigger, .place-line-comment-trigger:focus-visible { opacity: 1; }
 .place-line-comment-card { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-1) 0 var(--space-1) var(--space-4); padding: var(--space-2); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); font-family: var(--font-ui); font-size: var(--fs-xs); }

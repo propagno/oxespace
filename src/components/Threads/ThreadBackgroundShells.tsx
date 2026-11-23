@@ -8,6 +8,11 @@ import { Button, Spinner } from '../../ui'
 /** How many finished shells stay in view; the rest open with Show earlier. */
 const FINISHED_SHOWN = 2
 
+/** A localhost or 127.0.0.1 address in the shell tail, else no port to name. */
+export function backgroundShellPort(tail: readonly string[]): string | undefined {
+  return /(?:https?:\/\/)?(?:localhost|127\.0\.0\.1):(\d{2,5})\b/i.exec(tail.join('\n'))?.[1]
+}
+
 function formatHHMM(since: number): string {
   const date = new Date(since)
   const pad = (value: number): string => String(value).padStart(2, '0')
@@ -80,6 +85,7 @@ export function ThreadBackgroundShells(props: {
       {visible.map(shell => {
         const finished = shell.state === 'stopped'
         const expanded = finished ? Boolean(open[shell.id]) : true
+        const port = shell.state === 'running' ? backgroundShellPort(shell.tail) : undefined
         return (
           <article key={shell.id} className={finished ? 'thread-background-shell is-finished' : 'thread-background-shell'} data-state={shell.state}>
             <header className="thread-background-shell-header">
@@ -87,7 +93,7 @@ export function ThreadBackgroundShells(props: {
               {shell.state === 'running' ? (
                 <span className="thread-background-shell-state">
                   <Spinner size="sm" decorative />
-                  {t('backgroundShells.running')}
+                  {port ? t('backgroundShells.runningOnPort', { port }) : t('backgroundShells.running')}
                 </span>
               ) : finished ? (
                 <span className="thread-background-shell-state">

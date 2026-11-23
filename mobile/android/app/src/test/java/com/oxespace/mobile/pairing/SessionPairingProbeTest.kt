@@ -13,7 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** P3: a fresh pairing is checked by signing in once, with one redial in a short grace (Orca's direct probe). */
+/** P3: a fresh pairing is checked by signing in once, with one redial in a short grace (a direct probe). */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionPairingProbeTest {
     private val desktop = PairedDesktop("dev-9", "192.168.15.158", 47321, "f".repeat(64), "Studio", "alias-1")
