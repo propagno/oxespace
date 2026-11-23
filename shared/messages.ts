@@ -104,6 +104,8 @@ export interface MessageParams extends PlaceMessageParams {
   /** Diagnostics journal (B8.3): one kind of incident. */
   'incident.window.crashed': Record<string, never>
   'incident.window.rendererGone': Record<string, never>
+  /** OXE-366: a React crash in the window; a boundary contained it, or nothing did. */
+  'incident.window.rendererError': Record<string, never>
   'incident.ipc.handlerFailed': Record<string, never>
   'incident.ipc.validationRejected': Record<string, never>
   'incident.ipc.senderRefused': Record<string, never>
@@ -628,6 +630,7 @@ export const MESSAGE_CODES = [
   'agents.session.notFound',
   'incident.window.crashed',
   'incident.window.rendererGone',
+  'incident.window.rendererError',
   'incident.ipc.handlerFailed',
   'incident.ipc.validationRejected',
   'incident.ipc.senderRefused',
