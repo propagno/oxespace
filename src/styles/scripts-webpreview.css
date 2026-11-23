@@ -454,37 +454,19 @@
 .web-preview-tab[data-error="true"] > svg { color: var(--status-error, var(--intent-danger-fg)); }
 .web-preview-tab > svg, .web-preview-tab > [role="status"] { flex: 0 0 auto; align-self: center; margin-left: 7px; }
 
-.web-preview-tab button,
-.web-preview-new-tab {
-  border: 0;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-}
-
-.web-preview-tab button:first-child {
+/* OXE-305: the tab, its close and the new-tab control are src/ui Button/IconButton (their height, focus and hover are the
+   primitives'); here only how they sit in the tab strip. */
+.web-preview-tab .web-preview-tab-select {
   min-width: 0;
   flex: 1;
+  justify-content: flex-start;
   overflow: hidden;
-  padding: 5px 8px;
-  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fs-2xs);
 }
 
-.web-preview-tab button:last-child,
-.web-preview-new-tab {
-  display: inline-grid;
-  place-items: center;
-  width: 25px;
-  min-width: 25px;
-}
-
-.web-preview-tab button:hover,
-.web-preview-new-tab:hover {
-  color: var(--tx-primary, var(--tx-primary));
-}
+.web-preview-tab .web-preview-tab-close,
+.web-preview-new-tab { flex: 0 0 auto; }
 
 .web-preview-agent-access {
   display: flex;
@@ -804,31 +786,9 @@ button.design-grab-source-file:hover {
   min-width: 0;
 }
 
-.web-preview-problems-send {
-  flex-shrink: 0;
-  border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  padding: 2px 8px;
-  color: var(--tx-primary);
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-}
-
-.web-preview-problems-send:hover {
-  border-color: var(--accent);
-}
-
-.web-preview-problems-dismiss {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  width: 24px;
-  height: 24px;
-  color: var(--tx-muted);
-}
+/* OXE-305: Send, dismiss and the design Review are src/ui Button/IconButton at --control-sm; they only keep their size here. */
+.web-preview-problems-send,
+.web-preview-problems-dismiss { flex-shrink: 0; }
 
 /* While more elements are picked the sheet steps aside (it would cover the page): the hint carries the way back to it. */
 .web-preview-design-hint {
@@ -838,13 +798,4 @@ button.design-grab-source-file:hover {
   gap: 12px;
 }
 
-.web-preview-design-review {
-  flex-shrink: 0;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  padding: 2px 10px;
-  color: var(--tx-primary);
-  font-size: var(--fs-2xs);
-  font-weight: 600;
-}
+.web-preview-design-review { flex-shrink: 0; }
