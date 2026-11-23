@@ -279,7 +279,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.once('before-quit', () => agentHookServer.stop())
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
-  const terminalManager: TerminalManager = new TerminalManager(db, {
+  const terminalManager: TerminalManager = new TerminalManager(db, { ...(process.env.OXESPACE_PTY_HOST === 'utility' ? { pty: await (await import('./services/terminal/utility-pty')).appPtyHost(join(app.getAppPath(), 'out', 'main', 'pty-host.js'), message => log.warn(message)) } : {}), // OXE-400: node-pty in a utility process, off by default
     rootExists: existsSync, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     grantProxy: origin => hostsProxy.grant(origin),
