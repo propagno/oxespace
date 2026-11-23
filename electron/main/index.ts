@@ -280,8 +280,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
   const terminalManager: TerminalManager = new TerminalManager(db, {
-    // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned.
-    rootExists: existsSync,
+    rootExists: existsSync, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     grantProxy: origin => hostsProxy.grant(origin),
     observer: agentState,
