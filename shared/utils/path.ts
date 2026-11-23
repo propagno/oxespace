@@ -15,6 +15,18 @@
  * shape `buildScriptCommand` already uses.
  */
 
+/**
+ * The root as the person meant it: surrounding spaces trimmed, and one pair of matching quotes removed when they wrap
+ * the whole text, as Explorer's "Copy as path" gives it. Quotes inside a name, or unbalanced ones, are kept, so such
+ * a path is then refused as it stands. Main stores the root this way, and the New workspace dialog compares with it
+ * (OXE-367), so a pasted path in quotes finds the workspace already open.
+ */
+export function normalizeWorkspaceRoot(rootPath: string): string {
+  const trimmed = rootPath.trim()
+  const quoted = trimmed.length >= 2 && (trimmed[0] === '"' || trimmed[0] === '\'') && trimmed.at(-1) === trimmed[0]
+  return quoted ? trimmed.slice(1, -1).trim() : trimmed
+}
+
 /** Separator style and trailing slashes only. Never case — see the note above. */
 export function normalizeRootPath(value: string): string {
   const unified = value.replace(/\\/g, '/').replace(/\/+$/, '')

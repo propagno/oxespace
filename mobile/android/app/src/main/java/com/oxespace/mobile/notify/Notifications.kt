@@ -14,6 +14,28 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.oxespace.mobile.MainActivity
 import com.oxespace.mobile.R
+import com.oxespace.mobile.protocol.RemoteApprovalRisk
+import com.oxespace.mobile.ui.live.requestTitleString
+import com.oxespace.mobile.ui.live.riskLevel
+
+/**
+ * A "needs you" notification's words, [title, text] (OXE-380, A6): a notification is trusted system UI, so the agent's
+ * own title (request.title) is never in it. The title is the app's catalog word for the request's kind; the text is the
+ * risk, when the desktop sent one, and the conversation ([AlertChange.Post.text], already displaySafe).
+ */
+fun needsYouAlertTexts(context: Context, post: AlertChange.Post): List<String> {
+    val title = context.getString(R.string.notify_needs_you, context.getString(requestTitleString(post.requestKind)))
+    val risk = post.risk?.let { context.getString(R.string.request_risk_badge, context.getString(riskWordId(riskLevel(it)))) }
+    val text = listOfNotNull(risk, post.text.ifEmpty { null }).joinToString(" · ")
+    return listOf(title, text)
+}
+
+private fun riskWordId(level: RemoteApprovalRisk): Int = when (level) {
+    RemoteApprovalRisk.LOW -> R.string.request_risk_low
+    RemoteApprovalRisk.MEDIUM -> R.string.request_risk_medium
+    RemoteApprovalRisk.HIGH -> R.string.request_risk_high
+    RemoteApprovalRisk.CRITICAL -> R.string.request_risk_critical
+}
 
 /**
  * The app's notifications, one channel per meaning so the person can tune each in the system settings: the quiet
@@ -59,10 +81,13 @@ class Notifications(private val context: Context) {
             is AlertChange.Cancel -> manager.cancel(change.key, ALERT_ID)
             is AlertChange.Post -> {
                 if (!allowed()) return
-                val (channel, title) = when (change.kind) {
-                    AlertKind.NEEDS_YOU -> NEEDS_YOU to context.getString(R.string.notify_needs_you, change.title)
-                    AlertKind.DONE -> DONE to context.getString(R.string.notify_done, change.title)
-                    AlertKind.FAILED -> FAILED to context.getString(R.string.notify_failed, change.title)
+                val (channel, title, text) = when (change.kind) {
+                    AlertKind.NEEDS_YOU -> {
+                        val (needsYouTitle, needsYouText) = needsYouAlertTexts(context, change)
+                        Triple(NEEDS_YOU, needsYouTitle, needsYouText)
+                    }
+                    AlertKind.DONE -> Triple(DONE, context.getString(R.string.notify_done, change.title), change.text)
+                    AlertKind.FAILED -> Triple(FAILED, context.getString(R.string.notify_failed, change.title), change.text)
                 }
                 // What a locked phone shows instead, on every launcher: the kind of alert, no title, no text.
                 val public = NotificationCompat.Builder(context, channel)
@@ -72,7 +97,7 @@ class Notifications(private val context: Context) {
                 val notification = NotificationCompat.Builder(context, channel)
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle(title)
-                    .setContentText(change.text.ifEmpty { null })
+                    .setContentText(text.ifEmpty { null })
                     .setCategory(if (change.kind == AlertKind.NEEDS_YOU) NotificationCompat.CATEGORY_REMINDER else NotificationCompat.CATEGORY_STATUS)
                     // The command or file names stay off the lock screen.
                     .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
