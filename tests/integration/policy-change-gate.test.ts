@@ -240,6 +240,9 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     write(join(worktree, '.oxespace', 'policy.json'), policyText(rule('allow', 'mcp__oxespace__oxespace_db_*')))
     expect(policyDeniedToolNames(worktree)).not.toContain('mcp__oxespace__oxespace_db_*')
     await read()
+    // OXE-398: on a busy Windows runner this first check (a cold import of policy-change) can outlast settle()'s idle() cap
+    // (run 45093234793: 2 of 30 rounds read no request yet), so wait for the request the assertions below expect.
+    await vi.waitFor(() => expect(requests()).toHaveLength(1), { timeout: 15_000 })
     const decision = store.decide('tool.use', DB_EXECUTE, worktree)
     expect(decision.allowed).toBe(false)
     expect(requests().map(request => request.summary.code)).toContain('approvals.summary.policyChange.worktree')
