@@ -22,6 +22,8 @@ const CALL_SITES = [
   // The command bar's "agent: text": what was typed in it.
   'src/components/CommandBar/CommandBarHost.tsx send 1',
   'src/components/CommandBar/CommandBarHost.tsx sendTyped 1',
+  // The new conversation screen's opening message (OXE-168): send, right after the conversation is created.
+  'src/components/Threads/NewConversationScreen.tsx send 1',
   // Delivery note and failure card: stored text.
   'src/components/Threads/ThreadMessageRow.tsx send 1',
   'src/components/Threads/ThreadTimelineEntry.tsx send 1',
