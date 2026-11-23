@@ -29,12 +29,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeFonts
 import com.oxespace.mobile.ui.theme.OxeRadius
 import com.oxespace.mobile.ui.theme.OxeSpace
+import com.oxespace.mobile.ui.theme.OxeType
 
 /*
  * 1.5.0 F10 CR-A42b-2 (M2). Tests: ScreensMatchHandoffTest, the Pairing goldens.
@@ -50,7 +50,9 @@ import com.oxespace.mobile.ui.theme.OxeSpace
 @Composable
 fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modifier, failed: Boolean = false) {
     val colors = Oxe.colors
-    val spoken = labels.getOrNull(current)?.let { "${current + 1}/${labels.size}: $it" }.orEmpty()
+    // OXE-363 (A6): once paired (current = labels.size, every step done) the row still speaks its last step.
+    val step = if (current >= labels.size) labels.lastIndex else current
+    val spoken = labels.getOrNull(step)?.let { "${step + 1}/${labels.size}: $it" }.orEmpty()
     Row(
         modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken },
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -124,7 +126,7 @@ fun CodeBoxes(code: String, spoken: String, modifier: Modifier = Modifier) {
                     .border(1.dp, colors.borderStrong, RoundedCornerShape(OxeRadius.md)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(char.toString(), fontFamily = OxeFonts.mono, fontSize = 28.sp, color = colors.textPrimary, textAlign = TextAlign.Center)
+                Text(char.toString(), fontFamily = OxeFonts.mono, fontSize = OxeType.textDisplay, color = colors.textPrimary, textAlign = TextAlign.Center)
             }
         }
     }

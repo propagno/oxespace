@@ -24,7 +24,8 @@ export interface QueueHost {
   releaseAttachments(id: string, attachmentIds: string[]): Promise<void>
   /** Starts checkpoint and baseline tracking for a turn in the thread's working checkout. */
   beginTurn(id: string, turnId: string, thread: ConversationThread, label: string, baseline: boolean): Promise<void>
-  send(id: string, text: string, attachmentIds: string[]): Promise<void>
+  /** `origin` is the one recorded when the item was queued; an item without one is not the window's. */
+  send(id: string, text: string, attachmentIds: string[], origin?: 'window'): Promise<void>
   interrupt(id: string): Promise<void>
 }
 
@@ -163,7 +164,7 @@ export async function drainQueue(host: QueueHost, id: string): Promise<void> {
       latest.thread.queue = latest.thread.queue?.filter(value => value.id !== item.id)
       if (item.operationId) host.transitionOperation(id, item.operationId, 'completed')
       savePlain(host, latest)
-      await host.send(id, item.text, item.attachmentIds ?? [])
+      await host.send(id, item.text, item.attachmentIds ?? [], item.origin)
     }
   } catch (error) {
     const latest = host.read(id)

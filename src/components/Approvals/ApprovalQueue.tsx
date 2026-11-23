@@ -10,7 +10,7 @@ import { i18n } from '../../i18n'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, Checkbox, Dialog, EmptyState, IconButton, Notice } from '../../ui'
+import { Button, Checkbox, Dialog, EmptyState, FieldError, IconButton, Notice } from '../../ui'
 import { useModalSurface } from '../../ui/useModalSurface'
 import { formatNumber } from '../../utils/formatTime'
 import { AlwaysAllowConfirm, clearAlwaysAllowToast, showAlwaysAllowToast } from './AlwaysAllowConfirm'
@@ -21,9 +21,8 @@ import { mainAllowStyle } from './approvalsRules'
 import sharedStyles from './Approvals.module.css'
 import styles from './ApprovalQueue.module.css'
 import { ImpactFacts, titleIncludesWhere } from './ImpactFacts'
+import { HoldToApprove } from './HoldToApprove'
 import { formatPreviewCell, isChangedPreviewCell } from './ImpactPreview'
-
-const QUEUE_HOLD_MS = 1_200
 
 export interface ApprovalQueueItem {
   request: ThreadRequest
@@ -140,12 +139,32 @@ export function ApprovalQueue({
   const listboxRef = useRef<HTMLDivElement>(null)
   const approveRef = useRef<HTMLButtonElement>(null)
   const withoutHoldCancelRef = useRef<HTMLButtonElement>(null)
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onRespondRef = useRef(onRespond)
+  // OXE-337: one answer at a time; a failed answer (or Always allow) is shown, never swallowed.
+  const sendingRef = useRef(false)
+  const [sending, setSending] = useState(false)
+  const [failure, setFailure] = useState<'respond' | 'alwaysAllow' | null>(null)
+  const send = async (id: string, response: ThreadRequestResponse): Promise<boolean> => {
+    if (sendingRef.current) return false
+    sendingRef.current = true
+    setSending(true)
+    setFailure(null)
+    try {
+      await onRespondRef.current(id, response)
+      return true
+    } catch {
+      setFailure('respond')
+      return false
+    } finally {
+      sendingRef.current = false
+      setSending(false)
+    }
+  }
 
   useEffect(() => {
     onRespondRef.current = onRespond
   }, [onRespond])
+  const holdRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (initialSelectedId) setSelectedId(initialSelectedId)
@@ -159,21 +178,10 @@ export function ApprovalQueue({
   const selectedIndex = sorted.length === 0 ? -1 : Math.max(0, sorted.findIndex(item => item.request.id === selectedId))
   const selected = selectedIndex >= 0 ? sorted[selectedIndex] : null
 
-  const clearHold = (): void => {
-    if (holdTimerRef.current !== null) {
-      clearTimeout(holdTimerRef.current)
-      holdTimerRef.current = null
-    }
+  // The hold leaves with its request: hand its focus back to the list (which also cancels it), so the keys keep working.
+  const leaveHold = (): void => {
+    if (holdRef.current?.contains(document.activeElement)) listboxRef.current?.focus()
   }
-
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current !== null) {
-        clearTimeout(holdTimerRef.current)
-        holdTimerRef.current = null
-      }
-    }
-  }, [selected?.request.id])
 
   useEffect(() => {
     let alive = true
@@ -227,23 +235,16 @@ export function ApprovalQueue({
     }
   }, [selectedDbId])
 
-  const startHold = (requestId: string): void => {
-    clearHold()
-    holdTimerRef.current = setTimeout(() => {
-      holdTimerRef.current = null
-      void onRespondRef.current(requestId, { decision: 'accept' })
-    }, QUEUE_HOLD_MS)
-  }
-
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.ctrlKey || event.metaKey || event.altKey || withoutHoldOpen) return
+    // A confirmation's keys bubble here through its portal: they never answer the request behind it.
+    if (event.ctrlKey || event.metaKey || event.altKey || withoutHoldOpen || alwaysAllowOpen) return
     const target = event.target as HTMLElement | null
     if (target?.closest('input, textarea, select')) return
     const lower = event.key.toLowerCase()
     if (lower === 'j' || event.key === 'ArrowDown') {
       if (sorted.length === 0) return
       event.preventDefault()
-      clearHold()
+      leaveHold()
       const nextIndex = Math.min(sorted.length - 1, selectedIndex + 1)
       setSelectedId(sorted[nextIndex].request.id)
       return
@@ -251,36 +252,37 @@ export function ApprovalQueue({
     if (lower === 'k' || event.key === 'ArrowUp') {
       if (sorted.length === 0) return
       event.preventDefault()
-      clearHold()
+      leaveHold()
       const prevIndex = Math.max(0, selectedIndex - 1)
       setSelectedId(sorted[prevIndex].request.id)
       return
     }
+    // OXE-333: a question is answered in its conversation, never denied or approved from here.
+    if ((lower === 'd' || lower === 'a') && selected?.request.kind === 'question') return
     if (lower === 'd' && selected) {
       event.preventDefault()
-      clearHold()
-      void onRespond(selected.request.id, { decision: 'decline' })
+      leaveHold()
+      void send(selected.request.id, { decision: 'decline' })
       return
     }
     if (lower === 'a' && selected) {
+      // The hold button handled this A itself.
+      if (event.isDefaultPrevented()) return
       event.preventDefault()
       if (event.repeat) return
       const impact = selected.request.impact
       if (impact?.reversible) {
-        void onRespond(selected.request.id, { decision: 'accept' })
+        void send(selected.request.id, { decision: 'accept' })
         return
       }
       if (impact?.risk === 'critical') {
-        startHold(selected.request.id)
+        // A pressed anywhere in the queue is a press on the shared hold: it has the focus, so release or blur cancels it.
+        const hold = holdRef.current?.querySelector('button')
+        hold?.focus()
+        hold?.dispatchEvent(new window.KeyboardEvent('keydown', { key: event.key, bubbles: true, cancelable: true }))
         return
       }
       approveRef.current?.focus()
-    }
-  }
-
-  const handleKeyUp = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.key.toLowerCase() === 'a') {
-      clearHold()
     }
   }
 
@@ -306,13 +308,14 @@ export function ApprovalQueue({
     if (!selected || !selectedImpact || savingRule) return
     setSavingRule(true)
     try {
-      const res = await window.oxe?.approvals?.alwaysAllow?.(selected.request.id)
+      const res = await Promise.resolve().then(() => window.oxe?.approvals?.alwaysAllow?.(selected.request.id)).catch(() => null)
       setAlwaysAllowOpen(false)
       if (!res?.ok) {
         clearAlwaysAllowToast()
+        setFailure('alwaysAllow')
         return
       }
-      await onRespond(selected.request.id, { decision: 'accept' })
+      if (!(await send(selected.request.id, { decision: 'accept' }))) return
       showAlwaysAllowToast(
         t('f7.alwaysAllow.toastAdded', { command: selectedImpact.text }),
         t('f7.alwaysAllow.toastOpen'),
@@ -332,7 +335,6 @@ export function ApprovalQueue({
     <div
       className={styles.queue}
       onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
     >
       <div className={styles.left}>
         <header className={styles.leftHeader}>
@@ -372,7 +374,7 @@ export function ApprovalQueue({
                   aria-selected={isSelected}
                   className={styles.option}
                   onClick={() => {
-                    clearHold()
+                    leaveHold()
                     setSelectedId(item.request.id)
                   }}
                 >
@@ -533,23 +535,37 @@ export function ApprovalQueue({
             ) : null}
           </div>
 
+          {failure ? (
+            <FieldError className={sharedStyles.noteLine}>
+              {failure === 'alwaysAllow' ? t('f7.alwaysAllow.failed') : t('f7.queue.respondFailed')}
+            </FieldError>
+          ) : null}
+          {selected.request.kind === 'question' ? (
+          // OXE-333: a question is answered in its conversation (the question card), never approved from the queue.
           <footer className={styles.previewFooter}>
-            <Button variant="secondary" onClick={() => void onRespond(selected.request.id, { decision: 'decline' })}>
+            <Button variant="primary" onClick={() => onOpenTask?.(selected)}>
+              {t('f7.queue.answerInConversation')}
+            </Button>
+          </footer>
+          ) : (
+          <footer className={styles.previewFooter}>
+            <Button variant="secondary" disabled={sending} onClick={() => void send(selected.request.id, { decision: 'decline' })}>
               {t('request.deny')}
               <kbd aria-hidden="true" className={sharedStyles.kbdHint}>D</kbd>
             </Button>
             {isCriticalIrreversible ? (
               <>
-                <Button
-                  variant="danger"
-                  onPointerDown={() => startHold(selected.request.id)}
-                  onPointerUp={clearHold}
-                  onPointerCancel={clearHold}
-                  onPointerLeave={clearHold}
-                >
-                  {t('f7.preview.holdToApprove')}
-                  <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
-                </Button>
+                <div ref={holdRef}>
+                  <HoldToApprove
+                    key={selected.request.id}
+                    label={t('f7.preview.holdToApprove')}
+                    shortcut="A"
+                    onComplete={() => {
+                      leaveHold()
+                      void send(selected.request.id, { decision: 'accept' })
+                    }}
+                  />
+                </div>
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -564,7 +580,8 @@ export function ApprovalQueue({
               <Button
                 ref={approveRef}
                 variant={approveStyle === 'danger' ? 'danger' : 'primary'}
-                onClick={() => void onRespond(selected.request.id, { decision: 'accept' })}
+                disabled={sending}
+                onClick={() => void send(selected.request.id, { decision: 'accept' })}
               >
                 {t('request.approve')}
                 <kbd aria-hidden="true" className={sharedStyles.kbdHint}>A</kbd>
@@ -583,6 +600,7 @@ export function ApprovalQueue({
               </span>
             ) : null}
           </footer>
+          )}
         </section>
       ) : (
         <section aria-label={t('f7.queue.previewLabel')} className={styles.rightEmpty}>
@@ -624,7 +642,7 @@ export function ApprovalQueue({
                 onClick={() => {
                   const id = selected.request.id
                   closeWithoutHold()
-                  void onRespond(id, { decision: 'accept' })
+                  void send(id, { decision: 'accept' })
                 }}
               >
                 {t('request.approve')}

@@ -121,7 +121,7 @@
     "description": "Preferências que valem para todos os workspaces.",
     "navigation": "Navegação entre workspaces",
     "cacheLabel": "Workspaces visitados há pouco que ficam prontos",
-    "cacheHint": "Mantém os terminais disponíveis ao trocar de workspace. As mudanças valem na hora.",
+    "cacheHint": "Mantém os terminais disponíveis ao trocar de workspace.",
     "privacy": "Privacidade",
     "seenSites": {
       "label": "Sites que você abriu",
@@ -129,7 +129,8 @@
       "count_one": "{{count}} site lembrado.",
       "count_other": "{{count}} sites lembrados.",
       "count_many": "{{count}} sites lembrados.",
-      "clear": "Limpar sites que você abriu",
+      "clear": "Limpar lista",
+      "clearLabel": "Limpar lista de sites que você abriu",
       "cleared_one": "{{count}} site esquecido",
       "cleared_other": "{{count}} sites esquecidos",
       "cleared_many": "{{count}} sites esquecidos"
@@ -559,6 +560,7 @@
   },
   "agentConfig": {
     "promptRequired": "O prompt da skill é obrigatório",
+    "nameRequired": "O nome é obrigatório",
     "saveFailed": "Falha ao salvar o perfil do agente",
     "commandChanged": "{{name}} agora inicia com o novo comando",
     "commandRequired": "O comando é obrigatório",
@@ -739,7 +741,7 @@
       },
       "commands": {
         "threadSend": "Enviar uma mensagem a uma conversa",
-        "threadSteer": "Direcionar um turno em andamento",
+        "threadSteer": "Orientar um turno em andamento",
         "threadInterrupt": "Parar um turno em andamento",
         "threadRespondRequest": "Aceitar ou recusar um pedido de conversa, depois de confirmar no celular com digital ou rosto",
         "terminalWrite": "Digitar em um terminal que você permitiu aqui",

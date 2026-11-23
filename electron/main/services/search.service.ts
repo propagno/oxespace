@@ -17,6 +17,7 @@ const MAX_FILES = 500
 const MAX_MATCHES_PER_FILE = 200
 const MAX_TOTAL_MATCHES = 5_000
 const MAX_LINE_LENGTH = 1_000
+const MAX_ERROR_LENGTH = 1_000
 const SPAWN_TIMEOUT_MS = 20_000
 const RESOLVE_TIMEOUT_MS = 5_000
 const MAX_CONTEXT_LINES = 5
@@ -81,7 +82,7 @@ export function __resetRgCommandCacheForTests(): void {
 
 function buildArgs(input: SearchInput): string[] {
   const args = ['--json']
-  args.push(input.caseSensitive ? '-s' : '-S') // smart-case by default
+  args.push(input.caseSensitive ? '-s' : '-i') // never smart case: the Match case toggle alone decides
   if (!input.isRegex) args.push('-F') // fixed-string unless regex requested
   if (input.includeIgnored) args.push('--no-ignore', '--hidden')
   const ctx = Math.min(Math.max(Math.trunc(input.contextLines ?? 0), 0), MAX_CONTEXT_LINES)
@@ -227,6 +228,7 @@ export class SearchService {
       let truncated = false
       let settled = false
       let buffer = ''
+      let stderr = ''
 
       const finish = (error?: string): void => {
         if (settled) return
@@ -286,8 +288,18 @@ export class SearchService {
         }
       })
 
+      child.stderr?.setEncoding('utf8')
+      child.stderr?.on('data', (chunk: string) => {
+        // Keep reading past the cap, or a full pipe would stall ripgrep.
+        if (stderr.length < MAX_ERROR_LENGTH) stderr = (stderr + chunk).slice(0, MAX_ERROR_LENGTH)
+      })
+
       child.on('error', (err) => finish(err.message))
-      child.on('close', () => finish())
+      child.on('close', (code) => {
+        // rg exits 1 for no match and 2 for an error. A run we killed (cap, timeout, cancel) did not fail.
+        const failed = code === 2 && !child.killed
+        finish(failed ? stderr.trim() || 'ripgrep exited with code 2' : undefined)
+      })
     })
   }
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ClipboardItem, WebContentsView, type WebContents } from 'electron'
+import { app, BrowserWindow, clipboard, ClipboardItem, WebContentsView, type Session, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -50,6 +50,7 @@ export class BrowserPreviewService {
   private tabs = new Map<string, BrowserTab>()
   private sessions = new Map<string, string>()
   private tabSessions = new Map<string, BrowserPreviewSessionState>()
+  private watchedSessions = new WeakSet<Session>()
   /** The agent access main lets each owner have (T43); a tab follows its owner. */
   private agentGrants = new Map<string, {granted: boolean; ownerKey: string; workspaceId?: string}>()
   private key(window: BrowserWindow, ownerKey: string, tabId: string): string { return `${window.id}:${ownerKey}:${tabId}` }
@@ -58,6 +59,41 @@ export class BrowserPreviewService {
     const tab = this.tabs.get(this.key(window, ownerKey, tabId))
     if (!tab || tab.view.webContents.isDestroyed()) throw new Error('Browser tab is no longer open')
     return tab
+  }
+  private findByWebContentsId(webContentsId: number | undefined): BrowserTab | undefined {
+    if (typeof webContentsId !== 'number') return undefined
+    for (const tab of this.tabs.values()) {
+      if (!tab.view.webContents.isDestroyed() && tab.view.webContents.id === webContentsId) return tab
+    }
+    return undefined
+  }
+  /** Reports HTTP >= 400 and connection failures for every preview tab, even without an agent debugger attached (OXE-10). */
+  private watchSessionNetwork(previewSession: Session | undefined): void {
+    // The view's own partition session. Electron's always has webRequest; test doubles of it may not.
+    const web = previewSession?.webRequest
+    if (!previewSession || typeof web?.onCompleted !== 'function' || typeof web.onErrorOccurred !== 'function') return
+    if (this.watchedSessions.has(previewSession)) return
+    this.watchedSessions.add(previewSession)
+    previewSession.webRequest.onCompleted(details => {
+      if (details.statusCode < 400) return
+      const tab = this.findByWebContentsId(details.webContentsId)
+      if (!tab) return
+      this.emit(tab, {
+        type: 'network',
+        row: { method: details.method || 'GET', url: maskPreviewUrl(details.url), status: details.statusCode, type: details.resourceType || 'other', ms: null },
+        at: Date.now()
+      })
+    })
+    previewSession.webRequest.onErrorOccurred(details => {
+      if (!details.error || details.error === 'net::ERR_ABORTED') return
+      const tab = this.findByWebContentsId(details.webContentsId)
+      if (!tab) return
+      this.emit(tab, {
+        type: 'network',
+        row: { method: details.method || 'GET', url: maskPreviewUrl(details.url), status: null, type: details.resourceType || 'other', ms: null, failed: 'error' },
+        at: Date.now()
+      })
+    })
   }
   sessionId(ownerKey: string): string {
     let id = this.sessions.get(ownerKey)
@@ -139,6 +175,7 @@ export class BrowserPreviewService {
     let tab = this.tabs.get(key)
     if (!tab) {
       const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,defaultEncoding:'UTF-8',...guestProbeWebPreferences()}})
+      this.watchSessionNetwork(view.webContents.session)
       view.setBackgroundColor('#07080e')
       tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
@@ -205,7 +242,19 @@ export class BrowserPreviewService {
       view.webContents.on('page-title-updated', (_event,title) => { if (!isCurrent()) return; meta.title = title.slice(0,100); this.emit(current,{type:'title',title:meta.title}) })
       view.webContents.on('did-start-loading', () => { if (!isCurrent()) return; meta.loading = true; meta.error = null; this.emit(current,{type:'loading',loading:true}) })
       view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })
-      view.webContents.on('did-fail-load', (_event,code,description,_url,isMainFrame) => { if (!isCurrent()) return; if(code !== -3 && isMainFrame) { meta.loading = false; meta.error = description.slice(0,200); this.emit(current,{type:'failed',message:meta.error}) } })
+      view.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => {
+        if (!isCurrent() || code === -3) return
+        this.emit(current, {
+          type: 'network',
+          row: { method: 'GET', url: maskPreviewUrl(failedUrl || meta.url || ''), status: null, type: isMainFrame ? 'document' : 'subFrame', ms: null, failed: 'error' },
+          at: Date.now()
+        })
+        if (isMainFrame) {
+          meta.loading = false
+          meta.error = description.slice(0, 200)
+          this.emit(current, { type: 'failed', message: meta.error })
+        }
+      })
       view.webContents.on('dom-ready', () => { if (isCurrent()) this.emit(current,{type:'ready'}) })
       if (view.webContents.debugger) {
         const broker = brokerForGuest(view.webContents)
@@ -272,6 +321,24 @@ export class BrowserPreviewService {
     if (tab) tab.allowExternal = input.allowExternal === true
     if (tab && typeof input.autoVerify === 'boolean') tab.autoVerify = input.autoVerify
     return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true,tab?.workspaceId)}
+  }
+  /**
+   * Whether the owner's active tab got to `url`, in any window, for oxespace_open_web_preview. Load state only: it
+   * needs no agent access because nothing of the page (title, text, where else it went) is returned.
+   */
+  loadState(ownerKey: string, url: string): 'loaded' | 'failed' | 'loading' | null {
+    let found: 'failed' | 'loading' | null = null
+    for (const [key,state] of this.tabSessions) {
+      if (state.ownerKey !== ownerKey) continue
+      const meta = state.tabs.find(tab => tab.id === state.activeTabId)
+      if (meta?.url !== url) continue
+      if (meta.error) { found ??= 'failed'; continue }
+      const guest = this.tabs.get(`${key}:${meta.id}`)?.view.webContents
+      // The tab takes the URL before its guest does: until the guest is on it and idle, it is still loading.
+      if (guest && !guest.isDestroyed() && !guest.isLoading() && guest.getURL() === url) return 'loaded'
+      found = 'loading'
+    }
+    return found
   }
   /** Whether main lets agents drive this owner's preview in this window (T43). */
   hasAgentAccess(window: BrowserWindow, ownerKey: string): boolean { return this.agentGrants.get(this.ownerKey(window,ownerKey))?.granted === true }

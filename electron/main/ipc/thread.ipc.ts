@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { openExternalOrRecord } from '../utils/external-open'
 import { readFile, writeFile } from 'node:fs/promises'
 import type { NativeAccountService, NativeAuthScope } from '../services/conversation/native-account.service'
 import type { ThreadManager } from '../services/conversation/thread-manager'
@@ -10,6 +11,7 @@ import type { AgentAccountContext } from '../../../shared/types/agentAuth'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { parsePermissionRuleInput } from '../services/conversation/thread-permissions'
 import type { ThreadMcpBindings } from '../services/conversation/thread-mcp'
+import { windowOrigin } from '../services/conversation/thread-send-origin'
 import { createThreadWorktree, discardThreadWorktree, ThreadWorktreeError, type ThreadWorktreeHost } from '../services/conversation/thread-worktree'
 import { tagThreadWorktreeError } from '../../../shared/threadWorktree'
 import { registerThreadWorktreeIpc } from './thread-worktree.ipc'
@@ -104,7 +106,10 @@ export function registerThreadIpc(
         : workspaceCwd(context.workspaceId, context.paneId)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
-    openExternal: url => shell.openExternal(url),
+    // A failed system open is the login's failure: the account shows it instead of waiting for a browser.
+    openExternal: url => new Promise<void>((resolve, reject) => {
+      if (!openExternalOrRecord(url, Date.now(), system => { system.then(resolve, reject) })) reject(Error('Login browser link unavailable'))
+    }),
     changed: status => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.agentAccount.changed, status) },
     beforeLogin: async provider => {
       const service = await manager
@@ -254,7 +259,8 @@ export function registerThreadIpc(
       throw error
     }
   })
-  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown) => manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8))))
+  ipcMain.handle(IPC_CHANNELS.thread.send, (event, id: unknown, text: unknown, attachmentIds: unknown, marker?: unknown) =>
+    manager.then(service => service.send(string(id), message(text), stringList(attachmentIds, 8), windowOrigin(marker))))
   ipcMain.handle(IPC_CHANNELS.thread.turnFiles, (event, id: unknown, turnId: unknown) => manager.then(service => service.turnFiles(string(id), string(turnId))))
   ipcMain.handle(IPC_CHANNELS.thread.undoTurnFile, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.undoTurnFile(string(id), string(turnId), string(path))))
   ipcMain.handle(IPC_CHANNELS.thread.turnFileHunks, (event, id: unknown, turnId: unknown, path: unknown) => manager.then(service => service.turnFileHunks(string(id), string(turnId), string(path))))
@@ -302,7 +308,8 @@ export function registerThreadIpc(
     return manager.then(service => service.auditLog(string(id), { scope, before, limit }))
   })
   ipcMain.handle(IPC_CHANNELS.thread.stopTask, (event, id: unknown, taskId: unknown) => manager.then(service => service.stopTask(string(id), string(taskId))))
-  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown) => manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8))))
+  ipcMain.handle(IPC_CHANNELS.thread.steer, (event, id: unknown, text: unknown, attachmentIds: unknown, marker?: unknown) =>
+    manager.then(service => service.steer(string(id), message(text), stringList(attachmentIds, 8), windowOrigin(marker))))
   ipcMain.handle(IPC_CHANNELS.thread.updateQueued, (event, id: unknown, itemId: unknown, text: unknown) => manager.then(service => service.updateQueued(string(id), string(itemId), message(text))))
   ipcMain.handle(IPC_CHANNELS.thread.deleteQueued, (event, id: unknown, itemId: unknown, preserveAttachments: unknown) => manager.then(service => service.deleteQueued(string(id), string(itemId), preserveAttachments === true)))
   ipcMain.handle(IPC_CHANNELS.thread.reorderQueued, (event, id: unknown, itemIds: unknown) => manager.then(service => service.reorderQueued(string(id), stringList(itemIds, 100))))

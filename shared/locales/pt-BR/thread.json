@@ -18,6 +18,7 @@
     "connect": "Conectar",
     "signOut": "Sair",
     "verify": "Verificar",
+    "connected": "Conectada",
     "message": {
       "checking": "Verificando a conexão…",
       "activeTurn": "Pare o turno ativo antes de reconectar.",
@@ -385,6 +386,8 @@
   },
   "composer": {
     "attachments": "Anexos",
+    "previewElements": "Elementos selecionados do preview",
+    "removePreviewElement": "Remover elemento {{label}} ({{selector}})",
     "remove": "Remover {{name}}",
     "message": "Mensagem",
     "messageIn": "Mensagem em {{title}}",
@@ -396,6 +399,7 @@
     "commandsTitle": "Comandos e skills · Ctrl+/",
     "add": "Adicionar ao prompt",
     "addTitle": "Anexar, mencionar um arquivo ou conectar ferramentas",
+    "context": "Contexto",
     "attach": "Anexar imagem",
     "mention": "Mencionar um arquivo",
     "steer": "Orientar o turno ativo",
@@ -417,6 +421,7 @@
     "applyFailed": "Não foi possível aplicar a configuração",
     "refreshModels": "Atualizar os modelos",
     "label": "Configuração da conversa",
+    "turnSettings": "Configuração do turno",
     "mode": "Modo",
     "modeTitle": "Planejar: o agente planeja primeiro e não muda nada até você aprovar. Agente: ele trabalha na tarefa.",
     "plan": "Planejar",
@@ -435,7 +440,15 @@
     "searchModels": "Buscar modelos…",
     "noModels": "Nenhum modelo disponível.",
     "selectEffort": "Escolher esforço",
-    "effortLevel": { "none": "Nenhum", "minimal": "Mínimo", "low": "Baixo", "medium": "Médio", "high": "Alto", "xhigh": "Extra alto", "max": "Máximo" },
+    "effortLevel": {
+      "none": "Nenhum",
+      "minimal": "Mínimo",
+      "low": "Baixo",
+      "medium": "Médio",
+      "high": "Alto",
+      "xhigh": "Extra alto",
+      "max": "Máximo"
+    },
     "automatic": "Automático",
     "permissions": "Permissões",
     "fullAccess": "Acesso total",
@@ -695,7 +708,7 @@
     "sessionBusy": "Esta sessão nativa está ativa em outro lugar. Termine ou feche a outra sessão do Codex e envie de novo o rascunho salvo.",
     "reconnect": "Reconecte a conta do seu agente nativo para continuar.",
     "couldNotFinish": "O agente não conseguiu terminar este turno.",
-    "diagnostic": "Diagnóstico do provedor",
+    "diagnostic": "Detalhes técnicos",
     "usageUnavailable": "Não foi possível obter o uso atual. O provedor não confirmou quando o limite renova.",
     "checkingUsage": "Verificando o uso atual no provedor…",
     "notRecorded": "O uso e o horário de renovação não foram registrados nesta falha.",
@@ -841,6 +854,7 @@
     "truncated": "Cortado"
   },
   "grid": {
+    "resize": "Redimensionar as colunas",
     "split": "Conversas lado a lado",
     "single": "Conversa"
   },
@@ -951,8 +965,18 @@
     "image": "[Imagem]",
     "imageAlt": "[Imagem: {{alt}}]",
     "diagram": "Diagrama",
+    "diagramBuilding": "Montando diagrama…",
+    "diagramFailed": "Não foi possível desenhar o diagrama",
+    "enlarge": "Ampliar",
     "showCode": "Ver o código",
-    "showDiagram": "Ver o diagrama"
+    "showDiagram": "Ver o diagrama",
+    "alert": {
+      "note": "Nota",
+      "tip": "Dica",
+      "important": "Importante",
+      "warning": "Atenção",
+      "caution": "Cuidado"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Inicia agora.",
@@ -1008,7 +1032,11 @@
     "copyResponse": "Copiar a resposta",
     "copied": "Copiado",
     "copy": "Copiar",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copiar prompt",
+    "editPrompt": "Editar prompt",
+    "undoTurnChanges": "Desfazer as alterações deste turno",
+    "promptEdited": "Editado · reenviado abaixo"
   },
   "modelPicker": {
     "title": "Escolher modelo",
@@ -1407,6 +1435,8 @@
     "conversations": "Conversas",
     "filter": "Filtrar conversas",
     "filterPlaceholder": "Filtrar…",
+    "filterUnread": "Não lidas",
+    "filterByState": "Filtrar por estado",
     "projectsRegion": "Projetos do OxeChat",
     "loading": "Carregando conversas…",
     "projects": "Projetos",
@@ -1446,6 +1476,7 @@
     "conversationCount_one": "{{count}} conversa",
     "conversationCount_many": "{{count}} conversas",
     "conversationCount_other": "{{count}} conversas",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Pede a você · {{text}}"
   },
   "sections": {
@@ -1684,7 +1715,7 @@
     "welcomeTitle": "Comece sua primeira conversa",
     "welcomeBody": "Descreva o que você quer fazer. O agente ganha sua própria branch e worktree, e tudo o que ele executa, consulta ou altera fica junto da conversa.",
     "newConversation": "Nova conversa",
-    "providerAccounts": "Contas dos provedores",
+    "providerAccounts": "Contas dos agentes",
     "sendingMessage": "Enviando mensagem",
     "attachments": "Anexos da mensagem",
     "kilobytes": "{{size}} KB",
@@ -2149,7 +2180,7 @@
       "seeImpact": "Ver impacto",
       "answer": "Responder",
       "stop": "Parar",
-      "retry": "Tentar novamente o passo que falhou",
+      "retry": "Tentar de novo o passo que falhou",
       "openPr": "Abrir pull request"
     }
   },
@@ -2174,16 +2205,18 @@
     "forkCodexOnly": "Bifurcar está disponível para conversas do Codex",
     "export": "Exportar",
     "archive": "Arquivar",
-    "delete": "Excluir…"
+    "delete": "Excluir…",
+    "openInCode": "Abrir no OxeCode",
+    "openWorktreeInCode": "Abrir a worktree no OxeCode"
   },
   "composerModel": {
     "idle": "Pergunte, ou digite / para comandos",
-    "steer": "Direcione: o agente lê depois do passo atual",
+    "steer": "Oriente: o agente lê depois do passo atual",
     "queued": "Na fila até o turno atual terminar",
     "needsYou": "Responda, ou diga ao agente o que fazer",
     "appliesNext": "Vale a partir da próxima mensagem",
     "queuedPrefix": "Na fila · {{text}}",
-    "steerWithThis": "Direcionar com esta",
+    "steerWithThis": "Orientar com esta",
     "sendNow": "Enviar agora",
     "removeQueued": "Remover mensagem da fila"
   },
@@ -2259,6 +2292,7 @@
       "allClearTitle": "Tudo em dia",
       "approvalRules": "Regras de aprovação",
       "openTask": "Abrir a conversa",
+      "answerInConversation": "Responder na conversa",
       "closeQueue": "Fechar aprovações",
       "panelLabel": "O que precisa de você",
       "group": {
@@ -2271,7 +2305,8 @@
       "more": "+{{rest}} mais",
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
-      "goToPane": "Ir ao terminal"
+      "goToPane": "Ir ao terminal",
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
@@ -2303,6 +2338,7 @@
       "runsProjectCodeGeneric": "Este comando executa código deste projeto.",
       "toastAdded": "Sempre permitido: {{command}} · revogue em O que os agentes podem fazer",
       "toastOpen": "Abrir",
+      "failed": "Não foi possível adicionar a regra. Nada foi aprovado.",
       "reason": {
         "destructive": "Sempre permitir não é oferecido para comandos destrutivos.",
         "network": "Sempre permitir não é oferecido para comandos de rede.",

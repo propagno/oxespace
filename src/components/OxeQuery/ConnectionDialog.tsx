@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { ErrorState, Notice } from '../../ui/Display'
 import { formatMs } from './catalog'
 import { EXAMPLE } from './examples'
-import { Check, CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronRight, Database, FileKey, Leaf, Link2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { CONNECTION_COLORS, type AgentAccess, type ConnectionColor, type ConnectionEnvironment, DatabaseEngine, OxeQueryConnection, OxeQueryConnectionInput, PickKind, SshAuth, SslMode } from '../../../shared/types/oxequery'
 import { errorMessage, oq } from './client'
 import { buildConnectionUrl, parseConnectionUrl } from './connection-url'
@@ -271,14 +271,25 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
 
   const toggle = (key: keyof typeof open): void => setOpen(current => ({ ...current, [key]: !current[key] }))
 
+  // A new connection that Test had to save is not kept when the dialog closes without Save & open:
+  // its secrets were stored only so main could test them. An existing connection is never deleted here.
+  const dismiss = (): void => {
+    if (busy) return
+    close()
+    if (!editing && savedId) {
+      const id = savedId
+      void oq('connections.delete', { id }).then(() => useOxeQueryStore.getState().forgetConnection(id), () => undefined)
+    }
+  }
+
   const title = editing ? t('form.editTitle') : t('connections.new')
   const description = editing?.containerRef ? t('form.fromContainer', { name: editing.containerRef }) : draft?.containerRef ? t('form.fromContainerDraft', { name: draft.containerRef }) : t('form.description')
-  return <Dialog title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={() => { if (!busy) close() }}
+  return <Dialog title={title} description={description} size="lg" closeLabel={t('common.close')} onClose={dismiss}
     actions={{
       // Test and Connect without saving stay at the start of the footer as secondary buttons (U1 extra slot), never in a menu.
       extra: <>
-        <Button variant="secondary" loading={busy} onClick={() => void check()}>{t('form.test')}</Button>
-        {!editing && <Button variant="secondary" disabled={busy} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
+        <Button variant="secondary" loading={busy} aria-label={t('form.testLabel')} onClick={() => void check()}>{t('form.test')}</Button>
+        {!editing && <Button variant="secondary" disabled={busy} aria-label={t('form.connectOnceLabel')} onClick={() => void connectOnce()} title={t('form.connectOnceTitle')}>{t('form.connectOnce')}</Button>}
       </>,
       cancel: { label: t('common.cancel'), disabled: busy },
       // The form submits itself, so the browser still checks the required fields.
@@ -294,12 +305,21 @@ function ConnectionForm({ editing, draft }: { editing: OxeQueryConnection | null
         />
       )}
 
-      {!editing && <section className="oq-engines" role="radiogroup" aria-label={t('newDatabase.engine')}>
-        {ENGINES.map(({ id, name: label, Icon }) => <button key={id} type="button" role="radio" aria-label={label} aria-checked={engine === id} className="oq-engine" data-selected={engine === id} onClick={() => chooseEngine(id)}>
-          <Icon size={18} aria-hidden="true" /><span><strong>{label}</strong><small>{t(`form.engineHint.${id}`)}</small></span>{engine === id && <Check size={14} className="oq-engine-check" aria-hidden="true" />}</button>)}
-      </section>}
+      {!editing && (
+        <SegmentedControl<DatabaseEngine>
+          label={t('newDatabase.engine')}
+          className="oq-engine-choice"
+          value={engine}
+          onChange={chooseEngine}
+          options={ENGINES.map(({ id, name: label, Icon }) => ({
+            value: id,
+            label,
+            icon: <Icon size={14} aria-hidden="true" />
+          }))}
+        />
+      )}
 
-      <div className="oq-connect-by"><span>{t('form.connectBy')}</span>
+      <div className="oq-connect-by"><span>{t('form.mode')}</span>
         <SegmentedControl label={t('form.connectBy')} value={mode} onChange={switchMode} options={[{ value: 'host', label: t('form.host') }, { value: 'url', label: t('form.url') }]} />
       </div>
 

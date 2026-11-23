@@ -92,6 +92,17 @@ describe('switching views (F7.2, docs/design/motion.md)', () => {
     expect(screen.getByLabelText('Password')).toHaveFocus()
   })
 
+  it('keeps focus in an open menu when the switch arrives (OXE-387: Ctrl+2, then View in the menu bar)', async () => {
+    render(<><Harness onCommit={() => undefined} /><div role="menu" aria-label="View"><div role="menuitem" tabIndex={-1}>Density</div></div></>)
+    act(() => { button('OxeQuery').click() })
+    act(() => { screen.getByRole('menuitem', { name: 'Density' }).focus() })
+    await act(async () => { vi.advanceTimersByTime(20); await vi.dynamicImportSettled(); await Promise.resolve(); release(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { vi.advanceTimersByTime(20) })
+    expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe('OxeQuery')
+    expect(screen.getByRole('menuitem', { name: 'Density' })).toHaveFocus()
+    expect(screen.getByTestId('current')).not.toHaveFocus()
+  })
+
   it('on the slow path, focus and the announcement wait for the content, not the skeleton (#363 review M1)', async () => {
     const { rerender } = render(<Harness onCommit={() => undefined} skeleton />)
     act(() => { button('OxeQuery').click() })

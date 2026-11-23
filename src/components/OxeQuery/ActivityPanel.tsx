@@ -6,6 +6,7 @@ import { errorMessage, oq } from './client'
 import { formatMs } from './catalog'
 import { EmptyState, ErrorState } from '../../ui/Display'
 import { Button } from '../../ui/Button'
+import { SegmentedControl } from '../../ui/Field'
 import { ActivityDetail } from './ActivityDetail'
 import { formatDateTime, formatNumber } from '../../utils/formatTime'
 import './OxeQuery.css'
@@ -21,7 +22,7 @@ export const isContainerTool = (tool: string): boolean => /^oxespace_containers?
  * What agents asked to do and how each request ended; read-only, kept 90 days. One audit records both kinds:
  * OxeQuery shows the database requests, OxePod the container ones.
  */
-export function ActivityPanel({ active, scope = 'database' }: { active: boolean; scope?: 'database' | 'containers' }): ReactElement {
+export function ActivityPanel({ active, scope = 'database', hideHeading = false }: { active: boolean; scope?: 'database' | 'containers'; hideHeading?: boolean }): ReactElement {
   const { t } = useTranslation('oxequery')
   const [entries, setEntries] = useState<OxeQueryAuditEntry[]>([])
   const [error, setError] = useState('')
@@ -71,12 +72,11 @@ export function ActivityPanel({ active, scope = 'database' }: { active: boolean;
   return <section className="oq-activity" aria-label={t('activity.label')}>
     <header className="oq-activity-head">
       <ShieldCheck size={15} aria-hidden="true" />
-      <strong>{t('activity.label')}</strong>
+      {!hideHeading && <strong>{t('activity.label')}</strong>}
       <span className="oq-muted">{t(scope === 'containers' ? 'activity.introContainers' : 'activity.intro')}</span>
       <span className="oq-spacer" />
-      <div role="group" aria-label={t('activity.filter')} className="oq-segment">
-        {FILTERS.map(value => <button key={value} type="button" role="radio" aria-checked={filter === value} data-selected={filter === value} onClick={() => setFilter(value)}>{t(`activity.show.${value}`)}</button>)}
-      </div>
+      <SegmentedControl label={t('activity.filter')} value={filter} onChange={setFilter}
+        options={FILTERS.map(value => ({ value, label: t(`activity.show.${value}`) }))} />
       <Button icon={<RefreshCw size={13} aria-hidden="true" />} onClick={() => void load()}>{t('common.refresh')}</Button>
     </header>
     {error && <ErrorState compact title={error} onRetry={() => void load()} />}

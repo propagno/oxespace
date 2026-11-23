@@ -285,6 +285,7 @@
       "unpushed_other": "{{count}} commits não publicados",
       "neverPushed": "uma branch que nunca foi publicada",
       "title": "Remover {{name}}?",
+      "unknown": "Não foi possível ler o estado desta worktree. Ela só é removida se o Git não encontrar trabalho não commitado nela; nada é descartado à força.",
       "checking": "Verificando o que esta worktree guarda…",
       "clean": "Tudo aqui está commitado e publicado. A pasta é apagada; a branch fica.",
       "losesWork": "Esta worktree ainda guarda {{losses}}. Removê-la apaga esse trabalho de vez.",
@@ -293,6 +294,7 @@
     },
     "createError": {
       "folderExists": "A pasta “{{path}}” já existe. Escolha outro caminho: o git não cria uma worktree onde já há arquivos.",
+      "branchExists": "Já existe uma branch chamada “{{branch}}”. Escolha outro nome ou marque “Usar uma branch existente” para abri-la aqui.",
       "branchInUse": "Esta branch já está aberta em outra worktree. Escolha outra branch ou remova aquela worktree antes.",
       "noStart": "O git não encontrou um ponto de partida para a nova branch. Confira se a branch atual tem pelo menos um commit.",
       "branchMissing": "Branch não encontrada. Digite o nome de uma branch existente, ou desmarque “Usar uma branch existente” para criar uma nova.",
@@ -446,6 +448,7 @@
       "directShort": "direto",
       "compareBranches": "Comparar branches",
       "uncommittedChanges": "Alterações não commitadas",
+      "staged": "Alterações preparadas",
       "from": "Comparar a partir de",
       "mergeBase": "Ancestral comum (como um pull request)",
       "direct": "Direto da base"
@@ -500,6 +503,11 @@
       "sendTitle": "Enviar os comentários de revisão ao agente",
       "discard": "Descartar os comentários de revisão",
       "discardTitle": "Descartar todos os comentários de revisão",
+      "discardConfirm": "Descartar todos os comentários de revisão?",
+      "discardConsequence_one": "{{count}} comentário deste workspace será excluído, mesmo que já tenha sido enviado. Não é possível desfazer.",
+      "discardConsequence_many": "{{count}} comentários deste workspace serão excluídos, incluindo os já enviados. Não é possível desfazer.",
+      "discardConsequence_other": "{{count}} comentários deste workspace serão excluídos, incluindo os já enviados. Não é possível desfazer.",
+      "discardAction": "Descartar",
       "sent_one": "{{count}} comentário enviado",
       "sent_many": "{{count}} comentários enviados",
       "sent_other": "{{count}} comentários enviados",
@@ -889,6 +897,10 @@
       "heuristic": "Estimado pela atividade do terminal"
     },
     "decisionAnnounce": "{{agent}} precisa da sua decisão: {{reason}}",
+    "commandRunning": "Comando em execução há {{duration}}",
+    "commandSucceeded": "Comando concluído com sucesso em {{duration}}",
+    "commandFailed": "Comando falhou (código {{code}}) em {{duration}}",
+    "commandFinished": "Comando encerrado em {{duration}}",
     "decisionNotice": {
       "place": "Precisa de você · {{workspace}}",
       "body": "{{workspace}}: o agente parou e está esperando sua aprovação ou resposta."
@@ -1059,6 +1071,7 @@
     "externalTitle": "Permitir sites fora deste computador; eles mantêm os próprios cabeçalhos de segurança de frame",
     "external": "Externo",
     "zoom": "Zoom",
+    "zoomLevel": "Zoom · {{zoom}}%",
     "zoomOut": "Diminuir o zoom",
     "zoomIn": "Aumentar o zoom",
     "viewport": {
@@ -1072,6 +1085,7 @@
     "designHint": "Modo Design: clique em um elemento da página, ou pressione Esc para cancelar.",
     "capture": "Copiar a prévia para a área de transferência",
     "openExternal": "Abrir no seu navegador",
+    "moreActions": "Mais ações do navegador",
     "access": {
       "title": "Permitir que os agentes inspecionem esta página?",
       "allow": "Permitir acesso",
@@ -2076,7 +2090,7 @@
     "detailsUnavailable": "Detalhes da sessão indisponíveis",
     "detailsFailed": "Não foi possível ler a sessão",
     "rename": "Renomear o painel",
-    "titleHint": "{{title}}\n(clique duas vezes para renomear)",
+    "titleHint": "{{title}}\n(clique duas vezes, Enter ou F2 para renomear)",
     "search": "Buscar no terminal",
     "searchTitle": "Buscar (Ctrl+F)",
     "restore": "Restaurar o painel",
@@ -2489,6 +2503,7 @@
     "search": "Buscar sessões nativas",
     "searchPlaceholder": "Buscar mensagem, modelo ou ID da sessão",
     "loading": "Carregando sessões nativas…",
+    "loadingMore": "Carregando mais sessões…",
     "untitled": "Sessão do {{provider}}",
     "unknownModel": "Modelo desconhecido",
     "meta_one": "{{model}} · Atualizada em {{updated}} · {{count}} requisição",

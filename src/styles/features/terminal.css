@@ -262,7 +262,7 @@
   flex-shrink: 0;
   background: var(--tx-disabled);
 }
-.statusbar-dot.green  { background: var(--intent-success-solid); box-shadow: 0 0 4px rgba(52, 212, 116, 0.7); }
+.statusbar-dot.green  { background: var(--intent-success-solid); box-shadow: 0 0 4px color-mix(in srgb, var(--intent-success-solid) 70%, transparent); }
 .statusbar-dot.orange { background: var(--intent-warning-solid); }
 .statusbar-dot.yellow { background: var(--intent-warning-solid); }
 .statusbar-dot.red    { background: var(--intent-danger-solid); }
@@ -409,6 +409,15 @@
   color: var(--intent-danger-fg);
   font-size: var(--fs-2xs);
   flex-shrink: 0;
+}
+
+/* OXE-355 · After a failed exit the output stays; its bar carries the way to start again. */
+.terminal-exit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 /* 1.5.0 · A phone holds the pane's size while it has the terminal open. */

@@ -60,6 +60,8 @@ export interface MessageParams extends PlaceMessageParams {
   'thread.side.invalidInput': Record<string, never>
   /** A conversation call carried an id or input that is not one. */
   'thread.invalidInput': Record<string, never>
+  /** A desktop command came in as a message from something other than the person's window. */
+  'thread.command.windowOnly': Record<string, never>
   /** No conversation has this id (deleted, or never existed). */
   'thread.notFound': Record<string, never>
   /** B13: OxeChat starts agents only from a native executable; any other .cmd/.ps1/.bat is refused. */
@@ -423,6 +425,8 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.summary.crash': Record<string, never>
   /** The app's name for who asks: the agent's provider and the pane's position, never the pane's chosen name. */
   'approvals.requester.pane': { agent: string; pane: number }
+  /** A pane running an ordinary process (not a recognized agent profile): executable basename and 1-based pane position. */
+  'approvals.requester.paneProcess': { process: string; pane: number }
   /** A conversation, by provider and a short id the app assigned. */
   'approvals.requester.conversation': { agent: string; conversation: string }
   /** The provider is not known to the app: never a provider name, so it cannot pass for a trusted one. */
@@ -435,6 +439,7 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.option.deny': Record<string, never>
   'approvals.option.allowOnce': Record<string, never>
   'approvals.option.allowSessionReads': Record<string, never>
+  'approvals.option.allowSessionWorkspaceReads': Record<string, never>
   'approvals.option.closeTab': Record<string, never>
   'approvals.option.restart': Record<string, never>
   'approvals.option.keepWorking': Record<string, never>
@@ -453,6 +458,8 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.note.mongo.emptyFilter': Record<string, never>
   'approvals.note.agent.actsOnPrompt': Record<string, never>
   'approvals.note.agent.turnStopped': Record<string, never>
+  'approvals.note.agent.unknownState': Record<string, never>
+  'approvals.note.workspace.crossRead': { source: string; target: string }
   'approvals.note.thread.actsOnMessage': Record<string, never>
   'approvals.note.skill.followed': Record<string, never>
   'approvals.note.automation.runsAlone': Record<string, never>
@@ -592,6 +599,7 @@ export const MESSAGE_CODES = [
   'thread.side.closed',
   'thread.side.invalidInput',
   'thread.invalidInput',
+  'thread.command.windowOnly',
   'thread.notFound',
   'thread.agent.scriptUnsupported',
   'thread.agent.nativeMissing',
@@ -811,6 +819,7 @@ export const MESSAGE_CODES = [
   'approvals.summary.preview.other',
   'approvals.summary.crash',
   'approvals.requester.pane',
+  'approvals.requester.paneProcess',
   'approvals.requester.conversation',
   'approvals.requester.unknownPane',
   'approvals.requester.unknownConversation',
@@ -820,6 +829,7 @@ export const MESSAGE_CODES = [
   'approvals.option.deny',
   'approvals.option.allowOnce',
   'approvals.option.allowSessionReads',
+  'approvals.option.allowSessionWorkspaceReads',
   'approvals.option.closeTab',
   'approvals.option.restart',
   'approvals.option.keepWorking',
@@ -837,6 +847,8 @@ export const MESSAGE_CODES = [
   'approvals.note.mongo.emptyFilter',
   'approvals.note.agent.actsOnPrompt',
   'approvals.note.agent.turnStopped',
+  'approvals.note.agent.unknownState',
+  'approvals.note.workspace.crossRead',
   'approvals.note.thread.actsOnMessage',
   'approvals.note.skill.followed',
   'approvals.note.automation.runsAlone',

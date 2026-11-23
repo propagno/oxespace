@@ -59,7 +59,12 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
   const reveal = useEditorStore((state) => state.reveal[workspaceId] ?? null)
   const [editorSize, setEditorSize] = useState({ width: 0, height: 0 })
   const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null)
-  const [showRendered, setShowRendered] = useState(true)
+  // The subscription below only sees reveals asked after mount; one already waiting for the active file decides here.
+  const [showRendered, setShowRendered] = useState(() => {
+    const { activePath: active, reveal: pending } = useEditorStore.getState()
+    const path = pending[workspaceId]?.relativePath
+    return !path || path !== active[workspaceId] || previewKind(path) !== 'markdown'
+  })
   const [showNoEditorNote, setShowNoEditorNote] = useState(false)
 
   useEffect(() => {
@@ -343,7 +348,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 options={{
                   minimap: { enabled: false },
                   fontSize: 13,
-                  fontFamily: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'DejaVu Sans Mono', monospace",
+                  fontFamily: 'var(--font-mono)',
                   automaticLayout: true,
                   scrollBeyondLastLine: false,
                   scrollbar: {

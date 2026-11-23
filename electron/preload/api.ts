@@ -40,6 +40,7 @@ import {
 } from '../../shared/types/ipc'
 import type { GitDiff } from '../../shared/types/git'
 import { createAgentsApi } from './agents'
+import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
@@ -97,6 +98,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       removeAttachment: (id, attachmentId) => ipc.invoke(IPC_CHANNELS.thread.removeAttachment, id, attachmentId) as Promise<void>,
       send: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds) as Promise<void>,
       steer: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds) as Promise<void>,
+      sendTyped: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.send, id, text, attachmentIds, THREAD_TEXT_TYPED) as Promise<void>,
+      steerTyped: (id, text, attachmentIds) => ipc.invoke(IPC_CHANNELS.thread.steer, id, text, attachmentIds, THREAD_TEXT_TYPED) as Promise<void>,
       stopTask: (id, taskId) => ipc.invoke(IPC_CHANNELS.thread.stopTask, id, taskId) as Promise<void>,
       turnFiles: (id, turnId) => ipc.invoke(IPC_CHANNELS.thread.turnFiles, id, turnId) as Promise<import('../../shared/types/thread').ThreadTurnFileStatus[]>,
       undoTurnFile: (id, turnId, path) => ipc.invoke(IPC_CHANNELS.thread.undoTurnFile, id, turnId, path) as Promise<void>,
@@ -339,6 +342,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     notifications: {
       notify: (payload) => ipc.invoke(IPC_CHANNELS.notifications.notify, payload) as Promise<boolean>,
+      setEnabled: (enabled) => ipc.invoke(IPC_CHANNELS.notifications.setEnabled, enabled) as Promise<void>,
       onActivate: (listener) =>
         subscribe<{ paneId: string; workspaceId: string }>(ipc, IPC_CHANNELS.notifications.onActivate, listener)
     },
@@ -477,6 +481,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     },
     session: {
       list: (input) => ipc.invoke(IPC_CHANNELS.session.list, input) as Promise<import('../../shared/types/session').SessionSummary[]>,
+      onPartial: (listener) => subscribe<import('../../shared/types/session').SessionListPartialEvent>(ipc, IPC_CHANNELS.session.onPartial, listener),
       fork: (input) => ipc.invoke(IPC_CHANNELS.session.fork, input) as Promise<import('../../shared/types/session').ForkSessionResult>,
       delete: (input) => ipc.invoke(IPC_CHANNELS.session.delete, input) as Promise<boolean>,
       cleanup: (input) => ipc.invoke(IPC_CHANNELS.session.cleanup, input) as Promise<number>,
@@ -518,7 +523,6 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setToolGroupMode: (input) => ipc.invoke(IPC_CHANNELS.mcpInternal.setToolGroupMode, input) as Promise<import('../../shared/types/mcp-tools').McpToolGroupsReport>,
       getStatus: () => ipc.invoke(IPC_CHANNELS.mcpInternal.getStatus) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
       regenerateToken: () => ipc.invoke(IPC_CHANNELS.mcpInternal.regenerateToken) as Promise<import('../../shared/types/mcp-internal').InternalMcpStatus>,
-      captureWebPreview: () => ipc.invoke(IPC_CHANNELS.mcpInternal.captureWebPreview) as Promise<void>,
       onWebPreview: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWebPreviewEvent>(ipc, IPC_CHANNELS.mcpInternal.onWebPreview, listener),
       onWorktreeChanged: (listener) => subscribe<import('../../shared/types/mcp-internal').InternalMcpWorktreeChangedEvent>(ipc, IPC_CHANNELS.mcpInternal.onWorktreeChanged, listener),
       actionAudit: (limit) => ipc.invoke(IPC_CHANNELS.mcpInternal.actionAudit, limit) as Promise<import('../../shared/types/mcp-internal').AgentActionEntry[]>,

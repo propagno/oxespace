@@ -405,7 +405,7 @@ describe('Thread workspace UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Model: / }))
     fireEvent.click(await screen.findByRole('button', { name: /Native model A native catalog entry/ }))
     await waitFor(() => expect(f.api.configure).toHaveBeenCalledWith('thread', { model: 'native-model', reasoningEffort: 'low' }, 0))
-    fireEvent.click(screen.getByRole('button', { name: /^Effort: / }))
+    fireEvent.click(screen.getByRole('button', { name: /^Model: / }))
     fireEvent.click(await screen.findByRole('button', { name: 'High', exact: true }))
     await waitFor(() => expect(f.api.configure).toHaveBeenLastCalledWith('thread', { model: 'native-model', reasoningEffort: 'high' }, 1))
     expect(f.api.send).not.toHaveBeenCalled()
@@ -433,6 +433,21 @@ describe('Thread workspace UI', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     await waitFor(() => expect(f.api.send).toHaveBeenCalledWith('thread', '/new', []))
     expect(onNewThread).not.toHaveBeenCalled()
+  })
+  it('OXE-356: choosing /new in the list starts the new conversation at once and sends nothing to the agent', async () => {
+    const f = fixture()
+    f.api.command = vi.fn(async () => ({ kind: 'navigate' as const }))
+    render(<ThreadView workspace={f.workspace} />)
+    const input = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.focus(input); fireEvent.change(input, { target: { value: '/ne' } })
+    await screen.findAllByRole('option')
+    const entry = screen.getAllByRole('option').find(option => option.querySelector('strong')?.textContent === '/new')
+    expect(entry, 'the list offers /new').toBeDefined()
+    expect(entry).toHaveTextContent('OxeChat')
+    fireEvent.click(entry!)
+    await waitFor(() => expect(f.api.command).toHaveBeenCalledWith('thread', '/new'))
+    expect(f.api.send).not.toHaveBeenCalled()
+    expect(input).toHaveValue('')
   })
   it('filters slash commands, selects by keyboard without submitting, and sends arguments', async () => {
     const f = fixture(); render(<ThreadView workspace={f.workspace} />)
@@ -513,7 +528,8 @@ describe('Thread workspace UI', () => {
     ;(input as HTMLTextAreaElement).setSelectionRange(0, 9)
     await act(async () => { await new Promise(resolve => requestAnimationFrame(() => resolve(null))) })
     expect([(input as HTMLTextAreaElement).selectionStart, (input as HTMLTextAreaElement).selectionEnd]).toEqual([0, 9])
-    fireEvent.click(screen.getByRole('button', { name: 'Show conversation commands' }))
+    await userEvent.click(screen.getByRole('button', { name: /Context/ }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /Show conversation commands/ }))
     fireEvent.click(await screen.findByRole('option', { name: /oxe-plan/ }))
     expect(input).toHaveValue('/oxe-plan ')
     expect(f.api.send).not.toHaveBeenCalled()
@@ -592,7 +608,7 @@ describe('Thread workspace UI', () => {
     release()
     await waitFor(() => expect(input).toHaveValue(''))
   })
-  it('keeps what the user sent clean: attachments as chips, no copy or edit buttons', async () => {
+  it('keeps what the user sent clean: attachments as chips, Copy prompt without edit when unavailable', async () => {
     const f = fixture()
     f.snapshot.thread.provider = 'codex'
     f.snapshot.events = [
@@ -601,7 +617,7 @@ describe('Thread workspace UI', () => {
     render(<ThreadView workspace={f.workspace} />)
     const sent = screen.getByText('Can you read the image?').closest('article') as HTMLElement
     expect(within(sent).getByLabelText('Message attachments')).toHaveTextContent('screenshot.png')
-    expect(within(sent).queryByRole('button', { name: /copy/i })).toBeNull()
+    expect(within(sent).getByRole('button', { name: 'Copy prompt' })).toBeInTheDocument()
     expect(within(sent).queryByRole('button', { name: /edit/i })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Edit and retry this message' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Copy (final )?response/ }))

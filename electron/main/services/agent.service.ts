@@ -168,7 +168,7 @@ export class AgentService {
   }
 
   getCachedReadiness(): AgentReadiness[] {
-    const profiles = this.list()
+    const profiles = this.probedProfiles()
     if (profiles.length === 0) return []
 
     const cutoff = Date.now() - CACHE_TTL_MS
@@ -195,7 +195,7 @@ export class AgentService {
     }
 
     // Providers are independent; probing them together bounds the wait by the slowest one.
-    const results: AgentReadiness[] = await Promise.all(this.list().map((profile) => this.checkProvider(profile.provider, profile.command)))
+    const results: AgentReadiness[] = await Promise.all(this.probedProfiles().map((profile) => this.checkProvider(profile.provider, profile.command)))
 
     const upsert = this.db.prepare(`
       INSERT INTO agent_readiness_cache (provider, status, version, details, checked_at)
@@ -216,6 +216,11 @@ export class AgentService {
     insertAll()
 
     return results
+  }
+
+  /** The profiles with a CLI of their own. A custom agent runs on its parent's CLI: it has no command to probe and no readiness row. */
+  private probedProfiles(): AgentProfile[] {
+    return this.list().filter((profile) => profile.provider !== 'custom')
   }
 
   private async checkProvider(provider: AgentProvider, command: string): Promise<AgentReadiness> {

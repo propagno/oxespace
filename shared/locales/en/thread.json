@@ -18,6 +18,7 @@
     "connect": "Connect",
     "signOut": "Sign out",
     "verify": "Verify",
+    "connected": "Connected",
     "message": {
       "checking": "Checking connection…",
       "activeTurn": "Stop the active turn before reconnecting.",
@@ -377,6 +378,8 @@
   },
   "composer": {
     "attachments": "Attachments",
+    "previewElements": "Selected preview elements",
+    "removePreviewElement": "Remove element {{label}} ({{selector}})",
     "remove": "Remove {{name}}",
     "message": "Message",
     "messageIn": "Message in {{title}}",
@@ -388,6 +391,7 @@
     "commandsTitle": "Commands & skills · Ctrl+/",
     "add": "Add to prompt",
     "addTitle": "Attach, mention a file or connect tools",
+    "context": "Context",
     "attach": "Attach image",
     "mention": "Mention a file",
     "steer": "Steer active turn",
@@ -409,6 +413,7 @@
     "applyFailed": "Could not apply configuration",
     "refreshModels": "Refresh models",
     "label": "Conversation configuration",
+    "turnSettings": "Turn settings",
     "mode": "Mode",
     "modeTitle": "Plan: the agent plans first and changes nothing until you approve. Agent: it works on the task.",
     "plan": "Plan",
@@ -427,7 +432,15 @@
     "searchModels": "Search models…",
     "noModels": "No models available.",
     "selectEffort": "Select effort",
-    "effortLevel": { "none": "None", "minimal": "Minimal", "low": "Low", "medium": "Medium", "high": "High", "xhigh": "Extra high", "max": "Max" },
+    "effortLevel": {
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra high",
+      "max": "Max"
+    },
     "automatic": "Automatic",
     "permissions": "Permissions",
     "fullAccess": "Full access",
@@ -682,7 +695,7 @@
     "sessionBusy": "This native session is active elsewhere. Finish or close the other Codex session, then send your saved draft again.",
     "reconnect": "Reconnect your native agent account to continue.",
     "couldNotFinish": "The agent could not finish this turn.",
-    "diagnostic": "Provider diagnostic",
+    "diagnostic": "Technical details",
     "usageUnavailable": "Current usage could not be retrieved. The provider has not confirmed a reset time.",
     "checkingUsage": "Checking current provider usage…",
     "notRecorded": "Usage and reset time were not recorded for this failure.",
@@ -814,6 +827,7 @@
     "truncated": "Cut"
   },
   "grid": {
+    "resize": "Resize the columns",
     "split": "Side-by-side conversations",
     "single": "Conversation"
   },
@@ -922,8 +936,18 @@
     "image": "[Image]",
     "imageAlt": "[Image: {{alt}}]",
     "diagram": "Diagram",
+    "diagramBuilding": "Building the diagram…",
+    "diagramFailed": "Couldn't draw this diagram",
+    "enlarge": "Enlarge",
     "showCode": "Show code",
-    "showDiagram": "Show diagram"
+    "showDiagram": "Show diagram",
+    "alert": {
+      "note": "Note",
+      "tip": "Tip",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    }
   },
   "mcpDiagnose": {
     "startsNow": "Starts now.",
@@ -979,7 +1003,11 @@
     "copyResponse": "Copy response",
     "copied": "Copied",
     "copy": "Copy",
-    "kilobytes": "{{size}} KB"
+    "kilobytes": "{{size}} KB",
+    "copyPrompt": "Copy prompt",
+    "editPrompt": "Edit prompt",
+    "undoTurnChanges": "Undo this turn's changes",
+    "promptEdited": "Edited · resent below"
   },
   "modelPicker": {
     "title": "Choose model",
@@ -1367,6 +1395,8 @@
     "conversations": "Conversations",
     "filter": "Filter conversations",
     "filterPlaceholder": "Filter…",
+    "filterUnread": "Unread",
+    "filterByState": "Filter by state",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",
@@ -1404,6 +1434,7 @@
     "archivedCount": "Archived · {{count}}",
     "conversationCount_one": "{{count}} conversation",
     "conversationCount_other": "{{count}} conversations",
+    "groupSummary": "{{name}}, {{conversations}}, {{state}}",
     "asksYou": "Asks you · {{text}}"
   },
   "sections": {
@@ -1634,7 +1665,7 @@
     "welcomeTitle": "Start your first conversation",
     "welcomeBody": "Describe what you want done. The agent gets its own branch and worktree, and everything it runs, queries or changes stays with the conversation.",
     "newConversation": "New conversation",
-    "providerAccounts": "Provider accounts",
+    "providerAccounts": "Agent accounts",
     "sendingMessage": "Sending message",
     "attachments": "Message attachments",
     "kilobytes": "{{size}} KB",
@@ -2107,7 +2138,9 @@
     "forkCodexOnly": "Fork is available for Codex conversations",
     "export": "Export",
     "archive": "Archive",
-    "delete": "Delete…"
+    "delete": "Delete…",
+    "openInCode": "Open in OxeCode",
+    "openWorktreeInCode": "Open the worktree in OxeCode"
   },
   "composerModel": {
     "idle": "Ask, or type / for commands",
@@ -2188,6 +2221,7 @@
       "allClearTitle": "All clear",
       "approvalRules": "Approval rules",
       "openTask": "Open the task",
+      "answerInConversation": "Answer in the conversation",
       "closeQueue": "Close approvals",
       "panelLabel": "What needs you",
       "group": {
@@ -2200,7 +2234,8 @@
       "more": "+{{rest}} more",
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",
-      "goToPane": "Go to terminal"
+      "goToPane": "Go to terminal",
+      "respondFailed": "Couldn't send your answer. Try again."
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
@@ -2231,6 +2266,7 @@
       "runsProjectCodeGeneric": "This command runs this project's code.",
       "toastAdded": "Always allowed: {{command}} · revoke in What agents can do",
       "toastOpen": "Open",
+      "failed": "Couldn't add the rule. Nothing was approved.",
       "reason": {
         "destructive": "Always allow isn't offered for destructive commands.",
         "network": "Always allow isn't offered for network commands.",

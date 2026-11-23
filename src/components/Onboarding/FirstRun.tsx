@@ -122,7 +122,8 @@ export function FirstRun({
           </Step>
 
           <Step index={2} state={agentState}>
-            <h2 className={styles.stepTitle}>{t('firstRun.v2.agentStep')}</h2>
+            {/* Step 1's button leaves with its folder, so the wizard hands focus to the step now current (OXE-331). */}
+            <h2 tabIndex={-1} className={styles.stepTitle} data-dialog-return={agentState === 'current' ? '' : undefined}>{t('firstRun.v2.agentStep')}</h2>
             <div className={styles.agentList}>
               {agents.map((agent) => {
                 const label = providerTitle(agent.provider)
@@ -170,7 +171,7 @@ export function FirstRun({
 
           <Step index={3} state={conversationState}>
             <div className={styles.stepHeader}>
-              <h2 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle}>
+              <h2 ref={step3HeadingRef} tabIndex={-1} className={styles.stepTitle} data-dialog-return={conversationState === 'current' ? '' : undefined}>
                 {t('firstRun.v2.conversationStep')}
               </h2>
               {hasReadyAgent ? (

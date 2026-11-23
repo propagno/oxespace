@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
-import { PlacesChanges } from './PlacesChanges'
+import { PlacesChanges, type PlacesSend } from './PlacesChanges'
 import { placesBridge } from './placesModel'
 import { lazyFrom } from '../../lib/chunk'
 import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
@@ -39,7 +39,7 @@ export function ThreadToolTabs(props: {
   branch?: string
   activeTab?: ThreadTabId
   onOpen?: (tab: ThreadTabId) => void
-  onSendToConversation?: (prompt: string) => void
+  onSendToConversation?: PlacesSend
   trailing?: ReactNode
 }): ReactElement {
   const { threadId, workspaceId, rootPath, branch, activeTab, onOpen, onSendToConversation, trailing } = props
@@ -98,7 +98,7 @@ export function ThreadToolTabs(props: {
   const content = current === 'changes' && workspaceId && rootPath
         ? (hasPlaces
             ? <PlacesChanges threadId={threadId} workspaceId={workspaceId} onSend={onSendToConversation} />
-            : <Suspense fallback={null}><ChangesPanel workspaceId={workspaceId} rootPath={rootPath} onSendComments={onSendToConversation ? text => { onSendToConversation(text); return true } : undefined} /></Suspense>)
+            : <Suspense fallback={null}><ChangesPanel workspaceId={workspaceId} rootPath={rootPath} onSendComments={onSendToConversation ? async text => (await onSendToConversation(text)) !== false : undefined} /></Suspense>)
         : current === 'queries' && workspaceId
           ? <Suspense fallback={null}><ActivityPanel active scope="database" /></Suspense>
           : current === 'containers' && workspaceId

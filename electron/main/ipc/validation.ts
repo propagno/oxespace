@@ -113,6 +113,18 @@ export function parseId(value: unknown, label = 'id'): string {
   return expectNonEmptyString(value, label)
 }
 
+/** Text as sent (not trimmed): a string of at most `max` characters, without NUL. */
+export function parseText(value: unknown, label: string, max: number): string {
+  const text = expectString(value, label)
+  if (text.length > max || text.includes('\0')) throw new Error(`${label} is too long or malformed`)
+  return text
+}
+
+/** An id or key with a length limit. */
+export function parseBoundedId(value: unknown, label: string, max = 512): string {
+  return expectNonEmptyString(parseText(value, label, max), label)
+}
+
 export function parseTerminalStartInput(value: unknown): TerminalStartInput {
   const input = expectRecord(value, 'terminal:start input')
   return {
@@ -423,7 +435,7 @@ export function parseGitDiffInput(value: unknown): GitDiffInput {
 }
 
 function expectCompareMode(value: unknown): GitCompareMode {
-  if (value !== 'merge-base' && value !== 'direct') throw new Error('mode must be "merge-base" or "direct"')
+  if (value !== 'merge-base' && value !== 'direct' && value !== 'staged') throw new Error('mode must be "merge-base", "direct" or "staged"')
   return value
 }
 
@@ -449,7 +461,8 @@ function expectRepoRelativePath(value: unknown, label: string): string {
 export function parseGitFileOriginalInput(value: unknown): GitFileOriginalInput {
   const input = expectRecord(value, 'git:file-original input')
   const base = parseGitDiffInput(input)
-  return { ...base, path: expectRepoRelativePath(input.path, 'path'), oldPath: input.oldPath === undefined ? undefined : expectRepoRelativePath(input.oldPath, 'oldPath') }
+  if (input.side !== undefined && input.side !== null && input.side !== 'index') throw new Error('side must be "index"')
+  return { ...base, path: expectRepoRelativePath(input.path, 'path'), oldPath: input.oldPath === undefined ? undefined : expectRepoRelativePath(input.oldPath, 'oldPath'), ...(input.side === 'index' ? { side: 'index' as const } : {}) }
 }
 
 export function parseGitBranchInput(value: unknown): { workspaceId: string; rootPath: string } {
@@ -629,7 +642,7 @@ export function parseGitHubConnectRepositoryInput(value: unknown): GitHubConnect
   }
 }
 
-function expectRecord(value: unknown, label: string): Record<string, unknown> {
+export function expectRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`${label} must be an object`)
   }
@@ -751,7 +764,7 @@ function expectStringArray(value: unknown, label: string): string[] {
   return value
 }
 
-function expectBoolean(value: unknown, label: string): boolean {
+export function expectBoolean(value: unknown, label: string): boolean {
   if (typeof value !== 'boolean') {
     throw new Error(`${label} must be a boolean`)
   }
@@ -772,7 +785,7 @@ function expectPanelWidth(value: unknown): number {
   return Number(value)
 }
 
-function expectPositiveInteger(value: unknown, label: string): number {
+export function expectPositiveInteger(value: unknown, label: string): number {
   if (!Number.isInteger(value) || Number(value) <= 0) {
     throw new Error(`${label} must be a positive integer`)
   }

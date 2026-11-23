@@ -217,6 +217,7 @@ export const IPC_CHANNELS = {
   },
   notifications: {
     notify: 'notifications:notify',
+    setEnabled: 'notifications:set-enabled',
     onActivate: 'notifications:on-activate'
   },
   /** B10 · Approvals (shared/types/approvals.ts). Main frame only; never an MCP tool. */
@@ -279,6 +280,7 @@ export const IPC_CHANNELS = {
   },
   session: {
     list: 'session:list',
+    onPartial: 'session:list-partial',
     fork: 'session:fork',
     delete: 'session:delete',
     cleanup: 'session:cleanup',
@@ -379,7 +381,6 @@ export const IPC_CHANNELS = {
     getStatus: 'mcp-internal:get-status',
     toolGroups: 'mcp-internal:tool-groups', setToolGroupMode: 'mcp-internal:set-tool-group-mode', toolRules: 'mcp-internal:tool-rules', setToolRule: 'mcp-internal:set-tool-rule',
     regenerateToken: 'mcp-internal:regenerate-token',
-    captureWebPreview: 'mcp-internal:capture-web-preview',
     onWebPreview: 'mcp-internal:on-web-preview',
     onWorktreeChanged: 'mcp-internal:on-worktree-changed',
     actionAudit: 'mcp-internal:action-audit',
@@ -677,6 +678,8 @@ export interface AgentHooksApi {
 
 export interface NotificationsApi {
   notify(payload: AgentNotificationPayload): Promise<boolean>
+  /** Tells the main process whether Settings › Desktop notifications is on; off, main shows none (OXE-368). */
+  setEnabled(enabled: boolean): Promise<void>
   onActivate(listener: (payload: { paneId: string; workspaceId: string }) => void): () => void
 }
 
@@ -828,8 +831,6 @@ export interface PaneConversationApi {
 export interface McpInternalApi {
   getStatus(): Promise<import('./mcp-internal').InternalMcpStatus>
   regenerateToken(): Promise<import('./mcp-internal').InternalMcpStatus>
-  /** Copies the visible Web Preview frame to the system clipboard. */
-  captureWebPreview(): Promise<void>
   onWebPreview(listener: (event: import('./mcp-internal').InternalMcpWebPreviewEvent) => void): () => void
   onWorktreeChanged(listener: (event: import('./mcp-internal').InternalMcpWorktreeChangedEvent) => void): () => void
   /** Recent changes agents made through the OXESpace MCP tools, newest first. */
@@ -901,7 +902,8 @@ export interface BackgroundApi {
 }
 
 export interface SessionApi {
-  list(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<import('./session').SessionSummary[]>
+  list(input: import('./session').SessionListInput): Promise<import('./session').SessionSummary[]>
+  onPartial(listener: (event: import('./session').SessionListPartialEvent) => void): () => void
   fork(input: import('./session').ForkSessionInput): Promise<import('./session').ForkSessionResult>
   delete(input: { workspaceRootPath: string; sessionId: string; provider: import('./agent').AgentProvider }): Promise<boolean>
   cleanup(input: { workspaceId: string; workspaceRootPath: string; provider: import('./agent').AgentProvider }): Promise<number>

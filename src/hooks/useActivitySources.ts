@@ -33,6 +33,24 @@ function useUpdateActivity(): void {
   }, [])
 }
 
+/** Reads main's stored entries once, after the first paint: nothing on the synchronous boot path (OXE-105). */
+function useActivityHydration(): void {
+  useEffect(() => {
+    let frame = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const start = (): void => { if (timer === undefined) timer = setTimeout(() => { void useActivityStore.getState().hydrate() }, 0) }
+    // A hidden or throttled window may hold the frame back; the fallback still reads the list (hydrate runs once).
+    const fallback = setTimeout(start, 1_000)
+    if (typeof requestAnimationFrame === 'function') frame = requestAnimationFrame(start)
+    else start()
+    return () => {
+      if (frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
+      clearTimeout(fallback)
+      if (timer !== undefined) clearTimeout(timer)
+    }
+  }, [])
+}
+
 /**
  * Every producer of the activity center in one place: agents in Code panes, conversations,
  * OxeQuery requests, quota windows, app updates and quarantined MCP servers. Background jobs report from their store.
@@ -44,4 +62,5 @@ export function useActivitySources(applicationView: import('../keyboard/keybindi
   useQuotaAlerts()
   useUpdateActivity()
   useMcpQuarantineActivity()
+  useActivityHydration()
 }

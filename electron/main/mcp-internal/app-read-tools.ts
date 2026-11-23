@@ -1,5 +1,5 @@
 import type { ToolEntry } from './tool-registry'
-import { codeWorkspace, domainTool, int, parsed, service, str, bool, type ActionScope, type Args } from './domain-tool'
+import { codeWorkspace, crossWorkspaceReadApproval, domainTool, int, parsed, resolveReadableWorkspace, service, str, bool, type ActionScope, type Args } from './domain-tool'
 import { ActionRefused } from '../services/agent-actions/agent-actions'
 import { parseSearchInput } from '../ipc/validation'
 import { threadReadout } from './thread-handoff-tools'
@@ -159,13 +159,22 @@ export const APP_READ_TOOLS: ToolEntry[] = [
 
   domainTool('oxespace_terminal', `Read what the terminals of your Code workspace printed. ${UNTRUSTED} Secrets that look like passwords or tokens are masked.`, {
     output: {
-      level: 'read', description: 'The recent output of a pane (see oxespace_list_panes), cleaned of escape codes.',
-      properties: { paneId: { type: 'string', maxLength: 200 }, maxChars: { type: 'integer', minimum: 500, maximum: 20_000, description: 'Default 8000.' } }, required: ['paneId'],
+      level: 'read', description: 'The recent output of a pane (see oxespace_list_panes), cleaned of escape codes. Reading a pane in another workspace asks the person first.',
+      properties: {
+        paneId: { type: 'string', maxLength: 200 },
+        workspaceId: { type: 'string', maxLength: 200, description: 'Optional id of another Code workspace (requires explicit user authorization).' },
+        maxChars: { type: 'integer', minimum: 500, maximum: 20_000, description: 'Default 8000.' }
+      },
+      required: ['paneId'],
+      confirm: (args, scope, ctx) => {
+        const paneId = str(args, 'paneId', 200)
+        if (!paneId) throw new ActionRefused('paneId is required.', 'invalid')
+        return crossWorkspaceReadApproval(args, scope, ctx, { actionLabel: 'Read terminal output', paneId })
+      },
       run: async (args, scope, ctx) => {
-        const workspaceId = codeWorkspace(scope)
         const paneId = str(args, 'paneId', 200)!
-        const workspace = ctx.workspaceServ.get(workspaceId) as { panes?: Array<{ id: string }> } | null
-        if (!workspace?.panes?.some(pane => pane.id === paneId)) throw new ActionRefused('No pane with that id in this workspace.', 'not-found')
+        const { targetWorkspace } = resolveReadableWorkspace(args, scope, ctx, paneId)
+        if (!targetWorkspace.panes?.some(pane => pane.id === paneId)) throw new ActionRefused('No pane with that id in this workspace.', 'not-found')
         const output = service(ctx, 'terminal').peek(paneId)
         if (!output) return { running: false, text: '', note: 'The pane has no running session.' }
         if (output.altScreen) return { running: true, text: '', note: 'The pane shows a full-screen program; its screen cannot be read as text.' }

@@ -4,20 +4,18 @@
 .oq-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 
 .oq-sidebar { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; border-right: 1px solid var(--bd-subtle); background: var(--surface-chrome); color: var(--tx-primary); }
-.oq-sidebar-content { flex: 1; min-width: 0; overflow-y: auto; padding: 10px 8px 16px; display: grid; align-content: start; gap: 14px; }
-.oq-sidebar-content header { padding: 2px 8px; font-size: var(--fs-sm); }
-.oq-sidebar-content h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 4px; padding: 0 8px; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: var(--weight-semibold); }
-.oq-nav-item { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 6px 8px; border: 0; border-radius: var(--radius-sm, 6px); color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.oq-nav-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oq-sidebar-content { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.oq-sidebar-header { flex: none; }
+.oq-sidebar-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+.oq-activity-row { padding-left: var(--space-1-5); }
+.oq-connection-item { padding-left: var(--space-3); }
+.oq-connection-meta { display: inline-flex; align-items: center; gap: var(--space-1); }
+.oq-fav-on { color: var(--intent-warning-solid, var(--accent)); }
 /* A bare <small> is 0.8em: 9.6px inside this product's 12px text, under its 11px floor. Zero specificity, so a rule
    that names a size still wins. */
 :where([class^='oq-'], [class*=' oq-']) small { font-size: var(--fs-2xs); }
-.oq-nav-item small { color: var(--tx-muted); }
-.oq-nav-item:hover, .oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
-.oq-nav-item[aria-current='page'] { background: var(--fill-selected); }
-.oq-connection-row { display: flex; align-items: center; gap: 2px; }
-.oq-connection-row .oq-icon { opacity: 0; }
-.oq-connection-row:hover .oq-icon, .oq-connection-row:focus-within .oq-icon { opacity: 1; }
+.oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
+.oq-connection-row { min-width: 0; }
 .oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-icon svg { flex: none; }
 .oq-prod { color: var(--intent-danger-fg); }
@@ -25,11 +23,11 @@
 .oq-ok { margin: 6px 0; color: var(--intent-success-solid, var(--tx-secondary)); font-size: var(--fs-xs); }
 
 .oq-view { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--surface-canvas); color: var(--tx-primary); }
-.oq-tabs { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
+.oq-tabs { display: flex; gap: 2px; min-height: var(--bar-md); padding: 6px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
 .oq-tab { position: relative; display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .oq-tab[data-active='true'] { background: var(--surface-raised); box-shadow: inset 0 -2px 0 var(--accent); }
-.oq-tab button { padding: 6px 10px; border: 0; color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); cursor: pointer; }
-.oq-tab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 4px; color: var(--tx-muted); }
+.oq-tab button[role='tab'] { padding: 6px 10px; border: 0; color: inherit; background: transparent; font: inherit; font-size: var(--fs-xs); cursor: pointer; }
+.oq-tab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); color: var(--tx-muted); }
 .oq-panels { position: relative; flex: 1; min-height: 0; }
 .oq-panel { position: absolute; inset: 0; display: flex; min-height: 0; }
 .oq-panel[hidden] { display: none; }
@@ -91,7 +89,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-tree-row:hover .oq-tree-actions, .oq-tree-row:focus-within .oq-tree-actions { display: inline-flex; }
 .oq-tree-new { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; font: inherit; font-size: var(--fs-2xs); cursor: pointer; }
 .oq-tree-new:hover { color: var(--tx-primary); background: color-mix(in srgb, var(--tx-primary) 10%, transparent); }
-.oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+.oq-results { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; background: var(--surface-base); }
 .oq-results > .oq-results-bar { position: sticky; top: 0; z-index: var(--layer-sticky); background: var(--surface-canvas); }
 .oq-columns { margin: 0 10px 6px; font-size: var(--fs-xs); }
 .oq-columns table { border-collapse: collapse; }
@@ -127,14 +125,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 /* ── Connection dialog ─────────────────────────────────────────────────── */
 .oq-dialog { max-height: calc(100vh - 48px); overflow-y: auto; }
-.oq-engines { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.oq-engine { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); color: var(--tx-secondary); background: transparent; text-align: left; cursor: pointer; }
-.oq-engine span { display: grid; gap: 2px; }
-.oq-engine strong { color: var(--tx-primary); font-size: var(--fs-sm); font-weight: 600; }
-.oq-engine small { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.oq-engine[data-selected='true'] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-/* The chosen engine also carries a tick, so the choice does not rest on the tint alone (forced colors drop it). */
-.oq-engine-check { flex: none; margin-left: auto; color: var(--accent); }
 .oq-dialog-form > .oq-engine-choice { align-self: flex-start; }
 .oq-url { display: grid; gap: 4px; margin-bottom: 12px; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .oq-url > span { display: inline-flex; align-items: center; gap: 6px; }
@@ -171,12 +161,12 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-grid-inner, .oq-grid-header, .oq-grid-row { min-width: 100%; }
 
 /* ── SQL workbench: query tabs, history, row details ─────────────────────── */
-.oq-qtabs { display: flex; align-items: center; gap: 2px; padding: 4px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
+.oq-qtabs { display: flex; align-items: center; gap: 2px; min-height: var(--bar-md); padding: 4px 8px 0; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
 .oq-qtab { display: inline-flex; align-items: center; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .oq-qtab[data-active='true'] { background: var(--surface-raised); box-shadow: inset 0 -2px 0 var(--accent); }
-.oq-qtab button { padding: 5px 8px; border: 0; color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
-.oq-qtab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); padding: 3px; color: var(--tx-muted); }
-.oq-qtab-add { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-qtab button[role='tab'] { padding: 5px 8px; border: 0; color: inherit; background: transparent; font-size: var(--fs-xs); cursor: pointer; }
+.oq-qtab .oq-tab-close { display: inline-grid; place-items: center; min-width: var(--control-sm); min-height: var(--control-sm); color: var(--tx-muted); }
+.oq-qtab-add { flex: none; color: var(--tx-muted); }
 .oq-editor-toolbar kbd { margin-left: 6px; padding: 0 5px; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); border-radius: var(--radius-sm); font-size: var(--fs-2xs); opacity: .8; }
 .oq-history { position: relative; }
 .oq-history ul { position: absolute; z-index: var(--layer-dropdown); top: calc(100% + 4px); left: 0; width: min(560px, 70vw); max-height: 320px; margin: 0; padding: 4px; overflow: auto; list-style: none; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--elevation-3); }
@@ -193,7 +183,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-notice { margin: 0 10px 4px; }
 .oq-row-detail { width: clamp(220px, 34%, 320px); flex-shrink: 0; overflow: auto; border-left: 1px solid var(--bd-default); background: var(--surface-raised); font-size: var(--fs-xs); }
 .oq-row-detail header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; position: sticky; top: 0; background: var(--surface-raised); }
-.oq-row-detail header button { border: 0; color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-row-detail header button:not([data-ui]) { border: 0; color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-row-detail dl { margin: 0; padding: 0 12px 12px; display: grid; gap: 10px; }
 .oq-row-detail dt { color: var(--tx-muted); }
 .oq-row-detail dt small { margin-left: 6px; opacity: .7; }
@@ -297,19 +287,19 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-index-form input[type="text"], .oq-index-form input:not([type]) { flex: 1; font-family: var(--font-mono, monospace); }
 
 /* ---- Agent activity ------------------------------------------------------- */
-.oq-activity { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; overflow: auto; }
-.oq-activity-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.oq-activity { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); height: 100%; overflow: auto; }
+.oq-activity-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--bar-lg); flex-wrap: wrap; }
 .oq-activity-table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
-.oq-activity-table th, .oq-activity-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bd-default); vertical-align: top; }
+.oq-activity-table th, .oq-activity-table td { text-align: left; padding: var(--space-1-5) var(--space-2); border-bottom: 1px solid var(--bd-subtle); vertical-align: top; }
 .oq-activity-table code { display: block; opacity: 0.75; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oq-activity-table tr[data-decision="denied"] .oq-decision, .oq-activity-table tr[data-decision="refused"] .oq-decision { color: var(--intent-danger-solid); }
-.oq-activity-table tbody tr { cursor: pointer; }
+.oq-activity-table tbody tr { height: var(--row-1); cursor: pointer; }
 /* Who acted: the agent's name, with its raw id beside it in mono (PQ-07·16). */
 .oq-activity-table .oq-activity-actor { display: inline; margin-left: var(--space-1); font-family: var(--font-mono); font-size: var(--fs-2xs); }
 /* A failed request reads as one. */
 .oq-activity-table tr[data-outcome="error"] .oq-activity-result { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }
 .oq-activity-more { display: flex; justify-content: center; padding: var(--space-2) 0; }
-.oq-activity-table tbody tr:hover { background: var(--fill-hover, rgba(127, 127, 127, 0.08)); }
+.oq-activity-table tbody tr:hover { background: var(--fill-hover); }
 .oq-activity-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .oq-activity-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0 0 12px; }
 .oq-activity-facts dt { font-size: var(--fs-2xs); opacity: 0.7; }
@@ -346,10 +336,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-cell-viewer header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--bd-default); font-size: var(--fs-xs); }
 .oq-cell-viewer pre { flex: 1; margin: 0; padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: var(--fs-xs); }
 .oq-cell-viewer pre.is-null { color: var(--tx-muted); font-style: italic; }
-.oq-output-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--bd-default); overflow-x: auto; }
-.oq-output-tabs button { max-width: 220px; padding: 4px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
-.oq-output-tabs button[aria-selected='true'] { color: var(--tx-primary); border-bottom-color: var(--accent); }
-.oq-output-tabs button[data-error='true'] { color: var(--intent-danger-solid); }
+.oq-output-tabs { padding: 0 var(--space-3); overflow-x: auto; }
+.oq-output-tabs [data-error='true'] { color: var(--intent-danger-fg); }
 
 /* The MongoDB sidebar: databases and their collections. */
 .oq-mtree-body { flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; }
@@ -359,7 +347,8 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-mleaf small { margin-left: 6px; color: var(--tx-muted); }
 .oq-mleaf-actions { position: absolute; top: 0; right: var(--space-1); bottom: 0; display: none; flex: none; align-items: center; gap: var(--space-0-5); padding-left: var(--space-1); background: var(--surface-base); }
 .oq-mleaf:hover .oq-mleaf-actions, .oq-mleaf:focus-within .oq-mleaf-actions { display: inline-flex; }
-.oq-mleaf-actions button { display: inline-grid; place-items: center; width: var(--control-sm); height: var(--control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+/* PQ-07·9 (frozen): a collection's Rename and Drop are 24 px boxes, width and height var(--control-sm), on the src/ui IconButton. */
+.oq-mleaf-actions [data-ui='icon-button'] { width: var(--control-sm); height: var(--control-sm); }
 .oq-mnode:hover, .oq-mleaf > button:first-child:hover, .oq-mleaf-actions button:hover { background: color-mix(in srgb, var(--tx-primary) 8%, transparent); }
 .oq-mleaf > button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .oq-field-error { color: var(--intent-danger-solid); font-size: var(--fs-2xs); }
@@ -372,13 +361,10 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-rules textarea { padding: 6px 8px; font-family: var(--font-mono, ui-monospace, monospace); resize: vertical; }
 
 /* Connection list: groups, colors, favorites, search. A color is one of the identity tokens. */
-.oq-h3-actions { display: inline-flex; align-items: center; gap: 2px; }
-.oq-conn-search { display: flex; align-items: center; gap: 6px; margin: 0 8px 6px; padding: 0 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); }
-.oq-conn-search:focus-within { border-color: var(--bd-focus); }
-.oq-conn-search input {flex: 1; min-width: 0; padding: 5px 0; border: 0; outline: 0; color: var(--tx-primary); background: transparent; font: inherit; font-size: var(--fs-xs); }
-.oq-conn-heading { display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 8px; border: 0; color: var(--tx-secondary); background: transparent; font: inherit; font-size: var(--fs-xs); font-weight: var(--weight-semibold); cursor: pointer; }
-.oq-conn-heading small { margin-left: auto; }
-.oq-connection-row .oq-icon[data-on] { opacity: 1; color: var(--intent-warning-solid, var(--accent)); }
+.oq-h3-actions { display: inline-flex; align-items: center; gap: var(--space-0-5); }
+.oq-conn-search { margin: 0 0 var(--space-1); }
+.oq-conn-heading { min-height: var(--bar-sm); font-size: var(--fs-xs); color: var(--tx-secondary); }
+.oq-connection-row [data-on] { color: var(--intent-warning-solid, var(--accent)); }
 .oq-color-dot { display: inline-block; flex: none; width: 10px; height: 10px; margin: 0 2px; border-radius: 50%; background: var(--avatar-1); }
 .oq-color-dot[data-color='violet'] { background: var(--avatar-2); }
 .oq-color-dot[data-color='pink'] { background: var(--avatar-3); }
@@ -409,7 +395,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-ask-menu > button { text-align: left; }
 .oq-ask-menu form { display: flex; gap: 4px; }
 .oq-ask-menu input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--fs-xs); }
-.oq-sidebar-content > header { display: flex; align-items: center; justify-content: space-between; }
 .oq-library-folder { padding: 6px 8px 2px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 
 /* ---- Polish: layout that holds at any width ---------------------------------------------------- */
@@ -445,23 +430,13 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Only an open filter or an open editor needs the full width; collapsed, they stay chips in the row. */
 .oq-extras > form:not(:has(select, input)), .oq-extras > .oq-editor-bar:not(:has(.oq-edit-form, .oq-staged)) { flex-basis: auto; }
 .oq-extras > form:not(:has(select, input)) { border: 0; background: transparent; padding: 0; }
-/* The sidebar's one column may not grow past the sidebar: a long connection row shrinks its name instead. */
-.oq-sidebar-content { grid-template-columns: minmax(0, 1fr); }
-.oq-connection-row > .oq-nav-item { flex: 1 1 0; min-width: 0; }
 /* Row editing is a quiet chip like Structure, Filter and Definition. */
-.oq-extras .oq-editor-bar-row button { padding: 2px 0; border: 0; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.oq-extras .oq-editor-bar-row button:not([data-ui]) { padding: 2px 0; border: 0; background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .oq-extras .oq-editor-bar-row button[aria-pressed='true'] { color: var(--accent); }
 /* Popups hang from the side that has room (measured when they open). */
 .oq-library, .oq-ask-menu { left: 0; right: auto; }
 .oq-library[data-side='right'], .oq-ask-menu[data-side='right'] { left: auto; right: 0; }
 .oq-library { max-width: min(420px, calc(100vw - 24px)); }
-/* Connection actions float over the row on hover, so a name keeps the whole width. */
-.oq-connection-row { position: relative; }
-.oq-connection-row > .oq-icon { position: absolute; top: 50%; transform: translateY(-50%); background: var(--surface-chrome); box-shadow: -6px 0 6px -2px var(--surface-chrome); }
-.oq-connection-row > .oq-icon:nth-last-child(1) { right: 2px; }
-.oq-connection-row > .oq-icon:nth-last-child(2) { right: 28px; }
-.oq-connection-row > .oq-icon:nth-last-child(3) { right: 54px; }
-.oq-connection-row > .oq-icon:nth-last-child(4) { right: 80px; }
 .oq-library li > button:first-child { align-items: flex-start; text-align: left; }
 .oq-library li > button:first-child strong { font-weight: 600; }
 .oq-dialog-form { display: flex; flex-direction: column; gap: 10px; }
@@ -503,7 +478,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 /* The Read-only switch row and the safety block read as one calm group. */
 .oq-safety { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
-.oq-safety > .oq-environment { justify-self: start; background: var(--surface-base); }
+.oq-safety > .oq-environment { justify-self: start; }
 
 /* Container table: cells keep their table layout; the row carries the rule. */
 
@@ -538,7 +513,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-ask { display: inline-flex; align-items: center; gap: var(--space-2); }
 
 /* SQL toolbar: run controls, plan controls and limit on the left; transaction, library and agent on the right. */
-.oq-editor-toolbar { flex-wrap: wrap; row-gap: var(--space-2); }
+.oq-editor-toolbar { flex-wrap: wrap; min-height: var(--bar-lg); row-gap: var(--space-2); }
 .oq-tb-group { display: inline-flex; align-items: center; gap: var(--space-1); }
 /* The right-hand group moves as one: when the bar is too narrow it drops to its own row, aligned right, instead of leaving one button alone. */
 .oq-tb-end { margin-left: auto; gap: var(--space-2); flex-wrap: wrap; }
@@ -556,7 +531,6 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* Narrow panes: the containers table keeps its actions in view by dropping the image column and the button labels. */
 @container (max-width: 860px) {
 }
-.oq-nav-item { min-height: var(--control-md); }
 
 /* A failed statement: headline and next step first, the engine's own words collapsed. */
 .oq-query-error { display: grid; gap: var(--space-2); }
@@ -617,13 +591,13 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 
 .oq-engine-tag { border-color: var(--bd-subtle); background: var(--surface-sunken); font-family: var(--font-mono); }
 
-.oq-tabs-bar { display: flex; align-items: stretch; justify-content: space-between; gap: var(--space-3); min-height: 36px; padding: 0 var(--space-3); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); }
+.oq-tabs-bar { display: flex; align-items: stretch; justify-content: space-between; gap: var(--space-3); min-height: var(--bar-lg); padding: 0 var(--space-3); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); }
 .oq-tabs-bar > .oq-tabs { flex: 1; min-width: 0; padding: 4px 0 0; border-bottom: 0; }
 .oq-view-meta { display: inline-flex; align-items: center; gap: var(--space-2); flex: none; color: var(--tx-muted); font-family: var(--font-ui); font-size: var(--fs-2xs); }
 
 .oq-qtabs { background: var(--surface-chrome); border-bottom-color: var(--bd-subtle); }
 .oq-editor-toolbar { border-bottom: 1px solid var(--bd-subtle); background: var(--surface-base); }
-.oq-results > .oq-results-bar { border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); font-variant-numeric: tabular-nums; }
+.oq-results > .oq-results-bar { min-height: var(--bar-md); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--bd-subtle); background: var(--surface-sunken); color: var(--tx-secondary); cursor: pointer; font-variant-numeric: tabular-nums; }
 .oq-agent-activity-badge:hover { background: var(--fill-hover); color: var(--tx-primary); }
 .oq-agent-activity-badge[data-tone='attn'] { border-color: var(--attn-border); background: var(--attn-bg); color: var(--attn-fg); }

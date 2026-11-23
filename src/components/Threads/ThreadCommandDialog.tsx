@@ -1,17 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
 import { useTranslation } from 'react-i18next'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import type { DelegationTask } from '../../../shared/types/delegation'
+import type { SessionSummary } from '../../../shared/types/session'
 import { useThreadStore } from '../../store/thread.store'
 import { DetailList } from '../Navigation/DetailList'
 import { ThreadUsageDetails } from './ThreadFailureCard'
 import ThreadEventsPanel from './ThreadEventsPanel'
 import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
-import type { ThreadPanelState } from './threadCommandPanels'
+import { nativeResumeSessions, type ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, TextField } from '../../ui'
+import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, Spinner, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 import { displayThreadTitle, namedThreadTitle } from './threadTitle'
 import { localizeConfirmation } from './threadConfirmationText'
@@ -26,6 +27,9 @@ const SESSION_ID_SHAPE = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 /** The rows /status sends, in the order shown, with their catalog keys; the main process names them in English. */
 const STATUS_ROWS: Record<string, string> = { Provider: 'provider', 'Native session ID (resume)': 'nativeSession', Status: 'status', Model: 'model', Effort: 'effort', Access: 'access', Network: 'network', Approvals: 'approvals', Mode: 'mode', Connection: 'connection', Directory: 'directory' }
 const INTERNAL_ROWS: Record<string, string> = { 'Conversation ID': 'threadId', 'Project ID': 'projectId', 'Workspace ID': 'workspaceId', Generation: 'generation', Operation: 'operation', Hooks: 'hooks' }
+
+/** Numbers the native list requests, so each dialog only shows the partial events of its own request. */
+let resumeRequestSeq = 0
 
 /** The dialog a desktop command opens: confirmations, command output, rename, resume, delegations and permission rules. Loaded on demand. */
 export default function ThreadCommandDialog({ panel, snapshot, pending, error, onClose, onError, action, runCommand, onDelegations }: {
@@ -43,13 +47,32 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   const [rename, setRename] = useState(namedThreadTitle(snapshot?.thread.title))
   const [resumeQuery, setResumeQuery] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
+  // /resume opens before the native list is read: the sessions arrive in partial events of this dialog's request.
+  const [nativeLive, setNativeLive] = useState<{ sessions: SessionSummary[]; done: boolean; failed: boolean }>({ sessions: [], done: false, failed: false })
+  const streamNative = Boolean(panel.resume?.nativeLoading)
+  const workspaceId = snapshot?.thread.workspaceId, workspaceRootPath = snapshot?.thread.rootPath, provider = snapshot?.thread.provider
+  useEffect(() => {
+    if (!streamNative || !provider || workspaceId === undefined || workspaceRootPath === undefined) return
+    let active = true
+    const requestId = `chat-resume:${Date.now().toString(36)}:${++resumeRequestSeq}`
+    const unsubscribe = window.oxe.session.onPartial?.(event => {
+      if (active && event.requestId === requestId) setNativeLive({ sessions: nativeResumeSessions(provider, event.sessions), done: false, failed: false })
+    })
+    window.oxe.session.list({ workspaceId, workspaceRootPath, provider, requestId })
+      .then(list => { if (active) setNativeLive({ sessions: nativeResumeSessions(provider, list), done: true, failed: false }) })
+      .catch(() => { if (active) setNativeLive(previous => ({ ...previous, done: true, failed: true })) })
+      .finally(() => { active = false })
+    return () => { active = false; unsubscribe?.() }
+  }, [streamNative, workspaceId, workspaceRootPath, provider])
   const api = window.oxe?.thread
   const canRename = !pending && Boolean(rename.trim()) && rename.trim() !== snapshot?.thread.title
   // A panel whose rows are commands explains them in its text: show it as prose, not as copyable output.
   const explanation = Boolean(panel.rows?.some(row => row.id))
   const output = panel.text !== undefined && !explanation
   const resume = panel.resume
-  const resumeTasks = resume?.tasks ?? [], nativeSessions = resume?.nativeSessions ?? []
+  const resumeTasks = resume?.tasks ?? [], nativeSessions = streamNative ? nativeLive.sessions : resume?.nativeSessions ?? []
+  const nativeLoading = streamNative && Boolean(provider) && !nativeLive.done
+  const nativeNotice = resume?.nativeNotice || (streamNative && nativeLive.failed ? t('resumeData.nativeFailed') : '')
   const resumeMatches = (parts: Array<string | number | null | undefined>) => !resumeQuery.trim() || parts.some(value => String(value ?? '').toLowerCase().includes(resumeQuery.trim().toLowerCase()))
   const openDelegatedSession = async (task: DelegationTask) => {
     if (!task.destinationThreadId || !api) throw Error(t('commandDialog.noSavedConversation'))
@@ -96,9 +119,10 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
         {onDelegations && <Button variant="link" size="sm" className="thread-resume-all" onClick={() => { onClose(); onDelegations() }}>{t('commandDialog.openDelegated')}</Button>}
       </section>
       <section><h3>{t('commandDialog.nativeTitle', { provider: threadAgentName(snapshot?.thread.provider ?? 'claude') })}</h3><p>{t('commandDialog.nativeHint')}</p>
-        {resume?.nativeNotice && <p role="status">{resume.nativeNotice}</p>}
+        {nativeNotice && <p role="status">{nativeNotice}</p>}
+        {nativeLoading && <Spinner size="sm" />}
         <div className="thread-panel-list thread-native-session-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || t('commandDialog.providerSession', { provider: session.provider === 'codex' ? 'Codex' : 'Claude' })}</strong><span className="thread-session-meta"><span>{t('commandDialog.updated', { date: sessionDate(session.lastUpdatedMs) })}</span><span>{session.modelId || t('commandDialog.modelUnknown')}</span>{session.requestCount > 0 && <span>{t('commandDialog.requests', { count: session.requestCount })}</span>}</span><span className="thread-session-foot"><span>{t('commandDialog.started', { date: sessionDate(session.sessionStartedAtMs) })}</span><code>{session.sessionId}</code></span></button>)}
-          {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])) && !resume?.nativeNotice && <EmptyState compact title={resumeQuery ? t('commandDialog.noNativeMatch') : t('commandDialog.noNative')} />}
+          {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])) && !nativeNotice && !nativeLoading && <EmptyState compact title={resumeQuery ? t('commandDialog.noNativeMatch') : t('commandDialog.noNative')} />}
         </div>
       </section>
       <section><h3>{t('commandDialog.exactTitle')}</h3><p>{t('commandDialog.exactHint')}</p>

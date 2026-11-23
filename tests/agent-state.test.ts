@@ -80,6 +80,9 @@ describe('agent from command', () => {
     expect(agentFromCommand('claude --resume abc')).toBe('claude')
     expect(agentFromCommand('"C:\\Program Files\\nodejs\\codex.cmd" resume')).toBe('codex')
     expect(agentFromCommand('/usr/local/bin/cursor-agent')).toBe('cursor')
+    expect(agentFromCommand('agy --workspace .')).toBe('antigravity')
+    expect(agentFromCommand('"C:\\Users\\dev\\agy.cmd"')).toBe('antigravity')
+    expect(agentFromCommand('/usr/local/bin/antigravity')).toBe('antigravity')
     expect(agentFromCommand('pwsh.exe')).toBeNull()
   })
 })
@@ -125,13 +128,27 @@ describe('AgentStateService', () => {
     expect(service.get('p1')).toMatchObject({ state: 'idle', completionSeq: 0 })
   })
 
-  it('believes a permission prompt on screen over an older working hook', async () => {
+  // 152perf planner amendment (OXE-123, hooks first): a pane whose hooks answer has no screen, and its permission
+  // prompt arrives as the PermissionRequest hook (waiting → blocked). The screen still wins on the fallback path, when
+  // the agent's hooks stay silent.
+  it('believes a permission prompt on screen when the hooks stay silent', async () => {
+    vi.useFakeTimers()
+    const { service } = make()
+    service.start('p1', 'w1', 80, 24, 'claude')
+    service.output('p1', 'starting')
+    await vi.advanceTimersByTimeAsync(10_500)
+    service.output('p1', [' Do you want to proceed?', ' ❯ 1. Yes', '   2. No', '', ' Esc to cancel · Tab to amend'].join('\r\n'))
+    const wait = service.waitFor('p1', ['blocked'], 2000)
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(await wait).toMatchObject({ timedOut: false, state: { state: 'blocked', source: 'screen' } })
+  })
+
+  it('takes a permission prompt from the PermissionRequest hook when the hooks answer', () => {
     const { service } = make()
     service.start('p1', 'w1', 80, 24, 'claude')
     service.hook('p1', 'claude', 'working')
-    service.output('p1', [' Do you want to proceed?', ' ❯ 1. Yes', '   2. No', '', ' Esc to cancel · Tab to amend'].join('\r\n'))
-    const result = await service.waitFor('p1', ['blocked'], 2000)
-    expect(result).toMatchObject({ timedOut: false, state: { state: 'blocked', source: 'screen' } })
+    service.hook('p1', 'claude', 'waiting')
+    expect(service.get('p1')).toMatchObject({ state: 'blocked', source: 'hook' })
   })
 
   it('times out a wait with the current state', async () => {
@@ -146,7 +163,17 @@ describe('AgentStateService', () => {
     service.start('p1', 'w1', 80, 24, 'bash')
     service.output('p1', 'hello')
     expect(service.get('p1')).toBeNull()
+    expect(service.agentOf('p1')).toBeNull()
     expect(events).toEqual([])
+  })
+
+  it('tracks identified provider via agentOf for executables without a detection manifest (agy/antigravity)', () => {
+    const { service } = make()
+    service.start('p-agy', 'w1', 80, 24, 'agy')
+    expect(service.agentOf('p-agy')).toBe('antigravity')
+    expect(service.get('p-agy')).toBeNull()
+    service.exit('p-agy')
+    expect(service.agentOf('p-agy')).toBeNull()
   })
 })
 

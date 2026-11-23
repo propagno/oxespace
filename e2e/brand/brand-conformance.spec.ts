@@ -270,6 +270,8 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.keyboard.press('Escape')
           await page.locator('[data-ui=needs-you-queue]').waitFor({ state: 'detached', timeout: 5_000 }).catch(() => {})
           await openThreadWithState(app, page, workspaceRoot, 'conversation')
+          // CR-53: the conversation renders after its snapshot is read; measure once the prompt card is on screen.
+          await page.locator('[data-ui=prompt-card]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] the prompt card did not show'))
           await measureScene(page, 'chat-conversation', density, theme)
           // OxeChat's approved target (15/11): a request waiting in the conversation and on its sidebar row, and the
           // opening of a conversation with no messages yet (the new-conversation screen).
@@ -292,6 +294,16 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           try {
             await setThreadState(app, workspaceRoot, 'anatomy')
             await page.waitForLoadState('domcontentloaded')
+            // thread:changed is applied on a 100ms timer, then the snapshot is read. Measuring in that gap still
+            // sees the previous state (an empty conversation) and counts 0 alerts. The four alerts are one answer.
+            await page.locator('[data-ui=alert]').nth(3).waitFor({ state: 'visible', timeout: 10_000 })
+            // CR-53: AG-11 folds a finished turn's work under its "N actions" line; open it to measure the steps inside.
+            const fold = page.getByTestId('thread-turn-fold').last()
+            if (await fold.getAttribute('aria-expanded') === 'false') await fold.click()
+            const explore = page.locator('[data-ui=explore-group] > [aria-expanded=false]').first()
+            if (await explore.count()) await explore.click()
+            await page.locator('[data-ui=step], [data-ui=reasoning]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the fold showed no step'))
+            await page.locator('[data-ui=working-set]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the working-set bar did not show'))
           } catch (error) {
             console.log(`[BRAND] could not set the anatomy state: ${(error as Error).message.split('\n')[0]}`)
           }

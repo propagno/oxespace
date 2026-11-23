@@ -318,7 +318,7 @@ describe('thread persistence and ownership', () => {
     const f = fixture(), id = f.create()
     expect(await f.manager.command(id, '/delegations')).toMatchObject({ kind: 'panel', surface: 'delegations' })
     expect(await f.manager.command(id, '/delegation 12345678-1234')).toMatchObject({ kind: 'panel', surface: 'delegations', text: '12345678-1234' })
-    await f.manager.send(id, '/delegation 12345678-1234')
+    await f.manager.send(id, '/delegation 12345678-1234', [], 'window')
     expect(f.factory).not.toHaveBeenCalled()
     await f.manager.stop()
   })
@@ -559,7 +559,7 @@ describe('thread persistence and ownership', () => {
     const commands = { list: vi.fn(async () => ({ commands: [] })), prepare: vi.fn<NonNullable<ConstructorParameters<typeof ThreadManager>[4]>['prepare']>(async (_thread, text) => ({ text, nativeCli: text.startsWith('/') })) }
     const f = fixture(undefined, commands), id = f.create()
     await f.manager.send(id, 'Initial question'); f.callbacks[0]({ type: 'completed', status: 'completed' })
-    await f.manager.send(id, '/permissions')
+    await f.manager.send(id, '/permissions', [], 'window')
     expect(f.adapters[0].dispose).not.toHaveBeenCalled()
     expect(await f.manager.command(id, '/permissions')).toMatchObject({ kind: 'panel', surface: 'permissions' })
     expect(f.manager.read(id).events.some(event => event.type === 'cli-command')).toBe(false)
@@ -568,7 +568,7 @@ describe('thread persistence and ownership', () => {
   })
   it('persists a chosen model and reasoning effort and restores them with the same native session', async () => {
     const f = fixture(), id = f.create()
-    await f.manager.send(id, '/model native-model high')
+    await f.manager.send(id, '/model native-model high', [], 'window')
     expect(f.factory).not.toHaveBeenCalled()
     await f.manager.send(id, 'Initial question')
     f.callbacks[0]({ type: 'configuration', model: 'native-model', reasoningEffort: 'high' })

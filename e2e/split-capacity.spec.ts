@@ -37,6 +37,9 @@ test('splitting past a 2×2 layout keeps panes usable, refuses what does not fit
     await page.getByTestId('wizard-dir-input').fill(repo)
     await page.getByTestId('wizard-layout-card-4').click()
     await page.getByTestId('wizard-launch-btn').click()
+    // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace (as openRepo does).
+    await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+    if (await page.getByTestId('first-run').isVisible()) await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
     await expect(panes(page)).toHaveCount(4)
 
     // Each of the four split once beside itself: eight panes, none narrower than the minimum.

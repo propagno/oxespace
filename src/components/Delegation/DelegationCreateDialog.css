@@ -1,3 +1,4 @@
+@layer oxe-legacy {
 .delegation-context-row {
   display: grid;
   grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr) minmax(0, 1fr);
@@ -8,20 +9,20 @@
 .delegation-form-body label { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 500; }
 .delegation-form-body label > span { color: var(--tx-muted); font-weight: 400; }
 .delegation-form-body input:not([type=checkbox], [type=radio]), .delegation-form-body textarea, .delegation-form-body select {
-  width: 100%; min-width: 0; min-height: 36px; padding: 8px 10px;
+  width: 100%; min-width: 0; min-height: var(--control-lg); padding: 8px 10px;
   border: 1px solid var(--bd-default); border-radius: var(--radius-sm);
   background: var(--surface-base); color: var(--tx-primary); font: inherit;
   font-size: var(--fs-sm); line-height: 1.4;
 }
 .delegation-form-body textarea { resize: vertical; }
-.delegation-form-body :is(input, textarea, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.delegation-form-body :is(input, textarea, select):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .delegation-form-body :is(input, textarea)::placeholder { color: var(--tx-muted); opacity: .72; }
 .delegation-columns { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 24px; padding-top: 20px; align-items: start; }
 .delegation-panel { display: grid; gap: 15px; min-width: 0; }
 .delegation-panel + .delegation-panel { padding-left: 24px; border-left: 1px solid var(--bd-default); }
 .delegation-section-heading { display: flex; align-items: flex-start; gap: 10px; min-height: 52px; }
 .delegation-section-heading > span { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 700; }
-.delegation-section-heading h3 { margin: 0 0 3px; color: var(--tx-primary); font-size: var(--fs-sm); font-weight: 650; line-height: 1.2; }
+.delegation-section-heading h3 { margin: 0 0 3px; color: var(--tx-primary); font-size: var(--fs-sm); font-weight: var(--weight-semibold); line-height: 1.2; }
 .delegation-section-heading p { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.35; }
 .delegation-objective { height: 48px; }
 .delegation-handoff { height: 86px; }
@@ -47,7 +48,7 @@
 .delegation-memory-option small { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 400; line-height: 1.4; }
 .delegation-strategies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; border: 0; }
 .delegation-strategies legend { margin-bottom: 7px; padding: 0; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 500; }
-.delegation-strategies label { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 36px; padding: 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-secondary); white-space: nowrap; cursor: pointer; font-size: var(--fs-xs); }
+.delegation-strategies label { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: var(--control-lg); padding: 6px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-secondary); white-space: nowrap; cursor: pointer; font-size: var(--fs-xs); }
 .delegation-strategies label[data-selected=true] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised)); color: var(--tx-primary); }
 .delegation-strategies input, .delegation-options input { width: 16px; height: 16px; min-height: 0; margin: 0; accent-color: var(--accent); flex: 0 0 16px; }
 .delegation-branch-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -67,3 +68,4 @@
 .delegation-preview-error { margin: 16px 0 0; }
 @media (max-width: 750px) { .delegation-context-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .delegation-context-row label:nth-child(3) { grid-column: 1 / -1; } .delegation-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; } .delegation-panel + .delegation-panel { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--bd-default); } }
 @media (max-width: 520px) { .delegation-context-row { grid-template-columns: minmax(0, 1fr); } .delegation-context-row label:nth-child(3) { grid-column: auto; } }
+}

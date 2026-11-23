@@ -13,12 +13,13 @@ import { ReconnectBar } from './ReconnectBar'
 import { AskAgent } from './AskAgent'
 import { QueryError } from './QueryError'
 import { looksLikeLostConnection } from './workbench-model'
+import { useConnectionSafety } from './useConnectionSafety'
 import { MongoInsights } from './MongoInsights'
 import { DocumentTree, ExplainCard } from './MongoPanels'
 import { PAGE_SIZES, cloneDocument, documentLabel, jsonProblem, prettyDocument } from './mongo-model'
 import { flattenDocuments } from './mongo-view'
 import { ResultGrid } from './ResultGrid'
-import { FieldError, Kbd, Select, TextArea, TextField } from '../../ui/Field'
+import { FieldError, Kbd, SegmentedControl, Select, TextArea, TextField } from '../../ui/Field'
 import { formatChord } from '../../keyboard/chords'
 import { Button, IconButton } from '../../ui/Button'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
@@ -51,6 +52,10 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
   const { t } = useTranslation('oxequery')
   const { t: tMain, i18n } = useTranslation('main')
   const layout = useOxeQueryLayout()
+  // What main says the connection allows (its own settings lowered by environment limits and organization policy).
+  const safety = useConnectionSafety(connection)
+  const policyReadOnly = safety.readOnlyBy === 'policy'
+  const badge = <span className="oq-badge" data-readonly={safety.readOnly} data-policy={policyReadOnly ? 'true' : undefined} title={policyReadOnly ? t('workbench.readOnlyPolicyTitle') : safety.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{policyReadOnly ? t('workbench.readOnlyPolicy') : safety.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
   const main = useRef<HTMLDivElement>(null)
   const mainHeight = useHeight(main)
   const [databases, setDatabases] = useState<MongoDatabaseInfo[]>([])
@@ -192,7 +197,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
     <nav className="oq-tree oq-mtree" aria-label={t('server.databases')}>
       <div className="oq-tree-head">
         <label className="oq-tree-search"><Search size={12} aria-hidden="true" /><input type="search" data-oq-action="searchObjects" aria-label={t('mongo.filterCollections')} placeholder={t('mongo.filterCollections')} value={search} onChange={event => setSearch(event.target.value)} /></label>
-        <button type="button" className="oq-icon" aria-label={t('mongo.refresh')} title={t('common.refresh')} onClick={() => { setCollections({}); void loadDatabases(); for (const database of open) void loadCollections(database) }}><RefreshCw size={13} aria-hidden="true" /></button>
+        <IconButton size="sm" variant="ghost" label={t('mongo.refresh')} title={t('common.refresh')} icon={<RefreshCw size={13} aria-hidden="true" />} onClick={() => { setCollections({}); void loadDatabases(); for (const database of open) void loadCollections(database) }} />
       </div>
       <div className="oq-mtree-body">
         {databases.map(database => {
@@ -202,13 +207,13 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
             <div className="oq-mnode-row">
               <button type="button" className="oq-mnode" aria-expanded={expanded} onClick={() => toggle(database.name)}>
                 {expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}{database.name}</button>
-              {!connection.readOnly && <button type="button" className="oq-icon" aria-label={t('mongo.newCollectionIn', { database: database.name })} title={t('mongo.newCollection')} onClick={() => setDialog({ kind: 'create', database: database.name })}><Plus size={12} aria-hidden="true" /></button>}
+              {!safety.readOnly && <IconButton size="sm" variant="ghost" label={t('mongo.newCollectionIn', { database: database.name })} title={t('mongo.newCollection')} icon={<Plus size={12} aria-hidden="true" />} onClick={() => setDialog({ kind: 'create', database: database.name })} />}
             </div>
             {expanded && list.map(collection => <div key={collection.name} className="oq-mleaf">
               <button type="button" aria-pressed={target?.database === database.name && target.collection === collection.name} onClick={() => select(database.name, collection.name)}>{collection.name}<small>{collection.type === 'collection' ? '' : collection.type}</small></button>
-              {!connection.readOnly && collection.type === 'collection' && <span className="oq-mleaf-actions">
-                <button type="button" aria-label={t('mongo.renameNamed', { name: collection.name })} title={t('common.rename')} onClick={() => setDialog({ kind: 'rename', database: database.name, collection: collection.name })}><Pencil size={11} aria-hidden="true" /></button>
-                <button type="button" aria-label={t('mongo.dropNamed', { name: collection.name })} title={t('mongo.drop')} onClick={() => setDialog({ kind: 'drop', database: database.name, collection: collection.name })}><Trash2 size={11} aria-hidden="true" /></button>
+              {!safety.readOnly && collection.type === 'collection' && <span className="oq-mleaf-actions">
+                <IconButton size="sm" variant="ghost" label={t('mongo.renameNamed', { name: collection.name })} title={t('common.rename')} icon={<Pencil size={11} aria-hidden="true" />} onClick={() => setDialog({ kind: 'rename', database: database.name, collection: collection.name })} />
+                <IconButton size="sm" variant="ghost" label={t('mongo.dropNamed', { name: collection.name })} title={t('mongo.drop')} icon={<Trash2 size={11} aria-hidden="true" />} onClick={() => setDialog({ kind: 'drop', database: database.name, collection: collection.name })} />
               </span>}
             </div>)}
           </div>
@@ -218,16 +223,19 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
     </nav>
     <Splitter orientation="vertical" label={t('mongo.treeWidth')} value={layout.treeWidth} min={TREE_WIDTH.min} max={TREE_WIDTH.max} defaultValue={TREE_WIDTH.default} onChange={treeWidth => layout.set({ treeWidth })} />
     <div className="oq-workbench-main" ref={main}>
-      {!target ? <div className="oq-placeholder"><EmptyState icon={<Database size={20} />} title={t('mongo.pickTitle')}>{t('mongo.pickText')}</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
+      {!target ? <div className="oq-placeholder">{policyReadOnly && badge}<EmptyState icon={<Database size={20} />} title={t('mongo.pickTitle')}>{t('mongo.pickText')}</EmptyState>{error && <QueryError error={{ message: error }} />}</div> : <>
         <div className="oq-editor-toolbar">
           <strong>{target.database}.{target.collection}</strong>
-          <div role="group" aria-label={t('mongo.queryType')} className="oq-segment"><button type="button" aria-pressed={mode === 'find'} onClick={() => setMode('find')}>{t('mongo.find')}</button><button type="button" aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>{t('mongo.aggregate')}</button></div>
+          <div role="group" aria-label={t('mongo.queryType')} className="oq-segment">
+            <Button size="sm" variant={mode === 'find' ? 'secondary' : 'ghost'} aria-pressed={mode === 'find'} onClick={() => setMode('find')}>{t('mongo.find')}</Button>
+            <Button size="sm" variant={mode === 'aggregate' ? 'secondary' : 'ghost'} aria-pressed={mode === 'aggregate'} onClick={() => setMode('aggregate')}>{t('mongo.aggregate')}</Button>
+          </div>
           {running ? <Button size="sm" icon={<Square size={13} aria-hidden="true" />} onClick={() => void cancel()}>{t('common.cancel')}</Button>
             : <Button size="sm" variant="primary" icon={<Play size={13} aria-hidden="true" />} disabled={invalid} title={t('workbench.runTitle')} onClick={() => void run(0)}>{t('common.run')}<span className="oq-run-key" aria-hidden="true"><Kbd>{formatChord('Mod+Enter')}</Kbd></span></Button>}
           <Button size="sm" icon={<Gauge size={13} aria-hidden="true" />} disabled={running || invalid} title={t('mongo.explainTitle')} onClick={() => void explainQuery()}>{t('workbench.explain')}</Button>
           <label className="oq-inline">{t('workbench.limit')} <Select className="oq-select" aria-label={t('mongo.perPage')} value={limit} onChange={event => setLimit(Number(event.target.value))}>{PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}</Select></label>
           <span className="oq-spacer" />
-          <span className="oq-badge" data-readonly={connection.readOnly} title={connection.readOnly ? t('workbench.readOnlyTitle') : t('workbench.readWriteTitle')}>{connection.readOnly ? t('common.readOnly') : t('common.readWrite')}</span>
+          {badge}
           <LibraryMenu connection={connection} currentSql={queryText} refreshKey={libraryTick} onPick={pick} describe={describeMongoQuery} />
           <AskAgent hasError={Boolean(error)} hasPlan={false} context={{
             connectionName: connection.name, engine: 'mongodb', environment: connection.environment,
@@ -252,16 +260,15 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           <div className="oq-results-bar">
             {result ? <span>{documentsSummary(result, skip, more)}</span> : <span className="oq-muted">{running ? t('workbench.running') : t('workbench.resultsHere')}</span>}
             <span className="oq-spacer" />
-            <button type="button" disabled={running || skip === 0} onClick={() => void run(Math.max(0, skip - limit))}>{t('common.previous')}</button>
-            <button type="button" disabled={running || !more} onClick={() => void run(skip + limit)}>{t('common.next')}</button>
-            <div role="radiogroup" aria-label={t('mongo.resultView')} className="oq-segment">
-              {(['documents', 'tree', 'table'] as const).map(name => <button key={name} type="button" role="radio" aria-checked={view === name} data-selected={view === name} onClick={() => setView(name)}>{t(`mongo.view.${name}`)}</button>)}
-            </div>
-            {result && <button type="button" onClick={() => copy(`[${result.documents.join(',\n')}]`, t('mongo.copiedDocuments'), t('mongo.copiedDocumentsDone'))}>{t('mongo.copyJson')}</button>}
+            <Button size="sm" disabled={running || skip === 0} onClick={() => void run(Math.max(0, skip - limit))}>{t('common.previous')}</Button>
+            <Button size="sm" disabled={running || !more} onClick={() => void run(skip + limit)}>{t('common.next')}</Button>
+            <SegmentedControl label={t('mongo.resultView')} value={view} onChange={setView}
+              options={(['documents', 'tree', 'table'] as const).map(name => ({ value: name, label: t(`mongo.view.${name}`) }))} />
+            {result && <Button size="sm" onClick={() => copy(`[${result.documents.join(',\n')}]`, t('mongo.copiedDocuments'), t('mongo.copiedDocumentsDone'))}>{t('mongo.copyJson')}</Button>}
             <ExportButton connection={connection} label={t('export.collection')} source={{ kind: 'collection', ...target, ...(mode === 'find' && filter.trim() && filter.trim() !== '{}' && !problems.filter ? { filter } : {}) }} />
             <ImportButton connection={connection} target={{ kind: 'collection', ...target }} onImported={() => void run(0)} />
-            {!connection.readOnly && <button type="button" onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}><Plus size={13} aria-hidden="true" />{t('mongo.newDocument')}</button>}
-            {!connection.readOnly && mode === 'find' && <button type="button" onClick={() => setBulk(true)}>{t('mongo.changeMany')}</button>}
+            {!safety.readOnly && <Button size="sm" icon={<Plus size={13} aria-hidden="true" />} onClick={() => { setWriteError(''); setConfirm(null); setEditing({ original: null, text: '{\n  \n}', mode: 'edit' }) }}>{t('mongo.newDocument')}</Button>}
+            {!safety.readOnly && mode === 'find' && <Button size="sm" onClick={() => setBulk(true)}>{t('mongo.changeMany')}</Button>}
           </div>
           <MongoInsights connection={connection} database={target.database} collection={target.collection} />
           {editing && <Dialog size="lg" closeLabel={t('common.close')} onClose={() => { if (!writing) { setEditing(null); setConfirm(null); setWriteError('') } }}
@@ -287,7 +294,7 @@ export function MongoWorkbench({ connection }: { connection: OxeQueryConnection 
           </Dialog>}
           {table ? <div className="oq-results-body"><ResultGrid columns={table.columns} rows={table.rows} onCopy={copy} /></div>
             : <div className="oq-documents">{result?.documents.map((document, index) => <details key={index} open={index < 3}>
-              <summary>{documentLabel(document)}{!connection.readOnly && <span className="oq-doc-actions">
+              <summary>{documentLabel(document)}{!safety.readOnly && <span className="oq-doc-actions">
                 <IconButton size="sm" variant="ghost" label={t('mongo.editDocument')} title={t('mongo.editDocument')} icon={<Pencil size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'edit') }} />
                 <IconButton size="sm" variant="ghost" label={t('mongo.cloneDocument')} title={t('mongo.cloneDocument')} icon={<Copy size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'clone') }} />
                 <IconButton size="sm" variant="ghost" label={t('mongo.deleteDocument')} title={t('mongo.deleteDocument')} icon={<Trash2 size={12} aria-hidden="true" />} onClick={event => { event.preventDefault(); void openDocument(index, document, 'delete') }} />

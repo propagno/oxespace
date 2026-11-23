@@ -109,6 +109,10 @@ anywhere; opening a file after an approval is a post-1.4 item. The host must be 
 None of these is in the core Thread group, so an ordinary Thread sends the same tool definitions as
 before. Code panes receive the whole registry.
 
+The window's own captures go through `browserPreview.captureClipboard`, `browserPreview.captureElement` and
+`browserPreview.captureElementFile`; the internal MCP's IPC has no capture channel (A12). Agents capture with the
+`oxespace_capture_web_preview` tool.
+
 ## Capabilities
 
 | Id | Capability | MCP tools by level, or the decision |
@@ -138,6 +142,7 @@ before. Code panes receive the whole registry.
 | `code.integration_admin` | Edit integration groups, members and handoffs | Excluded: The person's coordination plan. Agents hand work over with Team, delegation or memory handoffs. |
 | `code.oxe_workflow` | OXE workflow state and dashboard | Excluded: The state is in .oxe/ files the agent reads itself; the dashboard is a window for the person. |
 | `code.notifications` | Desktop notification | **write**: `oxespace_workspace_change#notify` |
+| `code.notifications_setting` | Turn desktop notifications on or off | Excluded: The person's setting: only the person turns desktop notifications on or off. |
 | `code.local_input` | Clipboard and voice | Excluded: The person's own input devices. |
 | `web_preview.use` | Open, drive and capture the Web Preview | **read**: `oxespace_capture_web_preview`<br>**write**: `oxespace_preview_interact`<br>**confirm**: `oxespace_open_web_preview` (a local http(s) URL runs as write; see below) |
 | `web_preview.access` | Let the preview reach external sites | **Forbidden**: Raises access. |

@@ -10,8 +10,10 @@
     "rendererGone": {
       "title": "OXESpace stopped responding",
       "message": "The interface keeps crashing.",
-      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back. Diagnostics: Settings > Diagnostics.",
-      "ok": "OK"
+      "detail": "Terminals and agents are still running. Restart OXESpace to bring the window back, or try reloading. Diagnostics: Settings > Diagnostics.",
+      "restart": "Restart OXESpace",
+      "reload": "Try reloading",
+      "close": "Close"
     }
   },
   "dialogs": {
@@ -115,6 +117,9 @@
         "rewritesTracked": "{{command}} rewrites tracked files without naming them, maybe agent instructions, MCP settings or hooks, so each run asks."
       },
       "invalidInput": "This conversation request could not be read.",
+      "command": {
+        "windowOnly": "Commands run only when you type them in OXESpace."
+      },
       "notFound": "This conversation no longer exists.",
       "place": {
         "gone": "This place is no longer part of the conversation. Reload the list of places.",
@@ -143,8 +148,7 @@
         "scriptUnsupported": "Choose the agent's own executable in Agent Settings: OxeChat does not start agents through .cmd, .ps1 or .bat scripts.",
         "nativeMissing": "The installed Codex is missing its native executable (codex.exe). Reinstall Codex, or choose codex.exe in Agent Settings."
       },
-      "restore": {
-      }
+      "restore": {}
     },
     "app": {
       "connectivity": {
@@ -373,6 +377,7 @@
       },
       "requester": {
         "pane": "{{agent}} · pane {{pane}}",
+        "paneProcess": "{{process}} · pane {{pane}}",
         "conversation": "{{agent}} · conversation {{conversation}}",
         "mcpServer": "MCP server {{server}}",
         "app": "OXESpace",
@@ -384,6 +389,7 @@
         "deny": "Deny",
         "allowOnce": "Allow once",
         "allowSessionReads": "Allow reads on this connection for this run",
+        "allowSessionWorkspaceReads": "Allow reads from this workspace for this session",
         "closeTab": "Close tab",
         "restart": "Restart",
         "keepWorking": "Keep working",
@@ -408,7 +414,11 @@
         },
         "agent": {
           "actsOnPrompt": "That agent will act on this prompt with its own access.",
-          "turnStopped": "Its running turn is stopped first."
+          "turnStopped": "Its running turn is stopped first.",
+          "unknownState": "OXESpace cannot read this agent's screen state; confirm it is ready for a prompt and not showing a dialog."
+        },
+        "workspace": {
+          "crossRead": "Cross-workspace read: allows \"{{source}}\" to read panes from \"{{target}}\" only during this app session."
         },
         "thread": {
           "actsOnMessage": "The other conversation will act on this message with its own access."
@@ -692,5 +702,28 @@
     "peer-closed": "The phone stopped pairing before you answered. Show a new code to try again.",
     "reserved-name": "The phone gave itself a name only OXESpace may use. Rename it on the phone and try again.",
     "no-contact": "Code expired; no phone reached this computer. Use the same Private network, or allow OXESpace in the firewall."
+  },
+  "remoteImpact": {
+    "removeVolume": "Remove a volume",
+    "removeContainer": "Remove container resource",
+    "manageContainer": "Manage container",
+    "writeProdDb": "Write to production database",
+    "writeDb": "Write to database",
+    "forcePush": "Force-push to remote",
+    "publish": "Publish package or release",
+    "mergePr": "Merge pull request",
+    "push": "Push to remote",
+    "editOutsideProject": "Edit files outside project",
+    "editFiles": "Edit project files",
+    "deleteFiles": "Delete files",
+    "discardGit": "Discard git changes",
+    "modifyInfra": "Modify infrastructure",
+    "changePermissions": "Change permissions",
+    "formatDisk": "Format or overwrite disk",
+    "stopSystemOrProcess": "Stop system or process",
+    "runRemoteCode": "Run remote or dynamic code",
+    "runIrreversibleCommand": "Run irreversible command",
+    "runReadOnlyCommand": "Run read-only command",
+    "runCommand": "Run command"
   }
 }

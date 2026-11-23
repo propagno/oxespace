@@ -22,4 +22,7 @@ export { SidebarHeader, SidebarFilter, SidebarSection, SidebarGroup, SidebarRow,
 export { PaneHeader } from './PaneHeader'
 export { DockPanel } from './DockPanel'
 export { StatusSignal, SIGNAL_STATES, type SignalState } from './StatusSignal'
+export { Chip, type ChipProps, type ChipVariant, type ChipSize } from './Chip'
+export { SearchInput, type SearchInputProps } from './SearchInput'
+export { Card, type CardProps, type CardSurface, type CardPadding } from './Card'
 export * from './icons'

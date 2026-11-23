@@ -10,9 +10,10 @@ import { PaneScreen } from './screen'
  *   idle     it waits for input and has been seen
  *   unknown  an agent is there but its state cannot be read
  *
- * Two sources feed it: the agent's lifecycle hooks (Claude Code, Codex) and the
- * screen, read with herdr's detection manifests. The newest evidence wins; a
- * permission prompt visible on screen always wins.
+ * Hooks come first: once a lifecycle hook of the agent (Claude Code, Codex) arrives,
+ * its state comes only from them and the pane has no screen. The screen, read with
+ * herdr's detection manifests, serves agents without hooks and those whose hooks
+ * stay silent for the handshake window; a permission prompt visible on it wins.
  */
 import type { AgentLifecycleState, PaneAgentState, PaneAgentStateEvent } from '../../../../shared/types/agent-state'
 
@@ -35,6 +36,10 @@ const EVAL_MAX_INTERVAL_MS = 1000
 const IDLE_RECHECK_MS = 100
 const IDLE_CONFIRMATIONS = 3
 const IDLE_CAP_MS = 700
+/** The agents that report through lifecycle hooks (see `hook`). */
+const HOOK_AGENTS: ReadonlySet<string> = new Set(['claude', 'codex'])
+/** How long after its first output a hook-capable agent may stay silent before its screen is read. */
+const HOOK_HANDSHAKE_MS = 10_000
 
 interface PaneRecord {
   paneId: string
@@ -42,6 +47,10 @@ interface PaneRecord {
   agent: string | null
   manifest?: AgentManifest
   screen?: PaneScreen
+  /** A hook arrived from this agent: its screen is never read. */
+  hooked: boolean
+  /** Runs from the agent's first output until a hook arrives or the screen takes over. */
+  handshake?: ReturnType<typeof setTimeout>
   cols: number
   rows: number
   hook: { state: RawState; at: number } | null
@@ -75,7 +84,7 @@ export class AgentStateService {
   /** A terminal started. `command` is the agent command or executable it runs, when known. */
   start(paneId: string, workspaceId: string, cols: number, rows: number, command?: string | null): void {
     this.forget(paneId)
-    const record: PaneRecord = { paneId, workspaceId, agent: null, cols, rows, hook: null, detection: null, published: null, raw: null, seen: true, pendingIdle: null, lastEvalAt: 0 }
+    const record: PaneRecord = { paneId, workspaceId, agent: null, hooked: false, cols, rows, hook: null, detection: null, published: null, raw: null, seen: true, pendingIdle: null, lastEvalAt: 0 }
     this.panes.set(paneId, record)
     const agent = agentFromCommand(command)
     if (agent) this.identify(paneId, agent, false)
@@ -87,17 +96,19 @@ export class AgentStateService {
     if (!record || record.agent === agent) return
     record.agent = agent
     record.manifest = manifestFor(this.deps.manifests(), agent)
-    record.screen?.dispose()
-    record.screen = record.manifest ? new PaneScreen(record.cols, record.rows) : undefined
-    const history = seed ? this.deps.history?.(paneId) : null
-    if (record.screen && history) void record.screen.write(history).then(() => this.schedule(record))
+    record.hooked = false
+    this.releaseScreen(record)
+    if (record.manifest && !HOOK_AGENTS.has(agent)) this.openScreen(record, seed)
     else this.schedule(record)
   }
 
   output(paneId: string, data: string): void {
     const record = this.panes.get(paneId)
-    if (!record?.screen) return
-    void record.screen.write(data).then(() => this.schedule(record))
+    if (!record) return
+    if (record.screen) { void record.screen.write(data).then(() => this.schedule(record)); return }
+    if (!record.manifest || record.hooked || record.handshake) return
+    // A timer, not the next chunk: an agent can print a prompt and then wait without printing again.
+    record.handshake = setTimeout(() => { record.handshake = undefined; this.openScreen(record, true) }, HOOK_HANDSHAKE_MS)
   }
 
   resize(paneId: string, cols: number, rows: number): void {
@@ -112,6 +123,10 @@ export class AgentStateService {
     const record = this.panes.get(paneId)
     if (!record) return
     if (record.agent !== agent) this.identify(paneId, agent)
+    record.hooked = true
+    this.releaseScreen(record)
+    record.detection = null
+    record.pendingIdle = null
     record.hook = signal === 'ended' ? null : { state: signal === 'working' ? 'working' : signal === 'waiting' ? 'blocked' : 'idle', at: this.now() }
     if (signal === 'ended') { this.clear(record); return }
     this.evaluate(record)
@@ -134,7 +149,7 @@ export class AgentStateService {
     const record = this.panes.get(paneId)
     if (!record) return
     if (record.timer) clearTimeout(record.timer)
-    record.screen?.dispose()
+    this.releaseScreen(record)
     this.panes.delete(paneId)
     if (record.published) this.deps.emit({ paneId, workspaceId: record.workspaceId, cleared: true })
     this.notifyWaiters(paneId, null)
@@ -142,6 +157,11 @@ export class AgentStateService {
 
   get(paneId: string): PaneAgentState | null {
     return this.panes.get(paneId)?.published ?? null
+  }
+
+  /** Identified agent executable/provider for a live pane, even when no screen manifest exists (e.g. antigravity/agy). */
+  agentOf(paneId: string): string | null {
+    return this.panes.get(paneId)?.agent ?? null
   }
 
   list(workspaceId?: string): PaneAgentState[] {
@@ -166,6 +186,24 @@ export class AgentStateService {
       }
       this.waiters.add(waiter)
     })
+  }
+
+  // ---- screen ----------------------------------------------------------------
+
+  private openScreen(record: PaneRecord, seed: boolean): void {
+    const screen = new PaneScreen(record.cols, record.rows)
+    record.screen = screen
+    const history = seed ? this.deps.history?.(record.paneId) : null
+    if (history) void screen.write(history).then(() => this.schedule(record))
+    else this.schedule(record)
+  }
+
+  /** Drops the screen and the wait for one. */
+  private releaseScreen(record: PaneRecord): void {
+    if (record.handshake) clearTimeout(record.handshake)
+    record.handshake = undefined
+    record.screen?.dispose()
+    record.screen = undefined
   }
 
   // ---- evaluation ------------------------------------------------------------
@@ -232,8 +270,8 @@ export class AgentStateService {
 
   private clear(record: PaneRecord): void {
     if (record.timer) clearTimeout(record.timer)
-    record.screen?.dispose()
-    record.screen = undefined
+    this.releaseScreen(record)
+    record.hooked = false
     record.agent = null; record.manifest = undefined; record.hook = null; record.detection = null; record.raw = null; record.pendingIdle = null
     if (record.published) { record.published = null; this.deps.emit({ paneId: record.paneId, workspaceId: record.workspaceId, cleared: true }) }
     this.notifyWaiters(record.paneId, null)

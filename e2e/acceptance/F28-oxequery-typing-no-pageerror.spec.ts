@@ -13,15 +13,20 @@ import { connectFromContainer } from '../helpers/oxepod'
 const SQL = ('SELECT id, name, email FROM users WHERE id > 10 AND name ILIKE ' + "'%ab%'" + ' ORDER BY id DESC LIMIT 50; ').repeat(3).slice(0, 200)
 const MONGO = ('db.orders.find({ status: "paid", total: { $gt: 100 } }).sort({ createdAt: -1 }).limit(20) ').repeat(3).slice(0, 200)
 
-async function typeIn(page: Page, text: string): Promise<void> {
-  const editor = page.locator('.oq-editor .monaco-editor').locator('visible=true').first()
+async function typeIn(page: Page, text: string, engine: 'sql' | 'mongo'): Promise<void> {
+  // The MongoDB workbench has no Monaco editor: a collection is picked, then the query is typed in its Filter field.
+  if (engine === 'mongo') {
+    await page.locator('.oq-mtree').getByRole('button', { name: /^shop/ }).first().click()
+    await page.locator('.oq-mtree').getByRole('button', { name: /^orders/ }).first().click()
+  }
+  const editor = engine === 'mongo' ? page.getByRole('textbox', { name: 'Filter', exact: true }).first() : page.locator('.oq-editor .monaco-editor').locator('visible=true').first()
   await editor.click()
   await page.keyboard.press('Control+A')
   await page.keyboard.type(text, { delay: 10 })
   await page.keyboard.press('Escape')
 }
 
-for (const target of [{ container: 'pg-dev', text: SQL }, { container: 'mongo-dev', text: MONGO }]) {
+for (const target of [{ container: 'pg-dev', text: SQL, engine: 'sql' as const }, { container: 'mongo-dev', text: MONGO, engine: 'mongo' as const }]) {
   test(`F28: typing 200 characters in ${target.container} raises no page error`, async () => {
     test.setTimeout(120_000)
     const root = mkdtempSync(join(tmpdir(), 'oxe-acc-f28-'))
@@ -39,7 +44,7 @@ for (const target of [{ container: 'pg-dev', text: SQL }, { container: 'mongo-de
       await connectFromContainer(page, target.container)
       const session = await page.context().newCDPSession(page)
       await session.send('Emulation.setCPUThrottlingRate', { rate: 6 })
-      await typeIn(page, target.text)
+      await typeIn(page, target.text, target.engine)
       await page.waitForTimeout(1_000)
       expect(pageErrors, 'no page error while typing').toEqual([])
     } finally { await app.close() }
