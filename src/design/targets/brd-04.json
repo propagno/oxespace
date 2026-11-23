@@ -157,7 +157,8 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "pending",
+      "note": "substituída pelo BRD-25 (AG-10/AG-11)"
     },
     {
       "id": "BRD-04.composer.radius",
@@ -298,7 +299,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.request.button.height",
@@ -317,7 +318,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     }
   ]
 }

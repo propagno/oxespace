@@ -228,6 +228,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       reorder: (orderedIds) => ipc.invoke(IPC_CHANNELS.workspace.reorder, orderedIds) as Promise<Workspace[]>,
       updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
       pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
+      rootStatus: (id) => ipc.invoke(IPC_CHANNELS.workspace.rootStatus, id) as Promise<{ available: boolean }>,
+      relink: (input) => ipc.invoke(IPC_CHANNELS.workspace.relink, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
       shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,
       createGitHubTerminalPane: (workspaceId) =>
         ipc.invoke(IPC_CHANNELS.workspace.createGitHubTerminalPane, workspaceId) as Promise<{ id: string }>
@@ -572,7 +574,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
       exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
       analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>,
-      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>
+      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>,
+      reportRendererError: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.reportRendererError, input) as Promise<void>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>,

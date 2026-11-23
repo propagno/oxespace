@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ErrorState, Spinner } from '../../ui'
+import { Button, ConfirmDialog, ErrorState, Spinner } from '../../ui'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -44,7 +44,7 @@ export function pendingChanges(results: Array<{ turnId: string; files: Array<{ p
  * changed-files list above VS Code's chat input. Keep marks a file reviewed; Undo restores it from that
  * turn's checkpoint, which refuses when the file changed afterwards.
  */
-export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapshot: ThreadSnapshot; running: boolean; onViewChanges(): void }) {
+export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapshot: ThreadSnapshot; running: boolean; onViewChanges(path?: string): void }) {
   const { t } = useTranslation('thread')
   const api = window.oxe?.thread
   const threadId = snapshot.thread.id
@@ -52,6 +52,7 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
+  const [confirmUndoAll, setConfirmUndoAll] = useState(false)
   const listId = useId()
   const finished = (snapshot.turns ?? []).filter(turn => turn.status !== 'running').slice(-TURNS_CHECKED).map(turn => turn.id)
   const finishedKey = finished.join('|')
@@ -91,23 +92,25 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
   const totalDeletions = changes.reduce((sum, change) => sum + (change.deletions ?? 0), 0)
 
   // A header with one toggle and the actions beside it: controls are never nested inside the toggle.
-  return <section className="thread-dock-changes" data-ui="working-set" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} aria-label={t('dockChanges.label')}>
+  return <section className="thread-dock-changes" data-ui="working-set" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} data-has-error={error ? 'true' : undefined} aria-label={t('dockChanges.label')}>
     <div className="thread-dock-changes-header">
       <button type="button" className="thread-dock-changes-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
         <ChevronDown size={14} aria-hidden="true" className="thread-dock-changes-chevron" />
-        <strong>{t('dockChanges.files', { count: files })}</strong>
-        {totalAdditions > 0 && <>{' '}<span className="thread-working-set-add">+{totalAdditions}</span></>}
-        {totalDeletions > 0 && <>{' '}<span className="thread-working-set-del">−{totalDeletions}</span></>}
+        <span className="thread-dock-changes-summary">
+          <strong>{t('dockChanges.files', { count: files })}</strong>
+          {totalAdditions > 0 && <>{' '}<span className="thread-working-set-add">+{totalAdditions}</span></>}
+          {totalDeletions > 0 && <>{' '}<span className="thread-working-set-del">−{totalDeletions}</span></>}
+        </span>
       </button>
       <span className="thread-dock-changes-actions">
-        <button type="button" disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" />{t('dockChanges.keepAll')}</button>
-        <button type="button" disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo(changes)}>{busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />}{t('dockChanges.undoAll')}</button>
-        <button type="button" onClick={onViewChanges}>{t('files.view')}</button>
+        <button type="button" aria-label={t('dockChanges.keepAll')} title={t('dockChanges.keepAll')} disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" /><span className="thread-dock-changes-action-label">{t('dockChanges.keepAll')}</span></button>
+        <button type="button" aria-label={t('dockChanges.undoAll')} title={t('dockChanges.undoAll')} disabled={busy !== null || !api?.undoTurnFile} onClick={() => setConfirmUndoAll(true)}>{busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />}<span className="thread-dock-changes-action-label">{t('dockChanges.undoAll')}</span></button>
+        <button type="button" onClick={() => onViewChanges()}>{t('files.view')}</button>
       </span>
     </div>
     {error && <ErrorState compact title={error} />}
     <ul id={listId} hidden={!open}>{changes.map(change => <li key={changeKey(change)} data-ui="working-set-file">
-      <span className="thread-dock-changes-path" title={change.path}>{change.path}</span>
+      <Button type="button" variant="ghost" size="sm" className="thread-dock-changes-path" title={change.path} onClick={() => onViewChanges(change.path)}>{change.path}</Button>
       {((change.additions ?? 0) > 0 || (change.deletions ?? 0) > 0) && <span className="thread-working-set-stats">
         {(change.additions ?? 0) > 0 && <span className="thread-working-set-add">+{change.additions}</span>}
         {(change.additions ?? 0) > 0 && (change.deletions ?? 0) > 0 && ' '}
@@ -116,5 +119,15 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
       <button type="button" aria-label={t('dockChanges.keep', { path: change.path })} disabled={busy !== null} onClick={() => keep([change])}><Check size={13} aria-hidden="true" /></button>
       <button type="button" aria-label={t('dockChanges.undo', { path: change.path })} disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo([change])}>{busy === changeKey(change) ? <Spinner size="sm" label={t('dockChanges.undoing')} /> : <Undo2 size={13} aria-hidden="true" />}</button>
     </li>)}</ul>
+    {confirmUndoAll && <ConfirmDialog
+      title={t('dockChanges.undoAllTitle', { count: files })}
+      description={t('dockChanges.undoAllDescription', { count: files })}
+      confirmLabel={t('dockChanges.undoAllConfirm')}
+      cancelLabel={t('common.cancel')}
+      danger
+      busy={busy === 'all'}
+      onConfirm={() => { setConfirmUndoAll(false); void undo(changes) }}
+      onCancel={() => setConfirmUndoAll(false)}
+    />}
   </section>
 }
