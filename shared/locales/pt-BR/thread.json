@@ -642,6 +642,13 @@
     "keepAll": "Manter todos",
     "undoing": "Desfazendo",
     "undoAll": "Desfazer todos",
+    "undoAllTitle_one": "Desfazer {{count}} arquivo?",
+    "undoAllTitle_many": "Desfazer todos os {{count}} arquivos?",
+    "undoAllTitle_other": "Desfazer todos os {{count}} arquivos?",
+    "undoAllDescription_one": "Isso restaura {{count}} arquivo ao checkpoint anterior à edição do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_many": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_other": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllConfirm": "Desfazer todos",
     "review": "Revisar",
     "keep": "Manter {{path}}",
     "undo": "Desfazer {{path}}"
@@ -716,7 +723,7 @@
     "compact": "Compactar a conversa",
     "reviewPermissions": "Revisar as permissões",
     "changeConfiguration": "Mudar a configuração",
-    "retry": "Tentar o turno de novo",
+    "retry": "Tentar de novo",
     "retryGroup": "Tentar este turno de novo",
     "changedFiles": "Este turno alterou arquivos.",
     "undoAndRetry": "Desfazer as alterações e tentar de novo",
@@ -781,6 +788,7 @@
     "operations_many": "{{count}} operações",
     "operations_other": "{{count}} operações",
     "undo": "Desfazer",
+    "undoTurn": "Desfazer turno",
     "confirmUndo": "Confirmar",
     "undoGroup": "Confirmar desfazer",
     "undoFailed": "Não foi possível desfazer estas alterações.",
@@ -1160,7 +1168,8 @@
   "plan": {
     "title": "Plano",
     "progress": "{{done}}/{{total}} concluídas",
-    "inProgress": "Em andamento"
+    "inProgress": "Em andamento",
+    "run": "Executar plano"
   },
   "projectSettings": {
     "saveFailed": "Não foi possível salvar as configurações do projeto.",
@@ -1221,6 +1230,18 @@
     "minutes": "{{minutes}} min {{seconds}} s",
     "seconds": "{{seconds}} s"
   },
+  "explore": {
+    "summary": "Explorou {{files}} arquivos e {{searches}} buscas · {{duration}}",
+    "read": "Leu",
+    "searched": "Buscou",
+    "lines": "L{{from}}–{{to}}",
+    "hits_one": "{{count}} achado",
+    "hits_many": "{{count}} achados",
+    "hits_other": "{{count}} achados"
+  },
+  "steps": {
+    "showMoreLines": "Mostrar mais {{count}} linhas"
+  },
   "request": {
     "reviewPlan": "Revisar o plano",
     "mcpApproval": "Aprovar pedido de ferramenta MCP",
@@ -1259,6 +1280,18 @@
     "cancel": "Cancelar",
     "decline": "Recusar",
     "deny": "Negar",
+    "allowMenu": "Mais opções para permitir",
+    "alwaysAllowProject": "Sempre permitir neste projeto…",
+    "allowedOnce": "Permitido uma vez",
+    "denied": "Negado",
+    "otherOption": "Outra opção…",
+    "kind": {
+      "command": "Executar comando no terminal",
+      "db": "Alterar o banco",
+      "file": "Alterar arquivos",
+      "container": "Alterar um contêiner",
+      "push": "Enviar ao remoto"
+    },
     "holdWaiting": "Risco crítico: Aprovar fica disponível em {{seconds}} s. Leia o comando antes.",
     "holdReady": "Aprovar está disponível. Com comando crítico, Enter não aprova; use Espaço ou clique.",
     "guarded": "Arquivo que orienta o agente",
@@ -1637,6 +1670,7 @@
     "decline": "Negar",
     "usageUnavailable": "Uso indisponível",
     "interrupted": "Interrompido",
+    "contextCompacted": "Contexto compactado",
     "noPublicMessages": "Nenhuma mensagem pública neste trecho. Continue carregando as mensagens anteriores, se houver."
   },
   "turnReview": {
@@ -2223,6 +2257,7 @@
   "backgroundShells": {
     "region": "Shells em segundo plano",
     "running": "Em execução",
+    "runningOnPort": "Rodando · porta {{port}}",
     "stopped": "Parado",
     "exitCode": "saída {{code}}",
     "unknownSince": "Estado desconhecido desde {{time}}",

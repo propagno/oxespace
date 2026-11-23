@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, bench, describe } from 'vitest'
+// Vitest 5 (OXE-352): `bench` is the test context's fixture, not an export of `vitest`; one test compares the two.
+import { afterAll, beforeAll, test } from 'vitest'
 import { openInMemoryDatabase, type AppDatabase } from '../../electron/main/db'
 import { ThreadHistory } from '../../electron/main/services/conversation/thread-history'
 import type { ThreadSnapshot } from '../../shared/types/thread'
@@ -34,7 +35,10 @@ function appendTail(size: number): void {
   history.write(snapshot, { eventsFrom: from })
 }
 
-describe('incremental Thread history', () => {
-  bench('append tail with 1k persisted events', () => appendTail(1_000), { iterations: 20, time: 2_000 })
-  bench('append tail with 100k persisted events', () => appendTail(100_000), { iterations: 20, time: 2_000 })
+test('incremental Thread history', async ({ bench }) => {
+  await bench.compare(
+    bench('append tail with 1k persisted events', () => appendTail(1_000)),
+    bench('append tail with 100k persisted events', () => appendTail(100_000)),
+    { iterations: 20, time: 2_000 }
+  )
 })

@@ -52,7 +52,7 @@ Versões resolvidas no `package-lock.json` do SHA avaliado:
 | cmdk | 1.1.1 | paleta de comandos |
 | i18next / react-i18next | 26.5.11 / 17.1.9 | en e pt-BR; catálogos por chunk, namespaces lazy `oxequery`, `pods`, `post` |
 | xterm / Monaco | 5.5.0 / 0.57.0 | `@xterm/addon-web-links` 0.11.0 com o handler padrão |
-| Estilo | CSS global em camadas + 29 CSS Modules | cerca de 19 mil linhas de CSS. Não há Tailwind no lockfile deste SHA: o bootstrap Tailwind/shadcn do Orca não chegou à `main` |
+| Estilo | CSS global em camadas + 29 CSS Modules | cerca de 19 mil linhas de CSS. Não há Tailwind no lockfile deste SHA: um bootstrap Tailwind/shadcn não chegou à `main` |
 | Testes | Vitest 5.0.5 (jsdom), Testing Library, Playwright 1.64.1, `@axe-core/playwright` 4.14 | 215 arquivos em `tests/`, 85 specs em `e2e/` |
 | Lint | ESLint 10, `typescript-eslint` 8, `eslint-plugin-react-hooks` 7 | regras do React Compiler só como aviso (`eslint.config.js:22-26`, "165 lugares") |
 

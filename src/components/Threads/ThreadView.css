@@ -136,7 +136,24 @@
 .thread-tool summary, .thread-approval summary, .thread-turn-error summary { display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; padding: 7px 10px; }
 .thread-tool summary::-webkit-details-marker, .thread-approval summary::-webkit-details-marker, .thread-turn-error summary::-webkit-details-marker { display: none; }
 .thread-tool:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
-.thread-reasoning { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-reasoning, [data-ui="reasoning"] { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); font-family: var(--font-ui); background: transparent; border: none; }
+[data-ui="reasoning"] button { height: var(--row-1); min-height: var(--row-1); }
+.thread-reasoning-preview { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--font-ui); white-space: pre-line; }
+.thread-reasoning-body { margin: 4px 0 0; padding: 0 0 0 var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); color: var(--tx-secondary); font-family: var(--font-ui); }
+.thread-reasoning-body p { margin: 0; }
+.thread-reasoning-pulse { display: inline-block; width: var(--space-1-5); height: var(--space-1-5); border-radius: var(--radius-full); background: var(--accent); flex-shrink: 0; }
+.thread-step-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.thread-step-toggle { min-width: 0; text-align: left; }
+[data-ui="explore-group"] [data-ui="step"] { display: flex; align-items: center; box-sizing: border-box; height: var(--bar-sm); min-height: var(--bar-sm); }
+[data-ui="explore-steps"] { display: flex; flex-direction: column; gap: var(--space-1-5); }
+[data-ui="turn-line"] { height: var(--row-1); min-height: var(--row-1); }
+[data-ui="file-pill"] { font-family: var(--font-mono); }
+[data-ui="step"][data-kind="run"] code { font-family: var(--font-mono); }
+[data-ui="step"][data-kind="run"][data-state="done"]:not([data-open="true"]) { height: var(--row-1); min-height: var(--row-1); }
+[data-ui="step-output"] { background-color: var(--term-bg); }
+[data-ui="kind-badge"][data-kind="query"] { color: var(--k-db); }
+[data-ui="kind-badge"][data-kind="http"] { color: var(--k-net); }
+[data-ui="kind-badge"][data-kind="other"] { color: var(--k-box); }
 .thread-reasoning summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 2px 0; }
 .thread-reasoning summary::-webkit-details-marker { display: none; }
 .thread-reasoning:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
@@ -399,6 +416,15 @@
 .thread-activity-single.has-failure summary > svg:first-child { color: var(--intent-danger-solid); }
 .thread-activity-single .thread-tool-diagnostic { padding-left: 23px; }
 .thread-virtual-turn > :is(.thread-tool, .thread-approval, .thread-plan, .thread-reasoning, .thread-file-activity, .thread-change-summary) { max-width: var(--thread-prose-max); }
+/* Plan card (AG-11 5.1): the count is tabular, the bar is a hairline, the steps stay numbered. */
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-count { margin-left: auto; color: var(--tx-muted); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-bar { height: var(--space-0-5); margin-top: var(--space-2); overflow: hidden; border-radius: var(--radius-full); background: var(--fill-hover); }
+.thread-view .thread-plan[data-ui="plan-card"] .thread-plan-bar > span { display: block; height: 100%; background: var(--accent); }
+.thread-view .thread-plan[data-ui="plan-card"] ol { list-style: decimal; padding-inline-start: 1.25em; }
+.thread-view .thread-plan[data-ui="plan-card"] li { display: list-item; }
+.thread-plan-run { margin: var(--space-2) 0; }
+.thread-prompt-origin { margin: var(--space-1) 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-activity-group summary { display: flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .thread-activity-group summary::-webkit-details-marker { display: none; }
 .thread-activity-group summary:hover { color: var(--tx-primary); background: var(--fill-hover); }

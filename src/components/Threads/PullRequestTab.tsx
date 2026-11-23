@@ -8,20 +8,22 @@ import {
   appendOnce, checkStateKey, checkTally, INSTALL_URL, LOGIN_COMMAND, prNumberLabel, prStateKey, splitDuration, summaryLines, VOTE_KEY, workItemLabel,
   type AgentSummary, type PrProvider, type SummaryLine
 } from './pullRequestModel'
+import { openExternalLink, parseExternalUrl, type ExternalLinkSource } from '../../lib/externalLinks'
+import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
 import './PullRequestTab.css'
 
 interface PullRequestBridge {
   pullRequest?: { state?: (input: { rootPath: string; branch: string }) => Promise<PullRequestState> }
   github?: { createPullRequest?: (input: Record<string, unknown>) => Promise<unknown> }
   thread?: { agentSummary?: (threadId: string) => Promise<AgentSummary | null | undefined> }
-  app?: { openExternal?: (url: string) => Promise<unknown> }
+  // Links never leave through the bridge here: openExternalLink (src/lib/externalLinks.ts) is the one way out.
 }
 const bridge = (): PullRequestBridge | undefined => (window as unknown as { oxe?: PullRequestBridge }).oxe
 
 type Load<T> = { status: 'loading' } | { status: 'ready'; value: T } | { status: 'failed' }
 
-function openExternal(url: string): void {
-  void bridge()?.app?.openExternal?.(url)
+function openLink(url: string, source: ExternalLinkSource): void {
+  void openExternalLink(url, { source })
 }
 
 /**
@@ -95,7 +97,7 @@ function PullRequestBody({ load, rootPath, branch, description, onOpened, onSend
   const { provider, cli, pr } = load.value
   if (provider === 'none') return <p className="pr-tab-note">{t('prTab.unsupported')}</p>
   if (cli === 'missing') return <div className="pr-tab-section"><p className="pr-tab-note">{t(`prTab.missing.${provider}`)}</p>
-    <div className="pr-tab-actions"><Button size="sm" onClick={() => openExternal(INSTALL_URL[provider])}>{t('prTab.howToInstall')}</Button></div></div>
+    <div className="pr-tab-actions"><Button size="sm" onClick={() => openLink(INSTALL_URL[provider], 'app')}>{t('prTab.howToInstall')}</Button></div></div>
   if (cli === 'signed-out') return <div className="pr-tab-section"><p className="pr-tab-note">{t(`prTab.signedOut.${provider}`)}</p>
     <div className="pr-tab-actions"><code className="pr-tab-command">{LOGIN_COMMAND[provider]}</code>
       <Button size="sm" onClick={() => void copyText(LOGIN_COMMAND[provider], t('prTab.command'))}>{t('prTab.copyCommand')}</Button></div></div>
@@ -158,10 +160,10 @@ function PullRequestCard({ provider, pr, onSend }: { provider: PrProvider; pr: P
         <p className="pr-tab-title">{pr.title}</p>
         <p className="pr-tab-muted">{t('prTab.branches', { head: pr.head, base: pr.base })}</p>
         {pr.workItems.length > 0 && <ul className="pr-tab-inline" aria-label={t('prTab.workItems')}>
-          {pr.workItems.map(item => <li key={item.id}><a href={item.url} onClick={event => { event.preventDefault(); openExternal(item.url) }}>{workItemLabel(item.id)}</a></li>)}
+          {pr.workItems.map(item => <li key={item.id}>{parseExternalUrl(item.url) ? <ExternalAnchor href={item.url} source="github">{workItemLabel(item.id)}</ExternalAnchor> : <span>{workItemLabel(item.id)}</span>}</li>)}
         </ul>}
         <div className="pr-tab-actions">
-          <Button size="sm" onClick={() => openExternal(pr.url)}>{t(`prTab.open.${provider}`)}</Button>
+          <Button size="sm" onClick={() => openLink(pr.url, 'github')}>{t(`prTab.open.${provider}`)}</Button>
           <Button size="sm" disabled={!onSend} onClick={() => onSend?.(t('prTab.addressPrompt', { number }))}>{t('prTab.address')}</Button>
           <span className="pr-tab-merge" title={t(`prTab.mergeTooltip.${provider}`)}>
             <Button size="sm" variant="primary" disabled>{t(`prTab.merge.${provider}`)}</Button>
