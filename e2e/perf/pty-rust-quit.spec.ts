@@ -57,17 +57,17 @@ test.describe.serial('the PTY host (OXE-400 CA-4)', () => {
           const key = `${arm} ${way}`
           const entry = results.get(key) ?? { clean: 0, total: 0, unclean: [], unmeasured: 0 }
           results.set(key, entry)
-          const { app, page } = await launchWithShells(arm, 4)
+          const { app, page, child } = await launchWithShells(arm, 4)
           try {
             if (!(await quit(app, way))) { entry.unmeasured++; continue }
             // If the app asks before quitting (F26 close guard), the person goes ahead.
             void page.getByTestId('running-turns-proceed').or(page.getByTestId('unsaved-work-discard')).click({ timeout: 5_000 }).catch(() => undefined)
-            const end = await processEnd(app, 30_000)
+            const end = await processEnd(child, 30_000)
             entry.total++
             if (!end.hung && end.code === 0 && !end.signal) entry.clean++
             else entry.unclean.push(end.hung ? 'hung' : end.signal ?? String(end.code))
           } finally {
-            forceKill(app)
+            forceKill(child)
           }
         }
       }

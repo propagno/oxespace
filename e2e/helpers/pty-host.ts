@@ -1,4 +1,5 @@
 import { expect, type ElectronApplication, type Page } from '@playwright/test'
+import type { ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,6 +31,8 @@ export interface ArmApp {
   app: ElectronApplication
   page: Page
   root: string
+  /** The app's process, kept at launch: Playwright stops answering app.process() once the app has gone. */
+  child: ChildProcess
 }
 
 /** Launches the app for one arm and opens a workspace of `panes` running shells. */
@@ -38,6 +41,7 @@ export async function launchWithShells(arm: PtyArm, panes: number): Promise<ArmA
   if (!existsSync(link)) { try { symlinkSync(join(process.cwd(), 'out'), link, 'junction') } catch { /* exists */ } }
   const root = mkdtempSync(join(tmpdir(), `oxe-pty-${arm}-`))
   const app = await launchForPerf(armEnv(arm, root))
+  const child = app.process()
   const page = await app.firstWindow()
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
@@ -48,7 +52,7 @@ export async function launchWithShells(arm: PtyArm, panes: number): Promise<ArmA
   const host = page.locator('.workspace-host:not(.workspace-host-hidden)')
   await expect(host.getByTestId('terminal-pane')).toHaveCount(panes, { timeout: 60_000 })
   await expect(host.getByTestId('terminal-status-label').filter({ hasText: 'running' })).toHaveCount(panes, { timeout: 90_000 })
-  return { app, page, root }
+  return { app, page, root, child }
 }
 
 /** The PTY host utility process's pid (arm B), from the app's own process list; null when there is none. */
@@ -58,8 +62,7 @@ export async function ptyHostPid(app: ElectronApplication): Promise<number | nul
 }
 
 /** How the app's process ended: its exit code and signal, or `hung` when it was still running after `ms`. */
-export function processEnd(app: ElectronApplication, ms: number): Promise<{ code: number | null; signal: string | null; hung: boolean }> {
-  const child = app.process()
+export function processEnd(child: ChildProcess, ms: number): Promise<{ code: number | null; signal: string | null; hung: boolean }> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve({ code: child.exitCode, signal: child.signalCode, hung: false })
   return new Promise(resolve => {
     const timer = setTimeout(() => resolve({ code: null, signal: null, hung: true }), ms)
@@ -68,8 +71,7 @@ export function processEnd(app: ElectronApplication, ms: number): Promise<{ code
 }
 
 /** Ends a process that is still there after a test (a hung quit). */
-export function forceKill(app: ElectronApplication): void {
-  const pid = app.process().pid
-  if (!pid) return
-  try { process.kill(pid, 'SIGKILL') } catch { /* gone */ }
+export function forceKill(child: ChildProcess): void {
+  if (child.exitCode !== null || child.signalCode !== null || !child.pid) return
+  try { process.kill(child.pid, 'SIGKILL') } catch { /* gone */ }
 }
