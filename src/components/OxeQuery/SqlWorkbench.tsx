@@ -91,6 +91,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const [tx, setTx] = useState<SqlTxState>({ state: 'none', statements: 0 })
   const [notice, setNotice] = useState('')
   const [editorMenuOpen, setEditorMenuOpen] = useState(false)
+  // Where the right click happened; undefined when the keyboard opened the menu.
+  const [editorMenuPoint, setEditorMenuPoint] = useState<{ x: number; y: number } | undefined>(undefined)
   const [editorHasSelection, setEditorHasSelection] = useState(false)
   const editor = useRef<Parameters<OnMount>[0] | null>(null)
   const pendingExplain = useRef<{ text: string; base: number } | null>(null)
@@ -350,7 +352,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
 
   const cancel = (): void => { void oq('sql.cancel', { connectionId: connection.id }).catch(() => undefined) }
   const format = (): void => { void editor.current?.getAction('editor.action.formatDocument')?.run() }
-  const openEditorMenu = (): void => {
+  const openEditorMenu = (point?: { x: number; y: number }): void => {
+    setEditorMenuPoint(point)
     const selection = editor.current?.getSelection()
     setEditorHasSelection(Boolean(selection && !selection.isEmpty()))
     setEditorMenuOpen(true)
@@ -468,7 +471,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
       {notice && <div className="oq-notice"><ErrorState compact title={notice} /></div>}
       {/* Ctrl+Shift+Enter is also a built-in Monaco chord (insert a line above) and some platforms resolve it before ours: taken here, in the capture phase, it always means "run all". */}
       <div className="oq-editor" style={{ height: editorHeight }}
-        onContextMenu={event => { event.preventDefault(); openEditorMenu() }}
+        onContextMenu={event => { event.preventDefault(); openEditorMenu({ x: event.clientX, y: event.clientY }) }}
         onKeyDownCapture={event => {
           if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); runAllRef.current(); return }
           if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) { event.preventDefault(); event.stopPropagation(); openEditorMenu() }
@@ -482,7 +485,7 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
         options={{ contextmenu: false, minimap: { enabled: false }, fontSize: 13, scrollBeyondLastLine: false, wordWrap: 'on', automaticLayout: true, tabSize: 2, padding: { top: 8 }, formatOnPaste: false,
           // Space, `(` and `.` end a word in SQL; they must not also accept whatever suggestion is highlighted (Enter and Tab do).
           acceptSuggestionOnCommitCharacter: false }} /></Suspense>
-        {editorMenuOpen && <AnchoredMenu open onOpenChange={open => { if (!open) setEditorMenuOpen(false) }} label={t('contextMenu.sqlEditorLabel')}
+        {editorMenuOpen && <AnchoredMenu open point={editorMenuPoint} onOpenChange={open => { if (!open) setEditorMenuOpen(false) }} label={t('contextMenu.sqlEditorLabel')}
           items={editorMenuItems} returnFocus={() => { editor.current?.focus(); return null }} />}
       </div>
       <Splitter orientation="horizontal" label={t('workbench.editorHeight')} value={editorHeight} min={EDITOR_HEIGHT.min} max={editorMax} defaultValue={EDITOR_HEIGHT.default} onChange={height => layout.set({ editorHeight: height })} />

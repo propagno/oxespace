@@ -42,7 +42,35 @@ export interface DiagnosticsApi {
   analysisSummary?(): Promise<string>
   /** The window's frame and input times since its last report, for the local performance journal. Nothing is sent anywhere. */
   reportPerf?(batch: { stats: Record<string, { n: number; sum: number; max: number; b: number[] }> }): Promise<void>
+  /**
+   * A crash in the window, to the incident journal as `incident.window.rendererError` (OXE-366): which boundary caught
+   * it, the component, the error's class name, a C3 code and a hash of the stack's shape. Never a message, a path or
+   * any other text: main refuses a report with anything outside this contract. Nothing is sent anywhere.
+   */
+  reportRendererError?(input: RendererErrorInput): Promise<void>
 }
+
+/** Where a renderer crash was caught (an ErrorBoundary's `id`). `host` is one of the window's global hosts (OXE-366). */
+export const RENDERER_ERROR_BOUNDARIES = ['root', 'window', 'conversations', 'mode-view', 'sidebar', 'settings-page', 'workspace-grid', 'workspace-panel', 'pane', 'terminal', 'title-bar', 'approvals', 'host'] as const
+export type RendererErrorBoundary = typeof RENDERER_ERROR_BOUNDARIES[number]
+export const RENDERER_ERROR_KINDS = ['boundary', 'uncaught', 'unhandledRejection'] as const
+export type RendererErrorKind = typeof RENDERER_ERROR_KINDS[number]
+/** One renderer crash, as names and a hash only. */
+export interface RendererErrorInput {
+  kind: RendererErrorKind
+  /** Present only for kind 'boundary'. */
+  boundary?: RendererErrorBoundary
+  component?: string
+  errorName: string
+  code?: string
+  stackHash?: string
+}
+/** A component or error class name. */
+export const RENDERER_ERROR_IDENTIFIER = /^[A-Za-z_$][\w$.]{0,79}$/
+/** The stack's shape, hashed (FNV-1a or longer), never the stack itself. */
+export const RENDERER_ERROR_STACK_HASH = /^[0-9a-f]{8,64}$/
+/** A C3 message code, such as `workspace.root.missing`. */
+export const RENDERER_ERROR_CODE = /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+){1,5}$/
 
 export interface FirstAnswerInput {
   durationMs: number
@@ -97,6 +125,8 @@ export type DiagnosticsArea = typeof DIAGNOSTICS_AREAS[number]
 export const DIAGNOSTICS_INCIDENT_CODES = {
   'incident.window.crashed': 'window',
   'incident.window.rendererGone': 'window',
+  /** A React crash in the window, reported by the window itself (OXE-366): a boundary caught it, or nothing did. */
+  'incident.window.rendererError': 'window',
   'incident.ipc.handlerFailed': 'ipc',
   'incident.ipc.validationRejected': 'ipc',
   'incident.ipc.senderRefused': 'ipc',

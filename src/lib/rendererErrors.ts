@@ -2,23 +2,13 @@
 // error's class name, a C3 code and a hash of the stack's shape. Never the message, props, paths or any user text:
 // those can hold file names, queries and secrets. Reporting is fire-and-forget and never throws.
 
-// TODO(CCR F24-B): the contract is approved but not on main yet. Replace these local types with the ones in
-// shared/types (diagnostics) and drop the cast in `send` once `window.oxe.diagnostics.reportRendererError` lands.
-export type RendererErrorBoundary = 'root' | 'window' | 'conversations' | 'mode-view' | 'sidebar' | 'settings-page' | 'workspace-grid' | 'workspace-panel' | 'pane' | 'terminal' | 'title-bar' | 'approvals'
-export type RendererErrorKind = 'boundary' | 'uncaught' | 'unhandledRejection'
-export interface RendererErrorInput {
-  kind: RendererErrorKind
-  /** Present only for kind 'boundary'. */
-  boundary?: RendererErrorBoundary
-  component?: string
-  errorName: string
-  code?: string
-  stackHash?: string
-}
+// The contract (OXE-366) is shared with main, which refuses a report with anything outside it.
+import { RENDERER_ERROR_CODE, RENDERER_ERROR_IDENTIFIER, RENDERER_ERROR_STACK_HASH, type RendererErrorBoundary, type RendererErrorInput, type RendererErrorKind } from '../../shared/types/diagnostics'
 
-export const IDENTIFIER = /^[A-Za-z_$][\w$.]{0,79}$/
-export const STACK_HASH = /^[0-9a-f]{8,64}$/
-const MESSAGE_CODE = /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+){1,5}$/
+export type { RendererErrorBoundary, RendererErrorInput, RendererErrorKind }
+export const IDENTIFIER = RENDERER_ERROR_IDENTIFIER
+export const STACK_HASH = RENDERER_ERROR_STACK_HASH
+const MESSAGE_CODE = RENDERER_ERROR_CODE
 
 /** FNV-1a, 32 bits, as 8 hex digits: small, synchronous and stable across runs. */
 export function fnv1a(text: string): string {
@@ -89,8 +79,7 @@ export function reportRendererError(input: RendererErrorInput): void {
     const key = `${input.kind}|${input.boundary ?? ''}|${input.component ?? ''}|${input.errorName}|${input.stackHash ?? ''}`
     if (recent.has(key) || recent.size >= PER_WINDOW) return
     recent.set(key, now)
-    const diagnostics = (window as { oxe?: { diagnostics?: { reportRendererError?: (input: RendererErrorInput) => unknown } } }).oxe?.diagnostics
-    const sent = diagnostics?.reportRendererError?.(input)
+    const sent = window.oxe?.diagnostics?.reportRendererError?.(input) as unknown
     if (sent && typeof (sent as Promise<unknown>).catch === 'function') (sent as Promise<unknown>).catch(() => { /* The journal is best effort. */ })
   } catch { /* Reporting a crash must never cause one. */ }
 }

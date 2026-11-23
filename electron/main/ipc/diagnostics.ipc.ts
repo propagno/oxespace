@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { resolveAppDatabasePath, type AppDatabase } from '../db'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { DIAGNOSTICS_LIMITS } from '../../../shared/types/diagnostics'
+import { DIAGNOSTICS_LIMITS, RENDERER_ERROR_BOUNDARIES, RENDERER_ERROR_CODE, RENDERER_ERROR_IDENTIFIER, RENDERER_ERROR_KINDS, RENDERER_ERROR_STACK_HASH, type RendererErrorBoundary, type RendererErrorInput, type RendererErrorKind } from '../../../shared/types/diagnostics'
 import { DiagnosticsService } from '../services/diagnostics.service'
 import { exportRuntimeDiagnostics, recordFirstAnswer } from '../services/runtime-diagnostics'
 import { connectIncidentJournal, flushIncidents, incidentRecorder, recordIncident } from '../services/diagnostics/incident-sink'
@@ -76,6 +76,12 @@ export function registerDiagnosticsIpc(
   ipcMain.handle(IPC_CHANNELS.diagnostics.reportPerf, async (event, input: unknown) => {
     (await perf)?.perfJournal()?.addBatch(input)
   })
+  // OXE-366: a React crash in the window, as names and a stack hash. Anything outside the contract is refused, so no
+  // message, path or other text can reach the journal; the subject is hashed like every incident's.
+  ipcMain.handle(IPC_CHANNELS.diagnostics.reportRendererError, (event, ...args: unknown[]) => {
+    const report = rendererErrorInput(args)
+    recordIncident('incident.window.rendererError', [report.kind, report.boundary ?? '', report.component ?? '', report.errorName, report.code ?? '', report.stackHash ?? ''].join(':'))
+  })
 
   ipcMain.handle(IPC_CHANNELS.diagnostics.watch, async (event, ...args: unknown[]) => {
     const input = strictInput(args, ['intervalMs'])
@@ -139,6 +145,25 @@ function strictInput(args: unknown[], allowed: string[], required = false): Reco
   const unknown = Object.keys(input).filter(key => !allowed.includes(key))
   if (unknown.length) throw new Error(`Unknown diagnostics input: ${unknown.slice(0, 5).join(', ')}`)
   return input
+}
+
+/** The window's crash report, with only the contract's fields, each in its shape; anything else is refused. */
+function rendererErrorInput(args: unknown[]): RendererErrorInput {
+  const input = strictInput(args, ['kind', 'boundary', 'component', 'errorName', 'code', 'stackHash'], true)
+  const kind = (RENDERER_ERROR_KINDS as readonly unknown[]).includes(input.kind) ? input.kind as RendererErrorKind : null
+  if (!kind) throw new Error('kind is not a renderer error kind')
+  if (typeof input.errorName !== 'string' || !RENDERER_ERROR_IDENTIFIER.test(input.errorName)) throw new Error('errorName is not a class name')
+  if (input.boundary !== undefined && (kind !== 'boundary' || !(RENDERER_ERROR_BOUNDARIES as readonly unknown[]).includes(input.boundary))) throw new Error('boundary is not a renderer error boundary')
+  if (input.component !== undefined && (typeof input.component !== 'string' || !RENDERER_ERROR_IDENTIFIER.test(input.component))) throw new Error('component is not a component name')
+  if (input.code !== undefined && (typeof input.code !== 'string' || input.code.length > 80 || !RENDERER_ERROR_CODE.test(input.code))) throw new Error('code is not a message code')
+  if (input.stackHash !== undefined && (typeof input.stackHash !== 'string' || !RENDERER_ERROR_STACK_HASH.test(input.stackHash))) throw new Error('stackHash is not a hash')
+  return {
+    kind, errorName: input.errorName,
+    ...(input.boundary !== undefined ? { boundary: input.boundary as RendererErrorBoundary } : {}),
+    ...(input.component !== undefined ? { component: input.component as string } : {}),
+    ...(input.code !== undefined ? { code: input.code as string } : {}),
+    ...(input.stackHash !== undefined ? { stackHash: input.stackHash as string } : {})
+  }
 }
 
 function noInput(args: unknown[]): void {

@@ -23,7 +23,7 @@ import type { RemoteDesktop } from './desktop'
 import {
   cleanDeviceName, deviceNameProblem, deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
 } from './inputs'
-import { isPrivateAddress, listenAddresses, peerAddress, preferRoute, type ListenAddress } from './network'
+import { isPrivateAddress, listenAddresses, peerAddress, preferRoute, vpnPeerAllowed, type ListenAddress } from './network'
 import { defaultRouteAddress, interfaceOf, networkCategories } from './network-profile'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
@@ -75,6 +75,8 @@ export interface RemoteGatewayDeps {
   interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
+  /** OXE-383: the person's opt-in to a VPN adapter's 100.64/10 address (Tailscale, WireGuard). Off when absent. */
+  allowVpnAddresses?: () => boolean
   promptTimeoutMs?: number
   /** Windows' network category per interface alias (lower case); a read-only PowerShell query by default. */
   networkCategories?: () => Promise<Map<string, RemoteNetworkCategory>>
@@ -471,7 +473,7 @@ export class RemoteGateway implements ConnectionHost {
   private async start(port: number): Promise<Running> {
     const material = this.material()
     const route = await (this.deps.routeAddress ?? defaultRouteAddress)().catch(() => null)
-    const addresses = preferRoute(listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress), route)
+    const addresses = preferRoute(listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress, { allowVpn: this.allowVpn() }), route)
     if (!addresses.length) throw new GatewayStartError(mainMessage('remote.network.noPrivateInterface', {}))
     const servers: https.Server[] = [], bound: ListenAddress[] = []
     for (const address of addresses) {
@@ -526,6 +528,11 @@ export class RemoteGateway implements ConnectionHost {
     }
   }
 
+  /** OXE-383: off unless the person opted in. */
+  private allowVpn(): boolean {
+    return this.deps.allowVpnAddresses?.() ?? false
+  }
+
   private createServer(material: GatewayMaterial): https.Server {
     // Node's TLS options take PEM only: it is written here from the parsed DER, and never read back.
     const server = https.createServer({
@@ -537,6 +544,8 @@ export class RemoteGateway implements ConnectionHost {
     server.maxHeadersCount = 64
     server.maxConnections = MAX_CONNECTIONS * 2
     server.on('connection', (socket: Socket) => {
+      // OXE-383: a 100.64/10 peer only with the VPN opt-in and only on a VPN listener; nothing is read from it first.
+      if (!vpnPeerAllowed(socket.remoteAddress, socket.localAddress, this.allowVpn())) { socket.destroy(); return }
       this.sockets.add(socket)
       socket.on('close', () => this.sockets.delete(socket))
     })
