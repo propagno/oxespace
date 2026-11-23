@@ -1359,6 +1359,11 @@
       "compactEmpty": "Nothing to compact yet."
     },
     "tools": {
+      "integrated": "OXESpace (Integrated)",
+      "integratedOn": "On in this session",
+      "integratedOff": "Not connected",
+      "integratedGroups": "OXESpace tool groups",
+      "configure": "Configure tools",
       "mcp": "MCP servers",
       "mcpUnknown": "The agent has not reported its MCP servers yet. They appear when its session starts.",
       "manage": "Manage MCP servers",
