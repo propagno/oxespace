@@ -45,3 +45,13 @@ describe('G14 · static CSS class guard', () => {
     expect(missing.sort()).toEqual([])
   })
 })
+
+describe('OXE-314 · legacy sidebar-section selectors', () => {
+  it('removed legacy sidebar-section selectors leave zero orphan references', () => {
+    // SidebarSection and IconButton (src/ui/Sidebar.tsx) replaced them; no element carries either class any more.
+    const files = walk(SRC, file => /\.(css|tsx?)$/.test(file))
+    const hits = files.flatMap(file => readFileSync(file, 'utf8').split(/\r?\n/).flatMap((text, index) =>
+      /sidebar-section-header|sidebar-section-action-btn/.test(text) ? [`${relative(ROOT, file).split('\\').join('/')}:${index + 1}`] : []))
+    expect(hits).toEqual([])
+  })
+})
