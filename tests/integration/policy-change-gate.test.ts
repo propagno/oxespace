@@ -227,6 +227,8 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     expect(requests()).toHaveLength(1)
   })
 
+  // OXE-398: its four git calls (init, add, commit, worktree add) took 4.0-4.4 s on a busy Windows runner
+  // (run 45089905158, every core busy: one of 8 rounds over 5 s), so it gets 20 s; the default 5 s stays for the rest.
   it('a worktree with no accepted version starts from its primary checkout\'s', async () => {
     const primary = temp('oxe-b74-repo-')
     const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', ...args], { cwd, stdio: 'ignore' })
@@ -242,7 +244,7 @@ describe('B7.4 · an outside change to the project policy applies only once acce
     expect(decision.allowed).toBe(false)
     expect(requests().map(request => request.summary.code)).toContain('approvals.summary.policyChange.worktree')
     expect(policyFile).toBeTruthy()
-  })
+  }, 20_000)
 
   it('the managed layer is gated while people on this computer can write it, and not when it is protected', async () => {
     const gated = await accepted()
