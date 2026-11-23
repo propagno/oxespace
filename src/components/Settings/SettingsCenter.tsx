@@ -221,6 +221,7 @@ export function SettingsCenter(props: SettingsModalProps & {
     try { localStorage.setItem('oxe.settings.destination', JSON.stringify(next)) } catch { /* Preferences are optional. */ }
   }
   const close = (): void => props.onClose()
+  const isMcpPanelOpen = useUIStore(state => state.isMcpPanelOpen)
   const mcpCount = useMcpStore(selectMcpServers(scopeWorkspace?.id ?? activeWorkspaceId)).length
   const activityCount = useActivityStore(state => state.items.length)
   const readyAgentsCount = (props.agentReadiness ?? []).filter(r => r.status === 'ready' || r.status === 'partial').length
@@ -265,8 +266,23 @@ export function SettingsCenter(props: SettingsModalProps & {
     </button>
   )
 
-  return <ModalRoot open onOpenChange={open => { if (!open) close() }}>
+  const hasChildDialogOpen = (): boolean => {
+    if (useUIStore.getState().isMcpPanelOpen) return true
+    const surface = document.querySelector<HTMLElement>('.settings-center[role="dialog"]')
+    const dialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]'))
+    return surface
+      ? dialogs.some(d => d !== surface && (surface.contains(d) || Boolean(surface.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING)))
+      : dialogs.length > 1
+  }
+
+  return <ModalRoot open modal={!isMcpPanelOpen} onOpenChange={open => { if (!open && !hasChildDialogOpen()) close() }}>
     <ModalSurface className="settings-center" style={{ '--settings-navigation-width': `${navigationWidth}px` } as CSSProperties} scrimClassName="settings-center-overlay" toasts aria-describedby={undefined}
+      onEscapeKeyDown={event => {
+        if (hasChildDialogOpen()) {
+          event.preventDefault()
+          ;(event as KeyboardEvent & { __oxeDeferredToChild?: boolean }).__oxeDeferredToChild = true
+        }
+      }}
       onCloseAutoFocus={event => {
         // Opened from a control (the gear, a menu): back to it. Opened from the keyboard inside a terminal: back to the pane.
         if (opener && !opener.closest('[data-testid="pane-container"]')) { event.preventDefault(); requestAnimationFrame(() => { if (opener.isConnected) opener.focus({ preventScroll: true }) }) }
