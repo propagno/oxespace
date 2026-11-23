@@ -1,6 +1,7 @@
 // herdr's detection manifests (Apache-2.0, see resources/agent-detection/LICENSE-APACHE-2.0 and NOTICE),
 // embedded in the main bundle so packaging needs no extra resource.
 import amp from '../../../../resources/agent-detection/amp.toml?raw'
+import antigravity from '../../../../resources/agent-detection/antigravity.toml?raw'
 import claude from '../../../../resources/agent-detection/claude.toml?raw'
 import codex from '../../../../resources/agent-detection/codex.toml?raw'
 import cursor from '../../../../resources/agent-detection/cursor.toml?raw'
@@ -14,6 +15,7 @@ import qwen from '../../../../resources/agent-detection/qwen.toml?raw'
 
 export const BUNDLED_MANIFESTS: Array<{ file: string; text: string }> = [
   { file: 'amp.toml', text: amp },
+  { file: 'antigravity.toml', text: antigravity },
   { file: 'claude.toml', text: claude },
   { file: 'codex.toml', text: codex },
   { file: 'cursor.toml', text: cursor },
