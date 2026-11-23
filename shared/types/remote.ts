@@ -27,6 +27,8 @@ export interface RemoteGatewayStatus {
   phoneWritePanes: string[]
   /** CR-34: panes kept off the phone entirely, sorted; persisted per pane. Every pane is shown by default. */
   phoneHiddenPanes?: string[]
+  /** OXE-383: the person's "Also reach this computer over a VPN"; off by default. */
+  allowVpn?: boolean
   /** Why it is not listening (port in use, firewall, certificate…), as a code the window translates. */
   error?: MainMessage
   /**
