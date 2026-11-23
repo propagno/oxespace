@@ -642,6 +642,13 @@
     "keepAll": "Manter todos",
     "undoing": "Desfazendo",
     "undoAll": "Desfazer todos",
+    "undoAllTitle_one": "Desfazer {{count}} arquivo?",
+    "undoAllTitle_many": "Desfazer todos os {{count}} arquivos?",
+    "undoAllTitle_other": "Desfazer todos os {{count}} arquivos?",
+    "undoAllDescription_one": "Isso restaura {{count}} arquivo ao checkpoint anterior à edição do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_many": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_other": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllConfirm": "Desfazer todos",
     "review": "Revisar",
     "keep": "Manter {{path}}",
     "undo": "Desfazer {{path}}"
