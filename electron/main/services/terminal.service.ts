@@ -132,7 +132,8 @@ export class TerminalManager {
       assignSession: options.assignSession,
       clearSession: options.clearSession,
       currentSession: options.currentSession,
-      nativeSessionRoots: options.nativeSessionRoots
+      nativeSessionRoots: options.nativeSessionRoots,
+      rootExists: options.rootExists
     })
     this.emitActivity = options.emitActivity ?? (() => undefined)
     this.output = new SessionOutput({
@@ -408,9 +409,15 @@ export class TerminalManager {
   }
 
   stop(input: TerminalStopInput): void {
+    // Synchronous callers (quit, restart, pane close) never wait on the kill, and a failed kill is not an unhandled rejection.
+    this.end(input).catch(() => { /* the tree kill reports its own failure; a stop does not wait on it */ })
+  }
+
+  /** Stops the pane at once; settles when its process tree has really ended, rejects if it could not be ended. */
+  private end(input: TerminalStopInput): Promise<void> {
     this.launchControllers.get(input.paneId)?.abort()
     const session = this.sessions.get(input.paneId)
-    if (!session) return
+    if (!session) return Promise.resolve()
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
@@ -419,7 +426,7 @@ export class TerminalManager {
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
-    void terminatePty(session.pty, this.quitting ? { graceMs: QUIT_TREE_GRACE_MS } : {})
+    const ended = terminatePty(session.pty, this.quitting ? { graceMs: QUIT_TREE_GRACE_MS } : {})
     this.sessions.delete(input.paneId)
     this.sizes.forget(input.paneId)
     session.revokeProxy?.()
@@ -428,6 +435,7 @@ export class TerminalManager {
     this.forgetBranch(input.paneId)
     // An explicit stop is not a crash to be explained on return.
     this.exits.forget(input.paneId)
+    return ended
   }
 
   private notifyLaunchExit(paneId: string): void {
@@ -455,12 +463,12 @@ export class TerminalManager {
     if (fresh) this.agentResumes.set(input.paneId, fresh)
   }
 
-  stopWorkspace(workspaceId: string): void {
-    for (const session of this.sessions.values()) {
-      if (session.workspaceId === workspaceId) {
-        this.stop({ paneId: session.paneId })
-      }
-    }
+  /** A4 (OXE-367): stops every pane of the workspace; settles once all of their processes have ended, rejects if any could not be. */
+  async stopWorkspace(workspaceId: string): Promise<void> {
+    const panes = [...this.sessions.values()].filter(session => session.workspaceId === workspaceId).map(session => session.paneId)
+    const results = await Promise.allSettled(panes.map(paneId => this.end({ paneId })))
+    const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected')
+    if (failed) throw failed.reason instanceof Error ? failed.reason : new Error(String(failed.reason))
   }
 
   /**

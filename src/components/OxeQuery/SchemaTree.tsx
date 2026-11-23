@@ -72,6 +72,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const [server, setServer] = useState(false)
   // The relation row whose actions menu a right click, Shift+F10 or the menu key opened.
   const [menuRow, setMenuRow] = useState<string | null>(null)
+  // Where the right click happened; undefined when the keyboard opened the menu.
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | undefined>(undefined)
   const scroller = useRef<HTMLDivElement | null>(null)
   const generation = useRef(0)
 
@@ -197,7 +199,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       const held = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-index]')?.dataset.index : undefined
       const index = held === undefined ? focusIndex : Number(held)
       const row = rows[index]
-      if (row && row.type !== 'note') { event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) }
+      if (row && row.type !== 'note') { event.preventDefault(); setFocusIndex(index); setMenuPoint(undefined); setMenuRow(row.id) }
       return
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -296,7 +298,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
     return <div key={row.id} role="treeitem" className="oq-tree-row" data-index={index} data-kind={row.type} data-actions={actionCount ? actionCount : undefined} style={rowStyle} tabIndex={index === focusIndex ? 0 : -1}
       aria-level={row.level} aria-expanded={branch ? row.expanded : undefined} aria-label={name} aria-selected={index === focusIndex}
       onClick={() => { setFocusIndex(index); activate(row) }} onFocus={() => setFocusIndex(index)}
-      onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setFocusIndex(index); setMenuRow(row.id) }}
+      onContextMenu={event => { if (event.defaultPrevented) return; event.preventDefault(); setFocusIndex(index); setMenuPoint({ x: event.clientX, y: event.clientY }); setMenuRow(row.id) }}
       title={row.item?.kind === 'relation' ? t('tree.browse', { name: `${row.item.table.schema}.${row.item.table.name}` }) : undefined}>
       {branch ? (row.expanded ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />) : <span className="oq-tree-spacer" aria-hidden="true" />}
       <span className="oq-tree-label">{row.label}</span>
@@ -304,7 +306,7 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       {row.item && describeItem(row.item) && <small>{describeItem(row.item)}</small>}
       {row.type === 'schema' && !connection.readOnly && row.expanded && <button type="button" tabIndex={-1} className="oq-tree-new" data-oq-action="newTable" aria-label={t('tree.newTableIn', { schema: row.schema })} title={t('tree.newTableTitle')} onClick={event => { event.stopPropagation(); setStructure({ schema: row.schema!, table: null }) }}><Plus size={12} aria-hidden="true" /> {t('tree.newTable')}</button>}
       {actions(row)}
-      {menuRow === row.id && <AnchoredMenu open onOpenChange={open => { if (!open) setMenuRow(null) }} label={t('tree.actionsFor', { name: row.label })}
+      {menuRow === row.id && <AnchoredMenu open point={menuPoint} onOpenChange={open => { if (!open) setMenuRow(null) }} label={t('tree.actionsFor', { name: row.label })}
         items={menuItemsForRow(row)} returnFocus={() => scroller.current?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null} />}
     </div>
   }

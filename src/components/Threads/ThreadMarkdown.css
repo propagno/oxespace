@@ -7,7 +7,6 @@
 .thread-markdown h3 { font-size: var(--fs-lg); }
 .thread-markdown :is(h4,h5,h6) { font-size: var(--fs-md); }
 .thread-markdown p { margin: 0 0 15px; }
-.thread-markdown :is(p, ul, ol) { max-width: 72ch; }
 .thread-markdown :is(ul,ol) { margin: 10px 0 14px; padding-left: 24px; }
 .thread-markdown ul { list-style-type: disc; }
 .thread-markdown ol { list-style-type: decimal; }
@@ -35,7 +34,7 @@
 .thread-markdown :is(a,.thread-table-scroll):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .thread-markdown code { font-family: var(--font-mono, monospace); font-size: .88em; }
 /* A term in a sentence, not a box: a faint fill and no border, so a paragraph that names five files is still a paragraph. */
-.thread-markdown :not(pre)>code { padding: 1px 4px; border-radius: var(--radius-xs); background: var(--surface-sunken); white-space: break-spaces; overflow-wrap: anywhere; }
+.thread-markdown :not(pre)>code { padding: 1px 4px; border-radius: var(--radius-sm); background: var(--surface-sunken); white-space: break-spaces; overflow-wrap: anywhere; }
 .thread-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; margin: 16px 0; border: 1px solid var(--bd-default); border-radius: var(--radius-md, 8px); scrollbar-width: thin; }
 .thread-markdown table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); line-height: 1.55; }
 .thread-markdown :is(th,td) { padding: 10px 12px; min-width: 120px; vertical-align: top; text-align: left; overflow-wrap: anywhere; border-bottom: 1px solid var(--bd-subtle); }

@@ -18,7 +18,10 @@ const budgets = [
   // follow-up that would give this back.
   // 620 KiB since the main process is minified (B8.1, 2026-10-30): esbuild with keepNames took the entry from 914 to
   // 575 kB. Its source maps are written beside it but never referenced or packaged; see scripts/symbolicate-stack.mjs.
-  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 620 * 1024 },
+  // 8% headroom since OXE-358/155 (2026-11-23, CA-1): the entry took 572 kB in 1.5.2's HML, 7.7%, and every PR that
+  // touched the main process risked the train. Services that never run at boot load on first use instead; the
+  // 620 KiB budget does not move, and every other budget keeps the 5% rule.
+  { label: 'main process entry', dir: 'out/main', match: /^index\.js$/, max: 620 * 1024, headroom: 0.08 },
   // 42 KiB since 1.5.1 (2026-11-13): the preload is one line per channel, and 1.5.1 adds two (the phone's terminal size
   // lease, #780, and the performance journal's report, #786), which took it to about 38.9 kB, past the 5% headroom of 40.
   // Each method is a one-line invoke; nothing heavy lives here.
@@ -49,8 +52,9 @@ for (const budget of budgets) {
   const actualKb = Math.round(bytes / 1024)
   const headroom = 1 - bytes / budget.max
   console.log(`[bundle] ${budget.label}: ${actualKb} kB / ${limitKb} kB · ${(headroom * 100).toFixed(1)}% headroom`)
-  if (bytes > budget.max * (1 - REQUIRED_HEADROOM)) {
-    console.error(`[bundle] ${budget.label}: requires at least ${REQUIRED_HEADROOM * 100}% headroom`)
+  const required = budget.headroom ?? REQUIRED_HEADROOM
+  if (bytes > budget.max * (1 - required)) {
+    console.error(`[bundle] ${budget.label}: requires at least ${required * 100}% headroom`)
     failed = true
   }
 }
