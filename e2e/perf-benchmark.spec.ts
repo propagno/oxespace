@@ -21,6 +21,7 @@ import { findPaletteCommand, openConnections } from './helpers/panels'
 import { installThreadFixtures, openThreadWithState, registerThreadProject } from './helpers/thread-fixtures'
 import { armInputTimer, armInputTimerUntil, readInputTimer, sinceInput, WORKSPACE_LAUNCH_DONE_CHECKS } from './helpers/input-timer'
 import { launchForPerf } from './helpers/perf-launch'
+import { LAST_ANSWER_TEXT, setLongConversation } from './helpers/thread-fixtures'
 
 const REPEATS = 6
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
@@ -986,6 +987,82 @@ test('memory: main process with 10 Threads open', async () => {
       expect(after.rss, `main process RSS after ${THREAD_COUNT} Threads (budget ${budget.rss} MB)`).toBeLessThanOrEqual(budget.rss)
       expect(after.heap, `main process heap after ${THREAD_COUNT} Threads (budget ${budget.heap} MB)`).toBeLessThanOrEqual(budget.heap)
       expect(growth, `main process RSS growth outside V8's young generation while opening ${THREAD_COUNT} Threads (budget ${budget.growth} MB)`).toBeLessThanOrEqual(budget.growth)
+    }
+  } finally {
+    await killApp(app, pid)
+  }
+})
+
+/**
+ * OXE-125 A5 (CA-2, user decision 23/11: 125 PROPOSTA). Frozen by the planner of program 160-125; the executor must not
+ * edit it. The long rich conversation (e2e/helpers/long-conversation.ts: 80 turns of tables, highlighted code, diffs,
+ * formulas and a diagram every tenth turn) is scrolled from the end to the start, 600 px per frame, as the 5,000-event
+ * test does. Two numbers per pass: the p95 of the frame intervals and the count of long tasks (> 50 ms) the renderer's
+ * PerformanceObserver saw. The budget is the baseline measured on main b3491f620 before the change, per platform, plus
+ * 10%; on CI a pass over it scrolls again and is judged on the second pass (runner noise fails one pass, a regression
+ * both), as the scroll frames above.
+ */
+const LONG_SCROLL_BASELINE: Record<'linux' | 'windows', { p95FrameMs: number; longTasks: number }> = {
+  linux: { p95FrameMs: Number.NaN, longTasks: Number.NaN },
+  windows: { p95FrameMs: Number.NaN, longTasks: Number.NaN }
+}
+test('scrolling a long conversation stays within its baseline', async () => {
+  test.setTimeout(150_000)
+  const { app, page, pid } = await launchApp()
+  const repo = join(tmpdir(), `oxe-long-scroll-${Date.now()}`, 'repo')
+  try {
+    mkdirSync(repo, { recursive: true })
+    await installThreadFixtures(app, repo)
+    await createWorkspace(page, repo)
+    await registerThreadProject(app, page, repo)
+    await openThreadWithState(app, page, repo, 'empty')
+    await setLongConversation(app)
+    await expect(page.getByText(LAST_ANSWER_TEXT)).toBeVisible({ timeout: 30_000 })
+    const space = page.locator('.thread-virtual-space')
+    await expect(space).toHaveAttribute('data-total-rows', /^\d{3,}$/)
+    const pass = (): Promise<{ frames: number[]; longTasks: number }> => page.evaluate(async () => {
+      const timeline = document.querySelector<HTMLElement>('.thread-timeline')!
+      timeline.scrollTop = timeline.scrollHeight
+      await new Promise(resolve => setTimeout(resolve, 300))
+      let longTasks = 0
+      const observer = new PerformanceObserver(list => { longTasks += list.getEntries().filter(entry => entry.duration > 50).length })
+      try { observer.observe({ type: 'longtask', buffered: false }) } catch { /* reported as none */ }
+      const intervals: number[] = []
+      let last = performance.now()
+      for (let step = 0; step < 400 && timeline.scrollTop > 0; step++) {
+        timeline.scrollTop -= 600
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+        const now = performance.now()
+        intervals.push(now - last)
+        last = now
+      }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      observer.disconnect()
+      return { frames: intervals, longTasks }
+    })
+    const platform = process.platform === 'win32' ? 'windows' : 'linux'
+    const baseline = LONG_SCROLL_BASELINE[platform]
+    const limits = { p95: baseline.p95FrameMs * 1.1, longTasks: Math.ceil(baseline.longTasks * 1.1) }
+    const judge = (result: { frames: number[]; longTasks: number }): string[] => {
+      const p95 = stats(result.frames).p95
+      return [
+        ...(p95 > limits.p95 ? [`p95 frame ${p95.toFixed(1)} ms over ${limits.p95.toFixed(1)} ms`] : []),
+        ...(result.longTasks > limits.longTasks ? [`${result.longTasks} long tasks over ${limits.longTasks}`] : [])
+      ]
+    }
+    let result = await pass()
+    report('thread long: scroll frame', result.frames)
+    console.log(`[RESULT] thread long: scroll p95=${stats(result.frames).p95.toFixed(1)} ms longtasks=${result.longTasks} frames=${result.frames.length} baseline ${platform} p95=${baseline.p95FrameMs} longtasks=${baseline.longTasks}`)
+    let over = judge(result)
+    if (ENFORCE_BUDGETS && CONFIRM_ON_CI && over.length) {
+      const first = over.join('; ')
+      result = await pass()
+      over = judge(result)
+      console.log(`[CONFIRM] thread long: scroll, pass 1 ${first}, pass 2 p95=${stats(result.frames).p95.toFixed(1)} longtasks=${result.longTasks} → ${over.length ? 'regression' : 'runner noise'}`)
+    }
+    if (ENFORCE_BUDGETS) {
+      expect(Number.isFinite(baseline.p95FrameMs) && Number.isFinite(baseline.longTasks), `the ${platform} baseline of the long scroll was measured on main`).toBe(true)
+      expect(over, 'scrolling the long conversation within its baseline + 10%').toEqual([])
     }
   } finally {
     await killApp(app, pid)
