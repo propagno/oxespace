@@ -1,4 +1,7 @@
 import type { CloseAnswer, CloseReason, CloseRequest } from '../../shared/types/app'
+import type { Workspace } from '../../shared/types/workspace'
+import { useTerminalStore } from '../store/terminal.store'
+import { useWorkspaceStore } from '../store/workspace.store'
 import { unsavedWork } from './unsavedWork'
 
 /**
@@ -31,14 +34,49 @@ async function conversationTurns(late: Promise<null>): Promise<RunningTurn[]> {
   }
 }
 
-/** Terminal agents and background jobs (OXE-368). The module is loaded here, on a close, and within the deadline. */
-async function terminalWork(late: Promise<null>): Promise<RunningTurn[]> {
+/** Background jobs still running, asked of main for each workspace. A workspace whose list fails counts as none. */
+async function runningJobs(workspaces: Workspace[]): Promise<RunningTurn[]> {
+  const list = window.oxe?.background?.list
+  if (!list || !workspaces.length) return []
+  const perWorkspace = await Promise.all(workspaces.map(async (workspace): Promise<RunningTurn[]> => {
+    try {
+      const jobs = await list(workspace.id)
+      if (!Array.isArray(jobs)) return []
+      return jobs.filter(job => job.status === 'running')
+        .map(job => ({ id: `job:${job.id}`, title: job.label?.trim() || job.command, kind: 'job' as const, workspace: workspace.name }))
+    } catch {
+      // The question is a courtesy: a list that fails does not hold the close.
+      return []
+    }
+  }))
+  return perWorkspace.flat()
+}
+
+/** Terminal agents (from the stores, through the lazily loaded pane rules), never waiting past the deadline. */
+async function terminalAgents(late: Promise<null>): Promise<RunningTurn[]> {
   try {
     const module = await Promise.race([import('./runningWork'), late])
-    return module ? await module.runningWork(late) : []
+    return module ? module.runningAgents() : []
   } catch {
     return []
   }
+}
+
+/**
+ * Terminal agents and background jobs (OXE-368). With nothing that could be running, the answer is immediate: no
+ * workspace means no terminal and no job, and the pane rules are loaded only when a terminal pane has a state (a pane
+ * that never started cannot hold a working agent). Main's job lists wait no longer than `late`.
+ */
+async function terminalWork(late: Promise<null>): Promise<RunningTurn[]> {
+  const { workspaces } = useWorkspaceStore.getState()
+  if (!workspaces.length) return []
+  const states = useTerminalStore.getState().panes
+  const anyTerminal = workspaces.some(workspace => workspace.panes.some(pane => pane.type === 'terminal' && Boolean(states[pane.id])))
+  const [agents, jobs] = await Promise.all([
+    anyTerminal ? terminalAgents(late) : Promise.resolve([]),
+    Promise.race([runningJobs(workspaces), late])
+  ])
+  return [...agents, ...(jobs ?? [])]
 }
 
 /**
