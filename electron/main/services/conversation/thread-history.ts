@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { AppDatabase } from '../../db'
+import type { Statement } from 'better-sqlite3'
 import type { ThreadDebugPage, ThreadDebugRow, ConversationThread, ThreadArtifact, ThreadDelivery, ThreadDelta, ThreadSyncCursor, ThreadRequest, ThreadEvent, ThreadTurn, ThreadSnapshot, ThreadHistoryPage, ThreadOperation, ThreadOperationKind, ThreadOperationState, ThreadPendingRequestSummary } from '../../../../shared/types/thread'
 import { parseThreadPatch } from '../../../../shared/threadPatch'
 import { compileDebugFilter, summarizeThreadEvent } from '../../../../shared/threadDebug'
@@ -40,9 +41,9 @@ export class ThreadHistory {
   constructor(private readonly db: AppDatabase) {}
 
   /** OXE-351 (b): each SQL text is compiled once for this database and reused; a better-sqlite3 statement can run again. */
-  private readonly statements = new Map<string, ReturnType<AppDatabase['prepare']>>()
+  private readonly statements = new Map<string, Statement<unknown[]>>()
 
-  private prepare(sql: string): ReturnType<AppDatabase['prepare']> {
+  private prepare(sql: string): Statement<unknown[]> {
     let statement = this.statements.get(sql)
     if (!statement) {
       statement = this.db.prepare(sql)
