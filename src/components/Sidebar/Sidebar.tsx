@@ -38,7 +38,7 @@ interface SidebarProps {
   /** Opens the Tools hub modal (workspace panels, MCP, skills, …). */
   /** The Panels menu of the active workspace, shared with its bar. */
   panelMenu?: MenuEntry[]
-  /** Background jobs dock (honest label — not Orca "Tasks" until kanban returns). */
+  /** Background jobs dock (honest label — not "Tasks" until kanban returns). */
   onOpenJobs?: () => void
   /** Scripts discovery panel. */
   onOpenScripts?: () => void

@@ -969,6 +969,9 @@
     "remove": "Remover workspace",
     "removeTitle": "Remover o workspace?",
     "removeBody": "<strong>{{name}}</strong> sai da barra lateral. A pasta no disco não é tocada; você pode adicioná-la de novo com Novo workspace.",
+    "removeRunning_one": "{{count}} agente ou terminal está rodando neste workspace e será encerrado.",
+    "removeRunning_many": "{{count}} agentes ou terminais estão rodando neste workspace e serão encerrados.",
+    "removeRunning_other": "{{count}} agentes ou terminais estão rodando neste workspace e serão encerrados.",
     "activity": {
       "agents_one": "{{count}} agente",
       "agents_many": "{{count}} agentes",

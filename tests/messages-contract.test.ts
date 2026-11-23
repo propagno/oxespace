@@ -83,6 +83,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'agents.session.notFound': [],
   'incident.window.crashed': [],
   'incident.window.rendererGone': [],
+  'incident.window.rendererError': [],
   'incident.ipc.handlerFailed': [],
   'incident.ipc.validationRejected': [],
   'incident.ipc.senderRefused': [],

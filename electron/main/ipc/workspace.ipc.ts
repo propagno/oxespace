@@ -82,9 +82,10 @@ export function registerWorkspaceIpc(
     const workspaceId = parseId(id)
     return workspaceService.setActive(workspaceId)
   })
-  ipcMain.handle(IPC_CHANNELS.workspace.delete, (_event, id: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.workspace.delete, async (_event, id: unknown) => {
     const workspaceId = parseId(id)
-    lifecycle?.stopWorkspace(workspaceId)
+    // A4 (OXE-367): the row goes only after every process of it has ended; one that cannot be ended keeps it (the call rejects).
+    await lifecycle?.stopWorkspace(workspaceId)
     // B7.4: a policy change still asked about for this project ends with it (closing a pane never cancels one).
     const root = workspaceService.get(workspaceId)?.rootPath
     workspaceService.delete(workspaceId)

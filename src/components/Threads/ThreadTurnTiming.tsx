@@ -12,6 +12,7 @@ export function ThreadTurnTiming({ turn, events }: { turn?: ThreadTurn; events: 
   const worked = times ? Math.round(times.workedMs / 1000) : undefined, waited = times ? Math.round(times.waitedMs / 1000) : 0
   const summary = threadTurnPresentation(events)
   const status = [...events].reverse().find((event): event is Extract<ThreadEvent, { type: 'completed' }> => event.type === 'completed')?.status ?? turn?.status ?? 'interrupted'
+  if (status === 'failed' && events.some(event => event.type === 'completed' && event.status === 'failed')) return null
   const warning = status === 'completed' && (summary.failedActions > 0 || summary.unconfirmedActions > 0)
   const background = events.filter(event => event.type === 'subagent' && event.state === 'running').length
   const outcome = status === 'completed'

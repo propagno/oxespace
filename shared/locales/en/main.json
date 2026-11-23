@@ -563,6 +563,7 @@
       "window": {
         "crashed": "The window crashed.",
         "rendererGone": "The interface stopped responding and was restarted.",
+        "rendererError": "A part of the interface failed and was contained; the rest of the app kept working.",
         "externalRefused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
         "externalRateLimited": "Many links were refused within a minute; the rest were not recorded.",
         "externalOpenFailed": "The system could not open a link the app allowed; no app is registered for it.",

@@ -1,4 +1,4 @@
-// F2 · recursive split-tree layout (Orca "Split Anything" model).
+// F2 · recursive split-tree layout (any pane splits, either way).
 // Replaces the fixed row×column grid with an arbitrary binary split tree whose
 // leaves reference pane records by id. `direction` is the layout axis:
 // 'horizontal' = side-by-side, 'vertical' = stacked.

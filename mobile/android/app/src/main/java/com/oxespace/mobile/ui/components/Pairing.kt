@@ -50,7 +50,9 @@ import com.oxespace.mobile.ui.theme.OxeType
 @Composable
 fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modifier, failed: Boolean = false) {
     val colors = Oxe.colors
-    val spoken = labels.getOrNull(current)?.let { "${current + 1}/${labels.size}: $it" }.orEmpty()
+    // OXE-363 (A6): once paired (current = labels.size, every step done) the row still speaks its last step.
+    val step = if (current >= labels.size) labels.lastIndex else current
+    val spoken = labels.getOrNull(step)?.let { "${step + 1}/${labels.size}: $it" }.orEmpty()
     Row(
         modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken },
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
