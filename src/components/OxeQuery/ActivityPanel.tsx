@@ -34,13 +34,24 @@ export function ActivityPanel({ active, scope = 'database', hideHeading = false 
   const [next, setNext] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
 
-  const load = useCallback(async (): Promise<void> => {
-    try {
-      const page = await oq('audit.list', { limit: PAGE })
-      setEntries(page.entries); setNext(page.hasMore ? page.cursor : null); setError('')
-    } catch (cause) { setError(errorMessage(cause)) }
+  // Only the newest read of the first page lands: one answered after a newer read started, or after the panel went
+  // inactive, is dropped instead of overwriting what the person sees.
+  const latestRead = useRef(0)
+  const readFirstPage = useCallback((stillWanted: () => boolean): void => {
+    const read = ++latestRead.current
+    const current = (): boolean => read === latestRead.current && stillWanted()
+    oq('audit.list', { limit: PAGE }).then(
+      page => { if (current()) { setEntries(page.entries); setNext(page.hasMore ? page.cursor : null); setError('') } },
+      cause => { if (current()) setError(errorMessage(cause)) }
+    )
   }, [])
-  useEffect(() => { if (active) void load() }, [active, load])
+  const load = (): void => readFirstPage(() => true)
+  useEffect(() => {
+    if (!active) return
+    let cancelled = false
+    readFirstPage(() => !cancelled)
+    return () => { cancelled = true }
+  }, [active, readFirstPage])
 
   const loadMore = async (): Promise<void> => {
     if (!next) return
@@ -77,9 +88,9 @@ export function ActivityPanel({ active, scope = 'database', hideHeading = false 
       <span className="oq-spacer" />
       <SegmentedControl label={t('activity.filter')} value={filter} onChange={setFilter}
         options={FILTERS.map(value => ({ value, label: t(`activity.show.${value}`) }))} />
-      <Button icon={<RefreshCw size={13} aria-hidden="true" />} onClick={() => void load()}>{t('common.refresh')}</Button>
+      <Button icon={<RefreshCw size={13} aria-hidden="true" />} onClick={load}>{t('common.refresh')}</Button>
     </header>
-    {error && <ErrorState compact title={error} onRetry={() => void load()} />}
+    {error && <ErrorState compact title={error} onRetry={load} />}
     {shown.length === 0 && !error ? <EmptyState icon={<ShieldCheck size={20} />} title={t('activity.emptyTitle')}>{t(scope === 'containers' ? 'activity.emptyContainers' : 'activity.emptyText')}</EmptyState>
       : <table className="oq-activity-table">
         <thead><tr><th>{t('activity.column.when')}</th><th>{t('activity.column.agent')}</th>{scope === 'database' && <th>{t('activity.column.connection')}</th>}<th>{t('activity.column.request')}</th><th>{t('activity.column.decision')}</th><th>{t('activity.column.result')}</th></tr></thead>
