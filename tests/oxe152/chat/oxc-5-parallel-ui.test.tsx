@@ -128,13 +128,17 @@ describe('OXE-170 OXC-5 parallel chats in the sidebar and their screen (A15)', (
     await changeLanguage(locale)
     await renderSidebar()
     const label = tt('sidebar.newParallel')
-    const plus = within(rowOf('Fix the login bug')).queryAllByRole('button').filter(button => said(button).includes(label))
+    // WCAG 2.2 nested-interactive (docs/validation/wcag-2.2.md, the axe gates): a row's actions are siblings of its
+    // role=button, so the row's buttons are looked up in the container that holds both, as oxc5-parallel-entry does
+    // (8e, 23/11, user away; logged on OXE-170). The assertions are unchanged.
+    const rowScope = (title: string): HTMLElement => (rowOf(title).closest('.thread-navigation-row') as HTMLElement | null) ?? rowOf(title)
+    const plus = within(rowScope('Fix the login bug')).queryAllByRole('button').filter(button => said(button).includes(label))
     expect(plus.length, 'a + on the parent row').toBeGreaterThan(0)
     expect(plus[0]).toHaveAttribute('data-ui', 'icon-button')
     expect(said(plus[0]), 'no shortcut is shown').not.toMatch(/Ctrl|⌘|Alt\+/)
     fireEvent.click(plus[0])
     expect(onCreateParallel).toHaveBeenCalledWith('a')
-    for (const child of ['Try the cookie route', 'Write the migration']) expect(within(rowOf(child)).queryAllByRole('button').filter(button => said(button).includes(label)), `${child} offers none`).toEqual([])
+    for (const child of ['Try the cookie route', 'Write the migration']) expect(within(rowScope(child)).queryAllByRole('button').filter(button => said(button).includes(label)), `${child} offers none`).toEqual([])
     onCreateParallel.mockReset()
     fireEvent.contextMenu(rowOf('Fix the login bug'))
     fireEvent.click(await screen.findByRole('menuitem', { name: new RegExp(`^${label}`) }))
