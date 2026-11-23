@@ -530,7 +530,11 @@ jobs:
       fail-fast: false
       matrix:
         label: [windows-x64, linux-x64]
-        shard: [1, 2, 3]
+        # CI LEVE NO PR (the user, 23/11): a pull request runs only shard 2, and in it only the build and the brand
+        # conformance (marca/conformidade on the PR head). The full suite, the native and upgrade steps and the
+        # performance gate run on main, tags and every workflow_dispatch, which is how the merge train tests each
+        # batch and each car before it reaches main (merge-train.yml).
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[2]' || '[1, 2, 3]') }}
         include:
           - label: windows-x64
             os: windows-2022
@@ -662,7 +666,7 @@ jobs:
       # A packaged_smoke_only dispatch proves the packaged binary; the renderer perf budgets are proven by every PR and
       # main run and must not stand between a dispatch and packaging. Only the plan's output is read, in if: and env.
       - name: E2E smoke (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && github.event_name != 'pull_request'
         shell: pwsh
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
@@ -679,7 +683,7 @@ jobs:
       # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
       # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && github.event_name != 'pull_request'
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
           E2E_SHARD: ${{ matrix.shard }}/3
@@ -722,7 +726,7 @@ jobs:
           path: test-results/**/trace.zip
 
       - name: Upload E2E blob report
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-blob-${{ matrix.label }}-${{ matrix.shard }}
@@ -792,7 +796,8 @@ jobs:
   perf-plan:
     name: Performance gate recheck plan
     needs: [quick, e2e]
-    if: ${{ !cancelled() && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
+    # A pull request's e2e runs no performance gate (CI LEVE NO PR), so there is nothing to plan.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -1535,7 +1540,8 @@ jobs:
           // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
           // it planned must have passed on its fresh runner.
           const publishing = needs.quick.outputs?.should_release === 'true' || needs.quick.outputs?.packaged_smoke === 'true'
-          if (needs.e2e.result === 'success' && !publishing) {
+          // A pull request runs no performance gate (CI LEVE NO PR): its e2e is the build and the brand run only.
+          if (needs.e2e.result === 'success' && !publishing && !pr) {
             if (needs['perf-plan'].result !== 'success') problems.push(`perf-plan should have passed and is ${needs['perf-plan'].result}`)
             else if ((needs['perf-plan'].outputs?.recheck ?? '[]') !== '[]' && needs['perf-recheck'].result !== 'success') problems.push(`perf-recheck should have passed and is ${needs['perf-recheck'].result}`)
           }
