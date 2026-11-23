@@ -20,6 +20,41 @@ function origin(ctx: ToolContext): string {
   return execution.owner.id
 }
 
+type Db = NonNullable<ToolContext['db']>
+
+/** The model a Thread last reported (its latest configuration event), or null when it never said. */
+function threadModel(snapshot: ThreadSnapshot): string | null {
+  for (let i = snapshot.events.length - 1; i >= 0; i--) {
+    const event = snapshot.events[i]
+    if (event.type === 'configuration' && typeof event.model === 'string' && event.model) return event.model
+  }
+  return null
+}
+
+/** OXE-298 (CA-4): one append-only trail row per handoff step: who authored it, with which provider and model, when. */
+function recordTrail(db: Db, destinationThreadId: string, step: 'create' | 'send', author: ThreadSnapshot, state: string | null): void {
+  db.prepare('INSERT INTO mcp_thread_handoff_trail (destination_thread_id, step, author_thread_id, author_native_session_id, provider, model, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(destinationThreadId, step, author.thread.id, author.thread.nativeSessionId ?? null, author.thread.provider, threadModel(author), state, Date.now())
+}
+
+interface TrailRow { step: string; author_thread_id: string; author_native_session_id: string | null; provider: string; model: string | null; state: string | null; created_at: number; destination_thread_id: string }
+
+/** The trail of one destination, oldest first, with each timestamp in UTC (ISO-8601). */
+export function handoffTrail(db: Db, destinationThreadId: string) {
+  const rows = db.prepare('SELECT step, author_thread_id, author_native_session_id, provider, model, state, created_at, destination_thread_id FROM mcp_thread_handoff_trail WHERE destination_thread_id = ? ORDER BY id')
+    .all(destinationThreadId) as TrailRow[]
+  return rows.map(row => ({
+    step: row.step,
+    authorSessionId: row.author_thread_id,
+    authorNativeSessionId: row.author_native_session_id,
+    provider: row.provider,
+    model: row.model,
+    ...(row.state ? { state: row.state } : {}),
+    destinationThreadId: row.destination_thread_id,
+    timestampUtc: new Date(row.created_at).toISOString()
+  }))
+}
+
 function result(value: unknown, isError = false) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(value) }], ...(isError ? { isError: true } : {}) }
 }
@@ -74,7 +109,8 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const originId = origin(ctx), requestKey = key(input(args).key)
       if (!ctx.db || !ctx.threads) throw new Error('Thread service is unavailable')
       const manager = await ctx.threads
-      const source = manager.read(originId).thread
+      const author = manager.read(originId)
+      const source = author.thread
       const project = new ThreadProjectService(ctx.db).context(source.projectId, source.rootPath)
       const existing = ctx.db.prepare('SELECT destination_thread_id FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND request_key = ?')
         .get(originId, requestKey) as { destination_thread_id: string } | undefined
@@ -85,6 +121,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
         const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: project.rootPath, provider: source.provider })
         ctx.db!.prepare('INSERT INTO mcp_thread_handoffs (origin_thread_id, request_key, destination_thread_id, created_at) VALUES (?, ?, ?, ?)')
           .run(originId, requestKey, snapshot.thread.id, Date.now())
+        recordTrail(ctx.db!, snapshot.thread.id, 'create', author, null)
         return snapshot.thread.id
       })()
       return result({ threadId: created, created: true, projectId: project.projectId, next: 'Use oxespace_thread_send with this threadId and a new idempotency key.' })
@@ -114,14 +151,18 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       if (count.value >= 20) throw new Error('This destination Thread has reached the limit of 20 MCP messages')
       ctx.db.prepare('INSERT INTO mcp_thread_handoff_sends (destination_thread_id, request_key, text_sha256, state, updated_at) VALUES (?, ?, ?, ?, ?)')
         .run(threadId, requestKey, hash, 'started', Date.now())
+      const manager = await ctx.threads
+      const author = manager.read(originId)
       try {
-        await (await ctx.threads).send(threadId, message)
+        await manager.send(threadId, message)
         ctx.db.prepare("UPDATE mcp_thread_handoff_sends SET state = 'submitted', updated_at = ? WHERE destination_thread_id = ? AND request_key = ?")
           .run(Date.now(), threadId, requestKey)
+        recordTrail(ctx.db, threadId, 'send', author, 'submitted')
         return result({ threadId, state: 'submitted', delivery: 'accepted-by-thread', note: 'The agent turn may still be running.' })
       } catch (error) {
         ctx.db.prepare("UPDATE mcp_thread_handoff_sends SET state = 'unknown', updated_at = ? WHERE destination_thread_id = ? AND request_key = ?")
           .run(Date.now(), threadId, requestKey)
+        recordTrail(ctx.db, threadId, 'send', author, 'unknown')
         return result({ threadId, state: 'unknown', delivery: 'unknown', error: error instanceof Error ? error.message : 'Thread submission failed', next: 'Inspect the destination Thread before deciding whether to send a new message.' }, true)
       }
     }
@@ -146,7 +187,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       if (!owned) throw new Error('Destination Thread was not created by this origin execution')
       const limit = typeof values.limit === 'number' && Number.isInteger(values.limit) ? Math.min(50, Math.max(1, values.limit)) : 20
       const cursor = typeof values.cursor === 'number' && Number.isInteger(values.cursor) && values.cursor >= 0 ? values.cursor : undefined
-      return result({ threadId, ...threadReadout((await ctx.threads).read(threadId), cursor, limit) })
+      return result({ threadId, ...threadReadout((await ctx.threads).read(threadId), cursor, limit), trail: handoffTrail(ctx.db, threadId) })
     }
   }
 ]
