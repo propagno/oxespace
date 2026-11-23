@@ -1,6 +1,6 @@
-import { Activity, ChevronDown, ChevronRight, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
+import { Activity, ChevronDown, ChevronRight, Pencil, Plus, PlugZap, RotateCw, Search, ShieldAlert, ShieldCheck, Square, Trash2, Wrench, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, IconButton, StatusSignal, TextField, Select, TextArea, toast } from '../../ui'
+import { ToolPanel, Button, ConfirmDialog, EmptyState, ErrorState, IconButton, StatusSignal, Switch, TextField, Select, TextArea, toast } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 
@@ -48,6 +48,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   const [view, setView] = useState<'conversation' | 'catalog' | 'installed'>(conversationServers?.length ? 'conversation' : 'catalog')
   const [catalogBusyId, setCatalogBusyId] = useState<string | null>(null)
   const [formInitial, setFormInitial] = useState<FormInitial | null>(null)
+  const [editingServer, setEditingServer] = useState<McpServer | null>(null)
   const createServer = useMcpStore((s) => s.create)
   const [query, setQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -107,6 +108,7 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   // the form pre-filled so the user can paste the token before saving.
   const handleCatalogAdd = async (entry: McpCatalogEntry): Promise<void> => {
     if (entry.requiredEnv?.length || entry.configure) {
+      setEditingServer(null)
       setFormInitial(entry.transport === 'stdio'
         ? { name: entry.id, command: entry.command, argsText: entry.args.join(' '), envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true }
         : { name: entry.id, command: '', argsText: '', envText: envTemplate(entry), note: entry.configure, requiredEnv: entry.requiredEnv, fromCatalog: true, remote: entry })
@@ -151,6 +153,17 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
   const handleStop = async (id: string): Promise<void> => {
     setBusy(id)
     try { await stopServer(id) } finally { setBusy(null) }
+  }
+
+  const handleToggleEnabled = async (server: McpServer): Promise<void> => {
+    setBusy(server.id)
+    try { await updateServer({ id: server.id, enabled: !server.enabled }) } catch { /* error captured in store */ } finally { setBusy(null) }
+  }
+
+  const handleEdit = (server: McpServer): void => {
+    setEditingServer(server)
+    setFormInitial(null)
+    setCreating(true)
   }
 
   const handleRemove = async (server: McpServer): Promise<void> => {
@@ -209,10 +222,12 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
 
       {creating ? (
         <McpCreateForm
+          key={editingServer?.id ?? formInitial?.name ?? 'new'}
           workspaceId={workspaceId}
           initial={formInitial ?? undefined}
-          onCancel={() => { setCreating(false); setFormInitial(null) }}
-          onCreated={() => { setCreating(false); setFormInitial(null); setView('installed') }}
+          editing={editingServer ?? undefined}
+          onCancel={() => { setCreating(false); setFormInitial(null); setEditingServer(null) }}
+          onCreated={() => { setCreating(false); setFormInitial(null); setEditingServer(null); setView('installed') }}
         />
       ) : importing ? (
         <McpImportPanel workspaceId={workspaceId} onClose={() => setImporting(false)} onChanged={() => void load(workspaceId)} onImported={() => { setImporting(false); void load(workspaceId); setView('installed') }} />
@@ -277,6 +292,8 @@ export function McpPanel({ workspaceId, conversationServers, onClose }: McpPanel
               onTest={() => void handleTest(server)}
               onTrustAgain={() => setTrustAgain(server)}
               onStop={() => void handleStop(server.id)}
+              onToggleEnabled={() => void handleToggleEnabled(server)}
+              onEdit={() => handleEdit(server)}
               onRemove={() => void handleRemove(server)}
               onCancelRemove={() => setRemovePromptId(null)}
             />
@@ -396,6 +413,8 @@ interface McpServerRowProps {
   onTrustAndTest: () => void
   onCancelTrust: () => void
   onStop: () => void
+  onToggleEnabled: () => void
+  onEdit: () => void
   onRemove: () => void
   onCancelRemove: () => void
 }
@@ -403,12 +422,12 @@ interface McpServerRowProps {
 /** What OXESpace's own test found; the agent's connection is reported separately. */
 const testLabel = (health: McpHealthStatus): string => tc(`mcp.test.${health}`)
 
-function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAgain, onTrustAndTest, onCancelTrust, onStop, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
+function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removePrompt, onToggle, onTest, onTrustAgain, onTrustAndTest, onCancelTrust, onStop, onToggleEnabled, onEdit, onRemove, onCancelRemove }: McpServerRowProps): ReactElement {
   const testing = server.health === 'starting'
   const remote = server.config.transport !== 'stdio'
   const quarantined = isQuarantined(server)
   return (
-    <div className={`mcp-server-row health-${server.health}${expanded ? ' expanded' : ''}`}>
+    <div className={`mcp-server-row health-${server.health}${expanded ? ' expanded' : ''}${!server.enabled ? ' is-disabled' : ''}`}>
       <button type="button" className="mcp-server-main" onClick={onToggle} aria-expanded={expanded}>
         <HealthIndicator status={server.health} />
         <div className="mcp-server-body">
@@ -430,6 +449,12 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
       </button>
 
       <div className="mcp-server-actions">
+        <Switch
+          checked={server.enabled}
+          disabled={busy}
+          ariaLabel={server.enabled ? tc('mcp.disableLabel', { name: server.name }) : tc('mcp.enableLabel', { name: server.name })}
+          onChange={() => onToggleEnabled()}
+        />
         {testing ? (
           <Button variant="ghost" size="sm" onClick={onStop} title={tc('mcp.stopTest')}>
             <Square size={12} aria-hidden="true" /> {tc('background.stop')}
@@ -444,6 +469,9 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             <PlugZap size={12} aria-hidden="true" /> {tc('mcp.testButton')}
           </Button>
         )}
+        <Button variant="ghost" size="sm" square aria-label={tc('mcp.editLabel', { name: server.name })} title={tc('mcp.edit')} disabled={busy} onClick={onEdit}>
+          <Pencil size={12} aria-hidden="true" />
+        </Button>
         <Button variant="ghost" size="sm" square aria-label={tc('mcp.removeLabel', { name: server.name })} title={tc('mcp.remove')} disabled={busy} onClick={onRemove}>
           <Trash2 size={12} aria-hidden="true" />
         </Button>
@@ -535,12 +563,14 @@ interface McpCreateFormProps {
   onCreated: () => void
   /** Values pre-filled by the connector catalog. */
   initial?: FormInitial
+  /** Existing server being edited. */
+  editing?: McpServer
 }
 
 // Onda 6: presets for the most common MCP servers so users don't have to
 // remember `npx -y @playwright/mcp@latest`. Selecting a template just fills the
 // fields — the user can edit before saving. "Custom" leaves everything blank.
-const MCP_TEMPLATES: Array<{
+export const MCP_TEMPLATES: Array<{
   id: string
   /** Product name (the same in every language); Custom is translated. */
   name: string
@@ -561,12 +591,6 @@ const MCP_TEMPLATES: Array<{
     fill: { name: 'playwright', command: 'npx', argsText: '-y @playwright/mcp@latest' }
   },
   {
-    id: 'github',
-    name: 'GitHub',
-    category: 'Coding',
-    fill: { name: 'github', command: 'npx', argsText: '-y @modelcontextprotocol/server-github', envText: 'GITHUB_PERSONAL_ACCESS_TOKEN=' }
-  },
-  {
     id: 'git',
     name: 'Git',
     category: 'Coding',
@@ -582,7 +606,7 @@ const MCP_TEMPLATES: Array<{
     id: 'fetch',
     name: 'Fetch',
     category: 'Docs',
-    fill: { name: 'fetch', command: 'npx', argsText: '-y @modelcontextprotocol/server-fetch' }
+    fill: { name: 'fetch', command: 'uvx', argsText: 'mcp-server-fetch' }
   },
   {
     id: 'sequential-thinking',
@@ -600,7 +624,7 @@ const MCP_TEMPLATES: Array<{
     id: 'postgres',
     name: 'Postgres',
     category: 'Data',
-    fill: { name: 'postgres', command: 'npx', argsText: '-y @modelcontextprotocol/server-postgres postgresql://user:password@localhost:5432/database' }
+    fill: { name: 'postgres', command: 'npx', argsText: '-y @microsoft/postgres-mcp@latest run', envText: 'POSTGRES_MCP_CONNECTION_STRING=' }
   }
 ]
 
@@ -608,16 +632,20 @@ const MCP_TEMPLATE_CATEGORIES: Array<(typeof MCP_TEMPLATES)[number]['category']>
 
 const JSON_PLACEHOLDER = `{
   "mcpServers": {
-    "github": {
+    "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..." }
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
     }
   }
 }`
 
-function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateFormProps): ReactElement {
+function McpCreateForm({ workspaceId, initial, editing, onCancel, onCreated }: McpCreateFormProps): ReactElement {
   const create = useMcpStore((s) => s.create)
+  const update = useMcpStore((s) => s.update)
+  const isEditing = Boolean(editing)
+  const isEditingRemote = Boolean(editing && editing.config.transport !== 'stdio')
+  const remote = initial?.remote
+  const hideModeAndTemplate = Boolean(remote) || isEditing
   // Two entry modes: the guided "Form" with templates + per-field inputs, and
   // a free-form "JSON" tab that accepts the canonical mcpServers shape (the
   // same one Claude Code / Copilot CLI write to .mcp.json). The JSON tab makes
@@ -625,11 +653,16 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
   // zero translation by the user.
   const [mode, setMode] = useState<'form' | 'json'>('form')
   const [templateId, setTemplateId] = useState('custom')
-  const [name, setName] = useState(initial?.name ?? '')
-  const [command, setCommand] = useState(initial?.command ?? '')
-  const [argsText, setArgsText] = useState(initial?.argsText ?? '')
-  const [envText, setEnvText] = useState(initial?.envText ?? '')
-  const [scope, setScope] = useState<'global' | 'workspace'>(workspaceId ? 'workspace' : 'global')
+  const [name, setName] = useState(editing?.name ?? initial?.name ?? '')
+  const [command, setCommand] = useState(editing?.config.transport === 'stdio' ? editing.config.command : (initial?.command ?? ''))
+  const [argsText, setArgsText] = useState(editing?.config.transport === 'stdio' ? editing.config.args.join(' ') : (initial?.argsText ?? ''))
+  const [url, setUrl] = useState(editing && editing.config.transport !== 'stdio' ? editing.config.url : '')
+  const [envText, setEnvText] = useState(
+    editing
+      ? Object.entries(editing.config.transport === 'stdio' ? (editing.config.env ?? {}) : (editing.config.headers ?? {})).map(([k, v]) => `${k}=${v}`).join('\n')
+      : (initial?.envText ?? '')
+  )
+  const [scope, setScope] = useState<'global' | 'workspace'>(editing ? (editing.workspaceId ? 'workspace' : 'global') : (workspaceId ? 'workspace' : 'global'))
   const [jsonText, setJsonText] = useState('')
   const [jsonName, setJsonName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -661,19 +694,28 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
     return out
   }, [envText])
 
-  const remote = initial?.remote
   const handleSubmit = async (): Promise<void> => {
     setError(null)
-    if (!name.trim() || (!remote && !command.trim())) {
+    if (!name.trim() || (isEditingRemote ? !url.trim() : (!remote && !command.trim()))) {
       setError(tc('mcp.form.required'))
       return
     }
-    const placeholder = firstArgPlaceholder(argsText)
-    if (placeholder) { setError(tc('mcp.form.placeholder', { value: placeholder })); return }
+    if (!isEditingRemote) {
+      const placeholder = firstArgPlaceholder(argsText)
+      if (placeholder) { setError(tc('mcp.form.placeholder', { value: placeholder })); return }
+    }
     const missing = (initial?.requiredEnv ?? []).filter(key => !parsedEnv[key])
     if (missing.length) { setError(tc('mcp.form.missing', { names: missing.join(', ') })); return }
     setBusy(true)
     try {
+      if (editing) {
+        const config = isEditingRemote
+          ? { transport: editing.config.transport as 'http' | 'sse', url: url.trim(), headers: parsedEnv }
+          : { transport: 'stdio' as const, command: command.trim(), args: parsedArgs, env: parsedEnv }
+        await update({ id: editing.id, name: name.trim(), transport: config.transport, config })
+        onCreated()
+        return
+      }
       // A remote catalog server takes the values into its headers; the agent connects to the URL itself.
       const config = remote ? catalogConfig(remote, parsedEnv) : { transport: 'stdio' as const, command: command.trim(), args: parsedArgs, env: parsedEnv }
       const input: CreateMcpServerInput = {
@@ -741,55 +783,57 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       }}
     >
       {initial?.note && <p className="mcp-create-note" role="note">{initial.note}</p>}
-      {/* Mode toggle — Form vs JSON. JSON accepts the same shape that ships
-          in Claude Code's .mcp.json (and what most MCP server READMEs print)
-          so users can paste an example verbatim. */}
-      <div className="mcp-create-mode-toggle" role="tablist" aria-label={tc('mcp.form.mode')}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'form'}
-          className={`mcp-create-mode-tab${mode === 'form' ? ' active' : ''}`}
-          onClick={() => { setMode('form'); setError(null) }}
-          disabled={busy}
-        >
-          {tc('mcp.form.formTab')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'json'}
-          className={`mcp-create-mode-tab${mode === 'json' ? ' active' : ''}`}
-          onClick={() => { setMode('json'); setError(null) }}
-          disabled={busy}
-          data-testid="mcp-create-mode-json"
-        >
-          JSON
-        </button>
-      </div>
+      {/* Mode toggle — Form vs JSON. Hidden when configuring a remote catalog connector or editing an existing server. */}
+      {!hideModeAndTemplate && (
+        <div className="mcp-create-mode-toggle" role="tablist" aria-label={tc('mcp.form.mode')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'form'}
+            className={`mcp-create-mode-tab${mode === 'form' ? ' active' : ''}`}
+            onClick={() => { setMode('form'); setError(null) }}
+            disabled={busy}
+          >
+            {tc('mcp.form.formTab')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'json'}
+            className={`mcp-create-mode-tab${mode === 'json' ? ' active' : ''}`}
+            onClick={() => { setMode('json'); setError(null) }}
+            disabled={busy}
+            data-testid="mcp-create-mode-json"
+          >
+            JSON
+          </button>
+        </div>
+      )}
 
       {mode === 'form' ? (
         <>
-          <div className="mcp-create-template-field">
-            <label htmlFor="mcp-template-select">{tc('mcp.form.template')}</label>
-            <Select
-              id="mcp-template-select"
-              value={templateId}
-              onChange={(event) => applyTemplate(event.currentTarget.value)}
-              disabled={busy}
-            >
-              {MCP_TEMPLATE_CATEGORIES.map((category) => (
-                <optgroup key={category} label={tc(`mcp.form.category.${category}`)}>
-                  {MCP_TEMPLATES.filter((t) => t.category === category).map((t) => (
-                    <option key={t.id} value={t.id}>{t.id === 'custom' ? tc('mcp.form.custom') : t.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
-            <span className="mcp-create-template-hint">
-              <strong>{tc(`mcp.form.category.${selectedTemplate.category}`)}</strong> · {tc(`mcp.form.templates.${selectedTemplate.id as 'custom'}`)}
-            </span>
-          </div>
+          {!hideModeAndTemplate && (
+            <div className="mcp-create-template-field">
+              <label htmlFor="mcp-template-select">{tc('mcp.form.template')}</label>
+              <Select
+                id="mcp-template-select"
+                value={templateId}
+                onChange={(event) => applyTemplate(event.currentTarget.value)}
+                disabled={busy}
+              >
+                {MCP_TEMPLATE_CATEGORIES.map((category) => (
+                  <optgroup key={category} label={tc(`mcp.form.category.${category}`)}>
+                    {MCP_TEMPLATES.filter((t) => t.category === category).map((t) => (
+                      <option key={t.id} value={t.id}>{t.id === 'custom' ? tc('mcp.form.custom') : t.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </Select>
+              <span className="mcp-create-template-hint">
+                <strong>{tc(`mcp.form.category.${selectedTemplate.category}`)}</strong> · {tc(`mcp.form.templates.${selectedTemplate.id as 'custom'}`)}
+              </span>
+            </div>
+          )}
           <div className="mcp-create-row">
             <label>
               {tc('mcp.form.name')}
@@ -797,7 +841,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
             </label>
             <label>
               {tc('mcp.form.scope')}
-              <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId}>
+              <Select value={scope} onChange={(event) => setScope(event.currentTarget.value as typeof scope)} disabled={busy || !workspaceId || isEditing}>
                 <option value="global">{tc('mcp.form.global')}</option>
                 {workspaceId ? <option value="workspace">{tc('mcp.form.workspaceOnly')}</option> : null}
               </Select>
@@ -807,6 +851,11 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
             <label>
               URL
               <TextField value={remote.url} readOnly disabled={busy} />
+            </label>
+          ) : isEditingRemote ? (
+            <label>
+              URL
+              <TextField value={url} onChange={(event) => setUrl(event.currentTarget.value)} placeholder="https://..." disabled={busy} />
             </label>
           ) : (
             <>
@@ -821,7 +870,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
             </>
           )}
           <label>
-            {remote ? tc('mcp.form.values') : tc('mcp.form.env')}
+            {remote ? tc('mcp.form.values') : isEditingRemote ? tc('mcp.form.headers') : tc('mcp.form.env')}
             <TextArea value={envText} onChange={(event) => setEnvText(event.currentTarget.value)} placeholder={'GITHUB_TOKEN=ghp_...\nDEBUG=1'} rows={3} disabled={busy} />
           </label>
         </>
@@ -866,7 +915,7 @@ function McpCreateForm({ workspaceId, initial, onCancel, onCreated }: McpCreateF
       <div className="mcp-create-actions">
         <Button variant="ghost" onClick={onCancel} disabled={busy}>{tc('github.cancel')}</Button>
         {mode === 'form' ? (
-          <Button type="submit" variant="primary" disabled={busy || !name.trim() || (!remote && !command.trim())}>{tc('mcp.form.add')}</Button>
+          <Button type="submit" variant="primary" disabled={busy || !name.trim() || (isEditingRemote ? !url.trim() : (!remote && !command.trim()))}>{isEditing ? tc('mcp.form.save') : tc('mcp.form.add')}</Button>
         ) : (
           <Button type="submit" variant="primary" disabled={busy || !jsonText.trim()}>{tc('mcp.form.addJson')}</Button>
         )}
