@@ -1,4 +1,4 @@
-/* Orca-inspired project shell. Kept isolated so the feature's chrome can be
+/* Project shell. Kept isolated so the feature's chrome can be
    evolved independently from the legacy layout stylesheet. */
 
 .sidebar-section-header {

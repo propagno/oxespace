@@ -199,7 +199,7 @@ Referências de linha relativas ao checkout auditado:
 - **S8:** [NewWorkspaceModal.tsx](../../../src/components/Workspace/NewWorkspaceModal.tsx), linhas 154–173; [features.css](../../../src/styles/features.css), linha 6119 — New Workspace.
 - **S9:** [button.tsx](../../../src/components/ui/button.tsx), linhas 8–35; [dialog.tsx](../../../src/components/ui/dialog.tsx), linha 12; [components.css](../../../src/styles/components.css), linhas 366–397 — primitivas e ações globais.
 - **S10:** [tokens.css](../../../src/styles/tokens.css), linhas 86–97, 144–178, 310–326 e 354–360 — geometria, raios, tipografia, tema e densidade.
-- **S11:** [layout.css](../../../src/styles/layout.css), linhas 453–590, 1388–1550, 2040 e 2249–2273; [orca-shell.css](../../../src/styles/orca-shell.css), linha 63 — hierarquia Code e superfícies anteriores.
+- **S11:** [layout.css](../../../src/styles/layout.css), linhas 453–590, 1388–1550, 2040 e 2249–2273; [project-shell.css](../../../src/styles/project-shell.css), linha 63 — hierarquia Code e superfícies anteriores.
 - **S12:** [App.tsx](../../../src/App.tsx), linhas 844 e 876–877; [ui.store.ts](../../../src/store/ui.store.ts); [base.css](../../../src/styles/base.css), linhas 23–29 — tema/contexto e shell.
 - **S13:** [AgentProviderIcon.tsx](../../../src/components/Sidebar/AgentProviderIcon.tsx) — identidade comum de agentes.
 - **S14:** [electron/main/index.ts](../../../electron/main/index.ts), linhas 555–559 — mínimo real da janela.
