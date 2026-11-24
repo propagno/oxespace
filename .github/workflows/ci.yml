@@ -239,8 +239,14 @@ jobs:
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/check-origin.json"
+          # Run against an empty non-git --dir with the checked-out oxe.config.json: oxe-cc 1.22.0's mirrorDirOf()
+          # eagerly creates <git-common-dir>/oxe/quick on a git checkout, causing check-origin to treat the empty
+          # mirror as a local quick store and reject valid OXE-Quick trailers instead of running in CI mode (verified: null).
+          ctx="$RUNNER_TEMP/origin-ctx"
+          mkdir -p "$ctx"
           set +e
-          node oxe-build/bin/oxe-cc.js ship check-origin "$PR_NUMBER" --dir repo --json > "$out"
+          GIT_CEILING_DIRECTORIES="$RUNNER_TEMP" node oxe-build/bin/oxe-cc.js ship check-origin "$PR_NUMBER" \
+            --dir "$ctx" --config "$PWD/repo/oxe.config.json" --json > "$out"
           status=$?
           set -e
           cat "$out"
