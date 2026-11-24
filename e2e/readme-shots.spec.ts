@@ -1,11 +1,14 @@
 import { modeButton } from './helpers/modes'
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { launchApp, resizeWindow, type Appearance } from './helpers/launch'
 import { installThreadFixtures, sendOpeningMessage } from './helpers/thread-fixtures'
+import { openConnections, togglePanel } from './helpers/panels'
+import { connectFromContainer } from './helpers/oxepod'
+import { LOGIN_BEFORE, seedDemoRepo } from './helpers/readme-demo'
 
 /**
  * Captures the README images from a small, believable demo project. Skipped unless
@@ -21,31 +24,6 @@ test.skip(!process.env.OXESPACE_README_SHOTS, 'README captures run on demand')
 function demoParent(): string {
   const preferred = process.platform === 'win32' ? 'C:\\oxe-demo' : '/tmp/oxe-demo'
   try { mkdirSync(preferred, { recursive: true }); return preferred } catch { return join(tmpdir(), 'oxe-demo') }
-}
-
-function seedDemoRepo(repo: string): void {
-  if (existsSync(repo)) rmSync(repo, { recursive: true, force: true })
-  mkdirSync(join(repo, 'src', 'auth'), { recursive: true })
-  mkdirSync(join(repo, 'test'), { recursive: true })
-  const env = { ...process.env, GIT_AUTHOR_NAME: 'Ana Souza', GIT_AUTHOR_EMAIL: 'ana@example.com', GIT_COMMITTER_NAME: 'Ana Souza', GIT_COMMITTER_EMAIL: 'ana@example.com' }
-  let day = 1
-  const git = (...args: string[]): void => { execFileSync('git', args, { cwd: repo, env: { ...env, GIT_AUTHOR_DATE: `2026-10-0${day}T10:00:00Z`, GIT_COMMITTER_DATE: `2026-10-0${day}T10:00:00Z` }, stdio: 'ignore' }) }
-  const commit = (message: string): void => { git('add', '.'); git('commit', '-qm', message); day++ }
-
-  git('init', '-q', '-b', 'main')
-  writeFileSync(join(repo, 'package.json'), JSON.stringify({ name: 'acme-web', version: '2.4.0', type: 'module', scripts: { test: 'node --test' } }, null, 2) + '\n')
-  writeFileSync(join(repo, 'README.md'), '# acme-web\n\nStorefront API and checkout.\n')
-  commit('chore: project skeleton')
-  writeFileSync(join(repo, 'src', 'auth', 'login.js'), LOGIN_BEFORE)
-  commit('feat(auth): email and password sign-in')
-  writeFileSync(join(repo, 'test', 'login.test.js'), LOGIN_TEST)
-  commit('test(auth): sign-in happy path')
-
-  git('checkout', '-qb', 'feat/login-rate-limit')
-  writeFileSync(join(repo, 'src', 'auth', 'rate-limit.js'), RATE_LIMIT)
-  writeFileSync(join(repo, 'src', 'auth', 'login.js'), LOGIN_AFTER)
-  writeFileSync(join(repo, 'test', 'rate-limit.test.js'), RATE_LIMIT_TEST)
-  commit('feat(auth): limit sign-in attempts per account and address')
 }
 
 /** Fails the run if the user's name or profile path reached the window. */
@@ -170,7 +148,7 @@ for (const theme of THEMES) {
 
       // Connections catalog.
       await openConnections(page)
-      await expect(page.getByRole('dialog', { name: 'Connections' })).toBeVisible()
+      await expect(page.getByRole('dialog', { name: 'MCP servers' })).toBeVisible()
       await shoot(page, 'mcp-catalog', theme)
       await page.keyboard.press('Escape')
 
@@ -208,90 +186,3 @@ for (const theme of THEMES) {
     }
   })
 }
-
-const LOGIN_BEFORE = `import { verifyPassword } from './password.js'
-import { createSession } from './session.js'
-
-export async function signIn(store, { email, password, ip }) {
-  const user = await store.users.findByEmail(email)
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    return { status: 401, error: 'Wrong email or password' }
-  }
-  return { status: 200, session: await createSession(store, user) }
-}
-`
-
-const LOGIN_AFTER = `import { verifyPassword } from './password.js'
-import { createSession } from './session.js'
-import { isLimited, record } from './rate-limit.js'
-
-export async function signIn(store, { email, password, ip }) {
-  const keys = [\`account:\${email.toLowerCase()}\`, \`ip:\${ip}\`]
-  const blocked = keys.map(isLimited).find(Boolean)
-  if (blocked) return { status: 429, headers: { 'Retry-After': blocked.retryAfter } }
-  keys.forEach(record)
-  const user = await store.users.findByEmail(email)
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    return { status: 401, error: 'Wrong email or password' }
-  }
-  return { status: 200, session: await createSession(store, user) }
-}
-`
-
-const RATE_LIMIT = `const WINDOW_MS = 15 * 60 * 1000
-const LIMITS = { account: 5, ip: 20 }
-const attempts = new Map()
-
-function recent(key, now) {
-  const list = (attempts.get(key) ?? []).filter(at => now - at < WINDOW_MS)
-  attempts.set(key, list)
-  return list
-}
-
-export function record(key, now = Date.now()) {
-  recent(key, now).push(now)
-}
-
-export function isLimited(key, now = Date.now()) {
-  const list = recent(key, now)
-  const limit = LIMITS[key.split(':')[0]]
-  if (list.length < limit) return null
-  return { retryAfter: Math.ceil((list[0] + WINDOW_MS - now) / 1000) }
-}
-
-export function resetForTests() {
-  attempts.clear()
-}
-`
-
-const LOGIN_TEST = `import { test } from 'node:test'
-import assert from 'node:assert/strict'
-
-test('signs in with the right password', () => {
-  assert.equal(1 + 1, 2)
-})
-`
-
-const RATE_LIMIT_TEST = `import { test, beforeEach } from 'node:test'
-import assert from 'node:assert/strict'
-import { isLimited, record, resetForTests } from '../src/auth/rate-limit.js'
-import { togglePanel, openConnections } from './helpers/panels'
-import { connectFromContainer } from './helpers/oxepod'
-
-beforeEach(resetForTests)
-
-test('blocks the sixth attempt for an account', () => {
-  for (let i = 0; i < 5; i++) record('account:ana@example.com', 0)
-  assert.ok(isLimited('account:ana@example.com', 1000))
-})
-
-test('blocks an address after 20 attempts', () => {
-  for (let i = 0; i < 20; i++) record('ip:203.0.113.7', 0)
-  assert.ok(isLimited('ip:203.0.113.7', 1000))
-})
-
-test('sends Retry-After in seconds', () => {
-  for (let i = 0; i < 5; i++) record('account:ana@example.com', 0)
-  assert.equal(isLimited('account:ana@example.com', 60_000).retryAfter, 840)
-})
-`

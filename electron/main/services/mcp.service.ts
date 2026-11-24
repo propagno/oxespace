@@ -72,6 +72,8 @@ interface McpManagerOptions {
 
 const PROTOCOL_VERSION = '2025-06-18'
 const INIT_TIMEOUT_MS = 15_000
+/** Package runners (npx, uvx, etc.) may download packages on first cold start, especially on Windows. */
+export const PACKAGE_RUNNER_INIT_TIMEOUT_MS = 60_000
 /** Remote servers (mcp-remote) wait for a person to sign in; that takes minutes, not seconds. */
 const AUTH_INIT_TIMEOUT_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 30_000
@@ -439,14 +441,15 @@ export class McpManager {
 
     try {
       // Handshake: initialize → notifications/initialized → tools/list
+      const initTimeoutMs = initTimeoutMsFor(config)
       const initResult = await Promise.race([
         this.request<{ protocolVersion: string; serverInfo?: { name: string } }>(runtime, 'initialize', {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: { tools: {} },
           clientInfo: { name: 'oxespace', version: '0.1.0' }
-        }, interactiveAuth ? AUTH_INIT_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
+        }, Math.max(initTimeoutMs, REQUEST_TIMEOUT_MS)),
         spawnError,
-        timeout<{ protocolVersion: string }>(interactiveAuth ? AUTH_INIT_TIMEOUT_MS : INIT_TIMEOUT_MS, interactiveAuth ? 'sign-in was not completed in time' : 'initialize timeout')
+        timeout<{ protocolVersion: string }>(initTimeoutMs, interactiveAuth ? 'sign-in was not completed in time' : 'initialize timeout')
       ])
       if (!initResult || typeof initResult.protocolVersion !== 'string') {
         throw new Error('Invalid initialize response')
@@ -649,6 +652,19 @@ export function extractSignInUrl(line: string): string | null {
 /** True for OAuth bridges that need a person to finish a sign-in before the handshake can complete. */
 export function usesOAuthBridge(config: McpStdioConfig): boolean {
   return (config.args ?? []).some(arg => /(^|[\\/])mcp-remote(@[\w.-]+)?$/i.test(arg))
+}
+
+const PACKAGE_RUNNER_RE = /^(?:npx|uvx|bunx|pnpm|yarn|npm)(?:\.(?:cmd|exe|bat|ps1))?$/i
+
+/** True when the command invokes a package runner whose first cold start may download packages. */
+export function isPackageRunnerCommand(command: string): boolean {
+  return PACKAGE_RUNNER_RE.test((command.trim().split(/[\\/]/).pop() ?? '').toLowerCase())
+}
+
+/** Handshake timeout for a stdio server: 5 min for OAuth bridges, 60 s for package runners, 15 s otherwise. */
+export function initTimeoutMsFor(config: McpStdioConfig): number {
+  if (usesOAuthBridge(config)) return AUTH_INIT_TIMEOUT_MS
+  return isPackageRunnerCommand(config.command) ? PACKAGE_RUNNER_INIT_TIMEOUT_MS : INIT_TIMEOUT_MS
 }
 
 /**

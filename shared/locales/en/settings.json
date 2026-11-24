@@ -205,8 +205,10 @@
     "exportCancelled": "Export cancelled.",
     "checking": "Checking…",
     "failing": "{{count}} failing",
-    "warning": "{{count}} warning",
-    "allPassing": "All {{count}} checks passing",
+    "warning_one": "{{count}} warning",
+    "warning_other": "{{count}} warnings",
+    "allPassing_one": "{{count}} check passing",
+    "allPassing_other": "All {{count}} checks passing",
     "collected": "Collected locally · exports redact paths and secrets",
     "healthy": "healthy",
     "platform": "Platform",
@@ -808,6 +810,10 @@
       "preview": {
         "name": "Preview",
         "description": "Web Preview and Android devices: open, capture and drive a preview, and take a device screenshot. On from the start."
+      },
+      "android": {
+        "name": "Android",
+        "description": "Android emulators and apps: start an emulator, install an APK, launch an app and read logcat. Starting, installing and launching ask you first."
       },
       "app": {
         "name": "App",

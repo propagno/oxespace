@@ -1,5 +1,5 @@
 import { Bone, Check, History, MoreHorizontal, Play } from 'lucide-react'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -11,12 +11,14 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 // The pane's usage chips read quotas and context after the terminal is up; they load on their own.
-const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus').then(module => ({ default: module.CopilotCreditsStatus })))
-const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
+// OXE-308: lazyFrom, so a chip whose chunk has arrived renders at once instead of holding the fallback.
+const CopilotCreditsStatus = lazyFrom(chunk(() => import('../Terminal/CopilotCreditsStatus')), module => module.CopilotCreditsStatus)
+const ContextUsageStatus = lazyFrom(chunk(() => import('../Terminal/ContextUsageStatus')), module => module.ContextUsageStatus)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 import { Button, Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import { formatDateTime } from '../../utils/formatTime'
 import { resolvePaneIdentity } from '../../utils/paneDisplay'
 import { i18n } from '../../i18n'
@@ -177,7 +179,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, terminalPrefs.cavemanModeEnabled, terminalPrefs.resumeAgentSessions, workspaceId])
 
   useEffect(() => {
     if (!pane.originPaneId) return
@@ -303,12 +305,14 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
 
   const [moreOpen, setMoreOpen] = useState(false)
   // 1.5.0 · A phone that has this terminal open sizes it for its own screen; the pane says so and can take it back.
-  const [sizeLease, setSizeLease] = useState<{ cols: number; rows: number } | null>(null)
+  // The lease is kept with the pane it was read for, so another pane shows none until its own arrives (OXE-319).
+  const [leased, setLeased] = useState<{ paneId: string; lease: { cols: number; rows: number } | null } | null>(null)
+  const sizeLease = leased?.paneId === pane.id ? leased.lease : null
   useEffect(() => {
     let live = true
-    setSizeLease(null)
-    void window.oxe?.terminal?.sizeLease?.(pane.id).then(lease => { if (live) setSizeLease(lease) }).catch(() => undefined)
-    const off = window.oxe?.terminal?.onSizeLeaseChanged?.(pane.id, event => setSizeLease(event.lease))
+    const paneId = pane.id
+    void window.oxe?.terminal?.sizeLease?.(paneId).then(lease => { if (live) setLeased({ paneId, lease }) }).catch(() => undefined)
+    const off = window.oxe?.terminal?.onSizeLeaseChanged?.(paneId, event => setLeased({ paneId, lease: event.lease }))
     return () => { live = false; off?.() }
   }, [pane.id])
   const [restoreOpen, setRestoreOpen] = useState(false)

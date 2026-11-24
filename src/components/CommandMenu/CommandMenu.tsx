@@ -22,7 +22,7 @@ interface CommandMenuProps {
   /** The full command registry (shared with the legacy palette) — cmd-J is now
    *  the unified surface for commands + file name + file content search. */
   actions: CommandPaletteAction[]
-  /** All open workspaces/worktrees, for jump-to (Orca cmd-J parity). */
+  /** All open workspaces/worktrees, for jump-to. */
   workspaces: Workspace[]
   onSelectWorkspace: (id: string) => void
   /** Focus a pane (agent/terminal) in the active workspace. */
@@ -62,28 +62,33 @@ export function CommandMenu({
 }: CommandMenuProps): ReactElement {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [fileList, setFileList] = useState<string[]>([])
+  // The last content search that answered, and for which workspace and query (OXE-300: the loading state and the
+  // results are derived from it, so no effect resets them synchronously).
+  const [searched, setSearched] = useState<{ key: string; results: SearchResult | null } | null>(null)
+  // The file list fetched for a root; the shared cache answers first (OXE-41).
+  const [fetched, setFetched] = useState<{ rootPath: string; files: string[] } | null>(null)
+
+  // OXE-300: each opening starts from an empty query with no results, reset on the transition itself (during render,
+  // React's documented way to adjust state to a prop) instead of in an effect after the first render.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setQuery('')
+      setSearched(null)
+    }
+  }
+
+  const rootPath = workspace?.rootPath
+  const cachedFiles = open && rootPath ? getCachedFileList(rootPath)?.files : undefined
+  // Never another root's files: a list fetched for a previous workspace is ignored.
+  const fileList = !rootPath ? [] : cachedFiles ?? (fetched?.rootPath === rootPath ? fetched.files : [])
 
   useEffect(() => {
-    if (!open) return
-    setQuery('')
-    setResults(null)
-    setLoading(false)
-    if (!workspace) {
-      setFileList([])
-      return
-    }
+    if (!open || !workspace) return
     const { id: workspaceId, rootPath } = workspace
     const cached = getCachedFileList(rootPath)
-    if (cached) {
-      setFileList(cached.files)
-      if (cached.fresh) return
-    } else {
-      // Clear previous workspace's files immediately so entries never leak across rootPaths.
-      setFileList([])
-    }
+    if (cached?.fresh) return
     // Cold miss or stale entry: fetch (or revalidate in background) the tracked file list.
     let active = true
     const epoch = getFileListCacheEpoch()
@@ -91,44 +96,42 @@ export function CommandMenu({
       .listFiles({ workspaceId, rootPath })
       .then((r) => {
         if (r?.error) {
-          if (active && !cached) setFileList([])
+          if (active && !cached) setFetched({ rootPath, files: [] })
           return
         }
         const nextFiles = Array.isArray(r?.files) ? r.files : []
         setCachedFileList(rootPath, nextFiles, Date.now(), epoch)
-        if (active) setFileList(nextFiles)
+        if (active) setFetched({ rootPath, files: nextFiles })
       })
       .catch(() => {
         // Keep existing cached list intact when a background revalidation fails.
-        if (active && !cached) setFileList([])
+        if (active && !cached) setFetched({ rootPath, files: [] })
       })
     return () => { active = false }
   }, [open, workspace])
 
+  const searchQuery = query.trim()
+  const searchKey = searchQuery && workspace ? JSON.stringify([workspace.id, searchQuery]) : null
+  // While a new query is pending the previous results stay on screen, as before.
+  const results = searchKey ? searched?.results ?? null : null
+  const loading = searchKey !== null && searched?.key !== searchKey
+
   // Debounced content search via the ripgrep service.
   useEffect(() => {
-    const q = query.trim()
-    if (!q || !workspace) {
-      setResults(null)
-      return
-    }
+    if (!searchKey || !workspace) return
     const token = ++requestToken
-    setLoading(true)
     const handle = window.setTimeout(() => {
       window.oxe.search
-        .run({ workspaceId: workspace.id, rootPath: workspace.rootPath, query: q })
+        .run({ workspaceId: workspace.id, rootPath: workspace.rootPath, query: searchQuery })
         .then((r) => {
-          if (token === requestToken) {
-            setResults(r && Array.isArray(r.files) ? r : null)
-            setLoading(false)
-          }
+          if (token === requestToken) setSearched({ key: searchKey, results: r && Array.isArray(r.files) ? r : null })
         })
         .catch(() => {
-          if (token === requestToken) setLoading(false)
+          if (token === requestToken) setSearched(previous => ({ key: searchKey, results: previous?.results ?? null }))
         })
     }, 200)
     return () => window.clearTimeout(handle)
-  }, [query, workspace])
+  }, [searchKey, searchQuery, workspace])
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 

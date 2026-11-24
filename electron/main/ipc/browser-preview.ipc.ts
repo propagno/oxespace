@@ -86,6 +86,7 @@ export function registerBrowserPreviewIpc(): void {
   handle(channels.captureElement, rectInput<Input<'captureElement'>>, (preview, window, input) => preview.captureElement(window, input))
   handle(channels.captureElementFile, rectInput<Input<'captureElementFile'>>, (preview, window, input) => preview.captureElementFile(window, input))
   handle(channels.captureClipboard, tabInput<Input<'captureClipboard'>>, (preview, window, input) => preview.captureClipboard(window, input))
+  handle(channels.captureSessionArtifact, tabInput<Input<'captureSessionArtifact'>>, (preview, window, input) => preview.captureSessionArtifact(window, input))
   handle(channels.close, closeInput, (preview, window, input) => preview.close(window, input))
   handle(channels.revokeGrant, tabInput<Input<'revokeGrant'>>, (preview, window, input) => preview.revokeGrant(window, input))
   handle(channels.setDevice, tabInput<Input<'setDevice'>>, (preview, window, input) => preview.setDevice(window, input))

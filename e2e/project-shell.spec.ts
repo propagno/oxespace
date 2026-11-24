@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-test('renders the Orca-inspired project, editor and source-control shell', async () => {
-  const testRoot = join(tmpdir(), `oxespace-orca-shell-${Date.now()}`)
+test('renders the project, editor and source-control shell', async () => {
+  const testRoot = join(tmpdir(), `oxespace-project-shell-${Date.now()}`)
   const workspaceRoot = join(testRoot, 'demo-repo')
   mkdirSync(workspaceRoot, { recursive: true })
   execFileSync('git', ['init', '-q', workspaceRoot])
@@ -94,7 +94,7 @@ test('renders the Orca-inspired project, editor and source-control shell', async
     await expect(page.getByText('Something went wrong while rendering this window.')).toHaveCount(0)
     expect(pageErrors).toEqual([])
 
-    await page.screenshot({ path: join(process.cwd(), 'e2e', 'screenshots', '22-orca-shell-source-control.png') })
+    await page.screenshot({ path: join(process.cwd(), 'e2e', 'screenshots', '22-project-shell-source-control.png') })
   } finally {
     await app.close()
   }

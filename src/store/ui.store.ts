@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { holdFocusForPalette } from '../lib/paletteFocus'
 
 export type SidebarMode = 'code' | 'thread'
 
@@ -21,6 +22,14 @@ function restoredCollapsedSidebars(): Record<SidebarMode, boolean> {
 }
 
 const initialCollapsedSidebars = restoredCollapsedSidebars()
+
+function restoredOxeQuerySidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem('oxe.sidebar.collapsed.data') === 'true'
+  } catch { return false }
+}
+
+const initialOxeQuerySidebarCollapsed = restoredOxeQuerySidebarCollapsed()
 
 /** localStorage key of the pinned panel scopes: JSON { [workspaceId]: path }. */
 const PANEL_SCOPE_PINS_KEY = 'oxe.panel-scope-pins'
@@ -56,13 +65,14 @@ function savePanelScopePins(pins: Record<string, PanelScopePin>): void {
 }
 
 /** The application Settings pages, in SettingsCenter order. */
-export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
+export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'github' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 
 interface UIState {
   isNewWorkspaceOpen: boolean
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
   collapsedSidebars: Record<SidebarMode, boolean>
+  oxequerySidebarCollapsed: boolean
   isSettingsOpen: boolean
   settingsInitialPage: SettingsPageId | undefined
   /** Opens application Settings on one page. */
@@ -131,13 +141,15 @@ interface UIState {
   closeIntegrationPanel: () => void
   toggleSettings: () => void
   toggleSidebar: (mode?: SidebarMode) => void
+  toggleOxeQuerySidebar: () => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   isNewWorkspaceOpen: false,
   maximizedPaneId: null,
   isSidebarCollapsed: initialCollapsedSidebars.code,
   collapsedSidebars: initialCollapsedSidebars,
+  oxequerySidebarCollapsed: initialOxeQuerySidebarCollapsed,
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
@@ -164,7 +176,8 @@ export const useUIStore = create<UIState>((set) => ({
   setActivePane: (paneId) => set({ activePaneId: paneId }),
   openCommandPalette: () => set({ isCommandPaletteOpen: true }),
   closeCommandPalette: () => set({ isCommandPaletteOpen: false }),
-  openCommandMenu: () => set({ isCommandMenuOpen: true }),
+  // OXE-397: keys typed before the palette mounts reach nothing, not the terminal that had focus.
+  openCommandMenu: () => { if (!get().isCommandMenuOpen) holdFocusForPalette(); set({ isCommandMenuOpen: true }) },
   closeCommandMenu: () => set({ isCommandMenuOpen: false }),
   openWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: true }),
   closeWorkspaceSettings: () => set({ isWorkspaceSettingsOpen: false }),
@@ -221,5 +234,12 @@ export const useUIStore = create<UIState>((set) => ({
       localStorage.setItem('oxe.sidebar.collapsed', String(isSidebarCollapsed))
     } catch { /* optional preference */ }
     return { collapsedSidebars, isSidebarCollapsed }
+  }),
+  toggleOxeQuerySidebar: () => set((s) => {
+    const oxequerySidebarCollapsed = !s.oxequerySidebarCollapsed
+    try {
+      localStorage.setItem('oxe.sidebar.collapsed.data', String(oxequerySidebarCollapsed))
+    } catch { /* optional preference */ }
+    return { oxequerySidebarCollapsed }
   })
 }))

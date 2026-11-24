@@ -49,6 +49,6 @@ export function ThreadRowAttention({ request, onOpen, onAnswered }: { request: T
         : <span className={styles.attentionText}>{t('status.attention')}</span>}
     {kind === 'permission'
       ? <Button size="sm" variant="secondary" loading={busy} onClick={() => void allowOnce()}>{t('f7.card.allowOnce')}</Button>
-      : <Button size="sm" variant="secondary" onClick={onOpen}>{kind === 'question' ? t('request.answer') : t('f7.card.seeImpact')}</Button>}
+      : <Button size="sm" variant="secondary" title={kind === 'question' ? undefined : t('f7.card.seeImpactHint')} onClick={onOpen}>{kind === 'question' ? t('request.answer') : t('f7.card.seeImpact')}</Button>}
   </div>
 }

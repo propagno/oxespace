@@ -115,6 +115,10 @@ export const IPC_CHANNELS = {
     updateGitHubState: 'workspace:update-github-state',
     updateSettings: 'workspace:update-settings',
     pickFolder: 'workspace:pick-folder',
+    /** OXE-367: whether the workspace's folder is still there. */
+    rootStatus: 'workspace:root-status',
+    /** OXE-367: points a workspace whose folder moved at another folder; same checks as create. */
+    relink: 'workspace:relink',
     shellProfiles: 'workspace:shell-profiles',
     createGitHubTerminalPane: 'workspace:create-github-terminal-pane'
   },
@@ -407,6 +411,7 @@ export const IPC_CHANNELS = {
     captureElement: 'browser-preview:capture-element',
     captureElementFile: 'browser-preview:capture-element-file',
     captureClipboard: 'browser-preview:capture-clipboard',
+    captureSessionArtifact: 'browser-preview:capture-session-artifact',
     close: 'browser-preview:close',
     revokeGrant: 'browser-preview:revoke-grant',
     setDevice: 'browser-preview:set-device',
@@ -431,7 +436,7 @@ export const IPC_CHANNELS = {
   /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
   /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
   schedules: { state: 'schedules:state', runs: 'schedules:runs', save: 'schedules:save', remove: 'schedules:remove', setEnabled: 'schedules:set-enabled', setPaused: 'schedules:set-paused', runNow: 'schedules:run-now', changed: 'schedules:changed' },
-  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair', stopEmulator: 'android-actions:stop-emulator' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },
@@ -443,7 +448,8 @@ export const IPC_CHANNELS = {
     recordFirstAnswer: 'diagnostics:record-first-answer',
     watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
     clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
-    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf'
+    exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf',
+    reportRendererError: 'diagnostics:report-renderer-error'
   },
   policy: {
     get: 'policy:get',
@@ -507,6 +513,10 @@ export interface WorkspaceApi {
   updateGitHubState(input: UpdateWorkspaceGitHubStateInput): Promise<Workspace>
   updateSettings(input: UpdateWorkspaceSettingsInput): Promise<Workspace>
   pickFolder(): Promise<string | null>
+  /** OXE-367: whether the workspace's folder is still there (an existing folder that can be listed). */
+  rootStatus(id: string): Promise<{ available: boolean }>
+  /** OXE-367: the same workspace and panes on another folder, or the refusal of that folder (nothing was written then). */
+  relink(input: { workspaceId: string; rootPath: string }): Promise<Workspace | WorkspaceCreateRefusal>
   shellProfiles(): Promise<ShellProfile[]>
   createGitHubTerminalPane(workspaceId: string): Promise<{ id: string }>
 }

@@ -85,7 +85,7 @@ describe('design lint', () => {
   })
 
   describe('legacy stylesheets', () => {
-    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated|OxeQuery/.test(path))
+    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated/.test(path))
     const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ''))
     const lines = (path: string): string[] => stripComments(readFileSync(path, 'utf8')).split(/\r?\n/)
 
@@ -216,10 +216,11 @@ describe('design lint', () => {
       // OXE-28 (#1004 after main): 391.
       // OXE-161 (#1009 after main): 359.
       // OXE-167 + OXE-172 (#1023 after #1025 and #1081, the union): 352.
-      // OXE-168 (F5 T15): the opening's starters are src/ui Buttons, 351.
+      // OXE-305, OXE-311 and OXE-312 (one PR, on #1140): 342.
+      // OXE-168 (F5 T15): the opening's starters are src/ui Buttons, 341.
       // OXE-169 (F5 T17): the chat header's Mais ações, the timeline's Load earlier and the three turn actions (Copy code,
-      // Quote in reply, Copy final response; CR-62's chat-column measure) are src/ui primitives, 346.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(346)
+      // Quote in reply, Copy final response; CR-62's chat-column measure) are src/ui primitives, 336.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(336)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)

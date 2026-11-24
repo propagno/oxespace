@@ -21,9 +21,10 @@ import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
-import { runWithTerminalAutoFocus, terminalKeyRoute } from '../../keyboard/terminalFocus'
+import { personActedElsewhereSince, runWithTerminalAutoFocus, terminalKeyRoute, watchPersonInput } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
+import { isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
 import { buildTerminalTheme, decodeOsc52ClipboardWrite, searchDecorations } from './terminalViewHelpers'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
@@ -173,8 +174,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     // A pane in a hidden workspace (or while Thread/OxeQuery is showing) paints nothing, yet each WebGL
     // renderer holds a glyph atlas and framebuffers in the GPU process. Hidden panes give theirs back and
     // rebuild it when revealed; the scrollback lives in xterm's buffer, not the renderer.
-    const workspaceHost = hostRef.current?.closest('.workspace-host') ?? null
-    const isHidden = (): boolean => workspaceHost?.classList.contains('workspace-host-hidden') ?? false
+    const isHidden = (): boolean => isTerminalHostHidden(hostRef.current)
     const releaseWebgl = (): void => {
       const addon = webglAddon
       webglAddon = null
@@ -236,11 +236,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
     }
     if (!isHidden()) loadWebgl()
-    const visibilityObserver = workspaceHost ? new MutationObserver(() => {
-      if (isHidden()) { releaseWebgl(); return }
-      if (!webglAddon) { loadWebgl(); try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ } }
-    }) : null
-    visibilityObserver?.observe(workspaceHost!, { attributes: true, attributeFilter: ['class'] })
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -561,10 +556,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     refitRef.current = fitTerminal
 
     const scheduleFit = (): void => {
-      if (fitFrameRef.current !== null) return
+      if (isHidden() || fitFrameRef.current !== null) return
       fitFrameRef.current = window.requestAnimationFrame(() => {
         fitFrameRef.current = null
-        fitTerminal()
+        if (!isHidden()) fitTerminal()
       })
     }
 
@@ -602,7 +597,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
 
     const bridge = transport ?? window.oxe.terminal
     const writeScheduler = createTerminalWriteScheduler({
-      write: (chunk, done) => {
+      paused: isHidden(),
+      write: (chunk, done, meta) => {
         if (disposed) {
           done()
           return
@@ -626,7 +622,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         const wasAtBottom =
           isAltScreen ||
           (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
-        terminal.write(chunk, () => {
+        const payload = meta.truncated ? `\x1b[2J\x1b[H${chunk}` : chunk
+        terminal.write(payload, () => {
           if (!disposed && !wasAtBottom && terminal.buffer.active.type === 'normal') {
             const postBuf = terminal.buffer.active
             terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
@@ -643,10 +640,37 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         }, 300)
       }
     })
+    // OXE-349: Hidden workspaces/panes pause xterm writes (retaining a bounded
+    // buffer) and release WebGL so background PTY bursts never burn renderer
+    // CPU or balloon DOM/canvas RAM. Becoming visible resumes coalesced RAF
+    // flushing, restores WebGL, and refits.
+    const stopObservingVisibility = observeTerminalVisibility(hostRef.current, (hidden) => {
+      if (disposed) return
+      if (hidden) {
+        releaseWebgl()
+        writeScheduler.setPaused(true)
+        if (previewTimer) {
+          clearTimeout(previewTimer)
+          previewTimer = null
+        }
+        if (fitFrameRef.current !== null) {
+          window.cancelAnimationFrame(fitFrameRef.current)
+          fitFrameRef.current = null
+        }
+        return
+      }
+      writeScheduler.setPaused(false)
+      if (!webglAddon) loadWebgl()
+      scheduleFit()
+      try { terminal.refresh(0, Math.max(0, terminal.rows - 1)) } catch { /* disposed */ }
+    })
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (attachPending) {
         queuedWhileAttaching.push(event.data)
         return
+      }
+      if (writeScheduler.isPaused() && !transport) {
+        useTerminalStore.getState().updateActivity(paneId, event.data)
       }
       writeScheduler.enqueue(event.data)
     })
@@ -676,7 +700,11 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         terminal.write('Idle\r\n')
       }
 
-      for (const chunk of queuedWhileAttaching) terminal.write(chunk)
+      if (isHidden()) {
+        for (const chunk of queuedWhileAttaching) writeScheduler.enqueue(chunk)
+      } else {
+        for (const chunk of queuedWhileAttaching) terminal.write(chunk)
+      }
       queuedWhileAttaching.length = 0
       attachPending = false
       // Attach used to bounce the PTY before xterm consumed the prologue, so
@@ -709,7 +737,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       writeScheduler.dispose()
       unsubscribeExit()
       resizeObserver.disconnect()
-      visibilityObserver?.disconnect()
+      stopObservingVisibility()
       dataDisposable.dispose()
       selectionDisposable.dispose()
       osc52Disposable.dispose()
@@ -795,8 +823,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     prefs.backgroundOpacity
   ])
 
+  // OXE-395: a launch starts when the view mounts or the shell stops; the terminal takes focus when it starts running only
+  // if the person has not pressed a key or clicked elsewhere since, so a late shell never takes focus they moved.
+  const launchedAt = useRef(performance.now())
   useEffect(() => {
-    if (isRunning) runWithTerminalAutoFocus(() => terminalRef.current?.focus())
+    watchPersonInput()
+    if (!isRunning) { launchedAt.current = performance.now(); return }
+    if (personActedElsewhereSince(launchedAt.current, hostRef.current)) return
+    runWithTerminalAutoFocus(() => terminalRef.current?.focus())
   }, [isRunning])
 
   useEffect(() => {

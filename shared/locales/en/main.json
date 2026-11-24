@@ -563,6 +563,7 @@
       "window": {
         "crashed": "The window crashed.",
         "rendererGone": "The interface stopped responding and was restarted.",
+        "rendererError": "A part of the interface failed and was contained; the rest of the app kept working.",
         "externalRefused": "A link was not opened outside the app: wrong kind, too long, or with a name and password in it.",
         "externalRateLimited": "Many links were refused within a minute; the rest were not recorded.",
         "externalOpenFailed": "The system could not open a link the app allowed; no app is registered for it.",
@@ -631,6 +632,7 @@
         "empty": "Choose the folder for this workspace.",
         "notAbsolute": "Use the full path of the folder, starting at the drive or at /. “{{path}}” is a relative path.",
         "notFound": "The folder {{path}} does not exist. Create it or choose another folder.",
+        "taken": "Another workspace already uses {{path}}. Choose a different folder.",
         "notDirectory": "{{path}} is a file, not a folder. Choose a folder.",
         "unreadable": "OXESpace cannot open the folder {{path}}. Check its permissions or choose another folder."
       }

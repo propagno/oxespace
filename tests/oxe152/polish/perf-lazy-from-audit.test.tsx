@@ -393,3 +393,65 @@ describe('OXE-57 · lazyFrom shared chunks audit (OxeCode & OxeChat)', () => {
     expect(finderSpy).toHaveBeenCalledTimes(2)
   })
 })
+
+// OXE-309: a dock wrapper that statically imports a shared panel warms that panel's SHARED_PANEL_CHUNKS entry when it
+// loads, so the same panel opened later from OxeChat (ThreadChangesPanel, ThreadToolTabs) renders with no Suspense
+// fallback. The registry keeps one chunk identity and only dynamic imports.
+describe('OXE-309 · a loaded dock wrapper warms its shared panel chunk', () => {
+  test('loading workspace dock wrapper warms corresponding SHARED_PANEL_CHUNKS entry for zero cross-mode suspense', async () => {
+    vi.resetModules()
+    const lib = await import('../../../src/lib/panelChunks')
+    const pairs = [
+      [lib.WORKSPACE_PANEL_CHUNKS.background, 'background'],
+      [lib.WORKSPACE_PANEL_CHUNKS.editor, 'files'],
+      [lib.WORKSPACE_PANEL_CHUNKS.github, 'git'],
+      [lib.WORKSPACE_PANEL_CHUNKS.search, 'search'],
+      [lib.WORKSPACE_PANEL_CHUNKS.containers, 'containers'],
+      [lib.WORKSPACE_PANEL_CHUNKS.webPreview, 'webPreview'],
+      [lib.WORKSPACE_HTTP_CALLS_PANEL_CHUNK, 'httpCalls'],
+      [lib.WORKSPACE_ANDROID_PANEL_CHUNK, 'android']
+    ] as const
+    for (const [, shared] of pairs) expect(lib.SHARED_PANEL_CHUNKS[shared].get(), `${shared} before its wrapper`).toBeUndefined()
+
+    for (const [wrapper, shared] of pairs) {
+      await wrapper.load()
+      await vi.waitFor(() => expect(lib.SHARED_PANEL_CHUNKS[shared].get(), `${shared} after its wrapper`).toBeDefined())
+    }
+
+    // Opened from OxeChat afterwards: the panel is there in the first commit, never behind the fallback.
+    const Git = lazyFrom(lib.SHARED_PANEL_CHUNKS.git, m => m.GitControlPanel as unknown as () => ReactNode)
+    const Files = lazyFrom(lib.SHARED_PANEL_CHUNKS.files, m => m.EditorPane as unknown as () => ReactNode)
+    render(<Suspense fallback={<div data-testid="cross-mode-fallback" />}><Git /><Files /></Suspense>)
+    expect(screen.queryByTestId('cross-mode-fallback')).toBeNull()
+    expect(screen.getByTestId('mock-git-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('mock-editor-pane')).toBeInTheDocument()
+
+    // Still one registry and only dynamic imports in it.
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/panelChunks.ts'), 'utf8')
+    expect([...source.matchAll(/^\s*import\s+.+?\s+from\s+['"]([^'"]+)['"]/gm)].map(m => m[1])).toEqual(['./chunk'])
+  })
+})
+
+// OXE-308: the remaining frequent OxeCode surfaces render their lazy parts through lazyFrom(chunk), which resolves at
+// once when the chunk has arrived and can be retried after a failed load (RetryableLazy.retry), instead of a plain
+// React.lazy that holds the Suspense fallback ~300 ms every first time. One file per line, so each later part only adds.
+describe('OXE-308 · remaining OxeCode surfaces on lazyFrom', () => {
+  test('remaining interactive OxeCode surfaces use lazyFrom with retry support', () => {
+    const migrated = [
+      'src/components/Changes/ChangesPanel.tsx',
+      'src/components/Editor/EditorPane.tsx',
+      'src/components/Panes/PaneContent.tsx',
+      'src/components/AgentSessions/PaneResume.tsx',
+      'src/components/Panes/TerminalPane.tsx',
+    ]
+    for (const rel of migrated) {
+      const src = readFileSync(resolve(process.cwd(), rel), 'utf8')
+      expect(src, `${rel} should not call plain lazy()`).not.toMatch(/\blazy\s*\(/)
+      expect(src, `${rel} should use lazyFrom()`).toMatch(/\blazyFrom\s*\(/)
+      expect(src, `${rel} should load through chunk() or a shared panel chunk`).toMatch(/\bchunk\s*\(|SHARED_PANEL_CHUNKS\./)
+    }
+    // lazyFrom is what gives each of them RetryableLazy.retry() (covered by the OXE-57 retry case above).
+    // PaneContent's editor is the same chunk OxeCode's dock and OxeChat use, not a second one.
+    expect(readFileSync(resolve(process.cwd(), 'src/components/Panes/PaneContent.tsx'), 'utf8')).toMatch(/SHARED_PANEL_CHUNKS\.files/)
+  })
+})
