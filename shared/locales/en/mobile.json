@@ -279,12 +279,18 @@
     "redacted_one": "{{count}} secret value hidden by your computer.",
     "redacted_other": "{{count}} secret values hidden by your computer.",
     "empty": "No output yet.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyScreen": "Copy screen",
+    "copyLine": "Copy line",
     "paste": "Paste",
     "key": {
       "up": "Up arrow",
       "down": "Down arrow",
       "left": "Left arrow",
-      "right": "Right arrow"
+      "right": "Right arrow",
+      "ctrl": "Control modifier",
+      "ctrlActive": "Control active"
     },
     "textSize": "Text size",
     "size": {
