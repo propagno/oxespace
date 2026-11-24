@@ -225,7 +225,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
             ...(offeredRule ? [{ label: alwaysAllowLabel, onSelect: () => setAlwaysAllowOpen(true) }] : []),
             { label: t('f7.card.seeImpact'), onSelect: openImpact }
           ]} />
-        </> : <Button variant="secondary" className={styles.quiet} disabled={disabled} onClick={openImpact}>{t('f7.card.seeImpact')}</Button>}
+        </> : <Button variant="secondary" className={styles.quiet} disabled={disabled} title={t('f7.card.seeImpactHint')} onClick={openImpact}>{t('f7.card.seeImpact')}</Button>}
       </footer>
       {previewOpen ? <ImpactPreview request={request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(response) }} onClose={() => setPreviewOpen(false)} /> : null}
       {alwaysAllowOpen && offer?.offered ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}

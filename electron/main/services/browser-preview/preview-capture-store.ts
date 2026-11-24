@@ -3,6 +3,21 @@ import { join } from 'node:path'
 
 const OWNER_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/
 const CAPTURE_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\.png$/
+const ARTIFACT_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,59}$/
+
+export interface PreviewSessionArtifactMetadata {
+  id: string
+  sessionId: string
+  ownerKey: string
+  workspaceId: string
+  threadId?: string
+  fileName: string
+  url: string
+  title: string
+  viewport: { width: number; height: number }
+  capturedAt: number
+  bytes: number
+}
 
 /** The capture root keeps only this many PNG files, across every owner folder (OXE-110, RT-2). */
 export const PREVIEW_CAPTURE_LIMIT = 50
@@ -35,6 +50,32 @@ export async function readPreviewCapture(root: string, ownerId: string, fileName
   return readFile(join(root, ownerId, fileName))
 }
 
+/** Saves a preview image + companion JSON metadata as a session artifact within the private capture root. */
+export async function savePreviewSessionArtifact(
+  root: string,
+  ownerId: string,
+  artifactId: string,
+  png: Buffer,
+  metadata: PreviewSessionArtifactMetadata
+): Promise<{ directory: string; path: string; metadataPath: string; fileName: string }> {
+  checkOwner(ownerId)
+  if (!ARTIFACT_ID.test(artifactId)) throw new Error('Invalid preview artifact id')
+  const fileName = `${artifactId}.png`
+  const directory = join(root, ownerId)
+  await mkdir(directory, { recursive: true })
+  const path = join(directory, fileName)
+  const metadataPath = join(directory, `${artifactId}.json`)
+  await writeFile(path, png, { flag: 'wx' })
+  try {
+    await writeFile(metadataPath, JSON.stringify(metadata, null, 2), { flag: 'wx' })
+  } catch (error) {
+    await unlink(path).catch(() => undefined)
+    throw error
+  }
+  await prunePreviewCaptures(root)
+  return { directory, path, metadataPath, fileName }
+}
+
 /** Keeps only the newest captures in the whole root, whichever owner they belong to. */
 async function prunePreviewCaptures(root: string, keep = PREVIEW_CAPTURE_LIMIT): Promise<void> {
   const files: Array<{ path: string; mtime: number }> = []
@@ -55,5 +96,8 @@ async function prunePreviewCaptures(root: string, keep = PREVIEW_CAPTURE_LIMIT):
   }
   if (files.length <= keep) return
   files.sort((a, b) => b.mtime - a.mtime)
-  for (const file of files.slice(keep)) await unlink(file.path).catch(() => undefined)
+  for (const file of files.slice(keep)) {
+    await unlink(file.path).catch(() => undefined)
+    await unlink(file.path.replace(/\.png$/i, '.json')).catch(() => undefined)
+  }
 }

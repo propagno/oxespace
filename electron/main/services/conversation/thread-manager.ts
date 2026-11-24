@@ -11,6 +11,8 @@ import { createChat, listSessions, openChat, readSession } from './thread-sessio
 export class ThreadManager extends ThreadOrchestrator {
   /** CR-F4-7b: a place added, or a drift seen or answered, per conversation; '*' hears every one (see ThreadPlaceObserver). */
   subscribePlaces = (id: string, listener: (id: string) => void): (() => void) => this.placeObserver.subscribePlaces(id, listener)
+  /** OXE-413: the files the conversation wrote, counted without git (ThreadPlaceObserver.placeFileCount). */
+  placeFileCount = (id: string): number => this.placeObserver.placeFileCount(id)
   /** OXE-170: the session led by this main chat, with its parallel chats (thread-sessions.ts). */
   readSession(sessionId: string): SessionView { return readSession(this.sessionHost(), sessionId) }
   /** OXE-170: every session once, archived ones too; never a parallel chat. */

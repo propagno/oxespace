@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { AppView } from '../keyboard/keybindings'
 import { announceFocus } from '../keyboard/terminalFocusActions'
 import type { Chunk } from '../lib/chunk'
+import { useWorkspaceStore } from '../store/workspace.store'
+import { useThreadStore } from '../store/thread.store'
 
 /**
  * Switching views (docs/design/motion.md, "Switching views and loading"; F7.2):
@@ -94,6 +96,8 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
   const target = useRef<AppView | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const arrived = useRef<AppView | null>(null)
+  const currentRef = useRef(current)
+  currentRef.current = current
   const latestCommit = useRef(commit)
   useEffect(() => { latestCommit.current = commit })
 
@@ -103,6 +107,11 @@ export function useViewSwitch(current: AppView, commit: (view: AppView) => void)
     target.current = null
     arrived.current = view
     setPendingView(null)
+    if (currentRef.current === 'code' && view === 'thread') {
+      const { workspaces, activeWorkspaceId } = useWorkspaceStore.getState()
+      const activeWorkspace = workspaces.find(workspace => workspace.id === activeWorkspaceId)
+      if (activeWorkspace?.rootPath) void useThreadStore.getState().syncActiveCodeWorkspace(activeWorkspace.rootPath)
+    }
     latestCommit.current(view)
   }, [])
 
