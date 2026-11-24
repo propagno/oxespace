@@ -83,8 +83,8 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
   try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* not a live execution */ }
   if (execution) {
     const workspace = execution.workspaceId.startsWith('thread:')
-      ? ctx.workspaceServ.list().find(item => item.rootPath === execution.canonicalRoot) ?? null
-      : ctx.workspaceServ.get(execution.workspaceId)
+      ? ctx.workspaceServ?.list?.().find(item => item.rootPath === execution.canonicalRoot) ?? null
+      : ctx.workspaceServ?.get?.(execution.workspaceId) ?? null
     const workspaceCeiling = workspace?.accessCeiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING
     const sessionAccess = ctx.sessionAccess ?? execution.access ?? DEFAULT_WORKSPACE_ACCESS_CEILING
     return {
