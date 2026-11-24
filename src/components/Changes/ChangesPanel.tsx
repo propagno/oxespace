@@ -11,7 +11,7 @@ import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes
 import './ChangesPanel.css'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Spinner } from '../../ui'
+import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
@@ -324,9 +324,9 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       onCancel={() => setDiscardFor(null)} onConfirm={() => { clearComments(workspaceId); setDiscardFor(null) }} />}
     <div className="changes-body">
       <div className="changes-diff">
-        {/* OXE-365: show a loading state while reading branches or fetching the diff so 'No changes' never flashes early. */}
+        {/* OXE-365 / BRD-15: show a skeleton while reading branches or fetching the diff so 'No changes' never flashes early. */}
         {!error && ((!summary && (!ready || loading || Boolean(effectiveBase))) || (loading && !selected))
-          ? <div className="changes-state" data-testid="changes-loading"><LoadingState label={t('changes.loading')} /></div>
+          ? <div data-testid="changes-loading" role="status" aria-busy="true" aria-label={t('changes.loading')}><Skeleton lines={6} decorative delay={300} /></div>
           : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">

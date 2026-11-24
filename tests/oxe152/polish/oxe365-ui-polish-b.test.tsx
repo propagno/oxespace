@@ -146,9 +146,11 @@ describe('OXE-365 (Part B) · UI/UX polish', () => {
 
     render(<ChangesPanel workspaceId="ws-1" rootPath="/tmp/repo" />)
 
-    // While branches & diff are still loading, show loading indicator and never flash "No changes"
-    expect(screen.getByTestId('changes-loading')).toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent(/loading/i)
+    // While branches & diff are still loading, show skeleton status (BRD-15) and never flash "No changes"
+    const loadingEl = screen.getByTestId('changes-loading')
+    expect(loadingEl).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: /loading changes/i })).toBe(loadingEl)
+    expect(loadingEl).toHaveAttribute('aria-busy', 'true')
     expect(screen.queryByText('No changes')).toBeNull()
 
     // Even after branch resolution kicks off getDiffSummary, keep showing loading while diffGate is pending
