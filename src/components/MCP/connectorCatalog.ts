@@ -70,7 +70,7 @@ const SOURCES: CatalogSource[] = [
   { id: 'notion-token', name: 'Notion (API token)', category: 'Productivity', brand: { hex: '000000', icon: siNotion }, ...npx('@notionhq/notion-mcp-server'), requiredEnv: ['NOTION_TOKEN'] },
   { id: 'azure-devops', name: 'Azure DevOps', category: 'Development', popular: true, brand: { hex: '0078D7' }, ...npx('@azure-devops/mcp', '<your-organization>') },
   { id: 'atlassian', name: 'Atlassian', category: 'Productivity', brand: { hex: '0052CC', icon: siAtlassian }, ...remote('https://mcp.atlassian.com/v1/mcp') },
-  { id: 'asana', name: 'Asana', category: 'Productivity', brand: { hex: 'F06A6A', icon: siAsana }, transport: 'sse', url: 'https://mcp.asana.com/sse', signIn: true },
+  { id: 'asana', name: 'Asana', category: 'Productivity', brand: { hex: 'F06A6A', icon: siAsana }, ...remote('https://mcp.asana.com/v2/mcp') },
   { id: 'airtable', name: 'Airtable', category: 'Productivity', brand: { hex: '18BFFF', icon: siAirtable }, ...npx('airtable-mcp-server'), requiredEnv: ['AIRTABLE_API_KEY'] },
   { id: 'trello', name: 'Trello', category: 'Productivity', brand: { hex: '0052CC', icon: siTrello }, ...npx('@delorenj/mcp-server-trello'), requiredEnv: ['TRELLO_API_KEY', 'TRELLO_TOKEN'] },
   { id: 'hubspot', name: 'HubSpot', category: 'Productivity', brand: { hex: 'FF7A59', icon: siHubspot }, ...npx('@hubspot/mcp-server'), requiredEnv: ['PRIVATE_APP_ACCESS_TOKEN'] },

@@ -1661,7 +1661,23 @@
     "stopLabel": "Parar: {{label}}",
     "stopTitle": "Parar esta tarefa em segundo plano",
     "viewResult": "Ver resultado",
-    "instructions": "Instruções"
+    "instructions": "Instruções",
+    "result": {
+      "status": {
+        "done": "Concluído",
+        "failed": "Falhou",
+        "running": "Em execução"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Ver saída completa",
+      "showLess": "Mostrar menos",
+      "openConversation": "Abrir conversa",
+      "viewDetails": "Ver detalhes",
+      "runningSummary": "Trabalhando em segundo plano…",
+      "noOutput": "Nenhuma saída informada."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",
@@ -2299,6 +2315,7 @@
       "allowOnce": "Permitir uma vez",
       "alwaysAllowEllipsis": "Sempre permitir…",
       "seeImpact": "Ver impacto",
+      "seeImpactHint": "Revisar impacto para aprovar ou negar",
       "copyExact": "Copiar o texto exato",
       "copyWhat": "Texto exato"
     },
@@ -2357,7 +2374,8 @@
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
       "goToPane": "Ir ao terminal",
-      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo.",
+      "reviewToApprove": "Revise o impacto para aprovar ou negar"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

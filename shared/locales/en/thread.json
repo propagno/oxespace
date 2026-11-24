@@ -1610,7 +1610,23 @@
     "stopLabel": "Stop {{label}}",
     "stopTitle": "Stop this background task",
     "viewResult": "View result",
-    "instructions": "Instructions"
+    "instructions": "Instructions",
+    "result": {
+      "status": {
+        "done": "Completed",
+        "failed": "Failed",
+        "running": "Running"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Show full output",
+      "showLess": "Show less",
+      "openConversation": "Open conversation",
+      "viewDetails": "View details",
+      "runningSummary": "Working in background…",
+      "noOutput": "No output reported."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",
@@ -2229,6 +2245,7 @@
       "allowOnce": "Allow once",
       "alwaysAllowEllipsis": "Always allow…",
       "seeImpact": "See impact",
+      "seeImpactHint": "Review impact to approve or deny",
       "copyExact": "Copy exact text",
       "copyWhat": "Exact text"
     },
@@ -2283,7 +2300,8 @@
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",
       "goToPane": "Go to terminal",
-      "respondFailed": "Couldn't send your answer. Try again."
+      "respondFailed": "Couldn't send your answer. Try again.",
+      "reviewToApprove": "Review impact to approve or deny"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
