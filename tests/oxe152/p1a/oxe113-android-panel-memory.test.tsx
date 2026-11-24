@@ -23,17 +23,7 @@ function mockAndroid(options: { freeMemoryMb: number }) {
     rotate: vi.fn(async () => undefined),
     screenshot: vi.fn(async () => ({ path: 'x', name: 'x.png' })),
     setAgentsCanSee: vi.fn(async () => undefined),
-    startEmulator: vi.fn(async () => undefined),
-    checkEmulatorMemory: vi.fn(async (input?: { lightweight?: boolean }) => {
-      const lightweight = input?.lightweight !== false
-      const requiredMb = lightweight ? 2048 : 4096
-      return {
-        ok: options.freeMemoryMb >= requiredMb,
-        freeMb: options.freeMemoryMb,
-        requiredMb,
-        lightweight
-      }
-    })
+    startEmulator: vi.fn(async () => undefined)
   }
   Object.assign(window, { oxe: { android, featureUsage: { record: async () => undefined } } })
   return android

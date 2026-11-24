@@ -56,8 +56,6 @@ export interface AndroidApi {
   screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
   setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
   startEmulator(avd: string, options?: AndroidEmulatorLaunchOptions): Promise<void>
-  /** Checks whether free host memory meets the recommended threshold before launching an emulator. */
-  checkEmulatorMemory?(options?: AndroidEmulatorLaunchOptions): Promise<AndroidEmulatorMemoryCheck>
   /** Opens the system's file dialog for an APK to install on the device; null when the person cancels. */
   pickApk(input: { serial: string }): Promise<AndroidApkPick | null>
   /** Installs the APK picked before, by its id, after the person confirmed. */

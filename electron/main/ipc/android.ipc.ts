@@ -245,13 +245,6 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
     notifyChanged()
   })
 
-  ipcMain.handle(IPC_CHANNELS.android.checkEmulatorMemory, async (_event, options?: AndroidEmulatorLaunchOptions) => {
-    return checkEmulatorMemory({
-      lightweight: options?.lightweight,
-      freeBytes: deps.freeMemoryBytes?.()
-    })
-  })
-
   // The person's own actions on a device. No MCP tool, phone command or command-bar entry reaches these channels.
   ipcMain.handle(IPC_CHANNELS.androidActions.pickApk, async (event, input: { serial: string }): Promise<AndroidApkPick | null> => {
     const device = await readyDevice(input?.serial)

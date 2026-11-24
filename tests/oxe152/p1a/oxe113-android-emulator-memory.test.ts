@@ -91,11 +91,11 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
   })
 
   test('AndroidDevices.startAvd passes lightweight or standard args to emulator runner', async () => {
-    const emulatorCalls: Array<{ args: string[]; detached?: boolean }> = []
+    const runnerInvocations: Array<{ args: string[]; detached?: boolean }> = []
     const devices = new AndroidDevices({
       run: async (): Promise<AdbResult> => ({ status: 0, stdout: 'List of devices attached\n', stderr: '' }),
       runEmulator: async (args, opts): Promise<AdbResult> => {
-        emulatorCalls.push({ args, detached: opts?.detached })
+        runnerInvocations.push({ args, detached: opts?.detached })
         if (args[0] === '-list-avds') return { status: 0, stdout: 'Pixel_8_API_36\n', stderr: '' }
         return { status: 0, stdout: '', stderr: '' }
       }
@@ -104,7 +104,7 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
     await devices.startAvd('Pixel_8_API_36')
     await devices.startAvd('Pixel_8_API_36', { lightweight: false })
 
-    const launchCalls = emulatorCalls.filter(call => call.args[0] === '-avd')
+    const launchCalls = runnerInvocations.filter(call => call.args[0] === '-avd')
     expect(launchCalls).toEqual([
       {
         args: ['-avd', 'Pixel_8_API_36', '-no-boot-anim', '-no-audio', '-memory', '2048', '-no-snapshot-save'],
@@ -121,7 +121,7 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
 describe('OXE-113 · Android IPC memory check and launch profile', () => {
   beforeEach(() => handlers.clear())
 
-  test('IPC exposes freeMemoryMb in status, checkEmulatorMemory, and forwards lightweight option on startEmulator', async () => {
+  test('IPC exposes freeMemoryMb in status and forwards lightweight option on startEmulator', async () => {
     const launchArgs: string[][] = []
     const devices = new AndroidDevices({
       run: async (): Promise<AdbResult> => ({ status: 0, stdout: 'List of devices attached\n', stderr: '' }),
@@ -144,12 +144,6 @@ describe('OXE-113 · Android IPC memory check and launch profile', () => {
     }
     expect(status.freeMemoryMb).toBe(1536)
     expect(status.avds).toEqual(['Pixel_8_API_36'])
-
-    const lowLight = await handlers.get(IPC_CHANNELS.android.checkEmulatorMemory)!({ sender: {} }, { lightweight: true })
-    expect(lowLight).toEqual({ ok: false, freeMb: 1536, requiredMb: 2048, lightweight: true })
-
-    const lowStd = await handlers.get(IPC_CHANNELS.android.checkEmulatorMemory)!({ sender: {} }, { lightweight: false })
-    expect(lowStd).toEqual({ ok: false, freeMb: 1536, requiredMb: 4096, lightweight: false })
 
     await handlers.get(IPC_CHANNELS.android.startEmulator)!({ sender: {} }, 'Pixel_8_API_36', { lightweight: true })
     await handlers.get(IPC_CHANNELS.android.startEmulator)!({ sender: {} }, 'Pixel_8_API_36', { lightweight: false })

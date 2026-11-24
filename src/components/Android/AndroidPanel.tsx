@@ -242,13 +242,11 @@ export function AndroidPanel(): ReactElement {
     const api = window.oxe?.android
     if (!api) return
     const requiredMb = lightweightEmulator ? 2048 : 4096
-    const mem = api.checkEmulatorMemory
-      ? await api.checkEmulatorMemory({ lightweight: lightweightEmulator }).catch(() => null)
-      : typeof status?.freeMemoryMb === 'number'
-        ? { ok: status.freeMemoryMb >= requiredMb, freeMb: status.freeMemoryMb, requiredMb, lightweight: lightweightEmulator }
-        : null
-    if (mem && !mem.ok) {
-      setLowMemoryConfirm({ avd, freeMb: mem.freeMb, requiredMb: mem.requiredMb, lightweight: mem.lightweight })
+    const fresh = await api.status().catch(() => status)
+    if (fresh) setStatus(fresh)
+    const freeMb = fresh?.freeMemoryMb ?? status?.freeMemoryMb
+    if (typeof freeMb === 'number' && freeMb < requiredMb) {
+      setLowMemoryConfirm({ avd, freeMb, requiredMb, lightweight: lightweightEmulator })
       return
     }
     await api.startEmulator(avd, { lightweight: lightweightEmulator })
