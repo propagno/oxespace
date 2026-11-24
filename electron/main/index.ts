@@ -221,7 +221,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   core.registerDelegationIpc(delegationService)
 
   const { internalMcp, runDataExport } = await bootstrapInternalMcpAndAudit({ core, workspace, delegationService, previousDbVersion })
-
   let memoryShutdownComplete = false
   let memoryShutdownStarted = false
   app.on('before-quit', (event) => {

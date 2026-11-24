@@ -19,7 +19,7 @@ export interface InternalMcpAndAuditOptions {
 }
 
 export async function bootstrapInternalMcpAndAudit({ core, workspace, delegationService, previousDbVersion }: InternalMcpAndAuditOptions) {
-  const { db, executions, androidAccess, agentState, terminalManager, taskService } = core
+  const { db, executions, androidDevices, androidAccess, agentState, terminalManager, taskService } = core
   const {
     createInternalMcpHandle,
     registerMcpInternalIpc,
@@ -97,6 +97,7 @@ export async function bootstrapInternalMcpAndAudit({ core, workspace, delegation
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
+    androidDevices: () => androidDevices,
     androidAccess: () => androidAccess,
     openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
     askAndroidScreenshot: async ({ serial, owner }) => {
@@ -113,7 +114,8 @@ export async function bootstrapInternalMcpAndAudit({ core, workspace, delegation
         text: serial
       }))
       return outcome.intent === 'allow' || outcome.intent === 'allow-session'
-    }
+    },
+    askAndroidLifecycle: async req => (await import('../mcp-internal/android-lifecycle-handler')).promptAndroidLifecycle(approvalCenter, req)
   })
   registerMcpInternalIpc(internalMcp)
 

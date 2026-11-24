@@ -10,7 +10,8 @@ describe('project tool modes', () => {
   it('puts every configurable group on demand by default, except preview, which starts on (OXE-108)', () => {
     expect(defaults).toEqual({
       orchestration: { mode: 'on-demand', source: 'default' }, data: { mode: 'on-demand', source: 'default' },
-      docs: { mode: 'on-demand', source: 'default' }, preview: { mode: 'always', source: 'default' }, app: { mode: 'on-demand', source: 'default' }
+      docs: { mode: 'on-demand', source: 'default' }, preview: { mode: 'always', source: 'default' },
+      android: { mode: 'on-demand', source: 'default' }, app: { mode: 'on-demand', source: 'default' }
     })
   })
 
@@ -23,7 +24,7 @@ describe('project tool modes', () => {
     expect(modes.data).toEqual({ mode: 'off', source: 'project' })
     expect(modes.docs).toEqual({ mode: 'always', source: 'project' })
     expect(modes.app).toEqual({ mode: 'on-demand', source: 'default' })
-    expect(Object.keys(modes).sort()).toEqual(['app', 'data', 'docs', 'orchestration', 'preview'])
+    expect(Object.keys(modes).sort()).toEqual(['android', 'app', 'data', 'docs', 'orchestration', 'preview'])
     expect(modes.preview).toEqual({ mode: 'always', source: 'default' })
   })
 })
@@ -35,7 +36,7 @@ describe('session tool plan (B7.2)', () => {
     const modes = { ...defaults, data: { mode: 'off' as const, source: 'project' as const } }
     const plan = sessionToolPlan(true, {}, modes)
     expect(plan.enableable).toEqual({})
-    for (const group of ['orchestration', 'docs', 'app'] as const) expect(plan.tools).toEqual(expect.arrayContaining([...THREAD_TOOL_GROUPS[group]]))
+    for (const group of ['orchestration', 'docs', 'android', 'app'] as const) expect(plan.tools).toEqual(expect.arrayContaining([...THREAD_TOOL_GROUPS[group]]))
     expect(plan.tools).not.toContain('oxespace_db_query')
     expect(plan.tools).not.toContain('oxespace_tools_enable')
     expect(plan.tools).not.toContain('oxespace_team_inbox')
@@ -45,7 +46,7 @@ describe('session tool plan (B7.2)', () => {
     const modes = { ...defaults, data: { mode: 'always' as const, source: 'project' as const }, app: { mode: 'off' as const, source: 'project' as const } }
     const plan = sessionToolPlan(false, {}, modes)
     expect(plan.tools).toEqual([...new Set([...core, ...THREAD_TOOL_GROUPS.data, ...THREAD_TOOL_GROUPS.preview]), 'oxespace_tools_enable'])
-    expect(Object.keys(plan.enableable).sort()).toEqual(['orchestration'])
+    expect(Object.keys(plan.enableable).sort()).toEqual(['android', 'orchestration'])
     expect(plan.enableable.orchestration).toEqual([...THREAD_TOOL_GROUPS.orchestration])
     // A group with no tools is never something to turn on.
     expect(plan.enableable).not.toHaveProperty('docs')
