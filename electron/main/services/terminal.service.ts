@@ -493,6 +493,10 @@ export class TerminalManager {
     return this.sessions.has(paneId)
   }
 
+  isStarting(paneId: string): boolean {
+    return this.starting.has(paneId)
+  }
+
   /**
    * Free a slot when too many shells are alive. Only reclaims a session that
    * is detached AND has been silent for a while: a working agent is never
