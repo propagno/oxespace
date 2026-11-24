@@ -263,7 +263,7 @@
 .thread-usage p { margin: 0; color: var(--tx-secondary); line-height: 1.5; }
 .thread-usage-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
 .thread-usage-filters [role="radiogroup"] { display: flex; flex-wrap: wrap; gap: 12px; }
-.thread-usage-total strong { color: var(--tx-primary); font-size: 14px; font-variant-numeric: tabular-nums; }
+.thread-usage-total strong { color: var(--tx-primary); font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
 .thread-usage-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; }
 .thread-usage-list li { display: grid; grid-template-columns: minmax(0, 11rem) minmax(40px, 1fr) auto; gap: 8px; align-items: center; font-size: var(--fs-xs); }
 .thread-usage-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

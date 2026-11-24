@@ -85,7 +85,7 @@ describe('design lint', () => {
   })
 
   describe('legacy stylesheets', () => {
-    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated|OxeQuery/.test(path))
+    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated/.test(path))
     const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ''))
     const lines = (path: string): string[] => stripComments(readFileSync(path, 'utf8')).split(/\r?\n/)
 
@@ -216,7 +216,9 @@ describe('design lint', () => {
       // OXE-28 (#1004 after main): 391.
       // OXE-161 (#1009 after main): 359.
       // OXE-167 + OXE-172 (#1023 after #1025 and #1081, the union): 352.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(349)
+      // OXE-305, OXE-311 and OXE-312 (one PR, on #1140): 342.
+      // OXE-375 (#1176 after main): 339.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(339)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
