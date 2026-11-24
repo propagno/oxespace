@@ -393,3 +393,41 @@ describe('OXE-57 · lazyFrom shared chunks audit (OxeCode & OxeChat)', () => {
     expect(finderSpy).toHaveBeenCalledTimes(2)
   })
 })
+
+// OXE-309: a dock wrapper that statically imports a shared panel warms that panel's SHARED_PANEL_CHUNKS entry when it
+// loads, so the same panel opened later from OxeChat (ThreadChangesPanel, ThreadToolTabs) renders with no Suspense
+// fallback. The registry keeps one chunk identity and only dynamic imports.
+describe('OXE-309 · a loaded dock wrapper warms its shared panel chunk', () => {
+  test('loading workspace dock wrapper warms corresponding SHARED_PANEL_CHUNKS entry for zero cross-mode suspense', async () => {
+    vi.resetModules()
+    const lib = await import('../../../src/lib/panelChunks')
+    const pairs = [
+      [lib.WORKSPACE_PANEL_CHUNKS.background, 'background'],
+      [lib.WORKSPACE_PANEL_CHUNKS.editor, 'files'],
+      [lib.WORKSPACE_PANEL_CHUNKS.github, 'git'],
+      [lib.WORKSPACE_PANEL_CHUNKS.search, 'search'],
+      [lib.WORKSPACE_PANEL_CHUNKS.containers, 'containers'],
+      [lib.WORKSPACE_PANEL_CHUNKS.webPreview, 'webPreview'],
+      [lib.WORKSPACE_HTTP_CALLS_PANEL_CHUNK, 'httpCalls'],
+      [lib.WORKSPACE_ANDROID_PANEL_CHUNK, 'android']
+    ] as const
+    for (const [, shared] of pairs) expect(lib.SHARED_PANEL_CHUNKS[shared].get(), `${shared} before its wrapper`).toBeUndefined()
+
+    for (const [wrapper, shared] of pairs) {
+      await wrapper.load()
+      await vi.waitFor(() => expect(lib.SHARED_PANEL_CHUNKS[shared].get(), `${shared} after its wrapper`).toBeDefined())
+    }
+
+    // Opened from OxeChat afterwards: the panel is there in the first commit, never behind the fallback.
+    const Git = lazyFrom(lib.SHARED_PANEL_CHUNKS.git, m => m.GitControlPanel as unknown as () => ReactNode)
+    const Files = lazyFrom(lib.SHARED_PANEL_CHUNKS.files, m => m.EditorPane as unknown as () => ReactNode)
+    render(<Suspense fallback={<div data-testid="cross-mode-fallback" />}><Git /><Files /></Suspense>)
+    expect(screen.queryByTestId('cross-mode-fallback')).toBeNull()
+    expect(screen.getByTestId('mock-git-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('mock-editor-pane')).toBeInTheDocument()
+
+    // Still one registry and only dynamic imports in it.
+    const source = readFileSync(resolve(process.cwd(), 'src/lib/panelChunks.ts'), 'utf8')
+    expect([...source.matchAll(/^\s*import\s+.+?\s+from\s+['"]([^'"]+)['"]/gm)].map(m => m[1])).toEqual(['./chunk'])
+  })
+})

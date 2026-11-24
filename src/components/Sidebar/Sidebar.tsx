@@ -9,7 +9,7 @@ import { deriveStatusTone } from '../../utils/paneDisplay'
 import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { CodeRail } from './CodeRail'
 import { SidebarCollapseButton } from './SidebarCollapseButton'
-import { Button, EmptyState, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
+import { Button, EmptyState, SegmentedControl, SidebarFilter, SidebarHeader, SidebarSection, Splitter, type MenuEntry } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
@@ -18,7 +18,7 @@ import { PaneSessionRow } from './PaneSessionRow'
 import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
-import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs, type SidebarStateFilter } from '../../store/navigation-prefs.store'
 import './SidebarNavigation.css'
 import { cachedBranchLabel } from '../../hooks/useGitBranch'
 import { shortcutLabel } from '../../keyboard/keybindings'
@@ -47,6 +47,17 @@ interface SidebarProps {
   integrationGroups?: IntegrationGroup[]
 }
 
+
+/** The terminals a workspace lists in the sidebar (placed in its grid). */
+const sidebarTerminals = (ws: Workspace): Workspace['panes'] => ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0)
+/** A terminal's state for the sidebar's state selector (OXE-133): stopped on the person, working, or neither. */
+function terminalState(entry: Parameters<typeof deriveStatusTone>[0] | undefined): Exclude<SidebarStateFilter, 'all'> | null {
+  if (!entry) return null
+  const tone = deriveStatusTone(entry)
+  return tone === 'needs-decision' ? 'needs-you' : tone === 'thinking' ? 'working' : null
+}
+const STATE_FILTERS: SidebarStateFilter[] = ['all', 'needs-you', 'working']
+const STATE_KEYS = { all: 'all', 'needs-you': 'needsYou', working: 'working' } as const
 
 export function Sidebar({
   onDelegations,
@@ -193,6 +204,21 @@ export function Sidebar({
     return ids
   }, [workspaces, terminalPanes])
 
+  // OXE-133: the state selector narrows the terminal rows, and the workspaces that hold them, after the text filter.
+  const stateFilter = useNavigationPrefs(state => state.stateFilter.code)
+  const setStateFilter = useNavigationPrefs(state => state.setStateFilter)
+  const stateCounts = useMemo(() => {
+    const counts: Record<SidebarStateFilter, number> = { all: 0, 'needs-you': 0, working: 0 }
+    for (const ws of filtered) for (const p of sidebarTerminals(ws)) {
+      counts.all += 1
+      const state = terminalState(terminalPanes[p.id])
+      if (state) counts[state] += 1
+    }
+    return counts
+  }, [filtered, terminalPanes])
+  const shown = useMemo(() => stateFilter === 'all' ? filtered
+    : filtered.filter(ws => sidebarTerminals(ws).some(p => terminalState(terminalPanes[p.id]) === stateFilter)), [filtered, stateFilter, terminalPanes])
+
   if (isCollapsed) {
     return (
       <aside className="sidebar sidebar-redesign sidebar-collapsed" data-version={appVersion}>
@@ -215,7 +241,11 @@ export function Sidebar({
       <div className="nav-panel" data-version={appVersion}>
       <SidebarHeader title={t('sidebar.workspaces')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="code" />} />
       <SidebarFilter ref={searchInputRef} icon={<Search size={14} />} hint={searchQuery ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
-        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={tc('nav.clearSearch')} autoComplete="off" spellCheck={false} />
+        value={searchQuery} onChange={event => setSearchQuery(event.target.value)} onClear={() => setSearchQuery('')} clearLabel={tc('nav.clearSearch')} autoComplete="off" spellCheck={false}
+        // Escape clears the text first (the filter does), then the state.
+        onKeyDown={event => { if (event.key === 'Escape' && !searchQuery && stateFilter !== 'all') { event.preventDefault(); event.stopPropagation(); setStateFilter('code', 'all') } }} />
+      <SegmentedControl className="sidebar-state-filter" label={t('sidebar.stateFilter.label')} value={stateFilter} onChange={value => setStateFilter('code', value)}
+        options={STATE_FILTERS.map(value => ({ value, label: <>{t(`sidebar.stateFilter.${STATE_KEYS[value]}`)}{' '}<span className="sidebar-state-count">{stateCounts[value]}</span></> }))} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 
@@ -239,14 +269,17 @@ export function Sidebar({
           </section>
         ) : null}
 
-        {filtered.length === 0 ? (
-          searchQuery
+        {shown.length === 0 ? (
+          searchQuery && filtered.length === 0
             ? <EmptyState compact title={t('sidebar.noMatch')} />
+            : stateFilter !== 'all'
+            ? <EmptyState compact title={t(stateFilter === 'needs-you' ? 'sidebar.stateFilter.emptyNeedsYou' : 'sidebar.stateFilter.emptyWorking')}
+                actions={<Button size="sm" variant="secondary" onClick={() => setStateFilter('code', 'all')}>{t('sidebar.stateFilter.showAll')}</Button>} />
             : <EmptyState compact icon={<FolderOpen size={16} />} title={t('sidebar.none')} actions={<Button size="sm" variant="secondary" icon={<Plus size={12} aria-hidden="true" />} onClick={onNewWorkspace}>{t('sidebar.newWorkspace')}</Button>} />
         ) : (
-          filtered.map((ws) => {
-            const terminals = ws.panes.filter(p => p.type === 'terminal' && p.rowIndex >= 0 && p.columnIndex >= 0)
-            const open = Boolean(searchQuery) || (expanded[ws.id] ?? ws.id === activeWorkspaceId)
+          shown.map((ws) => {
+            const terminals = sidebarTerminals(ws).filter(p => stateFilter === 'all' || terminalState(terminalPanes[p.id]) === stateFilter)
+            const open = Boolean(searchQuery) || stateFilter !== 'all' || (expanded[ws.id] ?? ws.id === activeWorkspaceId)
             const isActive = ws.id === activeWorkspaceId
             // One selection at a time (brand 14/11): the workspace row is the selection only while none of its terminals
             // is. The 1.4 structure stays: each workspace's terminal rows come right after its row.
@@ -262,7 +295,7 @@ export function Sidebar({
                   onClose={onCloseWorkspace}
                   terminalsExpanded={open}
                   terminalCount={terminals.length}
-                  onToggleTerminals={searchQuery ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
+                  onToggleTerminals={searchQuery || stateFilter !== 'all' ? undefined : () => setExpanded(ws.id, !(expanded[ws.id] ?? ws.id === activeWorkspaceId))}
                   isDragging={dragSourceId === ws.id}
                   dropPosition={dragOverId === ws.id ? dropPosition : null}
                   onDragStart={() => setDragSourceId(ws.id)}

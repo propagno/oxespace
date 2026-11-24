@@ -152,7 +152,7 @@ jobs:
             # Single-quoted: `source` would read the backslashes of a Windows path (D:\a\_temp) as escapes.
             printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
             # The current harness over the ref's e2e/ (only test files; the app is the ref's own build above).
-            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/memory-budget.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
               mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
             done
             cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts

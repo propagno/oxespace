@@ -78,9 +78,14 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
   const [focus, setFocus] = useState<Position | null>(null)
   const dragging = useRef(false)
 
-  // A different result starts with a clean slate: widths, hidden columns and selection belong to it.
+  // A different result starts with a clean slate: widths, hidden columns and selection belong to it. Reset while
+  // rendering the new result (OXE-322), not in an effect after it painted with the old result's state.
   const identity = columns.join('\u0000')
-  useEffect(() => { setOverrides({}); setHidden(new Set()); setPinned(new Set()); setFilter(EMPTY_FILTER); setFilterColumn(-1); setAnchor(null); setFocus(null) }, [identity])
+  const [shownIdentity, setShownIdentity] = useState(identity)
+  if (shownIdentity !== identity) {
+    setShownIdentity(identity)
+    setOverrides({}); setHidden(new Set()); setPinned(new Set()); setFilter(EMPTY_FILTER); setFilterColumn(-1); setAnchor(null); setFocus(null)
+  }
 
   const visible = useMemo(() => pinColumns(columns.map((_, index) => index).filter(index => !hidden.has(index)), pinned), [columns, hidden, pinned])
   const autoWidths = useMemo(() => columns.map((name, index) => {
@@ -245,16 +250,21 @@ export function ResultGrid({ columns, types, rows, onCopy, onSelect, selected, o
 
   const activeRow = focus?.row ?? -1
   const filtering = isFiltering(filter)
-  const setFilterText = (text: string): void => setFilter(current => filterColumn < 0 ? { ...current, text } : { ...current, columns: { ...current.columns, [filterColumn]: text } })
+  // A changed filter starts at the top with nothing selected: reset where the filter changes (OXE-322), not in an
+  // effect after the render; the effect below only scrolls the element back up.
+  const changeFilter = (next: GridFilter | ((current: GridFilter) => GridFilter)): void => {
+    setFilter(next); setScrollTop(0); setAnchor(null); setFocus(null)
+  }
+  const setFilterText = (text: string): void => changeFilter(current => filterColumn < 0 ? { ...current, text } : { ...current, columns: { ...current.columns, [filterColumn]: text } })
   const filterText = filterColumn < 0 ? filter.text : filter.columns[filterColumn] ?? ''
-  useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0; setScrollTop(0); setAnchor(null); setFocus(null) }, [filter])
+  useEffect(() => { if (scroller.current) scroller.current.scrollTop = 0 }, [filter])
   return <div className="oq-grid-wrap">
     <div className="oq-grid-filter" role="search" aria-label={t('grid.filterLabel')}>
       <Select className="oq-select" aria-label={t('grid.filterScope')} value={filterColumn} onChange={event => setFilterColumn(Number(event.target.value))}>
         <option value={-1}>{t('grid.filterAll')}</option>{columns.map((name, index) => <option key={`${name}:${index}`} value={index}>{name}</option>)}</Select>
       <input type="search" aria-label={t('grid.filterLabel')} placeholder={t('grid.filterPlaceholder')} value={filterText} spellCheck={false} onChange={event => setFilterText(event.target.value)} />
       {filtering && <><small className="oq-muted" role="status">{t('grid.filterCount', { shown: count, total: rows.length })}</small>
-        <button type="button" className="oq-icon" aria-label={t('grid.filterClear')} onClick={() => setFilter(EMPTY_FILTER)}><X size={12} aria-hidden="true" /></button></>}
+        <button type="button" className="oq-icon" aria-label={t('grid.filterClear')} onClick={() => changeFilter(EMPTY_FILTER)}><X size={12} aria-hidden="true" /></button></>}
     </div>
     <div className="oq-grid" role="grid" aria-label={label} aria-rowcount={count + 1} aria-colcount={visible.length} aria-multiselectable="true" tabIndex={0}
     aria-activedescendant={focus ? `${label}-cell-${focus.row}-${focus.column}` : undefined} onKeyDown={onKeyDown}

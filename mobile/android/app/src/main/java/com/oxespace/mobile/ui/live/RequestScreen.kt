@@ -308,6 +308,7 @@ fun RequestScreen(
                         enabled = enabled,
                         holdHint = stringResource(R.string.request_hold_to_allow),
                         onHeld = { answer(decision, null) },
+                        requestKey = "${request.requestId}#${request.generation}",
                         modifier = Modifier.fillMaxWidth(),
                     )
                 } else {

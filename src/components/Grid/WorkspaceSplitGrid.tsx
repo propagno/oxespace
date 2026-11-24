@@ -8,6 +8,7 @@ import { ErrorBoundary } from '../common/ErrorBoundary'
 import { AnchoredMenu } from '../../ui'
 import { i18n } from '../../i18n'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
+import { moveHasRoom } from './splitRoom'
 
 type DropZone = 'left' | 'right' | 'top' | 'bottom'
 
@@ -154,7 +155,10 @@ export function WorkspaceSplitGrid({
       const xPct = ((ev.clientX - box.left) / box.width) * 100
       const yPct = ((ev.clientY - box.top) / box.height) * 100
       const hit = hitTest(rects, xPct, yPct)
-      latest = { paneId, target: hit && hit.paneId !== paneId ? hit : null }
+      // OXE-365: a drop that would squeeze a pane below the split minimum (240 px wide, 120 tall) offers no zone.
+      const fits = hit && hit.paneId !== paneId
+        && moveHasRoom(isValidPaneTree(tree) ? tree : null, paneId, hit.paneId, ZONE_TO_OP[hit.zone].direction, ZONE_TO_OP[hit.zone].after, { width: box.width, height: box.height })
+      latest = { paneId, target: fits ? hit : null }
       setDrag(latest)
     }
     const onUp = (): void => {
@@ -243,7 +247,11 @@ export function WorkspaceSplitGrid({
                   else {
                     const index = rects.findIndex(rect => rect.paneId === pane.id)
                     if (index < 1) return
-                    onMovePane(pane.id, rects[index - 1].paneId, position === 'bottom' ? 'vertical' : 'horizontal', true)
+                    const direction = position === 'bottom' ? 'vertical' : 'horizontal'
+                    const box = containerRef.current?.getBoundingClientRect()
+                    const grid = box && box.width > 0 && box.height > 0 ? { width: box.width, height: box.height } : null
+                    if (!moveHasRoom(isValidPaneTree(tree) ? tree : null, pane.id, rects[index - 1].paneId, direction, true, grid)) return
+                    onMovePane(pane.id, rects[index - 1].paneId, direction, true)
                   }
                 } : undefined}
                 hasPreviousPane={rects[0]?.paneId !== pane.id}

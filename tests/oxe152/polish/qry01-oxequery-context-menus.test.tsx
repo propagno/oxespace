@@ -12,6 +12,9 @@ import { loadOxeQueryCatalog } from '../../../src/components/OxeQuery/catalog'
 import { useOxeQueryStore } from '../../../src/components/OxeQuery/oxequery.store'
 import { changeLanguage } from '../../../src/i18n'
 import { connection, installFakeOxeQuery, type FakeOxeQuery } from '../../helpers/oxequery-api'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { Profiler } from 'react'
 
 const monacoOptionsSpy = vi.fn()
 const mockFormatRun = vi.fn(async () => undefined)
@@ -302,5 +305,36 @@ describe('OXE-44 · QRY-1 OxeQuery context menus', () => {
 
       view.unmount()
     }
+  })
+})
+
+// OXE-322: the hook cleanup keeps every interaction; a new result, a filter and another connection are reset while
+// rendering, so each takes one commit instead of a render plus an effect's synchronous setState.
+describe('OXE-322 · OxeQuery hooks reset while rendering', () => {
+  test('OxeQuery ResultGrid, SchemaTree and SqlWorkbench preserve interactions cleanly after hook cleanup', async () => {
+    let commits = 0
+    const count = () => { commits++ }
+    const tree = (id: string) => (
+      <Profiler id="tree" onRender={count}>
+        <SchemaTree connection={connection({ id })} pinned={[]} onPinnedChange={vi.fn()} onOpen={vi.fn()} onInsert={vi.fn()} />
+      </Profiler>
+    )
+    const view = render(tree('c1'))
+    await screen.findAllByText('users')
+    commits = 0
+    view.rerender(tree('c2'))
+    expect(commits, 'another connection: one commit, no effect setting state synchronously').toBe(1)
+    await waitFor(() => expect(screen.getAllByText('users').length).toBeGreaterThan(0))
+    view.unmount()
+
+    const workbench = render(<SqlWorkbench connection={connection()} />)
+    const editor = await screen.findByTestId('mock-sql-editor')
+    fireEvent.contextMenu(editor.closest('.oq-editor')!)
+    expect(await screen.findByRole('menu')).toBeInTheDocument()
+    workbench.unmount()
+    const source = (file: string) => readFileSync(join(process.cwd(), 'src/components/OxeQuery', file), 'utf8')
+    expect(source('SqlWorkbench.tsx'), 'no ref written while rendering').not.toMatch(/^ {2}activeRef\.current = active\s*$/m)
+    expect(source('ResultGrid.tsx')).not.toMatch(/useEffect\(\(\) => \{ setOverrides\(/)
+    expect(source('SchemaTree.tsx')).not.toMatch(/useEffect\(\(\) => \{ reload\(\) \}/)
   })
 })
