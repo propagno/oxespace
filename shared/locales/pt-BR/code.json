@@ -2308,7 +2308,15 @@
     "origin": "Origem",
     "handoffRevision": "Revisão da passagem",
     "knowledge": "Conhecimento incluído",
-    "conversation": "Conversa",
+    "sourceKind": {
+      "handoff": "Passagem de trabalho",
+      "acceptance": "Critérios de aceite",
+      "evidence": "Evidência",
+      "memory": "AI Memory",
+      "code": "Código",
+      "checkpoint": "Checkpoint",
+      "session": "Conversa"
+    },
     "noKnowledge": "O pacote de conhecimento está sendo preparado ou nenhuma fonte opcional estava disponível.",
     "memoryEmpty": "A AI Memory foi pedida, mas não forneceu contexto para esta passagem. Confira as configurações de memória do projeto antes de tentar de novo.",
     "loadMore": "Carregar mais",
