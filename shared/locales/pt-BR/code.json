@@ -1007,6 +1007,15 @@
     "width": "Largura da barra lateral",
     "workspaces": "Workspaces",
     "filter": "Filtrar workspaces",
+    "stateFilter": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "emptyNeedsYou": "Nada precisa de você agora",
+      "emptyWorking": "Nada trabalhando agora",
+      "showAll": "Mostrar todos"
+    },
     "filterPlaceholder": "Filtrar…",
     "integrationGroups": "Grupos de integração",
     "integrations": "Integrações",
@@ -2306,7 +2315,15 @@
     "origin": "Origem",
     "handoffRevision": "Revisão da passagem",
     "knowledge": "Conhecimento incluído",
-    "conversation": "Conversa",
+    "sourceKind": {
+      "handoff": "Passagem de trabalho",
+      "acceptance": "Critérios de aceite",
+      "evidence": "Evidência",
+      "memory": "AI Memory",
+      "code": "Código",
+      "checkpoint": "Checkpoint",
+      "session": "Conversa"
+    },
     "noKnowledge": "O pacote de conhecimento está sendo preparado ou nenhuma fonte opcional estava disponível.",
     "memoryEmpty": "A AI Memory foi pedida, mas não forneceu contexto para esta passagem. Confira as configurações de memória do projeto antes de tentar de novo.",
     "loadMore": "Carregar mais",

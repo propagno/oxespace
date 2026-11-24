@@ -439,6 +439,7 @@
       "notInstalled": "Não instalado",
       "signIn": "Entrar no {{provider}}",
       "signInShort": "Entrar",
+      "signedOut": "Desconectado",
       "waiting": "Aguardando o login no navegador…",
       "cancel": "Cancelar",
       "readyModel": "Pronto · {{model}}",

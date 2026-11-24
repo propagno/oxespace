@@ -1,39 +1,6 @@
 /* Project shell. Kept isolated so the feature's chrome can be
    evolved independently from the legacy layout stylesheet. */
 
-.sidebar-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 25px;
-  padding: 0 10px 4px;
-  color: var(--tx-muted);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.sidebar-section-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--tx-muted);
-  cursor: pointer;
-}
-
-.sidebar-section-action-btn:hover {
-  border-color: var(--ov-2);
-  background: var(--ov-1);
-  color: var(--tx-primary);
-}
-
 .workspace-host {
   inset: 0 0 24px;
 }

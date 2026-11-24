@@ -54,6 +54,7 @@ const DEFAULT_URL = 'http://localhost:3000'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
 interface PreviewTab { id: string; draftUrl: string; url: string | null; loading: boolean; error: string | null; canGoBack: boolean; canGoForward: boolean }
+const NO_TAB: PreviewTab = { id: '', draftUrl: DEFAULT_URL, url: null, loading: false, error: null, canGoBack: false, canGoForward: false }
 
 const VIEWPORTS: Record<Viewport, { width: number | null; height: number | null }> = {
   desktop: { width: null, height: null },
@@ -68,9 +69,18 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const previewKey = threadId ? `thread:${threadId}` : workspace.id
   const [tabs, setTabs] = useState<PreviewTab[]>([])
   const [activeTabId, setActiveTabId] = useState('')
-  const activeTab = tabs.find(tab => tab.id === activeTabId) ?? {id:'',draftUrl:DEFAULT_URL,url:null,loading:false,error:null,canGoBack:false,canGoForward:false}
+  const activeTab = useMemo(() => tabs.find(tab => tab.id === activeTabId) ?? NO_TAB, [tabs, activeTabId])
   const { draftUrl, url, loading, error: pageError, canGoBack, canGoForward } = activeTab
-  const updateTab = (id: string, update: (tab: PreviewTab) => PreviewTab): void => setTabs(current => current.map(tab => tab.id === id ? update(tab) : tab))
+  const updateTab = useCallback((id: string, update: (tab: PreviewTab) => PreviewTab): void => setTabs(current => current.map(tab => tab.id === id ? update(tab) : tab)), [])
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null)
+  // OXE-306: another preview (workspace or conversation) starts from no tabs, reset while rendering rather than by an
+  // effect that set state and rendered twice; the effect below only opens that preview's session.
+  const [sessionKey, setSessionKey] = useState(previewKey)
+  if (sessionKey !== previewKey) {
+    setSessionKey(previewKey)
+    setTabs([])
+    setActiveTabId('')
+  }
   const applySession = useCallback((session: BrowserPreviewSessionState): void => {
     setTabs(current => session.tabs.map(tab => {
       const previous = current.find(item => item.id === tab.id)
@@ -80,15 +90,12 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   },[])
   useEffect(() => {
     let cancelled = false
-    setTabs([])
-    setActiveTabId('')
     void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => { if (!cancelled) applySession(session) }).catch(error => { if (!cancelled) setCaptureNotice(humanizeError(error, tc('preview.error.tabs'))) })
     return () => { cancelled = true }
   },[previewKey,applySession])
   const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
   const [zoom, setZoom] = useState(100)
   const [deviceChoice, setDeviceChoice] = useState<{ deviceId: string | null; rotated: boolean }>({ deviceId: null, rotated: false })
-  const [captureNotice, setCaptureNotice] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
@@ -102,8 +109,9 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const [designMode, setDesignMode] = useState(false)
   // Escape first leaves Design Mode (the hint says so), then closes the panel.
   // Every element picked since the sheet opened: one click each, or several in a row with Shift or "Select another".
-  const [, setGrabTick] = useState(0)
-  const grabs = keptGrabs.get(previewKey) ?? NO_GRABS
+  const [grabTick, setGrabTick] = useState(0)
+  // keptGrabs outlives the panel; grabTick says it changed.
+  const grabs = useMemo(() => { void grabTick; return keptGrabs.get(previewKey) ?? NO_GRABS }, [previewKey, grabTick])
   const setGrabs = useCallback((update: DesignGrabItem[] | ((current: DesignGrabItem[]) => DesignGrabItem[])): void => {
     const next = typeof update === 'function' ? update(keptGrabs.get(previewKey) ?? NO_GRABS) : update
     if (next.length > 0) keptGrabs.set(previewKey, next); else keptGrabs.delete(previewKey)
@@ -135,8 +143,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     if (!nextUrl || !activeTabId) return
     updateTab(activeTabId, tab => ({ ...tab, draftUrl: address }))
     void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal}).then(applySession).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open'))))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId, allowExternal, applySession, previewKey])
+  }, [activeTabId, allowExternal, applySession, previewKey, updateTab])
   const startServer = useCallback((config: DevServerConfig): void => {
     setCaptureNotice(tc('preview.devServer.starting', { name: config.name }))
     void dev.start(config).then(started => { if (!started) { setCaptureNotice(null); showPage(config.url) } })
@@ -145,9 +152,14 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const { starting, settle } = dev
   useEffect(() => {
     if (!starting) return
-    if (starting.printedUrl) { const address = starting.printedUrl; settle(); setCaptureNotice(null); showPage(address); return }
-    // A server that prints no address: its expected one is tried once it has had time to come up.
-    const timer = window.setTimeout(() => { settle(); setCaptureNotice(tc('preview.devServer.noAddress', { name: starting.name, url: starting.url })); showPage(starting.url) }, Math.max(0, 8000 - (Date.now() - starting.since)))
+    // The address the server printed opens at once; a server that prints none has its expected one tried once it has
+    // had time to come up. Both from a timer, so the effect itself sets no state (OXE-306).
+    const printed = starting.printedUrl
+    const timer = window.setTimeout(() => {
+      settle()
+      setCaptureNotice(printed ? null : tc('preview.devServer.noAddress', { name: starting.name, url: starting.url }))
+      showPage(printed ?? starting.url)
+    }, printed ? 0 : Math.max(0, 8000 - (Date.now() - starting.since)))
     return () => window.clearTimeout(timer)
   }, [settle, showPage, starting])
   const firstServer = dev.servers.find(config => config.command && !dev.isRunning(config)) ?? null
@@ -213,7 +225,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         .then(found => patchGrab(id, item => ({ ...item, locating: false, context: { ...item.context, ...found } })))
         .catch(() => patchGrab(id, item => ({ ...item, locating: false })))
     })
-  }, [previewKey, activeTabId, applySession, patchGrab, setGrabs, workspace.id, workspace.rootPath])
+  }, [previewKey, activeTabId, applySession, patchGrab, setGrabs, updateTab, workspace.id, workspace.rootPath])
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
@@ -286,21 +298,28 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   // Only pages main let through reach this slot: local ones, and external ones the person allowed on the approval
   // record (OXE-109). An allowed external page turns External on, so it shows instead of "turn on External".
   const loadingPending = useRef<string | null>(null)
-  useEffect(() => {
-    if (!pendingWebPreview || !activeTabId || loadingPending.current === pendingWebPreview) return
-    const nextUrl = normalizePreviewUrl(pendingWebPreview, true)
+  const loadPending = useCallback((pending: string, tabId: string): void => {
+    if (loadingPending.current === pending) return
+    const nextUrl = normalizePreviewUrl(pending, true)
     if (!nextUrl) {
       setCaptureNotice(tc('preview.invalidUrl'))
       setPendingWebPreview(previewKey, null)
       return
     }
-    const external = !normalizePreviewUrl(pendingWebPreview, false)
+    const external = !normalizePreviewUrl(pending, false)
     if (external && !allowExternal) setAllowExternal(true)
-    loadingPending.current = pendingWebPreview
+    loadingPending.current = pending
     setCaptureNotice(null)
-    updateTab(activeTabId, tab => ({ ...tab, draftUrl: pendingWebPreview }))
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId:activeTabId,url:nextUrl,allowExternal:allowExternal || external}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open')))).finally(() => { loadingPending.current = null })
-  }, [pendingWebPreview, previewKey, activeTabId, setPendingWebPreview, allowExternal, applySession])
+    updateTab(tabId, tab => ({ ...tab, draftUrl: pending }))
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId,url:nextUrl,allowExternal:allowExternal || external}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open')))).finally(() => { loadingPending.current = null })
+  }, [previewKey, setPendingWebPreview, allowExternal, applySession, updateTab])
+  useEffect(() => {
+    if (!pendingWebPreview || !activeTabId || loadingPending.current === pendingWebPreview) return
+    // Taken in a microtask, so the effect itself sets no state (OXE-306); a newer request or an unmount drops it.
+    let current = true
+    queueMicrotask(() => { if (current) loadPending(pendingWebPreview, activeTabId) })
+    return () => { current = false }
+  }, [pendingWebPreview, activeTabId, loadPending])
   const approvalOwner = useMemo(() => threadId ? { threadId, paneIds: [] } : { paneIds: (workspace.panes ?? []).map(pane => pane.id) }, [threadId, workspace.panes])
   const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
   const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
@@ -386,10 +405,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       <div className="web-preview-tabs" role="group" aria-label={t('preview.tabs')}>
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
           {tab.loading ? <Spinner size="sm" label={t('preview.tabLoading')} /> : tab.error ? <AlertCircle size={12} role="img" aria-label={t('preview.tabFailed')} /> : null}
-          <button type="button" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={t('preview.tab', { index: index + 1, name: tab.url ? new URL(tab.url).hostname : t('preview.newTab') })} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : t('preview.newTab')}</button>
-          <button type="button" aria-label={t('preview.closeTab', { index: index + 1 })} onClick={() => changeTab('close',tab.id)}><X size={12} aria-hidden="true" /></button>
+          <Button size="sm" variant="ghost" className="web-preview-tab-select" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={t('preview.tab', { index: index + 1, name: tab.url ? new URL(tab.url).hostname : t('preview.newTab') })} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : t('preview.newTab')}</Button>
+          <IconButton size="sm" variant="ghost" className="web-preview-tab-close" label={t('preview.closeTab', { index: index + 1 })} icon={<X size={12} aria-hidden="true" />} onClick={() => changeTab('close',tab.id)} />
         </div>)}
-        <button type="button" className="web-preview-new-tab" aria-label={t('preview.newTabLabel')} title={t('preview.newTabLabel')} onClick={() => changeTab('new')}><Plus size={14} aria-hidden="true" /></button>
+        <IconButton size="sm" variant="ghost" className="web-preview-new-tab" label={t('preview.newTabLabel')} icon={<Plus size={14} aria-hidden="true" />} onClick={() => changeTab('new')} />
       </div>
 
       <div className="web-preview-browserbar" role="toolbar" aria-label={t('preview.toolbar')}>
@@ -481,8 +500,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         <div className="web-preview-problems" role="status" data-testid="preview-problems">
           <AlertCircle size={12} aria-hidden="true" />
           <span>{t('preview.verify.problems', { count: previewProblemCount(problems) })}</span>
-          <button type="button" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</button>
-          <button type="button" className="web-preview-problems-dismiss" aria-label={t('preview.verify.dismiss')} title={t('preview.verify.dismiss')} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)}><X size={12} aria-hidden="true" /></button>
+          <Button size="sm" variant="secondary" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</Button>
+          <IconButton size="sm" variant="ghost" className="web-preview-problems-dismiss" label={t('preview.verify.dismiss')} icon={<X size={12} aria-hidden="true" />} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)} />
         </div>
       ) : null}
 
@@ -518,7 +537,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       {designMode ? (
         <div className="web-preview-design-hint" role="status">
           {grabs.length > 0 ? t('preview.grab.pickingMore', { count: grabs.length }) : t('preview.designHint')}
-          {grabs.length > 0 ? <button type="button" className="web-preview-design-review" data-testid="design-grab-review" onClick={() => { setDesignMode(false); setDesignKeep(false) }}>{t('preview.grab.review')}</button> : null}
+          {grabs.length > 0 ? <Button size="sm" variant="secondary" className="web-preview-design-review" data-testid="design-grab-review" onClick={() => { setDesignMode(false); setDesignKeep(false) }}>{t('preview.grab.review')}</Button> : null}
         </div>
       ) : null}
       {grabs.length > 0 && !designMode ? (
