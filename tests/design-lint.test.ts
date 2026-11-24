@@ -85,7 +85,7 @@ describe('design lint', () => {
   })
 
   describe('legacy stylesheets', () => {
-    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated|OxeQuery/.test(path))
+    const legacy = files(join(ROOT, 'src'), path => path.endsWith('.css') && !path.endsWith('.module.css') && !/tokens\.generated/.test(path))
     const stripComments = (css: string): string => css.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ''))
     const lines = (path: string): string[] => stripComments(readFileSync(path, 'utf8')).split(/\r?\n/)
 
