@@ -7,7 +7,7 @@ import { NavigationRail, RailItems, SidebarActions, SidebarFooter, type RailActi
 import { useUIStore } from '../../store/ui.store'
 import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_RESIZE_STEP, SIDEBAR_WIDTH, useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useKeybindings, shortcutLabel } from '../../keyboard/keybindings'
-import { Badge, Kbd, SegmentedControl, StatusDot, cx } from '../../ui'
+import { Badge, SegmentedControl, SidebarFilter, SidebarHeader, SidebarRow, StatusDot, cx } from '../../ui'
 import { Splitter } from '../../ui/Splitter'
 import { EngineBar } from './EngineBar'
 import { usePodsCatalog } from './catalog'
@@ -47,36 +47,31 @@ export function OxePodSidebar(): ReactElement {
       })} />
     </NavigationRail>}
     {!collapsed && <div className={styles.sidebarContent}>
-      <header className={styles.sidebarHeader}><strong>OxePod</strong><SidebarActions actions={[refresh]} /></header>
+      <SidebarHeader title="OxePod" actions={<SidebarActions actions={[refresh]} />} />
       <EngineSwitch />
       <EngineBar shown={containers.length} />
-      <label className={cx('desktop-search', styles.filter)}>
-        <Search size={13} aria-hidden="true" />
-        <input ref={filterRef} data-pod-filter="" type="search" aria-label={t('sidebar.filter')} placeholder={t('sidebar.filter')} value={filter} onChange={event => useOxePodStore.getState().setFilter(event.target.value)}
-          onKeyDown={event => { if (event.key === 'Escape' && filter) { event.stopPropagation(); useOxePodStore.getState().setFilter('') } }} />
-        {shortcutLabel('oxepod.filter') && <Kbd>{shortcutLabel('oxepod.filter')}</Kbd>}
-      </label>
+      <SidebarFilter ref={filterRef} data-pod-filter="" icon={<Search size={12} aria-hidden="true" />} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
+        value={filter} onChange={event => useOxePodStore.getState().setFilter(event.target.value)} hint={shortcutLabel('oxepod.filter') || undefined}
+        onClear={() => useOxePodStore.getState().setFilter('')} clearLabel={t('common.clear')} />
       <div className={styles.groups}>
         {groups.map(group => <section key={group.project ?? ''} aria-label={group.project ? t('sidebar.project', { name: group.project }) : t('sidebar.others')}>
           <h3 className={styles.groupTitle}>{group.project ? t('sidebar.project', { name: group.project }) : t('sidebar.others')}</h3>
           {group.containers.map(container => {
             const port = firstHostPort(container.ports)
             const state = KNOWN_STATES.has(container.state) ? t(`state.${container.state}` as 'state.running') : container.state
-            return <button key={container.id} type="button" className={styles.row} aria-current={view === 'container' && selected === container.id ? 'page' : undefined}
-              title={[container.name, container.image].join(" · ")} onClick={() => useOxePodStore.getState().select(container.id)}>
-              <StatusDot status={stateStatus(container.state)} label={state} />
-              <span className={styles.rowName}>{container.name}</span>
-              {container.state === 'running' ? port !== undefined && <small className={styles.rowMeta}>{port}</small>
-                : <Badge intent={container.state === 'restarting' || container.state === 'paused' ? 'warning' : 'neutral'}>{state}</Badge>}
-            </button>
+            return <SidebarRow key={container.id} selected={view === 'container' && selected === container.id} onSelect={() => useOxePodStore.getState().select(container.id)}
+              lead={<StatusDot status={stateStatus(container.state)} label={state} />}
+              title={<span title={[container.name, container.image].join(' · ')}>{container.name}</span>}
+              meta={container.state === 'running' ? port !== undefined && <span className={styles.rowMeta}>{port}</span>
+                : <Badge intent={container.state === 'restarting' || container.state === 'paused' ? 'warning' : 'neutral'}>{state}</Badge>} />
           })}
         </section>)}
         {containers.length > 0 && groups.length === 0 && <p className={styles.sideNote}>{t('sidebar.noMatch')}</p>}
         {containers.length === 0 && !error && <p className={styles.sideNote}>{t('sidebar.empty')}</p>}
       </div>
       <nav className={styles.sidebarLinks} aria-label={t('sidebar.more')}>
-        <button type="button" className={styles.row} aria-current={view === 'resources' ? 'page' : undefined} onClick={() => useOxePodStore.getState().show('resources')}><HardDrive size={14} aria-hidden="true" /><span className={styles.rowName}>{t('resources.label')}</span></button>
-        <button type="button" className={styles.row} aria-current={view === 'activity' ? 'page' : undefined} onClick={() => useOxePodStore.getState().show('activity')}><ShieldCheck size={14} aria-hidden="true" /><span className={styles.rowName}>{t('sidebar.activity')}</span></button>
+        <SidebarRow selected={view === 'resources'} onSelect={() => useOxePodStore.getState().show('resources')} lead={<HardDrive size={14} aria-hidden="true" />} title={t('resources.label')} />
+        <SidebarRow selected={view === 'activity'} onSelect={() => useOxePodStore.getState().show('activity')} lead={<ShieldCheck size={14} aria-hidden="true" />} title={t('sidebar.activity')} />
       </nav>
       <SidebarFooter context={resources} onToggle={toggleCollapse} />
     </div>}
