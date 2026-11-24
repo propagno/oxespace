@@ -526,7 +526,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   delegatedThreadObserver.current = thread => {
     delegationService.observeThread(thread)
     try {
-      const pending = agentThreadHistory.readWindow(thread.id).pendingRequests ?? []
+      const pending = agentThreadHistory.pendingRequestsOf(thread.id) // OXE-413: not the whole window on every change
       const previous = seenApprovalNotifications.get(thread.id) ?? new Set<string>()
       const current = new Set<string>()
       for (const req of pending) {
