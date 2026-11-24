@@ -148,7 +148,6 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
   const items = queueItems(agents)
   const failed = agents.filter(row => row.state === 'failed')
   const working = agents.filter(row => row.state === 'working')
-  itemRefs.current.length = items.length
 
   useLayoutEffect(() => {
     const measure = (): void => {
@@ -260,6 +259,7 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
   }
 
   const itemProps = (index: number, label: string) => ({
+    // Each item keeps its own slot; React clears it (null) when the item leaves, so nothing is resized while rendering.
     ref: (element: HTMLDivElement | null) => { itemRefs.current[index] = element },
     className: styles.item,
     'data-ui': 'needs-you-item',

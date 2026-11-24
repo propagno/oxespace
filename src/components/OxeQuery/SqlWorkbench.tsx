@@ -1,5 +1,5 @@
 import type { OnMount } from '@monaco-editor/react'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Button, IconButton } from '../../ui/Button'
 import { AnchoredMenu, type MenuEntry } from '../../ui'
@@ -100,7 +100,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   const lint = useSqlLint(connection, editor, monacoRef)
   const active = tabs.find(tab => tab.id === activeId) ?? tabs[0]
   const activeRef = useRef(active)
-  activeRef.current = active
+  // OXE-322: kept current after each render, never written while rendering (react-hooks/refs).
+  useLayoutEffect(() => { activeRef.current = active })
   // What a confirmation is about: every statement that will run, with its editor line, and the reasons found in each.
   const { check: lintCheck, describe: lintDescribe } = lint
   const pendingScript = useMemo(() => {
@@ -136,7 +137,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   }, [connection.id])
 
   const latest = useRef({ tabs, activeId, pinned })
-  latest.current = { tabs, activeId, pinned }
+  const loadedRef = useRef(false)
+  // OXE-322: what the save and the unmount read, kept current after each render instead of while rendering.
+  useLayoutEffect(() => { latest.current = { tabs, activeId, pinned }; loadedRef.current = loaded })
   const saveNow = useCallback((): void => {
     void oq('workspace.save', { connectionId: connection.id, state: serializeWorkspace(latest.current.tabs, latest.current.activeId, latest.current.pinned) }).catch(() => undefined)
   }, [connection.id])
@@ -146,8 +149,6 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     return () => window.clearTimeout(timer)
   }, [loaded, tabs, activeId, pinned, saveNow])
   useEffect(() => () => { if (loadedRef.current) saveNow() }, [saveNow])
-  const loadedRef = useRef(false)
-  loadedRef.current = loaded
 
   // The editor owns its text while a person types: a controlled value drops keystrokes that arrive between a
   // render and its state, and so would comparing state with the editor to decide whether to push (state lags
@@ -164,7 +165,13 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     if (safety.readOnly) return
     try { setTx(await oq('sql.tx', { connectionId: connection.id, action: 'status' })) } catch { /* the state is a convenience */ }
   }, [connection.id, safety.readOnly])
-  useEffect(() => { void refreshTx() }, [refreshTx])
+  // The state on open, set when it arrives (OXE-322: never synchronously in the effect).
+  useEffect(() => {
+    if (safety.readOnly) return
+    let alive = true
+    oq('sql.tx', { connectionId: connection.id, action: 'status' }).then(state => { if (alive) setTx(state) }, () => undefined)
+    return () => { alive = false }
+  }, [connection.id, safety.readOnly])
   const txAction = async (action: 'begin' | 'commit' | 'rollback'): Promise<void> => {
     setRunning(true); setNotice('')
     try { setTx(await oq('sql.tx', { connectionId: connection.id, action })) } catch (cause) { setNotice(errorMessage(cause)) } finally { setRunning(false) }
@@ -303,8 +310,9 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
     if (selection && !selection.isEmpty() && model) void run(model.getValueInRange(selection), model.getOffsetAt(selection.getStartPosition()))
     else void run(sql, 0)
   }, [run])
-  const runRef = useRef(runCurrent); runRef.current = runCurrent
-  const runAllRef = useRef(runAll); runAllRef.current = runAll
+  const runRef = useRef(runCurrent)
+  const runAllRef = useRef(runAll)
+  useLayoutEffect(() => { runRef.current = runCurrent; runAllRef.current = runAll })
 
   // ---- browsing a table ------------------------------------------------------------------------------
   const openTable = useCallback(async (table: SqlTable, options: { offset?: number; sort?: GridSort | null; filters?: SqlFilter[] } = {}): Promise<void> => {
@@ -338,7 +346,8 @@ export function SqlWorkbench({ connection }: { connection: OxeQueryConnection })
   useEffect(() => {
     if (!loaded || editorRequest?.connectionId !== connection.id) return
     const text = useOxeQueryStore.getState().takeEditorRequest(connection.id)
-    if (text !== null) addTab(text)
+    // The tab opens from a callback, once the request is taken (OXE-322: no state set synchronously in the effect).
+    if (text !== null) void Promise.resolve().then(() => addTab(text))
   // eslint-disable-next-line react-hooks/exhaustive-deps -- addTab reads the current tabs; the request is the trigger
   }, [loaded, editorRequest, connection.id])
 
@@ -582,8 +591,14 @@ function DefinitionPanel({ connection, schema, name, kind, onOpen }: { connectio
   const [open, setOpen] = useState(false)
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState('')
-  // Not keyed by the table: replacing a keyed sibling here left the old panel in the page. The state is reset instead.
-  useEffect(() => { setOpen(false); setText(null); setError('') }, [schema, name])
+  // Not keyed by the table: replacing a keyed sibling here left the old panel in the page. The state is reset instead,
+  // while rendering the other table (OXE-322), not in an effect after it.
+  const objectKey = `${schema}.${name}`
+  const [shownObject, setShownObject] = useState(objectKey)
+  if (shownObject !== objectKey) {
+    setShownObject(objectKey)
+    setOpen(false); setText(null); setError('')
+  }
   useEffect(() => {
     if (!open || text !== null) return
     let alive = true
