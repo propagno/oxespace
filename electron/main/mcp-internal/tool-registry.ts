@@ -95,6 +95,7 @@ const TOOL_GROUP_PURPOSES = {
   data: 'databases and containers through OxeQuery; every data read and change is approved by a person',
   docs: 'documentation tools (none today; the previews are in preview)',
   preview: 'Web Preview and Android devices: open, capture and drive a preview, take a device screenshot; on from the start',
+  android: 'Android emulators and apps: start an AVD, install an APK, launch an app and tail logcat; mutating actions ask first',
   app: 'Git, GitHub, conversations, skills, MCP servers, search, usage and settings'
 }
 
@@ -105,7 +106,7 @@ const TOOL_GROUP_PURPOSES = {
 const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
-    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, preview, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, preview, android, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
     inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
     // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
