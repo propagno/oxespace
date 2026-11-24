@@ -479,10 +479,28 @@ export class WorkspaceService {
     const nextPositions = getPanePositions(nextLayout)
     const nextPositionKeys = new Set(nextPositions.map(positionKey))
     const layoutChanged = input.layoutPreset !== undefined && input.layoutPreset !== current.layoutPreset
-    const panesToRemove = layoutChanged ? current.panes.filter((pane) => pane.rowIndex >= 0 && !nextPositionKeys.has(positionKey(pane))) : []
-    const lockedPane = panesToRemove.find((pane) => pane.status !== 'idle' && pane.status !== 'exited')
+    const inGridPanes = current.panes.filter((pane) => pane.rowIndex >= 0)
+    const keptInPlace = layoutChanged ? inGridPanes.filter((pane) => nextPositionKeys.has(positionKey(pane))) : inGridPanes
+    const keptInPlaceKeys = new Set(keptInPlace.map(positionKey))
+    const freePositions = layoutChanged ? nextPositions.filter((pos) => !keptInPlaceKeys.has(positionKey(pos))) : []
+    const outOfBoundsPanes = layoutChanged ? inGridPanes.filter((pane) => !nextPositionKeys.has(positionKey(pane))) : []
+    // OXE-406: when switching grid presets (e.g. 1x3 -> 2x2), relocate out-of-bounds panes into unoccupied target
+    // slots (running panes first) instead of deleting or rejecting them when the target layout has room.
+    const isBusy = (pane: WorkspacePane): boolean => pane.status !== 'idle' && pane.status !== 'exited'
+    const orderedOutOfBounds = [
+      ...outOfBoundsPanes.filter(isBusy),
+      ...outOfBoundsPanes.filter((pane) => !isBusy(pane))
+    ]
+    const relocations: Array<{ pane: WorkspacePane; position: { rowIndex: number; columnIndex: number } }> = []
+    const panesToRemove: WorkspacePane[] = []
+    for (const pane of orderedOutOfBounds) {
+      const target = freePositions.shift()
+      if (target) relocations.push({ pane, position: target })
+      else panesToRemove.push(pane)
+    }
+    const lockedPane = panesToRemove.find(isBusy)
     if (lockedPane) {
-      const runningCount = panesToRemove.filter((pane) => pane.status !== 'idle' && pane.status !== 'exited').length
+      const runningCount = panesToRemove.filter(isBusy).length
       throw new Error(`Cannot switch to ${nextPreset} pane${nextPreset === 1 ? '' : 's'} while ${runningCount} terminal${runningCount === 1 ? ' is' : 's are'} running in positions that would be removed. Stop or close those terminals, then save again.`)
     }
 
@@ -522,7 +540,19 @@ export class WorkspaceService {
         this.db.prepare('DELETE FROM panes WHERE id = ?').run(pane.id)
       }
 
-      const existingKeys = new Set(current.panes.filter((pane) => nextPositionKeys.has(positionKey(pane))).map(positionKey))
+      if (relocations.length > 0) {
+        const movePane = this.db.prepare(
+          "UPDATE panes SET row_index = ?, column_index = ?, updated_at = datetime('now') WHERE id = ?"
+        )
+        for (const { pane, position } of relocations) {
+          movePane.run(position.rowIndex, position.columnIndex, pane.id)
+        }
+      }
+
+      const existingKeys = new Set([
+        ...keptInPlaceKeys,
+        ...relocations.map(({ position }) => positionKey(position))
+      ])
       const insertPane = this.db.prepare(
         `INSERT INTO panes (id, workspace_id, type, row_index, column_index, shell_profile_id, status)
          VALUES (@id, @workspaceId, 'terminal', @rowIndex, @columnIndex, @shellProfileId, 'idle')`

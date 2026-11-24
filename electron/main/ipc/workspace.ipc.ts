@@ -15,6 +15,7 @@ interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
   stopWorkspace(workspaceId: string): Promise<void> | void
   hasSession?(paneId: string): boolean
+  isStarting?(paneId: string): boolean
 }
 
 /**
@@ -29,7 +30,9 @@ export interface WorkspaceIpcServices {
 
 /** The app's own service: it asks the terminals what runs, and registration is startup, so it clears stale rows once. */
 function startWorkspaceService(db: AppDatabase, lifecycle?: WorkspaceLifecycleController): WorkspaceService {
-  const service = new WorkspaceService(db, { isPaneRunning: (paneId) => lifecycle?.hasSession?.(paneId) ?? false })
+  const service = new WorkspaceService(db, {
+    isPaneRunning: (paneId) => (lifecycle?.hasSession?.(paneId) || lifecycle?.isStarting?.(paneId)) ?? false
+  })
   service.resetStalePaneStatus()
   return service
 }

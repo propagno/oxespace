@@ -3,11 +3,12 @@ import type { AppDatabase } from '../db/index'
 /**
  * Remote MCP endpoints the catalog once offered that their providers retired,
  * mapped to the current ones. Linear's SSE endpoint answers 404 and
- * Cloudflare's SSE stream answers 410; both now serve Streamable HTTP at /mcp.
+ * Cloudflare's and Asana's v1 SSE streams answer 410; all now serve Streamable HTTP.
  */
 export const RETIRED_MCP_ENDPOINTS: Readonly<Record<string, string>> = {
   'https://mcp.linear.app/sse': 'https://mcp.linear.app/mcp',
-  'https://docs.mcp.cloudflare.com/sse': 'https://docs.mcp.cloudflare.com/mcp'
+  'https://docs.mcp.cloudflare.com/sse': 'https://docs.mcp.cloudflare.com/mcp',
+  'https://mcp.asana.com/sse': 'https://mcp.asana.com/v2/mcp'
 }
 
 interface Row { id: string; config_json: string }
@@ -15,7 +16,7 @@ interface Row { id: string; config_json: string }
 /**
  * Points saved servers added from an older catalog at the current endpoint, so a
  * connector that stopped working starts working again without being re-added.
- * Only an argument that is exactly a retired URL changes; anything the person
+ * Only an argument or URL that is exactly a retired URL changes; anything the person
  * edited is left alone. Returns how many servers changed. Idempotent.
  */
 export function upgradeRetiredMcpEndpoints(db: AppDatabase, now: number = Date.now()): number {
@@ -28,6 +29,19 @@ export function upgradeRetiredMcpEndpoints(db: AppDatabase, now: number = Date.n
     if (!Array.isArray(config.args) || !config.args.some(arg => typeof arg === 'string' && arg in RETIRED_MCP_ENDPOINTS)) continue
     config.args = config.args.map(arg => typeof arg === 'string' && arg in RETIRED_MCP_ENDPOINTS ? RETIRED_MCP_ENDPOINTS[arg] : arg)
     update.run(JSON.stringify(config), now, row.id)
+    changed += 1
+  }
+
+  const remoteRows = db.prepare(`SELECT id, config_json FROM mcp_servers WHERE transport IN ('sse', 'http')`).all() as Row[]
+  const updateRemote = db.prepare('UPDATE mcp_servers SET transport = ?, config_json = ?, updated_at = ? WHERE id = ?')
+  for (const row of remoteRows) {
+    let config: { transport?: unknown; url?: unknown; headers?: unknown }
+    try { config = JSON.parse(row.config_json) as typeof config } catch { continue }
+    if (typeof config.url !== 'string' || !(config.url in RETIRED_MCP_ENDPOINTS)) continue
+    const nextUrl = RETIRED_MCP_ENDPOINTS[config.url]
+    const nextTransport = /\/sse\/?$/i.test(nextUrl) ? 'sse' : 'http'
+    const nextConfig = { ...config, transport: nextTransport, url: nextUrl }
+    updateRemote.run(nextTransport, JSON.stringify(nextConfig), now, row.id)
     changed += 1
   }
   return changed

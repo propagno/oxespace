@@ -14,7 +14,8 @@ export async function retryIdentityProbe<T>(probe: () => Promise<T>): Promise<T>
 
 /**
  * A project's identity: the real path of its Git common dir (so every worktree of a repository shares one), or the
- * real path of the folder when it is not a repository. Lower-cased with forward slashes on Windows.
+ * real path of the folder when it is not a repository (or Git refuses it for dubious ownership). Lower-cased with
+ * forward slashes on Windows.
  */
 export async function projectIdentity(cwd: string): Promise<string> {
   const root = await realpath(cwd)
@@ -27,7 +28,9 @@ export async function projectIdentity(cwd: string): Promise<string> {
     identity = await realpath(resolve(root, result.stdout.trim()))
   } catch (error) {
     // Timeouts, missing Git and permission errors must not mint a second identity.
-    if (!String((error as { stderr?: string }).stderr).includes('not a git repository')) throw error
+    // Non-git folders and dubious-ownership repos fall back deterministically to the folder path.
+    const stderr = String((error as { stderr?: string }).stderr ?? '')
+    if (!/not a git repository|dubious ownership/i.test(stderr)) throw error
   }
   return process.platform === 'win32' ? identity.replace(/\\/g, '/').toLowerCase() : identity
 }
