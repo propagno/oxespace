@@ -26,11 +26,14 @@ export interface LifecycleAuditEntry {
 }
 
 export type LifecycleResult =
-  | { ok: true; output?: string; truncated?: boolean }
+  | { ok: true; serial?: string; output?: string; truncated?: boolean }
   | { ok: false; code: 'android.lifecycle.invalid'; field: string }
   | { ok: false; code: 'android.lifecycle.denied' | 'android.agents.notAllowed' }
   | { ok: false; code: 'android.lifecycle.failed'; reason: string }
 
+const AVD_BOOT_TIMEOUT_MS = 60_000
+const AVD_BOOT_POLL_MS = 1_000
+const AVD_BOOT_PROBE_TIMEOUT_MS = 5_000
 const APK_INSTALL_TIMEOUT_MS = 120_000
 const APP_LAUNCH_TIMEOUT_MS = 15_000
 const LOGCAT_TIMEOUT_MS = 10_000
@@ -94,6 +97,10 @@ export class AndroidLifecycle {
   private readonly approve: (prompt: LifecyclePrompt) => Promise<boolean>
   private readonly agentsCanSee: (serial: string) => boolean
   private readonly audit?: { record(entry: LifecycleAuditEntry): void }
+  private readonly bootTimeoutMs: number
+  private readonly bootPollMs: number
+  private readonly sleep: (ms: number) => Promise<void>
+  private readonly now: () => number
 
   constructor(options: {
     devices: AndroidDevices
@@ -101,26 +108,59 @@ export class AndroidLifecycle {
     approve: (prompt: LifecyclePrompt) => Promise<boolean>
     agentsCanSee: (serial: string) => boolean
     audit?: { record(entry: LifecycleAuditEntry): void }
+    bootTimeoutMs?: number
+    bootPollMs?: number
+    sleep?: (ms: number) => Promise<void>
+    now?: () => number
   }) {
     this.devices = options.devices
     this.run = options.run
     this.approve = options.approve
     this.agentsCanSee = options.agentsCanSee
     this.audit = options.audit
+    this.bootTimeoutMs = options.bootTimeoutMs ?? AVD_BOOT_TIMEOUT_MS
+    this.bootPollMs = options.bootPollMs ?? AVD_BOOT_POLL_MS
+    this.sleep = options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms)))
+    this.now = options.now ?? (() => Date.now())
   }
 
   async avdStart(input: { avdName: unknown }): Promise<LifecycleResult> {
     const avd = input.avdName
     if (typeof avd !== 'string' || !AVD_NAME_RE.test(avd) || avd.startsWith('-')) return invalid('avdName')
     if (!(await this.devices.listAvds()).includes(avd)) return invalid('avdName')
-    return this.changeDevice({ action: 'avd_start', device: avd, target: avd }, async () => {
+    let bootedSerial: string | undefined
+    const res = await this.changeDevice({ action: 'avd_start', device: avd, target: avd }, async () => {
+      const before = new Set(await this.devices.ownedSerials())
       try {
         await this.devices.startAvd(avd)
-        return null
       } catch (err) {
         return err instanceof Error ? err.message : 'Failed to start Android emulator'
       }
+      const boot = await this.waitForBoot(avd, before)
+      if ('error' in boot) return boot.error
+      bootedSerial = boot.serial
+      return null
     })
+    return res.ok && bootedSerial ? { ok: true, serial: bootedSerial } : res
+  }
+
+  private async waitForBoot(avd: string, before: ReadonlySet<string>): Promise<{ serial: string } | { error: string }> {
+    const deadline = this.now() + this.bootTimeoutMs
+    while (true) {
+      const owned = await this.devices.ownedSerials()
+      const serial = owned.find(candidate => !before.has(candidate))
+      if (serial) {
+        const prop = await this.adb(['-s', serial, 'shell', 'getprop', 'sys.boot_completed'], AVD_BOOT_PROBE_TIMEOUT_MS)
+        if (prop.missing) return { error: 'adb not found' }
+        if (prop.status === 0 && text(prop.stdout).trim() === '1') return { serial }
+      }
+      const remaining = deadline - this.now()
+      if (remaining <= 0) {
+        const seconds = Math.max(1, Math.round(this.bootTimeoutMs / 1000))
+        return { error: `Emulator "${avd}" did not finish booting within ${seconds}s` }
+      }
+      await this.sleep(Math.min(this.bootPollMs, remaining))
+    }
   }
 
   async apkInstall(input: { serial: unknown; apkPath: unknown; workspaceRoot: unknown }): Promise<LifecycleResult> {

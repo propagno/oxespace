@@ -834,6 +834,10 @@
         "name": "Prévia",
         "description": "Prévia web e dispositivos Android: abrir, capturar e conduzir uma prévia, e capturar a tela de um dispositivo. Ligado desde o início."
       },
+      "android": {
+        "name": "Android",
+        "description": "Emuladores e apps Android: iniciar um emulador, instalar um APK, abrir um app e ler o logcat. Iniciar, instalar e abrir perguntam a você antes."
+      },
       "app": {
         "name": "App",
         "description": "Git, GitHub, conversas, skills, servidores MCP, busca e uso. Pushes, pull requests e releases são aprovados por você."
