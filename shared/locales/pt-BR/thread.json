@@ -1655,7 +1655,23 @@
     "stopLabel": "Parar: {{label}}",
     "stopTitle": "Parar esta tarefa em segundo plano",
     "viewResult": "Ver resultado",
-    "instructions": "Instruções"
+    "instructions": "Instruções",
+    "result": {
+      "status": {
+        "done": "Concluído",
+        "failed": "Falhou",
+        "running": "Em execução"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Ver saída completa",
+      "showLess": "Mostrar menos",
+      "openConversation": "Abrir conversa",
+      "viewDetails": "Ver detalhes",
+      "runningSummary": "Trabalhando em segundo plano…",
+      "noOutput": "Nenhuma saída informada."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",

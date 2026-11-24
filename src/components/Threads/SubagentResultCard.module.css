@@ -1,0 +1,104 @@
+.root {
+  display: block;
+  min-width: 0;
+}
+
+.card {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.card[data-status='done'] {
+  border-inline-start: 3px solid var(--intent-success-solid);
+}
+
+.card[data-status='failed'] {
+  border-color: var(--intent-danger-border);
+  border-inline-start: 3px solid var(--intent-danger-solid);
+}
+
+.card[data-status='running'] {
+  border-inline-start: 3px solid var(--accent);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.identity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title {
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  color: var(--tx-secondary);
+  background: var(--surface-sunken);
+}
+
+.statusBadge[data-status='done'] {
+  color: var(--intent-success-fg);
+  background: var(--intent-success-bg);
+}
+
+.statusBadge[data-status='failed'] {
+  color: var(--intent-danger-fg);
+  background: var(--intent-danger-bg);
+}
+
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  margin: 0;
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.output {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--tx-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
