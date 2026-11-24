@@ -70,9 +70,7 @@ env:
   # They still show in the record, the warnings and the summary; they just do not fail the run. Nothing else does
   # pass: another error, a timeout or another budget fails as before (scripts/perf-gate-outcome.mjs). An entry
   # leaves in the pull request that fixes its measure; no entry is ever added without its card and the user's OK.
-  PERF_GATE_KNOWN_FAILURES: >-
-    [{"card":"OXE-412","os":"Windows","test":"e2e/memory-footprint.spec.ts › memory footprint: one long Thread, four terminals, seeded history","error":"^browser private memory \\d+(\\.\\d+)? MB exceeded 270 MB$"},
-    {"card":"OXE-350","os":"Windows","test":"e2e/perceived-perf.spec.ts › perceived performance: first feedback, first content and blank time per surface","error":"^OxeChat \\(Thread\\) warm: first content against the 33 ms baseline( \\(round 1 \\d+, round 2 \\d+\\))?$"}]
+  PERF_GATE_KNOWN_FAILURES: '[]'
 
 jobs:
   # What a pull request touched, so the expensive jobs only run when they can tell something.
