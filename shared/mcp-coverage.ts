@@ -153,12 +153,21 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
     tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
-      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.close', 'browserPreview.setDevice']
+      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.captureSessionArtifact', 'browserPreview.close', 'browserPreview.setDevice']
   },
   'web_preview.access': { label: 'Let the preview reach external sites or end an agent browser grant', forbidden: 'Raises or revokes person-controlled access.', ipc: ['browserPreview.setAccess', 'browserPreview.revokeGrant'] },
   'android.screenshot': {
     label: 'Capture a screenshot of an Android device when Agents can see is on',
     tools: { oxespace_device_screenshot: 'read' }
+  },
+  'android.lifecycle': {
+    label: 'Android device lifecycle with explicit consent: start AVD, install workspace APK, launch app, tail logcat',
+    tools: {
+      oxespace_android_avd_start: 'confirm',
+      oxespace_android_apk_install: 'confirm',
+      oxespace_android_app_launch: 'confirm',
+      oxespace_android_logcat_tail: 'read'
+    }
   },
   'android.controls': {
     label: 'Android mirror window controls, input and the Agents can see switch',

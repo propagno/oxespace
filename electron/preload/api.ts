@@ -551,6 +551,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
       captureElementFile: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElementFile, input) as Promise<{dataUrl:string;path:string|null} | null>,
       captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
+      captureSessionArtifact: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureSessionArtifact, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionArtifact>,
       close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
       revokeGrant: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.revokeGrant, input) as Promise<void>,
       setDevice: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setDevice, input) as Promise<void>,
@@ -601,6 +602,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       installApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.installApk, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
+      stopEmulator: (input) => ipc.invoke(IPC_CHANNELS.androidActions.stopEmulator, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
       onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
       onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)

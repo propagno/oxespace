@@ -4,6 +4,7 @@ import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
+import { usePaneLayoutStore } from './pane-layout.store'
 import { useUIStore } from './ui.store'
 
 /** Keeps the UI store's active pane aligned with the grid's focus when a workspace loads or switches. */
@@ -292,7 +293,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
       rollbackMessage: i18n.t('code:workspace.settingsFailed'),
-      reconcile: (workspace, state) => ({ workspaces: replaced(state.workspaces, workspace) }),
+      reconcile: (workspace, state) => {
+        if (input.layoutPreset !== undefined && previous && input.layoutPreset !== previous.layoutPreset) {
+          usePaneLayoutStore.getState().resetFromPanes(workspace.id, workspace.panes)
+        }
+        return { workspaces: replaced(state.workspaces, workspace) }
+      },
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}
     })

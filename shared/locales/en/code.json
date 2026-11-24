@@ -1002,7 +1002,8 @@
       "back": "Could not go back.",
       "forward": "Could not go forward.",
       "reload": "Could not reload.",
-      "capture": "Could not capture the preview."
+      "capture": "Could not capture the preview.",
+      "captureArtifact": "Could not save the preview as a session artifact."
     },
     "invalidUrl": "Enter a valid HTTP or HTTPS address.",
     "localOnly": "Local-only mode accepts localhost, 127.0.0.1 and ::1. Turn on External for other sites.",
@@ -1016,6 +1017,7 @@
       "label": "An agent asks to open {{url}} in the Browser"
     },
     "copied": "Preview copied to the clipboard.",
+    "artifactSaved": "Preview saved as session artifact ({{fileName}}).",
     "close": "Close browser",
     "tabs": "Browser tabs",
     "tabLoading": "Loading",
@@ -1046,6 +1048,7 @@
     "designTitle": "Design Mode: click an element to send it to an agent",
     "designHint": "Design Mode — click an element in the page, or press Escape to cancel.",
     "capture": "Copy the preview to the clipboard",
+    "captureArtifact": "Save preview as session artifact",
     "openExternal": "Open in your browser",
     "moreActions": "More browser actions",
     "access": {
@@ -2677,8 +2680,19 @@
       "pick-expired": "The file you chose is no longer waiting. Choose it again.",
       "file-changed": "The file changed after you chose it. Choose it again.",
       "not-debug-build": "The OXESpace app on this device is not a debug build. Pair it by scanning the code.",
-      "pairing-unavailable": "Pairing is not available right now."
+      "pairing-unavailable": "Pairing is not available right now.",
+      "not-owned": "This emulator was started outside OXESpace and can't be stopped here."
     },
+    "stopEmulator": "Stop emulator",
+    "stoppingEmulator": "Stopping…",
+    "emulatorStopped": "Stopped {{name}}",
+    "stopEmulatorFailed": "Couldn't stop {{name}}",
+    "startedByOxespace": "Started by OXESpace",
+    "externalEmulator": "Started outside OXESpace",
+    "disconnectedNotice": "{{name}} disconnected. Agents were notified.",
+    "disconnectedToast": "{{name}} disconnected",
+    "disconnectedAgentNotified": "Active agents were notified that this device is no longer available.",
+    "dismissNotice": "Dismiss",
     "pairSent": "Pairing link sent",
     "pairSentDetail": "The phone shows a code. Confirm it here when OXESpace asks.",
     "pairClosed": "Phones can't connect yet",

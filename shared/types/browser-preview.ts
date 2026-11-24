@@ -96,6 +96,22 @@ export interface BrowserPreviewEvent {
   devToolsOpen?: boolean
 }
 
+export interface BrowserPreviewSessionArtifact {
+  id: string
+  sessionId: string
+  ownerKey: string
+  workspaceId: string
+  threadId?: string
+  fileName: string
+  path: string
+  metadataPath: string
+  url: string
+  title: string
+  viewport: { width: number; height: number }
+  capturedAt: number
+  bytes: number
+}
+
 export interface BrowserPreviewApi {
   session(input: {ownerKey:string;action:'open'|'new'|'select'|'close'|'navigate';tabId?:string;url?:string;allowExternal?:boolean}): Promise<BrowserPreviewSessionState>
   mount(input: BrowserPreviewMount): Promise<BrowserPreviewMountResult>
@@ -113,6 +129,8 @@ export interface BrowserPreviewApi {
   /** The same capture, also saved under the app's private capture folder so an agent can be given its path. `path` is null when it could not be saved. */
   captureElementFile(input: {ownerKey:string;tabId:string;rect:{x:number;y:number;width:number;height:number}}): Promise<{dataUrl:string;path:string|null} | null>
   captureClipboard(input: {ownerKey:string;tabId:string}): Promise<void>
+  /** Captures the active visible preview page as a persisted PNG + JSON metadata session artifact. */
+  captureSessionArtifact(input: {ownerKey:string;tabId:string}): Promise<BrowserPreviewSessionArtifact>
   close(input: {ownerKey:string;tabId:string;lease?:string}): Promise<void>
   revokeGrant(input: { ownerKey: string; tabId: string }): Promise<void>
   setDevice(input: { ownerKey: string; tabId: string; deviceId: string | null; rotated: boolean }): Promise<void>
