@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Button, IconButton, useModalSurface } from '../../ui'
 import { useUIStore } from '../../store/ui.store'
+import { resolvePreferredOpenInTarget } from '../../lib/openIn'
 import { changeInWorkingTree, liveContainer } from './agentActivityLive'
 import type { OpenInInput } from '../../../shared/types/open-in'
 
@@ -64,13 +65,14 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
   const path = String(detail?.path ?? row.path ?? row.summary ?? '')
   const workspaceId = String(row.workspaceId ?? '')
 
-  const handleOpenInEditor = (): void => {
+  const handleOpenInEditor = async (): Promise<void> => {
     if (window.oxe?.app?.openIn) {
+      const target = await resolvePreferredOpenInTarget()
       const input: OpenInInput = {
         workspaceId,
         rootPath: '',
         path,
-        target: 'vscode',
+        target,
         ...(line ? { line: Number(line) } : {})
       }
       window.oxe.app.openIn(input)
@@ -125,7 +127,7 @@ export function AgentActivityDetail({ row, onClose }: AgentActivityDetailProps):
                 </p>
               ) : inWorkingTree === true ? (
                 <div className="agent-activity-actions">
-                  <Button variant="primary" onClick={handleOpenInEditor}>
+                  <Button variant="primary" onClick={() => void handleOpenInEditor()}>
                     {t('activity.openInEditor', {
                       line: line ?? 1,
                       defaultValue: `Open in editor at line ${line ?? 1}`

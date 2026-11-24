@@ -1,7 +1,7 @@
 @layer oxe-legacy {
 .delegation-context-row {
   display: grid;
-  grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--bd-default);
@@ -9,12 +9,14 @@
 .delegation-form-body label { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 500; }
 .delegation-form-body label > span { color: var(--tx-muted); font-weight: 400; }
 .delegation-form-body input:not([type=checkbox], [type=radio]), .delegation-form-body textarea, .delegation-form-body select {
-  width: 100%; min-width: 0; min-height: var(--control-lg); padding: 8px 10px;
+  width: 100%; min-width: 0; min-height: var(--control-lg);
   border: 1px solid var(--bd-default); border-radius: var(--radius-sm);
   background: var(--surface-base); color: var(--tx-primary); font: inherit;
   font-size: var(--fs-sm); line-height: 1.4;
 }
-.delegation-form-body textarea { resize: vertical; }
+/* OXE-372: only the textareas pad themselves; a Select and a TextField keep the Field primitive's padding, the Select's
+   room for its chevron included. */
+.delegation-form-body textarea { padding: var(--space-2); resize: vertical; }
 .delegation-form-body :is(input, textarea, select):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .delegation-form-body :is(input, textarea)::placeholder { color: var(--tx-muted); opacity: .72; }
 .delegation-columns { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 24px; padding-top: 20px; align-items: start; }
@@ -66,6 +68,6 @@
 .delegation-preview dd { min-width: 0; margin: 0; color: var(--tx-secondary); overflow-wrap: anywhere; }
 .delegation-preview p { margin: 0; color: var(--tx-muted); }
 .delegation-preview-error { margin: 16px 0 0; }
-@media (max-width: 750px) { .delegation-context-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .delegation-context-row label:nth-child(3) { grid-column: 1 / -1; } .delegation-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; } .delegation-panel + .delegation-panel { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--bd-default); } }
-@media (max-width: 520px) { .delegation-context-row { grid-template-columns: minmax(0, 1fr); } .delegation-context-row label:nth-child(3) { grid-column: auto; } }
+@media (max-width: 750px) { .delegation-context-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .delegation-columns { grid-template-columns: minmax(0, 1fr); gap: 22px; } .delegation-panel + .delegation-panel { padding: 20px 0 0; border-left: 0; border-top: 1px solid var(--bd-default); } }
+@media (max-width: 520px) { .delegation-context-row { grid-template-columns: minmax(0, 1fr); } }
 }

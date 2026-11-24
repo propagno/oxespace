@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next'
 import type { ConversationThread, ThreadConfiguration, ThreadModelCatalog, ThreadSnapshot } from '../../../shared/types/thread'
 import { Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Popover, Spinner, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
-import { modelChipName } from './threadModelName'
+import { compactModelLabel, modelChipName } from './threadModelName'
 
 const modelCatalogCache = new Map<string, ThreadModelCatalog>()
 
-export function ThreadConfigurationBar({ thread, narrow = false, onConfigured, onError, openControl, onControlClosed }: {
-  thread: ConversationThread; narrow?: boolean; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
+export function ThreadConfigurationBar({ thread, narrow = false, compact = false, onConfigured, onError, openControl, onControlClosed }: {
+  thread: ConversationThread; narrow?: boolean; compact?: boolean; onConfigured: (snapshot: ThreadSnapshot) => void; onError: (message: string) => void
   openControl: 'model' | 'effort' | 'permissions' | null; onControlClosed: () => void
 }) {
   const { t } = useTranslation('thread')
@@ -53,11 +53,12 @@ export function ThreadConfigurationBar({ thread, narrow = false, onConfigured, o
   // message has a dashed border and says so in its tooltip.
   const pendingChange = Boolean(thread.pendingConfiguration)
   const modelText = modelChipName({ chosen: desired.model, catalog, reported: thread.contextReport?.model ?? thread.sessionModel }) ?? (loading ? t('config.loadingModels') : t('config.providerDefault'))
+  const visibleModelText = narrow || compact ? compactModelLabel(modelText) : modelText
   const accessText = desired.access === 'full-access' ? t('config.fullAccess') : desired.access === 'workspace-write' ? t('config.chip.canEdit') : t('config.readOnly')
-  const selector = (kind: 'model' | 'permissions', label: string, text: string, children: React.ReactNode, disabled = false, badge?: string, Icon?: LucideIcon) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}
+  const selector = (kind: 'model' | 'permissions', label: string, text: string, children: React.ReactNode, disabled = false, badge?: string, Icon?: LucideIcon, fullText = text) => <Popover open={opened === kind} onOpenChange={open => { if (open) setOpened(kind); else if (!proposedAccess && !proposedNetwork && !proposedNever && !proposedHooks) close() }}
     side="top" sideOffset={10} label={label} className="thread-config-popover"
     trigger={<Button ref={kind === 'permissions' ? accessTrigger : undefined} type="button" variant="ghost" size="sm" className={`thread-config-trigger thread-chip is-${kind}`} data-access={kind === 'permissions' ? desired.access ?? 'read-only' : undefined} data-pending={pendingChange || undefined}
-      aria-label={`${t(`config.chip.${kind}`)}: ${text}`} disabled={saving || disabled} title={pendingChange ? `${t(`config.chip.${kind}`)}: ${text} · ${t('config.chip.pending')}` : `${t(`config.chip.${kind}`)}: ${text}`}>
+      aria-label={`${t(`config.chip.${kind}`)}: ${fullText}`} disabled={saving || disabled} title={pendingChange ? `${t(`config.chip.${kind}`)}: ${fullText} · ${t('config.chip.pending')}` : `${t(`config.chip.${kind}`)}: ${fullText}`}>
       {kind === 'model' ? <i className="thread-chip-dot" data-provider={thread.provider} aria-hidden="true" /> : Icon && <Icon size={14} aria-hidden="true" />}<span className="thread-chip-text">{text}</span>{badge && <i className="thread-config-badge">{badge}</i>}{saving ? <Spinner size="sm" label={t('config.saving')} /> : <ChevronDown size={12} aria-hidden="true" />}</Button>}>
       <header>{label}{kind !== 'permissions' && <button type="button" aria-label={t('config.refreshModels')} onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={14} /></button>}</header><div className="thread-config-scroll">{children}</div>
   </Popover>
@@ -87,11 +88,11 @@ export function ThreadConfigurationBar({ thread, narrow = false, onConfigured, o
       side="top" sideOffset={10} label={t('config.turnSettings')} className="thread-config-popover"
       trigger={<Button ref={accessTrigger} type="button" variant="ghost" size="sm" className="thread-config-trigger thread-chip is-model is-turn-settings" data-pending={pendingChange || undefined}
         aria-label={t('config.turnSettings')} disabled={saving} title={`${t('config.turnSettings')}: ${modelText} · ${accessText}`}>
-        <i className="thread-chip-dot" data-provider={thread.provider} aria-hidden="true" /><span className="thread-chip-text">{modelText}</span>{saving ? <Spinner size="sm" label={t('config.saving')} /> : <ChevronDown size={12} aria-hidden="true" />}</Button>}>
+        <i className="thread-chip-dot" data-provider={thread.provider} aria-hidden="true" /><span className="thread-chip-text">{visibleModelText}</span>{saving ? <Spinner size="sm" label={t('config.saving')} /> : <ChevronDown size={12} aria-hidden="true" />}</Button>}>
       <header>{t('config.turnSettings')}<button type="button" aria-label={t('config.refreshModels')} onClick={() => setRefresh(value => value + 1)} disabled={loading}><RefreshCw size={14} /></button></header>
       <div className="thread-config-scroll"><p className="thread-config-section-label">{t('config.chip.model')}</p>{modelContent}{permissionsContent}</div>
     </Popover> : <>
-      {selector('model', t('config.selectModel'), modelText, modelContent)}
+      {selector('model', t('config.selectModel'), visibleModelText, modelContent, false, undefined, undefined, modelText)}
       {selector('permissions', t('config.permissions'), accessText, permissionsContent, false, thread.provider === 'codex' && desired.access !== 'read-only' && desired.approvalPolicy === 'never' ? t('config.never') : undefined, accessIcon)}
     </>}
     {proposedAccess && <ConfirmDialog cancelLabel={t('common.cancel')} returnFocusTo={() => accessTrigger.current} busy={saving} danger={proposedAccess === 'full-access'}
