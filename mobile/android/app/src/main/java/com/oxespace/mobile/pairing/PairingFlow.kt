@@ -2,6 +2,7 @@ package com.oxespace.mobile.pairing
 
 import com.oxespace.mobile.protocol.RemotePairingErrorCode
 import com.oxespace.mobile.protocol.pairing.ConnectFailure
+import com.oxespace.mobile.protocol.pairing.LanAddress
 import com.oxespace.mobile.protocol.session.SessionEnd
 import com.oxespace.mobile.protocol.pairing.PairOutcome
 import com.oxespace.mobile.protocol.pairing.PairingQr
@@ -95,6 +96,8 @@ class PairingFlow(
      * phone first talks to the computer (step 2), instead of before the camera.
      */
     private val localNetworkGranted: () -> Boolean = { true },
+    /** OXE-383: which addresses a scanned QR may point to (private LAN by default; CGNAT 100.64/10 when VPN opt-in is active). */
+    private val hostAllowed: (String) -> Boolean = LanAddress::isPrivate,
 ) {
     /** The same flow on the phone's own clock. */
     constructor(
@@ -123,7 +126,7 @@ class PairingFlow(
     fun onScanned(text: String) {
         val current = mutableState.value
         if (current !is PairingState.Scanning && current !is PairingState.BadCode) return
-        when (val read = PairingQrs.read(text)) {
+        when (val read = PairingQrs.read(text, hostAllowed)) {
             is PairingQrRead.Refused -> mutableState.value = PairingState.BadCode(read.problem)
             // Checked before the code is spent or a key is made: the desktop would refuse the name anyway.
             is PairingQrRead.Ok -> if (isReservedDeviceName(deviceName)) {

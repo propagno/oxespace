@@ -161,8 +161,10 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
           fileSystem: deps.fileSystem,
           webPreview: deps.webPreview,
           worktree: deps.worktree,
+          androidDevices: deps.androidDevices,
           androidAccess: deps.androidAccess,
           askAndroidScreenshot: deps.askAndroidScreenshot,
+          askAndroidLifecycle: deps.askAndroidLifecycle,
           openAndroidPanel: deps.openAndroidPanel
         }
         // A tool the project's, user's or organization's policy blocks never runs, whichever client calls it.

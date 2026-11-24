@@ -199,6 +199,7 @@ The window's own captures go through `browserPreview.captureClipboard`, `browser
 | `remote.devices_read` | Remote gateway status and paired phones | Excluded: The person's devices, shown in Settings › Devices; agents have no use for them. |
 | `remote.gateway_admin` | Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane | **Forbidden**: Opens a network surface and grants device access. |
 | `android.screenshot` | Capture a screenshot of an Android device when Agents can see is on | **read**: `oxespace_device_screenshot` |
+| `android.lifecycle` | Android device lifecycle with explicit consent: start AVD, install workspace APK, launch app, tail logcat | **confirm**: `oxespace_android_avd_start`, `oxespace_android_apk_install`, `oxespace_android_app_launch`<br>**read**: `oxespace_android_logcat_tail` |
 | `android.controls` | Android mirror window controls, input and the Agents can see switch | **Forbidden**: The person's Android mirror, input and device access switch; no MCP tool may send input to a device or raise access. |
 | `android.device_actions` | Install an APK, open a link or send the pairing link to an Android device from the panel | **Forbidden**: The person's own actions on their device: no MCP tool may install an app, start an activity or pair a phone. |
 | `schedules.admin` | Create, change, pause, run or delete a schedule | **Forbidden**: A schedule sends a request to an agent with no one watching: only the person sets one up. An agent never schedules itself. |

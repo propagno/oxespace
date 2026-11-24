@@ -189,10 +189,11 @@ export function Skeleton({ lines = 3, variant = 'text', label = i18n.t('ui.loadi
  * real one arrives), the header with the view's name and placeholder rows. The region is busy and says "Loading…"
  * once, politely (the Skeleton's status); collapsed to the rail it shows a few short bars without the header.
  */
-/** Busy (aria-busy) but silent: the view's work area announces the one loading, so a switch is not announced twice. */
-export function SidebarSkeleton({ label, title, collapsed = false }: { label: string; title: string; collapsed?: boolean }): ReactElement {
+/** Busy (aria-busy) but silent: the view's work area announces the one loading, so a switch is not announced twice.
+ *  OXE-365: delay the skeleton bars by 300 ms (motion.md rule 3) so fast loads never flash placeholder rows. */
+export function SidebarSkeleton({ label, title, collapsed = false, delay = 300 }: { label: string; title: string; collapsed?: boolean; delay?: number }): ReactElement {
   return <aside className={cx('thread-navigation', collapsed && 'thread-navigation-collapsed')} aria-label={label} aria-busy="true">
-    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton decorative lines={collapsed ? 3 : 5} /></div>
+    <div className={cx('nav-panel', styles.sidebarRows)}>{!collapsed && <div className="nav-panel-title"><strong>{title}</strong></div>}<Skeleton decorative lines={collapsed ? 3 : 5} delay={delay} /></div>
   </aside>
 }
 

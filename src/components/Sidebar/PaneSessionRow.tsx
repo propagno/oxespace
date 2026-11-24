@@ -184,7 +184,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   return (
     <>
       <SidebarRow
-        lead={<StatusSignal state={SIGNAL[display.statusTone] ?? 'unconfirmed'} label={toneLabel} size={12} />}
+        lead={<StatusSignal state={SIGNAL[display.statusTone] ?? 'unconfirmed'} label={toneLabel} size={12} data-testid={needsDecision ? 'pane-row-decision-mark' : undefined} />}
         title={editing ? (
           <input
             ref={inputRef}
@@ -201,8 +201,6 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
           {providerIconKey ? <AgentProviderIcon provider={providerIconKey} size={14} /> : null}
           {pane.originPaneId && <span title={t('sidebar.session.delegated')} role="img" aria-label={t('sidebar.session.delegated')}><GitBranch size={12} aria-hidden="true" /></span>}
           <span title={label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} onDoubleClick={handleDoubleClick}>{label}</span>
-          {/* Shape, not color: a decision is marked beside the name too (PC-04·2, StatusSignal instead of Hand). */}
-          {needsDecision && <span className="pane-row-decision-mark" aria-hidden="true" data-testid="pane-row-decision-mark"><StatusSignal state="needs-you" label="" size={12} /></span>}
           {/* The row is named by what it shows; its state is added for screen readers (an aria-label that left out the
               visible text failed axe's label-content-name-mismatch). */}
           <span className="sr-only">, {toneLabel}{display.originLabel ? `, ${display.originLabel}` : ''}{pane.originPaneId ? `, ${t('sidebar.session.delegated')}` : ''}</span>
