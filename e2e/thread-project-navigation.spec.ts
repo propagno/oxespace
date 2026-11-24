@@ -16,6 +16,14 @@ test('Thread projects and conversations survive restart without creating Code wo
   let app = await launch()
   try {
     let page = await app.firstWindow()
+    // CI runners have no agent CLI installed, and NewConversationScreen requires an installed agent before sending;
+    // keep thread:create real (SQLite persistence) while stubbing readiness and making thread:send a no-op.
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('agent:get-readiness')
+      ipcMain.handle('agent:get-readiness', () => [{ provider: 'claude', command: 'claude', status: 'ready' }])
+      ipcMain.removeHandler('thread:send')
+      ipcMain.handle('thread:send', () => {})
+    })
     await modeButton(page, 'thread').click()
     const add = async (path: string) => {
       await page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' }).click()
