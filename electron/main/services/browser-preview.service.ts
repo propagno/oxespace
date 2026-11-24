@@ -3,13 +3,13 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import { designSourceProbeScript, sanitizeDesignProbe } from '../../../shared/design-source'
-import { savePreviewCapture } from './browser-preview/preview-capture-store'
+import { savePreviewCapture, savePreviewSessionArtifact } from './browser-preview/preview-capture-store'
 import { previewVerifyNote } from '../../../shared/preview-problems'
 import { redactSecrets } from '../../../shared/secrets'
 import { maskPreviewUrl } from './browser-preview/preview-observe'
 import { setPreviewNoteSource } from './conversation/preview-note'
 import { DESIGN_MODE_CHANNELS, type DesignGrabPayload } from '../../../shared/types/design-mode'
-import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
+import type { BrowserPreviewBounds, BrowserPreviewEvent, BrowserPreviewMount, BrowserPreviewMountResult, BrowserPreviewSessionArtifact, BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { ExecutionOwner } from './execution-registry'
 import { guestProbeWebPreferences, previewSessionFor, securePreviewGuest } from './browser-preview-security'
 import { trustPreviewGuest } from '../ipc/ipc-sender-guard'
@@ -444,6 +444,41 @@ export class BrowserPreviewService {
     if (!tab.visible) throw new Error('Open a visible browser tab before capturing it')
     const image = await tab.view.webContents.capturePage()
     await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
+  }
+  /** Captures the active visible preview page via WebContentsView.capturePage() and persists it as a PNG + JSON session artifact. */
+  async captureSessionArtifact(window: BrowserWindow, input: {ownerKey:string;tabId:string}): Promise<BrowserPreviewSessionArtifact> {
+    const tab = this.find(window, input.ownerKey, input.tabId)
+    if (!tab.visible) throw new Error('Open a visible browser tab before capturing it')
+    const image = await tab.view.webContents.capturePage()
+    if (image.isEmpty()) throw new Error('Preview capture returned an empty image')
+    const png = image.toPNG()
+    const bounds = typeof tab.view.getBounds === 'function' ? tab.view.getBounds() : null
+    const imageSize = typeof image.getSize === 'function' ? image.getSize() : null
+    const viewport = bounds && bounds.width > 0 && bounds.height > 0
+      ? { width: bounds.width, height: bounds.height }
+      : { width: imageSize?.width ?? 0, height: imageSize?.height ?? 0 }
+    const id = `artifact-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`
+    const sessionId = this.sessionId(tab.ownerKey)
+    const capturedAt = Date.now()
+    const fileName = `${id}.png`
+    const url = tab.view.webContents.getURL()
+    const title = tab.view.webContents.getTitle().slice(0, 200)
+    const owner = tab.threadId ?? tab.workspaceId
+    const metadata = {
+      id,
+      sessionId,
+      ownerKey: tab.ownerKey,
+      workspaceId: tab.workspaceId,
+      ...(tab.threadId ? { threadId: tab.threadId } : {}),
+      fileName,
+      url,
+      title,
+      viewport,
+      capturedAt,
+      bytes: png.length
+    }
+    const saved = await savePreviewSessionArtifact(join(app.getPath('userData'), 'web-preview-captures'), owner, id, png, metadata)
+    return { ...metadata, path: saved.path, metadataPath: saved.metadataPath }
   }
   close(window: BrowserWindow, input: {ownerKey:string;tabId:string;lease?:string}): void {
     const key = this.key(window,input.ownerKey,input.tabId)
