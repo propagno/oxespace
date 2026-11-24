@@ -1,11 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, RefreshCw, Search, X } from 'lucide-react'
+import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, RefreshCw, Search, ShieldCheck, X } from 'lucide-react'
 import type { GitCompareMode, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import type { GitHubWorktree } from '../../../shared/types/github'
+import type { ThreadProvider } from '../../../shared/types/thread'
+import { threadProductName } from '../../../shared/threadProviders'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatCount, headLabel, isLargeDiff, isValidRef, languageFor, normalizeBranchName, orderedFiles, splitPath, swapSides, type ChangeTreeNode, type CompareHead, type CompareMode } from './changesModel'
+import { loadLastTurnDiff } from './lastTurnDiff'
+import { ReviewWithAgentDialog } from './ReviewWithAgentDialog'
+import { scopeTranslationKey, type ReviewScopeKind } from './reviewWithAgent'
 import { RefPicker, type RefPickerBranch } from './RefPicker'
 import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes-request.store'
 import './ChangesPanel.css'
@@ -16,7 +21,7 @@ import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
 
-type Scope = 'branch' | 'uncommitted' | 'staged'
+type Scope = ReviewScopeKind
 const POLL_MS = 10_000
 
 function StatusIcon({ file }: { file: GitDiffSummaryFile }): ReactElement {
@@ -89,8 +94,8 @@ function TreeNode({ node, depth, selected, collapsed, viewed, onToggle, onSelect
  * Branch changes against a base ref: toolbar with scope and `branch → base`
  * pickers, one file at a time in a side-by-side diff, tree of files on the right.
  */
-export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }: {
-  workspaceId: string; rootPath: string; onClose?: () => void
+export function ChangesPanel({ workspaceId, rootPath, threadId, currentProvider, onClose, onSendComments }: {
+  workspaceId: string; rootPath: string; threadId?: string; currentProvider?: ThreadProvider; onClose?: () => void
   /** Receives the formatted review comments; resolve true when they were delivered so they can be cleared. */
   onSendComments?: (text: string) => boolean | Promise<boolean>
 }): ReactElement {
@@ -126,6 +131,8 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const pendingComments = useMemo(() => workspaceComments.filter(comment => comment.sentAt == null), [workspaceComments])
   const [sendNotice, setSendNotice] = useState<{ kind: 'sent' | 'failed'; text: string } | null>(null)
   const [sending, setSending] = useState(false)
+  const [reviewAgentOpen, setReviewAgentOpen] = useState(false)
+  const [lastTurnRoot, setLastTurnRoot] = useState(rootPath)
   // The workspace whose comments are waiting for a confirmation, so switching workspaces never discards the other's.
   const [discardFor, setDiscardFor] = useState<string | null>(null)
   useEffect(() => {
@@ -142,12 +149,14 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const requestMode: GitCompareMode = scope === 'staged' ? 'staged' : effectiveMode
   const defaultPair = head.kind === 'worktree' && head.path === rootPath && effectiveMode === 'merge-base'
   // The work tree being compared, which is where git and file reads run; a ref side runs in this checkout.
-  const diffRoot = head.kind === 'worktree' ? head.path : rootPath
+  const diffRoot = scope === 'last-turn' ? lastTurnRoot : head.kind === 'worktree' ? head.path : rootPath
   const headRef = head.kind === 'ref' ? head.ref : undefined
   // "Viewed" marks persist per repository + comparison and reset when a file's numbers change. The default
   // pair keeps the key it always had, so marks made before both sides could be chosen survive.
   const [viewed, setViewed] = useState<Set<string>>(new Set())
-  const viewedKey = scope === 'staged' ? `oxe.changes.viewed:${rootPath}:staged` : defaultPair ? `oxe.changes.viewed:${rootPath}:${effectiveBase ?? ''}` : `oxe.changes.viewed:${rootPath}:${comparisonKey(effectiveBase ?? '', head, effectiveMode)}`
+  const viewedKey = scope === 'staged' ? `oxe.changes.viewed:${rootPath}:staged`
+    : scope === 'last-turn' ? `oxe.changes.viewed:${rootPath}:last-turn`
+    : defaultPair ? `oxe.changes.viewed:${rootPath}:${effectiveBase ?? ''}` : `oxe.changes.viewed:${rootPath}:${comparisonKey(effectiveBase ?? '', head, effectiveMode)}`
   useEffect(() => {
     try { setViewed(new Set(JSON.parse(localStorage.getItem(viewedKey) ?? '[]') as string[])) } catch { setViewed(new Set()) }
   }, [viewedKey])
@@ -213,6 +222,19 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   }
 
   const load = useCallback(async (quiet = false) => {
+    if (scope === 'last-turn') {
+      const id = ++request.current
+      if (!quiet) setLoading(true)
+      try {
+        const result = await loadLastTurnDiff({ workspaceId, rootPath, threadId })
+        if (id !== request.current) return
+        setLastTurnRoot(result.rootPath)
+        setSummary(result.summary); setError('')
+      } catch (cause) {
+        if (id === request.current) setError(humanizeError(cause))
+      } finally { if (id === request.current) setLoading(false) }
+      return
+    }
     if (!effectiveBase) return
     const id = ++request.current
     if (!quiet) setLoading(true)
@@ -223,7 +245,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     } catch (cause) {
       if (id === request.current) setError(humanizeError(cause))
     } finally { if (id === request.current) setLoading(false) }
-  }, [workspaceId, diffRoot, effectiveBase, headRef, requestMode])
+  }, [scope, workspaceId, rootPath, threadId, diffRoot, effectiveBase, headRef, requestMode])
 
   useEffect(() => { void load() }, [load])
   useEffect(() => {
@@ -285,14 +307,16 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     onAdd: (side: 'old' | 'new', lineNo: number, lineContent: string, body: string) => addComment({ workspaceId, filePath: selectedPathForReview, side, lineNo, lineContent, body })
   } : undefined, [workspaceComments, selectedPathForReview, removeComment, addComment, workspaceId])
   const viewedCount = (summary?.files ?? []).filter(file => viewed.has(signature(file))).length
+  const scopeKey = scopeTranslationKey(scope)
 
   return <section className="changes-panel" aria-label={t('panels.changes')} data-testid="changes-panel">
     {/* A plain bar, not a <header>: inside the dock the DockPanel's header is the panel's one header (BRD-15). */}
     <div className="changes-toolbar">
-      <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={`${t('changes.scope.label')}: ${t(`changes.scope.${scope}`)}${effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}`}>{t(`changes.scope.${scope}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
+      <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={`${t('changes.scope.label')}: ${t(`changes.scope.${scopeKey}`)}${effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}`}>{t(`changes.scope.${scopeKey}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[
         { type: 'check', label: t('changes.scope.compareBranches'), checked: scope === 'branch', onSelect: () => { setScope('branch'); setSelectedPath(null) } },
         { type: 'check', label: t('changes.scope.uncommittedChanges'), checked: scope === 'uncommitted', onSelect: () => { setScope('uncommitted'); setSelectedPath(null) } },
         { type: 'check', label: t('changes.scope.staged'), checked: scope === 'staged', onSelect: () => { setScope('staged'); setSelectedPath(null) } },
+        { type: 'check', label: t('changes.scope.lastTurn'), checked: scope === 'last-turn', onSelect: () => { setScope('last-turn'); setSelectedPath(null) } },
         { type: 'separator' },
         { type: 'label', label: t('changes.scope.from') },
         { type: 'check', label: t('changes.scope.mergeBase'), checked: mode === 'merge-base', disabled: scope !== 'branch', onSelect: () => choose({ mode: 'merge-base' }) },
@@ -307,6 +331,16 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
           onPickWorktree={tree => choose({ head: samePath(tree.path, rootPath) ? null : { kind: 'worktree', path: tree.path, branch: tree.branch } })} />
       </span>
       <span className="changes-toolbar-spacer" />
+      <Button
+        variant="secondary"
+        size="sm"
+        icon={<ShieldCheck size={14} aria-hidden="true" />}
+        disabled={(summary?.files.length ?? 0) === 0}
+        title={(summary?.files.length ?? 0) === 0 ? t('changes.reviewAgent.noFilesTitle') : t('changes.reviewAgent.triggerTitle')}
+        onClick={() => setReviewAgentOpen(true)}
+      >
+        {t('changes.reviewAgent.trigger')}
+      </Button>
       {pendingComments.length > 0 && <span className="changes-review-comments" role="group" aria-label={t('changes.comments.label')}>
         {/* The send button already says the count; the separate count shows only when there is no send button. */}
         {!onSendComments && <span><b>{pendingComments.length}</b><span className="changes-review-label"> {t('changes.comments.count', { count: pendingComments.length })}</span></span>}
@@ -322,11 +356,29 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     {sendNotice && <div role="status" className="changes-note changes-send-notice"><span>{sendNotice.text}</span>{sendNotice.kind === 'failed' && <Button variant="secondary" size="sm" loading={sending} onClick={() => void sendComments()}>{t('changes.comments.retry')}</Button>}</div>}
     {discardFor === workspaceId && <ConfirmDialog danger title={t('changes.comments.discardConfirm')} description={t('changes.comments.discardConsequence', { count: workspaceComments.length })} confirmLabel={t('changes.comments.discardAction')}
       onCancel={() => setDiscardFor(null)} onConfirm={() => { clearComments(workspaceId); setDiscardFor(null) }} />}
+    {reviewAgentOpen && summary && (
+      <ReviewWithAgentDialog
+        workspaceId={workspaceId}
+        rootPath={diffRoot}
+        scope={scope}
+        base={effectiveBase}
+        head={headText}
+        files={summary.files}
+        additions={summary.additions}
+        deletions={summary.deletions}
+        currentProvider={currentProvider}
+        onClose={() => setReviewAgentOpen(false)}
+        onStarted={provider => {
+          setReviewAgentOpen(false)
+          setSendNotice({ kind: 'sent', text: t('changes.reviewAgent.started', { agent: threadProductName(provider) }) })
+        }}
+      />
+    )}
     <div className="changes-body">
       <div className="changes-diff">
         {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
         {!summary && !error && (loading || !ready) ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
-          : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
+          : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : scope === 'last-turn' ? t('changes.noLastTurn') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : scope === 'last-turn' ? t('changes.noLastTurnHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">
               <StatusIcon file={selected} /><span className="changes-file-path" title={selected.path}><span>{name!.directory}</span><strong>{name!.name}</strong></span>
