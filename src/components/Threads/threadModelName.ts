@@ -43,3 +43,24 @@ function aliasModelName(catalog: ThreadModelCatalog): string | null {
   const named = alias ? /\b(opus|sonnet|haiku|fable)\s+\d+(?:\.\d+)?/i.exec(`${alias.description} ${alias.label}`) : null
   return named ? named[0][0].toUpperCase() + named[0].slice(1) : null
 }
+
+/**
+ * Compact display name for tight composer widths (<= 560px / narrow): strips redundant vendor prefixes
+ * ("Claude Sonnet 4.6" -> "Sonnet 4.6", "Claude 3.5 Sonnet" -> "Sonnet 3.5", "OpenAI GPT-5" -> "GPT-5")
+ * and trailing parenthetical qualifiers ("Sonnet 4.6 (1M context)" -> "Sonnet 4.6"), so the active model
+ * stays readable instead of truncating to "Cl...". The caller keeps the full model name in the tooltip.
+ */
+export function compactModelLabel(label: string): string {
+  const trimmed = label.trim()
+  if (!trimmed) return trimmed
+  const displayed = modelDisplayName(trimmed)
+  const withoutParens = displayed.replace(/\s*\([^)]*\)\s*$/, '').trim() || displayed
+  const claudeVersionFirst = /^(?:anthropic\s+)?claude\s+(\d+(?:\.\d+)?)\s+(opus|sonnet|haiku|fable)\b(.*)$/i.exec(withoutParens)
+  if (claudeVersionFirst) {
+    const family = claudeVersionFirst[2][0].toUpperCase() + claudeVersionFirst[2].slice(1).toLowerCase()
+    const rest = claudeVersionFirst[3].trim()
+    return rest ? `${family} ${claudeVersionFirst[1]} ${rest}` : `${family} ${claudeVersionFirst[1]}`
+  }
+  const withoutVendor = withoutParens.replace(/^(?:(?:anthropic\s+)?claude|openai|google)\s+(?=\S)/i, '').trim()
+  return withoutVendor || withoutParens
+}

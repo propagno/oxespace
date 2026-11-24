@@ -17,7 +17,7 @@ import { writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { openDatabase, resolveAppDatabasePath } from './db/index'
+import { openDatabaseWithMetadata, resolveAppDatabasePath, type AppDatabase } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
@@ -26,7 +26,6 @@ import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
 import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
 import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
-import { peekDatabaseVersion } from './services/data-export/database-version'
 import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
 import { notificationsEnabled, registerNotificationsIpc } from './ipc/notifications.ipc'
 import { registerAppInfoIpc } from './ipc/app-info.ipc'
@@ -61,7 +60,6 @@ import { resolveSessionLocation } from './services/git-common-dir'
 import { SearchService } from './services/search.service'
 import { fallbackShellProfiles } from './services/shell-profile.defaults'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
-import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
 import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
@@ -123,14 +121,11 @@ async function registerIpcHandlers(): Promise<() => void> {
 
   // Launched from a desktop icon, this process inherits the session PATH, not
   // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
-  // version manager are invisible. Recover it before anything reads PATH:
-  // provider discovery and the first auto-started agent pane both do, and an
-  // agent is exec'd directly rather than through a shell, so nothing else
-  // would ever source a profile on its behalf. One shell spawn, POSIX only.
-  const recoveredPath = applyLoginShellPath()
-  if (recoveredPath.length > 0) {
-    log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
-  }
+  // version manager are invisible. Hydrate asynchronously so cold start and
+  // ready-to-show are never blocked on a user's login profile (POSIX only).
+  void import('./utils/login-shell-path').then(({ applyLoginShellPathAsync }) => applyLoginShellPathAsync()).then((recoveredPath) => {
+    if (recoveredPath.length > 0) log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
+  }).catch(() => undefined)
 
   // App update IPC is always registered (even on native failure / e2e mocks
   // below) so Settings and the update indicator keep working.
@@ -154,11 +149,11 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
-  // R0b: the version before this start migrates it, so the export knows a 1.4 upgrade (1–91) from a fresh install (0).
-  const previousDbVersion = peekDatabaseVersion(resolveAppDatabasePath())
-  let db: ReturnType<typeof openDatabase>
+  // R0b: capture pre-migration version from the single SQLite open so export knows a 1.4 upgrade (1–91) from a fresh install (0).
+  let db: AppDatabase
+  let previousDbVersion: number
   try {
-    db = openDatabase()
+    ;({ db, previousVersion: previousDbVersion } = openDatabaseWithMetadata())
   } catch (error) {
     log.error('Native startup failed', error)
     // T87: one blocking screen with the reason, and no other handler behind it (startup-failure.ts).
@@ -470,7 +465,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
   // bridge script lives under <userData>/bin/ and is spawned by each
   // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
-  const internalMcpWorkspaceServ = new WorkspaceService(db)
+  const internalMcpWorkspaceServ = new WorkspaceService(db, { isPaneRunning: (paneId) => terminalManager.hasSession(paneId) || terminalManager.isStarting(paneId) })
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()
@@ -526,7 +521,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   delegatedThreadObserver.current = thread => {
     delegationService.observeThread(thread)
     try {
-      const pending = agentThreadHistory.readWindow(thread.id).pendingRequests ?? []
+      const pending = agentThreadHistory.pendingRequestsOf(thread.id) // OXE-413: not the whole window on every change
       const previous = seenApprovalNotifications.get(thread.id) ?? new Set<string>()
       const current = new Set<string>()
       for (const req of pending) {
