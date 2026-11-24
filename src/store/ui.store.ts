@@ -65,7 +65,7 @@ function savePanelScopePins(pins: Record<string, PanelScopePin>): void {
 }
 
 /** The application Settings pages, in SettingsCenter order. */
-export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'privacy' | 'activity' | 'diagnostics' | 'about'
+export type SettingsPageId = 'general' | 'appearance' | 'providers' | 'policy' | 'agent-permissions' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'github' | 'privacy' | 'activity' | 'diagnostics' | 'about'
 
 interface UIState {
   isNewWorkspaceOpen: boolean

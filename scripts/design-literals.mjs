@@ -16,8 +16,7 @@ const ROOT = process.cwd()
 const args = process.argv.slice(2)
 const write = args.includes('--write')
 const targets = args.filter(arg => !arg.startsWith('--'))
-// OxeQuery is owned by another workstream; it is converted together with it.
-const SKIP = [/OxeQuery/, /tokens(\.generated)?\.css$/, /\.module\.css$/]
+const SKIP = [/tokens(\.generated)?\.css$/, /\.module\.css$/]
 
 function files(path) {
   if (statSync(path).isDirectory()) return readdirSync(path).flatMap(name => files(join(path, name)))

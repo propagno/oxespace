@@ -13,7 +13,7 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
-import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
+import { attachOpenThreadDraftListener, queueNewConversationDraft } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -684,10 +684,12 @@ export function App(): ReactElement {
     const unsubscribeAccounts = window.oxe?.agentAccount?.onChanged(status => useAccountStore.getState().changed(status))
     return () => { active = false; unsubscribe?.(); unsubscribeAccounts?.(); if (timer) clearTimeout(timer) }
   }, [hasOpenedThread])
-  const newThread = () => {
+  // A starter's prompt waits for the new conversation's composer (OXE-338); other callers may pass an event, not text.
+  const newThread = (draft?: unknown) => {
     const project = threadProject ?? threadProjects.find(item => !item.hidden)
-    if (!project) setThreadProjectOpen(true)
-    else setNewThreadWorkspaceId(project.projectId)
+    if (!project) { setThreadProjectOpen(true); return }
+    if (typeof draft === 'string') queueNewConversationDraft(project.projectId, draft)
+    setNewThreadWorkspaceId(project.projectId)
   }
   useThreadShortcuts(applicationView === 'thread', newThread)
 
@@ -888,13 +890,6 @@ export function App(): ReactElement {
           onExecute={dispatchSlashCommand}
         />
       ) : null}
-      {isMcpPanelOpen ? (
-        <McpPanelHost
-          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
-          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
-          onClose={closeMcpPanel}
-        />
-      ) : null}
       {containersOpen && !(applicationView === 'code' && activeWorkspace && !showFirstRun) ? <ContainersPanel onClose={() => setContainersOpen(false)} onOpenConversation={openContainerConversation} /> : null}
       {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
@@ -957,6 +952,13 @@ export function App(): ReactElement {
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
         /></Suspense>
+      ) : null}
+      {isMcpPanelOpen ? (
+        <McpPanelHost
+          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
+          onClose={closeMcpPanel}
+        />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
       {configuredAgent ? (

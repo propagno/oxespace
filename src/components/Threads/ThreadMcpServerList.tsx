@@ -4,6 +4,7 @@ import type { ThreadMcpServerStatus } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
 import { EmptyState } from '../../ui'
 import { ThreadMcpDiagnose } from './ThreadMcpDiagnose'
+import { OXESPACE_MCP_SERVER } from './ThreadIntegratedTools'
 import './ThreadMcpServerList.css'
 
 type Group = { key: string; title: string; hint?: string; servers: ThreadMcpServerStatus[] }
@@ -40,7 +41,7 @@ export function ThreadMcpServerList({ servers, workspaceId }: { servers: ThreadM
     {groups.map(group => <section key={group.key} className={`thread-mcp-group is-${group.key}`} aria-label={t('mcpList.group', { title: group.title, count: group.servers.length })}>
       <h4><span className="thread-mcp-dot" aria-hidden="true" />{group.title}<small>{group.servers.length}</small></h4>
       {group.hint && <p>{group.hint}</p>}
-      <ul>{group.servers.map(server => <li key={server.name} title={server.name}>{isAccountConnector(server.name) ? <><span className="thread-mcp-source">claude.ai</span>{server.name.slice('claude.ai '.length)}</> : server.name}
+      <ul>{group.servers.map(server => <li key={server.name} title={server.name}>{isAccountConnector(server.name) ? <><span className="thread-mcp-source">claude.ai</span>{server.name.slice('claude.ai '.length)}</> : server.name === OXESPACE_MCP_SERVER ? t('sessionPanel.tools.integrated') : server.name}
         {group.key === 'failed' && workspaceId && !isAccountConnector(server.name) && <ThreadMcpDiagnose name={server.name} workspaceId={workspaceId} />}</li>)}</ul>
     </section>)}
   </div>
