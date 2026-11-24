@@ -57,7 +57,7 @@ export function useModalSurface<T extends HTMLElement>(onClose: () => void, enab
     if (!surface.contains(document.activeElement)) surface.focus({ preventScroll: true })
     const restore = inertOutside(surface)
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && !event.defaultPrevented) { event.stopPropagation(); close.current(); return }
+      if (event.key === 'Escape' && (!event.defaultPrevented || (event as KeyboardEvent & { __oxeDeferredToChild?: boolean }).__oxeDeferredToChild)) { event.stopPropagation(); close.current(); return }
       if (event.key !== 'Tab') return
       const items = Array.from(surface.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(reachable)
       if (!items.length) { event.preventDefault(); return }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ArrowLeftRight, CheckCircle2, Circle, ChevronDown, ChevronLeft, ChevronRight, FileMinus2, FilePlus2, FileDiff, FileSymlink, FolderGit2, Info, RefreshCw, Search, X } from 'lucide-react'
 import type { GitCompareMode, GitDiffSummary, GitDiffSummaryFile, GitFileOriginal } from '../../../shared/types/git'
 import type { GitHubWorktree } from '../../../shared/types/github'
@@ -14,8 +14,9 @@ import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { chunk, lazyFrom } from '../../lib/chunk'
 
-const MonacoDiff = lazy(() => import('./MonacoDiff'))
+const MonacoDiff = lazyFrom(chunk(() => import('./MonacoDiff')), m => m.default)
 
 type Scope = 'branch' | 'uncommitted' | 'staged'
 const POLL_MS = 10_000

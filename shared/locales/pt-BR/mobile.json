@@ -290,12 +290,18 @@
     "redacted_other": "{{count}} valores secretos escondidos pelo seu computador.",
     "redacted_many": "{{count}} valores secretos escondidos pelo seu computador.",
     "empty": "Ainda sem saída.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyScreen": "Copiar tela",
+    "copyLine": "Copiar linha",
     "paste": "Colar",
     "key": {
       "up": "Seta para cima",
       "down": "Seta para baixo",
       "left": "Seta para a esquerda",
-      "right": "Seta para a direita"
+      "right": "Seta para a direita",
+      "ctrl": "Tecla Control",
+      "ctrlActive": "Control ativo"
     },
     "textSize": "Tamanho do texto",
     "size": {
@@ -461,7 +467,10 @@
       "title": "Notificações",
       "needsYou": "Um agente precisa de você",
       "done": "Uma tarefa terminou",
-      "failed": "Uma tarefa falhou"
+      "failed": "Uma tarefa falhou",
+      "blocked": "As notificações estão bloqueadas",
+      "blockedBody": "O Android está bloqueando as notificações do OXESpace; estes interruptores só valem depois que você as permitir.",
+      "openSettings": "Abrir configurações"
     },
     "computer": {
       "title": "Computador",
