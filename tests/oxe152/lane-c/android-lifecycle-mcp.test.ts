@@ -84,7 +84,7 @@ async function rpcCall(
 
 function setupHarness(options: { approve?: boolean; visible?: boolean } = {}) {
   const adbCalls: string[][] = []
-  const emulatorCalls: string[][] = []
+  const emulatorArgs: string[][] = []
   const asked: Array<{ action: string; device: string; target: string }> = []
   const openedPanels: Array<{ workspaceId: string; serial: string }> = []
   let startedEmulator = false
@@ -107,7 +107,7 @@ function setupHarness(options: { approve?: boolean; visible?: boolean } = {}) {
     return { status: 1, stdout: '', stderr: `unexpected ${line}` }
   }
   const runEmulator = async (args: string[]): Promise<AdbResult> => {
-    emulatorCalls.push(args)
+    emulatorArgs.push(args)
     if (args[0] === '-list-avds') return { status: 0, stdout: 'Pixel_8_API_36\n', stderr: '' }
     startedEmulator = true
     return { status: 0, stdout: '', stderr: '', pid: 9001 }
@@ -136,7 +136,7 @@ function setupHarness(options: { approve?: boolean; visible?: boolean } = {}) {
     'x-oxe-execution-id': env.OXESPACE_EXECUTION_ID,
     'x-oxe-execution-token': env.OXESPACE_EXECUTION_TOKEN
   }
-  return { server, token, authHeaders, adbCalls, emulatorCalls, asked, openedPanels, db }
+  return { server, token, authHeaders, adbCalls, emulatorArgs, asked, openedPanels, db }
 }
 
 describe('OXE-111 (B) · MCP registration, consent enforcement and person_action_audit', () => {
@@ -217,7 +217,7 @@ describe('OXE-111 (B) · MCP registration, consent enforcement and person_action
         expect(res.result.content[0].text).toContain('declined')
       }
       expect(h.adbCalls).toEqual([])
-      expect(h.emulatorCalls.filter(args => args[0] !== '-list-avds')).toEqual([])
+      expect(h.emulatorArgs.filter(args => args[0] !== '-list-avds')).toEqual([])
       expect(h.db.rows.map(r => [r.action, r.outcome])).toEqual([
         ['android-avd-start', 'refused'],
         ['android-apk-install', 'refused'],
