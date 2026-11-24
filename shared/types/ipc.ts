@@ -209,7 +209,7 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', setAllowVpn: 'remote:set-allow-vpn', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   agentHooks: {

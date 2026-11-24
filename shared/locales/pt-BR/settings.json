@@ -605,7 +605,10 @@
       "listening": "Escutando em {{addresses}}, porta {{port}}",
       "off": "Desligada. Nenhuma porta aberta.",
       "failed": "Não foi possível mudar a conexão com o celular: {{error}}",
-      "on": "Celulares agora podem se conectar a este computador"
+      "on": "Celulares agora podem se conectar a este computador",
+      "vpnLabel": "Também alcançar este computador por uma VPN (Tailscale, WireGuard)",
+      "vpnHint": "Desligada por padrão. Ligada, o OXESpace também escuta em endereços privados de VPN (100.64/10) para que celulares pareados se conectem pela sua própria VPN. Mudar isso reinicia a conexão com o celular.",
+      "vpnFailed": "Não foi possível mudar a opção de VPN: {{error}}"
     },
     "network": {
       "publicTitle": "O Windows considera “{{network}}” uma rede Pública, então os celulares não alcançam este computador",
