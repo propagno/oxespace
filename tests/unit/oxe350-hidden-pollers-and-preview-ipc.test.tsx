@@ -4,6 +4,7 @@ import { ChangesPanel } from '../../src/components/Changes/ChangesPanel'
 import { PrStatusBar } from '../../src/components/GitHub/PrStatusBar'
 import { NativePreviewHost } from '../../src/components/WebPreview/NativePreviewHost'
 import { WebPreviewPanel } from '../../src/components/WebPreview/WebPreviewPanel'
+import { isElementVisible } from '../../src/hooks/useElementVisibility'
 import type { BrowserPreviewSessionState } from '../../shared/types/browser-preview'
 import type { Workspace } from '../../shared/types/workspace'
 
@@ -165,6 +166,38 @@ describe('OXE-350 · hidden git/gh pollers and WebPreview IPC coalescing', () =>
       await flushMicrotasks()
     })
     expect(getPullRequestStatus).toHaveBeenCalledTimes(3)
+  })
+
+  it('isElementVisible handles display:contents anchors whose Chromium checkVisibility() returns false', () => {
+    const ancestor = document.createElement('div')
+    ancestor.style.display = 'block'
+    const parent = document.createElement('div')
+    parent.style.display = 'block'
+    const anchor = document.createElement('span')
+    anchor.style.display = 'contents'
+
+    // Simulate real Chromium: display:contents elements have no layout box so checkVisibility() is always false.
+    ;(anchor as unknown as { checkVisibility: () => boolean }).checkVisibility = vi.fn(() => false)
+    const parentCheckVisibility = vi.fn(() => true)
+    ;(parent as unknown as { checkVisibility: () => boolean }).checkVisibility = parentCheckVisibility
+
+    parent.append(anchor)
+    ancestor.append(parent)
+    document.body.append(ancestor)
+
+    try {
+      expect(isElementVisible(anchor)).toBe(true)
+      expect(parentCheckVisibility).toHaveBeenCalledTimes(1)
+
+      ancestor.style.display = 'none'
+      expect(isElementVisible(anchor)).toBe(false)
+
+      ancestor.style.display = 'block'
+      parentCheckVisibility.mockReturnValue(false)
+      expect(isElementVisible(anchor)).toBe(false)
+    } finally {
+      ancestor.remove()
+    }
   })
 
   it('WebPreviewPanel deduplicates setAccess IPC calls while typing in the address bar', async () => {

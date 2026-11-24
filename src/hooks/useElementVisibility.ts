@@ -10,15 +10,24 @@ export function isElementVisible(element: HTMLElement | null): boolean {
   }
   if (!element) return true
   if (!element.isConnected) return false
+  let target: HTMLElement | null = null
+  const hasComputedStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
   for (let node: HTMLElement | null = element; node; node = node.parentElement) {
     if (node.hidden) return false
     if (node.style.display === 'none' || node.style.visibility === 'hidden') return false
-    if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+    let display = node.style.display
+    if (hasComputedStyle) {
       const computed = window.getComputedStyle(node)
       if (computed.display === 'none' || computed.visibility === 'hidden') return false
+      display = computed.display || display
+    }
+    // Chromium's checkVisibility() always returns false for `display: contents` elements
+    // because they generate no CSS layout box; resolve to the nearest layout-box ancestor.
+    if (!target && display !== 'contents') {
+      target = node
     }
   }
-  if (typeof element.checkVisibility === 'function' && !element.checkVisibility({ visibilityProperty: true })) {
+  if (target && typeof target.checkVisibility === 'function' && !target.checkVisibility({ visibilityProperty: true })) {
     return false
   }
   return true
