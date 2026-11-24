@@ -11,6 +11,16 @@ export interface AndroidMirrorDevice {
   stream?: 'idle' | 'connecting' | 'live'
   /** The OXESpace phone app on this device: only a debug build takes the pairing link from the panel. */
   phoneApp?: PhoneAppBuild
+  /** OXE-112: true only for emulators started by OXESpace; never for external emulators or physical devices. */
+  owned?: boolean
+}
+
+/** OXE-112: the last device that left adb unexpectedly, surfaced in the panel and notified to agents. */
+export interface AndroidDisconnectedDevice {
+  serial: string
+  name: string
+  kind: AndroidMirrorDevice['kind']
+  at: number
 }
 
 /** The APK the person picked in the system's dialog, held by main until they confirm: the window never names a path. */
@@ -36,6 +46,8 @@ export interface AndroidMirrorStatus {
   avds: string[]
   /** Free host memory in MiB at the time status was read, when available. */
   freeMemoryMb?: number
+  /** OXE-112: populated when an active device leaves adb unexpectedly; cleared once it returns. */
+  disconnectedDevice?: AndroidDisconnectedDevice | null
 }
 
 export interface AndroidMirrorFrame {
@@ -64,6 +76,8 @@ export interface AndroidApi {
   openLink(input: { serial: string; url: string }): Promise<AndroidActionOutcome>
   /** Opens pairing on this computer and hands its link to the phone app on the device (a debug build). */
   pair(input: { serial: string }): Promise<AndroidActionOutcome>
+  /** OXE-112: stops an emulator started by OXESpace; refuses external emulators and physical devices. */
+  stopEmulator?(input: { serial: string }): Promise<AndroidActionOutcome>
   onChanged(listener: (status?: AndroidMirrorStatus) => void): () => void
   onFrame(listener: (frame: AndroidMirrorFrame) => void): () => void
   /** main asks the window to open the Android device panel: an agent asked for this device (OXE-109). */

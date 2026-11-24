@@ -38,6 +38,42 @@
   color: var(--intent-success-fg);
 }
 
+.android-origin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  background: var(--surface-sunken);
+  color: var(--tx-secondary);
+}
+
+.android-disconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--intent-warning-border);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  font-size: var(--fs-xs);
+}
+
+.android-disconnect-banner-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.android-disconnect-agent-note {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-secondary);
+}
+
 .android-stage {
   flex: 1 1 auto;
   min-height: 0;
