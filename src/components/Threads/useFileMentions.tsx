@@ -1,12 +1,11 @@
 import { File } from 'lucide-react'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getCachedFileList, getFileListCacheEpoch, setCachedFileList } from '../../lib/fileListCache'
 
 /** Matches the `@partial/path` the caret is currently inside. */
 const MENTION = /(^|\s)@([^\s@]*)$/
 const MAX_RESULTS = 8
-const CACHE_MS = 60_000
-const cache = new Map<string, { at: number; files: string[] }>()
 
 /**
  * Ranks basename prefix matches first, then path substring matches. Pure, so it is testable. Every file is scored: a
@@ -47,12 +46,16 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
 
   useEffect(() => {
     if (!mention || !key || !workspaceId || !rootPath) return
-    const hit = cache.get(key)
-    if (hit && Date.now() - hit.at < CACHE_MS) { setFiles(hit.files); return }
+    // OXE-299: the shared file-list cache (src/lib/fileListCache.ts), with CommandMenu and Design Grab: a fresh entry
+    // answers at once, a stale one shows while it is fetched again.
+    const hit = getCachedFileList(rootPath)
+    if (hit) { setFiles(hit.files); if (hit.fresh) return }
     let active = true
+    const epoch = getFileListCacheEpoch()
     void window.oxe.search?.listFiles({ workspaceId, rootPath }).then(result => {
+      if (result?.error) return
       const list = Array.isArray(result?.files) ? result.files : []
-      cache.set(key, { at: Date.now(), files: list })
+      setCachedFileList(rootPath, list, Date.now(), epoch)
       if (active) setFiles(list)
     }, () => undefined)
     return () => { active = false }

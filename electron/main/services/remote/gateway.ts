@@ -23,10 +23,11 @@ import type { RemoteDesktop } from './desktop'
 import {
   cleanDeviceName, deviceNameProblem, deviceNotFound, parseAnswerPairingInput, parseDesktopNameInput, parseDeviceId, parseDeviceInput, parseRenameInput, parseSetEnabledInput, parseSetPhoneWriteInput
 } from './inputs'
-import { isPrivateAddress, listenAddresses, peerAddress, preferRoute, type ListenAddress } from './network'
+import { isPrivateAddress, listenAddresses, peerAddress, preferRoute, vpnPeerAllowed, type ListenAddress } from './network'
 import { defaultRouteAddress, interfaceOf, networkCategories } from './network-profile'
 import { PAIRING_PROMPT_TIMEOUT_MS, PairingDesk } from './pairing'
 import { RemoteStore, TooManyDevicesError, type DeviceRecord } from './store'
+import { parseAllowVpnInput, remoteVpnAllowed, setRemoteVpnAllowed } from './vpn-setting'
 import { createTopics } from './topics'
 import { desktopOsName } from './os-name'
 import { paneConversationsFor, paneConversationTopic, type PaneConversationSource } from './pane-conversation'
@@ -75,6 +76,8 @@ export interface RemoteGatewayDeps {
   interfaces?: () => NodeJS.Dict<NetworkInterfaceInfo[]>
   /** Which interface addresses may be listened on; private ones only, unless a test says otherwise. */
   isAllowedAddress?: (address: string) => boolean
+  /** OXE-383: the person's opt-in to a VPN adapter's 100.64/10 address (Tailscale, WireGuard). Off when absent. */
+  allowVpnAddresses?: () => boolean
   promptTimeoutMs?: number
   /** Windows' network category per interface alias (lower case); a read-only PowerShell query by default. */
   networkCategories?: () => Promise<Map<string, RemoteNetworkCategory>>
@@ -216,6 +219,7 @@ export class RemoteGateway implements ConnectionHost {
       maxDevices: REMOTE_LIMITS.maxDevices,
       phoneWritePanes: [...this.phoneWritePanes].sort(),
       phoneHiddenPanes: [...this.phoneHiddenPanes].sort(),
+      allowVpn: remoteVpnAllowed(this.deps.db),
       listenedBefore: settings.listenedBefore,
       ...(running && this.network ? { network: this.network } : {}),
       ...(this.pairing.current() ? { pendingPairing: this.pairing.current()! } : {}),
@@ -250,6 +254,29 @@ export class RemoteGateway implements ConnectionHost {
             this.store.markListened()
             this.store.audit({ action: 'enable', outcome: 'ok', detail: `port ${port}` })
           } catch (caught) {
+            this.error = caught instanceof GatewayStartError ? caught.reason : mainMessage('remote.certificate.failed', {})
+            this.store.audit({ action: 'enable', outcome: 'failed', detail: this.error.code })
+          }
+        }
+      }
+      const status = this.status()
+      this.deps.broadcast({ status, devices: this.devices() })
+      return status
+    })
+  }
+
+  /** OXE-383: "Also reach this computer over a VPN", off by default; stored, audited, and applied by listening again. */
+  async setAllowVpn(value: unknown): Promise<RemoteGatewayStatus> {
+    const allowed = parseAllowVpnInput(value)
+    return this.serialize(async () => {
+      const port = this.running?.port
+      if (allowed !== remoteVpnAllowed(this.deps.db)) {
+        setRemoteVpnAllowed(this.deps.db, allowed)
+        this.store.audit({ action: 'vpn', outcome: allowed ? 'on' : 'off' })
+        // Every open connection closes, so no VPN peer stays connected once it is off; then it listens again.
+        if (port !== undefined) {
+          await this.shutdown('restart')
+          try { this.running = await this.start(port); this.error = undefined; this.refreshNetwork(); this.resumeUnused() } catch (caught) {
             this.error = caught instanceof GatewayStartError ? caught.reason : mainMessage('remote.certificate.failed', {})
             this.store.audit({ action: 'enable', outcome: 'failed', detail: this.error.code })
           }
@@ -471,7 +498,7 @@ export class RemoteGateway implements ConnectionHost {
   private async start(port: number): Promise<Running> {
     const material = this.material()
     const route = await (this.deps.routeAddress ?? defaultRouteAddress)().catch(() => null)
-    const addresses = preferRoute(listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress), route)
+    const addresses = preferRoute(listenAddresses((this.deps.interfaces ?? networkInterfaces)(), this.deps.isAllowedAddress ?? isPrivateAddress, { allowVpn: this.allowVpn() }), route)
     if (!addresses.length) throw new GatewayStartError(mainMessage('remote.network.noPrivateInterface', {}))
     const servers: https.Server[] = [], bound: ListenAddress[] = []
     for (const address of addresses) {
@@ -526,6 +553,11 @@ export class RemoteGateway implements ConnectionHost {
     }
   }
 
+  /** OXE-383: off unless the person opted in. */
+  private allowVpn(): boolean {
+    return this.deps.allowVpnAddresses?.() ?? false
+  }
+
   private createServer(material: GatewayMaterial): https.Server {
     // Node's TLS options take PEM only: it is written here from the parsed DER, and never read back.
     const server = https.createServer({
@@ -537,6 +569,8 @@ export class RemoteGateway implements ConnectionHost {
     server.maxHeadersCount = 64
     server.maxConnections = MAX_CONNECTIONS * 2
     server.on('connection', (socket: Socket) => {
+      // OXE-383: a 100.64/10 peer only with the VPN opt-in and only on a VPN listener; nothing is read from it first.
+      if (!vpnPeerAllowed(socket.remoteAddress, socket.localAddress, this.allowVpn())) { socket.destroy(); return }
       this.sockets.add(socket)
       socket.on('close', () => this.sockets.delete(socket))
     })

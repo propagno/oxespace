@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ResultGrid } from '../src/components/OxeQuery/ResultGrid'
+import { Profiler } from 'react'
 
 const columns = ['id', 'name', 'note']
 const rows: unknown[][] = [[1, 'Ana', null], [2, 'Bo', 'NULL'], [3, 'Cy', 'x']]
@@ -88,5 +89,35 @@ describe('ResultGrid', () => {
     const { grid: element } = grid({ onSort })
     fireEvent.click(within(element).getByRole('columnheader', { name: /name/ }))
     expect(onSort).toHaveBeenCalledWith({ column: 1, direction: 'asc' })
+  })
+})
+
+// OXE-322: a new result and a new filter are reset while rendering, one commit each, with the same outcome as before.
+describe('OXE-322 · ResultGrid resets without an effect', () => {
+  it('ResultGrid updates state cleanly on query result change without effect sync setState', () => {
+    let commits = 0
+    const view = (cols: string[], data: unknown[][]) => (
+      <Profiler id="grid" onRender={() => { commits++ }}>
+        <ResultGrid columns={cols} types={cols.map(() => 'text')} rows={data} onCopy={vi.fn()} onSelect={vi.fn()} />
+      </Profiler>
+    )
+    const { rerender } = render(view(columns, rows))
+    const element = screen.getByRole('grid', { name: 'Result' })
+    fireEvent.keyDown(element, { key: 'ArrowDown' })
+    fireEvent.click(screen.getByRole('button', { name: 'Hide column name' }))
+    expect(element.getAttribute('aria-activedescendant')).not.toBeNull()
+
+    commits = 0
+    rerender(view(['city', 'country'], [['Lima', 'PE'], ['Oslo', 'NO']]))
+    expect(commits, 'a new result: one commit').toBe(1)
+    expect(screen.getByRole('grid', { name: 'Result' }).getAttribute('aria-activedescendant')).toBeNull()
+    expect(screen.queryByRole('button', { name: /hidden column/ })).toBeNull()
+
+    fireEvent.keyDown(screen.getByRole('grid', { name: 'Result' }), { key: 'ArrowDown' })
+    commits = 0
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Oslo' } })
+    expect(commits, 'a new filter: one commit').toBe(1)
+    expect(screen.getByRole('grid', { name: 'Result' }).getAttribute('aria-activedescendant')).toBeNull()
+    expect(screen.getAllByRole('gridcell').some(cell => cell.textContent === 'Oslo')).toBe(true)
   })
 })

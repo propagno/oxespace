@@ -957,6 +957,15 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "stateFilter": {
+      "label": "Show",
+      "all": "All",
+      "needsYou": "Needs you",
+      "working": "Working",
+      "emptyNeedsYou": "Nothing needs you right now",
+      "emptyWorking": "Nothing is working right now",
+      "showAll": "Show all"
+    },
     "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
@@ -1105,6 +1114,12 @@
     "closeFailed": "Could not close the workspace",
     "settingsFailed": "Could not save the workspace settings",
     "gridBoundary": "the panes of this workspace",
+    "missingRoot": {
+      "title": "This workspace's folder is gone",
+      "message": "{{path}} was moved or deleted, so its terminals cannot start. Point the workspace at the folder's new place, or remove the workspace; nothing on disk changes.",
+      "relink": "Relink folder",
+      "relinkFailed": "Could not relink the folder"
+    },
     "panel": {
       "restore": "Restore panel width",
       "expand": "Expand panel",

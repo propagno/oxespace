@@ -31,9 +31,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -49,6 +52,8 @@ import kotlinx.coroutines.launch
 /*
  * 1.5.0 F10 A44: Allow on a critical request waits the desktop's hold. Test: CriticalDelayAllowTest.
  * 1.5.2 A7 (OXE-134 CA-2): after the wait it is a press-and-hold of the desktop's IMPACT_HOLD_MS. Test: NeedsYouRowTest.
+ * OXE-383 (part A): TalkBack and Switch Access reach the hold through a long-click action, the completed hold is felt
+ * (LongPress haptic), and each request starts over ([requestKey]). Test: CriticalDelayAllowA11yTest.
  */
 
 /** How long Allow on a critical request must be held once the wait is over (the desktop's HoldToApprove). */
@@ -78,7 +83,9 @@ fun criticalAllowState(risk: String?, elapsedMs: Long): CriticalAllowState {
 /**
  * Allow at critical risk: off for the desktop's wait (the ring fills, "in 2 s"), then a press-and-hold of
  * [CRITICAL_ALLOW_PRESS_MS] with the ring in accent; releasing early cancels. It has no click action, so a tap never
- * allows; its state description says it must be held. [enabled] is the truth (requestActions).
+ * allows; its state description says it must be held. Once enabled, an accessibility service's long-click (TalkBack's
+ * double-tap-and-hold, Switch Access) is the hold. [enabled] is the truth (requestActions). [requestKey] names the
+ * request, so the wait and the hold of the next one start from zero.
  */
 @Composable
 fun CriticalDelayAllow(
@@ -88,16 +95,22 @@ fun CriticalDelayAllow(
     enabled: Boolean,
     holdHint: String,
     onHeld: () -> Unit,
+    requestKey: String,
     modifier: Modifier = Modifier,
 ) {
     val colors = Oxe.colors
-    val wait = remember(holdMs) { Animatable(if (holdMs > 0L) 0f else 1f) }
-    LaunchedEffect(holdMs) {
+    val wait = remember(requestKey, holdMs) { Animatable(if (holdMs > 0L) 0f else 1f) }
+    LaunchedEffect(requestKey, holdMs) {
         if (holdMs > 0L) wait.animateTo(1f, tween(durationMillis = holdMs.toInt(), easing = LinearEasing))
     }
     val left = ceil((1f - wait.value) * holdMs / 1000f).toInt()
-    var pressedMs by remember { mutableLongStateOf(0L) }
-    val held by rememberUpdatedState(onHeld)
+    var pressedMs by remember(requestKey) { mutableLongStateOf(0L) }
+    val haptic = LocalHapticFeedback.current
+    val onHeldNow by rememberUpdatedState(onHeld)
+    val held = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        onHeldNow()
+    }
     val scope = rememberCoroutineScope()
     val shape = RoundedCornerShape(OxeRadius.lg)
     Row(
@@ -110,6 +123,7 @@ fun CriticalDelayAllow(
                 role = Role.Button
                 stateDescription = holdHint
                 if (!enabled) disabled()
+                else onLongClick(label = holdHint) { held(); true }
             }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
