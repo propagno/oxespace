@@ -73,6 +73,22 @@ export function preferredEditor(targets: OpenInTargets | null): { id: OpenInEdit
   return targets.editors.find(editor => editor.id === targets.preferred) ?? targets.editors[0]
 }
 
+/**
+ * Resolves the user's configured external editor target (`preferred` if installed, else first detected editor,
+ * falling back to `'reveal'` when no editor is detected). Refreshes targets once if not yet loaded.
+ */
+export async function resolvePreferredOpenInTarget(): Promise<OpenInTarget> {
+  let targets = useOpenInStore.getState().targets
+  if (!targets) {
+    await useOpenInStore.getState().refresh()
+    targets = useOpenInStore.getState().targets
+  }
+  const editor = preferredEditor(targets)
+  if (editor) return editor.id
+  if (targets?.preferred && targets.preferred !== 'auto') return targets.preferred
+  return 'reveal'
+}
+
 /** The editors in menu order: the preferred one first, the others as main listed them. */
 export function editorsInMenuOrder(targets: OpenInTargets | null): Array<{ id: OpenInEditorId; name: string }> {
   const first = preferredEditor(targets)
