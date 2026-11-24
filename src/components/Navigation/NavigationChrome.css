@@ -20,8 +20,7 @@
 .thread-heading h1 { font-size: var(--fs-md); }
 .sidebar-redesign .sidebar-nav-item:has(.sidebar-nav-kbd) { order: initial; margin: 0; border: 0; background: transparent; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .sidebar-redesign .sidebar-search-wrap { margin: 0 12px 12px; }
-.sidebar-redesign .sidebar-section-header { padding: 8px 12px; height: 32px; }
-.sidebar-redesign .sidebar-section-header > span, .thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
+.thread-project-list h2, .settings-nav-caption { color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 500; text-transform: none; letter-spacing: 0; }
 
 
 
@@ -76,7 +75,7 @@
 .sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--attn-bg); color: var(--attn-fg); padding: 1px; }
 
 /* Hit targets and contrast raised to the audit baseline (28px, AA text). */
-.pane-header .tile-btn, .workspace-editor-actions .tile-btn, .sidebar-section-action-btn { min-width: var(--control-md); min-height: var(--control-md); }
+.pane-header .tile-btn, .workspace-editor-actions .tile-btn { min-width: var(--control-md); min-height: var(--control-md); }
 .pane-row-time { font-size: var(--fs-2xs); }
 .pane-row-time.recent { color: var(--tx-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--control-md); display: inline-flex; align-items: center; }

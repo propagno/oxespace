@@ -132,7 +132,6 @@ const INNER_MIN_SIZE = 10
 interface SidePanelEntry {
   id: string
   defaultSize: number
-  onResize: (size: number) => void
   content: ReactElement
 }
 
@@ -324,13 +323,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'github',
       defaultSize: toInnerPct(layoutSizes.github),
-      onResize: (size) => {
-        if (Math.abs(size - toInnerPct(layoutSizes.github)) < 1) return
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedGitHubWidth.current) < 2) return
-        lastPersistedGitHubWidth.current = nextWidth
-        onUpdateGitHubState({ workspaceId: workspace.id, githubPanelWidthPercent: nextWidth, githubPanelExpanded: nextWidth >= 68 })
-      },
       content: (
         <WorkspaceGitHubPanel
           workspace={workspace}
@@ -349,13 +341,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'review',
       defaultSize: toInnerPct(layoutSizes.review),
-      onResize: (size) => {
-        if (Math.abs(size - toInnerPct(layoutSizes.review)) < 1) return
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedReviewWidth.current) < 2) return
-        lastPersistedReviewWidth.current = nextWidth
-        onUpdateReviewState({ workspaceId: workspace.id, reviewPanelWidthPercent: nextWidth, reviewPanelExpanded: nextWidth >= 68 })
-      },
       content: (
         <WorkspaceReviewPanel
           workspace={workspace}
@@ -372,13 +357,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'editor',
       defaultSize: toInnerPct(layoutSizes.editor),
-      onResize: (size) => {
-        if (Math.abs(size - toInnerPct(layoutSizes.editor)) < 1) return
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedWidth.current) < 2) return
-        lastPersistedWidth.current = nextWidth
-        onUpdateEditorState({ workspaceId: workspace.id, editorWidthPercent: nextWidth, editorExpanded: nextWidth >= 68 })
-      },
       content: (
         <WorkspaceEditorPanel
           workspace={workspace}
@@ -395,13 +373,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'background',
       defaultSize: toInnerPct(layoutSizes.background),
-      onResize: (size) => {
-        if (Math.abs(size - toInnerPct(layoutSizes.background)) < 1) return
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedBackgroundWidth.current) < 2) return
-        lastPersistedBackgroundWidth.current = nextWidth
-        onUpdateBackgroundState({ workspaceId: workspace.id, backgroundPanelWidthPercent: nextWidth, backgroundPanelExpanded: nextWidth >= 68 })
-      },
       content: (
         <WorkspaceBackgroundPanel
           workspace={workspace}
@@ -417,13 +388,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'worktree',
       defaultSize: toInnerPct(layoutSizes.worktree),
-      onResize: (size) => {
-        if (Math.abs(size - toInnerPct(layoutSizes.worktree)) < 1) return
-        const nextWidth = Math.round(size * outerSideSizeRef.current / 100)
-        if (Math.abs(nextWidth - lastPersistedWorktreeWidth.current) < 2) return
-        lastPersistedWorktreeWidth.current = nextWidth
-        onUpdateWorktreeState({ workspaceId: workspace.id, worktreePanelWidthPercent: nextWidth, worktreePanelExpanded: nextWidth >= 68 })
-      },
       content: (
         <WorkspaceWorktreePanel
           workspace={workspace}
@@ -440,7 +404,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'web-preview',
       defaultSize: toInnerPct(layoutSizes.webPreview),
-      onResize: () => undefined,
       content: (
         <WorkspaceWebPreviewPanel
           workspace={workspace}
@@ -457,7 +420,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'integration',
       defaultSize: toInnerPct(layoutSizes.integration),
-      onResize: () => undefined,
       content: (
         <WorkspaceIntegrationPanel
           activePaneId={activePaneId}
@@ -477,7 +439,6 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'search',
       defaultSize: toInnerPct(layoutSizes.search),
-      onResize: () => undefined,
       content: (
         <WorkspaceSearchPanel
           workspace={workspace}
@@ -494,18 +455,16 @@ function WorkspaceSurfaceComponent({
     sidePanels.push({
       id: 'http-calls',
       defaultSize: toInnerPct(layoutSizes.httpCalls),
-      onResize: () => undefined,
       content: <WorkspaceHttpCallsPanel workspace={workspace} isExpanded={httpCallsExpanded} onCollapse={closeHttpCalls} onToggleExpanded={() => setHttpCallsExpanded((v) => !v)} />
     })
   }
   if (androidVisible) {
-    sidePanels.push({ id: 'android', defaultSize: toInnerPct(layoutSizes.android), onResize: () => undefined, content: <WorkspaceAndroidPanel isExpanded={androidExpanded} onCollapse={closeAndroid} onToggleExpanded={() => setAndroidExpanded((v) => !v)} /> })
+    sidePanels.push({ id: 'android', defaultSize: toInnerPct(layoutSizes.android), content: <WorkspaceAndroidPanel isExpanded={androidExpanded} onCollapse={closeAndroid} onToggleExpanded={() => setAndroidExpanded((v) => !v)} /> })
   }
   if (containersVisible && onCloseContainers) {
     sidePanels.push({
       id: 'containers',
       defaultSize: toInnerPct(layoutSizes.containers),
-      onResize: () => undefined,
       content: <WorkspaceContainersPanel isExpanded={containersExpanded} onCollapse={onCloseContainers} onToggleExpanded={() => setContainersExpanded((v) => !v)} onOpenConversation={onOpenContainerConversation} />
     })
   }
