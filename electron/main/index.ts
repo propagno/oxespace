@@ -44,7 +44,7 @@ import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
+import type { InternalMcpHandle } from './mcp-internal/bootstrap'
 import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
@@ -561,7 +561,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerDelegationIpc(delegationService)
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
-  const approvals = await import('./services/approvals/wiring')
+  const [approvals, { createInternalMcpHandle }] = await Promise.all([import('./services/approvals/wiring'), import('./mcp-internal/bootstrap')])
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list(), oxeQuery: () => oxeQuery.agent, paneProcess: paneId => terminalManager.foregroundProcess(paneId) })
   const internalMcp: InternalMcpHandle = createInternalMcpHandle({
     threads: threadManager.manager,
