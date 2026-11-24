@@ -216,6 +216,22 @@ export function lightPullRequestRun(run) {
 }
 /** Collaborator roles that may put a PR in the queue. */
 export const LABELER_ROLES = new Set(['admin', 'maintain', 'write'])
+/** The role lookup failed transiently: neither allowed nor refused. */
+const ROLE_UNREAD = Symbol('role unread')
+
+/**
+ * Whether a failed read of the labeler's role says nothing about the role (OXE-404): GitHub's own error (5xx), a rate
+ * limit (429, or a 403 that names one) or the network. The car then waits for the next step instead of leaving the
+ * queue. Any other refusal (403, 404) still fails closed.
+ */
+export function transientLookupError(error) {
+  const status = Number(error?.status)
+  const text = `${error?.message ?? ''} ${error?.cause?.code ?? ''}`
+  if (status === 429 || status >= 500) return true
+  if (/rate limit/i.test(text)) return true
+  if (Number.isFinite(status)) return false
+  return error instanceof TypeError || /fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket|network/i.test(text)
+}
 // Only a marker that ends the comment counts: text the train copies into the line above it (check names
 // come from the PR's workflows) is cleaned, and can never be the last thing in the body anyway.
 const STATE_RE = new RegExp(`\\r?\\n\\r?\\n<!-- ${STATE_MARKER} (\\{[^\\r\\n]*\\}) -->\\s*$`)
@@ -344,7 +360,8 @@ export function mainHealth(runs, n = MAIN_HEALTH_RUNS) {
  *
  * input: {
  *   pr: { number, draft, isFork, headSha, headRef, mergeable (true|false|null), mergeableState, changesRequested,
- *         labeledAt, labeledBy, labelerAllowed (the labeler has write, maintain or admin) } | null,
+ *         labeledAt, labeledBy, labelerAllowed (the labeler has write, maintain or admin; null when a transient failure
+ *         kept its role unread, OXE-404) } | null,
  *   behindBy,                          // commits of main the head lacks
  *   runs:   [{ name, path, headSha, status, conclusion, htmlUrl, createdAt }],   // workflow runs on the head
  *   checks: [{ name, headSha, status, conclusion, htmlUrl, failedStep, startedAt }], // check runs on the head
@@ -377,6 +394,9 @@ export function step(input) {
     return { type: 'wait', message: `waiting: ${message}.`, state }
   }
 
+  if (pr.labelerAllowed === null && pr.labeledBy) {
+    return wait(`the role of ${cleanName(pr.labeledBy)} could not be read (GitHub or the network failed); the next step asks again`)
+  }
   if (pr.labelerAllowed !== true) {
     const who = pr.labeledBy ? cleanName(pr.labeledBy) : 'an unknown account'
     return unlabel(`the ${LABEL} label was added by ${who}, who has no write access to this repository.`)
@@ -953,8 +973,11 @@ export async function loadInput(api, entry, { now, timeoutMinutes }) {
     api.listChecks(pr.headSha),
     api.requiredChecks(),
     api.listComments(entry.number),
-    // Fails closed: no labeler, or a role that cannot be read, cannot queue a PR.
-    entry.labeledBy ? api.collaboratorRole(entry.labeledBy).catch(() => null) : Promise.resolve(null),
+    // Fails closed: no labeler, or a role GitHub refuses to give, cannot queue a PR. A transient failure (OXE-404)
+    // is no answer: the car waits and the next step asks again.
+    entry.labeledBy
+      ? api.collaboratorRole(entry.labeledBy).catch((error) => (transientLookupError(error) ? ROLE_UNREAD : null))
+      : Promise.resolve(null),
   ])
   const own = trainComments(comments)
   // Fails closed: an error reading main's commits means the car is updated as usual.
@@ -965,7 +988,7 @@ export async function loadInput(api, entry, { now, timeoutMinutes }) {
       changesRequested,
       labeledAt: entry.labeledAt ?? null,
       labeledBy: entry.labeledBy ?? null,
-      labelerAllowed: LABELER_ROLES.has(labelerRole),
+      labelerAllowed: labelerRole === ROLE_UNREAD ? null : LABELER_ROLES.has(labelerRole),
     },
     behindBy,
     docsOnlyBehind,
