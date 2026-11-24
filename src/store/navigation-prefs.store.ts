@@ -47,6 +47,18 @@ export function firstRunState(value: unknown): FirstRunState {
   }
 }
 
+/** The sidebar's state selector (OXE-133): every row, the ones that need the person, or the ones working. */
+export type SidebarStateFilter = 'all' | 'needs-you' | 'working'
+/** Saved per surface: OxeCode's sidebar and OxeChat's keep their own choice. */
+export type SidebarStateFilters = { code: SidebarStateFilter; thread: SidebarStateFilter }
+const STATE_FILTERS: readonly SidebarStateFilter[] = ['all', 'needs-you', 'working']
+const NO_STATE_FILTERS: SidebarStateFilters = { code: 'all', thread: 'all' }
+function stateFilters(value: unknown): SidebarStateFilters {
+  const input = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+  const pick = (raw: unknown): SidebarStateFilter => STATE_FILTERS.includes(raw as SidebarStateFilter) ? raw as SidebarStateFilter : 'all'
+  return { code: pick(input.code), thread: pick(input.thread) }
+}
+
 export const useNavigationPrefs = create<{
   width: number; expanded: Record<string, boolean>
   /**
@@ -55,6 +67,8 @@ export const useNavigationPrefs = create<{
    */
   threadDensity: 'comfortable' | 'compact' | null
   firstRun: FirstRunState
+  stateFilter: SidebarStateFilters
+  setStateFilter: (surface: keyof SidebarStateFilters, filter: SidebarStateFilter) => void
   setThreadDensity: (density: 'comfortable' | 'compact' | null) => void
   setWidth: (width: number) => void; setExpanded: (id: string, expanded: boolean) => void
   completeFirstRunStep: (step: FirstRunStep) => void
@@ -65,6 +79,8 @@ export const useNavigationPrefs = create<{
   width: legacyThreadWidth(), expanded: {},
   threadDensity: 'comfortable',
   firstRun: FIRST_RUN,
+  stateFilter: NO_STATE_FILTERS,
+  setStateFilter: (surface, filter) => set(state => ({ stateFilter: { ...state.stateFilter, [surface]: filter } })),
   setThreadDensity: threadDensity => set({ threadDensity }),
   setWidth: width => set({ width: navigationWidth(width) }),
   setExpanded: (id, expanded) => set(state => ({ expanded: { ...state.expanded, [id]: expanded } })),
@@ -73,9 +89,10 @@ export const useNavigationPrefs = create<{
   startFirstRunClock: at => set(state => state.firstRun.startedAt !== null ? state : { firstRun: { ...state.firstRun, startedAt: at } }),
   recordFirstAnswer: durationMs => set(state => state.firstRun.firstAnswerMs !== null ? state : { firstRun: { ...state.firstRun, firstAnswerMs: Math.max(0, Math.round(durationMs)) } })
 }), { name: 'oxe.navigation', merge: (saved, current) => {
-  const value = saved as { width?: unknown; expanded?: Record<string, unknown>; threadDensity?: unknown; firstRun?: unknown } | null
+  const value = saved as { width?: unknown; expanded?: Record<string, unknown>; threadDensity?: unknown; firstRun?: unknown; stateFilter?: unknown } | null
   return { ...current, width: navigationWidth(value?.width ?? current.width),
     threadDensity: value?.threadDensity === 'compact' || value?.threadDensity === 'comfortable' || value?.threadDensity === null ? value.threadDensity : current.threadDensity,
     firstRun: firstRunState(value?.firstRun),
+    stateFilter: stateFilters(value?.stateFilter),
     expanded: Object.fromEntries(Object.entries(value?.expanded ?? {}).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean> }
 } }))

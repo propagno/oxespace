@@ -231,6 +231,8 @@ export function resolveReadableWorkspace(
   if (requestedWorkspaceId && requestedWorkspaceId !== sourceWorkspaceId) {
     const target = ctx.workspaceServ.get(requestedWorkspaceId) as WorkspaceLike | null
     if (!target) throw new ActionRefused('No workspace with that id exists. Use oxespace_list_workspaces.', 'not-found')
+    // OXE-365: a pane the other workspace does not have is refused here, before any approval is shown for it.
+    if (paneId && !target.panes?.some(pane => pane.id === paneId)) throw new ActionRefused('No pane with that id in that workspace.', 'not-found')
     return { sourceWorkspaceId, targetWorkspace: target, crossWorkspace: true }
   }
   const own = ctx.workspaceServ.get(sourceWorkspaceId) as WorkspaceLike | null
@@ -260,12 +262,16 @@ export function crossWorkspaceReadApproval(
   const source = ctx.workspaceServ.get(resolved.sourceWorkspaceId) as WorkspaceLike | null
   const sourceName = source?.name?.trim() || scope.name || resolved.sourceWorkspaceId
   const targetName = resolved.targetWorkspace.name?.trim() || resolved.targetWorkspace.id
-  const target = `${targetName} (${resolved.targetWorkspace.id})`
-  const paneSuffix = detail.paneId ? ` (pane ${detail.paneId})` : ''
+  // OXE-365: what the person reads names workspaces and panes, never their ids; the broker scope keeps the ids. A name
+  // two workspaces share also shows the target's folder, so the person still knows which one they allow.
+  const sameName = (ctx.workspaceServ.list() as WorkspaceLike[]).filter(ws => (ws.name?.trim() || ws.id) === targetName).length > 1
+  const targetLabel = sameName ? `${targetName} (${resolved.targetWorkspace.rootPath || resolved.targetWorkspace.id})` : targetName
+  const paneName = detail.paneId ? resolved.targetWorkspace.panes?.find(pane => pane.id === detail.paneId)?.displayName?.trim() : undefined
+  const paneSuffix = detail.paneId ? (paneName ? ` (pane "${paneName}")` : ' (one pane)') : ''
   return {
     summary: `cross-workspace ${detail.actionLabel} in "${targetName}"`,
-    target,
-    text: `${detail.actionLabel} in workspace "${targetName}" (${resolved.targetWorkspace.id})${paneSuffix} from workspace "${sourceName}" (${resolved.sourceWorkspaceId})`,
+    target: targetLabel,
+    text: `${detail.actionLabel} in workspace "${targetLabel}"${paneSuffix} from workspace "${sourceName}"`,
     notes: [mainMessage('approvals.note.workspace.crossRead', { source: sourceName, target: targetName })],
     brokerScope: crossWorkspaceReadScope(resolved.sourceWorkspaceId, resolved.targetWorkspace.id),
     brokerRisk: 'read',
