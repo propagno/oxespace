@@ -56,7 +56,7 @@ describe('Settings › Tools (F10)', () => {
     expect(report.oxeYaml).toBe('missing')
     expect(report.groups.map(group => [group.id, group.mode, group.source, group.configurable])).toEqual([
       ['core', 'always', 'default', false], ['orchestration', 'on-demand', 'default', true], ['data', 'on-demand', 'default', true],
-      ['docs', 'on-demand', 'default', true], ['preview', 'always', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false], ['code', 'always', 'role', false]
+      ['docs', 'on-demand', 'default', true], ['preview', 'always', 'default', true], ['android', 'on-demand', 'default', true], ['app', 'on-demand', 'default', true], ['team', 'always', 'role', false], ['worker', 'always', 'role', false], ['code', 'always', 'role', false]
     ])
     // docs holds nothing since OXE-108 moved the previews to preview.
     expect(report.groups.find(group => group.id === 'docs')?.tools).toEqual([])
@@ -69,7 +69,7 @@ describe('Settings › Tools (F10)', () => {
     // A plain conversation pays core and preview (always) in full, and the names of the other groups.
     const byId = Object.fromEntries(report.groups.map(group => [group.id, group.cost.claude]))
     expect(report.totals.plainConversation.chars).toBe(byId.core.loaded.chars + byId.preview.loaded.chars
-      + ['orchestration', 'data', 'docs', 'app'].reduce((sum, id) => sum + byId[id].deferred.chars, 0))
+      + ['orchestration', 'data', 'docs', 'android', 'app'].reduce((sum, id) => sum + byId[id].deferred.chars, 0))
     // A plain conversation stays within today's budget.
     expect(report.groups[0].cost.claude.loaded.chars).toBeLessThanOrEqual(9000)
   })
@@ -180,8 +180,8 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     expect(args[0]).toBe('/bin/oxespace-mcp.cjs')
     const allowed = allowedOf(args)!
     expect(allowed).toEqual([...MCP_TOOL_GROUPS.core, ...CODE_START_TOOLS, ...MCP_TOOL_GROUPS.preview, 'oxespace_tools_enable'])
-    for (const group of ['orchestration', 'data', 'docs', 'app'] as const) for (const tool of MCP_TOOL_GROUPS[group]) expect(allowed, tool).not.toContain(tool)
-    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'data', 'orchestration'])
+    for (const group of ['orchestration', 'data', 'docs', 'android', 'app'] as const) for (const tool of MCP_TOOL_GROUPS[group]) expect(allowed, tool).not.toContain(tool)
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['android', 'app', 'code', 'data', 'orchestration'])
   })
 
   it('starts an agent in a Code terminal, or one reading .mcp.json, within the 9,000-char budget, instructions included (T8)', async () => {
@@ -206,7 +206,7 @@ describe('the workspace .mcp.json offers a Code terminal\'s plan, not every tool
     const args = internalArgs(root)
     for (const tool of MCP_TOOL_GROUPS.data) expect(allowedOf(args), tool).not.toContain(tool)
     expect(allowedOf(args)).toEqual(expect.arrayContaining([...MCP_TOOL_GROUPS.docs]))
-    expect(Object.keys(enableableOf(args)).sort()).toEqual(['app', 'code', 'orchestration'])
+    expect(Object.keys(enableableOf(args)).sort()).toEqual(['android', 'app', 'code', 'orchestration'])
   })
 
   it('rewrites the plan when Settings › Tools changes a mode, replacing the flags it wrote before', async () => {

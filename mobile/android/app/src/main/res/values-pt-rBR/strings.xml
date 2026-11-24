@@ -263,6 +263,8 @@
     <string name="settings_answers_title">Respostas</string>
     <string name="settings_back">Voltar</string>
     <string name="settings_cant_connect_title">Não consegue conectar?</string>
+    <string name="settings_cant_connect_vpn_body">Permite Tailscale ou WireGuard (100.64.0.0/10) quando uma VPN estiver ativa neste celular. Desligado por padrão.</string>
+    <string name="settings_cant_connect_vpn_title">Conectar por VPN</string>
     <string name="settings_computer_paired">pareado em %1$s</string>
     <string name="settings_computer_title">Computador</string>
     <string name="settings_computer_unpair">Desparear este celular</string>

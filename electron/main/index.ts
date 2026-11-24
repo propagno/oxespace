@@ -186,8 +186,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   // The Android panel opens pairing through the gateway, which is registered further down.
   const remotePairing: { start?: () => Promise<{ uri: string; expiresAt: number }> } = {}
+  const androidDisconnect: { notify?: (e: { serial: string; name: string; sessionKeys: string[] }) => void } = {}
   registerAndroidIpc({ devices: androidDevices, access: androidAccess, startPairing: () => remotePairing.start ? remotePairing.start() : Promise.reject(new Error('Pairing is not ready yet')),
-    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } } })
+    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } },
+    onDeviceDisconnected: event => { log.info(`[android] device disconnected: ${event.serial} (${event.name})`); androidDisconnect.notify?.(event) } })
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
   const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
@@ -391,7 +393,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
-  void threadManager.manager.then(manager => { manager.configureHostsProxy(hostsProxy); manager.configurePanes(() => {
+  void threadManager.manager.then(manager => {
+    androidDisconnect.notify = e => { for (const k of e.sessionKeys) void manager.steer(k.replace(/^thread:/, ''), `Android device ${e.name} (${e.serial}) disconnected from adb.`).catch(() => {}) }
+    manager.configureHostsProxy(hostsProxy); manager.configurePanes(() => {
     const sources: import('../../shared/types/thread-places').ThreadPaneSource[] = []
     for (const row of paneRows.all() as { id: string; workspace_id: string; display_name: string | null; agent_name: string | null }[]) {
       if (!terminalManager.hasSession(row.id)) continue
@@ -576,6 +580,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
+    androidDevices: () => androidDevices,
     androidAccess: () => androidAccess, openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
     askAndroidScreenshot: async ({ serial, owner }) => {
       const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
@@ -591,7 +596,8 @@ async function registerIpcHandlers(): Promise<() => void> {
         text: serial
       }))
       return outcome.intent === 'allow' || outcome.intent === 'allow-session'
-    }
+    },
+    askAndroidLifecycle: async req => (await import('./mcp-internal/android-lifecycle-handler')).promptAndroidLifecycle(approvalCenter, req)
   })
   registerMcpInternalIpc(internalMcp)
   // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the
@@ -674,7 +680,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop(), androidDevices.stopOwned()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true

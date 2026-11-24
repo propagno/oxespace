@@ -65,8 +65,10 @@ export interface InternalMcpDeps {
   github: GitHubWorktreeApi
   background: BackgroundManager
   fileSystem: FileSystemService
+  androidDevices?: import('./tool-registry').ToolContext['androidDevices']
   androidAccess?: import('./tool-registry').ToolContext['androidAccess']
   askAndroidScreenshot?: import('./tool-registry').ToolContext['askAndroidScreenshot']
+  askAndroidLifecycle?: import('./tool-registry').ToolContext['askAndroidLifecycle']
   openAndroidPanel?: import('./tool-registry').ToolContext['openAndroidPanel']
 }
 
@@ -114,8 +116,10 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     fileSystem: deps.fileSystem,
     webPreview,
     worktree,
+    androidDevices: deps.androidDevices,
     androidAccess: deps.androidAccess,
     askAndroidScreenshot: deps.askAndroidScreenshot,
+    askAndroidLifecycle: deps.askAndroidLifecycle,
     openAndroidPanel: deps.openAndroidPanel
   })
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react'
-import { ArrowLeft, Camera, Circle, Link2, PackagePlus, QrCode, RotateCw, Smartphone, Square, Usb, WifiOff } from 'lucide-react'
+import { ArrowLeft, Camera, Circle, Link2, PackagePlus, Power, QrCode, RotateCw, Smartphone, Square, Usb, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { deviceLinkRefusal } from '../../../shared/android-actions'
 import type { AndroidActionOutcome, AndroidApkPick, AndroidMirrorDevice, AndroidMirrorFrame, AndroidMirrorStatus } from '../../../shared/types/ipc'
@@ -45,6 +45,9 @@ export function AndroidPanel(): ReactElement {
   const [apk, setApk] = useState<{ pick: AndroidApkPick; serial: string; device: string } | null>(null)
   const [link, setLink] = useState<{ serial: string; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [stoppingSerial, setStoppingSerial] = useState<string | null>(null)
+  const [dismissedDisconnectAt, setDismissedDisconnectAt] = useState<number | null>(null)
+  const lastToastedDisconnectAtRef = useRef<number | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
     const api = window.oxe?.android
@@ -111,6 +114,18 @@ export function AndroidPanel(): ReactElement {
     }
   }, [refresh])
 
+  const disconnectedDevice = status?.disconnectedDevice ?? null
+  useEffect(() => {
+    if (!disconnectedDevice) return
+    if (lastToastedDisconnectAtRef.current === disconnectedDevice.at) return
+    lastToastedDisconnectAtRef.current = disconnectedDevice.at
+    toast({
+      intent: 'warning',
+      title: t('android.disconnectedToast', { name: disconnectedDevice.name }),
+      description: t('android.disconnectedAgentNotified')
+    })
+  }, [disconnectedDevice, t])
+
   const devices = status?.devices ?? []
   const activeSerial =
     selectedSerial && devices.some(device => device.serial === selectedSerial)
@@ -166,10 +181,40 @@ export function AndroidPanel(): ReactElement {
 
   /** What an action's failure reads as: ours for a refusal, the device's own words otherwise. */
   const failureText = (outcome: Extract<AndroidActionOutcome, { ok: false }>): string => {
+    if (outcome.reason === 'android.avd.notOwned') return t('android.failure.not-owned')
     const [code, detail] = outcome.reason.split(':', 2)
     if (code === 'refused') return t(`android.linkRefused.${detail ?? 'malformed'}`, { defaultValue: t('android.linkRefused.malformed') })
     if (code === 'pick-expired' || code === 'file-changed' || code === 'not-debug-build' || code === 'pairing-unavailable') return t(`android.failure.${code}`)
     return outcome.reason
+  }
+
+  const handleStopEmulator = async (device: AndroidMirrorDevice): Promise<void> => {
+    if (!device.owned || busy || stoppingSerial) return
+    setBusy(true)
+    setStoppingSerial(device.serial)
+    try {
+      const outcome = await window.oxe?.android?.stopEmulator?.({ serial: device.serial })
+      if (outcome?.ok) {
+        setLastConnected(prev => (prev?.serial === device.serial ? null : prev))
+        toast({ title: t('android.emulatorStopped', { name: device.name }) })
+        await refresh()
+      } else {
+        toast({
+          intent: 'danger',
+          title: t('android.stopEmulatorFailed', { name: device.name }),
+          description: outcome ? failureText(outcome) : undefined
+        })
+      }
+    } catch (cause) {
+      toast({
+        intent: 'danger',
+        title: t('android.stopEmulatorFailed', { name: device.name }),
+        description: cause instanceof Error ? cause.message : undefined
+      })
+    } finally {
+      setStoppingSerial(null)
+      setBusy(false)
+    }
   }
 
   const handlePickApk = async (): Promise<void> => {
@@ -306,18 +351,19 @@ export function AndroidPanel(): ReactElement {
     )
   }
 
-  if (devices.length === 0 && lastConnected) {
+  const lostDevice = lastConnected ?? (disconnectedDevice ? { serial: disconnectedDevice.serial, name: disconnectedDevice.name } : null)
+  if (devices.length === 0 && lostDevice) {
     return (
       <div className="android-panel">
         <div className="android-stage">
           <EmptyState
             icon={<WifiOff size={20} />}
-            title={t('android.lostTitle', { name: lastConnected.name })}
+            title={t('android.lostTitle', { name: lostDevice.name })}
             actions={
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => void handleReconnect(lastConnected.serial)}
+                onClick={() => void handleReconnect(lostDevice.serial)}
               >
                 {t('android.reconnect')}
               </Button>
@@ -325,6 +371,11 @@ export function AndroidPanel(): ReactElement {
           >
             {t('android.lostDetail')}
           </EmptyState>
+          {disconnectedDevice ? (
+            <p className="android-disconnect-agent-note" role="status">
+              {t('android.disconnectedAgentNotified')}
+            </p>
+          ) : null}
         </div>
       </div>
     )
@@ -456,10 +507,27 @@ export function AndroidPanel(): ReactElement {
           </span>
         ) : null}
 
+        {selectedDevice.kind === 'emulator' ? (
+          <span className="android-origin-badge" data-testid="android-emulator-origin">
+            {selectedDevice.owned ? t('android.startedByOxespace') : t('android.externalEmulator')}
+          </span>
+        ) : null}
+
         <span className="android-toolbar-spacer" />
 
         {selectedDevice.state === 'device' ? (
           <>
+            {selectedDevice.kind === 'emulator' && selectedDevice.owned ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy || stoppingSerial === selectedDevice.serial}
+                onClick={() => void handleStopEmulator(selectedDevice)}
+              >
+                <Power size={14} aria-hidden="true" />
+                <span>{stoppingSerial === selectedDevice.serial ? t('android.stoppingEmulator') : t('android.stopEmulator')}</span>
+              </Button>
+            ) : null}
             <IconButton
               label={t('android.installApk')}
               icon={<PackagePlus size={14} />}
@@ -498,6 +566,22 @@ export function AndroidPanel(): ReactElement {
           </>
         ) : null}
       </header>
+
+      {disconnectedDevice && dismissedDisconnectAt !== disconnectedDevice.at ? (
+        <div className="android-disconnect-banner" role="status" data-testid="android-disconnect-notice">
+          <span className="android-disconnect-banner-text">
+            <WifiOff size={14} aria-hidden="true" />
+            <span>{t('android.disconnectedNotice', { name: disconnectedDevice.name })}</span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDismissedDisconnectAt(disconnectedDevice.at)}
+          >
+            {t('android.dismissNotice')}
+          </Button>
+        </div>
+      ) : null}
 
       {apk ? (
         <ConfirmDialog

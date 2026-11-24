@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isOxespaceMcpTool, oxespaceToolLabel } from '../../../shared/oxespace-mcp-tools'
 import { classifyToolRowKind, foldSummary, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
@@ -10,15 +11,15 @@ import { useThreadWorkbenchStore } from '../../store/thread-workbench.store'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import { Button, Spinner, StatusSignal } from '../../ui'
-import { useToolOutputCuts } from '../../store/tool-output-cut.store'
-import { cutNote, stepOutputTail } from './toolOutputCut'
+import { resolveToolOutputCut, useToolOutputCuts } from '../../store/tool-output-cut.store'
+import { ToolOutputCutBanner, stepOutputTail } from './toolOutputCut'
 import { ThreadInlineEvidence } from './ThreadFileActivity'
 import { foldSummaryText } from './foldSummaryText'
 import { PathLink } from './PathLink'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
 /** What an action did, in words; a tool the app does not know keeps the provider's own name. */
-const toolName = (name: string): string => NAMED.has(name) ? i18n.t(`thread:activity.names.${name as 'Read'}`) : name
+const toolName = (name: string): string => NAMED.has(name) ? i18n.t(`thread:activity.names.${name as 'Read'}`) : (oxespaceToolLabel(name) ?? name)
 
 const COMMANDS = new Set(['commandExecution', 'Bash', 'PowerShell'])
 const EDITS = new Set(['fileChange', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
@@ -60,11 +61,12 @@ export type ResolveInterrupted = (command: string) => void
 
 function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
-  const cut = useToolOutputCuts((state) => state.cuts[event.id])
+  const recordedCut = useToolOutputCuts((state) => state.cuts[event.id])
   const kind = diagnosticKind(event)
   const failureKind = event.state === 'failed' ? threadActionFailure(event.output ?? '') : undefined
   const failure = failureKind && { label: t(`actionFailure.${failureKind}.label`), guidance: t(`actionFailure.${failureKind}.guidance`) }
   const detail = event.detail.trim(), output = event.output?.trim() ?? ''
+  const cut = resolveToolOutputCut(recordedCut, output, event.outputTruncated)
   const displayOutput = cut ? output.slice(0, cut.keptBytes) : output
   const technical = cut
     ? displayOutput
@@ -77,7 +79,7 @@ function ThreadToolDiagnostic({ event, onResolve }: { event: Tool; onResolve?: R
     <div className="thread-tool-diagnostic-meta"><span className={kind.className}>{failure?.label ?? kind.label}</span>{event.startedAt && event.completedAt && <time>{t('activity.duration', { ms: formatNumber(Math.max(0, event.completedAt - event.startedAt)) })}</time>}</div>
     <p>{primary.slice(0, 320)}</p>
     {failure && <p>{failure.guidance}</p>}
-    {cut && <p className="thread-tool-cut-note">{cutNote(cut.keptBytes, cut.totalBytes)}</p>}
+    {cut && <ToolOutputCutBanner cut={cut} fullOutput={output} toolLabel={toolName(event.name)} />}
     {event.interrupted && !event.interruptedHandled && <><p>{t('activity.interruptedHint')}</p>{onResolve && <div className="thread-tool-diagnostic-actions"><Button size="sm" variant="primary" onClick={() => onResolve(`/continue-interrupted ${event.id}`)}>{t('activity.continue')}</Button><Button size="sm" onClick={() => onResolve(`/dismiss-interrupted ${event.id}`)}>{t('activity.dismiss')}</Button></div>}</>}
     {event.interruptedHandled && <p>{t(`activity.interruptedHandled.${event.interruptedHandled}`)}</p>}
     {technical && <details className="thread-tool-technical"><summary>{t('activity.technical')}</summary><pre>{technical}</pre></details>}
@@ -105,7 +107,7 @@ function stepState(event: Tool): 'running' | 'failed' | 'done' {
   return 'done'
 }
 
-const BADGED = new Set(['query', 'http', 'other'])
+const BADGED = new Set(['query', 'http', 'container', 'other'])
 
 function mcpTitle(name: string): string | undefined {
   const match = /^mcp__(.+?)__(.+)$/.exec(name)
@@ -171,42 +173,49 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
   const state = stepState(event)
   const [open, setOpen] = useState(state === 'failed' && row.kind === 'run')
   const [allLines, setAllLines] = useState(false)
-  const cut = useToolOutputCuts(store => store.cuts[event.id])
-  const output = cut ? (event.output ?? '').slice(0, cut.keptBytes) : (event.output ?? '')
+  const recordedCut = useToolOutputCuts(store => store.cuts[event.id])
+  const rawOutput = event.output ?? ''
+  const cut = resolveToolOutputCut(recordedCut, rawOutput, event.outputTruncated)
+  const output = cut ? rawOutput.slice(0, cut.keptBytes) : rawOutput
   const { shown, hidden } = stepOutputTail(output, allLines)
   const input = toolInput(event.detail)
   const status = row.kind === 'http' ? httpStatus(event.output) : ''
   const table = row.kind === 'query' ? queryTable(event.output) : undefined
   const mcp = mcpTitle(event.name)
+  const isShellRun = row.kind === 'run' && !event.name.startsWith('mcp__') && !isOxespaceMcpTool(event.name)
   const sql = typeof input?.sql === 'string' ? input.sql : ''
   const headline = row.kind === 'http' ? [row.target, status].filter(Boolean).join(' ')
     : row.kind === 'other' && mcp ? mcp
-      : row.kind === 'query' ? (sql || row.target || event.name)
-        : row.target || event.name
+      : row.kind === 'query' ? (sql || row.target || toolName(event.name))
+        : row.target || toolName(event.name)
   const openChanges = () => { if (threadId) useThreadWorkbenchStore.getState().setView(threadId, { panel: 'changes' }) }
   const artifactId = event.files?.find(file => file.artifactId)?.artifactId
+  const showsPlainOutput = row.kind === 'http' || row.kind === 'other' || row.kind === 'container' || row.kind === 'read' || (row.kind === 'query' && !table) || (row.kind === 'edit' && !(threadId && artifactId))
   return <div data-ui="step" data-kind={row.kind} data-state={state} data-open={open ? 'true' : 'false'}>
     <div className="thread-step-line">
       {state === 'running' ? <Spinner size="sm" decorative /> : <StatusSignal state={state === 'failed' ? 'failed' : 'done'} label={t(`activity.state.${state === 'failed' ? 'failed' : 'completed'}`)} size={14} />}
       {BADGED.has(row.kind) && <span data-ui="kind-badge" data-kind={row.kind}>{t(`fold.kinds.${row.kind}`)}</span>}
-      {row.kind === 'run' ? (
-        <button type="button" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}><code>$ <span>{row.target}</span></code></button>
+      {isShellRun ? (
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}><code>$ <span>{row.target}</span></code></Button>
       ) : (
-        <button type="button" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>{headline}</button>
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>{headline}</Button>
       )}
       {row.kind === 'edit' && <Button variant="ghost" size="sm" data-ui="file-pill" onClick={openChanges}>{row.target}</Button>}
       {(row.meta.additions || row.meta.deletions) ? <span>+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
     </div>
     {open && row.kind === 'run' && output && <>
-      {cut && <p className="thread-tool-cut-note">{cutNote(cut.keptBytes, cut.totalBytes)}</p>}
+      {cut && <ToolOutputCutBanner cut={cut} fullOutput={rawOutput} toolLabel={headline} />}
       <pre data-ui="step-output">{shown}</pre>
-      {hidden > 0 && <button type="button" onClick={() => setAllLines(true)}>{t('steps.showMoreLines', { count: hidden })}</button>}
+      {hidden > 0 && <Button variant="ghost" size="sm" onClick={() => setAllLines(true)}>{t('steps.showMoreLines', { count: hidden })}</Button>}
     </>}
     {open && row.kind === 'query' && table && <table>
       <thead><tr>{table.columns.map(column => <th key={column}>{column}</th>)}</tr></thead>
       <tbody>{table.rows.map((cells, index) => <tr key={index}>{cells.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
     </table>}
-    {open && (row.kind === 'http' || row.kind === 'other') && output && <pre data-ui="step-output">{output}</pre>}
+    {open && showsPlainOutput && output && <>
+      {cut && <ToolOutputCutBanner cut={cut} fullOutput={rawOutput} toolLabel={headline} />}
+      <pre data-ui="step-output">{output}</pre>
+    </>}
     {open && row.kind === 'edit' && threadId && artifactId && <ThreadInlineEvidence threadId={threadId} artifactId={artifactId} onComment={(_line, body) => onDraft?.(body)} />}
   </div>
 }
