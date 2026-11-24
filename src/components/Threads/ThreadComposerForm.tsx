@@ -75,12 +75,13 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
   const sendKey = useThreadPrefs(state => state.sendKey)
   const formRef = useRef<HTMLFormElement>(null)
   const [narrow, setNarrow] = useState(false)
+  const [compactModel, setCompactModel] = useState(false)
   const [modeSaving, setModeSaving] = useState(false)
   const api = window.oxe?.thread
   useEffect(() => {
     const node = formRef.current
     if (!node) return
-    const update = (width: number) => { if (width > 0) setNarrow(width < 420) }
+    const update = (width: number) => { if (width > 0) { setNarrow(width < 420); setCompactModel(width <= 560) } }
     update(node.clientWidth)
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(entries => {
@@ -141,7 +142,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
       <div className="thread-composer-right">
         {compactChips
           ? <ComposerChips {...compactChips} />
-          : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} narrow={narrow} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
+          : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} narrow={narrow} compact={compactModel} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
         {!narrow && snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
         {showSteer && <IconButton size="sm" variant="ghost" className="thread-command-trigger" label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || !hasContent} onClick={() => onSend('steer')} icon={<CornerDownLeft size={14} />} />}
         {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}

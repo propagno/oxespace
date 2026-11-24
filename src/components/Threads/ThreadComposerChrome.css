@@ -42,7 +42,7 @@
   .thread-composer .thread-context-label { display: none; }
   .thread-composer .thread-chip.is-permissions { flex: 0 1 auto; min-width: var(--control-sm); overflow: hidden; }
   .thread-composer .thread-chip.is-permissions .thread-chip-text { max-width: 10ch; }
-  .thread-composer .thread-chip.is-model .thread-chip-text { max-width: 12ch; }
+  .thread-composer .thread-chip.is-model .thread-chip-text { max-width: 14ch; }
   .thread-composer .thread-configuration { overflow: hidden; }
 }
 
@@ -52,11 +52,15 @@
   .thread-composer-right { gap: var(--space-1); }
   .thread-composer .thread-mode-toggle button { padding: 0 var(--space-1-5); }
   .thread-composer .thread-context-trigger { padding: 0 var(--space-1-5); }
+  .thread-composer .thread-chip.is-turn-settings { padding: 0 var(--space-1-5); }
+  .thread-composer .thread-chip.is-turn-settings .thread-chip-text { max-width: 14ch; }
 }
 .thread-composer footer[data-width='narrow'] { gap: var(--space-1); }
 .thread-composer footer[data-width='narrow'] .thread-composer-right { gap: var(--space-1); }
 .thread-composer footer[data-width='narrow'] .thread-mode-toggle button { padding: 0 var(--space-1-5); }
 .thread-composer footer[data-width='narrow'] .thread-context-trigger { padding: 0 var(--space-1-5); }
+.thread-composer footer[data-width='narrow'] .thread-chip.is-turn-settings { padding: 0 var(--space-1-5); }
+.thread-composer footer[data-width='narrow'] .thread-chip.is-turn-settings .thread-chip-text { max-width: 14ch; }
 
 /* Show model and permission descriptions as a subtle secondary line below the option title. */
 .thread-config-options button > span { min-width: 0; text-align: left; }
