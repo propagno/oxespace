@@ -306,6 +306,10 @@ export class AndroidDevices {
     this.stopGraceMs = options.stopGraceMs ?? STOP_GRACE_MS
   }
 
+  get runner(): AdbRunner {
+    return this.run
+  }
+
   async adb(args: readonly string[], timeoutMs?: number): Promise<AdbResult> {
     if (!isAllowedAdbArgs(args)) {
       throw new Error(`Refused adb command outside allowlist: ${args[0] ?? '<empty>'}`)

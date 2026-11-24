@@ -37,6 +37,7 @@ import { APP_MANAGE_TOOLS } from './app-manage-tools'
 import { APP_SETTINGS_TOOLS } from './app-settings-tools'
 import { gated } from './domain-tool'
 import { AGENT_CHANGE_TOOLS, AGENT_READ_TOOLS } from './agent-tools'
+import { ANDROID_LIFECYCLE_TOOLS } from './android-lifecycle-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -72,8 +73,10 @@ export interface ToolContext {
   worktree: WorktreeEventBus
   /** A63: the guarded worktree removal; oxespace_remove_worktree goes through it without branch deletion. */
   worktreesPanel?: import('../services/github/worktree-guard').WorktreeRemoveGuard
+  androidDevices?: () => import('../services/android/android-devices').AndroidDevices | undefined
   androidAccess?: () => import('../services/android/android-devices').AndroidAgentAccess | undefined
   askAndroidScreenshot?: (input: { serial: string; sessionKey: string; owner: { kind: 'pane' | 'thread'; id: string }; label: string }) => Promise<boolean>
+  askAndroidLifecycle?: (input: { action: 'avd_start' | 'apk_install' | 'app_launch'; device: string; target: string; owner: { kind: 'pane' | 'thread'; id: string } }) => Promise<boolean>
   /** OXE-109: opens the Android device panel in the window (IPC android:open-panel), when an agent asks for the device. */
   openAndroidPanel?(request: { workspaceId: string; serial: string }): void
 }
@@ -433,6 +436,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     requiresWorkspace: false,
     handler: handlers.deviceScreenshot
   },
+  ...ANDROID_LIFECYCLE_TOOLS,
   {
     descriptor: {
       name: 'oxespace_quality_check',

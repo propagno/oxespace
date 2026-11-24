@@ -581,6 +581,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     github: internalMcpGithub,
     background: backgroundManager,
     fileSystem: fileSystemService,
+    androidDevices: () => androidDevices,
     androidAccess: () => androidAccess, openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
     askAndroidScreenshot: async ({ serial, owner }) => {
       const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
@@ -596,7 +597,8 @@ async function registerIpcHandlers(): Promise<() => void> {
         text: serial
       }))
       return outcome.intent === 'allow' || outcome.intent === 'allow-session'
-    }
+    },
+    askAndroidLifecycle: async req => (await import('./mcp-internal/android-lifecycle-handler')).promptAndroidLifecycle(approvalCenter, req)
   })
   registerMcpInternalIpc(internalMcp)
   // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the
