@@ -124,6 +124,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
   const readyTabs = useRef(new Set<string>())
+  const lastAccessByTab = useRef(new Map<string, string>())
+  const lastDesignMode = useRef<string | null>(null)
   const normalizedUrl = useMemo(() => normalizePreviewUrl(draftUrl, allowExternal), [draftUrl, allowExternal])
   const canOpen = normalizedUrl !== null
   const open = (): void => {
@@ -197,7 +199,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       if (event.ownerKey !== previewKey) return
       if (event.type === 'session' && event.session) { applySession(event.session); return }
       // Main took agent access away (T43): show it off; turning it on asks the person again.
-      if (event.type === 'access') { if (event.agentAccess === false) setAgentAutomation(false); return }
+      if (event.type === 'access') { if (event.agentAccess === false) { lastAccessByTab.current.clear(); setAgentAutomation(false) } return }
       if (event.type === 'navigation' && event.url) updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
       if (event.type === 'loading') updateTab(event.tabId, tab => ({...tab,loading:event.loading === true,error:event.loading ? null : tab.error}))
       if (event.type === 'failed') updateTab(event.tabId, tab => ({...tab,loading:false,error:event.message ?? tc('preview.pageFailed')}))
@@ -234,16 +236,42 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     setDesignMode(false)
   }, [url, activeTabId])
 
-  // Keep the guest in sync with the toggle, including after a reload.
+  // Keep the guest in sync with the toggle, including after a reload, without emitting redundant IPC calls.
   useEffect(() => {
-    if (!guestReady) return
-    void window.oxe.browserPreview.designMode({ownerKey:previewKey,tabId:activeTabId,enabled:designMode,keep:designKeep}).catch(() => {})
+    if (!guestReady) { lastDesignMode.current = null; return }
+    if (lastDesignMode.current === null && !designMode && !designKeep) return
+    const signature = `${previewKey}\0${activeTabId}\0${designMode}\0${designKeep}`
+    if (lastDesignMode.current === signature) return
+    lastDesignMode.current = signature
+    void window.oxe.browserPreview.designMode({ownerKey:previewKey,tabId:activeTabId,enabled:designMode,keep:designKeep}).catch(() => {
+      if (lastDesignMode.current === signature) lastDesignMode.current = null
+    })
   }, [designMode, designKeep, guestReady, previewKey, activeTabId])
 
   useEffect(() => {
     // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
-    for (const tab of tabs) if (tab.url) void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal,autoVerify})
-      .then(result => { if (agentAutomation && result?.agentAccess === false) setAgentAutomation(false) }).catch(() => {})
+    // Deduplicate per tab so typing in the address bar or loading/navigation events do not burst identical setAccess IPCs.
+    const activeIds = new Set<string>()
+    for (const tab of tabs) {
+      if (!tab.url) continue
+      activeIds.add(tab.id)
+      const signature = `${previewKey}\0${tab.id}\0${agentAutomation}\0${allowExternal}\0${autoVerify}`
+      if (lastAccessByTab.current.get(tab.id) === signature) continue
+      lastAccessByTab.current.set(tab.id, signature)
+      void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal,autoVerify})
+        .then(result => {
+          if (agentAutomation && result?.agentAccess === false) {
+            lastAccessByTab.current.delete(tab.id)
+            setAgentAutomation(false)
+          }
+        })
+        .catch(() => {
+          if (lastAccessByTab.current.get(tab.id) === signature) lastAccessByTab.current.delete(tab.id)
+        })
+    }
+    for (const id of [...lastAccessByTab.current.keys()]) {
+      if (!activeIds.has(id)) lastAccessByTab.current.delete(id)
+    }
   }, [tabs, previewKey, agentAutomation, allowExternal, autoVerify])
 
   const toggleDesignMode = useCallback((): void => {

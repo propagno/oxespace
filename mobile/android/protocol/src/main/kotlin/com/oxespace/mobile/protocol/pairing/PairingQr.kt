@@ -47,7 +47,7 @@ object PairingQrs {
     private val expiry = Regex("^[0-9]{1,15}$")
 
     /** Same acceptance as `readPairingUri` in shared/remote/protocol.ts, plus the app's rule of LAN addresses only. */
-    fun read(text: String): PairingQrRead {
+    fun read(text: String, hostAllowed: (String) -> Boolean = LanAddress::isPrivate): PairingQrRead {
         if (text.length > MAX_URI) return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
         val uri = try {
             URI(text.trim())
@@ -72,7 +72,7 @@ object PairingQrs {
         val version = fields["v"]?.toIntOrNull() ?: return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
         if (version != REMOTE_PROTOCOL_VERSION) return PairingQrRead.Refused(PairingQrProblem.UNSUPPORTED_VERSION)
         val address = fields["host"]?.takeIf { host.matches(it) } ?: return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
-        if (!LanAddress.isPrivate(address)) return PairingQrRead.Refused(PairingQrProblem.PUBLIC_HOST)
+        if (!hostAllowed(address)) return PairingQrRead.Refused(PairingQrProblem.PUBLIC_HOST)
         val port = fields["port"]?.toIntOrNull()?.takeIf { it in 1..65535 } ?: return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
         val pin = fields["fp"]?.takeIf { fingerprint.matches(it) } ?: return PairingQrRead.Refused(PairingQrProblem.MALFORMED)
         val oneTimeCode = fields["code"]?.takeIf { code.matches(it) } ?: return PairingQrRead.Refused(PairingQrProblem.MALFORMED)

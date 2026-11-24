@@ -160,6 +160,15 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Capture a screenshot of an Android device when Agents can see is on',
     tools: { oxespace_device_screenshot: 'read' }
   },
+  'android.lifecycle': {
+    label: 'Android device lifecycle with explicit consent: start AVD, install workspace APK, launch app, tail logcat',
+    tools: {
+      oxespace_android_avd_start: 'confirm',
+      oxespace_android_apk_install: 'confirm',
+      oxespace_android_app_launch: 'confirm',
+      oxespace_android_logcat_tail: 'read'
+    }
+  },
   'android.controls': {
     label: 'Android mirror window controls, input and the Agents can see switch',
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',

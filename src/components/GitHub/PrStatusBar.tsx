@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { humanizeError } from '../../utils/humanizeError'
 import { EmptyState, ErrorState, Spinner } from '../../ui'
 import { openExternalLink } from '../../lib/externalLinks'
+import { isElementVisible, useElementVisibility } from '../../hooks/useElementVisibility'
 import './PrStatusBar.css'
 
 const POLL_MS = 30_000
@@ -50,6 +51,9 @@ export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
   const [notice, setNotice] = useState('')
   const request = useRef(0)
   const onStatusRef = useRef(onStatus)
+  const rootRef = useRef<HTMLElement>(null)
+  const isOpen = Boolean(status && status.state === 'OPEN')
+  const visible = useElementVisibility(rootRef, isOpen)
   useEffect(() => { onStatusRef.current = onStatus })
 
   const load = useCallback(async (): Promise<void> => {
@@ -64,12 +68,16 @@ export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
 
   useEffect(() => {
     setStatus(null)
+  }, [load])
+
+  useEffect(() => {
+    if (!visible || !isElementVisible(rootRef.current)) return
     void load()
-    const refresh = (): void => { if (document.visibilityState !== 'hidden') void load() }
+    const refresh = (): void => { if (isElementVisible(rootRef.current)) void load() }
     const timer = window.setInterval(refresh, POLL_MS)
     window.addEventListener('focus', refresh)
     return () => { request.current += 1; window.clearInterval(timer); window.removeEventListener('focus', refresh) }
-  }, [load])
+  }, [load, visible])
 
   const counts = useMemo(() => {
     const total = { success: 0, failure: 0, pending: 0, neutral: 0 }
@@ -77,7 +85,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
     return total
   }, [status])
 
-  if (!status || status.state !== 'OPEN') return null
+  if (!status || status.state !== 'OPEN') return <span ref={rootRef} className="pr-status-anchor" aria-hidden="true" />
   const failing = counts.failure > 0
   const tone = failing ? 'failure' : counts.pending > 0 ? 'pending' : 'success'
   const summary = status.checks.length === 0 ? t('git.pr.noChecks')
@@ -94,7 +102,7 @@ export function PrStatusBar({ workspaceId, rootPath, onFix, onStatus }: {
     } finally { setBusy(false) }
   }
 
-  return <section className={`pr-status-bar is-${tone}`} aria-label={t('git.pr.label')}>
+  return <section ref={rootRef} className={`pr-status-bar is-${tone}`} aria-label={t('git.pr.label')}>
     <div className="pr-status-main">
       <button type="button" className="pr-status-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)} title={status.title}>
         <GitPullRequest size={14} aria-hidden="true" />
