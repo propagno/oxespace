@@ -104,10 +104,17 @@ class MainActivity : ComponentActivity() {
                 }
                 // Android 17: without local network access no connection to the computer can even start.
                 var localNetworkOk by remember { mutableStateOf(LocalNetworkAccess.granted(applicationContext)) }
+                // A8 (OXE-381): Settings opened from Home, before any desktop is reached.
+                var settingsOpen by rememberSaveable { mutableStateOf(false) }
+                if (liveDesktop != null) settingsOpen = false
                 when {
                     showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { pairing.cancel(); showPairing = false })
                     status !is DesktopStatus.Unpaired && !localNetworkOk -> LocalNetworkScreen(onGranted = { localNetworkOk = true; session.retry() })
                     liveDesktop != null -> Live(liveDesktop, status)
+                    settingsOpen -> {
+                        BackHandler { settingsOpen = false }
+                        SettingsScreen(preferences, version = BuildConfig.VERSION_NAME, onBack = { settingsOpen = false })
+                    }
                     else -> HomeScreen(
                         status = status,
                         onPair = {
@@ -117,6 +124,7 @@ class MainActivity : ComponentActivity() {
                         onRetry = session::retry,
                         onManualHost = session::setManualHost,
                         onUnpair = session::unpair,
+                        onSettings = { settingsOpen = true },
                     )
                 }
             }
