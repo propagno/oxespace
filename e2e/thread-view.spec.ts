@@ -153,6 +153,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       })
       ipcMain.handle('thread:send', (_event, _id, text) => {
         const thread = snapshot!.thread as Record<string, unknown>
+        if (text === 'Start') return
         if (text === 'Long command fixture') {
           thread.status = 'idle'
           snapshot!.events = [{ type: 'message', id: 'long-command-user', role: 'user', text },
@@ -350,11 +351,16 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' })).toHaveCount(1)
     await expect(page.locator('.thread-navigation [data-ui="sidebar-header"]').getByRole('button', { name: 'New conversation', exact: true })).toHaveCount(1)
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await expect(page.getByRole('dialog', { name: 'New conversation' })).toBeVisible()
+    const start = page.getByTestId('new-conversation')
+    await expect(start).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-new-dialog.png' })
-    await page.getByRole('radio', { name: /Codex/ }).check()
-    await expect(page.getByRole('radio', { name: /Codex/ })).toBeChecked()
-    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    await start.getByRole('button', { name: /^(Claude|Codex|Antigravity)$/ }).click()
+    await page.getByRole('menuitem', { name: 'Codex', exact: true }).click()
+    await expect(start.getByRole('button', { name: 'Codex', exact: true })).toBeVisible()
+    const opener = start.locator('[data-ui="composer"] textarea')
+    await opener.fill('Start')
+    await opener.press('Enter')
+    await expect(start).toBeHidden()
     const projectTree = page.locator('.thread-project-group').filter({ has: page.getByRole('button', { name: 'New conversation in repo' }) })
     await expect(projectTree.locator('.thread-project-name')).toHaveText('repo')
     await expect(projectTree.locator('.thread-project-count')).toHaveCount(0)
@@ -504,10 +510,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(native).toHaveCount(0)
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await page.getByRole('radio', { name: /Claude Code/ }).check()
-    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
-    await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
-    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await expect(start).toBeVisible()
+    await start.getByRole('button', { name: /^(Claude|Codex|Antigravity)$/ }).click()
+    await page.getByRole('menuitem', { name: 'Claude', exact: true }).click()
+    await start.locator('[data-ui="composer"] textarea').fill('Investigate authentication')
+    await start.getByRole('button', { name: 'Send', exact: true }).click()
     const authCard = page.locator('[data-ui="failure-card"]')
     await expect(authCard.getByText('Reconnect your native agent account to continue.', { exact: true })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })

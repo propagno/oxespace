@@ -694,7 +694,8 @@ export function App(): ReactElement {
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
-  const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+  const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'),
+    leaveDraft: () => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }, newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
