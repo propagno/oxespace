@@ -1,6 +1,6 @@
-import { Check, Maximize2, Minimize2, Palette, Settings2, SquareTerminal, X } from 'lucide-react'
+import { Check, Maximize2, Minimize2, Palette, Settings2, Shield, SquareTerminal, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import type { ShellProfile, UpdateWorkspaceSettingsInput, Workspace, WorkspaceDensity, WorkspaceLayoutPreset, WorkspaceThemeId } from '../../../shared/types/workspace'
+import { DEFAULT_WORKSPACE_ACCESS_CEILING, WORKSPACE_ACCESS_LEVELS, type ShellProfile, type UpdateWorkspaceSettingsInput, type Workspace, type WorkspaceAccessLevel, type WorkspaceDensity, type WorkspaceLayoutPreset, type WorkspaceThemeId } from '../../../shared/types/workspace'
 import { LAYOUT_PRESETS, WORKSPACE_DENSITIES } from './workspaceOptions'
 import { useSettingsStore } from '../../store/settings.store'
 import { resolveDensity } from '../../design/density'
@@ -67,6 +67,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
   const [uiDensity, setUiDensity] = useState<WorkspaceDensity>(workspace.uiDensity)
   const [layoutPreset, setLayoutPreset] = useState<WorkspaceLayoutPreset>(workspace.layoutPreset)
   const [defaultShellProfileId, setDefaultShellProfileId] = useState(workspace.defaultShellProfileId)
+  const [accessCeiling, setAccessCeiling] = useState<WorkspaceAccessLevel>(workspace.accessCeiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING)
   const [applyShellToIdlePanes, setApplyShellToIdlePanes] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -84,11 +85,11 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
 
   // U2 (S-01): every change applies at once; there is no draft and no Save button. A change that fails to apply comes
   // back to what was there, with the error under the page.
-  type Applied = Required<Pick<UpdateWorkspaceSettingsInput, 'themeId' | 'uiDensity' | 'layoutPreset' | 'defaultShellProfileId'>>
-  const current = useRef<Applied>({ themeId, uiDensity, layoutPreset, defaultShellProfileId })
+  type Applied = Required<Pick<UpdateWorkspaceSettingsInput, 'themeId' | 'uiDensity' | 'layoutPreset' | 'defaultShellProfileId' | 'accessCeiling'>>
+  const current = useRef<Applied>({ themeId, uiDensity, layoutPreset, defaultShellProfileId, accessCeiling })
   const show = (value: Applied): void => {
     current.current = value
-    setThemeId(value.themeId); setUiDensity(value.uiDensity); setLayoutPreset(value.layoutPreset); setDefaultShellProfileId(value.defaultShellProfileId)
+    setThemeId(value.themeId); setUiDensity(value.uiDensity); setLayoutPreset(value.layoutPreset); setDefaultShellProfileId(value.defaultShellProfileId); setAccessCeiling(value.accessCeiling)
   }
   const apply = async (patch: Partial<Applied>, options: { applyShellToIdlePanes?: boolean } = {}): Promise<void> => {
     const before = current.current
@@ -192,6 +193,28 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
                     )
                   })}
                 </div>
+              </section>
+
+              <section className="ws-settings-section" aria-labelledby="ws-section-access">
+                <header className="ws-settings-section-header">
+                  <Shield size={14} aria-hidden="true" />
+                  <h3 id="ws-section-access">{t('workspace.settings.accessCeiling.title')}</h3>
+                </header>
+                <SettingRow
+                  label={t('workspace.settings.accessCeiling.label')}
+                  description={t('workspace.settings.accessCeiling.description')}
+                  control={
+                    <Select
+                      aria-label={t('workspace.settings.accessCeiling.label')}
+                      value={accessCeiling}
+                      onChange={(e) => applyQuietly({ accessCeiling: e.target.value as WorkspaceAccessLevel })}
+                    >
+                      {WORKSPACE_ACCESS_LEVELS.map((level) => (
+                        <option key={level} value={level}>{t(`workspace.settings.accessCeiling.options.${level}`)}</option>
+                      ))}
+                    </Select>
+                  }
+                />
               </section>
 
               <DefaultShellSettings profiles={shellProfiles} selectedId={defaultShellProfileId} onSelect={chooseShell}

@@ -4,8 +4,10 @@ import type { AppDatabase } from '../db/index'
 import { defaultSplitShellProfileId } from './shell-profile.defaults'
 import { isSameRootPath } from '../../../shared/utils/path'
 import {
+  DEFAULT_WORKSPACE_ACCESS_CEILING,
   PANE_TYPES,
   type CreateWorkspaceInput,
+  type WorkspaceAccessLevel,
   PaneAgentBinding,
   PaneStatus,
   PaneType,
@@ -53,6 +55,7 @@ interface WorkspaceRow {
   worktree_panel_width_percent: number
   sort_order: number | null
   color: number | null
+  access_ceiling: WorkspaceAccessLevel | null
 }
 
 interface PaneRow {
@@ -188,7 +191,7 @@ export class WorkspaceService {
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
           worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
-          sort_order, color
+          sort_order, color, access_ceiling
          FROM workspaces
          /* sort_order is the user-managed drag order (nulls go last); we
             tie-break on created_at so newly added workspaces still appear
@@ -209,7 +212,7 @@ export class WorkspaceService {
           github_panel_visible, github_panel_expanded, github_panel_width_percent, github_active_tab,
           background_panel_visible, background_panel_expanded, background_panel_width_percent,
           worktree_panel_visible, worktree_panel_expanded, worktree_panel_width_percent,
-          sort_order, color
+          sort_order, color, access_ceiling
          FROM workspaces
          WHERE id = ?`
       )
@@ -499,6 +502,7 @@ export class WorkspaceService {
                layout = @layout,
                layout_preset = @layoutPreset,
                color = @color,
+               access_ceiling = @accessCeiling,
                updated_at = datetime('now')
            WHERE id = @workspaceId`
         )
@@ -510,7 +514,8 @@ export class WorkspaceService {
           defaultShellProfileId: nextShellProfileId,
           layout: nextLayout,
           layoutPreset: nextPreset,
-          color: input.color === undefined ? current.color : input.color
+          color: input.color === undefined ? current.color : input.color,
+          accessCeiling: input.accessCeiling ?? current.accessCeiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING
         })
 
       for (const pane of panesToRemove) {
@@ -636,6 +641,7 @@ export class WorkspaceService {
       autoStart: row.auto_start === 1,
       isActive: row.is_active === 1,
       color: row.color ?? null,
+      accessCeiling: row.access_ceiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING,
       editorVisible: row.editor_visible === 1,
       editorExpanded: row.editor_expanded === 1,
       editorWidthPercent: row.editor_width_percent || 40,

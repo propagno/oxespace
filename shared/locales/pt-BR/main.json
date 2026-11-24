@@ -504,7 +504,8 @@
         "queueFull": "Há pedidos demais esperando ({{max}}), então este foi negado sem ser mostrado.",
         "tooLong": "Recusado: mais de {{max}} caracteres é longo demais para revisar. Divida em passos menores.",
         "timeout": "Ninguém respondeu a tempo, então foi negado.",
-        "cancelled": "O pedido foi retirado antes de alguém responder."
+        "cancelled": "O pedido foi retirado antes de alguém responder.",
+        "accessCeiling": "Recusado: esta ação precisa de acesso {{required}}, mas este workspace está limitado a {{effective}}."
       },
       "notify": {
         "waiting": "OXESpace: aprovação aguardando"

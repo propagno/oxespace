@@ -2,6 +2,7 @@
  * B10 · The drafts each door hands to the approval center, kept pure so the routing can be tested without Electron.
  */
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
+import type { WorkspaceAccessLevel } from '../../../../shared/access-ceiling'
 import type { ApprovalEnvironment, ApprovalKind, ApprovalOption, ApprovalRequester, ApprovalRisk } from '../../../../shared/types/approvals'
 import type { ApprovalDraft } from './approval-center'
 import { APP_REQUESTER } from './requester'
@@ -23,6 +24,11 @@ export interface ApprovalPresentation {
   notes: MainMessage[]
   /** Optional custom label for the allow-session button on read requests (defaults to ALLOW_SESSION_READS). */
   sessionOptionLabel?: MainMessage
+  /** OXE-327: Access ceiling context forwarded to ApprovalCenter. */
+  workspaceId?: string | null
+  workspaceCeiling?: WorkspaceAccessLevel
+  sessionAccess?: WorkspaceAccessLevel
+  requiredAccess?: WorkspaceAccessLevel
 }
 
 /** A broker request (agent action or OxeQuery). "Allow for this run" exists for reads; the center keeps it for low risk only. */
@@ -33,7 +39,11 @@ export function brokerDraft(request: ApprovalPresentation & { text: string; risk
   return {
     kind: request.kind, requester: request.requester, risk: request.level, ...(request.environment ? { environment: request.environment } : {}),
     title: request.title, summary: request.summary, ...(request.target ? { target: request.target } : {}), appNotes: request.notes, text: request.text,
-    options: [DENY, ALLOW_ONCE, ...(request.risk === 'read' ? [sessionOption] : [])], defaultOptionId: DENY.id
+    options: [DENY, ALLOW_ONCE, ...(request.risk === 'read' ? [sessionOption] : [])], defaultOptionId: DENY.id,
+    ...(request.workspaceId !== undefined ? { workspaceId: request.workspaceId } : {}),
+    ...(request.workspaceCeiling !== undefined ? { workspaceCeiling: request.workspaceCeiling } : {}),
+    ...(request.sessionAccess !== undefined ? { sessionAccess: request.sessionAccess } : {}),
+    ...(request.requiredAccess !== undefined ? { requiredAccess: request.requiredAccess } : {})
   }
 }
 
