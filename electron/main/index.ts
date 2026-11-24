@@ -20,13 +20,10 @@ import { pathToFileURL } from 'node:url'
 import { openDatabase, resolveAppDatabasePath } from './db/index'
 import { registerAgentIpc } from './ipc/agent.ipc'
 import { registerFileSystemIpc } from './ipc/file-system.ipc'
-import { registerMcpToolsIpc } from './ipc/mcp-tools.ipc'
 import { registerBackgroundIpc } from './ipc/background.ipc'
 import { registerSessionIpc } from './ipc/session.ipc'
 import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
 import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
-import { registerMcpInternalIpc } from './ipc/mcp-internal.ipc'
-import { registerDataExportIpc } from './ipc/data-export.ipc'
 import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
 import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
 import { peekDatabaseVersion } from './services/data-export/database-version'
@@ -38,24 +35,17 @@ import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
-import { registerAgentCreditsIpc } from './ipc/agentCredits.ipc'
-import { registerContextUsageIpc } from './ipc/contextUsage.ipc'
 import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
-import { createInternalMcpHandle, type InternalMcpHandle } from './mcp-internal/bootstrap'
-import { startRpcServer, type RpcServerHandle } from './runtime/rpc/server'
+import type { RpcServerHandle } from './runtime/rpc/server'
 import { registerTaskIpc } from './ipc/task.ipc'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
-import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
-import { registerAgentActivityIpc } from './ipc/agent-activity.ipc'
-import { AgentActivity } from './services/agent-activity/read-model'
-import { HttpAuditHistory } from './services/http-audit/history'
-import { productionHostsFor } from './services/http-audit/production-hosts'
+import type { AgentActivity } from './services/agent-activity/read-model'
 import { policyStore } from './services/policy'
 import { approvalCenter } from './services/approvals'
 import { BackgroundManager } from './services/background.service'
@@ -74,9 +64,6 @@ import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { applyLoginShellPath } from './utils/login-shell-path'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
-import { registerAndroidIpc } from './ipc/android.ipc'
-import { startSchedules } from './services/schedules'
-import { AndroidAgentAccess, AndroidDevices } from './services/android/android-devices'
 import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
 import { mainMessage } from '../../shared/messages'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
@@ -184,8 +171,10 @@ async function registerIpcHandlers(): Promise<() => void> {
   ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
   configureExperimentalFeatures(app.getPath('userData'))
-  const { DelegationService } = await import('./services/delegation.service')
-  const { registerDelegationIpc } = await import('./ipc/delegation.ipc')
+  const [{ DelegationService }, { registerDelegationIpc }, { AndroidAgentAccess, AndroidDevices }, { registerAndroidIpc }] = await Promise.all([
+    import('./services/delegation.service'), import('./ipc/delegation.ipc'),
+    import('./services/android/android-devices'), import('./ipc/android.ipc')
+  ])
   const executions = new ExecutionRegistry()
   const personAuditStmt = db.prepare("INSERT INTO person_action_audit (ts, actor, action, target, outcome, code) VALUES (?, 'person', ?, ?, ?, ?)")
   setPreviewGrantAudit(entry => {
@@ -279,7 +268,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.once('before-quit', () => agentHookServer.stop())
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
-  const terminalManager: TerminalManager = new TerminalManager(db, {
+  const terminalManager: TerminalManager = new TerminalManager(db, { ...(await (await import('./services/terminal/utility-pty')).appPtyOption(process.env, join(app.getAppPath(), 'out', 'main', 'pty-host.js'), message => log.warn(message))), // OXE-400: node-pty in a utility process (OXESPACE_PTY_HOST=main: in main)
     rootExists: existsSync, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     grantProxy: origin => hostsProxy.grant(origin),
@@ -330,16 +319,16 @@ async function registerIpcHandlers(): Promise<() => void> {
   // first window. Load them as one deferred group so their implementation does
   // not inflate the main entry or block startup parsing.
   const [
-    { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc },
-    { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { registerPullRequestIpc },
-    { paneConversationsFor }, { registerPaneConversationIpc }
+    { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
+    { GitHubService }, { GitService }, { registerPullRequestIpc }, { paneConversationsFor }, { registerPaneConversationIpc },
+    { createInternalMcpHandle }, { registerMcpInternalIpc }, { registerMcpToolsIpc }, { registerDataExportIpc }, { startSchedules },
+    { registerAgentCreditsIpc }, { registerContextUsageIpc }, { registerHttpAuditIpc }, { registerAgentActivityIpc }, { AgentActivity }, { HttpAuditHistory }, { productionHostsFor }
   ] = await Promise.all([
-    import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'),
-    import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service'),
-    import('./ipc/pull-request.ipc'),
-    import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc')
+    import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
+    import('./services/github.service'), import('./services/git.service'), import('./ipc/pull-request.ipc'), import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc'),
+    import('./mcp-internal/bootstrap'), import('./ipc/mcp-internal.ipc'), import('./ipc/mcp-tools.ipc'), import('./ipc/data-export.ipc'), import('./services/schedules'),
+    import('./ipc/agentCredits.ipc'), import('./ipc/contextUsage.ipc'), import('./ipc/http-audit.ipc'), import('./ipc/agent-activity.ipc'),
+    import('./services/agent-activity/read-model'), import('./services/http-audit/history'), import('./services/http-audit/production-hosts')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
@@ -563,7 +552,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
   const approvals = await import('./services/approvals/wiring')
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list(), oxeQuery: () => oxeQuery.agent, paneProcess: paneId => terminalManager.foregroundProcess(paneId) })
-  const internalMcp: InternalMcpHandle = createInternalMcpHandle({
+  const internalMcp = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService, executions,
     delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
@@ -678,7 +667,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     event.preventDefault()
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
-    terminalManager.stopAll()
+    const terminalsDrained = terminalManager.stopAllAndDrain() // OXE-392: every terminal exit reaches JS before teardown
     // Quitting can still stall after the drain, for example on a native handle a terminal left
     // open on Windows; the window is gone by then, so end the process instead of lingering.
     const quit = (): void => {
@@ -690,7 +679,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -730,13 +719,14 @@ async function registerIpcHandlers(): Promise<() => void> {
     // F3 · Local RPC bus (named pipe / unix socket). Out-of-process callers
     // (CLI now, orchestration coordinator later) reach the same services the
     // renderer reaches over IPC. Failure here must not affect the app.
-    void startRpcServer({
-      db,
-      gitHubService,
-      appVersion: APP_VERSION,
-      userDataPath: app.getPath('userData'),
-      onError: (error) => log.warn('[rpc] transport error:', error.message)
-    })
+    void import('./runtime/rpc/server')
+      .then(({ startRpcServer }) => startRpcServer({
+        db,
+        gitHubService,
+        appVersion: APP_VERSION,
+        userDataPath: app.getPath('userData'),
+        onError: (error) => log.warn('[rpc] transport error:', error.message)
+      }))
       .then((handle) => {
         rpcServer = handle
         log.info(`[rpc] listening on ${handle.endpoint}`)

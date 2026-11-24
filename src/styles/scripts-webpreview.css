@@ -652,7 +652,6 @@
 
 button.design-grab-source-file {
   text-decoration: underline;
-  text-decoration-color: var(--bd-subtle);
   text-underline-offset: 2px;
 }
 

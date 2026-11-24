@@ -405,7 +405,8 @@
     "steer": "Orientar o turno ativo",
     "steerTitle": "Enviar uma orientação ao turno ativo",
     "stop": "Parar o turno",
-    "stopTitle": "Parar o turno · Esc",
+    "stopTitle": "Parar o turno · Esc duas vezes",
+    "stopAgain": "Pressione Esc de novo para parar o turno",
     "stopShort": "Parar",
     "queue": "Pôr na fila",
     "queueTitle": "Pôr na fila · {{key}}",
@@ -976,6 +977,13 @@
     "diagramBuilding": "Montando diagrama…",
     "diagramFailed": "Não foi possível desenhar o diagrama",
     "enlarge": "Ampliar",
+    "diagramTools": "Ferramentas do diagrama",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "zoomReset": "Zoom {{percent}}%, voltar a 100%",
+    "downloadSvg": "SVG",
+    "downloadPng": "PNG",
+    "exportFailed": "Não foi possível exportar o diagrama",
     "showCode": "Ver o código",
     "showDiagram": "Ver o diagrama",
     "alert": {
@@ -1394,6 +1402,11 @@
       "compactEmpty": "Ainda não há o que compactar."
     },
     "tools": {
+      "integrated": "OXESpace (Integrado)",
+      "integratedOn": "Ativo nesta sessão",
+      "integratedOff": "Não conectado",
+      "integratedGroups": "Grupos de ferramentas do OXESpace",
+      "configure": "Configurar ferramentas",
       "mcp": "Servidores MCP",
       "mcpUnknown": "O agente ainda não informou os servidores MCP. Eles aparecem quando a sessão começa.",
       "manage": "Gerenciar servidores MCP",
@@ -1717,6 +1730,9 @@
     "workedWaited": "Trabalhou {{worked}} · esperou por você {{waited}}"
   },
   "usage": {
+    "compact": "Compactar",
+    "compactTitle": "Executar /compact: resumir a conversa para liberar o contexto",
+    "compactFailed": "Não foi possível compactar a conversa",
     "planLabelSession": "{{percent}}% da sessão atual usados",
     "planLabelWeek": "{{percent}}% desta semana usados",
     "resetsIn": "{{label}} · renova em {{time}}",

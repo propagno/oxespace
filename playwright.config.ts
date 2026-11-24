@@ -26,6 +26,8 @@ export default defineConfig({
     '**/browser-preview-performance.spec.ts',
     // Real-PTY load (OXE-120): its own workflow (perf-load.yml), one job per OS; never in the smoke run.
     '**/perf-load.spec.ts',
+    // The PTY host in the app (OXE-400): built app, real PTYs, 180 launches; its own workflow (pty-host.yml).
+    '**/perf/**',
     '**/screenshots.spec.ts',
     // Pixel-regression suite has its own config and per-platform baselines.
     '**/visual/**',

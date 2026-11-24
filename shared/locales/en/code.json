@@ -957,6 +957,15 @@
     "width": "Sidebar width",
     "workspaces": "Workspaces",
     "filter": "Filter workspaces",
+    "stateFilter": {
+      "label": "Show",
+      "all": "All",
+      "needsYou": "Needs you",
+      "working": "Working",
+      "emptyNeedsYou": "Nothing needs you right now",
+      "emptyWorking": "Nothing is working right now",
+      "showAll": "Show all"
+    },
     "filterPlaceholder": "Filter…",
     "integrationGroups": "Integration groups",
     "integrations": "Integrations",
