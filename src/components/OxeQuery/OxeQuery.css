@@ -16,7 +16,7 @@
 :where([class^='oq-'], [class*=' oq-']) small { font-size: var(--fs-2xs); }
 .oq-icon:hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); }
 .oq-connection-row { min-width: 0; }
-.oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-width: 24px; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
+.oq-sidebar .oq-icon, .oq-icon { display: inline-grid; place-items: center; flex: none; width: var(--control-sm); height: var(--control-sm); min-width: var(--control-sm); padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--tx-muted); background: transparent; cursor: pointer; }
 .oq-icon svg { flex: none; }
 .oq-prod { color: var(--intent-danger-fg); }
 .oq-muted { color: var(--tx-muted); font-size: var(--fs-xs); }
@@ -41,7 +41,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-view button { font: inherit; }
 .oq-view button:disabled { opacity: .45; cursor: default; }
 .oq-view button[aria-pressed='true'] { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.oq-danger { border-color: transparent !important; color: var(--tx-on-solid) !important; background: var(--intent-danger-solid) !important; }
+:is(.oq-view, .oq-scope) .oq-danger { border-color: transparent; color: var(--tx-on-solid); background: var(--intent-danger-solid); }
 .oq-view textarea, .oq-form input { border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: inherit; background: var(--surface-base, transparent); font: inherit; font-size: var(--fs-xs); }
 
 .oq-link { padding: 0; border: 0; color: var(--tx-primary); background: transparent; font-weight: 500; cursor: pointer; }
@@ -222,7 +222,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 /* ---- Editing and export -------------------------------------------------- */
 .oq-editor-bar { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--bd-default); }
 .oq-editor-bar-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.oq-edit-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--bd-default); border-radius: 6px; background: var(--surface-base); max-height: 280px; overflow: auto; }
+.oq-edit-form { display: flex; flex-direction: column; gap: var(--space-2); padding: 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-base); max-height: 280px; overflow: auto; }
 .oq-edit-form > header, .oq-edit-form > footer { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .oq-edit-form > footer { justify-content: flex-end; }
 .oq-edit-form textarea { width: 100%; font-family: var(--font-mono, monospace); font-size: var(--fs-xs); resize: vertical; }
@@ -239,7 +239,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-staged-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
 .oq-sql-preview { margin: 6px 0 0; padding: 8px; max-height: 160px; overflow: auto; font-size: var(--fs-xs); background: var(--surface-base); border-radius: var(--radius-sm); white-space: pre-wrap; }
 .oq-export { position: relative; display: inline-flex; align-items: center; gap: 6px; }
-.oq-export > ul { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: 6px; min-width: 110px; }
+.oq-export > ul { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); margin: var(--space-1) 0 0; padding: var(--space-1); list-style: none; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); min-width: 110px; }
 .oq-export > ul button { width: 100%; text-align: left; }
 .oq-doc-actions { float: right; display: inline-flex; gap: 4px; }
 
@@ -270,7 +270,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-plan-hints { margin: 0; padding: 6px 10px 6px 24px; border-left: 3px solid var(--intent-warning-solid); background: var(--intent-warning-bg); font-size: var(--fs-xs); }
 
 /* ---- Library (saved queries + history) ---------------------------------- */
-.oq-library { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); width: 420px; max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding: 8px; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: 8px; }
+.oq-library { position: absolute; top: 100%; right: 0; z-index: var(--layer-dropdown); width: 420px; max-height: 380px; overflow: auto; display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); padding: var(--space-2); background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: var(--radius-md); }
 .oq-library ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .oq-library li { display: flex; gap: 4px; align-items: stretch; }
 .oq-library li > button:first-child { flex: 1; text-align: left; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -305,7 +305,7 @@ label:is(.oq-check, .oq-inline):has(> input[type='checkbox']) { min-block-size: 
 .oq-activity-facts dt { font-size: var(--fs-2xs); opacity: 0.7; }
 .oq-activity-facts dd { margin: 0; overflow-wrap: anywhere; }
 .oq-activity-detail-heading { font-size: var(--fs-xs); margin: 0 0 6px; }
-.oq-activity-statement { margin: 0 0 12px; padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); border: 1px solid var(--bd-default); border-radius: 6px; }
+.oq-activity-statement { margin: 0 0 var(--space-3); padding: 10px 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-xs); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); }
 
 /* ---- Container resources and stats --------------------------------------- */
 

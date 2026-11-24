@@ -12,15 +12,20 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import com.oxespace.mobile.protocol.displaySafe
 import androidx.core.content.edit
+import android.content.ClipData
 import android.content.Context
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.RadioButton
+import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import com.oxespace.mobile.ui.theme.OxeFonts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -74,6 +79,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,6 +94,7 @@ import com.oxespace.mobile.protocol.live.TerminalSizeHold
 import com.oxespace.mobile.protocol.live.terminalGridFor
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.mutableIntStateOf
+import com.oxespace.mobile.protocol.live.VtCursor
 import com.oxespace.mobile.protocol.live.VtLine
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -129,8 +136,25 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
     val colors = Oxe.colors
     // The screen, not the raw stream (T97): unchanged lines come back as the same objects, so the list skips them.
     val lines = remember(tick) { watched.store.lines() }
+    val cursor = remember(tick) { watched.store.cursor() }
     val redacted = watched.store.redacted
     val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(COPIED_RESET_MS)
+            copied = false
+        }
+    }
+    fun copyText(text: String) {
+        if (text.isEmpty()) return
+        scope.launch {
+            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("terminal", text)))
+            copied = true
+        }
+    }
     // Follow the newest line only while the person is at the bottom. Scrolling up to read stops it; back at the
     // bottom, it starts again.
     var follow by remember { mutableStateOf(true) }
@@ -202,6 +226,20 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                     )
                 },
                 actions = {
+                    if (!hidden && !reading && lines.any { it.text.isNotEmpty() }) {
+                        val copyLabel = stringResource(if (copied) R.string.terminal_copied else R.string.terminal_copy_screen)
+                        OxeButton(
+                            text = stringResource(if (copied) R.string.terminal_copied else R.string.terminal_copy),
+                            onClick = { copyText(terminalScreenText(lines)) },
+                            kind = OxeButtonKind.GHOST,
+                            modifier = Modifier.clearAndSetSemantics {
+                                contentDescription = copyLabel
+                                role = Role.Button
+                                liveRegion = LiveRegionMode.Polite
+                                onClick { copyText(terminalScreenText(lines)); true }
+                            },
+                        )
+                    }
                     if (!hidden) Box {
                         val label = stringResource(R.string.terminal_text_size)
                         OxeButton(
@@ -282,7 +320,23 @@ fun TerminalScreen(pane: RemotePane, watched: Watched<TerminalBuffer>, commands:
                 }
                 // The terminal is dark in light mode too, like the desktop's: its surface and its palette are the dark tokens.
                 Box(Modifier.fillMaxSize().background(DarkOxeColors.termBg)) {
-                    TerminalLines(lines, watched.store.cols, list, size.sp.sp, DarkOxeColors, onGrid = { fits -> grid = fits })
+                    TerminalLines(
+                        lines = lines,
+                        cols = watched.store.cols,
+                        cursor = cursor,
+                        list = list,
+                        fontSize = size.sp.sp,
+                        colors = DarkOxeColors,
+                        onGrid = { fits -> grid = fits },
+                        onCopyLine = { line -> copyText(terminalLineText(line)) },
+                    )
+                    // OXE-384: scrolled up while output continues — one tap jumps back to the bottom and resumes following.
+                    if (shouldShowLatestChip(follow, list.canScrollForward)) {
+                        LatestChip(Modifier.align(Alignment.BottomCenter).padding(bottom = OxeSpace.space3)) {
+                            follow = true
+                            scope.launch { if (lines.isNotEmpty()) list.animateScrollToItem(lines.lastIndex) }
+                        }
+                    }
                 }
             }
         }
@@ -316,8 +370,18 @@ private fun ansiColor(colors: OxeColors, index: Int): Color = when (index) {
  * The screen's lines, only the visible ones composed (a long session stays cheap). The lines don't wrap: the list is
  * as wide as the longest line in the monospaced font, and scrolls sideways inside the screen.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, fontSize: TextUnit, colors: OxeColors, onGrid: ((TerminalGrid?) -> Unit)? = null) {
+private fun TerminalLines(
+    lines: List<VtLine>,
+    cols: Int?,
+    cursor: VtCursor? = null,
+    list: LazyListState,
+    fontSize: TextUnit,
+    colors: OxeColors,
+    onGrid: ((TerminalGrid?) -> Unit)? = null,
+    onCopyLine: ((VtLine) -> Unit)? = null,
+) {
     val base = TextStyle(fontFamily = OxeFonts.mono, fontSize = fontSize, color = colors.termFg)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -325,10 +389,11 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
     val lineHeight = remember(fontSize, density) { measurer.measure("0", base).size.height }
     // A45: with the desktop's width known the grid is exactly that wide and pans sideways on a narrow phone;
     // without it (an older desktop) it is as wide as the longest line, as in 1.4.3.
-    val longest = remember(lines, cols) { cols ?: (lines.maxOfOrNull { it.text.length } ?: 0) }
+    val longest = remember(lines, cols, cursor) { cols ?: maxOf(lines.maxOfOrNull { it.text.length } ?: 0, cursor?.col?.plus(1) ?: 0) }
     val padding = OxeSpace.space3
     // CR-A45 (T-P3.1): nothing is clipped silently. A grid wider than the view says it pans, and offers to fit the width.
     var fit by rememberSaveable { mutableStateOf(false) }
+    val copyLineLabel = stringResource(R.string.terminal_copy_line)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // 1.5.0 · The grid that fits this view at this font, for the desktop to draw the CLI in.
         if (onGrid != null) {
@@ -371,7 +436,23 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
                 ) {
                     items(lines.size) { index ->
                         val line = lines[index]
-                        Text(remember(line, colors) { colored(line, colors) }, style = style, softWrap = false, maxLines = 1)
+                        val cursorCol = if (cursor?.row == index) cursor.col else null
+                        val lineModifier = if (onCopyLine != null && line.text.isNotBlank()) {
+                            Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = { onCopyLine(line) },
+                                onLongClickLabel = copyLineLabel,
+                            )
+                        } else {
+                            Modifier
+                        }
+                        Text(
+                            remember(line, colors, cursorCol) { colored(line, colors, cursorCol) },
+                            style = style,
+                            softWrap = false,
+                            maxLines = 1,
+                            modifier = lineModifier,
+                        )
                     }
                 }
             }
@@ -379,13 +460,51 @@ private fun TerminalLines(lines: List<VtLine>, cols: Int?, list: LazyListState, 
     }
 }
 
-internal fun colored(line: VtLine, colors: OxeColors): AnnotatedString = buildAnnotatedString {
+/**
+ * OXE-384: renders SGR foreground/background colors 0–15, bold, dim (SGR 2), underline (SGR 4), reverse video (SGR 7),
+ * and an optional block cursor at [cursorCol].
+ */
+internal fun colored(line: VtLine, colors: OxeColors, cursorCol: Int? = null): AnnotatedString = buildAnnotatedString {
     append(line.text)
     for (run in line.runs) {
-        if (run.color == null && !run.bold) continue
-        addStyle(SpanStyle(color = run.color?.let { ansiColor(colors, it) } ?: Color.Unspecified, fontWeight = if (run.bold) FontWeight.Bold else null), run.start, run.end)
+        val hasStyle = run.color != null || run.background != null || run.bold || run.dim || run.underline || run.inverse
+        if (!hasStyle) continue
+        val baseFg = run.color?.let { ansiColor(colors, it) }
+        val baseBg = run.background?.let { ansiColor(colors, it) }
+        val rawFg = if (run.inverse) (baseBg ?: colors.termBg) else baseFg
+        val bg = if (run.inverse) (baseFg ?: colors.termFg) else (baseBg ?: Color.Unspecified)
+        val fg = when {
+            run.dim -> (rawFg ?: colors.termFg).copy(alpha = DIM_ALPHA)
+            rawFg != null -> rawFg
+            else -> Color.Unspecified
+        }
+        addStyle(
+            SpanStyle(
+                color = fg,
+                background = bg,
+                fontWeight = if (run.bold) FontWeight.Bold else null,
+                textDecoration = if (run.underline) TextDecoration.Underline else null,
+            ),
+            run.start,
+            run.end,
+        )
+    }
+    if (cursorCol != null && cursorCol >= 0) {
+        if (cursorCol >= length) append(" ".repeat(cursorCol - length + 1))
+        val ch = if (cursorCol < line.text.length) line.text[cursorCol] else ' '
+        val end = if (ch.isHighSurrogate() && cursorCol + 1 < line.text.length) cursorCol + 2 else cursorCol + 1
+        addStyle(SpanStyle(color = colors.termBg, background = colors.termFg), cursorCol, end)
     }
 }
+
+internal fun terminalLineText(line: VtLine): String = line.text.trimEnd()
+
+internal fun terminalScreenText(lines: List<VtLine>): String = lines.joinToString("\n") { it.text.trimEnd() }.trimEnd('\n')
+
+internal fun shouldShowLatestChip(follow: Boolean, canScrollForward: Boolean): Boolean = !follow && canScrollForward
+
+private const val DIM_ALPHA = 0.55f
+private const val COPIED_RESET_MS = 2_000L
 
 /**
  * Typing into a pane the person allowed from the phone, at the desktop. The line goes in pieces of at most 4 KiB, then Enter
@@ -403,10 +522,22 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         return
     }
     var text by rememberSaveable(paneId) { mutableStateOf("") }
+    var ctrlActive by rememberSaveable(paneId) { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var message by remember { mutableStateOf<Int?>(null) }
     var askLines by remember { mutableStateOf(0) }
+
+    fun sendRaw(bytes: String) {
+        busy = true
+        scope.launch {
+            when (val gated = presence.run(PresenceReason.TYPE) { commands.terminalWrite(RemoteTerminalWriteArgs(paneId, bytes)) }) {
+                is Gated.Blocked -> message = presenceMessage(gated.reason)
+                is Gated.Done -> message = commandMessage(gated.value)
+            }
+            busy = false
+        }
+    }
 
     fun sendLine() {
         busy = true
@@ -463,15 +594,15 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         val clipboard = LocalClipboard.current
         KeyRow(
             enabled = !busy,
+            ctrlActive = ctrlActive,
+            onToggleCtrl = { ctrlActive = !ctrlActive },
+            onCtrlChord = { chord ->
+                ctrlActive = false
+                sendRaw(chord.bytes)
+            },
             onKey = { key ->
-                busy = true
-                scope.launch {
-                    when (val gated = presence.run(PresenceReason.TYPE) { commands.terminalWrite(RemoteTerminalWriteArgs(paneId, key.bytes)) }) {
-                        is Gated.Blocked -> message = presenceMessage(gated.reason)
-                        is Gated.Done -> message = commandMessage(gated.value)
-                    }
-                    busy = false
-                }
+                ctrlActive = false
+                sendRaw(key.bytes)
             },
             // Colar puts the clipboard in the field, so the person sees it before it goes.
             onPaste = {
@@ -484,7 +615,17 @@ private fun TerminalInput(paneId: String, commands: CommandApi, presence: Presen
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             OxeTextField(
                 value = text,
-                onValueChange = { text = it; message = null },
+                onValueChange = { next ->
+                    val chord = if (ctrlActive && !busy) stickyCtrlInput(text, next) else null
+                    if (chord != null) {
+                        ctrlActive = false
+                        message = null
+                        sendRaw(chord)
+                    } else {
+                        text = next
+                        message = null
+                    }
+                },
                 placeholder = stringResource(R.string.terminal_input_placeholder),
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = OxeFonts.mono),
@@ -544,13 +685,21 @@ internal const val TERMINAL_ENTER_DELAY_MS = 80L
 /** What's left to type after [sent] pieces went through; empty when all did. Enter is the send button's, not the field's. */
 internal fun unsentText(pieces: List<String>, sent: Int): String = pieces.take(pieces.size - 1).drop(sent).joinToString("")
 
-/** Esc, Tab, ⇧Tab, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
+/** Esc, Tab, ⇧Tab, sticky Ctrl, Ctrl+C, the arrows and Colar: the keys a phone keyboard lacks (M11), 48 dp each, scrolling sideways. */
 @Composable
-private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -> Unit) {
+private fun KeyRow(
+    enabled: Boolean,
+    ctrlActive: Boolean,
+    onToggleCtrl: () -> Unit,
+    onCtrlChord: (CtrlChord) -> Unit,
+    onKey: (TerminalKey) -> Unit,
+    onPaste: () -> Unit,
+) {
     // CR-A42b-2 (DESIGN #744): SECONDARY 48 dp keys with Plex Mono labels (terminal = mono), and an edge fade on each
     // side the row can still scroll to, so a cut key never looks like the last one.
     val scroll = rememberScrollState()
     val chrome = Oxe.colors.surfaceChrome
+    val ctrlSpoken = stringResource(if (ctrlActive) R.string.terminal_key_ctrl_active else R.string.terminal_key_ctrl)
     Box(
         Modifier.fillMaxWidth().drawWithContent {
             drawContent()
@@ -570,6 +719,29 @@ private fun KeyRow(enabled: Boolean, onKey: (TerminalKey) -> Unit, onPaste: () -
     ) {
         Row(Modifier.fillMaxWidth().horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2)) {
             for (key in TerminalKey.entries) {
+                if (key == TerminalKey.CTRL_C) {
+                    OxeButton(
+                        text = "Ctrl",
+                        onClick = onToggleCtrl,
+                        enabled = enabled,
+                        kind = if (ctrlActive) OxeButtonKind.PRIMARY else OxeButtonKind.SECONDARY,
+                        fontFamily = OxeFonts.mono,
+                        modifier = Modifier.semantics { contentDescription = ctrlSpoken; selected = ctrlActive },
+                    )
+                    if (ctrlActive) {
+                        for (chord in CtrlChord.entries) {
+                            val chordSpoken = "Ctrl+${chord.letter}"
+                            OxeButton(
+                                text = chord.label,
+                                onClick = { onCtrlChord(chord) },
+                                enabled = enabled,
+                                kind = OxeButtonKind.GHOST,
+                                fontFamily = OxeFonts.mono,
+                                modifier = Modifier.semantics { contentDescription = chordSpoken },
+                            )
+                        }
+                    }
+                }
                 val spoken = keyName(key)?.let { stringResource(it) }
                 OxeButton(
                     key.label,

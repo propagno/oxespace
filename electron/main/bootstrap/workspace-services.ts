@@ -215,7 +215,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
   // global row in mcp_servers, syncs to every workspace's .mcp.json. The
   // bridge script lives under <userData>/bin/ and is spawned by each
   // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
-  const internalMcpWorkspaceServ = new WorkspaceService(db)
+  const internalMcpWorkspaceServ = new WorkspaceService(db, { isPaneRunning: (paneId) => terminalManager.hasSession(paneId) || terminalManager.isStarting(paneId) })
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()

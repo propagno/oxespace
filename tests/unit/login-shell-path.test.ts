@@ -1,6 +1,12 @@
 import { delimiter } from 'node:path'
 import { describe, expect, test, vi } from 'vitest'
-import { applyLoginShellPath, mergePath, readLoginShellPath } from '../../electron/main/utils/login-shell-path'
+import {
+  applyLoginShellPath,
+  applyLoginShellPathAsync,
+  mergePath,
+  readLoginShellPath,
+  readLoginShellPathAsync
+} from '../../electron/main/utils/login-shell-path'
 
 const SESSION_PATH = ['/usr/local/bin', '/usr/bin', '/bin'].join(delimiter)
 const LOGIN_PATH = ['/home/dev/.local/bin', '/home/dev/.npm-global/bin', '/usr/bin', '/bin'].join(delimiter)
@@ -96,5 +102,85 @@ describe('applyLoginShellPath', () => {
     applyLoginShellPath({ platform: 'linux', env, run })
 
     expect(env.PATH).not.toContain('node v22')
+  })
+})
+
+function fakeRunAsync(result: Partial<{ stdout: string; status: number | null; error: Error }>) {
+  return vi.fn().mockResolvedValue({ stdout: '', status: 0, error: undefined, ...result })
+}
+
+describe('readLoginShellPathAsync', () => {
+  test('asks the login shell asynchronously and returns what it prints', async () => {
+    const runAsync = fakeRunAsync({ stdout: LOGIN_PATH })
+    const value = await readLoginShellPathAsync({ platform: 'linux', env: { SHELL: '/bin/bash' }, runAsync })
+
+    expect(value).toBe(LOGIN_PATH)
+    expect(runAsync).toHaveBeenCalledTimes(1)
+    const [shell, args, options] = runAsync.mock.calls[0]
+    expect(shell).toBe('/bin/bash')
+    expect(args).toEqual(['-lc', 'printf %s "$PATH"'])
+    expect(options).toMatchObject({ encoding: 'utf8', timeout: 3_000, windowsHide: true })
+  })
+
+  test('is a no-op on Windows and when SHELL is missing', async () => {
+    const runAsync = fakeRunAsync({ stdout: LOGIN_PATH })
+    await expect(readLoginShellPathAsync({ platform: 'win32', env: { SHELL: '/bin/bash' }, runAsync })).resolves.toBeNull()
+    await expect(readLoginShellPathAsync({ platform: 'darwin', env: {}, runAsync })).resolves.toBeNull()
+    expect(runAsync).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    ['the probe times out', { error: new Error('ETIMEDOUT'), status: null }],
+    ['the shell exits non-zero', { status: 1 }],
+    ['the shell prints nothing', { stdout: '   ' }]
+  ])('returns null when %s', async (_label, result) => {
+    await expect(
+      readLoginShellPathAsync({ platform: 'darwin', env: { SHELL: '/bin/zsh' }, runAsync: fakeRunAsync(result) })
+    ).resolves.toBeNull()
+  })
+
+  test('never rejects even if the async runner throws', async () => {
+    const runAsync = vi.fn().mockRejectedValue(new Error('spawn EACCES'))
+    await expect(readLoginShellPathAsync({ platform: 'linux', env: { SHELL: '/bin/bash' }, runAsync })).resolves.toBeNull()
+  })
+})
+
+describe('applyLoginShellPathAsync', () => {
+  test('hydrates PATH asynchronously and preserves entries added while the probe is in flight', async () => {
+    const env: NodeJS.ProcessEnv = { SHELL: '/bin/zsh', PATH: SESSION_PATH }
+    let resolveProbe!: (value: { stdout: string; status: number | null }) => void
+    const runAsync = vi.fn().mockReturnValue(new Promise<{ stdout: string; status: number | null }>((resolve) => {
+      resolveProbe = resolve
+    }))
+
+    const pending = applyLoginShellPathAsync({ platform: 'darwin', env, runAsync })
+    // Simulate a concurrent PATH addition before the login shell finishes.
+    env.PATH = `${env.PATH}${delimiter}/opt/custom/bin`
+    resolveProbe({ stdout: LOGIN_PATH, status: 0 })
+
+    const added = await pending
+    expect(added).toEqual(['/home/dev/.local/bin', '/home/dev/.npm-global/bin'])
+    expect(env.PATH?.split(delimiter)).toEqual([
+      '/usr/local/bin',
+      '/usr/bin',
+      '/bin',
+      '/opt/custom/bin',
+      '/home/dev/.local/bin',
+      '/home/dev/.npm-global/bin'
+    ])
+  })
+
+  test('leaves PATH untouched when the async probe fails or adds nothing', async () => {
+    const failedEnv: NodeJS.ProcessEnv = { SHELL: '/bin/bash', PATH: SESSION_PATH }
+    await expect(
+      applyLoginShellPathAsync({ platform: 'linux', env: failedEnv, runAsync: fakeRunAsync({ status: 127 }) })
+    ).resolves.toEqual([])
+    expect(failedEnv.PATH).toBe(SESSION_PATH)
+
+    const unchangedEnv: NodeJS.ProcessEnv = { SHELL: '/bin/bash', PATH: LOGIN_PATH }
+    await expect(
+      applyLoginShellPathAsync({ platform: 'linux', env: unchangedEnv, runAsync: fakeRunAsync({ stdout: LOGIN_PATH }) })
+    ).resolves.toEqual([])
+    expect(unchangedEnv.PATH).toBe(LOGIN_PATH)
   })
 })

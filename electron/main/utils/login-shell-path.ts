@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { delimiter } from 'node:path'
 
 /**
@@ -22,11 +22,35 @@ import { delimiter } from 'node:path'
  */
 
 const PROBE_TIMEOUT_MS = 3_000
+const PROBE_MAX_BUFFER_BYTES = 1024 * 1024
 
 export interface LoginShellPathOptions {
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
   run?: typeof spawnSync
+}
+
+export interface AsyncLoginShellRunResult {
+  stdout: string
+  status: number | null
+  error?: Error
+}
+
+export interface AsyncLoginShellRunOptions {
+  encoding: 'utf8'
+  timeout: number
+  windowsHide: boolean
+  maxBuffer: number
+}
+
+export interface AsyncLoginShellPathOptions {
+  platform?: NodeJS.Platform
+  env?: NodeJS.ProcessEnv
+  runAsync?: (
+    file: string,
+    args: readonly string[],
+    options: AsyncLoginShellRunOptions
+  ) => Promise<AsyncLoginShellRunResult>
 }
 
 /**
@@ -89,6 +113,81 @@ export function mergePath(currentPath: string, loginPath: string): string {
 export function applyLoginShellPath(options: LoginShellPathOptions = {}): string[] {
   const env = options.env ?? process.env
   const loginPath = readLoginShellPath(options)
+  if (!loginPath) return []
+
+  const current = env.PATH ?? ''
+  const merged = mergePath(current, loginPath)
+  if (merged === current) return []
+
+  const before = new Set(current.split(delimiter).filter(Boolean))
+  env.PATH = merged
+  return merged.split(delimiter).filter((entry) => !before.has(entry))
+}
+
+function defaultRunAsync(
+  file: string,
+  args: readonly string[],
+  options: AsyncLoginShellRunOptions
+): Promise<AsyncLoginShellRunResult> {
+  return new Promise((resolve) => {
+    try {
+      const child = execFile(file, args, options, (error, stdout) => {
+        if (error) {
+          const code = typeof (error as { code?: unknown }).code === 'number'
+            ? (error as { code: number }).code
+            : null
+          resolve({ stdout: '', status: code, error })
+          return
+        }
+        resolve({ stdout: stdout ?? '', status: 0 })
+      })
+      child.stdin?.end()
+    } catch (error) {
+      resolve({ stdout: '', status: null, error: error instanceof Error ? error : new Error(String(error)) })
+    }
+  })
+}
+
+/**
+ * Non-blocking variant of `readLoginShellPath` for Electron main-process cold
+ * start. Uses `execFile` so the event loop and `ready-to-show` are never
+ * blocked waiting on a user's login profile. Never rejects.
+ */
+export async function readLoginShellPathAsync(options: AsyncLoginShellPathOptions = {}): Promise<string | null> {
+  const platform = options.platform ?? process.platform
+  const env = options.env ?? process.env
+  const runAsync = options.runAsync ?? defaultRunAsync
+
+  if (platform === 'win32') return null
+
+  const shell = env.SHELL
+  if (!shell) return null
+
+  let result: AsyncLoginShellRunResult
+  try {
+    result = await runAsync(shell, ['-lc', 'printf %s "$PATH"'], {
+      encoding: 'utf8',
+      timeout: PROBE_TIMEOUT_MS,
+      windowsHide: true,
+      maxBuffer: PROBE_MAX_BUFFER_BYTES
+    })
+  } catch {
+    return null
+  }
+
+  if (result.error || result.status !== 0) return null
+  const value = (result.stdout ?? '').trim()
+  return value.length > 0 ? value : null
+}
+
+/**
+ * Non-blocking variant of `applyLoginShellPath`. Merges the login shell's PATH
+ * into `env` in place once the probe resolves, preserving any PATH entries
+ * added while the probe was in flight. Returns the newly added entries.
+ */
+export async function applyLoginShellPathAsync(options: AsyncLoginShellPathOptions = {}): Promise<string[]> {
+  const env = options.env ?? process.env
+  const loginPath = await readLoginShellPathAsync(options)
   if (!loginPath) return []
 
   const current = env.PATH ?? ''

@@ -187,7 +187,7 @@ export function ApprovalToast({
             </Button>
           </>
         ) : (
-          <Button variant="secondary" size="sm" onClick={onSeeImpact}>
+          <Button variant="secondary" size="sm" title={t('f7.card.seeImpactHint')} onClick={onSeeImpact}>
             {t('f7.card.seeImpact')}
           </Button>
         )}

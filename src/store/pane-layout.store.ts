@@ -22,6 +22,8 @@ interface PaneLayoutState {
   trees: Record<string, PaneNode | null>
   /** Reconcile the tree with the current pane records (add new, drop removed). */
   sync: (workspaceId: string, panes: WorkspacePane[], viewport?: { width: number; height: number }) => void
+  /** Rebuild the split tree from grid coordinates after a layout preset switch, preserving all pane IDs. */
+  resetFromPanes: (workspaceId: string, panes: WorkspacePane[]) => void
   balance: (workspaceId: string) => void
   split: (workspaceId: string, targetPaneId: string, newPaneId: string, direction: SplitDirection) => void
   remove: (workspaceId: string, paneId: string) => void
@@ -35,6 +37,14 @@ export const usePaneLayoutStore = create<PaneLayoutState>()(
     (set) => ({
       trees: {},
       balance: (workspaceId) => set(state => ({ trees: { ...state.trees, [workspaceId]: balanceTree(state.trees[workspaceId] ?? null) } })),
+
+      resetFromPanes: (workspaceId, panes) =>
+        set((state) => ({
+          trees: {
+            ...state.trees,
+            [workspaceId]: buildTreeFromPanes(panes.filter((p) => p.rowIndex >= 0 && p.columnIndex >= 0))
+          }
+        })),
 
       sync: (workspaceId, panes, viewport = { width: 1200, height: 800 }) =>
         set((state) => {

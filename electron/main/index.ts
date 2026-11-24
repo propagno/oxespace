@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url'
 import { bootstrapCoreServices, type DelegationHandleRef } from './bootstrap/core-services'
 import { bootstrapInternalMcpAndAudit } from './bootstrap/internal-mcp-and-audit'
 import { bootstrapWorkspaceServices } from './bootstrap/workspace-services'
-import { openDatabase, resolveAppDatabasePath } from './db/index'
+import { openDatabaseWithMetadata, resolveAppDatabasePath, type AppDatabase } from './db/index'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { mainLanguage, systemLocale, tMain } from './i18n'
 import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
@@ -24,7 +24,6 @@ import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
 import { APP_VERSION } from './services/app-info'
 import { ApprovalNotifier } from './services/approvals/approval-notifier'
 import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
-import { peekDatabaseVersion } from './services/data-export/database-version'
 import { configureExperimentalFeatures } from './services/experimental-features'
 import { redactLogMessage } from './services/log-redaction'
 import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
@@ -32,7 +31,6 @@ import { markAppReady, measureStartup, trackWindowStartup } from './startup-timi
 import { flushStorage } from './storage-flush'
 import { singleInstanceDisabled } from './test-switches'
 import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
-import { applyLoginShellPath } from './utils/login-shell-path'
 import { installCloseGuard } from './window-close-guard'
 import { messageKey, messageValues } from '../../shared/messages'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
@@ -89,14 +87,11 @@ async function registerIpcHandlers(): Promise<() => void> {
 
   // Launched from a desktop icon, this process inherits the session PATH, not
   // the shell's — so agent CLIs under ~/.local/bin, ~/.npm-global/bin or a
-  // version manager are invisible. Recover it before anything reads PATH:
-  // provider discovery and the first auto-started agent pane both do, and an
-  // agent is exec'd directly rather than through a shell, so nothing else
-  // would ever source a profile on its behalf. One shell spawn, POSIX only.
-  const recoveredPath = applyLoginShellPath()
-  if (recoveredPath.length > 0) {
-    log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
-  }
+  // version manager are invisible. Hydrate asynchronously so cold start and
+  // ready-to-show are never blocked on a user's login profile (POSIX only).
+  void import('./utils/login-shell-path').then(({ applyLoginShellPathAsync }) => applyLoginShellPathAsync()).then((recoveredPath) => {
+    if (recoveredPath.length > 0) log.info(`[main] PATH recovered from login shell: +${recoveredPath.join(', ')}`)
+  }).catch(() => undefined)
 
   // App update IPC is always registered (even on native failure / e2e mocks
   // below) so Settings and the update indicator keep working.
@@ -120,11 +115,11 @@ async function registerIpcHandlers(): Promise<() => void> {
     return noop
   }
 
-  // R0b: the version before this start migrates it, so the export knows a 1.4 upgrade (1–91) from a fresh install (0).
-  const previousDbVersion = peekDatabaseVersion(resolveAppDatabasePath())
-  let db: ReturnType<typeof openDatabase>
+  // R0b: capture pre-migration version from the single SQLite open so export knows a 1.4 upgrade (1–91) from a fresh install (0).
+  let db: AppDatabase
+  let previousDbVersion: number
   try {
-    db = openDatabase()
+    ;({ db, previousVersion: previousDbVersion } = openDatabaseWithMetadata())
   } catch (error) {
     log.error('Native startup failed', error)
     // T87: one blocking screen with the reason, and no other handler behind it (startup-failure.ts).
@@ -154,7 +149,6 @@ async function registerIpcHandlers(): Promise<() => void> {
     timer.unref?.()
     return filePath
   })
-
   const { DelegationService } = core
   const delegationService = new DelegationService(db, {
     workspace: workspace.internalMcpWorkspaceServ,
@@ -204,7 +198,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   workspace.delegatedThreadObserver.current = thread => {
     delegationService.observeThread(thread)
     try {
-      const pending = core.agentThreadHistory.readWindow(thread.id).pendingRequests ?? []
+      const pending = core.agentThreadHistory.pendingRequestsOf(thread.id) // OXE-413: not the whole window on every change
       const previous = seenApprovalNotifications.get(thread.id) ?? new Set<string>()
       const current = new Set<string>()
       for (const req of pending) {

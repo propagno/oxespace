@@ -182,6 +182,18 @@ export class ThreadHistory {
     }))
   }
 
+  /**
+   * OXE-413 · A conversation's pending requests alone, for the approval notifier that reads them on every change. It
+   * read the whole window (250 events parsed, turns, deliveries) to keep only this list, which is empty unless the
+   * conversation waits for approval. A pre-journal conversation still goes through readWindow, which migrates it.
+   */
+  pendingRequestsOf(id: string): ThreadRequest[] {
+    const row = this.prepare('SELECT data_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; history_version: number } | undefined
+    if (!row) throw new MainRefusal('thread.notFound', {})
+    if (!row.history_version) return this.readWindow(id).pendingRequests ?? []
+    return this.pendingRequests(id, parseThreadRow<ConversationThread>(row.data_json))
+  }
+
   private pendingRequests(id: string, thread: ConversationThread): ThreadRequest[] {
     if (thread.status !== 'approval') return []
     return (this.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'request' AND json_extract(data_json, '$.request.state') = 'pending' ORDER BY seq LIMIT 100").all(id) as { data_json: string }[])
