@@ -21,6 +21,9 @@ class TerminalBuffer(capacity: Int = 256 * 1024) : StreamListener {
     /** The lines to draw; unchanged lines are the same objects as last time, so a list can skip them. */
     fun lines(): List<VtLine> = synchronized(this) { screen.lines() }
 
+    /** OXE-384: where the next character goes in [lines], or null while the program hides the cursor (?25l). */
+    fun cursor(): VtCursor? = synchronized(this) { screen.cursor() }
+
     private var width: Int? = null
 
     /**

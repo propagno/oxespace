@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, type ComponentProps, type ReactElement } from 'react'
+import { Suspense, useEffect, type ComponentProps, type ReactElement } from 'react'
 import type { AgentLifecycleState } from '../../../shared/types/agent-state'
 import type { PaneAgentResume } from '../../../shared/types/ipc/terminal'
 import { i18n } from '../../i18n'
 import { useAgentResumeStore, type ResumeAgent } from '../../store/agent-resume.store'
 import { toast } from '../../ui'
 import type * as View from './PaneResumeView'
+import { chunk, lazyFrom } from '../../lib/chunk'
 
 /**
  * F32 · the pane resume parts every terminal pane mounts. Only the hook and these light gates load with the window: what
@@ -58,12 +59,14 @@ export function usePaneResume(paneId: string, paneName: string, running: boolean
   return outcome
 }
 
-const MarkerView = lazy(() => view().then(module => ({ default: module.PaneResumeMarker })))
-const HooksNoticeView = lazy(() => view().then(module => ({ default: module.PaneHooksNotice })))
-const StartFreshMenuItemView = lazy(() => view().then(module => ({ default: module.StartFreshMenuItem })))
-const StartFreshConfirmView = lazy(() => view().then(module => ({ default: module.StartFreshConfirm })))
-const EnableResumeMenuItemView = lazy(() => view().then(module => ({ default: module.EnableResumeMenuItem })))
-const AgentSessionDetailsView = lazy(() => view().then(module => ({ default: module.AgentSessionDetails })))
+// One chunk for all six views: they arrive together and render at once afterwards (OXE-308).
+const VIEW = chunk(view)
+const MarkerView = lazyFrom(VIEW, module => module.PaneResumeMarker)
+const HooksNoticeView = lazyFrom(VIEW, module => module.PaneHooksNotice)
+const StartFreshMenuItemView = lazyFrom(VIEW, module => module.StartFreshMenuItem)
+const StartFreshConfirmView = lazyFrom(VIEW, module => module.StartFreshConfirm)
+const EnableResumeMenuItemView = lazyFrom(VIEW, module => module.EnableResumeMenuItem)
+const AgentSessionDetailsView = lazyFrom(VIEW, module => module.AgentSessionDetails)
 const show = (node: ReactElement): ReactElement => <Suspense fallback={null}>{node}</Suspense>
 
 /** The pane header's sign of what became of its earlier session; nothing when none was recorded or it was started fresh. */

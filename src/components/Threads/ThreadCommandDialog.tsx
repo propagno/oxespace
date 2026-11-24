@@ -12,11 +12,12 @@ import ThreadPermissionsPanel from './ThreadPermissionsPanel'
 import ThreadUsagePanel from './ThreadUsagePanel'
 import { nativeResumeSessions, type ThreadPanelState } from './threadCommandPanels'
 import { threadNavigationStatus } from './threadNavigationStatus'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, Spinner, TextField } from '../../ui'
+import { Button, ConfirmDialog, cx, Dialog, EmptyState, ErrorState, Spinner, TextField } from '../../ui'
 import { formatDateTime } from '../../utils/formatTime'
 import { displayThreadTitle, namedThreadTitle } from './threadTitle'
 import { localizeConfirmation } from './threadConfirmationText'
 import { openExternalLink } from '../../lib/externalLinks'
+import styles from './ThreadCommandDialog.module.css'
 
 function sessionDate(timestamp: number): string { return formatDateTime(timestamp, { dateStyle: 'medium', timeStyle: 'short' }) }
 
@@ -44,6 +45,7 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   onDelegations?: () => void
 }) {
   const { t } = useTranslation('thread')
+  const threads = useThreadStore(state => state.threads)
   const [rename, setRename] = useState(namedThreadTitle(snapshot?.thread.title))
   const [resumeQuery, setResumeQuery] = useState('')
   const [nativeResumeId, setNativeResumeId] = useState('')
@@ -74,6 +76,9 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
   const nativeLoading = streamNative && Boolean(provider) && !nativeLive.done
   const nativeNotice = resume?.nativeNotice || (streamNative && nativeLive.failed ? t('resumeData.nativeFailed') : '')
   const resumeMatches = (parts: Array<string | number | null | undefined>) => !resumeQuery.trim() || parts.some(value => String(value ?? '').toLowerCase().includes(resumeQuery.trim().toLowerCase()))
+  const savedThreads = threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status]))
+  const filteredTasks = resumeTasks.filter(task => resumeMatches([task.objective, task.branch, task.state, task.id, task.nativeSession?.nativeSessionId]))
+  const filteredNativeSessions = nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)]))
   const openDelegatedSession = async (task: DelegationTask) => {
     if (!task.destinationThreadId || !api) throw Error(t('commandDialog.noSavedConversation'))
     const originWorkspaceId = task.originWorkspaceId ?? task.workspaceId
@@ -105,28 +110,28 @@ export default function ThreadCommandDialog({ panel, snapshot, pending, error, o
     : panel.surface === 'rules' && snapshot ? <ThreadPermissionsPanel threadId={snapshot.thread.id} />
     : panel.surface === 'events' && snapshot ? <ThreadEventsPanel threadId={snapshot.thread.id} />
     : panel.surface === 'spending' && snapshot ? <ThreadUsagePanel threadId={snapshot.thread.id} />
-    : panel.surface === 'sessions' ? <div className="thread-resume-sections">
-      <label className="thread-resume-search">{t('commandDialog.find')}<TextField aria-label={t('commandDialog.find')} type="search" placeholder={t('commandDialog.findPlaceholder')} value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
-      <section><h3>{t('commandDialog.saved')}</h3><p>{t('commandDialog.savedHint')}</p>
-        <div className="thread-panel-list">{useThreadStore.getState().threads.filter(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])).map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{displayThreadTitle(thread.title)}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
-          {!useThreadStore.getState().threads.some(thread => thread.id !== snapshot?.thread.id && thread.provider === snapshot?.thread.provider && thread.rootPath === snapshot?.thread.rootPath && resumeMatches([displayThreadTitle(thread.title), thread.nativeSessionId, thread.id, thread.status])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
+    : panel.surface === 'sessions' ? <div className={cx('thread-resume-sections', styles.resumeSections)}>
+      <label className={cx('thread-resume-search', styles.search)}>{t('commandDialog.find')}<TextField aria-label={t('commandDialog.find')} type="search" placeholder={t('commandDialog.findPlaceholder')} value={resumeQuery} onChange={event => setResumeQuery(event.target.value)} /></label>
+      <section className={styles.section}><h3 className={styles.sectionHeading}>{t('commandDialog.saved')} <span className={styles.sectionCount}>({savedThreads.length})</span></h3><p>{t('commandDialog.savedHint')}</p>
+        <div className={cx('thread-panel-list', styles.panelList)}>{savedThreads.map(thread => <button key={thread.id} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${thread.id}`))}><strong>{displayThreadTitle(thread.title)}</strong><span>{thread.nativeSessionId ? t('commandDialog.session', { id: thread.nativeSessionId }) : t('commandDialog.notStarted')} · {thread.archived ? t('commandDialog.archived') : threadNavigationStatus(thread).label}</span></button>)}
+          {savedThreads.length === 0 && <EmptyState compact title={resumeQuery ? t('commandDialog.noSavedMatch') : t('commandDialog.noSaved')} />}
         </div>
       </section>
-      <section><h3>{t('commandDialog.delegated')}</h3>{resume?.notice && <p role="status">{resume.notice}</p>}
-        <div className="thread-panel-list">{resumeTasks.filter(task => resumeMatches([task.objective, task.branch, task.state, task.id, task.nativeSession?.nativeSessionId])).map(task => <button key={task.id} type="button" disabled={pending || !task.destinationThreadId} onClick={() => void action(() => openDelegatedSession(task))}><strong>{task.objective}</strong><span>{task.branch} · {task.state} · {task.nativeSession?.provider ?? task.agentProfileId}</span><span>{task.nativeSession?.nativeSessionId ? t('commandDialog.session', { id: task.nativeSession.nativeSessionId }) : t('commandDialog.noNativeId')}</span></button>)}
-          {!resumeTasks.some(task => resumeMatches([task.objective, task.branch, task.state, task.id, task.nativeSession?.nativeSessionId])) && <EmptyState compact title={resumeQuery ? t('commandDialog.noDelegatedMatch') : t('commandDialog.noDelegated')} />}
+      <section className={styles.section}><h3 className={styles.sectionHeading}>{t('commandDialog.delegated')} <span className={styles.sectionCount}>({filteredTasks.length})</span></h3>{resume?.notice && <p role="status">{resume.notice}</p>}
+        <div className={cx('thread-panel-list', styles.panelList)}>{filteredTasks.map(task => <button key={task.id} type="button" disabled={pending || !task.destinationThreadId} onClick={() => void action(() => openDelegatedSession(task))}><strong>{task.objective}</strong><span>{task.branch} · {task.state} · {task.nativeSession?.provider ?? task.agentProfileId}</span><span>{task.nativeSession?.nativeSessionId ? t('commandDialog.session', { id: task.nativeSession.nativeSessionId }) : t('commandDialog.noNativeId')}</span></button>)}
+          {filteredTasks.length === 0 && <EmptyState compact title={resumeQuery ? t('commandDialog.noDelegatedMatch') : t('commandDialog.noDelegated')} />}
         </div>
-        {onDelegations && <Button variant="link" size="sm" className="thread-resume-all" onClick={() => { onClose(); onDelegations() }}>{t('commandDialog.openDelegated')}</Button>}
+        {onDelegations && <Button variant="link" size="sm" className={cx('thread-resume-all', styles.delegatedLink)} onClick={() => { onClose(); onDelegations() }}>{t('commandDialog.openDelegated')}</Button>}
       </section>
-      <section><h3>{t('commandDialog.nativeTitle', { provider: threadAgentName(snapshot?.thread.provider ?? 'claude') })}</h3><p>{t('commandDialog.nativeHint')}</p>
+      <section className={styles.section}><h3 className={styles.sectionHeading}>{t('commandDialog.nativeTitle', { provider: threadAgentName(snapshot?.thread.provider ?? 'claude') })} <span className={styles.sectionCount}>({filteredNativeSessions.length})</span></h3><p>{t('commandDialog.nativeHint')}</p>
         {nativeNotice && <p role="status">{nativeNotice}</p>}
         {nativeLoading && <Spinner size="sm" />}
-        <div className="thread-panel-list thread-native-session-list">{nativeSessions.filter(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])).map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || t('commandDialog.providerSession', { provider: session.provider === 'codex' ? 'Codex' : 'Claude' })}</strong><span className="thread-session-meta"><span>{t('commandDialog.updated', { date: sessionDate(session.lastUpdatedMs) })}</span><span>{session.modelId || t('commandDialog.modelUnknown')}</span>{session.requestCount > 0 && <span>{t('commandDialog.requests', { count: session.requestCount })}</span>}</span><span className="thread-session-foot"><span>{t('commandDialog.started', { date: sessionDate(session.sessionStartedAtMs) })}</span><code>{session.sessionId}</code></span></button>)}
-          {!nativeSessions.some(session => resumeMatches([session.firstMessagePreview, session.modelId, session.sessionId, formatDateTime(session.sessionStartedAtMs), formatDateTime(session.lastUpdatedMs)])) && !nativeNotice && !nativeLoading && <EmptyState compact title={resumeQuery ? t('commandDialog.noNativeMatch') : t('commandDialog.noNative')} />}
+        <div className={cx('thread-panel-list thread-native-session-list', styles.panelList)}>{filteredNativeSessions.map(session => <button key={session.sessionId} type="button" disabled={pending} onClick={() => void action(() => runCommand(`/resume ${session.sessionId}`))}><strong>{session.firstMessagePreview || t('commandDialog.providerSession', { provider: session.provider === 'codex' ? 'Codex' : 'Claude' })}</strong><span className="thread-session-meta"><span>{t('commandDialog.updated', { date: sessionDate(session.lastUpdatedMs) })}</span><span>{session.modelId || t('commandDialog.modelUnknown')}</span>{session.requestCount > 0 && <span>{t('commandDialog.requests', { count: session.requestCount })}</span>}</span><span className="thread-session-foot"><span>{t('commandDialog.started', { date: sessionDate(session.sessionStartedAtMs) })}</span><code>{session.sessionId}</code></span></button>)}
+          {filteredNativeSessions.length === 0 && !nativeNotice && !nativeLoading && <EmptyState compact title={resumeQuery ? t('commandDialog.noNativeMatch') : t('commandDialog.noNative')} />}
         </div>
       </section>
-      <section><h3>{t('commandDialog.exactTitle')}</h3><p>{t('commandDialog.exactHint')}</p>
-        <form className="thread-resume-native" onSubmit={event => { event.preventDefault(); void action(() => runCommand(`/resume ${nativeResumeId.trim()}`)) }}><label className="thread-resume-native-label">{t('commandDialog.nativeId')}<TextField aria-label={t('commandDialog.nativeId')} value={nativeResumeId} onChange={event => setNativeResumeId(event.target.value)} placeholder={SESSION_ID_SHAPE} /></label><Button type="submit" disabled={pending || !nativeResumeId.trim()}>{t('commandDialog.openSession')}</Button></form>
+      <section className={styles.section}><h3 className={styles.sectionHeading}>{t('commandDialog.exactTitle')}</h3><p>{t('commandDialog.exactHint')}</p>
+        <form className={cx('thread-resume-native', styles.nativeForm)} onSubmit={event => { event.preventDefault(); void action(() => runCommand(`/resume ${nativeResumeId.trim()}`)) }}><label className={cx('thread-resume-native-label', styles.nativeLabel)}>{t('commandDialog.nativeId')}<TextField aria-label={t('commandDialog.nativeId')} value={nativeResumeId} onChange={event => setNativeResumeId(event.target.value)} placeholder={SESSION_ID_SHAPE} /></label><Button type="submit" disabled={pending || !nativeResumeId.trim()}>{t('commandDialog.openSession')}</Button></form>
       </section>
     </div>
     : panel.surface === 'delegations' ? <div className="thread-panel-list">{panel.rows?.length ? panel.rows.map((row, index) => <button key={index} type="button" disabled={pending || !row.id} onClick={() => { if (row.id) { onClose(); void useThreadStore.getState().select(row.id) } }}><strong>{row.label}</strong>{row.detail && <span>{row.detail}</span>}</button>) : <EmptyState compact title={t('commandDialog.noDelegations')} />}</div>
