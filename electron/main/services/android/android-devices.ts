@@ -13,6 +13,8 @@ export interface AdbResult {
   stdout: string | Buffer
   stderr: string
   missing?: boolean
+  /** OXE-112: a detached spawn (the emulator) reports its process id, so OXESpace can stop what it started. */
+  pid?: number
 }
 
 export type AdbRunner = (args: string[], opts?: { shell?: boolean; timeoutMs?: number }) => Promise<AdbResult>
@@ -215,7 +217,7 @@ function spawnBinary(binary: string, args: string[], timeoutMs = 15_000, detache
         if (settled) return
         settled = true
         child.unref()
-        resolve({ status: 0, stdout: '', stderr: '' })
+        resolve({ status: 0, stdout: '', stderr: '', ...(child.pid !== undefined ? { pid: child.pid } : {}) })
       })
       return
     }
@@ -314,14 +316,37 @@ export function screencapFailure(res: AdbResult): AndroidCaptureFailure {
 }
 
 const START_SERVER_TIMEOUT_MS = 15_000
+/** OXE-112: how long an owned emulator gets to leave after adb emu kill before SIGTERM, and how often that is checked. */
+const STOP_GRACE_MS = 5_000
+const STOP_POLL_MS = 500
+const EMU_COMMAND_TIMEOUT_MS = 5_000
+/** OXE-112: a device that leaves adb is reported within this interval (CA-2: within 5 s). */
+const WATCH_INTERVAL_MS = 2_500
+
+/** An emulator OXESpace started: its AVD, the process it spawned, and its adb serial once it has booted. */
+interface OwnedEmulator { avd: string; pid?: number; serial?: string }
 
 export class AndroidDevices {
   private readonly run: AdbRunner
   private readonly runEmulator: EmulatorRunner
+  private readonly killProcess: (pid: number, signal: NodeJS.Signals) => void
+  private readonly sleep: (ms: number) => Promise<void>
+  private readonly stopGraceMs: number
+  /** OXE-112: only these are OXESpace's to stop; an emulator started elsewhere, or a phone, never is. */
+  private readonly owned: OwnedEmulator[] = []
 
-  constructor(options: { run?: AdbRunner; runEmulator?: EmulatorRunner } = {}) {
+  constructor(options: {
+    run?: AdbRunner
+    runEmulator?: EmulatorRunner
+    killProcess?: (pid: number, signal: NodeJS.Signals) => void
+    sleep?: (ms: number) => Promise<void>
+    stopGraceMs?: number
+  } = {}) {
     this.run = options.run ?? defaultAdbRunner
     this.runEmulator = options.runEmulator ?? defaultEmulatorRunner
+    this.killProcess = options.killProcess ?? ((pid, signal) => { process.kill(pid, signal) })
+    this.sleep = options.sleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms)))
+    this.stopGraceMs = options.stopGraceMs ?? STOP_GRACE_MS
   }
 
   async adb(args: readonly string[], timeoutMs?: number): Promise<AdbResult> {
@@ -481,6 +506,92 @@ export class AndroidDevices {
     if (res.missing || res.status !== 0) {
       throw new Error('Failed to start Android emulator')
     }
+    this.owned.push({ avd, ...(res.pid !== undefined ? { pid: res.pid } : {}) })
+  }
+
+  /**
+   * OXE-112: one of the two emulator console commands OXESpace sends, built here from a checked serial and never
+   * reachable through the public adb allowlist: the running AVD's name, or kill (only for an owned emulator).
+   */
+  private async emu(serial: string, command: 'avd-name' | 'kill'): Promise<AdbResult> {
+    assertValidSerial(serial)
+    const args = command === 'kill' ? ['-s', serial, 'emu', 'kill'] : ['-s', serial, 'emu', 'avd', 'name']
+    return this.run(args, { shell: false, timeoutMs: EMU_COMMAND_TIMEOUT_MS })
+  }
+
+  /** The serials of the emulators OXESpace started, learning the serial of each that has booted since. */
+  async ownedSerials(): Promise<string[]> {
+    if (this.owned.some(entry => !entry.serial)) {
+      const listed = await this.list()
+      const taken = new Set(this.owned.map(entry => entry.serial).filter(Boolean))
+      for (const device of listed.devices) {
+        if (device.kind !== 'emulator' || device.state !== 'device' || taken.has(device.serial)) continue
+        const waiting = this.owned.filter(entry => !entry.serial)
+        if (!waiting.length) break
+        const res = await this.emu(device.serial, 'avd-name')
+        if (res.missing || res.status !== 0) continue
+        const name = stdoutText(res.stdout).split('\n')[0]?.trim()
+        const entry = waiting.find(candidate => candidate.avd === name)
+        if (entry) { entry.serial = device.serial; taken.add(device.serial) }
+      }
+    }
+    return this.owned.map(entry => entry.serial).filter((serial): serial is string => Boolean(serial))
+  }
+
+  /** Whether OXESpace started the emulator behind this serial (as far as it has learned the serial). */
+  ownsSerial(serial: string): boolean {
+    return this.owned.some(entry => entry.serial === serial)
+  }
+
+  /**
+   * Stops an emulator OXESpace started: adb emu kill, then SIGTERM on the process it spawned if the emulator is still
+   * listed after the grace. Anything it did not start (an emulator started elsewhere, a phone) is refused.
+   */
+  async stopAvd(serial: string): Promise<AndroidActionResult> {
+    assertValidSerial(serial)
+    await this.ownedSerials()
+    const entry = this.owned.find(candidate => candidate.serial === serial)
+    if (!entry) return { ok: false, reason: 'android.avd.notOwned' }
+    await this.emu(serial, 'kill')
+    const step = Math.max(1, Math.min(STOP_POLL_MS, this.stopGraceMs))
+    let gone = false
+    for (let waited = 0; waited < this.stopGraceMs; waited += step) {
+      const listed = await this.list()
+      if (!listed.devices.some(device => device.serial === serial)) { gone = true; break }
+      await this.sleep(step)
+    }
+    if (!gone && entry.pid !== undefined) {
+      try { this.killProcess(entry.pid, 'SIGTERM') } catch { /* the process may have ended meanwhile */ }
+    }
+    this.owned.splice(this.owned.indexOf(entry), 1)
+    return { ok: true }
+  }
+
+  /** Stops every emulator OXESpace started (the app quitting); never one it did not start. */
+  async stopOwned(): Promise<void> {
+    for (const serial of await this.ownedSerials()) await this.stopAvd(serial)
+  }
+
+  /**
+   * Watches adb's device list and reports each serial that was ready and then left (a crash, a cable, an emulator
+   * closed elsewhere), within one interval. Returns the function that stops watching.
+   */
+  watchDevices(options: { onDisconnected: (serial: string) => void; intervalMs?: number }): () => void {
+    let known: Set<string> | null = null
+    let busy = false
+    const tick = async () => {
+      if (busy) return
+      busy = true
+      try {
+        const listed = await this.list()
+        const ready = new Set(listed.devices.filter(device => device.state === 'device').map(device => device.serial))
+        if (known) for (const serial of known) if (!ready.has(serial)) options.onDisconnected(serial)
+        known = ready
+      } finally { busy = false }
+    }
+    void tick()
+    const timer = setInterval(() => { void tick() }, options.intervalMs ?? WATCH_INTERVAL_MS)
+    return () => clearInterval(timer)
   }
 }
 

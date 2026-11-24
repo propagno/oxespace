@@ -411,6 +411,7 @@ export const IPC_CHANNELS = {
     captureElement: 'browser-preview:capture-element',
     captureElementFile: 'browser-preview:capture-element-file',
     captureClipboard: 'browser-preview:capture-clipboard',
+    captureSessionArtifact: 'browser-preview:capture-session-artifact',
     close: 'browser-preview:close',
     revokeGrant: 'browser-preview:revoke-grant',
     setDevice: 'browser-preview:set-device',

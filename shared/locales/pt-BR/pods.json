@@ -12,6 +12,7 @@
     "label": "Barra lateral do OxePod",
     "refresh": "Atualizar contêineres",
     "filter": "Filtrar contêineres",
+    "filterPlaceholder": "Filtrar…",
     "project": "Projeto {{name}}",
     "others": "Outros",
     "noMatch": "Nenhum contêiner corresponde ao filtro.",

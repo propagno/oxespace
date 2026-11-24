@@ -30,10 +30,14 @@ describe('command modules', () => {
     expect(collapsed()).toEqual({ ...start, thread: !start.thread })
     buildCodeCommands(codeContext).find(command => command.id === 'toggle-sidebar')!.run()
     expect(collapsed()).toEqual({ code: !start.code, thread: !start.thread })
-    // OxeQuery's sidebar follows the same switch as OxeCode's.
+    // OxeQuery's sidebar toggles on its own, without affecting OxeCode or OxeChat.
+    const oqStart = useUIStore.getState().oxequerySidebarCollapsed
     buildCodeCommands({ ...codeContext, applicationView: 'data' }).find(command => command.id === 'toggle-sidebar')!.run()
-    expect(collapsed()).toEqual({ code: start.code, thread: !start.thread })
+    expect(useUIStore.getState().oxequerySidebarCollapsed).toBe(!oqStart)
+    expect(collapsed()).toEqual({ code: !start.code, thread: !start.thread })
+    useUIStore.getState().toggleSidebar('code')
     useUIStore.getState().toggleSidebar('thread')
+    useUIStore.getState().toggleOxeQuerySidebar()
   })
 
   it('Code panel commands run from Thread show Code and open the panel, never close one left open', () => {
