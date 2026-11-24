@@ -3,7 +3,7 @@
  * left panes 90 px wide with unreadable titles and a terminal too narrow to use. Like VS Code's editor groups and
  * Windows Terminal's panes, a split that would go below a usable minimum is refused instead of squeezed.
  */
-import { computeLayout, type PaneNode } from '../../../shared/types/pane-tree'
+import { computeLayout, moveLeaf, type PaneNode, type SplitDirection } from '../../../shared/types/pane-tree'
 
 export const MIN_PANE_WIDTH_PX = 240
 export const MIN_PANE_HEIGHT_PX = 120
@@ -65,6 +65,31 @@ export function layoutPaneSize(tree: PaneNode | null, paneId: string, grid: { wi
     height: rect.height / 100 * grid.height - inset(edges.top) - inset(edges.bottom),
     edges,
   }
+}
+
+/**
+ * Whether moving a pane beside another (drag-to-split, Arrange) leaves both at a usable size (OXE-365). The move is laid
+ * out as the store would apply it (`moveLeaf`): the pane leaves its place, which its neighbours take, and shares the
+ * target's area. A pane already under the minimum may stay that size, but a move never squeezes one further below it.
+ */
+export function moveHasRoom(
+  tree: PaneNode | null,
+  paneId: string,
+  targetPaneId: string,
+  direction: SplitDirection,
+  after: boolean,
+  grid: { width: number; height: number } | null
+): boolean {
+  if (!tree || !grid) return true
+  const moved = moveLeaf(tree, paneId, targetPaneId, direction, after)
+  return [paneId, targetPaneId].every(id => {
+    const was = layoutPaneSize(tree, id, grid)
+    const will = layoutPaneSize(moved, id, grid)
+    if (!was || !will) return true
+    const narrower = will.width < MIN_PANE_WIDTH_PX && will.width < was.width
+    const shorter = will.height < MIN_PANE_HEIGHT_PX && will.height < was.height
+    return !narrower && !shorter
+  })
 }
 
 /** The size of the active workspace's split grid on screen, or null when it is not drawn. */

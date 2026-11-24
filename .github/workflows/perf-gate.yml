@@ -2,12 +2,17 @@
 # runner, in the same job, interleaved, so the table compares like with like. Per OS one job checks out v1.5.0 (A),
 # v1.5.1 (B) and the candidate (C), builds and packages each (electron-builder --dir, nothing published), overlays the
 # CURRENT benchmark harness of this commit onto each ref's e2e/ (old app code is never edited; a selector an old ref
-# lacks gives "n/a" for that metric), then samples ABC CBA ABC… for `rounds` rounds per ref. A round runs, per ref, the
+# lacks gives "n/a" for that metric), then samples `rounds` rounds per ref. A round runs, per ref, the
 # boot probe (1 warm-up launch + 3 measured, round value = their median) and one pass of perf-benchmark,
 # memory-footprint, perceived-perf and perf-resume (/resume and the context indicator on a big transcript fixture)
 # against the packaged binary.
+# Boot method (OXE-163, 1.5.3 onwards; perf-gate/stats.mjs): the candidate (C) and the baseline (B) swap who launches
+# first every round (C B A on odd rounds, B C A on even ones), the light boot probe alone runs `boot_rounds` rounds
+# (default 9, at least 5; the rounds past `rounds` skip the heavy suite), and the summary drops each side's single worst
+# boot round before the median and the CI95, saying which values it dropped. The method changes only between releases.
 # perf-gate/summarize.mjs prints per OS: metric, median per ref, Δ candidate − v1.5.1 with its 95% bootstrap CI, and
-# a verdict (REGRESSES only when the CI lies entirely above zero, improves when entirely below, else within noise).
+# a verdict (REGRESSES only when the CI lies entirely above zero, improves when entirely below, else within noise),
+# under a line naming the method and the CI run id.
 # The table is in the run summary and in the perf-gate-* artifacts. From the brand session's boot A/B harness
 # (ci/perf-ab-m2, run 43593316336); replaces the per-ref, per-runner perf-gate.yml of ci/perf-baseline.
 # A release: dispatch with candidate = the release branch or tag. Before this file is on main, push the commit to a
@@ -26,9 +31,14 @@ on:
         default: main
         type: string
       rounds:
-        description: Interleaved rounds per ref (3-15)
+        description: Interleaved rounds per ref, whole suite (3-15)
         required: false
         default: "7"
+        type: string
+      boot_rounds:
+        description: Boot probe rounds per ref (5-15); the worst one per side is dropped (OXE-163)
+        required: false
+        default: "9"
         type: string
 
 concurrency:
@@ -58,6 +68,7 @@ jobs:
       REF_B: v1.5.1
       REF_C: ${{ inputs.candidate || 'main' }}
       ROUNDS: ${{ inputs.rounds || '7' }}
+      BOOT_ROUNDS: ${{ inputs.boot_rounds || '9' }}
       GATE_LAUNCHES: "4"
     defaults:
       run:
@@ -67,6 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! [[ "$ROUNDS" =~ ^[0-9]+$ ]] || (( ROUNDS < 3 || ROUNDS > 15 )); then echo "::error::rounds must be 3-15, got $ROUNDS"; exit 1; fi
+          if ! [[ "$BOOT_ROUNDS" =~ ^[0-9]+$ ]] || (( BOOT_ROUNDS < 5 || BOOT_ROUNDS > 15 )); then echo "::error::boot_rounds must be 5-15, got $BOOT_ROUNDS"; exit 1; fi
           if ! [[ "$REF_C" =~ ^[A-Za-z0-9._/-]{1,100}$ ]] || [[ "$REF_C" == *..* || "$REF_C" == -* ]]; then echo "::error::bad candidate ref"; exit 1; fi
 
       - name: Harness (this commit)
@@ -152,7 +164,7 @@ jobs:
             # Single-quoted: `source` would read the backslashes of a Windows path (D:\a\_temp) as escapes.
             printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
             # The current harness over the ref's e2e/ (only test files; the app is the ref's own build above).
-            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/memory-budget.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
               mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
             done
             cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts
@@ -165,7 +177,7 @@ jobs:
           cat results/heads.json sides.env
           df -h . || true
 
-      - name: Sample interleaved (ABC CBA), ${{ env.ROUNDS }} rounds per ref
+      - name: Sample alternating (C B A / B C A), ${{ env.BOOT_ROUNDS }} boot rounds and ${{ env.ROUNDS }} suite rounds per ref
         env:
           # One perceived-perf launch per round, no screenshot launch, no confirmation rounds, no budgets: measure only.
           OXESPACE_PERF_LAUNCHES: "1"
@@ -180,15 +192,21 @@ jobs:
             else npx playwright test --config playwright.tools.config.ts "$@" --reporter=line; fi
           }
           sample() {
-            local side=$1 round=$2 exe_var="EXE_$1" start
+            local side=$1 round=$2 exe_var="EXE_$1" start boot_log bench_log
             start=$(date +%s)
+            boot_log="$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log"
+            bench_log="$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log"
             ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}" GATE_SIDE="$side" GATE_ROUND="$round"
-              run perf-gate-boot.spec.ts > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log" 2>&1
-              run perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts perf-resume.spec.ts --grep-invert "$skip" > "$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log" 2>&1 )
-            echo "round $round $side: $(grep -ac '\[GATE-BOOT\].*warmup=0' "results/rounds/$side-r$round-boot.log") boots, $(grep -ac '\[RESULT\]' "results/rounds/$side-r$round-bench.log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
+              if (( round <= BOOT_ROUNDS )); then run perf-gate-boot.spec.ts > "$boot_log" 2>&1; fi
+              # Past `rounds`, only the light boot probe runs (OXE-163): more boot rounds without repeating the suite.
+              if (( round <= ROUNDS )); then run perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts perf-resume.spec.ts --grep-invert "$skip" > "$bench_log" 2>&1; fi )
+            echo "round $round $side: $(grep -acs '\[GATE-BOOT\].*warmup=0' "$boot_log") boots, $(grep -acs '\[RESULT\]' "$bench_log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
           }
-          for r in $(seq 1 "$ROUNDS"); do
-            if (( r % 2 )); then order="A B C"; else order="C B A"; fi
+          total=$(( ROUNDS > BOOT_ROUNDS ? ROUNDS : BOOT_ROUNDS ))
+          for r in $(seq 1 "$total"); do
+            # Candidate first on odd rounds, baseline first on even ones (perf-gate/stats.mjs launchOrder).
+            order="$(node harness/perf-gate/stats.mjs order "$r" C B A)" || { echo "::error::launch order for round $r"; exit 1; }
+            echo "round $r order: $order" | tee -a results/order.txt
             for side in $order; do sample "$side" "$r"; done
           done
           exit 0
@@ -223,7 +241,9 @@ jobs:
           set -euo pipefail
           mkdir -p perf-gate-table
           {
-            echo "## Performance gate (OXE-105): v1.5.0 × v1.5.1 × ${REF_C}, same runner, interleaved"
+            echo "## Performance gate (OXE-105, OXE-163): v1.5.0 × v1.5.1 × ${REF_C}, same runner"
+            echo
+            echo "Method: alternating order (candidate first on odd rounds, baseline first on even) + worst boot round dropped per side before the CI95 + N=${BOOT_ROUNDS} boot rounds (${ROUNDS} for the other metrics). CI run: [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
             echo
             for os in windows-x64 linux-x64; do
               if [ -f "perf-results/perf-gate-$os/perf-gate.md" ]; then cat "perf-results/perf-gate-$os/perf-gate.md"; else echo "### $os"; echo; echo "(no results)"; fi
@@ -233,6 +253,8 @@ jobs:
           cat perf-gate-table/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
         env:
           REF_C: ${{ inputs.candidate || 'main' }}
+          ROUNDS: ${{ inputs.rounds || '7' }}
+          BOOT_ROUNDS: ${{ inputs.boot_rounds || '9' }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-gate-table

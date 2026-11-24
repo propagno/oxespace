@@ -13,6 +13,7 @@ import { formatClock, formatNumber } from '../../utils/formatTime'
 import { compactTokens } from './ThreadUsagePanel'
 import { formatThreadCost } from './threadCost'
 import { ThreadMcpServerList } from './ThreadMcpServerList'
+import { ThreadIntegratedTools } from './ThreadIntegratedTools'
 import { changeSummary, threadChanges, threadFileLabel, threadWorkingRoot } from './threadChanges'
 import { sessionBackground, sessionContext, sessionToolUse } from './threadSessionModel'
 import styles from './ThreadSessionPanel.module.css'
@@ -117,6 +118,7 @@ export function SessionTools({ snapshot }: SessionSectionProps): ReactElement {
   const tools = useMemo(() => sessionToolUse(snapshot.events), [snapshot.events])
   const servers = snapshot.thread.mcpServers?.servers
   return <>
+    <ThreadIntegratedTools rootPath={snapshot.thread.rootPath} servers={servers} />
     <h4 className={styles.subheading}>{t('sessionPanel.tools.mcp')}</h4>
     {servers ? <ThreadMcpServerList servers={servers} workspaceId={snapshot.thread.workspaceId} /> : <EmptyState compact title={t('sessionPanel.tools.mcpUnknown')} />}
     <div className={styles.actions}><Button size="sm" variant="ghost" onClick={() => useUIStore.getState().openMcpPanel()}>{t('sessionPanel.tools.manage')}</Button></div>

@@ -13,12 +13,18 @@ const RUN_TOOLS = new Set(['Bash', 'PowerShell', 'BashOutput', 'KillShell', 'she
 const HTTP_TOOLS = new Set(['WebFetch', 'WebSearch', 'web_search'])
 const TRAILING_PUNCT = /[.,;:!?)\]}]+$/
 
-function cutSafe(text: string, limit: number): string {
+/**
+ * Text longer than `limit` ends at the last word that fits, with "…" (OXE-379: the now line read "calculat." and
+ * "tota."). A single word longer than most of the limit is cut inside it, never inside a surrogate pair.
+ */
+export function cutSafe(text: string, limit: number): string {
   if (text.length <= limit) return text
-  let end = limit
+  let end = limit - 1
   const code = text.charCodeAt(end - 1)
   if (code >= 0xd800 && code <= 0xdbff) end -= 1
-  return text.slice(0, end)
+  const space = text.lastIndexOf(' ', end)
+  if (space >= Math.floor(limit * 0.6)) end = space
+  return `${text.slice(0, end).replace(/[\s.,;:!?(\[{\-–—]+$/, '')}…`
 }
 
 function caseInsensitiveFor(base: string): boolean {

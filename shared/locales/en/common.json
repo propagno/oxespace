@@ -432,6 +432,7 @@
       "notInstalled": "Not installed",
       "signIn": "Sign in to {{provider}}",
       "signInShort": "Sign in",
+      "signedOut": "Signed out",
       "waiting": "Waiting for sign-in in your browser…",
       "cancel": "Cancel",
       "readyModel": "Ready · {{model}}",
