@@ -57,7 +57,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
         options.forEachIndexed { i, label ->
             val on = i == selected
             Box(
-                Modifier.weight(1f).heightIn(min = 42.dp).clip(RoundedCornerShape(OxeRadius.md))
+                Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(OxeRadius.md))
                     .background(if (on) colors.surfaceRaised else colors.surfaceSunken)
                     .selectable(selected = on, role = Role.Tab) { onSelect(i) },
                 contentAlignment = Alignment.Center,

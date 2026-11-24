@@ -397,7 +397,8 @@
     "steer": "Steer active turn",
     "steerTitle": "Send guidance to the active turn",
     "stop": "Stop turn",
-    "stopTitle": "Stop turn · Esc",
+    "stopTitle": "Stop turn · Esc twice",
+    "stopAgain": "Press Esc again to stop the turn",
     "stopShort": "Stop",
     "queue": "Queue follow-up",
     "queueTitle": "Queue follow-up · {{key}}",
@@ -631,6 +632,11 @@
     "keepAll": "Keep all",
     "undoing": "Undoing",
     "undoAll": "Undo all",
+    "undoAllTitle_one": "Undo {{count}} file?",
+    "undoAllTitle_other": "Undo all {{count}} files?",
+    "undoAllDescription_one": "This restores {{count}} file to its checkpoint before the agent edited it. Unsaved changes from the agent will be discarded.",
+    "undoAllDescription_other": "This restores {{count}} files to their checkpoints before the agent edited them. Unsaved changes from the agent will be discarded.",
+    "undoAllConfirm": "Undo all",
     "review": "Review",
     "keep": "Keep {{path}}",
     "undo": "Undo {{path}}"
@@ -941,6 +947,13 @@
     "diagramBuilding": "Building the diagram…",
     "diagramFailed": "Couldn't draw this diagram",
     "enlarge": "Enlarge",
+    "diagramTools": "Diagram tools",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Zoom {{percent}}%, reset to 100%",
+    "downloadSvg": "SVG",
+    "downloadPng": "PNG",
+    "exportFailed": "Could not export the diagram",
     "showCode": "Show code",
     "showDiagram": "Show diagram",
     "alert": {
@@ -1360,6 +1373,11 @@
       "compactEmpty": "Nothing to compact yet."
     },
     "tools": {
+      "integrated": "OXESpace (Integrated)",
+      "integratedOn": "On in this session",
+      "integratedOff": "Not connected",
+      "integratedGroups": "OXESpace tool groups",
+      "configure": "Configure tools",
       "mcp": "MCP servers",
       "mcpUnknown": "The agent has not reported its MCP servers yet. They appear when its session starts.",
       "manage": "Manage MCP servers",
@@ -1599,7 +1617,23 @@
     "stopLabel": "Stop {{label}}",
     "stopTitle": "Stop this background task",
     "viewResult": "View result",
-    "instructions": "Instructions"
+    "instructions": "Instructions",
+    "result": {
+      "status": {
+        "done": "Completed",
+        "failed": "Failed",
+        "running": "Running"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Show full output",
+      "showLess": "Show less",
+      "openConversation": "Open conversation",
+      "viewDetails": "View details",
+      "runningSummary": "Working in background…",
+      "noOutput": "No output reported."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",
@@ -1666,6 +1700,9 @@
     "workedWaited": "Worked {{worked}} · waited for you {{waited}}"
   },
   "usage": {
+    "compact": "Compact",
+    "compactTitle": "Run /compact: summarize the conversation to free its context",
+    "compactFailed": "Could not compact the conversation",
     "planLabelSession": "{{percent}}% of the current session used",
     "planLabelWeek": "{{percent}}% of this week used",
     "resetsIn": "{{label}} · resets in {{time}}",
@@ -2215,6 +2252,7 @@
       "allowOnce": "Allow once",
       "alwaysAllowEllipsis": "Always allow…",
       "seeImpact": "See impact",
+      "seeImpactHint": "Review impact to approve or deny",
       "copyExact": "Copy exact text",
       "copyWhat": "Exact text"
     },
@@ -2269,7 +2307,8 @@
       "deny": "Deny",
       "paneWaiting": "Waiting for you in the terminal",
       "goToPane": "Go to terminal",
-      "respondFailed": "Couldn't send your answer. Try again."
+      "respondFailed": "Couldn't send your answer. Try again.",
+      "reviewToApprove": "Review impact to approve or deny"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

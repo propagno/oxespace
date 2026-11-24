@@ -252,11 +252,19 @@ for (const theme of THEMES) {
         await expect(dialog()).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined)
       }
       page.setDefaultTimeout(10_000)
-      await dialogScan('thread-new', () => page.getByRole('button', { name: /^New conversation/ }).first().click(), () => page.getByRole('dialog', { name: 'New conversation' }))
-      await dialogScan('thread-new-worktree', async () => {
+      const start = page.getByTestId('new-conversation')
+      await reach(`${theme}/dialog-thread-new`, found, page, async () => {
         await page.getByRole('button', { name: /^New conversation/ }).first().click()
-        await page.getByRole('dialog', { name: 'New conversation' }).getByRole('checkbox', { name: 'Work in an isolated worktree' }).check()
-      }, () => page.getByRole('dialog', { name: 'New conversation' }))
+        await expect(start).toBeVisible()
+      })
+      await reach(`${theme}/dialog-thread-new-worktree`, found, page, async () => {
+        const toggle = start.getByRole('switch', { name: 'Work in an isolated worktree' })
+        await toggle.click()
+        await expect(toggle).toHaveAttribute('aria-checked', 'true')
+      })
+      // Leave the in-place new-conversation screen so subsequent row and conversation dialog scans see the thread.
+      await page.locator('.thread-navigation-row:not([data-thread-draft]) .thread-navigation-item').first().click()
+      await expect(start).toBeHidden()
       // Row actions show on hover; the row is hovered first, as a person would.
       const rowMenu = async (item: string): Promise<void> => {
         const row = page.locator('.thread-navigation-row').first()

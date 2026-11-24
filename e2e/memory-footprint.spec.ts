@@ -18,21 +18,20 @@ import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { launchForPerf } from './helpers/perf-launch'
+import { memoryBudgetChecks, type MemoryKey } from './helpers/memory-budget'
 
 const ENFORCE_BUDGETS = process.env.OXESPACE_PERF_GATE === '1'
 const TERMINALS = Number(process.env.MF_TERMINALS ?? 4)
 
 /**
- * Private megabytes per process type with the scenario below, 25% above what the memory-footprint work
- * measured on Windows (total 544, main 213, renderer 158, with 20,000 lines in each of four terminals).
- * Other platforms have a different process mix (no separate GPU baseline, zygote), so they take their
- * numbers from the CI output of this test through the override variables until calibrated.
+ * The budgets live in e2e/helpers/memory-budget.ts: private megabytes on Windows, 25% above what the memory-footprint
+ * work measured there (total 680, browser 270, renderer 200), and the working set on Linux, which reports no private
+ * bytes (OXE-389). The override variables replace a platform's number for a calibration run.
  */
-const WINDOWS_BUDGETS_MB = { total: 680, browser: 270, renderer: 200 }
-export const MEMORY_BUDGETS_MB: Record<'total' | 'browser' | 'renderer', number> = {
-  total: Number(process.env.OXESPACE_MEMORY_BUDGET_TOTAL_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.total : 0),
-  browser: Number(process.env.OXESPACE_MEMORY_BUDGET_BROWSER_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.browser : 0),
-  renderer: Number(process.env.OXESPACE_MEMORY_BUDGET_RENDERER_MB) || (process.platform === 'win32' ? WINDOWS_BUDGETS_MB.renderer : 0)
+const MEMORY_BUDGET_OVERRIDES_MB: Partial<Record<MemoryKey, number>> = {
+  total: Number(process.env.OXESPACE_MEMORY_BUDGET_TOTAL_MB) || undefined,
+  browser: Number(process.env.OXESPACE_MEMORY_BUDGET_BROWSER_MB) || undefined,
+  renderer: Number(process.env.OXESPACE_MEMORY_BUDGET_RENDERER_MB) || undefined
 }
 /** JS heaps are the same on every platform: what a long Thread and its terminals may retain after a collection. */
 const MAIN_HEAP_GROWTH_MB = 20
@@ -141,6 +140,9 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
     await page.waitForTimeout(8_000)
     const thread = await sample(app, page)
     console.log(`[MEMORY] thread open ${JSON.stringify(thread)}`)
+    // OXE-412: opening the long Thread must not grow the main heap with its history; since #906 the sidebar's sessions
+    // read parsed every stored tool event (about 70 MB here), which no later sample showed once collected.
+    if (ENFORCE_BUDGETS) expect(thread.mainHeapTotalMb - codeOnly.mainHeapTotalMb, 'opening a long Thread must not grow the main heap with its history').toBeLessThanOrEqual(MAIN_HEAP_GROWTH_MB)
 
     // Scroll to the top and back: the renderer must not keep what it scrolled past.
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
@@ -154,9 +156,10 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
       expect(scrolled.webglPanes, 'hidden terminals give their WebGL renderer back').toBe(0)
       expect(scrolled.mainHeapMb - codeOnly.mainHeapMb, 'opening a long Thread must not leave its history parsed in the main process').toBeLessThanOrEqual(MAIN_HEAP_GROWTH_MB)
       expect(scrolled.rendererHeapMb, 'renderer heap with a long Thread and four filled terminals').toBeLessThanOrEqual(RENDERER_HEAP_MB)
-      for (const [key, value] of [['total', scrolled.totalMb], ['browser', scrolled.byType.Browser ?? 0], ['renderer', scrolled.byType.Tab ?? 0]] as const) {
-        const budget = MEMORY_BUDGETS_MB[key]
-        if (budget) expect(value, `${key} private memory ${value} MB exceeded ${budget} MB`).toBeLessThanOrEqual(budget)
+      // A 0 MB reading fails as an invalid measurement; Linux is held to its working set (OXE-389).
+      for (const check of memoryBudgetChecks(scrolled, process.platform, MEMORY_BUDGET_OVERRIDES_MB)) {
+        if (check.value > 0) expect(check.value, check.message).toBeLessThanOrEqual(check.budget)
+        else expect(check.ok, check.message).toBe(true)
       }
     }
   } finally { await stop(app, pid) }

@@ -18,6 +18,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,7 +56,9 @@ import com.oxespace.mobile.ui.theme.OxeType
 @Composable
 fun PairingStepper(labels: List<String>, current: Int, modifier: Modifier = Modifier, failed: Boolean = false) {
     val colors = Oxe.colors
-    val spoken = labels.getOrNull(current)?.let { "${current + 1}/${labels.size}: $it" }.orEmpty()
+    // OXE-363 (A6): once paired (current = labels.size, every step done) the row still speaks its last step.
+    val step = if (current >= labels.size) labels.lastIndex else current
+    val spoken = labels.getOrNull(step)?.let { "${step + 1}/${labels.size}: $it" }.orEmpty()
     Row(
         modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken },
         horizontalArrangement = Arrangement.spacedBy(OxeSpace.space2),
@@ -130,14 +138,22 @@ fun CodeBoxes(code: String, spoken: String, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * 1.5.2 A7 (OXE-381): how the camera slot tells its [Viewfinder] whether the camera is allowed; false hides the corner
+ * guides and the scan line, so they don't cross the explanation shown before the camera is allowed.
+ */
+val LocalViewfinderGuides = staticCompositionLocalOf<(Boolean) -> Unit> { {} }
+
 /** The camera in a dark square, with the corner guides and the scan line; [warning] when the last code was wrong. */
 @Composable
 fun Viewfinder(warning: Boolean, modifier: Modifier = Modifier, camera: @Composable (Modifier) -> Unit) {
     val colors = Oxe.colors
     val guide = if (warning) colors.intentWarningSolid else colors.accent
+    var guides by remember { mutableStateOf(true) }
+    val setGuides = remember { { shown: Boolean -> guides = shown } }
     Box(modifier.clip(RoundedCornerShape(OxeRadius.xl)).background(colors.termBg)) {
-        camera(Modifier.fillMaxSize())
-        Canvas(Modifier.fillMaxSize().padding(16.dp).semantics { }) {
+        CompositionLocalProvider(LocalViewfinderGuides provides setGuides) { camera(Modifier.fillMaxSize()) }
+        if (guides) Canvas(Modifier.fillMaxSize().padding(16.dp).semantics { }) {
             val len = size.minDimension * 0.18f
             val w = 4.dp.toPx()
             val corners = listOf(

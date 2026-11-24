@@ -286,6 +286,14 @@ export function registerE2eMockIpcHandlers(): void {
     throw new Error(`Pane ${input.paneId} not found`)
   })
   ipcMain.handle(IPC_CHANNELS.workspace.pickFolder, () => null)
+  // OXE-367: the mock's folders are always there; relinking points the workspace at the given folder.
+  ipcMain.handle(IPC_CHANNELS.workspace.rootStatus, () => ({ available: true }))
+  ipcMain.handle(IPC_CHANNELS.workspace.relink, (_event, input: { workspaceId: string; rootPath: string }) => {
+    const workspace = workspaces.find((item) => item.id === input.workspaceId)
+    if (!workspace) throw new Error(`Workspace ${input.workspaceId} not found`)
+    workspace.rootPath = normalizeWorkspaceRoot(input.rootPath)
+    return workspace
+  })
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, () => ({
     generatedAt: Date.now(), appVersion: packageVersion, platform: process.platform, arch: process.arch,
     nodeVersion: process.versions.node, electronVersion: process.versions.electron ?? 'unknown', workspaceCount: workspaces.length,
@@ -597,6 +605,7 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.androidActions.installApk, () => ({ ok: false, reason: 'no device' }))
   ipcMain.handle(IPC_CHANNELS.androidActions.openLink, () => ({ ok: false, reason: 'no device' }))
   ipcMain.handle(IPC_CHANNELS.androidActions.pair, () => ({ ok: false, reason: 'no device' }))
+  ipcMain.handle(IPC_CHANNELS.androidActions.stopEmulator, () => ({ ok: false, reason: 'android.avd.notOwned' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.has, () => false)
   ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)

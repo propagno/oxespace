@@ -13,7 +13,7 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
-import { attachOpenThreadDraftListener } from './components/Terminal/terminalToChat'
+import { attachOpenThreadDraftListener, queueNewConversationDraft } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -186,7 +186,7 @@ export function App(): ReactElement {
     openUsage,
     closeUsage,
     isSettingsOpen,
-    isSidebarCollapsed, collapsedSidebars,
+    oxequerySidebarCollapsed, collapsedSidebars,
     isNewWorkspaceOpen,
     isWorkspaceSettingsOpen,
     slashOverlayPaneId,
@@ -207,7 +207,7 @@ export function App(): ReactElement {
     openNewWorkspace,
     setMaximizedPane,
     toggleSettings,
-    toggleSidebar
+    toggleSidebar, toggleOxeQuerySidebar
   } = useUIStore(useShallow((state) => ({
     closeNewWorkspace: state.closeNewWorkspace,
     closeWorkspaceSettings: state.closeWorkspaceSettings,
@@ -219,7 +219,7 @@ export function App(): ReactElement {
     openUsage: state.openUsage,
     closeUsage: state.closeUsage,
     isSettingsOpen: state.isSettingsOpen,
-    isSidebarCollapsed: state.isSidebarCollapsed, collapsedSidebars: state.collapsedSidebars,
+    oxequerySidebarCollapsed: state.oxequerySidebarCollapsed, collapsedSidebars: state.collapsedSidebars,
     isNewWorkspaceOpen: state.isNewWorkspaceOpen,
     isWorkspaceSettingsOpen: state.isWorkspaceSettingsOpen,
     slashOverlayPaneId: state.slashOverlayPaneId,
@@ -238,7 +238,7 @@ export function App(): ReactElement {
     openNewWorkspace: state.openNewWorkspace,
     setMaximizedPane: state.setMaximizedPane,
     toggleSettings: state.toggleSettings,
-    toggleSidebar: state.toggleSidebar
+    toggleSidebar: state.toggleSidebar, toggleOxeQuerySidebar: state.toggleOxeQuerySidebar
   })))
   useEffect(() => { if (isNewWorkspaceOpen || activeWorkspace) { void WORKSPACE_SURFACE_CHUNK.load(); void NO_WORKSPACE_START_CHUNK.load(); void import('./components/Workspace/usageChunk').then(m => m.USAGE_CHUNK.load()) } }, [isNewWorkspaceOpen, activeWorkspace])
   const {
@@ -652,7 +652,7 @@ export function App(): ReactElement {
     store.setGlobal({ fontSize: Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, next)) })
   }
   useKeybindings({
-    'commandBar.open': () => setCommandBarOpen(true), 'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': () => toggleSidebar(applicationView === 'thread' ? 'thread' : 'code'),
+    'commandBar.open': () => setCommandBarOpen(true), 'palette.open': openCommandMenu, 'palette.search': openCommandMenu, 'settings.open': () => { if (!isSettingsOpen) toggleSettings() }, 'sidebar.toggle': () => { if (isDataView(applicationView)) toggleOxeQuerySidebar(); else toggleSidebar(applicationView === 'thread' ? 'thread' : 'code') },
     'code.changes': toggleReviewPanel, 'code.browser': toggleWebPreviewPanel, 'code.files': toggleEditor,
     'code.splitLayout': () => useUIStore.getState().toggleSplitLayout(),
     'code.search': () => { const ui = useUIStore.getState(); if (ui.isSearchPanelOpen) ui.closeSearchPanel(); else ui.openSearchPanel() },
@@ -685,16 +685,19 @@ export function App(): ReactElement {
     const unsubscribeAccounts = window.oxe?.agentAccount?.onChanged(status => useAccountStore.getState().changed(status))
     return () => { active = false; unsubscribe?.(); unsubscribeAccounts?.(); if (timer) clearTimeout(timer) }
   }, [hasOpenedThread])
-  const newThread = () => {
+  // A starter's prompt waits for the new conversation's composer (OXE-338); other callers may pass an event, not text.
+  const newThread = (draft?: unknown) => {
     const project = threadProject ?? threadProjects.find(item => !item.hidden)
-    if (!project) setThreadProjectOpen(true)
-    else setNewThreadWorkspaceId(project.projectId)
+    if (!project) { setThreadProjectOpen(true); return }
+    if (typeof draft === 'string') queueNewConversationDraft(project.projectId, draft)
+    setNewThreadWorkspaceId(project.projectId)
   }
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
-  const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'), newThread, newThreadIn: setNewThreadWorkspaceId,
+  const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'),
+    leaveDraft: () => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }, newThread, newThreadIn: setNewThreadWorkspaceId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
@@ -734,7 +737,7 @@ export function App(): ReactElement {
       <TitleTooltips />
       {activitySources && <activitySources.ActivitySources applicationView={applicationView} />}
       {commandContributors && <><commandContributors.CodeCommandContributor {...codeCommandContext} /><commandContributors.ThreadCommandContributor {...threadCommandContext} /></>}
-      <main className={`app-shell${showFirstRun ? ' first-run-shell' : applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : collapsedSidebars.code ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${(applicationView === 'thread' ? collapsedSidebars.thread : isSidebarCollapsed) ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
+      <main className={`app-shell${showFirstRun ? ' first-run-shell' : applicationView === 'thread' ? ' thread-shell' : isDataView(applicationView) ? ' oq-shell' : collapsedSidebars.code ? ' sidebar-collapsed' : ''}`} style={applicationView !== 'code' ? { '--thread-sidebar-width': `${(applicationView === 'thread' ? collapsedSidebars.thread : oxequerySidebarCollapsed) ? 48 : codeSidebarWidth}px` } as CSSProperties : { '--sidebar-w': `${codeSidebarWidth}px` } as CSSProperties}>
       <header className={cx('workbench-titlebar', titleBar.bar)} aria-label={t('app.workbench')}>
         <div className={titleBar.brand}><OxeLogo size={16} />{!IS_MAC && <Suspense fallback={null}><AppMenuBar context={{ actions: commandActions, applicationView, setApplicationView: selectMode, openSettings: () => { if (!isSettingsOpen) toggleSettings() }, addThreadProject: () => setThreadProjectOpen(true), openCommandMenu, openContainers: () => setContainersOpen(v => !v), version: appVersion }} /></Suspense>}</div>
         <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
@@ -888,13 +891,6 @@ export function App(): ReactElement {
           onExecute={dispatchSlashCommand}
         />
       ) : null}
-      {isMcpPanelOpen ? (
-        <McpPanelHost
-          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
-          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
-          onClose={closeMcpPanel}
-        />
-      ) : null}
       {containersOpen && !(applicationView === 'code' && activeWorkspace && !showFirstRun) ? <ContainersPanel onClose={() => setContainersOpen(false)} onOpenConversation={openContainerConversation} /> : null}
       {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
@@ -957,6 +953,13 @@ export function App(): ReactElement {
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
         /></Suspense>
+      ) : null}
+      {isMcpPanelOpen ? (
+        <McpPanelHost
+          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
+          onClose={closeMcpPanel}
+        />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
       {configuredAgent ? (

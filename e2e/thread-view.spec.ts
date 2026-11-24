@@ -8,7 +8,7 @@ import { recordThreadVisualAudit } from './helpers/thread-visual-audit'
 import { pressUntilValueChanges } from './helpers/pressUntilValueChanges'
 
 test('Thread UI preserves Code terminals and renders a structured conversation', async () => {
-  test.setTimeout(120000)
+  test.setTimeout(108000)
   const root = mkdtempSync(join(tmpdir(), 'oxespace-thread-ui-'))
   const repo = join(root, 'repo'); mkdirSync(repo)
   writeFileSync(join(repo, 'README.md'), '# Thread workbench fixture\n\nSearchable project content.\n')
@@ -153,6 +153,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       })
       ipcMain.handle('thread:send', (_event, _id, text) => {
         const thread = snapshot!.thread as Record<string, unknown>
+        if (text === 'Start') return
         if (text === 'Long command fixture') {
           thread.status = 'idle'
           snapshot!.events = [{ type: 'message', id: 'long-command-user', role: 'user', text },
@@ -349,12 +350,16 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('navigation', { name: 'Workspaces', exact: true })).toHaveCount(0)
     await expect(page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' })).toHaveCount(1)
     await expect(page.locator('.thread-navigation [data-ui="sidebar-header"]').getByRole('button', { name: 'New conversation', exact: true })).toHaveCount(1)
-    await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await expect(page.getByRole('dialog', { name: 'New conversation' })).toBeVisible()
-    await page.screenshot({ path: 'test-results/thread-new-dialog.png' })
-    await page.getByRole('radio', { name: /Codex/ }).check()
-    await expect(page.getByRole('radio', { name: /Codex/ })).toBeChecked()
-    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    const start = page.getByTestId('new-conversation')
+    const openDraft = async (provider: string, text: string, screenshot?: string, submit: 'enter' | 'send' = 'send') => {
+      await page.getByRole('button', { name: 'New conversation in repo' }).click(); await expect(start).toBeVisible()
+      if (screenshot) await page.screenshot({ path: screenshot })
+      await start.getByRole('button', { name: /^(Claude|Codex|Antigravity)$/ }).click(); await page.getByRole('menuitem', { name: provider, exact: true }).click()
+      await expect(start.getByRole('button', { name: provider, exact: true })).toBeVisible()
+      const opener = start.locator('[data-ui="composer"] textarea'); await opener.fill(text)
+      await (submit === 'enter' ? opener.press('Enter') : start.getByRole('button', { name: 'Send', exact: true }).click())
+    }
+    await openDraft('Codex', 'Start', 'test-results/thread-new-dialog.png', 'enter'); await expect(start).toBeHidden()
     const projectTree = page.locator('.thread-project-group').filter({ has: page.getByRole('button', { name: 'New conversation in repo' }) })
     await expect(projectTree.locator('.thread-project-name')).toHaveText('repo')
     await expect(projectTree.locator('.thread-project-count')).toHaveCount(0)
@@ -503,11 +508,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(failureCard).not.toHaveAttribute('open')
     await expect(native).toHaveCount(0)
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await page.getByRole('radio', { name: /Claude Code/ }).check()
-    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
-    await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Investigate authentication')
-    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await openDraft('Claude', 'Investigate authentication')
     const authCard = page.locator('[data-ui="failure-card"]')
     await expect(authCard.getByText('Reconnect your native agent account to continue.', { exact: true })).toBeVisible()
     await page.screenshot({ path: 'test-results/thread-auth-recovery.png' })
@@ -770,7 +771,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
     await app.evaluate(() => ((globalThis as Record<string, unknown>).finishThreadFixture as () => void)())
     await expect(page.getByRole('button', { name: 'Stop turn' })).toHaveCount(0)
-    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.setViewportSize({ width: 1640, height: 900 })
     const wideGeometry = await page.evaluate(() => {
       const view = document.querySelector('.thread-view')!.getBoundingClientRect()
       const column = document.querySelector('.thread-reading-column')!
@@ -786,7 +787,8 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
         composerCenterDelta: Math.abs((composer.left + composer.width / 2) - (view.left + view.width / 2))
       }
     })
-    expect(Math.abs(wideGeometry.readingWidth - 800)).toBeLessThanOrEqual(1)
+    // OXE-401: --measure-chat widened from 800px to 1080px
+    expect(Math.abs(wideGeometry.readingWidth - 1080)).toBeLessThanOrEqual(1)
     // One width for the conversation and the message box (VIS-10): they were 694 and 779 px.
     expect(Math.abs(wideGeometry.composerWidth - wideGeometry.readingWidth)).toBeLessThanOrEqual(1)
     expect(wideGeometry.viewWidth).toBeGreaterThan(wideGeometry.readingWidth)

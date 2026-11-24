@@ -405,7 +405,8 @@
     "steer": "Orientar o turno ativo",
     "steerTitle": "Enviar uma orientação ao turno ativo",
     "stop": "Parar o turno",
-    "stopTitle": "Parar o turno · Esc",
+    "stopTitle": "Parar o turno · Esc duas vezes",
+    "stopAgain": "Pressione Esc de novo para parar o turno",
     "stopShort": "Parar",
     "queue": "Pôr na fila",
     "queueTitle": "Pôr na fila · {{key}}",
@@ -643,6 +644,13 @@
     "keepAll": "Manter todos",
     "undoing": "Desfazendo",
     "undoAll": "Desfazer todos",
+    "undoAllTitle_one": "Desfazer {{count}} arquivo?",
+    "undoAllTitle_many": "Desfazer todos os {{count}} arquivos?",
+    "undoAllTitle_other": "Desfazer todos os {{count}} arquivos?",
+    "undoAllDescription_one": "Isso restaura {{count}} arquivo ao checkpoint anterior à edição do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_many": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_other": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllConfirm": "Desfazer todos",
     "review": "Revisar",
     "keep": "Manter {{path}}",
     "undo": "Desfazer {{path}}"
@@ -970,6 +978,13 @@
     "diagramBuilding": "Montando diagrama…",
     "diagramFailed": "Não foi possível desenhar o diagrama",
     "enlarge": "Ampliar",
+    "diagramTools": "Ferramentas do diagrama",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "zoomReset": "Zoom {{percent}}%, voltar a 100%",
+    "downloadSvg": "SVG",
+    "downloadPng": "PNG",
+    "exportFailed": "Não foi possível exportar o diagrama",
     "showCode": "Ver o código",
     "showDiagram": "Ver o diagrama",
     "alert": {
@@ -1394,6 +1409,11 @@
       "compactEmpty": "Ainda não há o que compactar."
     },
     "tools": {
+      "integrated": "OXESpace (Integrado)",
+      "integratedOn": "Ativo nesta sessão",
+      "integratedOff": "Não conectado",
+      "integratedGroups": "Grupos de ferramentas do OXESpace",
+      "configure": "Configurar ferramentas",
       "mcp": "Servidores MCP",
       "mcpUnknown": "O agente ainda não informou os servidores MCP. Eles aparecem quando a sessão começa.",
       "manage": "Gerenciar servidores MCP",
@@ -1649,7 +1669,23 @@
     "stopLabel": "Parar: {{label}}",
     "stopTitle": "Parar esta tarefa em segundo plano",
     "viewResult": "Ver resultado",
-    "instructions": "Instruções"
+    "instructions": "Instruções",
+    "result": {
+      "status": {
+        "done": "Concluído",
+        "failed": "Falhou",
+        "running": "Em execução"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Ver saída completa",
+      "showLess": "Mostrar menos",
+      "openConversation": "Abrir conversa",
+      "viewDetails": "Ver detalhes",
+      "runningSummary": "Trabalhando em segundo plano…",
+      "noOutput": "Nenhuma saída informada."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",
@@ -1718,6 +1754,9 @@
     "workedWaited": "Trabalhou {{worked}} · esperou por você {{waited}}"
   },
   "usage": {
+    "compact": "Compactar",
+    "compactTitle": "Executar /compact: resumir a conversa para liberar o contexto",
+    "compactFailed": "Não foi possível compactar a conversa",
     "planLabelSession": "{{percent}}% da sessão atual usados",
     "planLabelWeek": "{{percent}}% desta semana usados",
     "resetsIn": "{{label}} · renova em {{time}}",
@@ -2284,6 +2323,7 @@
       "allowOnce": "Permitir uma vez",
       "alwaysAllowEllipsis": "Sempre permitir…",
       "seeImpact": "Ver impacto",
+      "seeImpactHint": "Revisar impacto para aprovar ou negar",
       "copyExact": "Copiar o texto exato",
       "copyWhat": "Texto exato"
     },
@@ -2342,7 +2382,8 @@
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
       "goToPane": "Ir ao terminal",
-      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo.",
+      "reviewToApprove": "Revise o impacto para aprovar ou negar"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",

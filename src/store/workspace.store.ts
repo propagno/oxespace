@@ -4,6 +4,7 @@ import { isWorkspaceCreateRefusal } from '../../shared/types/workspace'
 import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
 import { optimistic } from './optimistic'
+import { usePaneLayoutStore } from './pane-layout.store'
 import { useUIStore } from './ui.store'
 
 /** Keeps the UI store's active pane aligned with the grid's focus when a workspace loads or switches. */
@@ -28,6 +29,8 @@ interface WorkspaceState {
   createWorkspace: (input: CreateWorkspaceInput) => Promise<Workspace>
   setActiveWorkspace: (id: string) => Promise<void>
   closeWorkspace: (id: string) => Promise<void>
+  /** OXE-367: the workspace's folder moved; main checks the new one as on create and the store takes the result. */
+  relinkWorkspace: (workspaceId: string, rootPath: string) => Promise<void>
   closePane: (id: string) => Promise<void>
   splitPane: (paneId: string, direction: 'vertical' | 'horizontal') => Promise<void>
   createPane: (workspaceId: string) => Promise<string>
@@ -179,6 +182,17 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set(withSaved(workspace))
   },
 
+  relinkWorkspace: async (workspaceId, rootPath) => {
+    const workspace = await window.oxe.workspace.relink({ workspaceId, rootPath })
+    if (isWorkspaceCreateRefusal(workspace)) {
+      // Nothing was written: say why in the interface language, as a refused create does.
+      const [{ messageKey, messageValues }, { i18n }] = await Promise.all([import('../../shared/messages'), import('../i18n')])
+      const tm = i18n.getFixedT(null, 'main') as unknown as (key: string, values: Record<string, string>) => string
+      throw new Error(tm(messageKey(workspace.message.code), messageValues(workspace.message, i18n.language)))
+    }
+    get().applyWorkspace(workspace)
+  },
+
   applyWorkspace: (workspace) => {
     set((state) => ({ workspaces: replaced(state.workspaces, workspace) }))
     if (workspace.id === get().activeWorkspaceId) syncActivePane(workspace)
@@ -279,7 +293,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     })
     await optimistic(set, get, (state) => ({ ...patch(state, change), error: null }), () => window.oxe.workspace.updateSettings(input), {
       rollbackMessage: i18n.t('code:workspace.settingsFailed'),
-      reconcile: (workspace, state) => ({ workspaces: replaced(state.workspaces, workspace) }),
+      reconcile: (workspace, state) => {
+        if (input.layoutPreset !== undefined && previous && input.layoutPreset !== previous.layoutPreset) {
+          usePaneLayoutStore.getState().resetFromPanes(workspace.id, workspace.panes)
+        }
+        return { workspaces: replaced(state.workspaces, workspace) }
+      },
       // Undo only the fields this change touched, so a concurrent update to the same workspace survives.
       revert: (state) => previous ? patch(state, Object.fromEntries(Object.keys(change).map((key) => [key, previous[key as keyof Workspace]]))) : {}
     })

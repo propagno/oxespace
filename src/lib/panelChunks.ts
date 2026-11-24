@@ -27,23 +27,35 @@ export const SHARED_PANEL_CHUNKS = {
 
 export type SharedPanelChunkId = keyof typeof SHARED_PANEL_CHUNKS
 
+/**
+ * OXE-309: a dock wrapper that statically imports a shared panel. When the wrapper arrives, that panel's module is
+ * already in memory, so its SHARED_PANEL_CHUNKS entry is resolved too (no download; a failure is retried on open) and
+ * the same panel opened later from OxeChat renders without a Suspense fallback.
+ */
+function warming<M>(load: () => Promise<M>, shared: SharedPanelChunkId) {
+  return chunk(() => load().then(module => {
+    SHARED_PANEL_CHUNKS[shared].load().catch(() => undefined)
+    return module
+  }))
+}
+
 export const WORKSPACE_PANEL_CHUNKS = {
-  background: chunk(() => import('../components/Workspace/WorkspaceBackgroundPanel')),
-  editor: chunk(() => import('../components/Workspace/WorkspaceEditorPanel')),
-  github: chunk(() => import('../components/Workspace/WorkspaceGitHubPanel')),
+  background: warming(() => import('../components/Workspace/WorkspaceBackgroundPanel'), 'background'),
+  editor: warming(() => import('../components/Workspace/WorkspaceEditorPanel'), 'files'),
+  github: warming(() => import('../components/Workspace/WorkspaceGitHubPanel'), 'git'),
   integration: chunk(() => import('../components/Workspace/WorkspaceIntegrationPanel')),
   review: chunk(() => import('../components/Workspace/WorkspaceReviewPanel')),
-  search: chunk(() => import('../components/Workspace/WorkspaceSearchPanel')),
-  containers: chunk(() => import('../components/Workspace/WorkspaceContainersPanel')),
-  webPreview: chunk(() => import('../components/Workspace/WorkspaceWebPreviewPanel')),
+  search: warming(() => import('../components/Workspace/WorkspaceSearchPanel'), 'search'),
+  containers: warming(() => import('../components/Workspace/WorkspaceContainersPanel'), 'containers'),
+  webPreview: warming(() => import('../components/Workspace/WorkspaceWebPreviewPanel'), 'webPreview'),
   worktree: chunk(() => import('../components/Workspace/WorkspaceWorktreePanel'))
 }
 
 export type WorkspacePanelChunkId = keyof typeof WORKSPACE_PANEL_CHUNKS
 
 /** Optional OxeCode panels and post-paint status chips loaded on demand via `lazyFrom` (never prefetched on boot). */
-export const WORKSPACE_HTTP_CALLS_PANEL_CHUNK = chunk(() => import('../components/Workspace/WorkspaceHttpCallsPanel'))
-export const WORKSPACE_ANDROID_PANEL_CHUNK = chunk(() => import('../components/Workspace/WorkspaceAndroidPanel'))
+export const WORKSPACE_HTTP_CALLS_PANEL_CHUNK = warming(() => import('../components/Workspace/WorkspaceHttpCallsPanel'), 'httpCalls')
+export const WORKSPACE_ANDROID_PANEL_CHUNK = warming(() => import('../components/Workspace/WorkspaceAndroidPanel'), 'android')
 export const INTEGRATIONS_STATUS_CHIPS_CHUNK = chunk(() => import('../components/Workspace/IntegrationsStatusChips'))
 
 /** Loads the given panels' chunks; a chunk that fails is retried on the next open. */

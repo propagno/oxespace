@@ -228,6 +228,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       reorder: (orderedIds) => ipc.invoke(IPC_CHANNELS.workspace.reorder, orderedIds) as Promise<Workspace[]>,
       updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
       pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
+      rootStatus: (id) => ipc.invoke(IPC_CHANNELS.workspace.rootStatus, id) as Promise<{ available: boolean }>,
+      relink: (input) => ipc.invoke(IPC_CHANNELS.workspace.relink, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
       shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,
       createGitHubTerminalPane: (workspaceId) =>
         ipc.invoke(IPC_CHANNELS.workspace.createGitHubTerminalPane, workspaceId) as Promise<{ id: string }>
@@ -549,6 +551,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
       captureElementFile: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElementFile, input) as Promise<{dataUrl:string;path:string|null} | null>,
       captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
+      captureSessionArtifact: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureSessionArtifact, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionArtifact>,
       close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
       revokeGrant: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.revokeGrant, input) as Promise<void>,
       setDevice: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setDevice, input) as Promise<void>,
@@ -572,7 +575,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       previewBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.previewBundle) as Promise<import('../../shared/types/diagnostics').DiagnosticsBundlePreview>,
       exportBundle: () => ipc.invoke(IPC_CHANNELS.diagnostics.exportBundle) as Promise<string | null>,
       analysisSummary: () => ipc.invoke(IPC_CHANNELS.diagnostics.analysisSummary) as Promise<string>,
-      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>
+      reportPerf: (batch) => ipc.invoke(IPC_CHANNELS.diagnostics.reportPerf, batch) as Promise<void>,
+      reportRendererError: (input) => ipc.invoke(IPC_CHANNELS.diagnostics.reportRendererError, input) as Promise<void>
     },
     policy: {
       get: (workspaceId) => ipc.invoke(IPC_CHANNELS.policy.get, workspaceId ?? null) as Promise<import('../../shared/policy').PolicyView>,
@@ -598,6 +602,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       installApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.installApk, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
+      stopEmulator: (input) => ipc.invoke(IPC_CHANNELS.androidActions.stopEmulator, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
       onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
       onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)

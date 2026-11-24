@@ -38,6 +38,9 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
 
     fun scanAgain() = flow.scanAgain()
 
+    /** OXE-363: Back or Cancel during pairing drops the attempt in flight and returns to the camera. */
+    fun cancel() = flow.cancel()
+
     /** A15: Android granted local network access; the held code goes on to the computer. */
     fun onLocalNetworkGranted() = flow.onLocalNetworkGranted()
 

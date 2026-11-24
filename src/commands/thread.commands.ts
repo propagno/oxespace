@@ -18,6 +18,8 @@ export interface ThreadCommandContext {
   projects: ThreadProjectSummary[]
   /** Brings Thread to the front before a command acts on it. */
   showThread: () => void
+  /** Leaves an open new-conversation draft so the chosen conversation or command is visible (OXC-3). */
+  leaveDraft?: () => void
   newThread: () => void
   newThreadIn: (projectId: string) => void
   addProject: () => void
@@ -30,7 +32,7 @@ const CATEGORY = 'OxeChat' as const
 function switchProject(ctx: ThreadCommandContext, projectId: string): void {
   const { threads, hiddenProjects, select } = useThreadStore.getState()
   const latest = navigableThreads([...threads], hiddenProjects).find(thread => thread.projectId === projectId)
-  if (latest) void select(latest.id)
+  if (latest) { ctx.leaveDraft?.(); void select(latest.id) }
   else ctx.newThreadIn(projectId)
 }
 
@@ -63,7 +65,7 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
   const slash = (id: string, text: string, icon: ContributedCommand['icon'], keywords: string[] = []): ContributedCommand => ({
     id: `thread.${id}`, ...commandText(CATEGORY, `thread.${id}`, { keywords: [text, ...keywords] }), icon, detail: text, disabled: !snapshot,
     // After the view switch, so the active conversation is mounted and listening.
-    run: inThread(() => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))))
+    run: inThread(() => { ctx.leaveDraft?.(); requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(THREAD_RUN_COMMAND_EVENT, { detail: { text } }))) })
   })
   return [
     { id: 'thread.new', ...commandText(CATEGORY, 'thread.new', { keywords: ['thread', 'chat', 'oxechat', 'start'] }), icon: MessageSquarePlus, shortcut: 'thread.new', run: inThread(ctx.newThread) },
@@ -78,7 +80,7 @@ export function buildThreadCommands(ctx: ThreadCommandContext): ContributedComma
     slash('events', '/events', ScrollText, ['log', 'debug']),
     slash('rules', '/rules', ListChecks, ['permissions', 'allow', 'deny']),
     { id: 'thread.undo-last-turn', ...commandText(CATEGORY, 'thread.undo-last-turn', { keywords: ['revert', 'restore', 'checkpoint', 'rewind'] }), icon: Undo2,
-      disabled: !snapshot || running || !finished, run: inThread(() => { if (snapshot) void undoLastTurn(snapshot) }) },
+      disabled: !snapshot || running || !finished, run: inThread(() => { if (snapshot) { ctx.leaveDraft?.(); void undoLastTurn(snapshot) } }) },
     { id: 'thread.accounts', ...commandText(CATEGORY, 'thread.accounts', { keywords: ['login', 'logout', 'claude', 'codex', 'account'] }), icon: UserRound,
       // Accounts are checked inside a project.
       disabled: ctx.projects.length === 0, run: inThread(ctx.openAccounts) }

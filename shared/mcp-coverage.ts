@@ -50,7 +50,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'code.workspace_admin': {
     label: 'Create, delete, reorder or switch workspaces; change their settings and panel layout',
     excluded: 'The person\'s layout and preferences. Deleting a workspace is never exposed.',
-    ipc: ['workspace.create', 'workspace.setActive', 'workspace.delete', 'workspace.reorder', 'workspace.pickFolder', 'workspace.updateSettings', 'workspace.shellProfiles',
+    ipc: ['workspace.create', 'workspace.setActive', 'workspace.delete', 'workspace.reorder', 'workspace.pickFolder', 'workspace.rootStatus', 'workspace.relink', 'workspace.updateSettings', 'workspace.shellProfiles',
       'workspace.update*State', 'workspace.splitPane', 'workspace.updatePaneType', 'workspace.updatePaneName', 'workspace.setPaneRootPath', 'workspace.createGitHubTerminalPane']
   },
   'code.panes': {
@@ -153,12 +153,21 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     // written plainly) skips the question and runs as write. Any other host asks first; other schemes, file: included, are refused.
     tools: { oxespace_open_web_preview: 'confirm', oxespace_preview_interact: 'write', oxespace_capture_web_preview: 'read' },
     ipc: ['browserPreview.session', 'browserPreview.mount', 'browserPreview.bounds', 'browserPreview.designMode', 'browserPreview.setZoom', 'browserPreview.reload',
-      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.close', 'browserPreview.setDevice']
+      'browserPreview.back', 'browserPreview.forward', 'browserPreview.captureElement', 'browserPreview.captureElementFile', 'browserPreview.captureSessionArtifact', 'browserPreview.close', 'browserPreview.setDevice']
   },
   'web_preview.access': { label: 'Let the preview reach external sites or end an agent browser grant', forbidden: 'Raises or revokes person-controlled access.', ipc: ['browserPreview.setAccess', 'browserPreview.revokeGrant'] },
   'android.screenshot': {
     label: 'Capture a screenshot of an Android device when Agents can see is on',
     tools: { oxespace_device_screenshot: 'read' }
+  },
+  'android.lifecycle': {
+    label: 'Android device lifecycle with explicit consent: start AVD, install workspace APK, launch app, tail logcat',
+    tools: {
+      oxespace_android_avd_start: 'confirm',
+      oxespace_android_apk_install: 'confirm',
+      oxespace_android_app_launch: 'confirm',
+      oxespace_android_logcat_tail: 'read'
+    }
   },
   'android.controls': {
     label: 'Android mirror window controls, input and the Agents can see switch',
@@ -424,7 +433,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'Whole-app paths and logs, and measuring only while the panel is open; the person exports or clears them.',
     ipc: ['diagnostics.getSnapshot', 'diagnostics.exportReport', 'diagnostics.reportInteractive', 'diagnostics.buildIssueReport', 'diagnostics.recordFirstAnswer',
       'diagnostics.watch', 'diagnostics.unwatch', 'diagnostics.clearIncidents', 'diagnostics.previewBundle', 'diagnostics.exportBundle', 'diagnostics.analysisSummary',
-      'diagnostics.reportPerf']
+      'diagnostics.reportPerf', 'diagnostics.reportRendererError']
   },
   'diagnostics.read': {
     label: 'Summary of the incident journal and a snapshot of the app',

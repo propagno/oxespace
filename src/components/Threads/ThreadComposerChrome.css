@@ -4,7 +4,10 @@
 .thread-composer[data-ui='composer'] { border-radius: var(--radius-lg); }
 .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); flex-wrap: nowrap; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
+/* OXE-338: the quiet line between the two Escapes that stop a running turn. */
+.thread-composer .thread-stop-hint { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-composer-right { display: flex; align-items: center; gap: var(--space-1-5); margin-left: auto; min-width: 0; flex: 0 1 auto; }
+.thread-composer .thread-configuration { min-width: 0; flex: 0 1 auto; }
 .thread-composer .thread-context-trigger { flex: none; }
 
 /* Agent | Plan: a small segmented control; the active side is lifted, Plan uses warning tint. */
@@ -33,21 +36,50 @@
 .thread-composer .thread-chip[data-pending] { border-style: dashed; border-color: currentColor; }
 .thread-composer .thread-config-trigger[data-state='open'] { outline: 1px solid var(--focus-ring); outline-offset: 0; }
 
+/* Medium container (<= 560 px): collapse Context to icon-only and let permissions/model chips shrink so Stop/Send never overflow. */
+@container thread-composer (max-width: 560px) {
+  .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1); }
+  .thread-composer-right { gap: var(--space-1); }
+  .thread-composer .thread-context-trigger { padding: 0 var(--space-1-5); min-width: var(--control-sm); }
+  .thread-composer .thread-context-label { display: none; }
+  .thread-composer .thread-chip.is-permissions { flex: 0 1 auto; min-width: var(--control-sm); overflow: hidden; }
+  .thread-composer .thread-chip.is-permissions .thread-chip-text { max-width: 10ch; }
+  .thread-composer .thread-chip.is-model .thread-chip-text { max-width: 14ch; }
+  .thread-composer .thread-configuration { overflow: hidden; }
+}
+
 /* Narrow container (< 420 px): tighten padding and gaps so mode-switch, Context, Turn settings and Send/Stop fit without horizontal scroll. */
 @container thread-composer (max-width: 419px) {
   .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1); }
   .thread-composer-right { gap: var(--space-1); }
   .thread-composer .thread-mode-toggle button { padding: 0 var(--space-1-5); }
   .thread-composer .thread-context-trigger { padding: 0 var(--space-1-5); }
+  .thread-composer .thread-chip.is-turn-settings { padding: 0 var(--space-1-5); }
+  .thread-composer .thread-chip.is-turn-settings .thread-chip-text { max-width: 14ch; }
 }
 .thread-composer footer[data-width='narrow'] { gap: var(--space-1); }
 .thread-composer footer[data-width='narrow'] .thread-composer-right { gap: var(--space-1); }
 .thread-composer footer[data-width='narrow'] .thread-mode-toggle button { padding: 0 var(--space-1-5); }
 .thread-composer footer[data-width='narrow'] .thread-context-trigger { padding: 0 var(--space-1-5); }
+.thread-composer footer[data-width='narrow'] .thread-chip.is-turn-settings { padding: 0 var(--space-1-5); }
+.thread-composer footer[data-width='narrow'] .thread-chip.is-turn-settings .thread-chip-text { max-width: 14ch; }
 
-/* One line per option, as in a menu. The explanation stays for screen readers. */
+/* Show model and permission descriptions as a subtle secondary line below the option title. */
+.thread-config-options button > span { min-width: 0; text-align: left; }
 .thread-config-options button small {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  display: block;
+  margin-top: var(--space-0-5);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--tx-muted);
+  white-space: normal;
+  text-align: left;
+}
+/* Subtle top divider before the Effort section (and subsequent sections) inside config popovers. */
+.thread-config-options + .thread-config-section-label {
+  border-top: 1px solid var(--bd-subtle);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 /* Text-free usage ring: square icon-button. */
@@ -62,14 +94,24 @@
 
 /* Working-set bar (AG-10 §2.3, OXE-172): joined to the top of the composer card, --bar-sm at rest. */
 .thread-composer [data-ui='working-set'] { margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) var(--space-2); border: 0; border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0; background: var(--surface-sunken); height: var(--bar-sm); min-height: var(--bar-sm); overflow: hidden; }
-.thread-composer [data-ui='working-set'][data-open='true'] { height: auto; overflow: visible; }
+.thread-composer [data-ui='working-set'][data-open='true'],
+.thread-composer [data-ui='working-set'][data-has-error='true'],
+.thread-composer [data-ui='working-set']:has([role='alert']) { height: auto; overflow: visible; }
 .thread-composer [data-ui='working-set'] .thread-dock-changes-header { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
-.thread-composer [data-ui='working-set'] button.thread-dock-changes-toggle { height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-1); border: 0; }
+.thread-composer [data-ui='working-set'] button.thread-dock-changes-toggle { flex: 1 1 auto; min-width: 0; overflow: hidden; height: var(--bar-sm); min-height: var(--bar-sm); gap: var(--space-1-5); padding: 0 var(--space-1); border: 0; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
 .thread-composer [data-ui='working-set'] .thread-dock-changes-chevron { margin-left: 0; transform: rotate(-90deg); }
 .thread-composer [data-ui='working-set'][data-open='true'] .thread-dock-changes-chevron { transform: rotate(0deg); }
-.thread-composer [data-ui='working-set'] .thread-dock-changes-actions { gap: var(--space-1); }
-.thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { height: var(--bar-sm); min-height: var(--bar-sm); padding: 0 var(--space-1-5); border: 0; }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions { flex-shrink: 0; gap: var(--space-1); }
+.thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { flex-shrink: 0; white-space: nowrap; height: var(--bar-sm); min-height: var(--bar-sm); padding: 0 var(--space-1-5); border: 0; }
 .thread-composer [data-ui='working-set'] ul { padding: var(--space-1) var(--space-2) var(--space-1-5); border-bottom: 1px solid var(--bd-subtle, var(--bd-default)); }
+.thread-composer [data-ui='working-set'] li button.thread-dock-changes-path { width: auto; flex: 1 1 auto; min-width: 0; justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--tx-primary); height: auto; min-height: var(--control-sm); padding: 0 var(--space-1); }
+@container thread-composer (max-width: 480px) {
+  .thread-composer [data-ui='working-set'] .thread-dock-changes-header { gap: var(--space-1); padding: 0 var(--space-1-5); }
+  .thread-composer [data-ui='working-set'] .thread-dock-changes-actions { gap: var(--space-0-5); }
+  .thread-composer [data-ui='working-set'] .thread-dock-changes-actions button { padding: 0 var(--space-1); }
+  .thread-composer [data-ui='working-set'] .thread-dock-changes-action-label { display: none; }
+}
 .thread-working-set-stats { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; font-family: var(--font-mono); font-size: var(--fs-xs); }
 .thread-working-set-add { color: var(--intent-success-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .thread-working-set-del { color: var(--intent-danger-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }

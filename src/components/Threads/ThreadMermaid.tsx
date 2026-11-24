@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import DOMPurify from 'dompurify'
-import { Check, Code2, Copy, Maximize2, Workflow } from 'lucide-react'
+import { Check, Code2, Copy, Download, Maximize2, Workflow, ZoomIn, ZoomOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { currentMode, onModeChange, type ColorMode } from '../../design/mode'
-import { Button, Dialog } from '../../ui'
+import { Button, Dialog, IconButton } from '../../ui'
+import { toast } from '../../ui/Toast'
 
 type Mermaid = typeof import('mermaid').default
 let mermaid: Mermaid | null = null
@@ -124,7 +125,78 @@ export function MermaidDiagram({ code, streaming = false }: { code: string; stre
       ? <div className="thread-diagram" role="img" aria-label={t('markdown.diagram')} dangerouslySetInnerHTML={{ __html: svg }} />
       : <pre><code>{code}</code></pre>}
     {enlarged && svg !== null && <Dialog title={t('markdown.diagram')} size="xl" onClose={() => setEnlarged(false)} returnFocusTo={() => enlargeButton.current}>
-      <div className="thread-diagram thread-diagram-enlarged" role="img" aria-label={t('markdown.diagram')} dangerouslySetInnerHTML={{ __html: svg }} />
+      <MermaidEnlarged svg={svg} />
     </Dialog>}
+  </div>
+}
+
+const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]
+
+function download(name: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+/** The drawing's size in CSS pixels, from its width/height or its viewBox. */
+function svgSize(svg: string): { width: number; height: number } {
+  const element = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
+  const box = (element.getAttribute('viewBox') ?? '').split(/[\s,]+/).map(Number)
+  // Mermaid writes width="100%" and the real size in the viewBox; a size in percent says nothing here.
+  const read = (name: string): number => { const raw = element.getAttribute(name) ?? ''; const value = parseFloat(raw); return raw.trim().endsWith('%') || !Number.isFinite(value) ? 0 : value }
+  return { width: box[2] > 0 ? box[2] : read('width') || 800, height: box[3] > 0 ? box[3] : read('height') || 600 }
+}
+
+/**
+ * The Enlarge dialog's viewer (OXE-379): zoom (buttons, Ctrl+wheel, + − 0), pan by dragging, and the drawing as SVG or
+ * PNG. It shows the same sanitized drawing; the PNG is drawn from it at twice its size.
+ */
+export function MermaidEnlarged({ svg }: { svg: string }): ReactElement {
+  const { t } = useTranslation('thread')
+  const [step, setStep] = useState(ZOOM_STEPS.indexOf(1))
+  const view = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+  const zoom = ZOOM_STEPS[step]
+  const natural = useMemo(() => svgSize(svg), [svg])
+  // Mermaid caps its drawing with an inline max-width at its own size; here the canvas sets the size, zoomed.
+  useLayoutEffect(() => { view.current?.querySelector('svg')?.style.removeProperty('max-width') }, [svg])
+  const zoomBy = (delta: number): void => setStep(current => Math.max(0, Math.min(ZOOM_STEPS.length - 1, current + delta)))
+  const exportPng = (): void => {
+    const { width, height } = natural
+    const image = new Image()
+    const failed = (): void => { toast({ intent: 'danger', title: t('markdown.exportFailed') }) }
+    image.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(width * 2)
+      canvas.height = Math.round(height * 2)
+      const context = canvas.getContext('2d')
+      if (!context) { failed(); return }
+      context.scale(2, 2)
+      context.drawImage(image, 0, 0, width, height)
+      canvas.toBlob(blob => { if (blob) download('diagram.png', blob); else failed() }, 'image/png')
+    }
+    image.onerror = failed
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+  }
+  return <div className="thread-diagram-viewer">
+    <div className="thread-diagram-viewer-toolbar" role="toolbar" aria-label={t('markdown.diagramTools')}>
+      <IconButton size="sm" variant="ghost" label={t('markdown.zoomOut')} icon={<ZoomOut size={14} aria-hidden="true" />} disabled={step === 0} onClick={() => zoomBy(-1)} />
+      <Button size="sm" variant="ghost" aria-label={t('markdown.zoomReset', { percent: Math.round(zoom * 100) })} onClick={() => setStep(ZOOM_STEPS.indexOf(1))}>{`${Math.round(zoom * 100)}%`}</Button>
+      <IconButton size="sm" variant="ghost" label={t('markdown.zoomIn')} icon={<ZoomIn size={14} aria-hidden="true" />} disabled={step === ZOOM_STEPS.length - 1} onClick={() => zoomBy(1)} />
+      <span className="thread-diagram-viewer-spacer" />
+      <Button size="sm" variant="ghost" icon={<Download size={12} aria-hidden="true" />} onClick={() => download('diagram.svg', new Blob([svg], { type: 'image/svg+xml' }))}>{t('markdown.downloadSvg')}</Button>
+      <Button size="sm" variant="ghost" icon={<Download size={12} aria-hidden="true" />} onClick={exportPng}>{t('markdown.downloadPng')}</Button>
+    </div>
+    <div ref={view} className="thread-diagram thread-diagram-enlarged" role="img" aria-label={t('markdown.diagram')} tabIndex={0} data-zoom={zoom}
+      onWheel={event => { if (!event.ctrlKey) return; event.preventDefault(); zoomBy(event.deltaY < 0 ? 1 : -1) }}
+      onKeyDown={event => { if (event.key === '+' || event.key === '=') zoomBy(1); else if (event.key === '-') zoomBy(-1); else if (event.key === '0') setStep(ZOOM_STEPS.indexOf(1)) }}
+      onPointerDown={event => { const node = view.current; if (!node || event.button !== 0) return; drag.current = { x: event.clientX, y: event.clientY, left: node.scrollLeft, top: node.scrollTop }; node.setPointerCapture?.(event.pointerId) }}
+      onPointerMove={event => { const node = view.current, start = drag.current; if (!node || !start) return; node.scrollLeft = start.left - (event.clientX - start.x); node.scrollTop = start.top - (event.clientY - start.y) }}
+      onPointerUp={() => { drag.current = null }} onPointerCancel={() => { drag.current = null }}>
+      <div className="thread-diagram-canvas" style={{ width: `${Math.round(natural.width * zoom)}px` }} dangerouslySetInnerHTML={{ __html: svg }} />
+    </div>
   </div>
 }
