@@ -197,6 +197,74 @@ jobs:
           # High and critical advisories block; lower ones are listed in the job summary.
           fail-on-severity: high
 
+  # Origin gate (OXE-140, oxe.config.json): every pull request commit since origin.since must carry a traceable
+  # origin trailer (OXE-Task+OXE-Run or OXE-Quick+OXE-Card) or match origin.exempt in oxe.config.json.
+  # Runs oxe-cc 1.22.0 from propagno/oxe-build (pinned SHA) until oxe-cc@1.22.0 is published on npm.
+  check-origin:
+    name: Check commit origin
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          path: repo
+          persist-credentials: false
+
+      - name: Checkout oxe-cc (1.22.0)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: propagno/oxe-build
+          ref: f9508df6d6b257bc9b48ffe3985696a48a8fe7e3 # release/1.22.0
+          path: oxe-build
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Check commit origin trailers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/check-origin.json"
+          set +e
+          node oxe-build/bin/oxe-cc.js ship check-origin "$PR_NUMBER" --dir repo --json > "$out"
+          status=$?
+          set -e
+          cat "$out"
+          node - "$out" "$status" <<'EOF'
+          const fs = require('fs')
+          const [file, rawStatus] = process.argv.slice(2)
+          const status = Number(rawStatus)
+          let report = null
+          try { report = JSON.parse(fs.readFileSync(file, 'utf8')) } catch {}
+          if (!report) {
+            console.log(`::error title=Check commit origin failed::oxe-cc exited ${status} without JSON output`)
+            process.exit(status || 1)
+          }
+          for (const p of report.config_problems || []) {
+            console.log(`::error title=Invalid origin config::${p}`)
+          }
+          for (const v of report.violations || []) {
+            const sha = String(v.sha || '').slice(0, 12)
+            console.log(`::error title=Commit missing origin (${sha})::${sha} ${v.subject || ''} — ${v.reason || 'missing OXE-Task+OXE-Run or OXE-Quick+OXE-Card'}`)
+          }
+          if (!report.ok || status !== 0) process.exit(1)
+          console.log(`Origin verified for ${report.commits} commit(s) in PR #${report.pr}`)
+          EOF
+
   # Stage 1, the fast signal (Linux only, about 6 minutes): plan, audits, typecheck, lint with the file-size
   # guard, the migration-numbering guard, and the build with its bundle budgets. These checks do not depend on
   # the OS (the bundle budgets run again on both platforms in e2e, where the build is repeated). When this job
@@ -1483,7 +1551,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, quick, unit, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, check-origin, quick, unit, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1556,7 +1624,7 @@ jobs:
           // files outside docs/, .claude/ and *.md (#747, a SIGPIPE turned code=true into false).
           const nondoc = Number(needs.changes.outputs?.nondoc ?? '0')
           if (pr && !code && nondoc > 0) problems.push(`changes said docs-only (code=false) but counted ${nondoc} file(s) outside docs/, .claude/ and *.md`)
-          const required = ['changes', ...(deps ? ['dependency-review'] : [])]
+          const required = ['changes', ...(deps ? ['dependency-review'] : []), ...(pr ? ['check-origin'] : [])]
           if (!pr) required.push('quick', 'unit', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           if (pr && a11y) required.push('a11y')
