@@ -11,7 +11,7 @@ import { resolveRequestedRef, useChangesRequestStore } from '../../store/changes
 import './ChangesPanel.css'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Skeleton, Spinner } from '../../ui'
+import { Button, ConfirmDialog, TextField, EmptyState, ErrorState, LoadingState, Menu, Spinner } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MonacoDiff = lazy(() => import('./MonacoDiff'))
@@ -324,8 +324,9 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       onCancel={() => setDiscardFor(null)} onConfirm={() => { clearComments(workspaceId); setDiscardFor(null) }} />}
     <div className="changes-body">
       <div className="changes-diff">
-        {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
-        {!summary && !error && (loading || !ready) ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
+        {/* OXE-365: show a loading state while reading branches or fetching the diff so 'No changes' never flashes early. */}
+        {!error && ((!summary && (!ready || loading || Boolean(effectiveBase))) || (loading && !selected))
+          ? <div className="changes-state" data-testid="changes-loading"><LoadingState label={t('changes.loading')} /></div>
           : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">
