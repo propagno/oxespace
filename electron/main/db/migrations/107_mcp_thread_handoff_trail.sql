@@ -20,4 +20,4 @@ BEGIN
   SELECT RAISE(ABORT, 'mcp_thread_handoff_trail is append-only');
 END;
 
-PRAGMA user_version = 106;
+PRAGMA user_version = 107;
