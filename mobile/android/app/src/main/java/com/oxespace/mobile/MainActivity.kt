@@ -192,6 +192,7 @@ class MainActivity : ComponentActivity() {
                     version = BuildConfig.VERSION_NAME,
                     onEnterAddress = { settingsOpen = false; askingAddress = true },
                     onUnpair = { settingsOpen = false; session.unpair() },
+                    onVpnChange = { session.onVpnPreferenceChanged() },
                     onBack = { settingsOpen = false },
                 )
             }

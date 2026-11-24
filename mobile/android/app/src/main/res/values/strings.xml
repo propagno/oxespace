@@ -257,6 +257,8 @@
     <string name="settings_answers_title">Answers</string>
     <string name="settings_back">Back</string>
     <string name="settings_cant_connect_title">Can\'t connect?</string>
+    <string name="settings_cant_connect_vpn_body">Allow Tailscale or WireGuard (100.64.0.0/10) when a VPN is active on this phone. Off by default.</string>
+    <string name="settings_cant_connect_vpn_title">Connect over a VPN</string>
     <string name="settings_computer_paired">paired %1$s</string>
     <string name="settings_computer_title">Computer</string>
     <string name="settings_computer_unpair">Unpair this phone</string>

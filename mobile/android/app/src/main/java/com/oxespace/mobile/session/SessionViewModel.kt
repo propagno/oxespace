@@ -28,4 +28,5 @@ class SessionViewModel(application: Application) : AndroidViewModel(application)
     fun retry() = core.retry()
     fun unpair() = core.unpair()
     fun setManualHost(host: String): Boolean = core.setManualHost(host)
+    fun onVpnPreferenceChanged() = core.onVpnPreferenceChanged()
 }

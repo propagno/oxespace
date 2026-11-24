@@ -483,7 +483,9 @@
       "criticalBody": "Permitir libera depois de {{seconds, number}} s."
     },
     "cantConnect": {
-      "title": "Não consegue conectar?"
+      "title": "Não consegue conectar?",
+      "vpnTitle": "Conectar por VPN",
+      "vpnBody": "Permite Tailscale ou WireGuard (100.64.0.0/10) quando uma VPN estiver ativa neste celular. Desligado por padrão."
     },
     "typing": {
       "title": "Digitação nos terminais"

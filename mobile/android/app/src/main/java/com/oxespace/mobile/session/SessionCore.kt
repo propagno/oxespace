@@ -6,6 +6,7 @@ import com.oxespace.mobile.notify.AlertWatcher
 import com.oxespace.mobile.notify.Notifications
 import com.oxespace.mobile.pairing.AndroidKeystoreDeviceKeys
 import com.oxespace.mobile.pairing.PreferencesPairedDesktopStore
+import com.oxespace.mobile.protocol.pairing.LanAddress
 import com.oxespace.mobile.protocol.session.RemoteConnection
 import com.oxespace.mobile.settings.PhonePreferences
 import com.oxespace.mobile.settings.filterAlerts
@@ -26,12 +27,11 @@ class SessionCore(context: Context) {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
-    private val network = NetworkMonitor(app)
+    /** The Settings switches, from the file the Settings screen writes; read at each change, so a flip applies to the next alert or reconnect. */
+    private val prefs = PhonePreferences(SharedPreferenceStore(app.getSharedPreferences("phone-prefs", Context.MODE_PRIVATE)))
+    private val network = NetworkMonitor(app, vpnAllowed = { prefs.connectOverVpn })
     private val alerts = AlertWatcher()
     private val store = PreferencesPairedDesktopStore(app)
-
-    /** The Settings switches, from the file the Settings screen writes; read at each change, so a flip applies to the next alert. */
-    private val prefs = PhonePreferences(SharedPreferenceStore(app.getSharedPreferences("phone-prefs", Context.MODE_PRIVATE)))
 
     val notifications = Notifications(app).also { it.createChannels() }
     val live = LiveRepository()
@@ -39,8 +39,9 @@ class SessionCore(context: Context) {
         scope = scope,
         store = store,
         keysFor = { alias -> AndroidKeystoreDeviceKeys(app, alias) },
-        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler, streams = live.streams) },
+        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler, hostAllowed = ::isHostAllowed, streams = live.streams) },
         onLan = network.onLan,
+        hostAllowed = ::isHostAllowed,
     )
 
     val status: StateFlow<DesktopStatus> = controller.status
@@ -68,6 +69,15 @@ class SessionCore(context: Context) {
     fun retry() = controller.retry()
     fun resume() = controller.resume()
     fun setManualHost(host: String): Boolean = controller.setManualHost(host)
+
+    /** OXE-383: private LAN always; 100.64/10 only with "Connect over a VPN" on and TRANSPORT_VPN active. */
+    fun isHostAllowed(host: String): Boolean = LanAddress.isReachable(host, vpnAllowed = prefs.connectOverVpn, onVpn = network.onVpn.value)
+
+    /** OXE-383: re-evaluates network reachability after "Connect over a VPN" is toggled; drops active link if turned off. */
+    fun onVpnPreferenceChanged() {
+        network.refresh()
+        if (!prefs.connectOverVpn) controller.retry()
+    }
 
     /** The person chose Disconnect: no session until the app is opened again. */
     fun disconnect() = controller.stop()

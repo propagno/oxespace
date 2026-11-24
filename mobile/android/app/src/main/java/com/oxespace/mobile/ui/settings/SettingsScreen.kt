@@ -109,9 +109,11 @@ fun SettingsScreen(
     version: String? = null,
     onEnterAddress: (() -> Unit)? = null,
     onUnpair: (() -> Unit)? = null,
+    onVpnChange: ((Boolean) -> Unit)? = null,
     onBack: () -> Unit,
 ) {
     var theme by remember { mutableStateOf(preferences.theme) }
+    var connectOverVpn by remember { mutableStateOf(preferences.connectOverVpn) }
     val context = LocalContext.current
     var textSize by remember { mutableStateOf(terminalTextSize(readTextSize(context))) }
     var confirmingUnpair by remember { mutableStateOf(false) }
@@ -236,25 +238,49 @@ fun SettingsScreen(
                     }
                 }
                 SettingsDestination.CANT_CONNECT -> {
-                    SettingsCard {
-                        Text(
-                            stringResource(R.string.settings_about_same_wifi),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Oxe.colors.textSecondary,
-                            modifier = Modifier.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
-                        )
-                        if (onEnterAddress != null) {
-                            SettingsRow(
-                                title = stringResource(R.string.home_enter_address),
-                                modifier = Modifier.clickable(role = Role.Button, onClick = onEnterAddress),
-                                leading = { RowIcon(OxeIcons.Monitor) },
-                                trailing = { Chevron() },
-                            )
-                        }
-                    }
+                    CantConnectSettings(
+                        connectOverVpn = connectOverVpn,
+                        onEnterAddress = onEnterAddress,
+                        onVpnCheckedChange = { value ->
+                            connectOverVpn = value
+                            preferences.connectOverVpn = value
+                            onVpnChange?.invoke(value)
+                        },
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun CantConnectSettings(
+    connectOverVpn: Boolean,
+    onEnterAddress: (() -> Unit)?,
+    onVpnCheckedChange: (Boolean) -> Unit,
+) {
+    SettingsCard {
+        Text(
+            stringResource(R.string.settings_about_same_wifi),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Oxe.colors.textSecondary,
+            modifier = Modifier.padding(horizontal = OxeSpace.space4, vertical = OxeSpace.space3),
+        )
+        if (onEnterAddress != null) {
+            SettingsRow(
+                title = stringResource(R.string.home_enter_address),
+                modifier = Modifier.clickable(role = Role.Button, onClick = onEnterAddress),
+                leading = { RowIcon(OxeIcons.Monitor) },
+                trailing = { Chevron() },
+            )
+        }
+        SettingsRow(
+            title = stringResource(R.string.settings_cant_connect_vpn_title),
+            text = stringResource(R.string.settings_cant_connect_vpn_body),
+            checked = connectOverVpn,
+            onCheckedChange = onVpnCheckedChange,
+            trailing = { OxeSwitch(connectOverVpn) },
+        )
     }
 }
 

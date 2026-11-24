@@ -470,7 +470,9 @@
       "criticalBody": "Allow unlocks after {{seconds, number}} s."
     },
     "cantConnect": {
-      "title": "Can't connect?"
+      "title": "Can't connect?",
+      "vpnTitle": "Connect over a VPN",
+      "vpnBody": "Allow Tailscale or WireGuard (100.64.0.0/10) when a VPN is active on this phone. Off by default."
     },
     "typing": {
       "title": "Typing in terminals"
