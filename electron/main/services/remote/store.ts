@@ -26,7 +26,7 @@ export interface GatewaySettings {
 }
 
 export type RemoteAuditAction = 'enable' | 'disable' | 'pairing-start' | 'pairing-cancel' | 'pairing' | 'revoke' | 'rename' | 'desktop-name' | 'auth-failure' | 'certificate'
-  | 'command' | 'phone-write' | 'phone-hidden'
+  | 'command' | 'phone-write' | 'phone-hidden' | 'vpn'
 
 export interface RemoteAuditRecord {
   action: RemoteAuditAction

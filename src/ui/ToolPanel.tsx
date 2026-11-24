@@ -1,4 +1,5 @@
 import type { HTMLAttributes, ReactElement, ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { cx } from './cx'
 import { useModalSurface } from './useModalSurface'
 import styles from './ToolPanel.module.css'
@@ -23,10 +24,10 @@ export interface ToolPanelProps extends Omit<HTMLAttributes<HTMLElement>, 'role'
  */
 export function ToolPanel({ label, onClose, onEscape, className, children, toasts = false, ...rest }: ToolPanelProps): ReactElement {
   const surface = useModalSurface<HTMLElement>(onEscape ?? onClose)
-  return <div className={styles.scrim} role="presentation" onMouseDown={onClose}>
+  return createPortal(<div className={styles.scrim} role="presentation" onMouseDown={onClose}>
     <section className={cx(styles.panel, className)} role="dialog" aria-modal="true" aria-label={label} {...surface} {...rest} onMouseDown={event => event.stopPropagation()}>
       {children}
       {toasts ? <Toaster inModal /> : null}
     </section>
-  </div>
+  </div>, document.body)
 }
