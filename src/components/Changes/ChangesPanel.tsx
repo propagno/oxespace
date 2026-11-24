@@ -345,8 +345,9 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       onCancel={() => setDiscardFor(null)} onConfirm={() => { clearComments(workspaceId); setDiscardFor(null) }} />}
     <div className="changes-body">
       <div className="changes-diff">
-        {/* On its way: reading the branches (not ready) or the first diff. Never 'No changes' before the first read. */}
-        {!summary && !error && (loading || !ready) ? <Skeleton lines={6} label={t('changes.loading')} delay={300} />
+        {/* OXE-365 / BRD-15: show a skeleton while reading branches or fetching the diff so 'No changes' never flashes early. */}
+        {!error && ((!summary && (!ready || loading || Boolean(effectiveBase))) || (loading && !selected))
+          ? <div data-testid="changes-loading" role="status" aria-busy="true" aria-label={t('changes.loading')}><Skeleton lines={6} decorative delay={300} /></div>
           : !selected ? <div className="changes-state"><EmptyState icon={<FileDiff size={16} />} title={summary?.files.length ? t('changes.noMatch') : t('changes.none')}>{summary?.files.length ? t('changes.noMatchHint') : t('changes.noneHint', { base: effectiveBase ?? t('changes.theBase') })}</EmptyState></div>
           : <>
             <div className="changes-file-header">

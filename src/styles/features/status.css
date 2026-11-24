@@ -104,8 +104,6 @@
 
 /* The sidebar row's state line, in the attention amber (--attn-fg). */
 .pane-row-preview.is-decision { color: var(--attn-fg); font-weight: 600; }
-/* Beside the row's name, visible in the compact layout too. */
-.pane-row-decision-mark { display: inline-flex; align-items: center; margin-inline-start: var(--space-1); flex-shrink: 0; color: var(--attn-fg); }
 
 
 /* Consolidated integration control. Five equal-looking topbar chips competed
