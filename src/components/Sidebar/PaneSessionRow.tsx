@@ -184,7 +184,7 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   return (
     <>
       <SidebarRow
-        lead={<StatusSignal state={SIGNAL[display.statusTone] ?? 'unconfirmed'} label={toneLabel} size={12} />}
+        lead={<StatusSignal state={SIGNAL[display.statusTone] ?? 'unconfirmed'} label={toneLabel} size={12} data-testid={needsDecision ? 'pane-row-decision-mark' : undefined} />}
         title={editing ? (
           <input
             ref={inputRef}

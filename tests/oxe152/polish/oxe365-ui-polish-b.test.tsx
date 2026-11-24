@@ -119,7 +119,10 @@ describe('OXE-365 (Part B) · UI/UX polish', () => {
 
     const row = container.querySelector('[data-testid="pane-session-row"]') as HTMLElement
     expect(row.querySelectorAll('[data-ui="status-signal"][data-state="needs-you"]')).toHaveLength(1)
-    expect(screen.queryByTestId('pane-row-decision-mark')).toBeNull()
+    const mark = screen.getByTestId('pane-row-decision-mark')
+    expect(mark).toBeVisible()
+    expect(mark).toHaveAttribute('data-ui', 'status-signal')
+    expect(mark).toHaveAttribute('data-state', 'needs-you')
   })
 
   test('3. ChangesPanel renders a loading state while git diff is pending instead of flashing "No changes"', async () => {

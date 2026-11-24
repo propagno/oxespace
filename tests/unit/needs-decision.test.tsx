@@ -79,8 +79,8 @@ describe('the sidebar row and the pane header', () => {
     expect(done).toHaveTextContent('finished')
     expect(blocked.querySelectorAll('[data-ui="status-signal"][data-state="needs-you"]')).toHaveLength(1)
     expect(done.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).toBeNull()
-    // OXE-365: the lead StatusSignal already carries both shape and amber color; no duplicate mark beside the name.
-    expect(within(blocked).queryByTestId('pane-row-decision-mark')).toBeNull()
+    // OXE-365: the lead StatusSignal is the single amber decision mark (no duplicate mark beside the name).
+    expect(within(blocked).getByTestId('pane-row-decision-mark')).toBeVisible()
     expect(within(done).queryByTestId('pane-row-decision-mark')).toBeNull()
     expect(blocked).toHaveTextContent("needs you, Reported by the agent's hooks")
     expect(within(blocked).getByTestId('pane-row-status')).toHaveAttribute('title', "Needs your approval or answer · Reported by the agent's hooks")
