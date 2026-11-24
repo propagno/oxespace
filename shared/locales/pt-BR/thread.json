@@ -2299,6 +2299,7 @@
       "allowOnce": "Permitir uma vez",
       "alwaysAllowEllipsis": "Sempre permitir…",
       "seeImpact": "Ver impacto",
+      "seeImpactHint": "Revisar impacto para aprovar ou negar",
       "copyExact": "Copiar o texto exato",
       "copyWhat": "Texto exato"
     },
@@ -2357,7 +2358,8 @@
       "deny": "Negar",
       "paneWaiting": "Esperando você no terminal",
       "goToPane": "Ir ao terminal",
-      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo."
+      "respondFailed": "Não foi possível enviar a sua resposta. Tente de novo.",
+      "reviewToApprove": "Revise o impacto para aprovar ou negar"
     },
     "preview": {
       "context": "{{agent}} · {{conversation}}",
