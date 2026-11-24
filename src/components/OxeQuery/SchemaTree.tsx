@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type CSSProperties } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactElement, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, Copy, FileCode2, Pin, PinOff, Play, Plus, RefreshCw, Search, Server, Table } from 'lucide-react'
 import { AnchoredMenu, IconButton, type MenuEntry } from '../../ui'
@@ -66,6 +66,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   const [hits, setHits] = useState<{ query: string; hits: SqlSearchHit[]; truncated: boolean } | null>(null)
   const [error, setError] = useState('')
   const [focusIndex, setFocusIndex] = useState(0)
+  // The tree's element, found by id where a menu gives the focus back (no ref read while rendering a row).
+  const treeId = useId()
   const [scrollTop, setScrollTop] = useState(0)
   const [viewport, setViewport] = useState(FALLBACK_VIEWPORT)
   const [structure, setStructure] = useState<{ schema: string; table: string | null } | null>(null)
@@ -75,10 +77,12 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   // Where the right click happened; undefined when the keyboard opened the menu.
   const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | undefined>(undefined)
   const scroller = useRef<HTMLDivElement | null>(null)
-  const generation = useRef(0)
+  // Which reload a schema's answer belongs to: an answer from before the last reload is dropped. A counter kept in a
+  // closure, not a ref, so the context menu's callbacks that reload never read a ref while rendering (OXE-322).
+  const [generation] = useState(() => { let value = 0; return { next: (): number => ++value, current: (): number => value } })
 
   const loadSchema = useCallback(async (schema: string): Promise<void> => {
-    const mine = generation.current
+    const mine = generation.current()
     setLoading(current => new Set(current).add(schema))
     try {
       const [tables, functions, objects] = await Promise.all([
@@ -86,34 +90,43 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
         oq('sql.functions', { connectionId: connection.id, schema }),
         oq('sql.objects', { connectionId: connection.id, schema })
       ])
-      if (mine === generation.current) setData(current => ({ ...current, [schema]: { tables: tables.tables, total: tables.total, functions, objects } }))
-    } catch (cause) { if (mine === generation.current) setError(errorMessage(cause)) } finally {
+      if (mine === generation.current()) setData(current => ({ ...current, [schema]: { tables: tables.tables, total: tables.total, functions, objects } }))
+    } catch (cause) { if (mine === generation.current()) setError(errorMessage(cause)) } finally {
       setLoading(current => { const next = new Set(current); next.delete(schema); return next })
     }
-  }, [connection.id])
+  }, [connection.id, generation])
 
   const loadExtensions = useCallback(async (): Promise<void> => {
     try { setExtensions(await oq('sql.extensions', { connectionId: connection.id })) } catch (cause) { setError(errorMessage(cause)) }
   }, [connection.id])
 
-  const reload = useCallback((): void => {
-    generation.current++
-    setError(''); setData({})
+  const fetchSchemas = useCallback((): void => {
+    generation.next()
     oq('sql.schemas', { connectionId: connection.id }).then(list => {
       setSchemas(list)
       for (const schema of list) if (expanded.has(`schema/${schema}`)) void loadSchema(schema)
     }, cause => setError(errorMessage(cause)))
-    if (expanded.has('extensions')) void loadExtensions()
+    // Started from a callback, as the schemas are (OXE-322: the effect that fetches sets no state itself).
+    if (expanded.has('extensions')) void Promise.resolve().then(loadExtensions)
     // `expanded` is read once, at the moment of the reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection.id, loadSchema, loadExtensions])
+  }, [connection.id, generation, loadSchema, loadExtensions])
 
-  useEffect(() => { reload() }, [reload])
+  // OXE-322: another connection starts with no error and nothing loaded, reset while rendering it; the effect only
+  // fetches. Refresh and Try again reset in their own handler.
+  const [shownConnection, setShownConnection] = useState(connection.id)
+  if (shownConnection !== connection.id) {
+    setShownConnection(connection.id)
+    setError(''); setData({})
+  }
+  useEffect(() => { fetchSchemas() }, [fetchSchemas])
+  const reload = useCallback((): void => { setError(''); setData({}); fetchSchemas() }, [fetchSchemas])
 
-  // One search across every schema, after a pause in typing.
+  // One search across every schema, after a pause in typing. Clearing the search drops its hits in the input's own
+  // handler (OXE-322), not here.
   useEffect(() => {
     const query = filter.trim()
-    if (!query) { setHits(null); return }
+    if (!query) return
     let alive = true
     const timer = window.setTimeout(() => {
       oq('sql.search', { connectionId: connection.id, query }).then(
@@ -130,7 +143,8 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   [searching, hits, schemas, data, expanded, pinned, extensions, loading])
   const rowCount = rows.length
 
-  useEffect(() => { setFocusIndex(current => Math.min(current, Math.max(0, rowCount - 1))) }, [rowCount])
+  // A shorter list keeps the focus on its last row, adjusted while rendering (OXE-322).
+  if (focusIndex > Math.max(0, rowCount - 1)) setFocusIndex(Math.max(0, rowCount - 1))
   useEffect(() => {
     const element = scroller.current
     if (!element) return
@@ -143,17 +157,22 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
   }, [])
 
   const toggle = useCallback((id: string, schema?: string): void => {
+    const opening = !expanded.has(id)
+    const schemaNode = Boolean(schema) && id.startsWith('schema/') && id === `schema/${schema}`
     setExpanded(current => {
       const next = new Set(current)
       if (next.has(id)) next.delete(id)
       else {
         next.add(id)
-        if (id.startsWith('schema/') && schema && id === `schema/${schema}`) { if (!data[schema]) void loadSchema(schema); next.add(`schema/${schema}/tables`) }
-        if (id === 'extensions' && !extensions) void loadExtensions()
+        if (schemaNode) next.add(`schema/${schema}/tables`)
       }
       return next
     })
-  }, [data, extensions, loadSchema, loadExtensions])
+    // OXE-322: the loads start here, in the handler, not inside the state updater (which React runs while rendering).
+    if (!opening) return
+    if (schemaNode && schema && !data[schema]) void loadSchema(schema)
+    if (id === 'extensions' && !extensions) void loadExtensions()
+  }, [expanded, data, extensions, loadSchema, loadExtensions])
 
   const openDefinition = useCallback(async (item: TreeItem): Promise<void> => {
     const target = definitionTarget(item)
@@ -307,21 +326,21 @@ export function SchemaTree({ connection, pinned, onPinnedChange, onOpen, onInser
       {row.type === 'schema' && !connection.readOnly && row.expanded && <button type="button" tabIndex={-1} className="oq-tree-new" data-oq-action="newTable" aria-label={t('tree.newTableIn', { schema: row.schema })} title={t('tree.newTableTitle')} onClick={event => { event.stopPropagation(); setStructure({ schema: row.schema!, table: null }) }}><Plus size={12} aria-hidden="true" /> {t('tree.newTable')}</button>}
       {actions(row)}
       {menuRow === row.id && <AnchoredMenu open point={menuPoint} onOpenChange={open => { if (!open) setMenuRow(null) }} label={t('tree.actionsFor', { name: row.label })}
-        items={menuItemsForRow(row)} returnFocus={() => scroller.current?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null} />}
+        items={menuItemsForRow(row)} returnFocus={() => document.getElementById(treeId)?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null} />}
     </div>
   }
 
   return <nav className="oq-tree" aria-label={t('tree.label')}>
     <div className="oq-tree-head">
       <label className="oq-tree-search"><Search size={12} aria-hidden="true" />
-        <input type="search" data-oq-action="searchObjects" aria-label={t('tree.search')} placeholder={t('tree.searchPlaceholder')} value={filter} onChange={event => setFilter(event.target.value)} /></label>
+        <input type="search" data-oq-action="searchObjects" aria-label={t('tree.search')} placeholder={t('tree.searchPlaceholder')} value={filter} onChange={event => { setFilter(event.target.value); if (!event.target.value.trim()) setHits(null) }} /></label>
       <button type="button" className="oq-icon" aria-label={t('tree.refresh')} title={t('common.refresh')} onClick={reload}><RefreshCw size={13} aria-hidden="true" /></button>
       <button type="button" className="oq-icon" aria-label={t('tree.server')} title={t('tree.serverTitle')} onClick={() => setServer(true)}><Server size={13} aria-hidden="true" /></button>
     </div>
     {error && <ErrorState compact title={t('tree.failed')} message={error} onRetry={reload} retryLabel={t('common.tryAgain')} />}
     {searching && hits && hits.hits.length === 0 && <p className="oq-muted" role="status">{t('common.noMatch', { text: hits.query })}</p>}
     {searching && hits?.truncated && <p className="oq-muted" role="note">{t('tree.truncated', { count: hits.hits.length })}</p>}
-    <div ref={scroller} className="oq-tree-scroll" role="tree" aria-label={t('tree.objects')} onScroll={event => setScrollTop(event.currentTarget.scrollTop)} onKeyDown={onKeyDown}>
+    <div ref={scroller} id={treeId} className="oq-tree-scroll" role="tree" aria-label={t('tree.objects')} onScroll={event => setScrollTop(event.currentTarget.scrollTop)} onKeyDown={onKeyDown}>
       <div className="oq-tree-inner" style={{ height: rowCount * ROW_HEIGHT }}>
         {visible.map((row, offset) => renderRow(row, range.start + offset))}
       </div>

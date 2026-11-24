@@ -20,8 +20,8 @@ function formatRowTime(at: number): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-export function ToolRowView(props: { row: ToolRow; onSelect?: () => void }): ReactElement {
-  const { row, onSelect } = props
+export function ToolRowView(props: { row: ToolRow; onSelect?: () => void; expanded?: boolean }): ReactElement {
+  const { row, onSelect, expanded } = props
   const { t } = useTranslation('thread')
   const [showTime, setShowTime] = useState(false)
   const tooltipId = useId()
@@ -39,6 +39,8 @@ export function ToolRowView(props: { row: ToolRow; onSelect?: () => void }): Rea
         size="sm"
         className={styles.row}
         aria-describedby={showTime ? tooltipId : undefined}
+        aria-expanded={onSelect ? Boolean(expanded) : undefined}
+        data-state={expanded ? 'open' : undefined}
         onFocus={() => setShowTime(true)}
         onBlur={() => setShowTime(false)}
         onMouseEnter={() => setShowTime(true)}

@@ -1,5 +1,5 @@
 import { Bot, Orbit, Sparkles } from 'lucide-react'
-import { Suspense, useEffect, type ReactElement } from 'react'
+import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
@@ -101,18 +101,22 @@ export function UsageStatus({ provider }: { provider: UsageProvider }): ReactEle
   const snapshot = useAgentCreditsStore(state => state.byProvider[provider])
   const loading = useAgentCreditsStore(state => Boolean(state.loading[provider]))
   const refresh = useAgentCreditsStore(state => state.refresh)
+  // The moment the "resets in" text counts from: set when the chip mounts and at each later reading (OXE-310: never
+  // Date.now() while rendering, which made the render impure).
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!window.oxe?.agentCredits) return
     const read = () => { if (document.visibilityState !== 'hidden') void refresh(provider) }
+    const tick = () => { setNow(Date.now()); read() }
     read()
-    const timer = window.setInterval(read, USAGE_POLL_MS)
-    window.addEventListener('focus', read)
-    document.addEventListener('visibilitychange', read)
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', read); document.removeEventListener('visibilitychange', read) }
+    const timer = window.setInterval(tick, USAGE_POLL_MS)
+    window.addEventListener('focus', tick)
+    document.addEventListener('visibilitychange', tick)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); document.removeEventListener('visibilitychange', tick) }
   }, [provider, refresh])
   // Snapshots come over IPC from an undocumented endpoint: a reading without windows shows nothing, never throws.
   if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
-  const { short, detail, peak } = usageText(snapshot, Date.now())
+  const { short, detail, peak } = usageText(snapshot, now)
   const Icon = PROVIDER_ICONS[provider]
   const clampedPeak = Math.min(100, Math.max(0, Math.round(peak)))
   const warmPopover = (): void => { void USAGE_POPOVER_CHUNK.load().catch(() => undefined) }
