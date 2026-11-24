@@ -22,7 +22,7 @@ const CONNECTIONS = [
 beforeEach(() => {
   const api = installFakeOxeQuery()
   api.on('connections.list', () => CONNECTIONS)
-  useUIStore.setState({ isSidebarCollapsed: false })
+  useUIStore.setState({ oxequerySidebarCollapsed: false })
   useOxeQueryStore.setState({
     connections: CONNECTIONS,
     tabs: [{ id: 'connection:c1', kind: 'connection', connectionId: 'c1', title: 'pg-dev' }],
@@ -39,7 +39,7 @@ afterEach(async () => {
   vi.restoreAllMocks()
   document.documentElement.removeAttribute('data-theme')
   document.documentElement.removeAttribute('data-density')
-  useUIStore.setState({ isSidebarCollapsed: false })
+  useUIStore.setState({ oxequerySidebarCollapsed: false })
   await changeLanguage('en')
 })
 
@@ -120,7 +120,7 @@ describe('OXE-28 · VIS-06 OxeQuery sidebar aligns to src/ui/Sidebar mould', () 
     expect(setPreferencesOpen).toHaveBeenCalledWith(true)
 
     // Collapsed sidebar renders NavigationRail with connection items
-    act(() => { useUIStore.setState({ isSidebarCollapsed: true }) })
+    act(() => { useUIStore.setState({ oxequerySidebarCollapsed: true }) })
     expect(aside.classList.contains('thread-navigation-collapsed')).toBe(true)
     expect(aside.querySelector('.oq-sidebar-content')).toBeNull()
     expect(within(aside).getByRole('button', { name: 'pg-dev' })).toBeInTheDocument()

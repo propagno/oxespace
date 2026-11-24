@@ -16,10 +16,10 @@ const PreferencesDialog = lazy(() => import('./PreferencesDialog').then(module =
 export function OxeQuerySidebar(): ReactElement {
   useOxeQueryCatalog()
   const { t } = useTranslation('oxequery')
-  const collapsed = useUIStore(state => state.isSidebarCollapsed)
+  const collapsed = useUIStore(state => state.oxequerySidebarCollapsed)
   // Shares its width with the Thread sidebar: both are the app's left column.
   const width = useNavigationPrefs(state => state.width), setWidth = useNavigationPrefs(state => state.setWidth)
-  const toggleCollapse = useUIStore(state => state.toggleSidebar)
+  const toggleCollapse = useUIStore(state => state.toggleOxeQuerySidebar)
   const activeTab = useOxeQueryStore(state => state.activeTab)
   const connections = useOxeQueryStore(state => state.connections)
   const settings = useOxeQueryStore(state => state.preferencesOpen)

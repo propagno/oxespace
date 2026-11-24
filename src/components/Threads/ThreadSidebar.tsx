@@ -12,6 +12,7 @@ import { useThreadStore } from '../../store/thread.store'
 import { readThreadListCache } from '../../store/threadListCache'
 import { useUIStore } from '../../store/ui.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
+import { isSameRootPath } from '../../../shared/utils/path'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
@@ -64,9 +65,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
 }) {
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
-  const { threads: liveThreads, projects: liveProjects, listLoaded, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread } = useThreadStore(useShallow(state => ({
+  const { threads: liveThreads, projects: liveProjects, listLoaded, unavailableProjects, selectedId, secondaryId, expanded, errors, loading, select, openSecondary, toggle, hiddenProjects, unreadIds, markRead, markUnread, syncedProjectId } = useThreadStore(useShallow(state => ({
     threads: state.threads, projects: state.projects, unavailableProjects: state.unavailableProjects, selectedId: state.selectedId, secondaryId: state.secondaryId, expanded: state.expanded, errors: state.errors, loading: state.loading, listLoaded: state.listLoaded,
-    select: state.select, openSecondary: state.openSecondary, toggle: state.toggle, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds, markRead: state.markRead, markUnread: state.markUnread })))
+    select: state.select, openSecondary: state.openSecondary, toggle: state.toggle, hiddenProjects: state.hiddenProjects, unreadIds: state.unreadIds, markRead: state.markRead, markUnread: state.markUnread, syncedProjectId: state.syncedProjectId })))
   // A cold start paints the last list it saw (OXE-58 CA-2), read once per mount and only until the live list is in;
   // without one it shows a busy skeleton (CA-3), never the empty state.
   const [cachedList] = useState(() => useThreadStore.getState().listLoaded ? null : readThreadListCache())
@@ -87,6 +88,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const workspaces = useWorkspaceStore(state => state.workspaces)
+  const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
   const [restoringId, setRestoringId] = useState<string | null>(null)
   // The conversation whose "…" menu a right click, Shift+F10 or the menu key opened.
@@ -246,8 +248,12 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         ]} trigger={<IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.actionsFor', { name })} title={t('sidebar.conversationActions')} icon={<MoreHorizontal size={14} aria-hidden="true" />} />} />
       </>} />
   }
-  // New conversation goes to the selected conversation's project, or the first one listed.
-  const createTarget = groups.find(group => group.id === selected?.projectId) ?? groups[0]
+  // New conversation goes to the synced OxeCode project (if just switched), the selected conversation's project, the active OxeCode workspace, or the first listed.
+  const activeCodeRoot = workspaces.find(w => w.id === activeWorkspaceId)?.rootPath
+  const platform = typeof window !== 'undefined' && window.oxe?.app?.platform ? window.oxe.app.platform : 'linux'
+  const syncedGroup = syncedProjectId ? groups.find(group => group.id === syncedProjectId) : undefined
+  const codeGroup = activeCodeRoot ? groups.find(group => group.rootPath && isSameRootPath(group.rootPath, activeCodeRoot, platform)) : undefined
+  const createTarget = syncedGroup ?? groups.find(group => group.id === selected?.projectId) ?? codeGroup ?? groups[0]
   const railPrimary: RailAction[] = [
     { id: 'new-conversation', label: t('view.newConversation'), icon: Plus, disabled: !createTarget || unavailableProjects.includes(createTarget.id), onClick: () => { if (createTarget) onCreate(createTarget.id, createTarget.rootPath) } },
     { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }

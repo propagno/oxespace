@@ -40,7 +40,7 @@ const ORDER: readonly DataView[] = ['data']
 export function ViewSidebarSkeleton({ view }: { view: DataView | 'thread' }): ReactElement {
   const { t } = useTranslation()
   const { t: tt } = useTranslation('thread')
-  const collapsed = useUIStore(state => state.isSidebarCollapsed)
+  const collapsed = useUIStore(state => view === 'thread' ? state.collapsedSidebars.thread : state.oxequerySidebarCollapsed)
   return view === 'thread'
     ? <SidebarSkeleton label={tt('sidebar.region')} title={tt('sidebar.conversations')} collapsed={collapsed} />
     : <SidebarSkeleton label={t('nav.viewSidebar', { name: NAMES[view] })} title={NAMES[view]} collapsed={collapsed} />
