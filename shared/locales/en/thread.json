@@ -397,7 +397,8 @@
     "steer": "Steer active turn",
     "steerTitle": "Send guidance to the active turn",
     "stop": "Stop turn",
-    "stopTitle": "Stop turn · Esc",
+    "stopTitle": "Stop turn · Esc twice",
+    "stopAgain": "Press Esc again to stop the turn",
     "stopShort": "Stop",
     "queue": "Queue follow-up",
     "queueTitle": "Queue follow-up · {{key}}",
@@ -1369,6 +1370,11 @@
       "compactEmpty": "Nothing to compact yet."
     },
     "tools": {
+      "integrated": "OXESpace (Integrated)",
+      "integratedOn": "On in this session",
+      "integratedOff": "Not connected",
+      "integratedGroups": "OXESpace tool groups",
+      "configure": "Configure tools",
       "mcp": "MCP servers",
       "mcpUnknown": "The agent has not reported its MCP servers yet. They appear when its session starts.",
       "manage": "Manage MCP servers",

@@ -48,10 +48,20 @@ const policyRisk = (request: ThreadRequest | undefined): AgentRequestSummary['ri
  * states, each source read on its own so one that fails never hides the others (§5.7). Reads only; the one write is
  * the person's "seen" mark.
  */
+interface JournalRow { id: string; data_json: string; events_json: string; history_version: number; epoch: string | null; revision: number }
+
 export class AgentsReadModel {
   private readonly seen: AgentSeenStore
   private readonly seq: Record<AgentSource, number> = { panes: 0, threads: 0, delegations: 0, work: 0 }
   private last = new Map<string, string>()
+  /**
+   * OXE-413 · Each conversation's newest events and its turns, as last read, with the journal's epoch and revision. The
+   * overview is read again on every change (each 80 ms delta batch of a streaming turn), and it parsed the newest 200
+   * events of every conversation each time. Now an unchanged conversation is reused and a changed one reads only its
+   * rows written since (rev > revision), as the window's readSince does; a new epoch (a truncated or re-based history)
+   * reads again.
+   */
+  private readonly journals = new Map<string, { epoch: string; revision: number; bySeq: Map<number, ThreadEvent>; events: ThreadEvent[]; turns: ThreadTurn[] }>()
 
   constructor(private readonly deps: AgentsReadModelDeps) {
     this.seen = new AgentSeenStore(deps.db)
@@ -121,11 +131,13 @@ export class AgentsReadModel {
   private threads(seen: Map<string, number>): AgentRow[] {
     const requests = new Map<string, ThreadPendingRequestSummary[]>()
     for (const request of this.deps.threadRequests()) requests.set(request.threadId, [...requests.get(request.threadId) ?? [], request])
-    const rows = this.deps.db.prepare(`SELECT id, data_json, events_json, history_version FROM conversation_threads
+    const rows = this.deps.db.prepare(`SELECT id, data_json, events_json, history_version, epoch, revision FROM conversation_threads
       WHERE COALESCE(json_extract(data_json, '$.archived'), 0) = 0
-      ORDER BY json_extract(data_json, '$.updatedAt') DESC LIMIT ?`).all(SOURCE_LIMIT) as { id: string; data_json: string; events_json: string; history_version: number }[]
-    const eventStmt = this.deps.db.prepare('SELECT data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq DESC LIMIT 200')
+      ORDER BY json_extract(data_json, '$.updatedAt') DESC LIMIT ?`).all(SOURCE_LIMIT) as JournalRow[]
+    const eventStmt = this.deps.db.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? ORDER BY seq DESC LIMIT 200')
+    const sinceStmt = this.deps.db.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND rev > ? ORDER BY seq')
     const turnStmt = this.deps.db.prepare("SELECT data_json FROM conversation_turns WHERE thread_id = ? ORDER BY json_extract(data_json, '$.sequence')")
+    for (const id of [...this.journals.keys()]) if (!rows.some(row => row.id === id)) this.journals.delete(id)
     let countWrites: ((id: string) => number) | null = null
     try {
       const writeStmt = this.deps.db.prepare('SELECT COUNT(*) AS n FROM thread_place_writes WHERE thread_id = ?')
@@ -142,8 +154,7 @@ export class AgentsReadModel {
         status: thread.status, lastTurnStatus: thread.lastTurnStatus, pendingRequests: pending.length,
         backgroundRunning: thread.background?.running ?? 0, observation: thread.providerObservation?.state, seen: seenSince(seenAt, since)
       })
-      const events = this.readEvents(row, eventStmt)
-      const turns = this.readTurns(row.id, thread.turns, turnStmt)
+      const { events, turns } = this.journal(row, thread.turns, eventStmt, sinceStmt, turnStmt)
       const storedRequests = events.flatMap(event => event.type === 'request' && event.request.state === 'pending' ? [event.request] : [])
       const storedById = new Map(storedRequests.map(req => [req.id, req]))
       const activityRequests: ThreadRequest[] = storedRequests.length
@@ -173,6 +184,32 @@ export class AgentsReadModel {
         activity
       }]
     })
+  }
+
+  /** The newest 200 events and the turns, from what was read before when the journal moved only forward. */
+  private journal(row: JournalRow, inline: ThreadTurn[] | undefined, eventStmt: { all(id: string): unknown[] }, sinceStmt: { all(id: string, rev: number): unknown[] }, turnStmt: { all(id: string): unknown[] }): { events: ThreadEvent[]; turns: ThreadTurn[] } {
+    if (!row.history_version || !row.epoch) {
+      this.journals.delete(row.id)
+      return { events: this.readEvents(row, eventStmt), turns: this.readTurns(row.id, inline, turnStmt) }
+    }
+    const known = this.journals.get(row.id)
+    if (known && known.epoch === row.epoch && known.revision === row.revision) return known
+    const parse = (entries: { seq: number; data_json: string }[], into: Map<number, ThreadEvent>): void => {
+      for (const entry of entries) { try { into.set(entry.seq, JSON.parse(entry.data_json) as ThreadEvent) } catch { into.delete(entry.seq) } }
+    }
+    let bySeq: Map<number, ThreadEvent>
+    if (known && known.epoch === row.epoch && row.revision > known.revision) {
+      bySeq = known.bySeq
+      parse(sinceStmt.all(row.id, known.revision) as { seq: number; data_json: string }[], bySeq)
+      if (bySeq.size > 200) for (const seq of [...bySeq.keys()].sort((a, b) => a - b).slice(0, bySeq.size - 200)) bySeq.delete(seq)
+    } else {
+      bySeq = new Map()
+      parse(eventStmt.all(row.id) as { seq: number; data_json: string }[], bySeq)
+    }
+    const events = [...bySeq.keys()].sort((a, b) => a - b).map(seq => bySeq.get(seq)!)
+    const entry = { epoch: row.epoch, revision: row.revision, bySeq, events, turns: this.readTurns(row.id, inline, turnStmt) }
+    this.journals.set(row.id, entry)
+    return entry
   }
 
   private readEvents(row: { id: string; events_json: string; history_version: number }, stmt: { all(id: string): unknown[] }): ThreadEvent[] {

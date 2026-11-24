@@ -381,7 +381,7 @@ async function session(shots: boolean): Promise<void> {
     await page.getByTestId('wizard-launch-btn').click()
     await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
     await page.getByTestId('first-run').getByRole('button', { name: /^OxeCode\b/ }).waitFor({ state: 'visible', timeout: 30_000 })
-    await page.waitForTimeout(300)
+    // Armed and clicked as soon as the footer shows (OXE-391): a fixed wait here let the OxeCode screen preload first.
     const record = (phase: 'cold' | 'warm', name: string, sample: Sample): void => {
       if (shots) return
       if (phase === 'cold' && !results.cold[name]) console.log(`[TRACE] ${name} cold: ${sample.trace}`)

@@ -140,6 +140,9 @@ test('memory footprint: one long Thread, four terminals, seeded history', async 
     await page.waitForTimeout(8_000)
     const thread = await sample(app, page)
     console.log(`[MEMORY] thread open ${JSON.stringify(thread)}`)
+    // OXE-412: opening the long Thread must not grow the main heap with its history; since #906 the sidebar's sessions
+    // read parsed every stored tool event (about 70 MB here), which no later sample showed once collected.
+    if (ENFORCE_BUDGETS) expect(thread.mainHeapTotalMb - codeOnly.mainHeapTotalMb, 'opening a long Thread must not grow the main heap with its history').toBeLessThanOrEqual(MAIN_HEAP_GROWTH_MB)
 
     // Scroll to the top and back: the renderer must not keep what it scrolled past.
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 0 })
