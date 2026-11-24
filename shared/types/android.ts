@@ -19,7 +19,7 @@ export interface AndroidApkPick { id: string; name: string; sizeBytes: number }
 export type AndroidActionOutcome = { ok: true } | { ok: false; reason: string }
 
 export interface AndroidEmulatorLaunchOptions {
-  /** Launch with low-footprint flags (-no-boot-anim, -no-audio, -memory 2048, -no-snapshot-save). Defaults to true. */
+  /** Launch with low-footprint flags (-no-boot-anim, -no-audio, -memory 2048, -no-snapshot-save). */
   lightweight?: boolean
 }
 

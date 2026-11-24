@@ -88,12 +88,12 @@ export const EMULATOR_MEMORY_THRESHOLD_MB = {
   standard: 4096
 } as const
 
-/** Builds the argument list for launching an Android emulator AVD. Lightweight mode is enabled by default. */
+/** Builds the argument list for launching an Android emulator AVD. Defaults to standard args when lightweight is omitted. */
 export function buildEmulatorArgs(avd: string, options: AndroidEmulatorLaunchOptions = {}): string[] {
   if (!avd || avd.startsWith('-') || !AVD_NAME_RE.test(avd)) {
     throw new Error('Invalid AVD name')
   }
-  const lightweight = options.lightweight !== false
+  const lightweight = options.lightweight === true
   if (lightweight) {
     return [
       '-avd',

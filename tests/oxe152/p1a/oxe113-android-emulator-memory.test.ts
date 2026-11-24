@@ -29,7 +29,7 @@ import { IPC_CHANNELS } from '../../../shared/types/ipc'
 const MB = 1024 * 1024
 
 describe('OXE-113 · Android emulator lightweight profile & memory check', () => {
-  test('buildEmulatorArgs applies lightweight flags by default and when lightweight=true', () => {
+  test('buildEmulatorArgs applies lightweight flags when lightweight=true', () => {
     const expected = [
       '-avd',
       'Pixel_8_API_36',
@@ -39,11 +39,11 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
       String(EMULATOR_LIGHTWEIGHT_MEMORY_MB),
       '-no-snapshot-save'
     ]
-    expect(buildEmulatorArgs('Pixel_8_API_36')).toEqual(expected)
     expect(buildEmulatorArgs('Pixel_8_API_36', { lightweight: true })).toEqual(expected)
   })
 
-  test('buildEmulatorArgs returns standard minimal args when lightweight=false', () => {
+  test('buildEmulatorArgs returns standard minimal args by default and when lightweight=false', () => {
+    expect(buildEmulatorArgs('Pixel_8_API_36')).toEqual(['-avd', 'Pixel_8_API_36'])
     expect(buildEmulatorArgs('Pixel_8_API_36', { lightweight: false })).toEqual(['-avd', 'Pixel_8_API_36'])
   })
 
@@ -101,6 +101,7 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
       }
     })
 
+    await devices.startAvd('Pixel_8_API_36', { lightweight: true })
     await devices.startAvd('Pixel_8_API_36')
     await devices.startAvd('Pixel_8_API_36', { lightweight: false })
 
@@ -108,6 +109,10 @@ describe('OXE-113 · Android emulator lightweight profile & memory check', () =>
     expect(launchCalls).toEqual([
       {
         args: ['-avd', 'Pixel_8_API_36', '-no-boot-anim', '-no-audio', '-memory', '2048', '-no-snapshot-save'],
+        detached: true
+      },
+      {
+        args: ['-avd', 'Pixel_8_API_36'],
         detached: true
       },
       {
