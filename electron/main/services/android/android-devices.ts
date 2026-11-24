@@ -550,6 +550,7 @@ export class AndroidDevices {
     }
     void tick()
     const timer = setInterval(() => { void tick() }, options.intervalMs ?? WATCH_INTERVAL_MS)
+    timer.unref?.()
     return () => clearInterval(timer)
   }
 }
@@ -574,8 +575,10 @@ export class AndroidAgentAccess {
   private readonly devices: AndroidDevices
   private readonly audit?: AndroidAuditSink
   private readonly onChanged?: (serial: string, allowed: boolean) => void
+  private readonly onDeviceDisconnected?: (info: { serial: string; sessionKeys: string[] }) => void
   private readonly allowed = new Set<string>()
   private readonly sessionGrants = new Set<string>()
+  private readonly disconnectedAt = new Map<string, number>()
 
   constructor(options: {
     devices: AndroidDevices
@@ -583,10 +586,12 @@ export class AndroidAgentAccess {
     audit?: AndroidAuditSink
     initialAllowed?: Iterable<string>
     onChanged?: (serial: string, allowed: boolean) => void
+    onDeviceDisconnected?: (info: { serial: string; sessionKeys: string[] }) => void
   }) {
     this.devices = options.devices
     this.audit = options.audit
     this.onChanged = options.onChanged
+    this.onDeviceDisconnected = options.onDeviceDisconnected
     if (options.initialAllowed) {
       for (const serial of options.initialAllowed) {
         if (serial && !serial.startsWith('-') && SERIAL_RE.test(serial)) this.allowed.add(serial)
@@ -620,6 +625,34 @@ export class AndroidAgentAccess {
     for (const key of this.sessionGrants) {
       if (key.startsWith(prefix)) this.sessionGrants.delete(key)
     }
+  }
+
+  /** OXE-112: sessions that currently hold a screenshot grant for this device. */
+  activeSessionsFor(serial: string): string[] {
+    const suffix = `\0${serial}`
+    const sessions: string[] = []
+    for (const key of this.sessionGrants) {
+      if (key.endsWith(suffix)) sessions.push(key.slice(0, -suffix.length))
+    }
+    return sessions
+  }
+
+  /** OXE-112: records that a device left adb, clears stale session grants for it, and notifies registered listeners. */
+  notifyDeviceDisconnected(serial: string): string[] {
+    assertValidSerial(serial)
+    const sessionKeys = this.activeSessionsFor(serial)
+    const suffix = `\0${serial}`
+    for (const key of this.sessionGrants) {
+      if (key.endsWith(suffix)) this.sessionGrants.delete(key)
+    }
+    this.disconnectedAt.set(serial, Date.now())
+    this.onDeviceDisconnected?.({ serial, sessionKeys })
+    return sessionKeys
+  }
+
+  /** OXE-112: timestamp when this serial last left adb unexpectedly, or null if not recorded. */
+  lastDisconnectedAt(serial: string): number | null {
+    return this.disconnectedAt.get(serial) ?? null
   }
 
   /** Starts the local adb server (only that), for a capture that found it stopped. */
