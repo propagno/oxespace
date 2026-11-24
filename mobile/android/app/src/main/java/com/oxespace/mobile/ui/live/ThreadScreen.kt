@@ -9,6 +9,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.snapshotFlow
@@ -302,7 +303,8 @@ fun ThreadScreen(
             items(rows, key = { it.key }) { row ->
                 when (row) {
                     is TimelineRow.Prompt -> PromptBlock(row.text, row.truncated)
-                    is TimelineRow.Prose -> AgentReply(header?.provider) { MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated) }
+                    // OXE-385: the agent's prose is selectable, as on the desktop.
+                    is TimelineRow.Prose -> AgentReply(header?.provider) { SelectionContainer { MarkdownText(displaySafeBlock(row.text, RemoteTextLimits.ITEM_TEXT), truncated = row.truncated) } }
                     is TimelineRow.Answer -> AgentReply(header?.provider) { AnswerCard(row.text, row.truncated) }
                     is TimelineRow.Step -> StepRow(row.tool)
                     is TimelineRow.StepGroup -> StepGroupRow(row.tools)
@@ -442,7 +444,7 @@ private fun AnswerCard(text: String, truncated: Boolean) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(stringResource(R.string.thread_answer_label), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textAccent)
-        MarkdownText(displaySafeBlock(text, RemoteTextLimits.ITEM_TEXT), truncated = truncated)
+        SelectionContainer { MarkdownText(displaySafeBlock(text, RemoteTextLimits.ITEM_TEXT), truncated = truncated) }
     }
 }
 

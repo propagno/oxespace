@@ -1,5 +1,5 @@
 import Editor from '@monaco-editor/react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from 'react'
 import { Code2, Eye, GitCompareArrows } from 'lucide-react'
 import { openInChanges } from '../../store/changes-request.store'
 import { WORKBENCH_PANELS } from '../Workbench/panelCatalog'
@@ -20,11 +20,12 @@ import { FileBrowser } from './FileBrowser'
 import { useTranslation } from 'react-i18next'
 import { EmptyState, ErrorState, LoadingState } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { chunk, lazyFrom } from '../../lib/chunk'
 
 // #10 · Rich previews are lazy so react-markdown and the base64 plumbing stay out
 // of the renderer entry chunk (budget: 500kB).
-const MarkdownPreview = lazy(() => import('../Preview/MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })))
-const BinaryPreview = lazy(() => import('../Preview/BinaryPreview').then((m) => ({ default: m.BinaryPreview })))
+const MarkdownPreview = lazyFrom(chunk(() => import('../Preview/MarkdownPreview')), m => m.MarkdownPreview)
+const BinaryPreview = lazyFrom(chunk(() => import('../Preview/BinaryPreview')), m => m.BinaryPreview)
 
 interface EditorPaneProps {
   workspaceId: string

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.NoticeAction
 import com.oxespace.mobile.ui.components.NoticeIntent
@@ -37,7 +38,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.R
+import com.oxespace.mobile.protocol.RemoteTextLimits
 import com.oxespace.mobile.protocol.displaySafe
+import com.oxespace.mobile.protocol.displaySafeBlock
 import com.oxespace.mobile.protocol.live.PaneConversation
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
@@ -116,12 +119,17 @@ fun PaneConversationView(
                         Text(stringResource(R.string.terminal_conversation_new_conversation), style = MaterialTheme.typography.labelMedium, color = colors.textMuted)
                     }
                 }
+                // OXE-385: a terminal agent's messages as OxeChat draws them: hidden and bidi characters written out
+                // (displaySafeBlock), the agent's Markdown with its copyable code blocks, the text selectable.
                 items(state.items, key = { it.id }) { item ->
-                    Text(
-                        item.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (item.role == "user") colors.textSecondary else colors.textPrimary,
-                    )
+                    val shown = displaySafeBlock(item.text, RemoteTextLimits.ITEM_TEXT)
+                    SelectionContainer {
+                        if (item.role == "user") {
+                            Text(shown, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
+                        } else {
+                            MarkdownText(shown, truncated = false)
+                        }
+                    }
                 }
             }
             if (!atBottom && state.newCount != 0) {
