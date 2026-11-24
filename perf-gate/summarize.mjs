@@ -64,6 +64,7 @@ const bench = (key, field) => text => resultLines(text)[key]?.[field]
 const METRICS = [
   { name: 'Boot: process → interactive', unit: 'ms', boot: 'interactive' },
   { name: 'Boot: window → first paint', unit: 'ms', boot: 'firstPaint' },
+  { name: 'Workspace: launch → grid (in-window)', unit: 'ms', read: bench('workspace: launch→grid (in-window)', 'first') },
   { name: 'Mode switch Code → Thread', unit: 'ms', read: bench('mode switch: Code→Thread', 'median') },
   { name: 'Mode switch Thread → OxeQuery', unit: 'ms', read: bench('mode switch: Thread→OxeQuery', 'median') },
   { name: 'Mode switch OxeQuery → Code', unit: 'ms', read: bench('mode switch: OxeQuery→Code', 'median') },
