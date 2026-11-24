@@ -112,7 +112,22 @@ fun ToolDiffView(diff: RemoteToolDiff, modifier: Modifier = Modifier) {
                 }
             }
         }
-        shown.patch?.takeIf { it.isNotEmpty() }?.let { CodeBlock(showHidden(it)) }
+        // OXE-385: added and removed lines on the diff tokens the desktop uses (diffAddBg, diffDelBg).
+        val add = Oxe.colors.diffAddBg
+        val del = Oxe.colors.diffDelBg
+        shown.patch?.takeIf { it.isNotEmpty() }?.let { patch ->
+            CodeBlock(showHidden(patch)) { line -> when (diffLineKind(line)) { DiffLineKind.ADDED -> add; DiffLineKind.REMOVED -> del; DiffLineKind.OTHER -> null } }
+        }
         if (shown.truncated == true) Text(stringResource(R.string.thread_extras_diff_cut), style = MaterialTheme.typography.labelMedium, color = Oxe.colors.textMuted)
     }
+}
+
+/** What a patch line is: an added or removed line, or anything else (a header, a hunk, context). */
+internal enum class DiffLineKind { ADDED, REMOVED, OTHER }
+
+internal fun diffLineKind(line: String): DiffLineKind = when {
+    line.startsWith("+++") || line.startsWith("---") -> DiffLineKind.OTHER
+    line.startsWith("+") -> DiffLineKind.ADDED
+    line.startsWith("-") -> DiffLineKind.REMOVED
+    else -> DiffLineKind.OTHER
 }

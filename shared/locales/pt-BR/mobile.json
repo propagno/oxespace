@@ -467,7 +467,10 @@
       "title": "Notificações",
       "needsYou": "Um agente precisa de você",
       "done": "Uma tarefa terminou",
-      "failed": "Uma tarefa falhou"
+      "failed": "Uma tarefa falhou",
+      "blocked": "As notificações estão bloqueadas",
+      "blockedBody": "O Android está bloqueando as notificações do OXESpace; estes interruptores só valem depois que você as permitir.",
+      "openSettings": "Abrir configurações"
     },
     "computer": {
       "title": "Computador",

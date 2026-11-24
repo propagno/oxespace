@@ -454,7 +454,10 @@
       "title": "Notifications",
       "needsYou": "An agent needs you",
       "done": "A task finished",
-      "failed": "A task failed"
+      "failed": "A task failed",
+      "blocked": "Notifications are blocked",
+      "blockedBody": "Android is blocking OXESpace notifications, so these switches have no effect until you allow them.",
+      "openSettings": "Open settings"
     },
     "computer": {
       "title": "Computer",
