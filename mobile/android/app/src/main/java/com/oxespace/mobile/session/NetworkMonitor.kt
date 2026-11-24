@@ -35,6 +35,13 @@ class NetworkMonitor(context: Context, private val vpnAllowed: () -> Boolean = {
         })
     }
 
+    /** Re-reads the active network's transports after [vpnAllowed] changes, so toggling the VPN switch applies at once. */
+    fun refresh() {
+        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+        lan.value = isLan(capabilities)
+        vpn.value = hasVpn(capabilities)
+    }
+
     private fun transports(capabilities: NetworkCapabilities?): Set<Int> =
         if (capabilities == null) emptySet() else WATCHED.filterTo(mutableSetOf()) { capabilities.hasTransport(it) }
 
