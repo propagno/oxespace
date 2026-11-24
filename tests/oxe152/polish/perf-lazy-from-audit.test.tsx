@@ -431,3 +431,26 @@ describe('OXE-309 · a loaded dock wrapper warms its shared panel chunk', () => 
     expect([...source.matchAll(/^\s*import\s+.+?\s+from\s+['"]([^'"]+)['"]/gm)].map(m => m[1])).toEqual(['./chunk'])
   })
 })
+
+// OXE-308: the remaining frequent OxeCode surfaces render their lazy parts through lazyFrom(chunk), which resolves at
+// once when the chunk has arrived and can be retried after a failed load (RetryableLazy.retry), instead of a plain
+// React.lazy that holds the Suspense fallback ~300 ms every first time. One file per line, so each later part only adds.
+describe('OXE-308 · remaining OxeCode surfaces on lazyFrom', () => {
+  test('remaining interactive OxeCode surfaces use lazyFrom with retry support', () => {
+    const migrated = [
+      'src/components/Changes/ChangesPanel.tsx',
+      'src/components/Editor/EditorPane.tsx',
+      'src/components/Panes/PaneContent.tsx',
+      'src/components/AgentSessions/PaneResume.tsx',
+    ]
+    for (const rel of migrated) {
+      const src = readFileSync(resolve(process.cwd(), rel), 'utf8')
+      expect(src, `${rel} should not call plain lazy()`).not.toMatch(/\blazy\s*\(/)
+      expect(src, `${rel} should use lazyFrom()`).toMatch(/\blazyFrom\s*\(/)
+      expect(src, `${rel} should load through chunk() or a shared panel chunk`).toMatch(/\bchunk\s*\(|SHARED_PANEL_CHUNKS\./)
+    }
+    // lazyFrom is what gives each of them RetryableLazy.retry() (covered by the OXE-57 retry case above).
+    // PaneContent's editor is the same chunk OxeCode's dock and OxeChat use, not a second one.
+    expect(readFileSync(resolve(process.cwd(), 'src/components/Panes/PaneContent.tsx'), 'utf8')).toMatch(/SHARED_PANEL_CHUNKS\.files/)
+  })
+})

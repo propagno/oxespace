@@ -12,6 +12,7 @@
     "label": "OxePod sidebar",
     "refresh": "Refresh containers",
     "filter": "Filter containers",
+    "filterPlaceholder": "Filter…",
     "project": "Project {{name}}",
     "others": "Others",
     "noMatch": "No container matches the filter.",

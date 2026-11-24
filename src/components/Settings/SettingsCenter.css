@@ -40,9 +40,8 @@
 .settings-scope-select > [role="radiogroup"] { width: 100%; }
 .settings-section-pages { width: min(100%, 720px); margin: 0 auto var(--space-4); }
 .settings-center-main { display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
+/* OXE-312: the close control is a src/ui IconButton (its size, focus and hover are the primitive's), kept at the right. */
 .settings-center-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-default); }
-.settings-center-toolbar > button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; flex-shrink: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); cursor: pointer; }
-.settings-center-toolbar > button:hover { color: var(--tx-primary); background: var(--surface-raised); }
 .settings-center-content { min-width: 0; min-height: 0; overflow-y: auto; padding: 28px 36px 48px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--bd-default) transparent; }
 /* BRD-06 (OXE-67): a page reads at most 720 px wide, centred in the content pane, with a 14 px body; the note below it too. */
 .settings-center-content > section { width: 100%; max-width: 720px; margin: 0 auto; font-size: var(--fs-sm); }
@@ -232,7 +231,7 @@
   .settings-category-choices button { flex: 0 0 auto; min-height: 29px; padding: 5px 9px; }
   .settings-nav-footer { grid-column: 2; grid-row: 1; align-self: center; margin: 0; padding: 0; border: 0; }
   .settings-back { min-height: 30px; padding: 4px 7px; font-size: var(--fs-xs); }
-  .settings-center-toolbar > button { display: none; }
+  .settings-center-toolbar > .settings-center-close { display: none; }
   .settings-center-content { padding: 20px 16px; }
   .settings-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -246,7 +245,8 @@
    (on Linux) and the horizontal padding hid the arrow. */
 .settings-center .settings-field select, .settings-field select { height: var(--control-lg); padding: 0 var(--space-6) 0 10px; line-height: normal; }
 /* How the app updates: below the status, across the card. */
-.settings-center .settings-update-card .settings-update-preferences { display: grid; justify-items: start; gap: 10px; grid-column: 1 / -1; grid-row: 6; margin: 10px 0 0 40px; padding-top: 12px; border-top: 1px solid var(--bd-default); }
+.settings-center .settings-update-card .settings-update-preferences { display: grid; justify-items: stretch; gap: 10px; grid-column: 1 / -1; grid-row: 6; margin: 10px 0 0 40px; padding-top: 12px; border-top: 1px solid var(--bd-default); }
+.settings-center .settings-update-card .settings-update-preferences > [role="radiogroup"] { justify-self: start; }
 .settings-center .settings-update-mode-hint { margin: 0; font-size: var(--fs-2xs); line-height: 1.5; color: var(--tx-muted); }
 
 /* Settings inside the window frame (cycle V): the title bar stays in view, and navigation and content sit on the

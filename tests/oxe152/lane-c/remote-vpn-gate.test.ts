@@ -28,9 +28,9 @@ describe('OXE-383 B1a · VPN addresses on the desktop', () => {
       expect(found, `allowVpn ${allowVpn}`).not.toContain('100.100.9.9')
       expect(found[0]).toBe('192.168.0.10')
     }
-    // Off (the default): no 100.64/10 address at all, the VPN adapter's ULA as before.
-    expect(listen()).toEqual(['192.168.0.10', 'fd7a:115c:a1e0::1'])
-    expect(listen(false)).toEqual(['192.168.0.10', 'fd7a:115c:a1e0::1'])
+    // Off (the default): no address of a VPN adapter at all, its IPv6 ULA included (OXE-409, decision A of 23/11).
+    expect(listen()).toEqual(['192.168.0.10'])
+    expect(listen(false)).toEqual(['192.168.0.10'])
     // On: the VPN adapters' 100.64/10 addresses too, after the LAN, so the QR still names the LAN address first.
     expect(listen(true)).toEqual(['192.168.0.10', 'fd7a:115c:a1e0::1', '100.101.102.103', '100.64.0.5'])
   })

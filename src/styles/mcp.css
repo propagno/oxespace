@@ -123,11 +123,16 @@
    row's 2-col grid because we need to stack: [main + regen] / [tools] /
    [notice], with the latter two only when expanded / when a notice exists. */
 .mcp-builtin-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* OXE-377: the main button and Regenerate token side by side, each in its own column, so the expand chevron at
+     the end of the main button never sits under the button (it did, absolutely placed over it). */
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   background: var(--accent-soft);
   border-color: var(--accent-border);
 }
+.mcp-builtin-row.expanded { grid-template-columns: minmax(0, 1fr) auto; }
+.mcp-builtin-row > :not(.mcp-server-main):not(.mcp-builtin-regen) { grid-column: 1 / -1; }
 .mcp-builtin-row:hover { border-color: var(--accent-border); background: var(--accent-soft); }
 
 .mcp-builtin-row .mcp-server-main {
@@ -136,12 +141,7 @@
   cursor: pointer;
 }
 
-.mcp-builtin-row .mcp-builtin-regen {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-}
-.mcp-builtin-row { position: relative; }
+.mcp-builtin-row .mcp-builtin-regen { margin-right: var(--space-4); }
 
 .mcp-builtin-status {
   background: var(--accent-soft);
@@ -302,6 +302,8 @@
   font-size: var(--fs-2xs);
   font-style: italic;
 }
+
+.mcp-server-row.is-disabled { opacity: 0.6; }
 
 .mcp-server-actions {
   display: inline-flex;
@@ -502,7 +504,6 @@
 .mcp-create-form input,
 .mcp-create-form select,
 .mcp-create-form textarea {
-  padding: 8px 10px;
   border: 1px solid var(--ov-3);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--surface-sunken) 30%, transparent);
@@ -510,6 +511,21 @@
   font-size: var(--fs-xs);
   font-family: var(--font-mono);
   transition: border-color var(--duration-fast);
+}
+
+.mcp-create-form input {
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+}
+
+.mcp-create-form select {
+  height: var(--control-md);
+  padding: 0 var(--space-6) 0 var(--space-2);
+  line-height: normal;
+}
+
+.mcp-create-form textarea {
+  padding: var(--space-2);
   resize: vertical;
 }
 

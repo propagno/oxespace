@@ -365,8 +365,8 @@ export function registerThreadIpc(
       const extraFailedSources: string[] = []
       let files: number | null = null
       try {
-        const { places } = await service.places(threadId)
-        files = places.reduce((sum, place) => sum + place.files.length, 0)
+        // OXE-413: counted from the bookkeeping; places() would read every place's HEAD with git.
+        files = service.placeFileCount(threadId)
       } catch {
         extraFailedSources.push('files')
       }
@@ -420,10 +420,12 @@ function registerThreadCockpitIpc(manager: Promise<ThreadManager>, background?: 
       else if (kind === 'container') counts.containers += 1
     }
     // 1.5.2: the Terminal and Pull request tabs left, so neither the panes nor the PR (a gh call) are read for the tabs.
-    const places = await service.places(id).catch(() => null)
+    // OXE-413: the files are counted from the bookkeeping. This runs on every change (250 ms apart while a turn streams);
+    // places() read each place's HEAD and branch with git, ~30 git processes a second.
+    const files = ((): number | null => { try { return service.placeFileCount(id) } catch { return null } })()
     return threadToolTabs({
       summary: { databases: counts.queries, http: counts.http, containers: counts.containers },
-      files: places ? places.places.reduce((sum, entry) => sum + entry.files.length, 0) : null,
+      files,
       panes: null,
       pullRequest: null
     })
