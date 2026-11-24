@@ -93,7 +93,9 @@
 .places-del { color: var(--intent-danger-fg); font-variant-numeric: tabular-nums; }
 .place-hunk { display: flex; flex-direction: column; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); overflow: hidden; }
 .place-hunk-header { padding: var(--space-1) var(--space-2); background: var(--surface-sunken); color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); }
-.thread-tool-cut-note { color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-tool-cut-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); }
+.thread-tool-cut-note { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-tool-full-output { margin: 0; max-height: 65vh; overflow: auto; padding: var(--space-3); border-radius: var(--radius-md); background: var(--term-bg); color: var(--term-fg); font-family: var(--font-mono); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-tool-diagnostic-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
 .thread-terminal-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--term-bg); color: var(--term-fg); }
 .thread-resume-native { display: flex; flex-direction: column; gap: var(--space-2); }
