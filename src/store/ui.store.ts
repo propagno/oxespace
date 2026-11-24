@@ -23,6 +23,14 @@ function restoredCollapsedSidebars(): Record<SidebarMode, boolean> {
 
 const initialCollapsedSidebars = restoredCollapsedSidebars()
 
+function restoredOxeQuerySidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem('oxe.sidebar.collapsed.data') === 'true'
+  } catch { return false }
+}
+
+const initialOxeQuerySidebarCollapsed = restoredOxeQuerySidebarCollapsed()
+
 /** localStorage key of the pinned panel scopes: JSON { [workspaceId]: path }. */
 const PANEL_SCOPE_PINS_KEY = 'oxe.panel-scope-pins'
 
@@ -64,6 +72,7 @@ interface UIState {
   maximizedPaneId: string | null
   isSidebarCollapsed: boolean
   collapsedSidebars: Record<SidebarMode, boolean>
+  oxequerySidebarCollapsed: boolean
   isSettingsOpen: boolean
   settingsInitialPage: SettingsPageId | undefined
   /** Opens application Settings on one page. */
@@ -132,6 +141,7 @@ interface UIState {
   closeIntegrationPanel: () => void
   toggleSettings: () => void
   toggleSidebar: (mode?: SidebarMode) => void
+  toggleOxeQuerySidebar: () => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -139,6 +149,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   maximizedPaneId: null,
   isSidebarCollapsed: initialCollapsedSidebars.code,
   collapsedSidebars: initialCollapsedSidebars,
+  oxequerySidebarCollapsed: initialOxeQuerySidebarCollapsed,
   isSettingsOpen: false,
   settingsInitialPage: undefined,
   openAgentSettings: () => set({ isSettingsOpen: true, isWorkspaceSettingsOpen: false, settingsInitialPage: 'providers' }),
@@ -223,5 +234,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       localStorage.setItem('oxe.sidebar.collapsed', String(isSidebarCollapsed))
     } catch { /* optional preference */ }
     return { collapsedSidebars, isSidebarCollapsed }
+  }),
+  toggleOxeQuerySidebar: () => set((s) => {
+    const oxequerySidebarCollapsed = !s.oxequerySidebarCollapsed
+    try {
+      localStorage.setItem('oxe.sidebar.collapsed.data', String(oxequerySidebarCollapsed))
+    } catch { /* optional preference */ }
+    return { oxequerySidebarCollapsed }
   })
 }))
