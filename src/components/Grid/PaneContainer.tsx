@@ -121,8 +121,15 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const hasAgent = Boolean(pane.agentProfileId || agentProfile)
   const setShellCommand = useTerminalStore((s) => s.setShellCommand)
   const [agentSince, setAgentSince] = useState<number | null>(null)
-  useEffect(() => {
+  // Another pane, workspace or agent starts with no time in state: reset while rendering it (OXE-310), not in the
+  // effect below, which only reads and subscribes.
+  const sinceKey = [workspace.id, pane.id, String(hasAgent)].join(' ')
+  const [shownSinceKey, setShownSinceKey] = useState(sinceKey)
+  if (shownSinceKey !== sinceKey) {
+    setShownSinceKey(sinceKey)
     setAgentSince(null)
+  }
+  useEffect(() => {
     const api = window.oxe?.agentState
     if (!hasAgent || !api) return
     let live = true
@@ -155,9 +162,11 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (agentSince === null && !shellCommandRunning) return
-    setNow(Date.now())
-    const timer = setInterval(() => setNow(Date.now()), shellCommandRunning ? 1_000 : 15_000)
-    return () => clearInterval(timer)
+    // The first tick right away, from a timer (OXE-310: no state set synchronously in the effect).
+    const tick = (): void => setNow(Date.now())
+    const first = setTimeout(tick, 0)
+    const timer = setInterval(tick, shellCommandRunning ? 1_000 : 15_000)
+    return () => { clearTimeout(first); clearInterval(timer) }
   }, [agentSince, shellCommandRunning])
   const runningTime = hasAgent && agentSince !== null ? elapsedLabel(now - agentSince) : null
   const shellDuration = shellCommand
@@ -230,13 +239,20 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   // The status in words, with where it comes from (UX-07): the dot's tooltip and the header's screen-reader text.
   const statusText = display.originLabel ? `${display.statusLabel} · ${display.originLabel}` : display.statusLabel
   const [sessionDetails, setSessionDetails] = useState<TerminalStatusResult | null>(null)
-  const [sessionDetailsError, setSessionDetailsError] = useState('')
+  const [readError, setReadError] = useState('')
+  // Each opening of the details (and a terminal that changed state while open) reads again from nothing: reset while
+  // rendering (OXE-310), not in the effect that reads.
+  const detailsKey = detailsOpen ? `${pane.id} ${terminalState.status}` : null
+  const [shownDetailsKey, setShownDetailsKey] = useState(detailsKey)
+  if (shownDetailsKey !== detailsKey) {
+    setShownDetailsKey(detailsKey)
+    if (detailsKey !== null) { setSessionDetails(null); setReadError('') }
+  }
+  const sessionDetailsError = detailsOpen && !window.oxe?.terminal?.status ? tc('paneMenu.detailsUnavailable') : readError
   useEffect(() => {
-    if (!detailsOpen) return
+    if (!detailsOpen || !window.oxe?.terminal?.status) return
     let active = true
-    setSessionDetails(null); setSessionDetailsError('')
-    if (!window.oxe?.terminal?.status) { setSessionDetailsError(tc('paneMenu.detailsUnavailable')); return }
-    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setSessionDetailsError(tc('paneMenu.detailsFailed')) })
+    void window.oxe.terminal.status(pane.id).then(value => { if (active) setSessionDetails(value) }).catch(() => { if (active) setReadError(tc('paneMenu.detailsFailed')) })
     return () => { active = false }
   }, [detailsOpen, pane.id, terminalState.status])
   // Fixed placement so the menu is not clipped by the pane it belongs to, and kept above the status bar.
@@ -341,7 +357,8 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
 
   // BRD-16: one named group open at a time; the menu opens with all of them closed.
   const [submenu, setSubmenu] = useState<string | null>(null)
-  useEffect(() => { if (!menuOpen) setSubmenu(null) }, [menuOpen])
+  // A closed menu forgets its open group, adjusted while rendering (OXE-310).
+  if (!menuOpen && submenu !== null) setSubmenu(null)
   const toggleSubmenu = (id: string): void => setSubmenu(current => current === id ? null : id)
   // At most 8 items (BRD-16): where the Arrange group takes the last place, Rename is that group's first item.
   const renameItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => startRename()) }}><Pencil size={14} aria-hidden="true" />{tc('paneMenu.rename')}</Button>

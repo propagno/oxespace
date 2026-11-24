@@ -4,5 +4,9 @@
 .sidebar-redesign { position: relative; }
 .sidebar-redesign .ws-group-list { padding-inline: var(--space-2); }
 .sidebar-redesign .ws-group { margin: 0; }
+/* OXE-133: the state selector under the filter fills the column; a long option shortens before it wraps. */
+.sidebar-redesign .sidebar-state-filter { display: flex; margin: 0 var(--space-2) var(--space-2); }
+.sidebar-redesign .sidebar-state-filter [role="radio"] { flex: 1 1 0; min-width: 0; gap: var(--space-1); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sidebar-redesign .sidebar-state-count { color: var(--tx-muted); font-variant-numeric: tabular-nums; }
 .sidebar-redesign :is(button, [role="button"], [role="separator"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }

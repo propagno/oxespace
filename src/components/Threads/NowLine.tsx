@@ -121,6 +121,8 @@ export function NowLine(props: {
     }
   }
 
+  // A text cut at a word ends with "…"; the sentence's own period does not follow it (OXE-379).
+  copy = copy.replace(/…\.$/, '…')
   const leadEnd = copy.indexOf('. ')
   return (
     <div className="thread-now-line" data-kind={activity.kind}>

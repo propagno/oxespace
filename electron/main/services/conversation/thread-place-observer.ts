@@ -72,6 +72,16 @@ export class ThreadPlaceObserver {
 
   private audit(): PersonActionAudit { return (this.personAuditLog ??= new PersonActionAudit(this.deps.db)) }
 
+  /**
+   * OXE-413 · How many files the conversation wrote, from the bookkeeping alone: no git, no drift read. For the readers
+   * that run on every change (the tool tabs, the agent summary): places() reads each place's HEAD and branch, and the
+   * tool tabs calling it on every change ran ~30 git processes a second while a turn streamed. A15 keeps places() a
+   * read point, never a watcher.
+   */
+  placeFileCount(id: string): number {
+    return (this.deps.db.prepare('SELECT COUNT(*) AS n FROM thread_place_writes WHERE thread_id = ?').get(id) as { n: number } | undefined)?.n ?? 0
+  }
+
   /** Where this conversation worked: its root, then each worktree, checkout and outside folder the evidence named. */
   async places(id: string): Promise<ThreadPlaces> {
     const result = await this.deps.placeStore.list(this.deps.readThread(id))
