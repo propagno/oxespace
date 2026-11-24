@@ -550,7 +550,7 @@ async function registerIpcHandlers(): Promise<() => void> {
   registerDelegationIpc(delegationService)
 
   // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
-  const [approvals, { createInternalMcpHandle }] = await Promise.all([import('./services/approvals/wiring'), import('./mcp-internal/bootstrap')])
+  const approvals = await import('./services/approvals/wiring')
   approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list(), oxeQuery: () => oxeQuery.agent, paneProcess: paneId => terminalManager.foregroundProcess(paneId) })
   const internalMcp = createInternalMcpHandle({
     threads: threadManager.manager,
