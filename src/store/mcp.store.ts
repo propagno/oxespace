@@ -57,9 +57,11 @@ export const useMcpStore = create<McpStoreState>((set, get) => ({
   update: async (input) => {
     const server = await window.oxe.mcp.update(input)
     set((s) => {
-      const k = key(server.workspaceId)
-      const list = s.serversByWorkspace[k] ?? []
-      return { serversByWorkspace: { ...s.serversByWorkspace, [k]: list.map((srv) => srv.id === server.id ? server : srv) } }
+      const next: Record<string, McpServer[]> = {}
+      for (const [k, list] of Object.entries(s.serversByWorkspace)) {
+        next[k] = list.map((srv) => srv.id === server.id ? server : srv)
+      }
+      return { serversByWorkspace: next }
     })
     return server
   },

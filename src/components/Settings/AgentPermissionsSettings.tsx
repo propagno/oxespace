@@ -7,6 +7,7 @@ import type {
   AgentPermissionsPage
 } from '../../../shared/types/agent-permissions'
 import { i18n } from '../../i18n'
+import { resolvePreferredOpenInTarget } from '../../lib/openIn'
 import { Button, Select, SettingsSection, SettingRow, toast } from '../../ui'
 
 const EMPTY_PAGE: AgentPermissionsPage = {
@@ -127,11 +128,12 @@ export function AgentPermissionsSettings({ workspaceId }: { workspaceId: string 
     } catch {
       // Fall back to project policy path.
     }
+    const target = await resolvePreferredOpenInTarget()
     void window.oxe?.app?.openIn?.({
       workspaceId,
       rootPath: '',
       path: policyPath,
-      target: 'vscode'
+      target
     })
   }
 

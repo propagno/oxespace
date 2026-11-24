@@ -1,5 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace } from '../../shared/types/workspace'
 import { CommandMenu } from '../../src/components/CommandMenu/CommandMenu'
@@ -464,3 +466,51 @@ function createWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     ...overrides
   }
 }
+
+// OXE-300: opening the menu again starts from an empty query with no results, reset on the open transition itself,
+// not by an effect that sets state after the render (react-hooks/set-state-in-effect); the current root's file list
+// still answers a name search (OXE-41).
+describe('OXE-300 CommandMenu reopen', () => {
+  beforeEach(() => {
+    clearFileListCache()
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+    Element.prototype.scrollIntoView = vi.fn()
+    window.oxe = {
+      ...window.oxe,
+      search: {
+        listFiles: vi.fn().mockResolvedValue({ files: ['src/App.tsx', 'src/main.tsx'], truncated: false }),
+        run: vi.fn().mockResolvedValue({
+          files: [{ path: 'src/App.tsx', matches: [{ lineNumber: 10, lineText: 'export function App' }] }],
+          totalMatches: 1,
+          truncated: false
+        })
+      },
+      semantic: { query: vi.fn().mockResolvedValue([]) }
+    } as never
+  })
+
+  test('reopening CommandMenu resets query and results cleanly without extra effect-driven state reset', async () => {
+    const user = userEvent.setup()
+    const menu = (open: boolean) => (
+      <CommandMenu open={open} onOpenChange={vi.fn()} workspace={workspace} actions={[]} workspaces={[workspace]}
+        onSelectWorkspace={() => undefined} onSelectPane={() => undefined} />
+    )
+    const view = render(menu(true))
+    await user.type(await screen.findByPlaceholderText(/Search files and commands/i), 'export')
+    await waitFor(() => expect(screen.getByText('src/App.tsx')).toBeInTheDocument())
+
+    view.rerender(menu(false))
+    view.rerender(menu(true))
+    const input = await screen.findByPlaceholderText(/Search files and commands/i)
+    expect(input).toHaveValue('')
+    expect(screen.queryByText('src/App.tsx'), 'no result of the earlier query').toBeNull()
+
+    await user.type(input, 'main')
+    await waitFor(() => expect(screen.getByText('main.tsx')).toBeInTheDocument())
+
+    const source = readFileSync(join(process.cwd(), 'src/components/CommandMenu/CommandMenu.tsx'), 'utf8')
+    const effects = [...source.matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n {2}\}, \[/g)].map(match => match[1])
+    expect(effects.length).toBeGreaterThan(0)
+    for (const body of effects) expect(body, 'no state set synchronously at the top of an effect').not.toMatch(/^ {4}(?:if \(.*\) \{\r?\n {6})?set[A-Z]\w*\(/m)
+  })
+})
