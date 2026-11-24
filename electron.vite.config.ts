@@ -238,6 +238,8 @@ export default defineConfig({
       }
     ],
     resolve: {
+      // Mermaid brings a nested katex copy; dedupe forces a single shared katex chunk (~262 kB saved).
+      dedupe: ['katex'],
       alias: {
         '@': resolve(__dirname, 'src'),
         '@renderer': resolve(__dirname, 'src'),

@@ -30,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,6 +65,7 @@ import com.oxespace.mobile.ui.components.CodeBoxes
 import com.oxespace.mobile.ui.components.Notice
 import com.oxespace.mobile.ui.components.PairingStepper
 import com.oxespace.mobile.ui.components.Viewfinder
+import com.oxespace.mobile.ui.components.LocalViewfinderGuides
 import com.oxespace.mobile.ui.components.NoticeIntent
 import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
@@ -271,12 +273,23 @@ fun CameraWithPermission(description: String, onText: (String) -> Unit, modifier
         granted = result
         asked = true
     }
+    // A7 (OXE-381): the Viewfinder's corner guides and scan line show only once the camera is allowed.
+    val showGuides = LocalViewfinderGuides.current
+    SideEffect { showGuides(granted) }
     if (granted) {
         QrScanner(description, onText, modifier)
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)) {
-        Text(stringResource(if (asked) R.string.pairing_camera_denied else R.string.pairing_camera_needed), style = MaterialTheme.typography.bodyLarge)
+    // A7 (OXE-381): the explanation sits on the viewfinder's dark ground in both themes: light text, 16 dp in from its edge.
+    Column(
+        modifier = modifier.padding(OxeSpace.space4),
+        verticalArrangement = Arrangement.spacedBy(OxeSpace.space3, Alignment.CenterVertically),
+    ) {
+        Text(
+            stringResource(if (asked) R.string.pairing_camera_denied else R.string.pairing_camera_needed),
+            style = MaterialTheme.typography.bodyLarge,
+            color = Oxe.colors.termFg,
+        )
         if (asked) {
             OxeButton(
                 stringResource(R.string.pairing_open_settings),

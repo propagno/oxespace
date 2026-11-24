@@ -13,6 +13,7 @@ import com.oxespace.mobile.R
 import com.oxespace.mobile.session.DesktopStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -24,6 +25,9 @@ import kotlinx.coroutines.launch
  */
 class SessionService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /** The one collector of the session status: a return to the foreground replaces it instead of adding one. */
+    private var statusJob: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -41,7 +45,8 @@ class SessionService : Service() {
             // The type exists from Android 10; on 9 a foreground service has none.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE else 0,
         )
-        scope.launch {
+        statusJob?.cancel()
+        statusJob = scope.launch {
             core.status.collect { status ->
                 if (status is DesktopStatus.Unpaired) {
                     stopSelf()
@@ -56,6 +61,7 @@ class SessionService : Service() {
     }
 
     override fun onDestroy() {
+        statusJob = null
         scope.cancel()
         super.onDestroy()
     }

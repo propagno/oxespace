@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, MoreHorizontal, Plus, RotateCw, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, ImagePlus, MousePointerClick, Minus, MonitorPlay, MoreHorizontal, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, IconButton, Menu, EmptyState, ErrorState, Spinner, type MenuEntry, type MenuRadioOption } from '../../ui'
 import { formatDesignGrab, formatDesignGrabs, previewElementLabel, type DesignGrabContext, type PreviewElementRef } from '../../../shared/types/design-mode'
@@ -97,6 +97,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const [zoom, setZoom] = useState(100)
   const [deviceChoice, setDeviceChoice] = useState<{ deviceId: string | null; rotated: boolean }>({ deviceId: null, rotated: false })
   const [capturing, setCapturing] = useState(false)
+  const [capturingArtifact, setCapturingArtifact] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentAutomation, setAgentAutomation] = useState(false)
@@ -340,6 +341,19 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       setCapturing(false)
     }
   }
+  const handleCaptureArtifact = async (): Promise<void> => {
+    if (!url || !activeTabId || capturingArtifact) return
+    setCapturingArtifact(true)
+    setCaptureNotice(null)
+    try {
+      const artifact = await window.oxe.browserPreview.captureSessionArtifact({ownerKey:previewKey,tabId:activeTabId})
+      setCaptureNotice(t('preview.artifactSaved', { fileName: artifact.fileName }))
+    } catch (error) {
+      setCaptureNotice(humanizeError(error, t('preview.error.captureArtifact')))
+    } finally {
+      setCapturingArtifact(false)
+    }
+  }
 
   const applyDeviceChoice = (nextValue: string): void => {
     const nextDeviceId = nextValue === 'desktop' ? null : nextValue
@@ -381,6 +395,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     { type: 'separator' },
     { type: 'check', label: t('preview.design'), checked: designMode, disabled: !url || !guestReady, onSelect: toggleDesignMode },
     { label: t('preview.capture'), icon: <Camera size={14} aria-hidden="true" />, disabled: !url || capturing, onSelect: () => void handleCapture() },
+    { label: t('preview.captureArtifact'), icon: <ImagePlus size={14} aria-hidden="true" />, disabled: !url || !activeTabId || capturingArtifact, onSelect: () => void handleCaptureArtifact() },
     { label: t('preview.openExternal'), icon: <ExternalLink size={14} aria-hidden="true" />, disabled: !url, onSelect: openExternal }
   ]
 
@@ -405,10 +420,10 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       <div className="web-preview-tabs" role="group" aria-label={t('preview.tabs')}>
         {tabs.map((tab, index) => <div className="web-preview-tab" key={tab.id} data-browser-tab-id={tab.id} data-active={tab.id === activeTabId} data-loading={tab.loading} data-error={Boolean(tab.error)}>
           {tab.loading ? <Spinner size="sm" label={t('preview.tabLoading')} /> : tab.error ? <AlertCircle size={12} role="img" aria-label={t('preview.tabFailed')} /> : null}
-          <button type="button" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={t('preview.tab', { index: index + 1, name: tab.url ? new URL(tab.url).hostname : t('preview.newTab') })} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : t('preview.newTab')}</button>
-          <button type="button" aria-label={t('preview.closeTab', { index: index + 1 })} onClick={() => changeTab('close',tab.id)}><X size={12} aria-hidden="true" /></button>
+          <Button size="sm" variant="ghost" className="web-preview-tab-select" aria-current={tab.id === activeTabId ? 'true' : undefined} aria-label={t('preview.tab', { index: index + 1, name: tab.url ? new URL(tab.url).hostname : t('preview.newTab') })} onClick={() => changeTab('select',tab.id)}>{tab.url ? new URL(tab.url).hostname : t('preview.newTab')}</Button>
+          <IconButton size="sm" variant="ghost" className="web-preview-tab-close" label={t('preview.closeTab', { index: index + 1 })} icon={<X size={12} aria-hidden="true" />} onClick={() => changeTab('close',tab.id)} />
         </div>)}
-        <button type="button" className="web-preview-new-tab" aria-label={t('preview.newTabLabel')} title={t('preview.newTabLabel')} onClick={() => changeTab('new')}><Plus size={14} aria-hidden="true" /></button>
+        <IconButton size="sm" variant="ghost" className="web-preview-new-tab" label={t('preview.newTabLabel')} icon={<Plus size={14} aria-hidden="true" />} onClick={() => changeTab('new')} />
       </div>
 
       <div className="web-preview-browserbar" role="toolbar" aria-label={t('preview.toolbar')}>
@@ -448,6 +463,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
           <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
           <DevServerMenu dev={dev} onStart={startServer} onOpen={showPage} onNotice={setCaptureNotice} />
           <IconButton size="sm" label={t('preview.capture')} title={t('preview.capture')} icon={<Camera size={14} aria-hidden="true" />} disabled={!url || capturing} onClick={() => void handleCapture()} />
+          <IconButton size="sm" label={t('preview.captureArtifact')} title={t('preview.captureArtifact')} data-testid="web-preview-capture-artifact" icon={<ImagePlus size={14} aria-hidden="true" />} disabled={!url || !activeTabId || capturingArtifact} onClick={() => void handleCaptureArtifact()} />
           <IconButton size="sm" label={t('preview.openExternal')} title={t('preview.openExternal')} icon={<ExternalLink size={14} aria-hidden="true" />} disabled={!url} onClick={openExternal} />
         </div>
         <div className="web-preview-overflow-menu">
@@ -500,8 +516,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         <div className="web-preview-problems" role="status" data-testid="preview-problems">
           <AlertCircle size={12} aria-hidden="true" />
           <span>{t('preview.verify.problems', { count: previewProblemCount(problems) })}</span>
-          <button type="button" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</button>
-          <button type="button" className="web-preview-problems-dismiss" aria-label={t('preview.verify.dismiss')} title={t('preview.verify.dismiss')} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)}><X size={12} aria-hidden="true" /></button>
+          <Button size="sm" variant="secondary" className="web-preview-problems-send" data-testid="preview-problems-send" onClick={() => void sendProblemsToAgent()}>{t('preview.verify.send')}</Button>
+          <IconButton size="sm" variant="ghost" className="web-preview-problems-dismiss" label={t('preview.verify.dismiss')} icon={<X size={12} aria-hidden="true" />} onClick={() => setProblems(NO_PREVIEW_PROBLEMS)} />
         </div>
       ) : null}
 
@@ -537,7 +553,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       {designMode ? (
         <div className="web-preview-design-hint" role="status">
           {grabs.length > 0 ? t('preview.grab.pickingMore', { count: grabs.length }) : t('preview.designHint')}
-          {grabs.length > 0 ? <button type="button" className="web-preview-design-review" data-testid="design-grab-review" onClick={() => { setDesignMode(false); setDesignKeep(false) }}>{t('preview.grab.review')}</button> : null}
+          {grabs.length > 0 ? <Button size="sm" variant="secondary" className="web-preview-design-review" data-testid="design-grab-review" onClick={() => { setDesignMode(false); setDesignKeep(false) }}>{t('preview.grab.review')}</Button> : null}
         </div>
       ) : null}
       {grabs.length > 0 && !designMode ? (

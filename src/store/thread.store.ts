@@ -9,6 +9,32 @@ import { createDraftWriter, loadStoredDrafts } from '../utils/threadDrafts'
 import { optimistic } from './optimistic'
 import { i18n } from '../i18n'
 import { SPLIT_RATIO_DEFAULT, clampSplitRatio } from '../components/Threads/threadGridLayout'
+import { isSameRootPath } from '../../shared/utils/path'
+import { useWorkspaceStore } from './workspace.store'
+
+function currentPlatform(override?: string): string {
+  if (override) return override
+  if (typeof window !== 'undefined' && window.oxe?.app?.platform) return window.oxe.app.platform
+  if (typeof navigator !== 'undefined' && /Win|Mac/i.test(navigator.platform)) return 'win32'
+  return 'linux'
+}
+
+/** Matches an OxeCode workspace root to a non-hidden OxeChat project and its latest visible thread. */
+function matchCodeWorkspace(
+  projects: readonly ThreadProjectSummary[],
+  threads: readonly ConversationThread[],
+  hiddenProjects: readonly string[],
+  rootPath: string,
+  platform: string
+): { projectId: string | null; thread: ConversationThread | null } {
+  const hidden = new Set(hiddenProjects)
+  const matchedProject = projects.find(project => !hidden.has(project.projectId) && project.contexts.some(ctx => isSameRootPath(ctx.rootPath, rootPath, platform)))
+  const visible = threads.filter(thread => !thread.archived && !hidden.has(thread.projectId))
+  const matchedThread = visible.find(thread =>
+    (matchedProject && thread.projectId === matchedProject.projectId) || isSameRootPath(thread.rootPath, rootPath, platform)
+  ) ?? null
+  return { projectId: matchedProject?.projectId ?? matchedThread?.projectId ?? null, thread: matchedThread }
+}
 
 // Read once, before the store exists: the writer needs the saved edit times to let old drafts expire.
 const storedDrafts = loadStoredDrafts()
@@ -26,6 +52,13 @@ interface ThreadState {
   listLoaded: boolean
   hiddenProjects: string[]
   unreadIds: string[]
+  /** Last OxeCode workspace root synced into OxeChat (runtime-only, prevents overriding an explicit chat choice). */
+  syncedCodeRootPath: string | null
+  /** OxeCode workspace root waiting for the first thread catalog load() to finish. */
+  pendingCodeRootPath: string | null
+  /** Project matched by the latest OxeCode -> OxeChat sync (used as default target until another thread is picked). */
+  syncedProjectId: string | null
+  syncActiveCodeWorkspace: (rootPath: string | null, platform?: string) => Promise<boolean>
   markUnread: (id: string) => void
   markRead: (id: string) => void
   /** A deleted conversation leaves the cached list at once, before the list reloads. */
@@ -84,7 +117,35 @@ export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
 export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
-  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, previewElements: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [],
+  threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, previewElements: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [], syncedCodeRootPath: null, pendingCodeRootPath: null, syncedProjectId: null,
+  syncActiveCodeWorkspace: async (rootPath, platformOverride) => {
+    if (!rootPath?.trim()) return false
+    const platform = currentPlatform(platformOverride)
+    const state = get()
+    if (state.syncedCodeRootPath && isSameRootPath(state.syncedCodeRootPath, rootPath, platform) && state.selectedId !== null) return false
+    if (!state.listLoaded && state.threads.length === 0 && state.projects.length === 0) {
+      set({ pendingCodeRootPath: rootPath })
+      return false
+    }
+    const matched = matchCodeWorkspace(state.projects, state.threads, state.hiddenProjects, rootPath, platform)
+    if (!matched.projectId && !matched.thread) {
+      set({ syncedCodeRootPath: rootPath, pendingCodeRootPath: null })
+      return false
+    }
+    const projectId = matched.projectId
+    set(current => ({
+      syncedCodeRootPath: rootPath,
+      pendingCodeRootPath: null,
+      syncedProjectId: projectId,
+      ...(projectId ? { expanded: { ...current.expanded, [projectId]: true } } : {})
+    }))
+    const currentThread = get().threads.find(thread => thread.id === get().selectedId)
+    const alreadyInProject = Boolean(currentThread && !currentThread.archived && (
+      (projectId && currentThread.projectId === projectId) || isSameRootPath(currentThread.rootPath, rootPath, platform)
+    ))
+    if (!alreadyInProject && matched.thread) await get().select(matched.thread.id)
+    return true
+  },
   markUnread: id => set(state => ({ unreadIds: [...new Set([...state.unreadIds, id])] })),
   markRead: id => set(state => ({ unreadIds: state.unreadIds.filter(value => value !== id) })),
   dropFromListCache: id => { if (get().listLoaded) saveListCache(get(), id) },
@@ -137,8 +198,12 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     // switch's to take down (#363 CI: a timer left from an earlier test cleared a fresh fixture with the same id).
     const kept = keep ? get().snapshot : null
     if (keep) setTimeout(() => { if (version === generation && get().selectedId === id && get().snapshot === kept) set({ snapshot: null }) }, CONVERSATION_SKELETON_AFTER_MS)
-    set(state => ({ selectedId: id, snapshot: keep ? state.snapshot : cached, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
-      ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }))
+    set(state => {
+      const target = id ? state.threads.find(thread => thread.id === id) : null
+      const keepSynced = !id || (target && target.projectId === state.syncedProjectId)
+      return { selectedId: id, snapshot: keep ? state.snapshot : cached, syncedProjectId: keepSynced ? state.syncedProjectId : null, unreadIds: id && markRead ? state.unreadIds.filter(value => value !== id) : state.unreadIds, errors: Object.fromEntries(Object.entries(state.errors).filter(([key]) => key !== 'selection')),
+        ...(state.secondaryId === id ? { secondaryId: null, activeCell: 'primary' as const } : {}) }
+    })
     if (!id) return
     try {
       const snapshot = await window.oxe.thread!.read(id)
@@ -219,7 +284,29 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     // A failed load keeps the copy it has; a fresh list replaces it.
     if (!failed) saveListCache(get())
     const visible = threads.filter(t => !t.archived && !get().hiddenProjects.includes(t.projectId))
-    const selected = visible.find(t => t.id === get().selectedId) ?? visible[0]
+    let selected = visible.find(t => t.id === get().selectedId)
+    const pendingRoot = get().pendingCodeRootPath
+    if (pendingRoot) {
+      const platform = currentPlatform()
+      const matched = matchCodeWorkspace(get().projects, threads, get().hiddenProjects, pendingRoot, platform)
+      set(state => ({
+        pendingCodeRootPath: null,
+        syncedCodeRootPath: pendingRoot,
+        ...(matched.projectId ? { syncedProjectId: matched.projectId, expanded: { ...state.expanded, [matched.projectId]: true } } : {})
+      }))
+      if (matched.thread && (!selected || (selected.projectId !== matched.projectId && !isSameRootPath(selected.rootPath, pendingRoot, platform)))) {
+        selected = matched.thread
+      }
+    } else if (!selected) {
+      const wsState = useWorkspaceStore.getState()
+      const activeRoot = wsState.workspaces.find(w => w.id === wsState.activeWorkspaceId)?.rootPath
+      if (activeRoot) {
+        const matched = matchCodeWorkspace(get().projects, threads, get().hiddenProjects, activeRoot, currentPlatform())
+        if (matched.projectId) set(state => ({ syncedCodeRootPath: activeRoot, syncedProjectId: matched.projectId, expanded: { ...state.expanded, [matched.projectId!]: true } }))
+        if (matched.thread) selected = matched.thread
+      }
+    }
+    selected ??= visible[0]
     if (selected?.id !== get().selectedId || !get().snapshot) await get().select(selected?.id ?? null, selected?.id !== get().selectedId)
     else await get().refresh(selected.id)
   },
@@ -280,7 +367,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
   adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
-    return { snapshot, selectedId: snapshot.thread.id, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
+    return { snapshot, selectedId: snapshot.thread.id, syncedProjectId: state.syncedProjectId === snapshot.thread.projectId ? state.syncedProjectId : null, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
   }) },
   updateSnapshot: snapshot => set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)

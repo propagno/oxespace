@@ -77,7 +77,7 @@ import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
 import { openExternalLink } from '../../lib/externalLinks'
 
-export function ThreadView({ workspace, threadId, active = true, cell, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; cell?: 'primary' | 'secondary'; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
+export function ThreadView({ workspace, threadId, active = true, cell, onActivate, onCloseCell, onNewThread, onAccounts, onDelegations }: { workspace?: Workspace; threadId?: string | null; active?: boolean; cell?: 'primary' | 'secondary'; onActivate?: () => void; onCloseCell?: () => void; onNewThread?: (draft?: string) => void; onAccounts?: () => void; onDelegations?: () => void }) {
   const { t } = useTranslation('thread')
   const storeSelectedId = useThreadStore(state => state.selectedId)
   const snapshot = useThreadStore(state => threadId ? state.selectedId === threadId ? state.snapshot : state.snapshotCache[threadId] ?? null : state.snapshot)
@@ -478,10 +478,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
           <h2>{t('view.welcomeTitle')}</h2>
           <p>{t('view.welcomeBody')}</p>
           <div className="thread-welcome-actions">
-            {onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={onNewThread}>{t('view.newConversation')}</Button>}
+            {onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={() => onNewThread()}>{t('view.newConversation')}</Button>}
           </div>
           {onNewThread && <div className="thread-opening-starters">
-            {welcomeStarters.map(starter => <Button key={starter.id} variant="secondary" className="thread-opening-starter" onClick={onNewThread}><strong>{starter.label}</strong><span>{starter.prompt}</span></Button>)}
+            {welcomeStarters.map(starter => <Button key={starter.id} variant="secondary" className="thread-opening-starter" onClick={() => onNewThread(starter.prompt)}><strong>{starter.label}</strong><span>{starter.prompt}</span></Button>)}
           </div>}
         </div>}
         <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
