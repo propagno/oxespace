@@ -54,11 +54,13 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
   })
   // The Android panel opens pairing through the gateway, which is registered further down.
   const remotePairing: { start?: () => Promise<{ uri: string; expiresAt: number }> } = {}
+  const androidDisconnect: { notify?: (e: { serial: string; name: string; sessionKeys: string[] }) => void } = {}
   registerAndroidIpc({
     devices: androidDevices,
     access: androidAccess,
     startPairing: () => remotePairing.start ? remotePairing.start() : Promise.reject(new Error('Pairing is not ready yet')),
-    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } }
+    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } },
+    onDeviceDisconnected: event => { log.info(`[android] device disconnected: ${event.serial} (${event.name})`); androidDisconnect.notify?.(event) }
   })
   registerAgentHooksIpc(app.getPath('userData'))
   // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
@@ -203,7 +205,9 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     DelegationService,
     registerDelegationIpc,
     executions,
+    androidDevices,
     androidAccess,
+    androidDisconnect,
     remotePairing,
     agentState,
     notifyAgentsChanged,

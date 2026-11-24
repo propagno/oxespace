@@ -27,6 +27,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
     db,
     executions,
     androidAccess,
+    androidDisconnect,
     remotePairing,
     agentState,
     notifyAgentsChanged,
@@ -128,6 +129,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
   // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
   const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
   void threadManager.manager.then(manager => {
+    androidDisconnect.notify = e => { for (const k of e.sessionKeys) void manager.steer(k.replace(/^thread:/, ''), `Android device ${e.name} (${e.serial}) disconnected from adb.`).catch(() => {}) }
     manager.configureHostsProxy(hostsProxy)
     manager.configurePanes(() => {
       const sources: import('../../../shared/types/thread-places').ThreadPaneSource[] = []

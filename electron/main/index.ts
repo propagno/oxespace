@@ -135,7 +135,6 @@ async function registerIpcHandlers(): Promise<() => void> {
   const delegationRef: DelegationHandleRef = {}
   const core = await bootstrapCoreServices({ db, rootExists: existsSync, delegationRef })
   const workspace = await bootstrapWorkspaceServices(core)
-
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
     if (!item) return null
@@ -242,7 +241,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), workspace.threadManager.stop(), delegationService?.stop()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), workspace.threadManager.stop(), delegationService?.stop(), core.androidDevices.stopOwned()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
