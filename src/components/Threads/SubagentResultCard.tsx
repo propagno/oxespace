@@ -27,6 +27,8 @@ export interface SubagentResultCardProps {
   onViewDetails?: () => void
   /** Character length threshold before collapsing output. */
   collapseThreshold?: number
+  /** When true, wraps the output inside a collapsed `<details>` disclosure. */
+  collapsibleOutput?: boolean
   className?: string
 }
 
@@ -50,6 +52,7 @@ export function SubagentResultCard({
   onOpenConversation,
   onViewDetails,
   collapseThreshold = DEFAULT_COLLAPSE_THRESHOLD,
+  collapsibleOutput = false,
   className
 }: SubagentResultCardProps): ReactElement {
   const { t } = useTranslation('thread')
@@ -74,8 +77,9 @@ export function SubagentResultCard({
   const metaParts = [durationText, ...(metrics ?? []).filter(Boolean)].filter((part): part is string => Boolean(part))
 
   const hasSeparateSummary = Boolean(trimmedSummary && trimmedOutput && trimmedSummary !== trimmedOutput)
+  const useDisclosure = collapsibleOutput && Boolean(trimmedOutput) && !hasSeparateSummary
   const outputLines = trimmedOutput ? trimmedOutput.split(/\r?\n/) : []
-  const isLongOutput = !hasSeparateSummary && (trimmedOutput.length > collapseThreshold || outputLines.length > MAX_PREVIEW_LINES)
+  const isLongOutput = !hasSeparateSummary && !useDisclosure && (trimmedOutput.length > collapseThreshold || outputLines.length > MAX_PREVIEW_LINES)
   const canExpand = hasSeparateSummary || isLongOutput
 
   const previewText = (() => {
@@ -106,6 +110,11 @@ export function SubagentResultCard({
               <p className={styles.summary}>{trimmedSummary}</p>
               {expanded && <pre className={styles.output}>{trimmedOutput}</pre>}
             </>
+          ) : useDisclosure ? (
+            <details className={cx('thread-subagent-result', styles.disclosure)}>
+              <summary className={styles.disclosureSummary}>{t('subagent.viewResult')}</summary>
+              <p className={styles.summary}>{trimmedOutput}</p>
+            </details>
           ) : (
             <p className={styles.summary}>{previewText}</p>
           )

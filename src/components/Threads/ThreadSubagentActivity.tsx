@@ -52,6 +52,7 @@ export function ThreadSubagentActivity({
             output={agent.message}
             durationMs={durationMs}
             metrics={metrics}
+            collapsibleOutput
             onOpenConversation={onOpenAgent ? () => onOpenAgent(agent.threadId) : undefined}
           />
         ) : (
