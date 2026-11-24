@@ -3,13 +3,16 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { deviceLinkRefusal, type PhoneAppBuild } from '../../../shared/android-actions'
+import type { AndroidEmulatorLaunchOptions } from '../../../shared/types/android'
 import { IPC_CHANNELS, type AndroidActionOutcome, type AndroidApkPick, type AndroidMirrorDevice, type AndroidMirrorFrame, type AndroidMirrorStatus } from '../../../shared/types/ipc'
-import { assertValidSerial, isApkPath, type AndroidAgentAccess, type AndroidDevices, type AndroidPersonAction } from '../services/android/android-devices'
+import { assertValidSerial, checkEmulatorMemory, isApkPath, type AndroidAgentAccess, type AndroidDevices, type AndroidPersonAction } from '../services/android/android-devices'
 
 export interface AndroidIpcDeps {
   devices: AndroidDevices
   access: AndroidAgentAccess
   picturesDir?: () => string
+  /** Returns current free host RAM in bytes; defaults to `os.freemem()`. */
+  freeMemoryBytes?: () => number
   /** The APK the person picks in the system's file dialog, or null when they cancel. The window never names a path. */
   pickApk?: (owner: BrowserWindow | null) => Promise<string | null>
   /** Opens pairing on this desktop and gives its link; rejects when phones may not connect yet. */
@@ -112,7 +115,8 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
       stream: device.state === 'device' ? (streams.get(device.serial)?.state ?? 'idle') : 'idle',
       ...(builds[index] ? { phoneApp: builds[index] } : {})
     }))
-    return { adb: listed.adb, devices, avds }
+    const { freeMb } = checkEmulatorMemory({ freeBytes: deps.freeMemoryBytes?.() })
+    return { adb: listed.adb, devices, avds, freeMemoryMb: freeMb }
   }
 
   const notifyChanged = (): void => {
@@ -236,9 +240,16 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
     notifyChanged()
   })
 
-  ipcMain.handle(IPC_CHANNELS.android.startEmulator, async (_event, avd: string) => {
-    await deps.devices.startAvd(String(avd ?? ''))
+  ipcMain.handle(IPC_CHANNELS.android.startEmulator, async (_event, avd: string, options?: AndroidEmulatorLaunchOptions) => {
+    await deps.devices.startAvd(String(avd ?? ''), options)
     notifyChanged()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.android.checkEmulatorMemory, async (_event, options?: AndroidEmulatorLaunchOptions) => {
+    return checkEmulatorMemory({
+      lightweight: options?.lightweight,
+      freeBytes: deps.freeMemoryBytes?.()
+    })
   })
 
   // The person's own actions on a device. No MCP tool, phone command or command-bar entry reaches these channels.

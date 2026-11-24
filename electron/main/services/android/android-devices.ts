@@ -1,11 +1,12 @@
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { freemem, homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import {
   OXESPACE_PHONE_ACTIVITY, OXESPACE_PHONE_PACKAGE, PAIR_LINK_EXTRA, deviceLinkRefusal, installFailure, isPairLink, phoneAppBuild, quotedForDeviceShell, startFailure,
   type PhoneAppBuild
 } from '../../../../shared/android-actions'
+import type { AndroidEmulatorLaunchOptions, AndroidEmulatorMemoryCheck } from '../../../../shared/types/android'
 
 export interface AdbResult {
   status: number | null
@@ -78,6 +79,48 @@ const KNOWN_STATES = new Set<AndroidDeviceState>([
   'sideload',
   'authorizing'
 ])
+
+export const EMULATOR_LIGHTWEIGHT_MEMORY_MB = 2048
+export const EMULATOR_MEMORY_THRESHOLD_MB = {
+  lightweight: 2048,
+  standard: 4096
+} as const
+
+/** Builds the argument list for launching an Android emulator AVD. Lightweight mode is enabled by default. */
+export function buildEmulatorArgs(avd: string, options: AndroidEmulatorLaunchOptions = {}): string[] {
+  if (!avd || avd.startsWith('-') || !AVD_NAME_RE.test(avd)) {
+    throw new Error('Invalid AVD name')
+  }
+  const lightweight = options.lightweight !== false
+  if (lightweight) {
+    return [
+      '-avd',
+      avd,
+      '-no-boot-anim',
+      '-no-audio',
+      '-memory',
+      String(EMULATOR_LIGHTWEIGHT_MEMORY_MB),
+      '-no-snapshot-save'
+    ]
+  }
+  return ['-avd', avd]
+}
+
+/** Checks whether free host memory meets the recommended threshold for the chosen emulator profile. */
+export function checkEmulatorMemory(
+  options: AndroidEmulatorLaunchOptions & { freeBytes?: number } = {}
+): AndroidEmulatorMemoryCheck {
+  const lightweight = options.lightweight !== false
+  const rawBytes = options.freeBytes ?? freemem()
+  const freeMb = Number.isFinite(rawBytes) && rawBytes > 0 ? Math.floor(rawBytes / (1024 * 1024)) : 0
+  const requiredMb = lightweight ? EMULATOR_MEMORY_THRESHOLD_MB.lightweight : EMULATOR_MEMORY_THRESHOLD_MB.standard
+  return {
+    ok: freeMb >= requiredMb,
+    freeMb,
+    requiredMb,
+    lightweight
+  }
+}
 
 export function assertValidSerial(serial: string): void {
   if (!serial || serial.startsWith('-') || !SERIAL_RE.test(serial)) {
@@ -428,15 +471,13 @@ export class AndroidDevices {
       .filter(line => Boolean(line) && !line.startsWith('-') && AVD_NAME_RE.test(line))
   }
 
-  async startAvd(avd: string): Promise<void> {
-    if (!avd || avd.startsWith('-') || !AVD_NAME_RE.test(avd)) {
-      throw new Error('Invalid AVD name')
-    }
+  async startAvd(avd: string, options: AndroidEmulatorLaunchOptions = {}): Promise<void> {
+    const args = buildEmulatorArgs(avd, options)
     const available = await this.listAvds()
     if (!available.includes(avd)) {
       throw new Error('Unknown AVD name')
     }
-    const res = await this.runEmulator(['-avd', avd], { detached: true })
+    const res = await this.runEmulator(args, { detached: true })
     if (res.missing || res.status !== 0) {
       throw new Error('Failed to start Android emulator')
     }

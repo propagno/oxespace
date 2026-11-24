@@ -6,7 +6,7 @@ import type { AndroidActionOutcome, AndroidApkPick, AndroidMirrorDevice, Android
 import { useUIStore } from '../../store/ui.store'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import { Button, IconButton } from '../../ui/Button'
-import { EmptyState, Spinner, StatusDot } from '../../ui/Display'
+import { EmptyState, Notice, Spinner, StatusDot } from '../../ui/Display'
 import { Switch, TextField } from '../../ui/Field'
 import { Dialog, Menu } from '../../ui/Overlay'
 import { toast } from '../../ui/Toast'
@@ -45,6 +45,13 @@ export function AndroidPanel(): ReactElement {
   const [apk, setApk] = useState<{ pick: AndroidApkPick; serial: string; device: string } | null>(null)
   const [link, setLink] = useState<{ serial: string; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
+  const [lightweightEmulator, setLightweightEmulator] = useState(true)
+  const [lowMemoryConfirm, setLowMemoryConfirm] = useState<{
+    avd: string
+    freeMb: number
+    requiredMb: number
+    lightweight: boolean
+  } | null>(null)
 
   const refresh = useCallback(async (): Promise<void> => {
     const api = window.oxe?.android
@@ -231,6 +238,29 @@ export function AndroidPanel(): ReactElement {
     await refresh()
   }
 
+  const handleStartEmulator = async (avd: string): Promise<void> => {
+    const api = window.oxe?.android
+    if (!api) return
+    const requiredMb = lightweightEmulator ? 2048 : 4096
+    const mem = api.checkEmulatorMemory
+      ? await api.checkEmulatorMemory({ lightweight: lightweightEmulator }).catch(() => null)
+      : typeof status?.freeMemoryMb === 'number'
+        ? { ok: status.freeMemoryMb >= requiredMb, freeMb: status.freeMemoryMb, requiredMb, lightweight: lightweightEmulator }
+        : null
+    if (mem && !mem.ok) {
+      setLowMemoryConfirm({ avd, freeMb: mem.freeMb, requiredMb: mem.requiredMb, lightweight: mem.lightweight })
+      return
+    }
+    await api.startEmulator(avd, { lightweight: lightweightEmulator })
+  }
+
+  const handleConfirmLowMemoryStart = async (): Promise<void> => {
+    if (!lowMemoryConfirm) return
+    const { avd, lightweight } = lowMemoryConfirm
+    setLowMemoryConfirm(null)
+    await window.oxe?.android?.startEmulator(avd, { lightweight })
+  }
+
   const frameSize = (selectedDevice ? frames[selectedDevice.serial] : undefined) ?? {
     width: 1080,
     height: 2400
@@ -332,6 +362,8 @@ export function AndroidPanel(): ReactElement {
 
   if (devices.length === 0 || !selectedDevice) {
     const firstAvd = status.avds[0]
+    const requiredMb = lightweightEmulator ? 2048 : 4096
+    const isLowMemory = typeof status.freeMemoryMb === 'number' && status.freeMemoryMb < requiredMb
     return (
       <div className="android-panel">
         <div className="android-stage">
@@ -343,7 +375,7 @@ export function AndroidPanel(): ReactElement {
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => void window.oxe?.android?.startEmulator(firstAvd)}
+                  onClick={() => void handleStartEmulator(firstAvd)}
                 >
                   {t('android.startEmulatorNamed', { name: friendlyAvdName(firstAvd) })}
                 </Button>
@@ -352,7 +384,36 @@ export function AndroidPanel(): ReactElement {
           >
             {t('android.noDeviceDetail')}
           </EmptyState>
+          {firstAvd ? (
+            <div className="android-emulator-options">
+              <Switch
+                checked={lightweightEmulator}
+                onChange={setLightweightEmulator}
+                label={t('android.lightweightProfile')}
+                description={t('android.lightweightProfileHint')}
+              />
+              {isLowMemory ? (
+                <Notice intent="warning" title={t('android.lowMemoryNoticeTitle')}>
+                  {t('android.lowMemoryNoticeDetail', { freeMb: status.freeMemoryMb, requiredMb })}
+                </Notice>
+              ) : null}
+            </div>
+          ) : null}
         </div>
+        {lowMemoryConfirm ? (
+          <ConfirmDialog
+            testId="android-low-memory-confirm"
+            title={t('android.lowMemoryConfirmTitle')}
+            description={t('android.lowMemoryConfirmDetail', {
+              name: friendlyAvdName(lowMemoryConfirm.avd),
+              freeMb: lowMemoryConfirm.freeMb,
+              requiredMb: lowMemoryConfirm.requiredMb
+            })}
+            confirmLabel={t('android.startAnyway')}
+            onConfirm={() => void handleConfirmLowMemoryStart()}
+            onCancel={() => setLowMemoryConfirm(null)}
+          />
+        ) : null}
       </div>
     )
   }

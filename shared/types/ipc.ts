@@ -429,6 +429,7 @@ export const IPC_CHANNELS = {
     screenshot: 'android:screenshot',
     setAgentsCanSee: 'android:set-agents-can-see',
     startEmulator: 'android:start-emulator',
+    checkEmulatorMemory: 'android:check-emulator-memory',
     /** main → window: open the Android device panel (an agent asked for the device). */
     openPanel: 'android:open-panel'
   },
