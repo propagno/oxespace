@@ -890,13 +890,6 @@ export function App(): ReactElement {
           onExecute={dispatchSlashCommand}
         />
       ) : null}
-      {isMcpPanelOpen ? (
-        <McpPanelHost
-          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
-          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
-          onClose={closeMcpPanel}
-        />
-      ) : null}
       {containersOpen && !(applicationView === 'code' && activeWorkspace && !showFirstRun) ? <ContainersPanel onClose={() => setContainersOpen(false)} onOpenConversation={openContainerConversation} /> : null}
       {isSettingsOpen || (isWorkspaceSettingsOpen && applicationView === 'code') ? (
         <Suspense fallback={null}><SettingsCenter
@@ -959,6 +952,13 @@ export function App(): ReactElement {
           }}
           onClose={() => { if (isSettingsOpen) toggleSettings(); closeWorkspaceSettings() }}
         /></Suspense>
+      ) : null}
+      {isMcpPanelOpen ? (
+        <McpPanelHost
+          workspaceId={applicationView === 'thread' ? appThread?.workspaceId ?? null : activeWorkspace?.id ?? null}
+          conversationServers={applicationView === 'thread' ? appThread?.mcpServers?.servers : undefined}
+          onClose={closeMcpPanel}
+        />
       ) : null}
       {isDesignSystemOpen ? <DesignSystemPage onClose={() => { setDesignSystemOpen(false) }} /> : null}
       {configuredAgent ? (
