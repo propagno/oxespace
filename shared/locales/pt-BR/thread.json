@@ -1988,7 +1988,11 @@
   },
   "toolOutputCut": {
     "withTotal": "Saída cortada nos primeiros {{kept}} de {{total}}",
-    "keptOnly": "Saída cortada nos primeiros {{kept}}"
+    "keptOnly": "Saída cortada nos primeiros {{kept}}",
+    "openFull": "Abrir output completo",
+    "copyFull": "Copiar saída",
+    "copied": "Copiado",
+    "modalTitle": "Output completo · {{tool}}"
   },
   "places": {
     "kind": {
