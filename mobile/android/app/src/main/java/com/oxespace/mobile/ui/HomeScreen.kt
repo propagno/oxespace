@@ -60,6 +60,7 @@ import com.oxespace.mobile.ui.components.OxeButton
 import com.oxespace.mobile.ui.components.OxeButtonKind
 import com.oxespace.mobile.ui.components.OxeIconButton
 import com.oxespace.mobile.ui.components.OxeTextField
+import com.oxespace.mobile.ui.icons.OxeIcons
 import com.oxespace.mobile.ui.theme.Oxe
 import com.oxespace.mobile.ui.theme.OxeSpace
 import com.oxespace.mobile.ui.theme.OxeTheme
@@ -72,6 +73,7 @@ fun HomeScreen(
     onRetry: () -> Unit,
     onManualHost: (String) -> Boolean,
     onUnpair: () -> Unit,
+    onSettings: () -> Unit = {},
 ) {
     if (status is DesktopStatus.Unpaired) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -79,26 +81,35 @@ fun HomeScreen(
                 modifier = Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(OxeSpace.space6),
                 verticalArrangement = Arrangement.spacedBy(OxeSpace.space3)
             ) {
-                Unpaired(status, onPair)
+                Unpaired(status, onPair, onSettings)
             }
         }
         return
     }
     when (status) {
         is DesktopStatus.Unpaired -> Unit
-        is DesktopStatus.Connecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, connecting = true)
-        is DesktopStatus.Connected -> Paired(status.desktop, status.desktopName, onRetry, onManualHost, onUnpair, connecting = false)
-        is DesktopStatus.Reconnecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, connecting = true, connectingText = R.string.home_status_reconnecting)
-        is DesktopStatus.Unreachable -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_unreachable, retryInMs = status.retryInMs, offerWifi = true)
-        is DesktopStatus.OffNetwork -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_off_network, offerWifi = true)
-        is DesktopStatus.Incompatible -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_incompatible)
+        is DesktopStatus.Connecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, connecting = true)
+        is DesktopStatus.Connected -> Paired(status.desktop, status.desktopName, onRetry, onManualHost, onUnpair, onSettings, connecting = false)
+        is DesktopStatus.Reconnecting -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, connecting = true, connectingText = R.string.home_status_reconnecting)
+        is DesktopStatus.Unreachable -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, problem = R.string.home_status_unreachable, retryInMs = status.retryInMs, offerWifi = true)
+        is DesktopStatus.OffNetwork -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, problem = R.string.home_status_off_network, offerWifi = true)
+        is DesktopStatus.Incompatible -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, problem = R.string.home_status_incompatible)
         // The desktop no longer accepts this key: unpairing is the way forward here, so it stays on the page.
-        is DesktopStatus.NotAccepted -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, problem = R.string.home_status_not_accepted, unpairOnPage = true)
+        is DesktopStatus.NotAccepted -> Paired(status.desktop, null, onRetry, onManualHost, onUnpair, onSettings, problem = R.string.home_status_not_accepted, unpairOnPage = true)
     }
 }
 
 @Composable
-private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit) {
+private fun Unpaired(status: DesktopStatus.Unpaired, onPair: () -> Unit, onSettings: () -> Unit) {
+    // A8 (OXE-381): Settings (theme, text size, the can't-connect help) before any desktop is reached.
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        OxeIconButton(
+            icon = OxeIcons.Settings,
+            contentDescription = stringResource(R.string.live_menu_settings),
+            onClick = onSettings,
+            modifier = Modifier.size(48.dp),
+        )
+    }
     if (status.revoked) {
         // T96: a pairing that lapsed unused isn't "removed": a warning Notice, while a revoked one is the danger one (#688).
         Notice(
@@ -136,6 +147,7 @@ private fun Paired(
     onRetry: () -> Unit,
     onManualHost: (String) -> Boolean,
     onUnpair: () -> Unit,
+    onSettings: () -> Unit,
     connecting: Boolean = false,
     connectingText: Int = R.string.home_status_connecting,
     problem: Int? = null,
@@ -158,6 +170,13 @@ private fun Paired(
                     }
                 },
                 actions = {
+                    // A8 (OXE-381): Settings from Home while the desktop isn't reached yet (or can't be).
+                    OxeIconButton(
+                        icon = OxeIcons.Settings,
+                        contentDescription = stringResource(R.string.live_menu_settings),
+                        onClick = onSettings,
+                        modifier = Modifier.size(48.dp),
+                    )
                     Box {
                         OxeIconButton(
                             icon = ImageVector.vectorResource(R.drawable.ic_more),

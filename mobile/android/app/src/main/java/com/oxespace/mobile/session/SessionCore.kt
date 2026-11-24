@@ -1,6 +1,7 @@
 package com.oxespace.mobile.session
 
 import android.content.Context
+import android.os.SystemClock
 import com.oxespace.mobile.notify.AlertChange
 import com.oxespace.mobile.notify.AlertWatcher
 import com.oxespace.mobile.notify.Notifications
@@ -35,12 +36,16 @@ class SessionCore(context: Context) {
 
     val notifications = Notifications(app).also { it.createChannels() }
     val live = LiveRepository()
+
+    // The token's expiry and its renewal are measured on the clock that keeps counting in deep sleep (Doze), the same
+    // one the controller reads, so a phone that slept renews on time and a return to the foreground can check it.
     private val controller = DesktopSessionController(
         scope = scope,
         store = store,
         keysFor = { alias -> AndroidKeystoreDeviceKeys(app, alias) },
-        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler, streams = live.streams) },
+        linkFor = { target, keys, tokens -> RemoteConnection(target, keys::sign, tokens, scheduler, now = SystemClock::elapsedRealtime, streams = live.streams) },
         onLan = network.onLan,
+        now = SystemClock::elapsedRealtime,
     )
 
     val status: StateFlow<DesktopStatus> = controller.status

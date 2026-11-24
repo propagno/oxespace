@@ -323,7 +323,12 @@ export function NeedsYouQueue({ agents, anchor, onClose }: NeedsYouQueueProps): 
                   ) : (
                     item.request.kind === 'question'
                       ? <Button size="md" variant="primary" onClick={() => answerInConversation(item)}>{t('f7.queue.answerInConversation')}</Button>
-                      : <Button size="md" variant="secondary" onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
+                      : (
+                        <>
+                          <span className={styles.detail} data-ui="needs-you-review-hint">{t('f7.queue.reviewToApprove')}</span>
+                          <Button size="md" variant="secondary" title={t('f7.card.seeImpactHint')} onClick={() => seeImpact(item)}>{t('f7.card.seeImpact')}</Button>
+                        </>
+                      )
                   )}
                 </div>
               </div>
