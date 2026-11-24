@@ -1002,7 +1002,8 @@
       "back": "Could not go back.",
       "forward": "Could not go forward.",
       "reload": "Could not reload.",
-      "capture": "Could not capture the preview."
+      "capture": "Could not capture the preview.",
+      "captureArtifact": "Could not save the preview as a session artifact."
     },
     "invalidUrl": "Enter a valid HTTP or HTTPS address.",
     "localOnly": "Local-only mode accepts localhost, 127.0.0.1 and ::1. Turn on External for other sites.",
@@ -1016,6 +1017,7 @@
       "label": "An agent asks to open {{url}} in the Browser"
     },
     "copied": "Preview copied to the clipboard.",
+    "artifactSaved": "Preview saved as session artifact ({{fileName}}).",
     "close": "Close browser",
     "tabs": "Browser tabs",
     "tabLoading": "Loading",
@@ -1046,6 +1048,7 @@
     "designTitle": "Design Mode: click an element to send it to an agent",
     "designHint": "Design Mode — click an element in the page, or press Escape to cancel.",
     "capture": "Copy the preview to the clipboard",
+    "captureArtifact": "Save preview as session artifact",
     "openExternal": "Open in your browser",
     "moreActions": "More browser actions",
     "access": {
