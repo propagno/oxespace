@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.notify.NotificationTaps
+import com.oxespace.mobile.notify.Notifications
 import com.oxespace.mobile.pairing.PairLinkForHomologation
 import com.oxespace.mobile.protocol.live.showsConversationToggle
 import com.oxespace.mobile.pairing.PairedDesktop
@@ -200,6 +201,7 @@ class MainActivity : ComponentActivity() {
                     version = BuildConfig.VERSION_NAME,
                     onEnterAddress = { settingsOpen = false; askingAddress = true },
                     onUnpair = { settingsOpen = false; session.unpair() },
+                    notificationsAllowed = { Notifications(this@MainActivity).allowed() },
                     onBack = { settingsOpen = false },
                 )
             }

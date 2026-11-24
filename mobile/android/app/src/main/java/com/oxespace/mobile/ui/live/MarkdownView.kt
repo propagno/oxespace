@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -140,16 +141,19 @@ private fun TableCell(cell: List<MdSpan>, style: TextStyle) {
     Text(markdownSpans(cell), style = style, maxLines = 1, softWrap = false, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
 }
 
-/** A code block: sunken, Plex Mono, scrolls sideways inside itself, with Copiar at the top right. */
+/**
+ * A code block: sunken, Plex Mono, scrolls sideways inside itself, with Copiar at the top right. `lineBackground` tints a
+ * line (a diff's added and removed lines, OXE-385); Copiar always copies the plain text.
+ */
 @Composable
-fun CodeBlock(text: String) {
+fun CodeBlock(text: String, lineBackground: (String) -> Color? = { null }) {
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
     var copied by remember(text) { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { delay(COPIED_MS); copied = false } }
     Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).background(promptFill(), RoundedCornerShape(OxeRadius.md))) {
         Text(
-            text,
+            tintedLines(text, lineBackground),
             style = OxeCodeStyle,
             softWrap = false,
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 76.dp, top = 14.dp, bottom = 14.dp),
@@ -164,3 +168,12 @@ fun CodeBlock(text: String) {
 }
 
 private const val COPIED_MS = 2_000L
+
+/** `text` with each line given the background `lineBackground` picks for it, if any. */
+internal fun tintedLines(text: String, lineBackground: (String) -> Color?): AnnotatedString = buildAnnotatedString {
+    text.split('\n').forEachIndexed { index, line ->
+        if (index > 0) append('\n')
+        val background = lineBackground(line)
+        if (background == null) append(line) else withStyle(SpanStyle(background = background)) { append(line) }
+    }
+}
