@@ -1,0 +1,25 @@
+{
+  "_source": "Simulated (OXE-409): no machine with Tailscale or WireGuard was available on 23/11, so this is the documented shape of os.networkInterfaces() on Windows with Tailscale active, not a capture. Addresses are documentation or Tailscale's own ULA prefix (fd7a:115c:a1e0::/48); MACs are zeroed. Windows names an adapter by its connection name: Tailscale's is \"Tailscale\"; WireGuard's is the tunnel's own name, here \"wg0\" (a tunnel named otherwise is not recognised by VPN_ADAPTER, a recorded gap).",
+  "platform": "win32",
+  "vpnAdapters": ["Tailscale", "wg0"],
+  "interfaces": {
+    "Wi-Fi": [
+      { "address": "fe80::1c2d:3e4f:5a6b:7c8d", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fe80::1c2d:3e4f:5a6b:7c8d/64", "scopeid": 11 },
+      { "address": "192.168.0.10", "netmask": "255.255.255.0", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "192.168.0.10/24" }
+    ],
+    "Tailscale": [
+      { "address": "fd7a:115c:a1e0::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fd7a:115c:a1e0::1/128", "scopeid": 0 },
+      { "address": "fe80::5", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fe80::5/64", "scopeid": 23 },
+      { "address": "100.101.102.103", "netmask": "255.255.255.255", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "100.101.102.103/32" }
+    ],
+    "wg0": [
+      { "address": "fd00:77::1", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fd00:77::1/64", "scopeid": 0 },
+      { "address": "10.77.0.2", "netmask": "255.255.255.0", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "10.77.0.2/24" }
+    ],
+    "Loopback Pseudo-Interface 1": [
+      { "address": "::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": true, "cidr": "::1/128", "scopeid": 0 },
+      { "address": "127.0.0.1", "netmask": "255.0.0.0", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": true, "cidr": "127.0.0.1/8" }
+    ]
+  },
+  "lan": ["192.168.0.10", "fe80::1c2d:3e4f:5a6b:7c8d"]
+}

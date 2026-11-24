@@ -32,18 +32,18 @@ const SELECT_ROWS = 'SELECT id, data_json, events_json, history_version FROM con
 
 const threadOf = (host: SessionHost, row: ThreadRow): ConversationThread => host.cached(row.id)?.thread ?? parseThreadRow<ConversationThread>(row.data_json)
 
-function eventsOf(host: SessionHost, row: ThreadRow): ThreadEvent[] {
-  const cached = host.cached(row.id)
-  if (cached) return cached.events
-  if (!row.history_version) return JSON.parse(row.events_json) as ThreadEvent[]
-  return (host.db.prepare("SELECT data_json FROM conversation_events WHERE thread_id = ? AND json_extract(data_json, '$.type') = 'tool' ORDER BY seq").all(row.id) as { data_json: string }[])
-    .map(value => JSON.parse(value.data_json) as ThreadEvent)
-}
+/**
+ * A stored conversation's +N −N, summed by SQLite over the file changes of its tool events (OXE-412). Reading every tool
+ * event into the main process to add two numbers parsed each event's whole JSON, its output included: on a long
+ * conversation that allocated tens of MB of JS heap each time the OxeChat sidebar read the sessions (since #906).
+ */
+const STORED_CHANGES = `SELECT COALESCE(SUM(json_extract(f.value, '$.additions')), 0) AS additions, COALESCE(SUM(json_extract(f.value, '$.deletions')), 0) AS deletions
+  FROM conversation_events e, json_each(e.data_json, '$.files') f
+  WHERE e.thread_id = ? AND json_extract(e.data_json, '$.type') = 'tool' AND json_extract(f.value, '$.state') = 'completed'`
 
-/** Additions and deletions of the completed file changes the chat's tool events carry (CA-6). */
-function changesOf(host: SessionHost, row: ThreadRow): SessionChanges {
+function sumChanges(events: readonly ThreadEvent[]): SessionChanges {
   const total = { additions: 0, deletions: 0 }
-  for (const event of eventsOf(host, row)) {
+  for (const event of events) {
     if (event.type !== 'tool') continue
     for (const file of event.files ?? []) {
       if (file.state !== 'completed') continue
@@ -52,6 +52,15 @@ function changesOf(host: SessionHost, row: ThreadRow): SessionChanges {
     }
   }
   return total
+}
+
+/** Additions and deletions of the completed file changes the chat's tool events carry (CA-6). */
+function changesOf(host: SessionHost, row: ThreadRow): SessionChanges {
+  const cached = host.cached(row.id)
+  if (cached) return sumChanges(cached.events)
+  if (!row.history_version) return sumChanges(JSON.parse(row.events_json) as ThreadEvent[])
+  const stored = host.db.prepare(STORED_CHANGES).get(row.id) as { additions: number | null; deletions: number | null } | undefined
+  return { additions: Number(stored?.additions) || 0, deletions: Number(stored?.deletions) || 0 }
 }
 
 /** The parallel chats of a session, in the order they were created (childOrder, stable within one millisecond). */

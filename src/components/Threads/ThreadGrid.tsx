@@ -18,7 +18,7 @@ function projectView(thread: ConversationThread | undefined, name: string | unde
     layout: '1x1', layoutPreset: 1, themeId: 'midnight', uiDensity: 'compact', defaultShellProfileId: '', autoStart: false, isActive: false, color: null, panes: [] }
 }
 
-export function ThreadGrid({ onNewThread, onAccounts, onDelegations }: { onNewThread?: () => void; onAccounts?: () => void; onDelegations?: () => void }) {
+export function ThreadGrid({ onNewThread, onAccounts, onDelegations }: { onNewThread?: (draft?: string) => void; onAccounts?: () => void; onDelegations?: () => void }) {
   const { t } = useTranslation('thread')
   const selectedId = useThreadStore(state => state.selectedId)
   // The conversation on screen: while the next one loads (F7.2) it is still the previous one, which keeps its view
