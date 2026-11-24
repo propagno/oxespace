@@ -1,0 +1,25 @@
+{
+  "_source": "Simulated (OXE-409): the documented shape of os.networkInterfaces() on macOS with Tailscale active (the standalone app's utun adapter), not a capture; no macOS machine on 23/11. macOS also keeps system utun0..utun3 with link-local addresses only. Addresses are documentation or Tailscale's ULA prefix; MACs are zeroed.",
+  "platform": "darwin",
+  "vpnAdapters": ["utun0", "utun4"],
+  "interfaces": {
+    "lo0": [
+      { "address": "127.0.0.1", "netmask": "255.0.0.0", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": true, "cidr": "127.0.0.1/8" },
+      { "address": "::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": true, "cidr": "::1/128", "scopeid": 0 }
+    ],
+    "en0": [
+      { "address": "fe80::10a4:2b3c:4d5e:6f70", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fe80::10a4:2b3c:4d5e:6f70/64", "scopeid": 14 },
+      { "address": "192.168.0.10", "netmask": "255.255.255.0", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "192.168.0.10/24" },
+      { "address": "fd12:3456:789a::10", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fd12:3456:789a::10/64", "scopeid": 0 }
+    ],
+    "utun0": [
+      { "address": "fe80::abcd:1", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fe80::abcd:1/64", "scopeid": 15 }
+    ],
+    "utun4": [
+      { "address": "100.101.102.103", "netmask": "255.255.255.255", "family": "IPv4", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "100.101.102.103/32" },
+      { "address": "fd7a:115c:a1e0::1", "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fd7a:115c:a1e0::1/128", "scopeid": 0 },
+      { "address": "fe80::5", "netmask": "ffff:ffff:ffff:ffff::", "family": "IPv6", "mac": "00:00:00:00:00:00", "internal": false, "cidr": "fe80::5/64", "scopeid": 19 }
+    ]
+  },
+  "lan": ["192.168.0.10", "fd12:3456:789a::10", "fe80::10a4:2b3c:4d5e:6f70"]
+}
