@@ -1610,7 +1610,23 @@
     "stopLabel": "Stop {{label}}",
     "stopTitle": "Stop this background task",
     "viewResult": "View result",
-    "instructions": "Instructions"
+    "instructions": "Instructions",
+    "result": {
+      "status": {
+        "done": "Completed",
+        "failed": "Failed",
+        "running": "Running"
+      },
+      "durationMs": "{{value}} ms",
+      "durationSeconds": "{{value}}s",
+      "durationMinutes": "{{minutes}}m {{seconds}}s",
+      "showMore": "Show full output",
+      "showLess": "Show less",
+      "openConversation": "Open conversation",
+      "viewDetails": "View details",
+      "runningSummary": "Working in background…",
+      "noOutput": "No output reported."
+    }
   },
   "terminal": {
     "tab": "Terminal {{number}}",

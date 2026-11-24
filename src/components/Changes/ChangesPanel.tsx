@@ -4,6 +4,7 @@ import type { GitCompareMode, GitDiffSummary, GitDiffSummaryFile, GitFileOrigina
 import type { GitHubWorktree } from '../../../shared/types/github'
 import { formatDiffComments } from '../../../shared/types/diff-comments'
 import { useTreeKeyboard } from '../../hooks/useTreeKeyboard'
+import { isElementVisible, useElementVisibility } from '../../hooks/useElementVisibility'
 import { useDiffCommentsStore } from '../../store/diff-comments.store'
 import { buildChangeTree, chooseBase, comparisonKey, filterChangedFiles, formatCount, headLabel, isLargeDiff, isValidRef, languageFor, normalizeBranchName, orderedFiles, splitPath, swapSides, type ChangeTreeNode, type CompareHead, type CompareMode } from './changesModel'
 import { RefPicker, type RefPickerBranch } from './RefPicker'
@@ -116,6 +117,9 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   const [content, setContent] = useState<{ path: string; original: GitFileOriginal; modified: string } | null>(null)
   const [contentError, setContentError] = useState('')
   const request = useRef(0)
+  const panelRef = useRef<HTMLElement>(null)
+  const visible = useElementVisibility(panelRef)
+  const lastLoadRef = useRef<(() => Promise<void>) | null>(null)
   // Line comments are shared with the classic review, keyed by workspace + file + side + line.
   const allComments = useDiffCommentsStore(state => state.comments)
   const addComment = useDiffCommentsStore(state => state.add)
@@ -226,15 +230,20 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
     } finally { if (id === request.current) setLoading(false) }
   }, [workspaceId, diffRoot, effectiveBase, headRef, requestMode])
 
-  useEffect(() => { void load() }, [load])
   useEffect(() => {
-    // Two refs do not change on their own; only a work-tree side is polled.
-    if (headRef) return
-    const refresh = (): void => { if (document.visibilityState !== 'hidden') void load(true) }
+    if (!visible || !isElementVisible(panelRef.current)) return
+    const quiet = lastLoadRef.current === load
+    lastLoadRef.current = load
+    void load(quiet)
+  }, [load, visible])
+  useEffect(() => {
+    // Two refs do not change on their own; only a work-tree side is polled, and only while visible.
+    if (headRef || !visible || !isElementVisible(panelRef.current)) return
+    const refresh = (): void => { if (isElementVisible(panelRef.current)) void load(true) }
     const timer = window.setInterval(refresh, POLL_MS)
     window.addEventListener('focus', refresh)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', refresh) }
-  }, [load, headRef])
+  }, [load, headRef, visible])
 
   const files = useMemo(() => filterChangedFiles(summary?.files ?? [], query), [summary, query])
   const tree = useMemo(() => buildChangeTree(files), [files])
@@ -247,6 +256,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   // side B from git.
   const compiledAt = summary?.compiledAt
   useEffect(() => {
+    if (!visible || !isElementVisible(panelRef.current)) return
     if (!selected || !effectiveBase || selected.binary) { setContent(null); return }
     let active = true
     setContentError('')
@@ -256,10 +266,20 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
       : headRef ? window.oxe.git.getFileAtRef({ workspaceId, rootPath, ref: headRef, path: selected.path }).then(result => result.content, () => '')
       : window.oxe.fs.readFile({ workspaceId, rootPath: diffRoot, relativePath: selected.path }).then(result => result.content, () => '')
     void Promise.all([original, modified]).then(([originalValue, modifiedValue]) => {
-      if (active) setContent({ path: selected.path, original: originalValue, modified: modifiedValue })
+      if (!active) return
+      // Avoid replacing content with an identical snapshot on periodic polls so Monaco does not re-diff unnecessarily.
+      setContent(current =>
+        current &&
+        current.path === selected.path &&
+        current.original.content === originalValue.content &&
+        current.original.truncated === originalValue.truncated &&
+        current.modified === modifiedValue
+          ? current
+          : { path: selected.path, original: originalValue, modified: modifiedValue }
+      )
     }, cause => { if (active) setContentError(humanizeError(cause)) })
     return () => { active = false }
-  }, [selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, requestMode])
+  }, [visible, selected?.path, selected?.status, selected?.oldPath, selected?.binary, effectiveBase, compiledAt, workspaceId, rootPath, diffRoot, headRef, requestMode])
 
   const sendComments = async (): Promise<void> => {
     if (!onSendComments || !pendingComments.length || sending) return
@@ -287,7 +307,7 @@ export function ChangesPanel({ workspaceId, rootPath, onClose, onSendComments }:
   } : undefined, [workspaceComments, selectedPathForReview, removeComment, addComment, workspaceId])
   const viewedCount = (summary?.files ?? []).filter(file => viewed.has(signature(file))).length
 
-  return <section className="changes-panel" aria-label={t('panels.changes')} data-testid="changes-panel">
+  return <section ref={panelRef} className="changes-panel" aria-label={t('panels.changes')} data-testid="changes-panel">
     {/* A plain bar, not a <header>: inside the dock the DockPanel's header is the panel's one header (BRD-15). */}
     <div className="changes-toolbar">
       <Menu label={t('changes.scope.label')} trigger={<button type="button" className="changes-pill" aria-label={`${t('changes.scope.label')}: ${t(`changes.scope.${scope}`)}${effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}`}>{t(`changes.scope.${scope}`)}{effectiveMode === 'direct' ? ` · ${t('changes.scope.directShort')}` : ''}<ChevronDown size={12} aria-hidden="true" /></button>} items={[

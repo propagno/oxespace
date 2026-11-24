@@ -31,7 +31,7 @@ const oxeQueryCss = (): string => readFileSync(resolve(process.cwd(), 'src/compo
 beforeEach(() => {
   const api = installFakeOxeQuery()
   api.on('connections.list', () => [])
-  useUIStore.setState({ isSidebarCollapsed: false })
+  useUIStore.setState({ oxequerySidebarCollapsed: false })
   useOxeQueryStore.setState({
     connections: [],
     tabs: [],
@@ -46,7 +46,7 @@ afterEach(async () => {
   vi.restoreAllMocks()
   document.documentElement.removeAttribute('data-theme')
   document.documentElement.removeAttribute('data-density')
-  useUIStore.setState({ isSidebarCollapsed: false })
+  useUIStore.setState({ oxequerySidebarCollapsed: false })
   await changeLanguage('en')
 })
 
@@ -62,7 +62,7 @@ describe('OXE-45 · VIS-21 OxeQuery single environment badge and --font-ui meta 
         for (const density of DENSITIES) {
           document.documentElement.setAttribute('data-theme', theme)
           document.documentElement.setAttribute('data-density', density)
-          useUIStore.setState({ isSidebarCollapsed: false })
+          useUIStore.setState({ oxequerySidebarCollapsed: false })
           useOxeQueryStore.setState({
             connections: [conn],
             tabs: [{ id: tabId, kind: 'connection', connectionId: conn.id, title: conn.name }],
@@ -90,7 +90,7 @@ describe('OXE-45 · VIS-21 OxeQuery single environment badge and --font-ui meta 
           expect(dot).toHaveAttribute('data-env', env)
 
           // Collapsing the sidebar keeps the single .oq-env-pill visible in OxeQueryView
-          act(() => { useUIStore.setState({ isSidebarCollapsed: true }) })
+          act(() => { useUIStore.setState({ oxequerySidebarCollapsed: true }) })
           expect(document.querySelectorAll('.oq-env-pill')).toHaveLength(1)
 
           view.unmount()

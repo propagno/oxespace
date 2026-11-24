@@ -76,14 +76,14 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
 
   it('gives Claude the same groups as an OxeChat conversation with tool search, plus the Code terminal\'s own', async () => {
     const tools = allowed((await codeAgentMcpLaunch(db, 'claude', '/bridge.cjs', 'w1', [], {})).args)
-    expect(new Set(tools)).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('app')]))
+    expect(new Set(tools)).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('android'), ...thread('app')]))
     expect(tools).not.toContain('oxespace_team_inbox')
     expect(tools).not.toContain('oxespace_delegation_update')
   })
 
   it('gives Codex every group that is not off from the start, since it loads definitions as it needs them', async () => {
     const args = (await codeAgentMcpLaunch(db, 'codex', '/bridge.cjs', 'w1', [], {})).args
-    expect(new Set(allowed(args))).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('app')]))
+    expect(new Set(allowed(args))).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('android'), ...thread('app')]))
     expect(allowed(args)).not.toContain('oxespace_tools_enable')
     expect(enableable(args)).toEqual({})
   })
@@ -93,7 +93,7 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     // The preview tools start on (OXE-108), even without tool search.
     expect(allowed(args)).toEqual([...thread('core'), ...CODE_START_TOOLS, ...thread('preview'), 'oxespace_tools_enable'])
     // docs holds nothing since OXE-108, so it is not something to turn on.
-    expect(Object.keys(enableable(args)).sort()).toEqual(['app', 'code', 'data', 'orchestration'])
+    expect(Object.keys(enableable(args)).sort()).toEqual(['android', 'app', 'code', 'data', 'orchestration'])
     expect(new Set([...CODE_START_TOOLS, ...enableable(args).code])).toEqual(new Set(CODE_TOOL_GROUP))
   })
 
@@ -104,11 +104,11 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
     expect(claude).not.toContain('oxespace_db_query')
     expect(claude).toContain('oxespace_open_web_preview')
     const codex = allowed((await codeAgentMcpLaunch(inProject, 'codex', '/bridge.cjs', 'w1', [], {})).args)
-    expect(codex).toEqual(expect.arrayContaining([...thread('preview'), ...thread('app'), ...thread('orchestration')]))
+    expect(codex).toEqual(expect.arrayContaining([...thread('preview'), ...thread('android'), ...thread('app'), ...thread('orchestration')]))
     expect(codex).not.toContain('oxespace_db_query')
     const noSearch = (await codeAgentMcpLaunch(inProject, 'claude', '/bridge.cjs', 'w1', [], { ENABLE_TOOL_SEARCH: 'false' })).args
     expect(allowed(noSearch)).toEqual(expect.arrayContaining(thread('preview')))
-    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['app', 'code', 'orchestration'])
+    expect(Object.keys(enableable(noSearch)).sort()).toEqual(['android', 'app', 'code', 'orchestration'])
   })
 })
 
