@@ -4,6 +4,8 @@
 .thread-composer[data-ui='composer'] { border-radius: var(--radius-lg); }
 .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); flex-wrap: nowrap; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
+/* OXE-338: the quiet line between the two Escapes that stop a running turn. */
+.thread-composer .thread-stop-hint { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-composer-right { display: flex; align-items: center; gap: var(--space-1-5); margin-left: auto; min-width: 0; flex: 0 1 auto; }
 .thread-composer .thread-configuration { min-width: 0; flex: 0 1 auto; }
 .thread-composer .thread-context-trigger { flex: none; }
