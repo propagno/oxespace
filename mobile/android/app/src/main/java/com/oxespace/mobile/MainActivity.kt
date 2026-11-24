@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oxespace.mobile.approval.KeystorePresence
 import com.oxespace.mobile.approval.PresenceGate
 import com.oxespace.mobile.notify.NotificationTaps
+import com.oxespace.mobile.notify.Notifications
 import com.oxespace.mobile.pairing.PairLinkForHomologation
 import com.oxespace.mobile.protocol.live.showsConversationToggle
 import com.oxespace.mobile.pairing.PairedDesktop
@@ -104,10 +105,23 @@ class MainActivity : ComponentActivity() {
                 }
                 // Android 17: without local network access no connection to the computer can even start.
                 var localNetworkOk by remember { mutableStateOf(LocalNetworkAccess.granted(applicationContext)) }
+                // A8 (OXE-381): Settings opened from Home, before any desktop is reached.
+                var settingsOpen by rememberSaveable { mutableStateOf(false) }
+                if (liveDesktop != null) settingsOpen = false
                 when {
                     showPairing -> Pairing(onDone = { showPairing = false; session.start() }, onBack = { pairing.cancel(); showPairing = false })
                     status !is DesktopStatus.Unpaired && !localNetworkOk -> LocalNetworkScreen(onGranted = { localNetworkOk = true; session.retry() })
                     liveDesktop != null -> Live(liveDesktop, status)
+                    settingsOpen -> {
+                        BackHandler { settingsOpen = false }
+                        SettingsScreen(
+                            preferences,
+                            version = BuildConfig.VERSION_NAME,
+                            onVpnChange = { session.onVpnPreferenceChanged() },
+                            notificationsAllowed = { Notifications(this@MainActivity).allowed() },
+                            onBack = { settingsOpen = false },
+                        )
+                    }
                     else -> HomeScreen(
                         status = status,
                         onPair = {
@@ -117,6 +131,7 @@ class MainActivity : ComponentActivity() {
                         onRetry = session::retry,
                         onManualHost = session::setManualHost,
                         onUnpair = session::unpair,
+                        onSettings = { settingsOpen = true },
                     )
                 }
             }
@@ -193,6 +208,7 @@ class MainActivity : ComponentActivity() {
                     onEnterAddress = { settingsOpen = false; askingAddress = true },
                     onUnpair = { settingsOpen = false; session.unpair() },
                     onVpnChange = { session.onVpnPreferenceChanged() },
+                    notificationsAllowed = { Notifications(this@MainActivity).allowed() },
                     onBack = { settingsOpen = false },
                 )
             }

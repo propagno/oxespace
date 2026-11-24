@@ -189,6 +189,16 @@ export function attachOpenThreadDraftListener(handlers: {
 
 export const newProjectDraftKey = (projectIdOrPath: string): string => `new:${projectIdOrPath}`
 
+/** Leaves text for the next new conversation in this project (a welcome starter, OXE-338), after any draft already
+ * waiting there, so the new conversation opens with it in its composer. */
+export function queueNewConversationDraft(projectId: string, text: string): void {
+  if (!text.trim()) return
+  const store = useThreadStore.getState()
+  const key = newProjectDraftKey(projectId)
+  const waiting = store.drafts[key] ?? ''
+  store.setDraft(key, waiting.trim() ? `${waiting}\n\n${text}` : text)
+}
+
 /** Moves any pending AG-08 new-conversation draft for this project/path into the newly created thread. */
 export function consumePendingNewDraft(args: {
   threadId: string

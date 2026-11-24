@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,6 +39,11 @@ import androidx.core.content.edit
 import com.oxespace.mobile.R
 import com.oxespace.mobile.approval.CRITICAL_ALLOW_HOLD_MS
 import com.oxespace.mobile.notify.AlertKind
+import com.oxespace.mobile.ui.LocalNetworkAccess
+import com.oxespace.mobile.ui.components.Notice
+import com.oxespace.mobile.ui.components.NoticeAction
+import com.oxespace.mobile.ui.components.NoticeIntent
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.oxespace.mobile.settings.PhonePreferences
 import com.oxespace.mobile.settings.PreferenceStore
 import com.oxespace.mobile.settings.ThemeChoice
@@ -110,6 +116,9 @@ fun SettingsScreen(
     onEnterAddress: (() -> Unit)? = null,
     onUnpair: (() -> Unit)? = null,
     onVpnChange: ((Boolean) -> Unit)? = null,
+    // OXE-385: whether Android lets the app post notifications (MainActivity reads Notifications.allowed()); read again on
+    // every resume. The default is the allowed state, which previews and snapshots draw.
+    notificationsAllowed: () -> Boolean = { true },
     onBack: () -> Unit,
 ) {
     var theme by remember { mutableStateOf(preferences.theme) }
@@ -117,7 +126,15 @@ fun SettingsScreen(
     val context = LocalContext.current
     var textSize by remember { mutableStateOf(terminalTextSize(readTextSize(context))) }
     var confirmingUnpair by remember { mutableStateOf(false) }
-    var destination by remember { mutableStateOf(SettingsDestination.TOP) }
+    // OXE-385: the open subpage survives a rotation (and any other configuration change).
+    var destination by rememberSaveable { mutableStateOf(SettingsDestination.TOP) }
+    // OXE-385: on Android 13+ the person may have blocked notifications; then the switches below do nothing. Read again on
+    // every resume, so coming back from the system settings updates it.
+    var alertsAllowed by remember { mutableStateOf(notificationsAllowed()) }
+    LifecycleResumeEffect(Unit) {
+        alertsAllowed = notificationsAllowed()
+        onPauseOrDispose { }
+    }
     if (confirmingUnpair && computer != null && onUnpair != null) {
         UnpairDialog(computer, onConfirm = { confirmingUnpair = false; onUnpair() }, onDismiss = { confirmingUnpair = false })
     }
@@ -184,6 +201,14 @@ fun SettingsScreen(
                     }
                     // (3) Notifications: one switch per kind (CR-A42b-2: a SettingsRow with its OxeSwitch).
                     SettingsCard(title = stringResource(R.string.settings_alerts_title), icon = OxeIcons.Bell) {
+                        if (!alertsAllowed) {
+                            Notice(
+                                intent = NoticeIntent.WARNING,
+                                title = stringResource(R.string.settings_alerts_blocked),
+                                text = stringResource(R.string.settings_alerts_blocked_body),
+                                actions = listOf(NoticeAction(stringResource(R.string.settings_alerts_open_settings)) { LocalNetworkAccess.openAppSettings(context) }),
+                            )
+                        }
                         for (kind in AlertKind.entries) {
                             val on = alerts.getValue(kind)
                             SettingsRow(

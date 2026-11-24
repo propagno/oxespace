@@ -1,5 +1,6 @@
 package com.oxespace.mobile.session
 
+import android.os.SystemClock
 import com.oxespace.mobile.pairing.DeviceKeys
 import com.oxespace.mobile.pairing.PairedDesktop
 import com.oxespace.mobile.pairing.PairedDesktopStore
@@ -51,8 +52,11 @@ class DesktopSessionController(
     /** True while the phone is on Wi-Fi or Ethernet, where the desktop can be. */
     private val onLan: StateFlow<Boolean> = MutableStateFlow(true),
     private val backoff: Backoff = Backoff(),
-    /** Monotonic milliseconds: how long a session stayed up decides whether its drop is retried at once. */
-    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    /**
+     * Milliseconds that keep counting in deep sleep (Doze): how long a session stayed up decides whether its drop is
+     * retried at once, and the token's expiry is read on it. The JVM's monotonic nano clock stops while the phone sleeps.
+     */
+    private val now: () -> Long = { SystemClock.elapsedRealtime() },
     /** OXE-383: which manual addresses are allowed; private LAN by default, plus 100.64/10 when VPN opt-in is active. */
     private val hostAllowed: (String) -> Boolean = LanAddress::isPrivate,
 ) {
@@ -96,11 +100,20 @@ class DesktopSessionController(
     }
 
     /**
-     * The app came back to the foreground (P6): a retry waiting out its backoff, up to a minute,
-     * goes now. A live or connecting session is left alone; one that isn't running starts.
+     * The app came back to the foreground (P6): a retry waiting out its backoff, up to a minute, goes now. The
+     * token is checked at once: a renewal that slept past the token's end (the phone dozed) signs in again now
+     * instead of waiting for the desktop to refuse it. Otherwise a live or connecting session is left alone; one
+     * that isn't running starts.
      */
     fun resume() {
         if (!running) return start()
+        if (link != null && tokenRunningOut()) {
+            attempt = 0
+            drop()
+            store.load()?.let { mutableStatus.value = DesktopStatus.Reconnecting(it) }
+            connect()
+            return
+        }
         if (link == null && retryJob != null) {
             attempt = 0
             connect()
@@ -133,6 +146,12 @@ class DesktopSessionController(
         desktop?.let { keysFor(it.keyAlias).delete() }
         store.clear()
         mutableStatus.value = DesktopStatus.Unpaired()
+    }
+
+    /** True when the session's token has run out, or is about to, on the clock that kept counting while asleep. */
+    private fun tokenRunningOut(): Boolean {
+        val token = tokens.token ?: return false
+        return token.expiresAtMs - now() <= TOKEN_MARGIN_MS
     }
 
     private fun onLanBack() {
@@ -242,5 +261,8 @@ class DesktopSessionController(
     private companion object {
         /** A session up this long counts as working: its drop is retried at once and the wait count starts over. */
         const val STABLE_MS = 10_000L
+
+        /** A token with this little left is not trusted on a return to the foreground: the session signs in again. */
+        const val TOKEN_MARGIN_MS = 30_000L
     }
 }

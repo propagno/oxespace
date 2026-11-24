@@ -210,7 +210,7 @@ export function WorkspaceSettingsModal({ embedded, selectedPageId, onClose, onOp
 
               {page === 'policy' && Boolean(window.oxe?.policy) && (
                 <div id="ws-page-policy">
-                  <PolicySettings workspaceId={workspace.id} />
+                  <PolicySettings workspaceId={workspace.id} hideHeading />
                 </div>
               )}
             </div>
