@@ -26,8 +26,8 @@ describe('connector catalog', () => {
     expect(remote.length).toBeGreaterThan(3)
     for (const entry of MCP_CATALOG) expect(targets(entry), entry.id).not.toContain('mcp-remote')
     expect(catalogConfig(byId('linear'))).toEqual({ transport: 'http', url: 'https://mcp.linear.app/mcp', headers: {} })
-    // Asana's current endpoint needs an app registered by hand; its SSE one still signs in on its own.
-    expect(catalogConfig(byId('asana'))).toMatchObject({ transport: 'sse', url: 'https://mcp.asana.com/sse' })
+    // Asana migrated from the retired /sse endpoint to Streamable HTTP v2.
+    expect(catalogConfig(byId('asana'))).toMatchObject({ transport: 'http', url: 'https://mcp.asana.com/v2/mcp' })
   })
 
   it('puts a remote server token in its header, and a local server value in its environment', () => {
@@ -63,7 +63,7 @@ describe('connector catalog', () => {
 
   it('offers no endpoint or package its provider retired (checked 2026-10-19)', () => {
     // SSE endpoints that now answer 404/410, and @modelcontextprotocol servers npm marks as no longer supported.
-    const retired = ['@modelcontextprotocol/server-github', 'https://mcp.linear.app/sse', 'https://docs.mcp.cloudflare.com/sse', '@modelcontextprotocol/server-gitlab', '@modelcontextprotocol/server-postgres',
+    const retired = ['@modelcontextprotocol/server-github', 'https://mcp.linear.app/sse', 'https://docs.mcp.cloudflare.com/sse', 'https://mcp.asana.com/sse', '@modelcontextprotocol/server-gitlab', '@modelcontextprotocol/server-postgres',
       '@modelcontextprotocol/server-slack', '@modelcontextprotocol/server-brave-search', '@modelcontextprotocol/server-google-maps', '@dropbox/mcp-server']
     for (const entry of MCP_CATALOG) for (const arg of targets(entry)) expect(retired, `${entry.id}: ${arg}`).not.toContain(arg)
     // GitHub's own server replaces the package npm marks as no longer supported.

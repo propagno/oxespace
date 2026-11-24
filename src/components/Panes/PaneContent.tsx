@@ -1,13 +1,16 @@
-import { lazy, Suspense, type ReactElement } from 'react'
+import { Suspense, type ReactElement } from 'react'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { TerminalPane } from './TerminalPane'
 import { i18n } from '../../i18n'
 import { Spinner } from '../../ui'
+import { chunk, lazyFrom } from '../../lib/chunk'
+import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
 
 // Editor and Review panes (Monaco, diff cards) are only needed once such a pane exists, so they stay out of the entry chunk.
-const EditorPane = lazy(() => import('../Editor/EditorPane').then(m => ({ default: m.EditorPane })))
-const ReviewPane = lazy(() => import('../Review/ReviewPane').then(m => ({ default: m.ReviewPane })))
+// The editor is the same chunk the dock and OxeChat open (OXE-308): once any of them has it, a pane renders at once.
+const EditorPane = lazyFrom(SHARED_PANEL_CHUNKS.files, m => m.EditorPane)
+const ReviewPane = lazyFrom(chunk(() => import('../Review/ReviewPane')), m => m.ReviewPane)
 const Loading = (): ReactElement => <Spinner label={i18n.t('ui.loading')} />
 const loading = <Loading />
 
