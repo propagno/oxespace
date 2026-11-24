@@ -153,6 +153,7 @@
 [data-ui="step-output"] { background-color: var(--term-bg); }
 [data-ui="kind-badge"][data-kind="query"] { color: var(--k-db); }
 [data-ui="kind-badge"][data-kind="http"] { color: var(--k-net); }
+[data-ui="kind-badge"][data-kind="container"] { color: var(--k-box); }
 [data-ui="kind-badge"][data-kind="other"] { color: var(--k-box); }
 .thread-reasoning summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 2px 0; }
 .thread-reasoning summary::-webkit-details-marker { display: none; }
