@@ -4,7 +4,8 @@ import type { NetworkInterfaceInfo } from 'node:os'
 /**
  * Where the gateway may listen: private addresses only. RFC 1918 (10/8, 172.16/12, 192.168/16), IPv4 link-local
  * (169.254/16), IPv6 unique local (fc00::/7) and link-local (fe80::/10). Never loopback, never a public address and
- * never the wildcard (`0.0.0.0`, `::`), so nothing outside the LAN can reach it.
+ * never the wildcard (`0.0.0.0`, `::`), so nothing outside the LAN can reach it. A private address on a VPN adapter
+ * is still left out by [listenAddresses] unless the person opted in (OXE-409): a VPN's ULA is a tailnet, not the LAN.
  */
 export function isPrivateAddress(address: string): boolean {
   if (typeof address !== 'string') return false
@@ -34,8 +35,9 @@ export function isCgnatAddress(address: string): boolean {
 
 /**
  * OXE-383: the adapters a phone may reach this computer through over a VPN (Tailscale, WireGuard, macOS utun, ZeroTier).
- * Only with the person's opt-in (off by default) does the gateway also listen on such an adapter's 100.64/10 address; the
- * same range on any other adapter is carrier-grade NAT and is never listened on. An adapter's name is set on this
+ * Only with the person's opt-in (off by default) does the gateway listen on such an adapter at all: its 100.64/10
+ * address and, since OXE-409 (decision A, 23/11), every other address it carries (IPv6 ULA and link-local, a private
+ * IPv4). The 100.64/10 range on any other adapter is carrier-grade NAT and is never listened on. An adapter's name is set on this
  * computer (by the person or the VPN they installed), not by anyone on the network, so it is a local fact and not a
  * remote trust input: it only picks which of this computer's own addresses may carry the gateway.
  */
@@ -68,12 +70,18 @@ const rank = (entry: ListenAddress & { virtual?: boolean }): number => {
   return (isCgnatAddress(entry.address) ? 8 : 0) + (entry.virtual ? 4 : 0) + (entry.family === 'IPv4' ? 0 : 2) + (linkLocal ? 1 : 0)
 }
 
-/** `allowVpn` (OXE-383, off by default): also a VPN adapter's 100.64/10 address, never that range on another adapter. */
+/**
+ * `allowVpn` (OXE-383, off by default): off, no address of a VPN adapter is listened on (OXE-409), so a tailnet peer finds
+ * no listener; on, a VPN adapter's addresses too, its 100.64/10 one included. Never that range on another adapter.
+ */
 export function listenAddresses(interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>, allowed: (address: string) => boolean = isPrivateAddress, options: { allowVpn?: boolean } = {}): ListenAddress[] {
   const found = new Map<string, ListenAddress & { virtual?: boolean }>()
   for (const [name, entries] of Object.entries(interfaces)) {
     const virtual = VIRTUAL.test(name)
-    const vpn = options.allowVpn === true && VPN_ADAPTER.test(name)
+    const vpnAdapter = VPN_ADAPTER.test(name)
+    // OXE-409: with the opt-in off, nothing of a VPN adapter, its IPv6 ULA and link-local included.
+    if (vpnAdapter && options.allowVpn !== true) continue
+    const vpn = options.allowVpn === true && vpnAdapter
     for (const entry of entries ?? []) {
       const cgnat = isCgnatAddress(entry.address)
       if (cgnat ? !vpn : !allowed(entry.address)) continue

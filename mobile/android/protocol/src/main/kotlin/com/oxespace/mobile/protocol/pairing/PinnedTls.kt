@@ -31,6 +31,20 @@ class PinnedTrustManager(private val fingerprint: String) : X509TrustManager {
 }
 
 object PinnedTls {
+    /** A WebSocket ping this often finds a half-open socket: OkHttp closes it when the pong does not come back. */
+    private const val PING_INTERVAL_SECONDS = 20L
+
+    /**
+     * The one base every pinned client is built from (newBuilder), so reconnecting shares its connection pool and
+     * dispatcher instead of leaking a thread pool per attempt. The pin, the hostname check and the timeouts stay per
+     * client.
+     */
+    private val base: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
+            .build()
+    }
+
     /**
      * An HTTPS and WSS client for one gateway. The pin replaces host name checks: the gateway is reached by a LAN
      * address its self-signed certificate can't name, and the hostname verifier re-checks the pin on the session.
@@ -39,7 +53,7 @@ object PinnedTls {
     fun client(fingerprint: String, callTimeoutMs: Long = 30_000): OkHttpClient {
         val trust = PinnedTrustManager(fingerprint)
         val context = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trust), null) }
-        return OkHttpClient.Builder()
+        return base.newBuilder()
             .sslSocketFactory(context.socketFactory, trust)
             .hostnameVerifier { _, session ->
                 val leaf = try {
@@ -52,6 +66,7 @@ object PinnedTls {
             .connectionSpecs(listOf(ConnectionSpec.RESTRICTED_TLS))
             .followRedirects(false)
             .followSslRedirects(false)
+            .pingInterval(PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .callTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
