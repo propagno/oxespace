@@ -1,5 +1,6 @@
 @layer oxe-legacy {
 /* CI status bar for the branch's pull request, docked above the composer. */
+.pr-status-anchor { display: contents; }
 .pr-status-bar { margin: 0 0 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .pr-status-main { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 6px 4px 4px; }
 .pr-status-toggle { display: inline-flex; align-items: center; flex: 1; gap: 8px; min-width: 0; height: var(--control-md); padding: 0 8px; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
