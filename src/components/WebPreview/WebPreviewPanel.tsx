@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, MousePointerClick, Minus, MonitorPlay, MoreHorizontal, Plus, RotateCw, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, ArrowRight, Camera, ExternalLink, ImagePlus, MousePointerClick, Minus, MonitorPlay, MoreHorizontal, Plus, RotateCw, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ToolPanel, Button, IconButton, Menu, EmptyState, ErrorState, Spinner, type MenuEntry, type MenuRadioOption } from '../../ui'
 import { formatDesignGrab, formatDesignGrabs, previewElementLabel, type DesignGrabContext, type PreviewElementRef } from '../../../shared/types/design-mode'
@@ -97,6 +97,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const [zoom, setZoom] = useState(100)
   const [deviceChoice, setDeviceChoice] = useState<{ deviceId: string | null; rotated: boolean }>({ deviceId: null, rotated: false })
   const [capturing, setCapturing] = useState(false)
+  const [capturingArtifact, setCapturingArtifact] = useState(false)
   const [allowExternal, setAllowExternal] = useState(false)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
   const [agentAutomation, setAgentAutomation] = useState(false)
@@ -340,6 +341,19 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       setCapturing(false)
     }
   }
+  const handleCaptureArtifact = async (): Promise<void> => {
+    if (!url || !activeTabId || capturingArtifact) return
+    setCapturingArtifact(true)
+    setCaptureNotice(null)
+    try {
+      const artifact = await window.oxe.browserPreview.captureSessionArtifact({ownerKey:previewKey,tabId:activeTabId})
+      setCaptureNotice(t('preview.artifactSaved', { fileName: artifact.fileName }))
+    } catch (error) {
+      setCaptureNotice(humanizeError(error, t('preview.error.captureArtifact')))
+    } finally {
+      setCapturingArtifact(false)
+    }
+  }
 
   const applyDeviceChoice = (nextValue: string): void => {
     const nextDeviceId = nextValue === 'desktop' ? null : nextValue
@@ -381,6 +395,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     { type: 'separator' },
     { type: 'check', label: t('preview.design'), checked: designMode, disabled: !url || !guestReady, onSelect: toggleDesignMode },
     { label: t('preview.capture'), icon: <Camera size={14} aria-hidden="true" />, disabled: !url || capturing, onSelect: () => void handleCapture() },
+    { label: t('preview.captureArtifact'), icon: <ImagePlus size={14} aria-hidden="true" />, disabled: !url || !activeTabId || capturingArtifact, onSelect: () => void handleCaptureArtifact() },
     { label: t('preview.openExternal'), icon: <ExternalLink size={14} aria-hidden="true" />, disabled: !url, onSelect: openExternal }
   ]
 
@@ -448,6 +463,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
           <DeviceMenu ownerKey={previewKey} tabId={activeTabId} deviceId={deviceChoice.deviceId} rotated={deviceChoice.rotated} onChange={setDeviceChoice} />
           <DevServerMenu dev={dev} onStart={startServer} onOpen={showPage} onNotice={setCaptureNotice} />
           <IconButton size="sm" label={t('preview.capture')} title={t('preview.capture')} icon={<Camera size={14} aria-hidden="true" />} disabled={!url || capturing} onClick={() => void handleCapture()} />
+          <IconButton size="sm" label={t('preview.captureArtifact')} title={t('preview.captureArtifact')} data-testid="web-preview-capture-artifact" icon={<ImagePlus size={14} aria-hidden="true" />} disabled={!url || !activeTabId || capturingArtifact} onClick={() => void handleCaptureArtifact()} />
           <IconButton size="sm" label={t('preview.openExternal')} title={t('preview.openExternal')} icon={<ExternalLink size={14} aria-hidden="true" />} disabled={!url} onClick={openExternal} />
         </div>
         <div className="web-preview-overflow-menu">

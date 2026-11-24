@@ -1052,7 +1052,8 @@
       "back": "Não foi possível voltar.",
       "forward": "Não foi possível avançar.",
       "reload": "Não foi possível recarregar.",
-      "capture": "Não foi possível capturar a prévia."
+      "capture": "Não foi possível capturar a prévia.",
+      "captureArtifact": "Não foi possível salvar a prévia como artefato de sessão."
     },
     "invalidUrl": "Digite um endereço HTTP ou HTTPS válido.",
     "localOnly": "O modo local só aceita localhost, 127.0.0.1 e ::1. Ligue Externo para outros sites.",
@@ -1066,6 +1067,7 @@
       "label": "Um agente pede para abrir {{url}} no Navegador"
     },
     "copied": "Prévia copiada para a área de transferência.",
+    "artifactSaved": "Prévia salva como artefato de sessão ({{fileName}}).",
     "close": "Fechar o navegador",
     "tabs": "Abas do navegador",
     "tabLoading": "Carregando",
@@ -1096,6 +1098,7 @@
     "designTitle": "Modo Design: clique em um elemento para enviá-lo a um agente",
     "designHint": "Modo Design: clique em um elemento da página, ou pressione Esc para cancelar.",
     "capture": "Copiar a prévia para a área de transferência",
+    "captureArtifact": "Salvar prévia como artefato de sessão",
     "openExternal": "Abrir no seu navegador",
     "moreActions": "Mais ações do navegador",
     "access": {
