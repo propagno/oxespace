@@ -3,8 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { deviceLinkRefusal, type PhoneAppBuild } from '../../../shared/android-actions'
+import type { AndroidDisconnectedDevice } from '../../../shared/types/android'
 import { IPC_CHANNELS, type AndroidActionOutcome, type AndroidApkPick, type AndroidMirrorDevice, type AndroidMirrorFrame, type AndroidMirrorStatus } from '../../../shared/types/ipc'
 import { assertValidSerial, isApkPath, type AndroidAgentAccess, type AndroidDevices, type AndroidPersonAction } from '../services/android/android-devices'
+
+export interface AndroidDeviceDisconnectedEvent extends AndroidDisconnectedDevice {
+  /** Agent sessions that held an active screenshot grant for this device. */
+  sessionKeys: string[]
+}
 
 export interface AndroidIpcDeps {
   devices: AndroidDevices
@@ -16,6 +22,12 @@ export interface AndroidIpcDeps {
   startPairing?: () => Promise<{ uri: string; expiresAt: number }>
   /** One row per thing the person had a device do; `detail` never holds a full address, a path or the pairing link. */
   audit?: (entry: { action: AndroidPersonAction; target: string; outcome: 'ok' | 'error'; detail: string | null }) => void
+  /** OXE-112: called when a ready device leaves adb unexpectedly so active agents/threads can be notified. */
+  onDeviceDisconnected?: (event: AndroidDeviceDisconnectedEvent) => void
+  /** OXE-112: watch adb for unexpected disconnects (defaults to true). */
+  watchDevices?: boolean
+  /** OXE-112: custom poll interval for watchDevices (primarily for tests). */
+  watchIntervalMs?: number
 }
 
 /** How long a picked APK waits for the person's yes before it is forgotten. */
@@ -54,9 +66,12 @@ function broadcast(channel: string, payload?: unknown): void {
   }
 }
 
-export function registerAndroidIpc(deps: AndroidIpcDeps): void {
+export function registerAndroidIpc(deps: AndroidIpcDeps): () => void {
   const streams = new Map<string, StreamState>()
   const phoneApps = new Map<string, { build: PhoneAppBuild; at: number }>()
+  const lastKnownDevices = new Map<string, { name: string; kind: AndroidMirrorDevice['kind'] }>()
+  const intentionallyStopped = new Set<string>()
+  let lastDisconnected: AndroidDisconnectedDevice | null = null
   let picked: { id: string; path: string; serial: string; sizeBytes: number; at: number } | null = null
 
   const phoneAppOn = async (serial: string): Promise<PhoneAppBuild> => {
@@ -100,8 +115,16 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
   }
 
   const buildStatus = async (): Promise<AndroidMirrorStatus> => {
-    const [listed, avds] = await Promise.all([deps.devices.list(), deps.devices.listAvds()])
+    const [listed, avds, ownedList] = await Promise.all([deps.devices.list(), deps.devices.listAvds(), deps.devices.ownedSerials()])
+    const ownedSerials = new Set(ownedList)
     const liveSerials = new Set(listed.devices.filter(device => device.state === 'device').map(device => device.serial))
+    for (const device of listed.devices) {
+      if (device.state === 'device') {
+        lastKnownDevices.set(device.serial, { name: device.name, kind: device.kind })
+        intentionallyStopped.delete(device.serial)
+        if (lastDisconnected?.serial === device.serial) lastDisconnected = null
+      }
+    }
     for (const serial of [...streams.keys()]) {
       if (!liveSerials.has(serial)) stopStream(serial)
     }
@@ -110,9 +133,15 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
       ...device,
       agentsCanSee: deps.access.agentsCanSee(device.serial),
       stream: device.state === 'device' ? (streams.get(device.serial)?.state ?? 'idle') : 'idle',
-      ...(builds[index] ? { phoneApp: builds[index] } : {})
+      ...(builds[index] ? { phoneApp: builds[index] } : {}),
+      ...(ownedSerials.has(device.serial) ? { owned: true } : {})
     }))
-    return { adb: listed.adb, devices, avds }
+    return {
+      adb: listed.adb,
+      devices,
+      avds,
+      ...(lastDisconnected ? { disconnectedDevice: lastDisconnected } : {})
+    }
   }
 
   const notifyChanged = (): void => {
@@ -162,7 +191,39 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
     stream.timer = timer
   }
 
-  app.once('before-quit', stopAll)
+  const stopWatch = deps.watchDevices === false
+    ? () => undefined
+    : deps.devices.watchDevices({
+        ...(deps.watchIntervalMs !== undefined ? { intervalMs: deps.watchIntervalMs } : {}),
+        onDisconnected: serial => {
+          stopStream(serial)
+          if (intentionallyStopped.delete(serial)) {
+            notifyChanged()
+            return
+          }
+          const known = lastKnownDevices.get(serial)
+          const disconnected: AndroidDisconnectedDevice = {
+            serial,
+            name: known?.name ?? serial,
+            kind: known?.kind ?? (serial.startsWith('emulator-') ? 'emulator' : 'usb'),
+            at: Date.now()
+          }
+          lastDisconnected = disconnected
+          const sessionKeys = deps.access.notifyDeviceDisconnected(serial)
+          try { deps.onDeviceDisconnected?.({ ...disconnected, sessionKeys }) } catch { /* best-effort notify */ }
+          notifyChanged()
+        }
+      })
+
+  const dispose = (): void => {
+    stopWatch()
+    stopAll()
+  }
+
+  app.once('before-quit', () => {
+    dispose()
+    void deps.devices.stopOwned()
+  })
 
   ipcMain.handle(IPC_CHANNELS.android.status, async () => buildStatus())
 
@@ -287,4 +348,19 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): void {
     record('android-pair-link', device.serial, outcome, null)
     return outcome
   })
+
+  ipcMain.handle(IPC_CHANNELS.androidActions.stopEmulator, async (_event, input: { serial: string }): Promise<AndroidActionOutcome> => {
+    const serial = String(input?.serial ?? '')
+    assertValidSerial(serial)
+    const outcome = await deps.devices.stopAvd(serial)
+    if (outcome.ok) {
+      stopStream(serial)
+      intentionallyStopped.add(serial)
+      if (lastDisconnected?.serial === serial) lastDisconnected = null
+    }
+    notifyChanged()
+    return outcome
+  })
+
+  return dispose
 }
