@@ -35,8 +35,7 @@ import { e2eMocksEnabled } from './e2e/e2e-mode'
 import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
 import { registerOxeIpc } from './ipc/oxe.ipc'
 import { registerCopilotIpc } from './ipc/copilot.ipc'
-import { registerAgentCreditsIpc } from './ipc/agentCredits.ipc'
-import { registerContextUsageIpc } from './ipc/contextUsage.ipc'
+import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
 import { SkillService } from './services/skill.service'
 import { McpManager } from './services/mcp.service'
 import { WorkspaceService } from './services/workspace.service'
@@ -46,11 +45,7 @@ import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerWorkspaceIpc } from './ipc/workspace.ipc'
 import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
 import { registerPolicyIpc } from './ipc/policy.ipc'
-import { registerHttpAuditIpc } from './ipc/http-audit.ipc'
-import { registerAgentActivityIpc } from './ipc/agent-activity.ipc'
-import { AgentActivity } from './services/agent-activity/read-model'
-import { HttpAuditHistory } from './services/http-audit/history'
-import { productionHostsFor } from './services/http-audit/production-hosts'
+import type { AgentActivity } from './services/agent-activity/read-model'
 import { policyStore } from './services/policy'
 import { approvalCenter } from './services/approvals'
 import { BackgroundManager } from './services/background.service'
@@ -326,11 +321,14 @@ async function registerIpcHandlers(): Promise<() => void> {
   const [
     { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
     { GitHubService }, { GitService }, { registerPullRequestIpc }, { paneConversationsFor }, { registerPaneConversationIpc },
-    { createInternalMcpHandle }, { registerMcpInternalIpc }, { registerMcpToolsIpc }, { registerDataExportIpc }, { registerOxeContextIpc }, { startSchedules }
+    { createInternalMcpHandle }, { registerMcpInternalIpc }, { registerMcpToolsIpc }, { registerDataExportIpc }, { startSchedules },
+    { registerAgentCreditsIpc }, { registerContextUsageIpc }, { registerHttpAuditIpc }, { registerAgentActivityIpc }, { AgentActivity }, { HttpAuditHistory }, { productionHostsFor }
   ] = await Promise.all([
     import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
     import('./services/github.service'), import('./services/git.service'), import('./ipc/pull-request.ipc'), import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc'),
-    import('./mcp-internal/bootstrap'), import('./ipc/mcp-internal.ipc'), import('./ipc/mcp-tools.ipc'), import('./ipc/data-export.ipc'), import('./ipc/oxe-context.ipc'), import('./services/schedules')
+    import('./mcp-internal/bootstrap'), import('./ipc/mcp-internal.ipc'), import('./ipc/mcp-tools.ipc'), import('./ipc/data-export.ipc'), import('./services/schedules'),
+    import('./ipc/agentCredits.ipc'), import('./ipc/contextUsage.ipc'), import('./ipc/http-audit.ipc'), import('./ipc/agent-activity.ipc'),
+    import('./services/agent-activity/read-model'), import('./services/http-audit/history'), import('./services/http-audit/production-hosts')
   ])
   const gitService = registerGitIpc()
   registerSearchIpc()
