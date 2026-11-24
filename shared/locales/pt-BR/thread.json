@@ -1401,6 +1401,11 @@
       "compactEmpty": "Ainda não há o que compactar."
     },
     "tools": {
+      "integrated": "OXESpace (Integrado)",
+      "integratedOn": "Ativo nesta sessão",
+      "integratedOff": "Não conectado",
+      "integratedGroups": "Grupos de ferramentas do OXESpace",
+      "configure": "Configurar ferramentas",
       "mcp": "Servidores MCP",
       "mcpUnknown": "O agente ainda não informou os servidores MCP. Eles aparecem quando a sessão começa.",
       "manage": "Gerenciar servidores MCP",
