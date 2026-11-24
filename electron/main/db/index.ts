@@ -13,11 +13,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 106
+export const LATEST_DB_VERSION = 107
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
 export type AppDatabase = DatabaseHandle
+
+export interface OpenedDatabase {
+  db: AppDatabase
+  previousVersion: number
+}
 
 export function resolveAppDatabasePath(): string {
   // T50: a packaged build ignores the test database path (test-switches.ts).
@@ -33,15 +38,19 @@ const OPEN_MAX_ATTEMPTS = 5
 const OPEN_RETRY_BASE_MS = 150
 
 export function openDatabase(databasePath = resolveAppDatabasePath()): AppDatabase {
+  return openDatabaseWithMetadata(databasePath).db
+}
+
+export function openDatabaseWithMetadata(databasePath = resolveAppDatabasePath()): OpenedDatabase {
   mkdirSync(dirname(databasePath), { recursive: true })
   let lastErr: unknown
   for (let attempt = 1; attempt <= OPEN_MAX_ATTEMPTS; attempt++) {
     try {
-      const db = openAndMigrate(databasePath)
+      const opened = openAndMigrate(databasePath)
       // Loaded after the window is up, so the retention code stays out of the main entry.
       const dataDirectory = dirname(databasePath)
       setTimeout(() => { void import('../services/storage-retention').then(module => module.scheduleStorageRetention(dataDirectory)).catch(() => undefined) }, 0)
-      return db
+      return opened
     } catch (err) {
       lastErr = err
       if (!isTransientDbError(err)) break // corruption/ABI — retrying won't help
@@ -58,14 +67,15 @@ export function openDatabase(databasePath = resolveAppDatabasePath()): AppDataba
   throw lastErr
 }
 
-function openAndMigrate(databasePath: string): AppDatabase {
+function openAndMigrate(databasePath: string): OpenedDatabase {
   const db = new Database(databasePath)
   try {
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
     // Back up before an upgrade so a bad migration or corruption can't silently
     // lose every workspace. Only when an existing DB is actually behind.
-    const fromVersion = db.pragma('user_version', { simple: true }) as number
+    const rawVersion = db.pragma('user_version', { simple: true })
+    const fromVersion = typeof rawVersion === 'number' ? rawVersion : 0
     if (fromVersion > LATEST_DB_VERSION) {
       // T87: marked, so startup shows its own screen for it (startup-failure.ts) instead of an empty app.
       throw Object.assign(new Error('This database was created by a newer OXESpace version. Open it with that version; downgrade migration is not supported.'), { newerSchema: true, fromVersion, latest: LATEST_DB_VERSION })
@@ -74,7 +84,7 @@ function openAndMigrate(databasePath: string): AppDatabase {
       backupBeforeMigration(db, databasePath, fromVersion)
     }
     runMigrations(db)
-    return db
+    return { db, previousVersion: fromVersion }
   } catch (err) {
     try { db.close() } catch { /* ignore */ }
     throw err
@@ -545,7 +555,8 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 103) db.transaction(() => db.exec(readMigration('103_person_action_audit_android_actions.sql')))()
   if (startingVersion < 104) db.transaction(() => db.exec(readMigration('104_schedules.sql')))()
   if (startingVersion < 105) db.transaction(() => db.exec(readMigration('105_thread_history_indexes.sql')))()
-  if (startingVersion < 106) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('106_workspace_access_ceiling.sql'))))()
+  if (startingVersion < 106) db.transaction(() => db.exec(readMigration('106_person_action_audit_android_lifecycle.sql')))()
+  if (startingVersion < 107) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('107_workspace_access_ceiling.sql'))))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

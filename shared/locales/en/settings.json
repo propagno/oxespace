@@ -811,6 +811,10 @@
         "name": "Preview",
         "description": "Web Preview and Android devices: open, capture and drive a preview, and take a device screenshot. On from the start."
       },
+      "android": {
+        "name": "Android",
+        "description": "Android emulators and apps: start an emulator, install an APK, launch an app and read logcat. Starting, installing and launching ask you first."
+      },
       "app": {
         "name": "App",
         "description": "Git, GitHub, conversations, skills, MCP servers, search and usage. Pushes, pull requests and releases are approved by you."

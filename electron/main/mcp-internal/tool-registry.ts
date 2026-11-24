@@ -37,6 +37,7 @@ import { APP_MANAGE_TOOLS } from './app-manage-tools'
 import { APP_SETTINGS_TOOLS } from './app-settings-tools'
 import { gated } from './domain-tool'
 import { AGENT_CHANGE_TOOLS, AGENT_READ_TOOLS } from './agent-tools'
+import { ANDROID_LIFECYCLE_TOOLS } from './android-lifecycle-tools'
 
 export interface ToolContext {
   captureRoot?: string
@@ -74,8 +75,10 @@ export interface ToolContext {
   worktree: WorktreeEventBus
   /** A63: the guarded worktree removal; oxespace_remove_worktree goes through it without branch deletion. */
   worktreesPanel?: import('../services/github/worktree-guard').WorktreeRemoveGuard
+  androidDevices?: () => import('../services/android/android-devices').AndroidDevices | undefined
   androidAccess?: () => import('../services/android/android-devices').AndroidAgentAccess | undefined
   askAndroidScreenshot?: (input: { serial: string; sessionKey: string; owner: { kind: 'pane' | 'thread'; id: string }; label: string }) => Promise<boolean>
+  askAndroidLifecycle?: (input: { action: 'avd_start' | 'apk_install' | 'app_launch'; device: string; target: string; owner: { kind: 'pane' | 'thread'; id: string } }) => Promise<boolean>
   /** OXE-109: opens the Android device panel in the window (IPC android:open-panel), when an agent asks for the device. */
   openAndroidPanel?(request: { workspaceId: string; serial: string }): void
 }
@@ -94,6 +97,7 @@ const TOOL_GROUP_PURPOSES = {
   data: 'databases and containers through OxeQuery; every data read and change is approved by a person',
   docs: 'documentation tools (none today; the previews are in preview)',
   preview: 'Web Preview and Android devices: open, capture and drive a preview, take a device screenshot; on from the start',
+  android: 'Android emulators and apps: start an AVD, install an APK, launch an app and tail logcat; mutating actions ask first',
   app: 'Git, GitHub, conversations, skills, MCP servers, search, usage and settings'
 }
 
@@ -104,7 +108,7 @@ const TOOL_GROUP_PURPOSES = {
 const toolsEnable: ToolEntry = {
   descriptor: {
     name: 'oxespace_tools_enable',
-    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, preview, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
+    description: 'Turn on a group of OXESpace tools for this session: orchestration, data, docs, preview, android, app, or code (a Code terminal\'s worktrees, tasks, agents and integrations). Read-only: it changes which tools you see, not what they may do; groups the project turned off stay off.',
     inputSchema: { type: 'object', properties: { group: { type: 'string', enum: [...TOOL_GROUP_NAMES, 'code'] } }, required: ['group'], additionalProperties: false },
     // True: it changes nothing outside the session; each tool it lists keeps its own level and approval.
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
@@ -435,6 +439,7 @@ export const TOOL_REGISTRY: ToolEntry[] = [
     requiresWorkspace: false,
     handler: handlers.deviceScreenshot
   },
+  ...ANDROID_LIFECYCLE_TOOLS,
   {
     descriptor: {
       name: 'oxespace_quality_check',

@@ -606,6 +606,7 @@ export function registerE2eMockIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.androidActions.installApk, () => ({ ok: false, reason: 'no device' }))
   ipcMain.handle(IPC_CHANNELS.androidActions.openLink, () => ({ ok: false, reason: 'no device' }))
   ipcMain.handle(IPC_CHANNELS.androidActions.pair, () => ({ ok: false, reason: 'no device' }))
+  ipcMain.handle(IPC_CHANNELS.androidActions.stopEmulator, () => ({ ok: false, reason: 'android.avd.notOwned' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.has, () => false)
   ipcMain.handle(IPC_CHANNELS.paneConversation.page, () => ({ error: 'no-conversation' }))
   ipcMain.handle(IPC_CHANNELS.paneConversation.watch, () => undefined)
