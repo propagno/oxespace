@@ -643,6 +643,13 @@
     "keepAll": "Manter todos",
     "undoing": "Desfazendo",
     "undoAll": "Desfazer todos",
+    "undoAllTitle_one": "Desfazer {{count}} arquivo?",
+    "undoAllTitle_many": "Desfazer todos os {{count}} arquivos?",
+    "undoAllTitle_other": "Desfazer todos os {{count}} arquivos?",
+    "undoAllDescription_one": "Isso restaura {{count}} arquivo ao checkpoint anterior à edição do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_many": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllDescription_other": "Isso restaura {{count}} arquivos aos checkpoints anteriores às edições do agente. As alterações do agente serão descartadas.",
+    "undoAllConfirm": "Desfazer todos",
     "review": "Revisar",
     "keep": "Manter {{path}}",
     "undo": "Desfazer {{path}}"
@@ -970,6 +977,13 @@
     "diagramBuilding": "Montando diagrama…",
     "diagramFailed": "Não foi possível desenhar o diagrama",
     "enlarge": "Ampliar",
+    "diagramTools": "Ferramentas do diagrama",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "zoomReset": "Zoom {{percent}}%, voltar a 100%",
+    "downloadSvg": "SVG",
+    "downloadPng": "PNG",
+    "exportFailed": "Não foi possível exportar o diagrama",
     "showCode": "Ver o código",
     "showDiagram": "Ver o diagrama",
     "alert": {
@@ -1714,6 +1728,9 @@
     "workedWaited": "Trabalhou {{worked}} · esperou por você {{waited}}"
   },
   "usage": {
+    "compact": "Compactar",
+    "compactTitle": "Executar /compact: resumir a conversa para liberar o contexto",
+    "compactFailed": "Não foi possível compactar a conversa",
     "planLabelSession": "{{percent}}% da sessão atual usados",
     "planLabelWeek": "{{percent}}% desta semana usados",
     "resetsIn": "{{label}} · renova em {{time}}",

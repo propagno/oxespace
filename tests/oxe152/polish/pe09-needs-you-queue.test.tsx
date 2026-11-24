@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import type { AgentRow } from '../../../shared/types/agents'
+import type { AgentRow, AgentsChange } from '../../../shared/types/agents'
 import type { Workspace } from '../../../shared/types/workspace'
 import { NeedsYouPill } from '../../../src/components/Navigation/NeedsYouPill'
 import { changeLanguage, i18n } from '../../../src/i18n'
@@ -205,5 +205,47 @@ describe('OXE-278 PE-09·A NeedsYouQueue', () => {
 
     const css = readFileSync(join(process.cwd(), 'src/components/Navigation/NeedsYouQueue.module.css'), 'utf8')
     expect(css).toMatch(/\.footer\s*\{[^}]*font-size:\s*var\(--fs-xs\)/)
+  })
+})
+describe('OXE-307 NeedsYouQueue focus refs', () => {
+  afterEach(async () => {
+    cleanup()
+    delete (window as { oxe?: unknown }).oxe
+    vi.restoreAllMocks()
+    await changeLanguage('en')
+  })
+
+  test('NeedsYouQueue keeps keyboard navigation focus refs valid when queue shrinks without mutating ref during render', async () => {
+    const three = [makeRequest('req-1', 1, 'git status'), makeRequest('req-2', 2, 'npm test'), makeRequest('req-3', 3, 'npm run lint')]
+    installFixture([threadNeedsYou(three)])
+    let push: ((change: AgentsChange) => void) | undefined
+    const agentsApi = (window as unknown as { oxe: { agents: { onChanged: unknown } } }).oxe.agents
+    agentsApi.onChanged = vi.fn((listener: (change: AgentsChange) => void) => { push = listener; return () => undefined })
+
+    render(<NeedsYouPill />)
+    const queue = await openQueue()
+    const itemsNow = (): HTMLElement[] => [...queue.querySelectorAll<HTMLElement>('[data-ui="needs-you-item"]')]
+    await waitFor(() => expect(itemsNow()).toHaveLength(3))
+    await waitFor(() => expect(document.activeElement).toBe(itemsNow()[0]))
+
+    fireEvent.keyDown(document.activeElement!, { key: 'j' })
+    fireEvent.keyDown(document.activeElement!, { key: 'j' })
+    expect(document.activeElement).toBe(itemsNow()[2])
+
+    // The focused (last) request is answered elsewhere: the queue shrinks to two.
+    act(() => push?.({ upsert: [threadNeedsYou(three.slice(0, 2))], removed: [], sources: SOURCES } as unknown as AgentsChange))
+    await waitFor(() => expect(itemsNow()).toHaveLength(2))
+    await waitFor(() => expect(document.activeElement).toBe(itemsNow()[1]))
+
+    fireEvent.keyDown(document.activeElement!, { key: 'j' })
+    expect(document.activeElement).toBe(itemsNow()[1])
+    fireEvent.keyDown(document.activeElement!, { key: 'k' })
+    expect(document.activeElement).toBe(itemsNow()[0])
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(itemsNow()[1])
+
+    // The refs are kept by each item's ref callback, never resized while rendering.
+    const source = readFileSync(join(process.cwd(), 'src/components/Navigation/NeedsYouQueue.tsx'), 'utf8')
+    expect(source).not.toMatch(/itemRefs\.current\.length\s*=/)
   })
 })

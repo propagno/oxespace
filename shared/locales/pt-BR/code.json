@@ -969,6 +969,9 @@
     "remove": "Remover workspace",
     "removeTitle": "Remover o workspace?",
     "removeBody": "<strong>{{name}}</strong> sai da barra lateral. A pasta no disco não é tocada; você pode adicioná-la de novo com Novo workspace.",
+    "removeRunning_one": "{{count}} agente ou terminal está rodando neste workspace e será encerrado.",
+    "removeRunning_many": "{{count}} agentes ou terminais estão rodando neste workspace e serão encerrados.",
+    "removeRunning_other": "{{count}} agentes ou terminais estão rodando neste workspace e serão encerrados.",
     "activity": {
       "agents_one": "{{count}} agente",
       "agents_many": "{{count}} agentes",
@@ -1004,6 +1007,15 @@
     "width": "Largura da barra lateral",
     "workspaces": "Workspaces",
     "filter": "Filtrar workspaces",
+    "stateFilter": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "needsYou": "Precisa de você",
+      "working": "Trabalhando",
+      "emptyNeedsYou": "Nada precisa de você agora",
+      "emptyWorking": "Nada trabalhando agora",
+      "showAll": "Mostrar todos"
+    },
     "filterPlaceholder": "Filtrar…",
     "integrationGroups": "Grupos de integração",
     "integrations": "Integrações",
@@ -1152,6 +1164,12 @@
     "closeFailed": "Não foi possível fechar o workspace",
     "settingsFailed": "Não foi possível salvar as configurações do workspace",
     "gridBoundary": "os painéis deste workspace",
+    "missingRoot": {
+      "title": "A pasta deste workspace sumiu",
+      "message": "{{path}} foi movida ou apagada, então os terminais não podem iniciar. Aponte o workspace para o novo lugar da pasta ou remova o workspace; nada no disco muda.",
+      "relink": "Religar pasta",
+      "relinkFailed": "Não foi possível religar a pasta"
+    },
     "panel": {
       "restore": "Restaurar a largura do painel",
       "expand": "Expandir o painel",

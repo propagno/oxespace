@@ -631,6 +631,11 @@
     "keepAll": "Keep all",
     "undoing": "Undoing",
     "undoAll": "Undo all",
+    "undoAllTitle_one": "Undo {{count}} file?",
+    "undoAllTitle_other": "Undo all {{count}} files?",
+    "undoAllDescription_one": "This restores {{count}} file to its checkpoint before the agent edited it. Unsaved changes from the agent will be discarded.",
+    "undoAllDescription_other": "This restores {{count}} files to their checkpoints before the agent edited them. Unsaved changes from the agent will be discarded.",
+    "undoAllConfirm": "Undo all",
     "review": "Review",
     "keep": "Keep {{path}}",
     "undo": "Undo {{path}}"
@@ -941,6 +946,13 @@
     "diagramBuilding": "Building the diagram…",
     "diagramFailed": "Couldn't draw this diagram",
     "enlarge": "Enlarge",
+    "diagramTools": "Diagram tools",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Zoom {{percent}}%, reset to 100%",
+    "downloadSvg": "SVG",
+    "downloadPng": "PNG",
+    "exportFailed": "Could not export the diagram",
     "showCode": "Show code",
     "showDiagram": "Show diagram",
     "alert": {
@@ -1663,6 +1675,9 @@
     "workedWaited": "Worked {{worked}} · waited for you {{waited}}"
   },
   "usage": {
+    "compact": "Compact",
+    "compactTitle": "Run /compact: summarize the conversation to free its context",
+    "compactFailed": "Could not compact the conversation",
     "planLabelSession": "{{percent}}% of the current session used",
     "planLabelWeek": "{{percent}}% of this week used",
     "resetsIn": "{{label}} · resets in {{time}}",

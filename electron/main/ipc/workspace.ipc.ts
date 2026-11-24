@@ -8,6 +8,8 @@ import { checkWorkspaceRoot, normalizeWorkspaceRoot } from '../services/workspac
 import { parseId, parseSetPaneAgentInput, parseSetPaneRootPathInput, parseSplitPaneInput, parseUpdatePaneNameInput, parseUpdatePaneTypeInput, parseUpdateWorkspaceBackgroundStateInput, parseUpdateWorkspaceEditorStateInput, parseUpdateWorkspaceGitHubStateInput, parseUpdateWorkspaceReviewStateInput, parseUpdateWorkspaceSettingsInput, parseUpdateWorkspaceWorktreeStateInput, parseWorkspaceCreateInput } from './validation'
 import { acceptedConfig } from '../services/policy'
 import { firstPolicyRead } from '../services/policy/first-read'
+import { mainMessage } from '../../../shared/messages'
+import { isSameRootPath } from '../../../shared/utils/path'
 
 interface WorkspaceLifecycleController {
   stop(input: { paneId: string }): Promise<void> | void
@@ -55,13 +57,35 @@ export function registerWorkspaceIpc(
     if (created?.rootPath) firstPolicyRead(created.rootPath)
     return created
   })
+  // OXE-367: whether the workspace's folder is still an existing folder that can be listed.
+  ipcMain.handle(IPC_CHANNELS.workspace.rootStatus, (_event, id: unknown) => {
+    const root = workspaceService.get(parseId(id))?.rootPath
+    return { available: !!root && checkWorkspaceRoot(root).ok }
+  })
+  // OXE-367: the same workspace and panes on another folder, with create's checks (quotes, an existing folder, the
+  // first policy read); a folder another workspace already has is refused. Never creates, moves or deletes a folder.
+  ipcMain.handle(IPC_CHANNELS.workspace.relink, (_event, input: unknown) => {
+    const record = (input && typeof input === 'object' ? input : {}) as { workspaceId?: unknown; rootPath?: unknown }
+    const workspaceId = parseId(record.workspaceId, 'workspaceId')
+    if (!workspaceService.get(workspaceId)) throw new Error(`Workspace ${workspaceId} not found`)
+    const rootPath = typeof record.rootPath === 'string' ? normalizeWorkspaceRoot(record.rootPath) : ''
+    const root = checkWorkspaceRoot(rootPath)
+    if (!root.ok) return root
+    if (workspaceService.list().some(other => other.id !== workspaceId && isSameRootPath(other.rootPath, rootPath, process.platform))) {
+      return { ok: false, refusal: 'taken', message: mainMessage('workspace.root.taken', { path: rootPath }) }
+    }
+    const linked = workspaceService.relinkRoot(workspaceId, rootPath)
+    firstPolicyRead(linked.rootPath)
+    return linked
+  })
   ipcMain.handle(IPC_CHANNELS.workspace.setActive, (_event, id: unknown) => {
     const workspaceId = parseId(id)
     return workspaceService.setActive(workspaceId)
   })
-  ipcMain.handle(IPC_CHANNELS.workspace.delete, (_event, id: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.workspace.delete, async (_event, id: unknown) => {
     const workspaceId = parseId(id)
-    lifecycle?.stopWorkspace(workspaceId)
+    // A4 (OXE-367): the row goes only after every process of it has ended; one that cannot be ended keeps it (the call rejects).
+    await lifecycle?.stopWorkspace(workspaceId)
     // B7.4: a policy change still asked about for this project ends with it (closing a pane never cancels one).
     const root = workspaceService.get(workspaceId)?.rootPath
     workspaceService.delete(workspaceId)

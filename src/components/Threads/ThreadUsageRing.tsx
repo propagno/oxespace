@@ -5,6 +5,7 @@ import type { ThreadContextReport, ThreadProvider } from '../../../shared/types/
 import { useUIStore } from '../../store/ui.store'
 import { usageResetIn } from './ThreadFailureCard'
 import { Button, Popover } from '../../ui'
+import { toast } from '../../ui/Toast'
 
 const RADIUS = 7
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -55,6 +56,14 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const label = report ? t('usage.contextLabel', { percent: report.percentage, used: compact(report.usedTokens), total: compact(report.windowTokens) }) : planLabel
   const high = report ? percent >= 85 : percent >= 90
   const visible = report?.categories.filter(category => category.kind === 'used' || category.kind === 'deferred') ?? []
+  // OXE-379: /compact in one click from the context it frees. Claude and Codex run it; Antigravity's is not verified.
+  const canCompact = Boolean(threadId && provider !== 'antigravity' && window.oxe?.thread?.command)
+  const runCompact = (): void => {
+    if (!threadId) return
+    setOpen(false)
+    void Promise.resolve(window.oxe.thread?.command?.(threadId, '/compact')).catch((error: unknown) =>
+      toast({ intent: 'danger', title: t('usage.compactFailed'), description: error instanceof Error ? error.message : undefined }))
+  }
   return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label={t('usage.details')}
     trigger={<Button type="button" variant="ghost" size="sm" square className="thread-usage-ring" aria-label={t('usage.trigger', { label: report ? t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage }) : planLabel })} title={label} data-high={high ? 'true' : undefined}>
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -69,6 +78,7 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
         <div className="thread-usage-bar" role="img" aria-label={t('usage.used', { percent: report.percentage })}><span style={{ width: `${Math.min(100, report.percentage)}%` }} /></div>
         <p>{t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage })}</p>
         {report.autoCompactAtTokens !== undefined && <p>{t('usage.autoCompact', { tokens: compact(report.autoCompactAtTokens) })}</p>}
+        {canCompact && <Button size="sm" variant={high ? 'primary' : 'secondary'} disabled={!idle} title={t('usage.compactTitle')} onClick={runCompact}>{t('usage.compact')}</Button>}
         {visible.length > 0 && <table><tbody>{visible.map(category => <tr key={category.name}><th scope="row">{category.kind === 'deferred' ? t('usage.deferred', { name: category.name }) : category.name}</th><td>{compact(category.tokens)}</td></tr>)}</tbody></table>}
       </section>}
       {worst && <section aria-label={t('usage.plan')}>

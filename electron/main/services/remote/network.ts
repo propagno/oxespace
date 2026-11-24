@@ -23,6 +23,33 @@ export function isPrivateAddress(address: string): boolean {
   return false
 }
 
+/** RFC 6598 shared address space, 100.64.0.0/10: carrier-grade NAT, and also what Tailscale hands out. */
+export function isCgnatAddress(address: string): boolean {
+  if (typeof address !== 'string') return false
+  const bare = peerAddress(address.split('%')[0])
+  if (isIP(bare) !== 4) return false
+  const [a, b] = bare.split('.').map(Number)
+  return a === 100 && b >= 64 && b <= 127
+}
+
+/**
+ * OXE-383: the adapters a phone may reach this computer through over a VPN (Tailscale, WireGuard, macOS utun, ZeroTier).
+ * Only with the person's opt-in (off by default) does the gateway also listen on such an adapter's 100.64/10 address; the
+ * same range on any other adapter is carrier-grade NAT and is never listened on. An adapter's name is set on this
+ * computer (by the person or the VPN they installed), not by anyone on the network, so it is a local fact and not a
+ * remote trust input: it only picks which of this computer's own addresses may carry the gateway.
+ */
+export const VPN_ADAPTER = /^(?:tailscale|wg|wireguard|utun|zerotier|zt)/i
+
+/**
+ * Whether a connection may go on: a 100.64/10 peer only while the VPN opt-in is on and only on a VPN listener (a
+ * 100.64/10 local address, which [listenAddresses] binds only on a VPN adapter). Every other peer is as before.
+ */
+export function vpnPeerAllowed(peer: string | undefined, local: string | undefined, allowVpn: boolean): boolean {
+  if (!isCgnatAddress(peerAddress(peer))) return true
+  return allowVpn && isCgnatAddress(peerAddress(local))
+}
+
 export interface ListenAddress {
   /** As shown to the person and put in the QR, without a zone. */
   address: string
@@ -37,15 +64,20 @@ const VIRTUAL = /^(?:vEthernet|WSL|Hyper-V|VirtualBox|VMware|vmnet|docker|br-|ve
 /** Most useful first: a LAN IPv4 address is what a phone reaches; virtual adapters, then link-local ones, come last. */
 const rank = (entry: ListenAddress & { virtual?: boolean }): number => {
   const linkLocal = entry.address.startsWith('169.254.') || /^fe[89ab]/i.test(entry.address)
-  return (entry.virtual ? 4 : 0) + (entry.family === 'IPv4' ? 0 : 2) + (linkLocal ? 1 : 0)
+  // OXE-383: a VPN address comes after every LAN one, so the QR keeps naming the LAN first.
+  return (isCgnatAddress(entry.address) ? 8 : 0) + (entry.virtual ? 4 : 0) + (entry.family === 'IPv4' ? 0 : 2) + (linkLocal ? 1 : 0)
 }
 
-export function listenAddresses(interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>, allowed: (address: string) => boolean = isPrivateAddress): ListenAddress[] {
+/** `allowVpn` (OXE-383, off by default): also a VPN adapter's 100.64/10 address, never that range on another adapter. */
+export function listenAddresses(interfaces: NodeJS.Dict<NetworkInterfaceInfo[]>, allowed: (address: string) => boolean = isPrivateAddress, options: { allowVpn?: boolean } = {}): ListenAddress[] {
   const found = new Map<string, ListenAddress & { virtual?: boolean }>()
   for (const [name, entries] of Object.entries(interfaces)) {
     const virtual = VIRTUAL.test(name)
+    const vpn = options.allowVpn === true && VPN_ADAPTER.test(name)
     for (const entry of entries ?? []) {
-      if (!allowed(entry.address) || found.has(entry.address)) continue
+      const cgnat = isCgnatAddress(entry.address)
+      if (cgnat ? !vpn : !allowed(entry.address)) continue
+      if (found.has(entry.address)) continue
       const family = entry.family === 'IPv6' ? 'IPv6' : 'IPv4'
       const zoned = family === 'IPv6' && /^fe[89ab]/i.test(entry.address) && 'scopeid' in entry && entry.scopeid
       found.set(entry.address, { address: entry.address, host: zoned ? `${entry.address}%${entry.scopeid}` : entry.address, family, ...(virtual ? { virtual } : {}) })
