@@ -227,7 +227,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     })
   },
   closeSecondary: () => set({ secondaryId: null, activeCell: 'primary' }),
-  setActiveCell: activeCell => set({ activeCell }),
+  setActiveCell: activeCell => set(state => ({ activeCell: activeCell === 'secondary' && !state.secondaryId ? 'primary' : activeCell })),
   setSplitRatio: ratio => set({ splitRatio: clampSplitRatio(ratio) }),
   openInActiveCell: async id => {
     const state = get()
@@ -273,9 +273,11 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
     threads.sort((a, b) => b.updatedAt - a.updatedAt)
     const valid = new Set(threads.map(t => t.id))
     const cache = retainThreadSnapshots({ snapshots: get().snapshotCache, order: get().snapshotCacheOrder }, valid)
+    const secondaryId = get().secondaryId && valid.has(get().secondaryId!) ? get().secondaryId : null
     set({ threads, errors: { ...errors, ...(get().errors.projects ? { projects: get().errors.projects } : {}) }, loading: false, listLoaded: true,
       unreadIds: get().unreadIds.filter(id => valid.has(id)),
-      secondaryId: get().secondaryId && valid.has(get().secondaryId!) ? get().secondaryId : null,
+      secondaryId,
+      activeCell: secondaryId ? get().activeCell : 'primary',
       snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order,
       drafts: Object.fromEntries(Object.entries(get().drafts).filter(([id]) => valid.has(id) || id.startsWith('new:'))),
       attachments: Object.fromEntries(Object.entries(get().attachments).filter(([id]) => valid.has(id))),
@@ -367,7 +369,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
   adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
-    return { snapshot, selectedId: snapshot.thread.id, syncedProjectId: state.syncedProjectId === snapshot.thread.projectId ? state.syncedProjectId : null, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
+    return { snapshot, selectedId: snapshot.thread.id, syncedProjectId: state.syncedProjectId === snapshot.thread.projectId ? state.syncedProjectId : null, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id || !state.secondaryId ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
   }) },
   updateSnapshot: snapshot => set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
