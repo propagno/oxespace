@@ -2,7 +2,7 @@ import { modeButton } from './helpers/modes'
 import { expect, test, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { launchApp, openDemoWorkspace, resizeWindow, type Appearance } from './helpers/launch'
-import { installThreadFixtures, registerThreadProject, setThreadState, THREAD_STATES, type ThreadStateName } from './helpers/thread-fixtures'
+import { installThreadFixtures, registerThreadProject, sendOpeningMessage, setThreadState, THREAD_STATES, type ThreadStateName } from './helpers/thread-fixtures'
 
 // The other Thread specs run in English (e2e/electron-main.cjs pins it); this one starts on a Brazilian Portuguese system.
 test('Thread main flow in Brazilian Portuguese', async () => {
@@ -19,7 +19,7 @@ test('Thread main flow in Brazilian Portuguese', async () => {
     const sidebar = page.getByRole('complementary', { name: 'Barra lateral do OxeChat' })
     await expect(sidebar.getByText('Conversas', { exact: true })).toBeVisible()
     await sidebar.getByRole('button', { name: 'Nova conversa em repo', exact: true }).click()
-    await page.getByRole('button', { name: 'Criar conversa', exact: true }).click()
+    await sendOpeningMessage(app, page)
     await expect(page.getByRole('region', { name: 'Começar a conversa' })).toBeVisible()
 
     // Slash commands describe what they do here, in Portuguese.
@@ -84,7 +84,7 @@ test('captures the Thread states for review', async () => {
     await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: pt ? 'Nova conversa em repo' : 'New conversation in repo', exact: true }).click()
     await shot(page, 'create-dialog')
-    await page.getByRole('button', { name: pt ? 'Criar conversa' : 'Create conversation', exact: true }).click()
+    await sendOpeningMessage(app, page)
     await page.locator('.thread-timeline').waitFor()
     // 'anatomy' is the brand conformance scene (BRD-25), not a screenshot of this flow.
     for (const state of (Object.keys(THREAD_STATES) as ThreadStateName[]).filter(name => name !== 'anatomy')) {

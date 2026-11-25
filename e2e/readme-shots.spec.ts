@@ -5,7 +5,7 @@ import { mkdirSync } from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { launchApp, resizeWindow, type Appearance } from './helpers/launch'
-import { installThreadFixtures } from './helpers/thread-fixtures'
+import { installThreadFixtures, sendOpeningMessage } from './helpers/thread-fixtures'
 import { openConnections, togglePanel } from './helpers/panels'
 import { connectFromContainer } from './helpers/oxepod'
 import { LOGIN_BEFORE, seedDemoRepo } from './helpers/readme-demo'
@@ -162,7 +162,7 @@ for (const theme of THEMES) {
       await installThreadDemo(app, repo)
       await modeButton(page, 'thread').click()
       await page.getByRole('button', { name: /^New conversation in/ }).first().click()
-      await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+      await sendOpeningMessage(app, page)
       await page.locator('.thread-timeline').waitFor()
       await app.evaluate((_context, payload) => {
         ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(payload)

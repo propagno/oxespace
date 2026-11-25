@@ -48,6 +48,12 @@ const STATE_CHIPS: ReadonlyArray<{ filter: StateFilter; labelKey: 'status.attent
   { filter: 'needs-you', labelKey: 'status.attention' }, { filter: 'working', labelKey: 'status.running' }, { filter: 'failed', labelKey: 'status.failed' }, { filter: 'unread', labelKey: 'sidebar.filterUnread' }
 ]
 
+/**
+ * The draft row is the sidebar's one selection and says aria-current="true" (OXC-3, the frozen contract of OXE-168). The
+ * shared SidebarRow says "page" on a selected row (OXE-295) and takes no other value, so it is set on the row's element.
+ */
+const markDraftCurrent = (wrap: HTMLDivElement | null): void => { wrap?.querySelector('[data-ui="sidebar-row"]')?.setAttribute('aria-current', 'true') }
+
 function relativeTime(timestamp: number): string {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
   const t = i18n.t.bind(i18n)
@@ -60,8 +66,12 @@ function relativeTime(timestamp: number): string {
  * sections and then No section, Archived last and collapsed, and a SidebarFooter of IconButtons. Each conversation is a
  * two-line SidebarRow; one that waits shows its needs-you mini card, read from pendingRequestsAll().
  */
-export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode }: {
+export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode, draft, onLeaveDraft }: {
   onCreate: (projectId: string, rootPath?: string) => void; onAccounts?: () => void; onAddProject?: () => void; onOpenInCode?: (rootPath: string) => Promise<void>
+  /** A new conversation being written in place (OXC-3): its draft row shows in its project and is the one selection. */
+  draft?: { projectId: string } | null
+  /** Choosing a conversation while the draft is open leaves the draft, also when it is the one that was selected. */
+  onLeaveDraft?: () => void
 }) {
   const { t } = useTranslation('thread')
   // Only these fields: the store also changes for drafts, snapshots and scroll positions, which the list never shows.
@@ -229,10 +239,10 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
     const name = displayThreadTitle(thread.title)
     // Found by what was said in it: the line that matched, so the person sees why it is listed.
     const found = query && thread.nativeSessionId ? contentMatches.get(thread.nativeSessionId) : undefined
-    return <ThreadSidebarRow key={thread.id} thread={thread} selected={selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
+    return <ThreadSidebarRow key={thread.id} thread={thread} selected={!draft && selectedId === thread.id} unread={unreadIds.includes(thread.id)} changes={changes.get(thread.id)}
       request={thread.status === 'approval' ? pending.get(thread.id) : undefined} time={relativeTime(thread.updatedAt)} dragProps={drag.rowProps(thread)}
       snippet={found && found.snippet ? <span className={cx('thread-session-snippet', styles.snippet)} data-testid="thread-content-snippet">{snippetParts(found.snippet).map((part, index) => part.match ? <mark key={index}>{part.text}</mark> : part.text)}</span> : undefined}
-      onSelect={() => void useThreadStore.getState().openInActiveCell(thread.id)} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
+      onSelect={() => { onLeaveDraft?.(); void useThreadStore.getState().openInActiveCell(thread.id) }} onMenu={() => setRowMenuId(thread.id)} onOpenRequest={() => void select(thread.id)} onAnswered={refreshPending}
       actions={<>
         <IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.openSideNamed', { name })} title={sideBySideBlocked(thread.id) ? t('sidebar.alreadyOpen') : t('sidebar.openSide')} disabled={sideBySideBlocked(thread.id)}
           icon={<Columns2 size={14} aria-hidden="true" />} onClick={() => void openSecondary(thread.id).catch(error => setActionError(humanizeError(error, t('sidebar.openFailed'))))} />
@@ -298,7 +308,7 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
         </>} />}
         {groups.map(group => {
           const matchedColor = workspaces.find(w => w.rootPath === group.rootPath)?.color ?? null
-          const open = query || stateFilter ? true : expanded[group.id] ?? true
+          const open = query || stateFilter || draft?.projectId === group.id ? true : expanded[group.id] ?? true
           const unavailable = unavailableProjects.includes(group.id)
           const duplicate = groups.filter(g => g.name === group.name).length > 1
           // OXE-187: a collapsed project says its most urgent conversation; an open one shows its rows instead.
@@ -327,6 +337,9 @@ export function ThreadSidebar({ onCreate, onAccounts, onAddProject, onOpenInCode
               const limit = query || stateFilter || expandedProjects.includes(group.id) ? Infinity : THREAD_ROWS_PER_PROJECT
               const visible = split.loose.filter((thread, index) => index < limit || thread.id === selectedId)
               return <>
+                {draft?.projectId === group.id && <div ref={markDraftCurrent} className={cx('thread-navigation-row', styles.row)} data-thread-draft={group.id}>
+                  <SidebarRow className={cx('thread-navigation-item', styles.item)} selected lead={<Pencil size={12} aria-hidden="true" />} title={`${t('view.newConversation')} · ${t('sidebar.draft')}`} />
+                </div>}
                 {split.sections.map((item, index) => <ThreadSectionGroup key={item.section.id} group={item} index={index} total={split.sections.length} searching={!!query || !!stateFilter} controller={sections} zoneProps={drag.zoneProps} renderRow={row} rowsClassName={styles.rows} />)}
                 {split.sections.length > 0 && <SidebarSection label={t('sections.none')} />}
                 <div className={cx('thread-project-rows', styles.rows, sectionStyles.loose, drag.dragging && sectionStyles.dragging)} {...drag.zoneProps({ projectId: group.id, sectionId: null })}>{visible.map(row)}{split.loose.length > visible.length && <Button variant="ghost" size="sm" data-list-item className={cx('thread-show-more', styles.showMore)} onClick={() => setExpandedProjects(value => [...value, group.id])}>{t('sidebar.showMore', { count: split.loose.length - visible.length })}</Button>}</div>

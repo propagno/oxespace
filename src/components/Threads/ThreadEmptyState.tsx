@@ -6,6 +6,8 @@ import type { ConversationThread } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
 import { MARK_PATH, MARK_VIEWBOX } from '../../design/brand'
 import { WorktreeCreationNotices } from '../Worktree/WorktreeCreationNotices'
+import { Button } from '../../ui'
+import styles from './NewConversationScreen.module.css'
 
 const STARTERS = ['tour', 'review', 'bugs', 'next'] as const
 
@@ -42,19 +44,19 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
     <div className="thread-opening-hero">
       <svg className="thread-opening-mark" viewBox={MARK_VIEWBOX} width={28} height={28} aria-hidden="true" focusable="false"><path d={MARK_PATH} fill="currentColor" /></svg>
       {/* A worktree of its own is named by its branch in the title: its folder carries a random suffix nobody chose. */}
-      <h2>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
+      <h2 data-ui="new-conversation-title" className={styles.title}>{t('opening.title', { agent, folder: thread.ownedWorktree?.branch ?? folder })}</h2>
     </div>
     <ul className="thread-opening-context" aria-label={t('opening.context')}>
-      <li title={thread.rootPath}><FolderGit2 size={13} aria-hidden="true" />{folder}</li>
-      {branch && <li><GitBranch size={13} aria-hidden="true" />{branch}</li>}
-      <li><Shield size={13} aria-hidden="true" />{t(`opening.access.${thread.access ?? 'read-only'}`)}</li>
-      {thread.model && <li><Sparkles size={13} aria-hidden="true" />{thread.model}</li>}
+      <li data-ui="context-picker" className={styles.picker} title={thread.rootPath}><FolderGit2 size={13} aria-hidden="true" />{folder}</li>
+      {branch && <li data-ui="context-picker" className={styles.picker}><GitBranch size={13} aria-hidden="true" />{branch}</li>}
+      <li data-ui="context-picker" className={styles.picker}><Shield size={13} aria-hidden="true" />{t(`opening.access.${thread.access ?? 'read-only'}`)}</li>
+      {thread.model && <li data-ui="context-picker" className={styles.picker}><Sparkles size={13} aria-hidden="true" />{thread.model}</li>}
     </ul>
     <WorktreeCreationNotices notices={notices} onDismiss={dismiss} />
     <div className="thread-opening-starters" role="group" aria-label={t('opening.starters')}>
-      {threadStarters().map(starter => <button key={starter.id} type="button" className="thread-opening-starter" title={starter.prompt} onClick={() => onStarter(starter.prompt)}>
+      {threadStarters().map(starter => <Button key={starter.id} data-ui="starter" className="thread-opening-starter" title={starter.prompt} onClick={() => onStarter(starter.prompt)}>
         <strong>{starter.label}</strong><span>{starter.prompt}</span>
-      </button>)}
+      </Button>)}
     </div>
   </section>
 }

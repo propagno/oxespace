@@ -16,6 +16,14 @@ test('Thread projects and conversations survive restart without creating Code wo
   let app = await launch()
   try {
     let page = await app.firstWindow()
+    // CI runners have no agent CLI installed, and NewConversationScreen requires an installed agent before sending;
+    // keep thread:create real (SQLite persistence) while stubbing readiness and making thread:send a no-op.
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('agent:get-readiness')
+      ipcMain.handle('agent:get-readiness', () => [{ provider: 'claude', command: 'claude', status: 'ready' }])
+      ipcMain.removeHandler('thread:send')
+      ipcMain.handle('thread:send', () => {})
+    })
     await modeButton(page, 'thread').click()
     const add = async (path: string) => {
       await page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' }).click()
@@ -37,8 +45,15 @@ test('Thread projects and conversations survive restart without creating Code wo
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     await page.getByRole('button', { name: 'New conversation in first-project' }).click()
-    await page.getByRole('dialog', { name: 'New conversation' }).getByRole('button', { name: 'Create conversation' }).click()
-    await expect(page.locator('.thread-session-title')).toContainText(['New conversation'])
+    const start = page.getByTestId('new-conversation')
+    await expect(start).toBeVisible()
+    const opener = start.locator('[data-ui="composer"] textarea')
+    await opener.fill('First project check')
+    await opener.press('Enter')
+    await expect(start).toBeHidden()
+    await expect(page.locator('.thread-session-title')).toHaveCount(1)
+    const savedTitle = (await page.locator('.thread-session-title').first().innerText()).trim()
+    expect(savedTitle).toMatch(/First project check|New conversation/)
     await page.getByRole('button', { name: 'Actions for second-project' }).click()
     await page.getByRole('menuitem', { name: 'Remove project…' }).click()
     await page.getByRole('dialog', { name: 'Remove this project?' }).getByRole('button', { name: 'Remove project', exact: true }).click()
@@ -54,7 +69,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     // timeout seen once in several runs on Linux (2026-11-12). The switch below is in every view and waits by itself.
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
-    await expect(page.locator('.thread-session-title')).toContainText(['New conversation'])
+    await expect(page.locator('.thread-session-title')).toContainText([savedTitle])
     const removed = page.getByRole('region', { name: 'Removed projects' })
     await removed.getByRole('button', { name: 'second-project Restore' }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)

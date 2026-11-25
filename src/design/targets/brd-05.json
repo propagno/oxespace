@@ -79,7 +79,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-05.new-title.font-weight",
@@ -98,7 +98,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-05.new-title.font-family",
@@ -117,7 +117,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-05.picker.height",
@@ -136,7 +136,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-05.starter.count",
@@ -155,7 +155,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-05.new-composer.radius",
@@ -174,7 +174,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     }
   ]
 }

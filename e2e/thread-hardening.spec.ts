@@ -110,9 +110,15 @@ test('Thread shows delivery, queue pause and context usage, offers no rewind, an
 
     await modeButton(page, 'thread').click()
     await page.getByRole('button', { name: 'New conversation in repo' }).click()
-    await page.getByRole('radio', { name: /Codex/ }).check()
-    await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
+    const start = page.getByTestId('new-conversation')
+    await expect(start).toBeVisible()
+    await start.getByRole('button', { name: /^(Claude|Codex|Antigravity)$/ }).click()
+    await page.getByRole('menuitem', { name: 'Codex', exact: true }).click()
+    const opener = start.locator('[data-ui="composer"] textarea')
+    await opener.fill('Start')
+    await opener.press('Enter')
     await expect(page.locator('.thread-composer textarea')).toBeVisible()
+    await app.evaluate(() => { const g = globalThis as Record<string, any>; g.hardeningCalls.send.length = 0 })
     const calls = async () => app.evaluate(() => (globalThis as Record<string, any>).hardeningCalls as Record<string, unknown[][]>)
 
     await app.evaluate(() => (globalThis as Record<string, any>).seedHardening())
