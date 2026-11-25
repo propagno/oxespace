@@ -7,6 +7,7 @@ import { useIntegrationStore } from '../../store/integration.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { derivePaneDisplayState, formatPaneStatus, type PaneDisplayTone } from '../../utils/paneDisplay'
 import { ActivityDot } from '../Indicators/ActivityDot'
+import { HandoffInboundNoticeBanner } from './HandoffInboundNoticeBanner'
 import { HandoffInbox } from './HandoffInbox'
 import { MemberEditButton, MemberEditor } from './MemberEditor'
 import { Button, TextField, Select, EmptyState, Notice } from '../../ui'
@@ -41,7 +42,7 @@ const STATUS_FILTERS = ['active', 'paused', 'done', 'all'] as const
  *      buttons so empty states don't pay rent for vertical pixels.
  */
 export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorkspace, workspace, workspaces }: IntegrationPanelProps): ReactElement {
-  const { activeGroupId, activeMemberId, addMember, buildContext, createGroup, deleteGroup, error, groups, isLoading, load, removeMember, setActiveGroup, setActiveMember, updateGroup } = useIntegrationStore()
+  const { activeGroupId, activeMemberId, addMember, buildContext, createGroup, deleteGroup, dismissInboundNotice, error, groups, inboundNotices, isLoading, load, removeMember, setActiveGroup, setActiveMember, updateGroup } = useIntegrationStore()
   const { t } = useTranslation('code')
   const getTerminalStatus = useTerminalStore((state) => state.getStatus)
   const [name, setName] = useState('')
@@ -104,6 +105,10 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
       ?? activeGroup.members.find((member) => member.workspaceId === workspace.id)
       ?? null
   }, [activeGroup, activeMemberId, activePaneId, workspace.id])
+  const visibleInboundNotices = useMemo(
+    () => activePaneId ? inboundNotices.filter((notice) => notice.consumerPaneId === activePaneId) : inboundNotices,
+    [activePaneId, inboundNotices]
+  )
   const memberWorkspace = workspaces.find((item) => item.id === memberWorkspaceId) ?? null
   const memberPanes = memberWorkspace?.panes.filter((pane) => pane.type === 'terminal') ?? []
 
@@ -265,6 +270,7 @@ export function IntegrationPanel({ activePaneId, onRunInTerminal, onSelectWorksp
 
       {error || memberActionError ? <Notice intent="danger">{memberActionError ?? error}</Notice> : null}
       {panelNotice ? <div className="integration-notice" role="status">{panelNotice}</div> : null}
+      <HandoffInboundNoticeBanner notices={visibleInboundNotices} onDismiss={dismissInboundNotice} />
       {isLoading ? <EmptyState compact title={t('integration.loading')} /> : null}
 
       {visibleGroups.length > 1 ? (

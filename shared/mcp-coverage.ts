@@ -60,7 +60,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'code.agents': {
     label: 'Agents running in panes: state, output, prompt, stop a turn',
-    tools: { ...each('oxespace_agents', 'read', ['list', 'read', 'explain', 'wait']), ...each('oxespace_agents_change', 'confirm', ['prompt', 'interrupt']) },
+    tools: { ...each('oxespace_agents', 'read', ['list', 'read', 'explain', 'wait']), ...each('oxespace_agents_change', 'confirm', ['prompt', 'interrupt', 'transfer_attachments']) },
     ipc: ['agentState.list', 'agentState.explain']
   },
   'code.activity': {

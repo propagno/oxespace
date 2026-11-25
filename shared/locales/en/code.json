@@ -2439,7 +2439,10 @@
       "reopen": "Re-open",
       "applying": "Applying…",
       "apply": "Apply to agent",
-      "bindToApply": "Bind a pane to {{member}} to apply."
+      "bindToApply": "Bind a pane to {{member}} to apply.",
+      "inboundReplyTitle": "Reply from {{origin}}",
+      "inboundUpdatedTitle": "Handoff updated by {{origin}}",
+      "dismissNotice": "Dismiss handoff notice"
     }
   },
   "review": {

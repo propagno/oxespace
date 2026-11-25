@@ -233,6 +233,7 @@ export interface WorkspaceLike {
     displayName?: string | null
     status?: string
     agentProfileId?: string | null
+    rootPath?: string | null
     rowIndex?: number
     columnIndex?: number
   }>

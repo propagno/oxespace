@@ -2515,7 +2515,10 @@
       "reopen": "Reabrir",
       "applying": "Aplicando…",
       "apply": "Aplicar ao agente",
-      "bindToApply": "Vincule um painel a {{member}} para aplicar."
+      "bindToApply": "Vincule um painel a {{member}} para aplicar.",
+      "inboundReplyTitle": "Resposta de {{origin}}",
+      "inboundUpdatedTitle": "Passagem de trabalho atualizada por {{origin}}",
+      "dismissNotice": "Dispensar aviso de passagem de trabalho"
     }
   },
   "review": {
