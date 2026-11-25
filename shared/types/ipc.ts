@@ -436,7 +436,7 @@ export const IPC_CHANNELS = {
   /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
   /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
   schedules: { state: 'schedules:state', runs: 'schedules:runs', save: 'schedules:save', remove: 'schedules:remove', setEnabled: 'schedules:set-enabled', setPaused: 'schedules:set-paused', runNow: 'schedules:run-now', changed: 'schedules:changed' },
-  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair', stopEmulator: 'android-actions:stop-emulator' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },

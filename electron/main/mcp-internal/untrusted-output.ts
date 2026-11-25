@@ -18,7 +18,8 @@ const FENCED: Record<string, { source: string; actions?: readonly string[] }> = 
   oxespace_github: { source: 'GitHub' },
   oxespace_threads: { source: 'another conversation', actions: ['read'] },
   oxespace_thread_read: { source: 'another conversation' },
-  oxespace_integration: { source: 'a handoff', actions: ['handoffs'] }
+  oxespace_integration: { source: 'a handoff', actions: ['handoffs'] },
+  oxespace_android_logcat_tail: { source: 'an Android device logcat' }
 }
 
 const END = '[end of untrusted data'
