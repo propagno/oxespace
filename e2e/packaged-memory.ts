@@ -23,7 +23,7 @@ function shippedBinary(env: Record<string, string>, args: string[]): Promise<Ele
   const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE
   expect(executablePath, 'OXESPACE_PACKAGED_EXECUTABLE').toBeTruthy()
   expect(existsSync(executablePath!), `packaged executable ${executablePath}`).toBe(true)
-  return electron.launch({ executablePath, args, env: { ...process.env, ...env } })
+  return electron.launch({ executablePath, args, env: { ...process.env, ...env } as Record<string, string> })
 }
 
 async function launch(options: PackagedMemoryOptions, env: Record<string, string>): Promise<{ app: ElectronApplication; page: Page; userData: string }> {
