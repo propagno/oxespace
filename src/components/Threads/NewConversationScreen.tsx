@@ -13,6 +13,7 @@ import { errorText, humanizeError } from '../../utils/humanizeError'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { consumePendingNewDraft, newProjectDraftKey, normalizePathForMatch } from '../Terminal/terminalToChat'
 import { threadStarters } from './ThreadEmptyState'
+import { displayThreadTitle } from './threadTitle'
 import { readThreadWorktreePref, writeThreadWorktreePref } from './threadWorktreePref'
 import styles from './NewConversationScreen.module.css'
 
@@ -117,19 +118,26 @@ function ProjectPicker({ choices, selected, disabled, onPick, onAdd }: { choices
  * A new conversation, in place (OXC-3, OXE-168): where the agent works (project, agent, an isolated worktree, access),
  * the composer and the starters. Nothing exists until the first message: sending it creates the conversation with these
  * choices and sends the text to it. It replaces the NewThreadDialog and keeps its data and its worktree answers.
- * `parentThreadId` is accepted for the parallel chat of OXC-5 (OXE-170), whose behaviour lands with that card.
+ * With `parentThreadId` it starts a parallel chat of that conversation's session (OXC-5, OXE-170): headed by the parent,
+ * the project locked on the parent's and the worktree on the session's, the agent still free; the first message creates
+ * the chat with createChat on the parent, never thread.create, and sends the text to it.
  */
-export function NewConversationScreen({ projectId, rootPath, onCreated, onAddProject }: { projectId: string; rootPath?: string; parentThreadId?: string; onCreated?: (threadId: string) => void; onAddProject?: () => void }): ReactElement {
+export function NewConversationScreen({ projectId, rootPath, parentThreadId, onCreated, onAddProject }: { projectId: string; rootPath?: string; parentThreadId?: string; onCreated?: (threadId: string) => void; onAddProject?: () => void }): ReactElement {
   const { t } = useTranslation('thread')
   const titleId = useId()
   const projects = useThreadStore(state => state.projects)
+  const parent = useThreadStore(state => parentThreadId ? state.threads.find(thread => thread.id === parentThreadId) : undefined)
+  const parallel = Boolean(parentThreadId)
   const choices = useMemo(() => {
     const all: ProjectChoice[] = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ rootPath: context.rootPath, projectId: project.projectId, projectName: project.displayName })))
     return all.filter((choice, index) => all.findIndex(other => other.rootPath === choice.rootPath) === index)
   }, [projects])
   const [picked, setPicked] = useState<string | null>(null)
   // A folder that is no project is offered to be added; another project is never used in its place.
-  const context = choices.find(choice => choice.rootPath === picked)
+  // A parallel chat stays in its parent's project: no pick, no folder of its own.
+  const context = parallel
+    ? choices.find(choice => choice.projectId === (parent?.projectId ?? projectId))
+    : choices.find(choice => choice.rootPath === picked)
     ?? choices.find(choice => rootPath ? normalizePathForMatch(choice.rootPath) === normalizePathForMatch(rootPath) : choice.projectId === projectId)
     ?? (rootPath ? undefined : choices[0])
   const installed = useInstalledAgents()
@@ -138,7 +146,8 @@ export function NewConversationScreen({ projectId, rootPath, onCreated, onAddPro
   const access = useNewConversationAccess()
   // Off until the person turns it on, then remembered for the project, as the dialog did.
   const [chosenWorktree, setChosenWorktree] = useState<boolean | null>(null)
-  const inWorktree = chosenWorktree ?? readThreadWorktreePref(context?.projectId)
+  // A parallel chat works in the session's folder or worktree and never owns one (OXE-170 RN-2).
+  const inWorktree = !parallel && (chosenWorktree ?? readThreadWorktreePref(context?.projectId))
   const [branch, setBranch] = useState(''), [baseRef, setBaseRef] = useState('')
   const { draft, setDraft, carried } = useMessage(context?.projectId ?? projectId, context?.rootPath ?? rootPath ?? '')
   const [pending, setPending] = useState(false), [error, setError] = useState('')
@@ -152,15 +161,17 @@ export function NewConversationScreen({ projectId, rootPath, onCreated, onAddPro
 
   const start = async (useWorktree: boolean, allowDirtyBase = false): Promise<void> => {
     const text = draft.trim()
-    if (!context || !api || !provider || pending || !text) return
+    if (!context || !api || !provider || pending || !text || (parallel && !api.createChat)) return
     const dropCarried = carried()
     setPending(true); setError(''); setFailure(null)
     const worktree = useWorktree ? { ...(branch.trim() ? { branch: branch.trim() } : {}), ...(baseRef.trim() ? { baseRef: baseRef.trim() } : {}), ...(allowDirtyBase ? { allowDirtyBase } : {}) } : undefined
     let threadId: string
     try {
-      const snapshot = await api.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) })
+      const snapshot = parentThreadId
+        ? await api.createChat!(parentThreadId, { provider })
+        : await api.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) })
       // Falling back to the project folder is a one-time answer; it does not change what is remembered.
-      if (useWorktree === inWorktree) writeThreadWorktreePref(context.projectId, inWorktree)
+      if (!parallel && useWorktree === inWorktree) writeThreadWorktreePref(context.projectId, inWorktree)
       threadId = snapshot.thread.id
       useThreadStore.getState().adopt(snapshot)
       dropCarried()
@@ -170,7 +181,7 @@ export function NewConversationScreen({ projectId, rootPath, onCreated, onAddPro
       // A worktree refusal names its cause (branch exists, not a repository…); show it instead of a generic line.
       const parsed = worktree ? parseThreadWorktreeError(cause instanceof Error ? cause.message : String(cause)) : null
       if (parsed) setFailure({ code: parsed.code, detail: parsed.message })
-      else setError(worktree ? (errorText(cause) ? humanizeError(cause) : t('dialogs.worktreeFailed')) : t('dialogs.createFailed'))
+      else setError(worktree ? (errorText(cause) ? humanizeError(cause) : t('dialogs.worktreeFailed')) : parallel && errorText(cause) ? humanizeError(cause) : t('dialogs.createFailed'))
       setPending(false)
       return
     }
@@ -189,19 +200,22 @@ export function NewConversationScreen({ projectId, rootPath, onCreated, onAddPro
     <div className={styles.column}>
       <div className={styles.hero}>
         <svg className={styles.mark} viewBox={MARK_VIEWBOX} width={28} height={28} aria-hidden="true" focusable="false"><path d={MARK_PATH} fill="currentColor" /></svg>
-        <h2 id={titleId} data-ui="new-conversation-title" className={styles.title}>{t('opening.title', { agent, folder })}</h2>
+        <h2 id={titleId} data-ui="new-conversation-title" className={styles.title}>{parallel ? t('parallel.title', { title: displayThreadTitle(parent?.title) }) : t('opening.title', { agent, folder })}</h2>
       </div>
       <div role="group" aria-label={t('opening.context')} className={styles.pickers}>
-        <ProjectPicker choices={choices} selected={context} disabled={pending} onPick={pickProject} onAdd={onAddProject} />
+        <ProjectPicker choices={choices} selected={context} disabled={pending || parallel} onPick={pickProject} onAdd={onAddProject} />
         <Menu label={t('dialogs.agent')} items={installed.map(id => ({ label: threadAgentName(id), icon: id === provider ? <Check size={14} /> : undefined, onSelect: () => setChosenAgent(id) }))}
           trigger={<Button data-ui="context-picker" className={styles.picker} disabled={pending || !provider} icon={provider && <AgentProviderIcon provider={provider} size={14} />}>{provider ? agent : t('opening.noAgent')}</Button>} />
-        <Button data-ui="context-picker" className={styles.picker} role="switch" aria-checked={inWorktree} aria-label={t('dialogs.inWorktree')} disabled={pending}
-          icon={<GitBranch size={14} aria-hidden="true" />} onClick={() => { setChosenWorktree(!inWorktree); setFailure(null) }}>{t('dialogs.inWorktreeShort')}</Button>
+        {parallel
+          ? <span data-ui="context-picker" className={styles.picker} data-locked="true"><GitBranch size={14} aria-hidden="true" />{t('parallel.locked')}</span>
+          : <Button data-ui="context-picker" className={styles.picker} role="switch" aria-checked={inWorktree} aria-label={t('dialogs.inWorktree')} disabled={pending}
+            icon={<GitBranch size={14} aria-hidden="true" />} onClick={() => { setChosenWorktree(!inWorktree); setFailure(null) }}>{t('dialogs.inWorktreeShort')}</Button>}
         <span data-ui="context-picker" className={styles.picker} data-access={access ?? undefined} aria-busy={access === null}>
           <Shield size={14} aria-hidden="true" />{access === 'unreadable' ? t('opening.accessUnreadable') : access && t(`opening.access.${access}`)}
         </span>
       </div>
-      {!context && onAddProject && <div className={styles.unregistered}>
+      {parallel && <Notice intent="info">{t('parallel.notice')}</Notice>}
+      {!parallel && !context && onAddProject && <div className={styles.unregistered}>
         {rootPath && <code>{rootPath}</code>}
         <Button icon={<Plus size={14} aria-hidden="true" />} onClick={onAddProject}>{t('dialogs.add')}</Button>
       </div>}
@@ -226,7 +240,7 @@ export function NewConversationScreen({ projectId, rootPath, onCreated, onAddPro
           onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void start(inWorktree) } }} />
         <div className={styles.actions}>
-          <IconButton type="submit" variant="primary" label={t('composer.send')} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider} />
+          <IconButton type="submit" variant="primary" label={t('composer.send')} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider || (parallel && !api.createChat)} />
         </div>
       </form>
       <div className={styles.starters} role="group" aria-label={t('opening.starters')}>

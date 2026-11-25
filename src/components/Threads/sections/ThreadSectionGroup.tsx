@@ -15,7 +15,7 @@ import { GROUP_SIGNAL_WORD, dominantGroupSignal } from '../threadGroupSignal'
 const NO_SECTION = '\u0000none'
 
 /** One section of a project: a src/ui SidebarSection whose label is the collapse toggle with a count, its menu, and its conversations. */
-export function ThreadSectionGroup({ group, index, total, searching, controller, zoneProps, renderRow, rowsClassName }: {
+export function ThreadSectionGroup({ group, index, total, searching, controller, zoneProps, renderRows, rowsClassName }: {
   group: SectionGroup<SectionedThread>
   index: number
   total: number
@@ -23,7 +23,8 @@ export function ThreadSectionGroup({ group, index, total, searching, controller,
   searching: boolean
   controller: ThreadSectionsController
   zoneProps: (target: DropTarget) => DropZoneProps
-  renderRow: (thread: SectionedThread) => ReactNode
+  /** The section's rows; a parallel chat is drawn under its parent (OXE-170). */
+  renderRows: (threads: SectionedThread[]) => ReactNode
   /** The list's own rows class, so rows inside a section look and behave like the others. */
   rowsClassName?: string
 }): ReactElement | null {
@@ -52,7 +53,7 @@ export function ThreadSectionGroup({ group, index, total, searching, controller,
           { label: t('sections.delete'), icon: <Trash2 size={14} />, danger: true, onSelect: () => controller.setDialog({ kind: 'delete', section, count: threads.length }) }
         ]} />} />
     {open && <div className={cx('thread-section-rows', rowsClassName, styles.rows)}>
-      {threads.length ? threads.map(renderRow) : <EmptyState compact title={t('sections.empty')} />}
+      {threads.length ? renderRows(threads) : <EmptyState compact title={t('sections.empty')} />}
     </div>}
   </section>
 }

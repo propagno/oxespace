@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ComponentType, type ReactElement } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
 import type { ThreadRequest } from '../../../shared/types/thread'
 import { ErrorBoundary } from '../common/ErrorBoundary'
@@ -10,7 +10,7 @@ import { useGitBranch } from '../../hooks/useGitBranch'
 import { scopeBadgeLabel } from '../../utils/paneGitContext'
 import { approvalsApi } from './approvalsApi'
 import { handBackAll, OPEN_APPROVAL_QUEUE_EVENT, schedulePreload, startApprovals } from './approvalsBoot'
-import { ApprovalToast } from './ApprovalToast'
+import type { ApprovalToast as ApprovalToastType } from './ApprovalToast'
 import type { ImpactPreviewProps } from './ImpactPreview'
 import { startOpenRequestListener, useOpenRequest } from './openRequest'
 
@@ -114,6 +114,7 @@ export function ApprovalsHost(): ReactElement | null {
   const [initialQueueSelectedId, setInitialQueueSelectedId] = useState<string | null>(null)
   const [QueueModal, setQueueModal] = useState<ComponentType<{ onClose: () => void; initialSelectedId?: string | null }> | null>(null)
   const [PreviewModal, setPreviewModal] = useState<ComponentType<ImpactPreviewProps> | null>(null)
+  const [ToastView, setToastView] = useState<ComponentType<ComponentProps<typeof ApprovalToastType>> | null>(null)
   const [dismissedToastIds, setDismissedToastIds] = useState<Set<string>>(() => new Set())
 
   const pendingView = usePendingView()
@@ -162,9 +163,10 @@ export function ApprovalsHost(): ReactElement | null {
     if (!hasToastTarget) return
     let alive = true
     let unsubscribe: (() => void) | undefined
-    void import('./approvals.store')
-      .then(mod => {
+    void Promise.all([import('./approvals.store'), import('./ApprovalToast')])
+      .then(([mod, toastMod]) => {
         if (!alive) return
+        setToastView(() => toastMod.ApprovalToast)
         setApprovalsQueueLength(mod.useApprovalsStore.getState().queue.length)
         unsubscribe = mod.useApprovalsStore.subscribe(state => {
           if (alive) setApprovalsQueueLength(state.queue.length)
@@ -276,7 +278,7 @@ export function ApprovalsHost(): ReactElement | null {
 
   const showPreview = Boolean(needsImpactPreview && openedTarget && PreviewModal && !queueOpen)
   const showCenter = Boolean(Center && !queueOpen)
-  const showToast = Boolean(toastTarget && !queueOpen && !showPreview && approvalsQueueLength !== null)
+  const showToast = Boolean(toastTarget && ToastView && !queueOpen && !showPreview && approvalsQueueLength !== null)
 
   if (!showCenter && !(queueOpen && QueueModal) && !showPreview && !showToast) return null
   return <>
@@ -297,8 +299,8 @@ export function ApprovalsHost(): ReactElement | null {
         }}
       />
     ) : null}
-    {showToast && toastTarget ? (
-      <ApprovalToast
+    {showToast && toastTarget && ToastView ? (
+      <ToastView
         request={toastTarget.request}
         agent={toastTarget.agent}
         conversation={toastTarget.conversation}

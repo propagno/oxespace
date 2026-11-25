@@ -293,9 +293,18 @@ export async function installThreadFixtures(app: ElectronApplication, root: stri
     ipcMain.handle('thread:turn-files', (_event, _threadId: string, turnId: string) => (g.e2eTurnFiles as Record<string, unknown[]> | undefined)?.[turnId] ?? [])
     ipcMain.handle('thread:create', (_event, input) => {
       snapshot = { thread: { id: 'e2e-thread', workspaceId: g.e2eWorkspaceId, projectId: 'e2e-project', rootPath: fixtureRoot, provider: input.provider, nativeSessionId: null, title: 'New conversation', pinned: false, status: 'idle', createdAt: now, updatedAt: now }, events: [] }
-      changed(); return snapshot
+      changed()
+      // The parallel chat is new to the window: a change for a conversation it does not list makes it read the list again.
+      for (const w of BrowserWindow.getAllWindows()) w.webContents.send('thread:changed', { threadId: 'e2e-thread-chat' })
+      return snapshot
     })
-    ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread] : [])
+    // OXC-5 (OXE-170): the conversation has one parallel chat, so the sidebar draws a one-line child row under it (the
+    // brand scene measures BRD-02.row1.height on it). It shares the session's project and folder and never owns a worktree.
+    const parallelChat = () => {
+      const parent = snapshot!.thread as Record<string, unknown>
+      return { id: 'e2e-thread-chat', parentThreadId: parent.id, workspaceId: parent.workspaceId, projectId: parent.projectId, rootPath: parent.rootPath, provider: 'codex', nativeSessionId: null, title: 'Try another approach', pinned: false, status: 'idle', createdAt: now + 1, updatedAt: now + 1 }
+    }
+    ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread, parallelChat()] : [])
     ipcMain.handle('thread:read', () => snapshot)
     const sent: string[] = []
     g.e2eThreadSends = sent
