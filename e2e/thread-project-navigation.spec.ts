@@ -16,6 +16,14 @@ test('Thread projects and conversations survive restart without creating Code wo
   let app = await launch()
   try {
     let page = await app.firstWindow()
+    // CI runners have no agent CLI installed, and NewConversationScreen requires an installed agent before sending;
+    // keep thread:create real (SQLite persistence) while stubbing readiness and making thread:send a no-op.
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('agent:get-readiness')
+      ipcMain.handle('agent:get-readiness', () => [{ provider: 'claude', command: 'claude', status: 'ready' }])
+      ipcMain.removeHandler('thread:send')
+      ipcMain.handle('thread:send', () => {})
+    })
     await modeButton(page, 'thread').click()
     const add = async (path: string) => {
       await page.locator('.thread-navigation [data-ui="sidebar-section"]').getByRole('button', { name: 'Add project' }).click()
@@ -27,7 +35,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     }
     await add(first); await add(second); await add(first)
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
-    const codeId = await page.evaluate(async directory => (await window.oxe.workspace.create({ rootPath: directory, autoStart: false })).id, codeOnly)
+    const codeId = await page.evaluate(async directory => (await window.oxe.workspace.create({ rootPath: directory, autoStart: false }) as { id: string }).id, codeOnly)
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     expect(await page.evaluate(async () => (await window.oxe.workspace.list()).length)).toBe(1)
     await modeButton(page, 'code').click()

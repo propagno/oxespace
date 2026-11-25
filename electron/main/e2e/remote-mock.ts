@@ -27,7 +27,7 @@ const goodName = (name: string, max: number) => !!name && name.length <= max && 
 
 export function registerRemoteMock(): void {
   const fingerprint = 'ab'.repeat(32)
-  let enabled = false, port = 47_321, error: RemoteGatewayStatus['error'], desktopName = REMOTE_DEFAULT_DESKTOP_NAME
+  let enabled = false, allowVpn = false, port = 47_321, error: RemoteGatewayStatus['error'], desktopName = REMOTE_DEFAULT_DESKTOP_NAME
   let listenedBefore = process.env.OXESPACE_E2E_REMOTE_LISTENED === '1'
   let prompt: RemotePairingPrompt | null = null, offerExpiresAt = 0
   const failWith = REMOTE_PAIRING_FAILURE_REASONS.find(reason => reason === process.env.OXESPACE_E2E_REMOTE_PAIR_FAIL) as RemotePairingFailureReason | undefined
@@ -38,7 +38,7 @@ export function registerRemoteMock(): void {
   const networkCategory = (['public', 'private', 'domain'] as const).find(value => value === process.env.OXESPACE_E2E_REMOTE_NETWORK)
   const devices: RemoteDevice[] = process.env.OXESPACE_E2E_REMOTE_DEVICES === '0' ? [] : [{ deviceId: 'device-1', name: 'Pixel 8', pairedAt: 1, lastSeenAt: 2, connected: true }]
   const status = (): RemoteGatewayStatus => ({
-    enabled, desktopName, phoneWritePanes: [...phoneWritePanes], phoneHiddenPanes: [...phoneHiddenPanes].sort(), listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length,
+    enabled, allowVpn, desktopName, phoneWritePanes: [...phoneWritePanes], phoneHiddenPanes: [...phoneHiddenPanes].sort(), listening: enabled ? { addresses: ['192.168.0.10'], port } : null, fingerprint, devices: devices.length,
     maxDevices: REMOTE_LIMITS.maxDevices, listenedBefore, ...(error ? { error } : {}),
     // As #595's status: the question waiting for the person, and (with OXESPACE_E2E_REMOTE_NETWORK) Windows' profile.
     ...(prompt ? { pendingPairing: prompt } : {}),
@@ -120,6 +120,12 @@ export function registerRemoteMock(): void {
   ipcMain.handle(IPC_CHANNELS.remote.setPhoneHidden, (_event, input: { paneId?: unknown; hidden?: unknown }) => {
     if (typeof input?.paneId !== 'string' || !input.paneId || typeof input.hidden !== 'boolean') throw new Error('Invalid pane input')
     if (input.hidden) { phoneHiddenPanes.add(input.paneId); phoneWritePanes.delete(input.paneId) } else phoneHiddenPanes.delete(input.paneId)
+    changed({ status: status() })
+    return status()
+  })
+  ipcMain.handle(IPC_CHANNELS.remote.setAllowVpn, (_event, input: { allowed?: unknown }) => {
+    if (typeof input?.allowed !== 'boolean') throw new Error('Invalid VPN setting')
+    allowVpn = input.allowed
     changed({ status: status() })
     return status()
   })

@@ -38,4 +38,21 @@ describe('file mentions in a large repository (OXE-372)', () => {
     rerender({ draft: '@src/a then @a' })
     expect(result.current.popup, 'a new mention lists again').not.toBeNull()
   })
+
+  it('reopens the list at the same position after the dismissed mention is deleted', async () => {
+    window.oxe = { ...original, search: { listFiles: vi.fn().mockResolvedValue({ files: ['src/app.ts', 'src/api.ts'] }) } } as unknown as typeof window.oxe
+    const escape = { key: 'Escape', preventDefault: vi.fn() } as unknown as KeyboardEvent<HTMLTextAreaElement>
+    const { result, rerender } = renderHook(
+      ({ draft }: { draft: string }) => useFileMentions({ workspaceId: 'w-reopen', rootPath: '/repo-reopen', draft, caret: draft.length, enabled: true, onApply: () => undefined }),
+      { initialProps: { draft: '@sr' } }
+    )
+    await waitFor(() => expect(result.current.popup).not.toBeNull())
+
+    act(() => { result.current.onKeyDown(escape) })
+    expect(result.current.popup).toBeNull()
+    rerender({ draft: '' })
+    expect(result.current.popup).toBeNull()
+    rerender({ draft: '@a' })
+    expect(result.current.popup, 'a fresh mention at index 0 lists again').not.toBeNull()
+  })
 })
