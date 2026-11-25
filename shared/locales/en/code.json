@@ -433,6 +433,7 @@
       "compareBranches": "Compare branches",
       "uncommittedChanges": "Uncommitted changes",
       "staged": "Staged changes",
+      "lastTurn": "Last turn",
       "from": "Compare from",
       "mergeBase": "Common ancestor (like a pull request)",
       "direct": "Base directly"
@@ -456,6 +457,8 @@
     "noMatchHint": "Clear the filter to see every changed file.",
     "none": "No changes",
     "noneHint": "Nothing differs from {{base}}.",
+    "noLastTurn": "No last turn changes",
+    "noLastTurnHint": "No agent turn has recorded file changes in this workspace yet.",
     "theBase": "the base",
     "renamedFrom": "from {{path}}",
     "viewed": "Viewed",
@@ -506,7 +509,32 @@
       "add": "Comment"
     },
     "unmodified_one": "{{count}} unmodified line",
-    "unmodified_other": "{{count}} unmodified lines"
+    "unmodified_other": "{{count}} unmodified lines",
+    "reviewAgent": {
+      "trigger": "Review with another agent",
+      "triggerTitle": "Ask another agent to review these changes in read-only mode",
+      "noFilesTitle": "No changed files to review",
+      "dialogTitle": "Review with another agent?",
+      "dialogDescription": "Start a separate read-only review session to inspect the selected diff without write access.",
+      "readOnlyTitle": "Read-only access",
+      "readOnlyBody": "The reviewer agent can read files and report findings, but cannot edit files, run write commands, or change your workspace.",
+      "scopeSummary_one": "Scope: {{scope}} · {{count}} file",
+      "scopeSummary_other": "Scope: {{scope}} · {{count}} files",
+      "selectLabel": "Reviewer agent",
+      "selectHint": "Choose which agent will inspect this diff.",
+      "cancel": "Cancel",
+      "confirm": "Start read-only review",
+      "starting": "Starting review…",
+      "started": "Read-only review started with {{agent}}",
+      "failedTitle": "Could not start review",
+      "unavailable": "Agent conversations are not available in this window.",
+      "readOnlyUnavailable": "Read-only configuration is not available; review was not started.",
+      "promptIntro": "Review the following changes in read-only mode. Do not modify any files or run write commands. Report bugs, regressions, security issues, and concrete suggestions.",
+      "promptScope": "Scope: {{scope}}",
+      "promptCompare": "Comparison: {{base}} → {{head}}",
+      "promptFiles": "Changed files ({{count}}):",
+      "promptMoreFiles": "…and {{count}} more files."
+    }
   },
   "git": {
     "tabs": {

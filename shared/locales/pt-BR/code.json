@@ -449,6 +449,7 @@
       "compareBranches": "Comparar branches",
       "uncommittedChanges": "Alterações não commitadas",
       "staged": "Alterações preparadas",
+      "lastTurn": "Último turno",
       "from": "Comparar a partir de",
       "mergeBase": "Ancestral comum (como um pull request)",
       "direct": "Direto da base"
@@ -472,6 +473,8 @@
     "noMatchHint": "Limpe o filtro para ver todos os arquivos alterados.",
     "none": "Nenhuma alteração",
     "noneHint": "Nada difere de {{base}}.",
+    "noLastTurn": "Nenhuma alteração no último turno",
+    "noLastTurnHint": "Nenhum turno de agente registrou alterações de arquivo neste workspace ainda.",
     "theBase": "a base",
     "renamedFrom": "de {{path}}",
     "viewed": "Visto",
@@ -527,7 +530,33 @@
     },
     "unmodified_one": "{{count}} linha sem alteração",
     "unmodified_other": "{{count}} linhas sem alteração",
-    "unmodified_many": "{{count}} linhas sem alteração"
+    "unmodified_many": "{{count}} linhas sem alteração",
+    "reviewAgent": {
+      "trigger": "Revisar com outro agente",
+      "triggerTitle": "Pedir a outro agente para revisar estas alterações em modo somente leitura",
+      "noFilesTitle": "Nenhum arquivo alterado para revisar",
+      "dialogTitle": "Revisar com outro agente?",
+      "dialogDescription": "Inicie uma sessão de revisão separada em modo somente leitura para inspecionar o diff selecionado sem acesso de escrita.",
+      "readOnlyTitle": "Acesso somente leitura",
+      "readOnlyBody": "O agente revisor pode ler arquivos e apontar achados, mas não pode editar arquivos, executar comandos de escrita nem alterar seu workspace.",
+      "scopeSummary_one": "Escopo: {{scope}} · {{count}} arquivo",
+      "scopeSummary_many": "Escopo: {{scope}} · {{count}} arquivos",
+      "scopeSummary_other": "Escopo: {{scope}} · {{count}} arquivos",
+      "selectLabel": "Agente revisor",
+      "selectHint": "Escolha qual agente vai inspecionar este diff.",
+      "cancel": "Cancelar",
+      "confirm": "Iniciar revisão somente leitura",
+      "starting": "Iniciando revisão…",
+      "started": "Revisão somente leitura iniciada com {{agent}}",
+      "failedTitle": "Não foi possível iniciar a revisão",
+      "unavailable": "Conversas com agentes não estão disponíveis nesta janela.",
+      "readOnlyUnavailable": "A configuração somente leitura não está disponível; a revisão não foi iniciada.",
+      "promptIntro": "Revise as alterações a seguir em modo somente leitura. Não modifique arquivos nem execute comandos de escrita. Aponte bugs, regressões, problemas de segurança e sugestões concretas.",
+      "promptScope": "Escopo: {{scope}}",
+      "promptCompare": "Comparação: {{base}} → {{head}}",
+      "promptFiles": "Arquivos alterados ({{count}}):",
+      "promptMoreFiles": "…e mais {{count}} arquivos."
+    }
   },
   "git": {
     "tabs": {

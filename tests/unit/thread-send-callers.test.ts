@@ -17,6 +17,8 @@ const MAY_SAY_TYPED = [
   'src/components/Threads/ThreadView.tsx'
 ]
 const CALL_SITES = [
+  // Read-only review with another agent (OXE-323): programmatic review prompt.
+  'src/components/Changes/reviewWithAgent.ts send 2',
   // The command bar's /steer: what was typed in it.
   'src/components/CommandBar/CommandBar.tsx steerTyped 1',
   // The command bar's "agent: text": what was typed in it.
