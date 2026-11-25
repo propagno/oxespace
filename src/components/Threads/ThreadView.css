@@ -297,7 +297,7 @@
 .thread-pending-requests-bar button[aria-expanded='false'] svg { transform: rotate(180deg); }
 .thread-live-activity-meta { flex-wrap: wrap; margin: 5px 0 0 22px; }
 .thread-live-activity-meta button { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
-.thread-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: calc(100cqh - 96px); max-width: 580px; margin: 0 auto; padding: 24px 0; }
+.thread-welcome { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 580px; margin: auto; padding: var(--space-4) 0; }
 .thread-welcome .thread-opening-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; margin-top: 24px; text-align: left; }
 @media (max-width: 640px) { .thread-welcome .thread-opening-starters { grid-template-columns: minmax(0, 1fr); } }
 .thread-welcome-mark { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-bottom: 14px; border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--accent); }
@@ -385,7 +385,7 @@
 .thread-accounts-body .thread-account-note { font-size: var(--fs-2xs); margin: 16px 0 0; }
 .thread-auth-code { margin: 0 0 12px; }
 @media (max-width: 1000px) { .thread-heading { padding: 0 16px; } .thread-heading-context { max-width: 160px; } .thread-view { --thread-gutter: 16px; } .thread-reading-column { padding-block: var(--space-4); } .thread-composer-dock { padding: 0 calc(16px + var(--thread-scrollbar-width, 0px)) 12px 16px; } }
-@media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { margin-top: 8px; } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
+@media (max-height: 600px) { .thread-composer-dock { padding-bottom: 8px; } .thread-composer { padding: 10px; } .thread-welcome { padding-block: var(--space-2); } .thread-connection-notice { padding-top: 2px; padding-bottom: 4px; min-height: 32px; } }
 
 .thread-create-body p, .thread-account-card p, .thread-accounts-body p { font-size: var(--fs-xs); color: var(--tx-muted); line-height: 1.5; }
 
@@ -692,8 +692,13 @@
 .thread-composer-status { padding-left: 8px; border-left: 1px solid var(--bd-default); }
 .thread-composer-limit { margin: 0; padding: 0 var(--space-3) var(--space-2); color: var(--intent-danger-fg); font-size: var(--fs-xs); }
 
-/* An empty conversation: where the agent works, and starters that fill the composer. */
-.thread-opening { max-width: var(--thread-prose-max, 720px); margin: 48px auto 24px; padding: 0 4px; }
+/* An empty conversation: where the agent works, and starters that fill the composer.
+   OXE-376: safe vertical centering with margin: auto inside a scrollable flex column prevents top clipping at 960x720. */
+.thread-timeline:has(> .thread-reading-column > .thread-opening),
+.thread-timeline:has(> .thread-reading-column > .thread-welcome) { display: flex; flex-direction: column; }
+.thread-reading-column:has(> .thread-opening),
+.thread-reading-column:has(> .thread-welcome) { box-sizing: border-box; display: flex; flex-direction: column; flex: 1 0 auto; min-height: 100%; }
+.thread-opening { width: 100%; max-width: var(--thread-prose-max, 720px); margin: auto; padding: var(--space-3) var(--space-1); }
 .thread-opening h2 { margin: 0 0 12px; font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.3px; color: var(--tx-primary); }
 .thread-opening-context { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 20px; padding: 0; list-style: none; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-opening-context li { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

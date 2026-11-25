@@ -38,7 +38,7 @@ export const WORKBENCH_PANELS: Record<WorkbenchPanelId, WorkbenchPanelMeta> = {
 export const CODE_BAR_PANELS: WorkbenchPanelId[] = ['changes', 'browser']
 export const CODE_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'worktrees', 'httpCalls', 'android', 'containers']
 export const THREAD_BAR_PANELS: WorkbenchPanelId[] = ['terminal', 'changes', 'browser', 'session']
-export const THREAD_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'background']
+export const THREAD_MENU_PANELS: WorkbenchPanelId[] = ['git', 'files', 'search', 'background', 'httpCalls', 'containers', 'queries']
 
 export function panelTitle(id: WorkbenchPanelId): string {
   const panel = WORKBENCH_PANELS[id]
