@@ -1,6 +1,7 @@
 import { Children, Suspense, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
-import Markdown, { defaultUrlTransform, type Components } from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
+import { toJsxRuntime, type Jsx } from 'hast-util-to-jsx-runtime'
+import { defaultUrlTransform, type Components } from 'react-markdown'
 import { Check, Copy, Info, Lightbulb, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, ErrorState } from '../../ui'
@@ -10,11 +11,11 @@ import './ThreadMarkdown.css'
 import { InCodeBlockContext, InlineCode, PathScopeContext } from '../PathMenu/PathLink'
 import { PathLink } from './PathLink'
 import { inlineImageSource, MAX_PROJECT_IMAGE_BYTES, projectImagePath } from './markdownImage'
-import { mathOf, protectMath } from './mathSource'
+import { mathOf } from './mathSource'
 import { useThreadStore } from '../../store/thread.store'
-
-const REMARK_PLUGINS = [remarkGfm]
-
+import type { CodeToken } from './codeHighlight'
+import { sanitizeThreadHast, type ThreadHastElement, type ThreadHastRoot, type ThreadNodeData } from './threadMarkdownParse'
+import { getCachedThreadTree, hasRenderWorker, parseThreadMarkdownSync, requestThreadTree } from './threadRenderClient'
 import { chunk, lazyFrom } from '../../lib/chunk'
 
 // Formulas and diagrams are drawn by libraries far larger than this file: each loads only for an answer that has one.
@@ -28,8 +29,7 @@ let highlighter: Highlighter | null = null
 let loadingHighlighter: Promise<Highlighter> | null = null
 
 /**
- * The code highlighter, once its chunk is in; null until then: the block shows plain and gains colour. Asked for only
- * by a fenced block that names its language, so a conversation without code never loads it.
+ * Fallback code highlighter when a fenced block arrives without precomputed tokens in its hast node data.
  */
 function useHighlighter(wanted: boolean): Highlighter | null {
   const [, setLoaded] = useState(0)
@@ -72,17 +72,30 @@ function MarkdownInput({ node: _node, ...props }: ComponentPropsWithoutRef<'inpu
   return <input {...rest} type="checkbox" defaultChecked={Boolean(checked)} disabled />
 }
 
-/** The text of a fenced block, coloured by what the language's reader scans for. The text itself is unchanged: Copy copies the same characters. */
-function FencedCode({ className, text }: { className?: string; text: string }): ReactElement {
-  const lib = useHighlighter(Boolean(className))
-  const tokens = useMemo(() => lib ? lib.highlightCode(text, lib.languageId(className)) : null, [lib, text, className])
+function nodeDataOf(node: unknown): ThreadNodeData | undefined {
+  if (!node || typeof node !== 'object') return undefined
+  return (node as ThreadHastElement).data
+}
+
+function fencedCodeDataOf(preNode: unknown): ThreadNodeData | undefined {
+  if (!preNode || typeof preNode !== 'object') return undefined
+  const children = (preNode as ThreadHastElement).children
+  if (!Array.isArray(children)) return undefined
+  const code = children.find((child): child is ThreadHastElement => child.type === 'element' && child.tagName === 'code')
+  return code?.data
+}
+
+/** The text of a fenced block, coloured by tokens precomputed in the worker (or fallback highlighter). Copy copies the same characters. */
+function FencedCode({ className, text, tokens: precomputed }: { className?: string; text: string; tokens?: CodeToken[] }): ReactElement {
+  const lib = useHighlighter(Boolean(className) && !precomputed)
+  const tokens = useMemo(() => precomputed ?? (lib ? lib.highlightCode(text, lib.languageId(className)) : null), [precomputed, lib, text, className])
   return <code className={className}>{tokens ? tokens.map((token, index) => token.kind ? <span key={index} className={`tk-${token.kind}`}>{token.text}</span> : token.text) : text}</code>
 }
 
-function CodeBlock({ children, language, ...props }: ComponentPropsWithoutRef<'pre'> & { language?: string }) {
+function CodeBlock({ children, language, languageName: precomputedName, ...props }: ComponentPropsWithoutRef<'pre'> & { language?: string; languageName?: string | null }) {
   const { t } = useTranslation('thread')
-  const lib = useHighlighter(Boolean(language))
-  const name = lib ? lib.languageName(lib.languageId(language)) : null
+  const lib = useHighlighter(Boolean(language) && precomputedName === undefined)
+  const name = precomputedName !== undefined ? precomputedName : (lib ? lib.languageName(lib.languageId(language)) : null)
   const [copied, setCopied] = useState(false), [error, setError] = useState(false)
   useEffect(() => {
     if (!copied) return
@@ -128,28 +141,30 @@ function fenceText(children: ReactNode): string | null {
 
 /**
  * A fenced block: a formula (`math`, which is also what a `$$…$$` of the answer becomes), a diagram (`mermaid`), or
- * code. Until the library is in, the block shows as the code it is.
+ * code. Uses precomputed language name / KaTeX HTML from the hast node when present.
  */
-function Fence({ children }: { children?: ReactNode }): ReactElement {
+function Fence({ children, node }: { children?: ReactNode; node?: unknown }): ReactElement {
   const streaming = useContext(StreamingContext)
   const language = fenceLanguage(children)
   const kind = /(?:^|\s)language-(math|mermaid)(?:\s|$)/.exec(language ?? '')?.[1]
   const text = kind ? fenceText(children) : null
-  const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
-  if (kind === 'math' && text) return <Suspense fallback={code}><MathView tex={text} display /></Suspense>
+  const data = fencedCodeDataOf(node)
+  const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language} languageName={data?.threadLanguageName}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
+  if (kind === 'math' && text) return <Suspense fallback={code}><MathView tex={text} display html={data?.threadMathHtml} /></Suspense>
   if (kind === 'mermaid' && text) return <Suspense fallback={code}><MermaidDiagram code={text} streaming={streaming} /></Suspense>
   return code
 }
 
 /** A16: inline code that names a path is resolved by main (PathLink) when the conversation is known; otherwise the F33 link. */
-function MarkdownCode({ children, className, threadId, turnId }: { children?: ReactNode; className?: string; threadId?: string; turnId?: string }) {
+function MarkdownCode({ children, className, node, threadId, turnId }: { children?: ReactNode; className?: string; node?: unknown; threadId?: string; turnId?: string }) {
   const inBlock = useContext(InCodeBlockContext)
   const fenced = useContext(FencedContext)
   const text = textOf(children)
-  if (fenced && text !== null) return <FencedCode className={className} text={text} />
+  const data = nodeDataOf(node)
+  if (fenced && text !== null) return <FencedCode className={className} text={text} tokens={data?.threadTokens} />
   // An inline formula of the answer, which `protectMath` put in a marked code span.
   const tex = !inBlock && !className && text ? mathOf(text) : null
-  if (tex !== null) return <Suspense fallback={<code className="thread-math-source">{tex}</code>}><MathView tex={tex} /></Suspense>
+  if (tex !== null) return <Suspense fallback={<code className="thread-math-source">{tex}</code>}><MathView tex={tex} html={data?.threadMathHtml} /></Suspense>
   if (threadId && !inBlock && !className && text && isPathMention(text)) return <PathLink threadId={threadId} raw={text.trim()} {...(turnId ? { turnId } : {})} />
   return <InlineCode className={className}>{children}</InlineCode>
 }
@@ -220,14 +235,30 @@ function keepInlineImages(url: string, key: string): string {
 }
 
 /**
- * Same parser for streaming and saved messages; no HTML execution or text rewriting. With `threadId` (and the turn),
- * path mentions in the agent's text become PathLinks that main resolves (A16). `streaming` is the turn's latest
- * assistant message while that turn runs: a diagram that is not whole yet says it is still being built.
+ * Settled answers parse Markdown, syntax highlight, diffs and KaTeX inside the dedicated render Web Worker and render
+ * the sanitized hast tree through React (`hast-util-to-jsx-runtime`). Streaming answers and environments without
+ * `Worker` (jsdom/tests) use the synchronous path with the exact same components and DOM output.
  */
 export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { text: string; threadId?: string; turnId?: string; streaming?: boolean }) {
   const { t } = useTranslation('thread')
-  // Formulas are set apart before the parser reads the text; a text without one comes back as it was.
-  const source = useMemo(() => protectMath(text), [text])
+  const useWorker = !streaming && hasRenderWorker()
+  const cachedTree = useWorker ? getCachedThreadTree(text) : undefined
+  const [workerResult, setWorkerResult] = useState<{ text: string; tree: ThreadHastRoot } | null>(null)
+  const syncTree = useMemo(() => (useWorker ? null : parseThreadMarkdownSync(text)), [useWorker, text])
+
+  useEffect(() => {
+    if (!useWorker || cachedTree) return
+    let live = true
+    const cancel = requestThreadTree(text, tree => {
+      if (live) setWorkerResult({ text, tree })
+    })
+    return () => { live = false; cancel() }
+  }, [useWorker, cachedTree, text])
+
+  const activeTree = useWorker
+    ? (cachedTree ?? (workerResult && workerResult.text === text ? workerResult.tree : null))
+    : syncTree
+
   // The same functions from one render to the next: a new one each time is, to React, a new kind of element, and
   // every block under it would be thrown away and built again (a diagram would lose its drawing while text streams).
   const components = useMemo<Components>(() => ({
@@ -235,19 +266,39 @@ export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { 
     td: ({ children }) => <MarkdownCell as="td">{children}</MarkdownCell>,
     th: ({ children }) => <MarkdownCell as="th">{children}</MarkdownCell>,
     input: props => <MarkdownInput {...props} />,
-    pre: ({ children }) => <Fence>{children}</Fence>,
+    pre: ({ children, node }) => <Fence node={node}>{children}</Fence>,
     // A quote that opens with [!NOTE], [!TIP], [!IMPORTANT], [!WARNING] or [!CAUTION] is a GitHub alert; any other stays a quote.
     blockquote: ({ children }) => {
       const alert = alertOf(children)
       return alert ? <MarkdownAlert kind={alert.kind}>{alert.rest}</MarkdownAlert> : <blockquote>{children}</blockquote>
     },
     // F33/A16: inline code that names a file is a link (PathLink with a conversation, else the path menu link).
-    code: ({ children, className }) => <MarkdownCode className={className} threadId={threadId} turnId={turnId}>{children}</MarkdownCode>,
+    code: ({ children, className, node }) => <MarkdownCode className={className} node={node} threadId={threadId} turnId={turnId}>{children}</MarkdownCode>,
     // Code inside a link stays plain: a path button inside an anchor would be nested interactive content (FRONTEND #470).
     a: ({ href, children }) => <InCodeBlockContext.Provider value>{href && parseExternalUrl(href)
       ? <ExternalAnchor href={href}>{children}</ExternalAnchor>
       : <span className="thread-markdown-reference" title={href}>{children}</span>}</InCodeBlockContext.Provider>,
     img: ({ alt, src }) => <MarkdownImage alt={alt} src={typeof src === 'string' ? src : undefined} threadId={threadId} />
   }), [t, threadId, turnId])
-  return <StreamingContext.Provider value={streaming}><div className="thread-markdown"><Markdown remarkPlugins={REMARK_PLUGINS} urlTransform={keepInlineImages} components={components}>{source}</Markdown></div></StreamingContext.Provider>
+
+  const content = useMemo(() => {
+    if (!activeTree) return null
+    const safeTree = sanitizeThreadHast(activeTree, keepInlineImages)
+    return toJsxRuntime(safeTree as unknown as Parameters<typeof toJsxRuntime>[0], {
+      Fragment,
+      components: components as unknown as Parameters<typeof toJsxRuntime>[1]['components'],
+      development: false,
+      ignoreInvalidStyle: true,
+      jsx: jsx as unknown as Jsx,
+      jsxs: jsxs as unknown as Jsx,
+      passKeys: true,
+      passNode: true
+    })
+  }, [activeTree, components])
+
+  return <StreamingContext.Provider value={streaming}>
+    <div className="thread-markdown">
+      {content ?? <p className="thread-markdown-pending">{text}</p>}
+    </div>
+  </StreamingContext.Provider>
 }
