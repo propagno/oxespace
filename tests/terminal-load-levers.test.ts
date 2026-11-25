@@ -1,0 +1,138 @@
+import { describe, expect, test, vi } from 'vitest'
+import { openInMemoryDatabase } from '../electron/main/db/index'
+import { WorkspaceService } from '../electron/main/services/workspace.service'
+import { TerminalManager, type TerminalObserver } from '../electron/main/services/terminal.service'
+import { terminalLevers } from '../shared/terminal-levers'
+import { createTerminalWriteScheduler } from '../src/components/Terminal/terminalWriteScheduler'
+
+/*
+ * OXE-411 · The levers measured by e2e/perf/terminal-load-breakdown.spec.ts. H and Q are on by default since 1.6.0;
+ * OXESPACE_TERM_LEVERS=none brings back the terminal as it was. The measurements: docs/validation/terminal-load-breakdown.md.
+ */
+function fakePty() {
+  let onData: ((data: string) => void) | undefined
+  const pty = {
+    pid: 0, process: 'agent', write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
+    onData: vi.fn((handler: (data: string) => void) => { onData = handler; return { dispose: vi.fn() } }),
+    onExit: vi.fn(() => ({ dispose: vi.fn() }))
+  }
+  return { pty, print: (data: string) => onData?.(data) }
+}
+
+async function startAgent(env: NodeJS.ProcessEnv) {
+  const db = openInMemoryDatabase()
+  const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+  const { pty, print } = fakePty()
+  const observed: string[] = []
+  const observer: TerminalObserver = { start: vi.fn(), output: (_paneId, data) => { observed.push(data) }, resize: vi.fn(), exit: vi.fn() }
+  const emitted: string[] = []
+  const manager = new TerminalManager(db, { pty: { spawn: vi.fn(() => pty as never) }, platform: 'linux', env, observer, emitData: event => { emitted.push(event.data) } })
+  const paneId = workspace.panes[0].id
+  await manager.start({ workspaceId: workspace.id, paneId, agentCommand: 'my-agent' })
+  return { manager, db, print, observed, emitted, paneId }
+}
+
+describe('the terminal load levers (OXE-411)', () => {
+  test('H and Q are on by default; none turns every lever off; M and I only when named', async () => {
+    expect([...terminalLevers(undefined)].sort()).toEqual(['H', 'Q'])
+    expect([...terminalLevers('')].sort()).toEqual(['H', 'Q'])
+    expect([...terminalLevers('none')]).toEqual([])
+    expect([...terminalLevers('X, , hm')]).toEqual([])
+
+    // The default leaves main as it was: the agent mirror is fed and output reaches the window in the usual 16 ms batch.
+    const { manager, db, print, observed, emitted } = await startAgent({ PATH: process.env.PATH ?? '' })
+    try {
+      print('hello')
+      expect(observed.join('')).toBe('hello')
+      await vi.waitFor(() => expect(emitted.join('')).toBe('hello'), { timeout: 1_000 })
+    } finally { manager.stopAll(); db.close() }
+  })
+
+  test('OXESPACE_TERM_LEVERS turns on exactly the levers it names', () => {
+    expect([...terminalLevers('h, M ,i, q')].sort()).toEqual(['H', 'I', 'M', 'Q'])
+    expect([...terminalLevers('M')]).toEqual(['M'])
+  })
+
+  test('lever M still feeds the mirror of a pane started as an agent', async () => {
+    const { manager, db, print, observed } = await startAgent({ PATH: process.env.PATH ?? '', OXESPACE_TERM_LEVERS: 'M' })
+    try {
+      print('agent says hi')
+      expect(observed.join('')).toBe('agent says hi')
+    } finally { manager.stopAll(); db.close() }
+  })
+})
+
+describe('lever H in main: a parked view (OXE-411)', () => {
+  test('a parked detach returns the cursor, and the session is not counted as running without a view', async () => {
+    const { manager, db, print, paneId: pane } = await startAgent({ PATH: process.env.PATH ?? '' })
+    try {
+      print('before')
+      const parked = manager.detach({ paneId: pane, parked: true })
+      expect(parked?.seq).toBeGreaterThan(0)
+      expect(manager.countDetached()).toBe(0)
+      print('while parked')
+      const back = manager.attach({ paneId: pane, sinceSeq: parked?.seq })
+      expect(back.replay).toBe('while parked')
+      manager.detach({ paneId: pane })
+      expect(manager.countDetached()).toBe(1)
+    } finally { manager.stopAll(); db.close() }
+  })
+})
+
+describe('lever Q: the write scheduler as a queue of chunks (OXE-411)', () => {
+  /** Drives a scheduler by hand: frames run when asked, and each write completes when asked. */
+  function drive(queue: boolean, inputs: string[], maxBytesPerFrame: number) {
+    const frames: Array<() => void> = []
+    const dones: Array<() => void> = []
+    const written: string[] = []
+    const scheduler = createTerminalWriteScheduler({
+      queue, maxBytesPerFrame, immediateBytes: 8, maxBufferedBytes: Number.POSITIVE_INFINITY,
+      write: (chunk, done) => { written.push(chunk); dones.push(done) },
+      scheduleFrame: cb => { frames.push(cb); return frames.length },
+      cancelFrame: () => undefined
+    })
+    const pending: number[] = []
+    inputs.forEach((data, index) => {
+      scheduler.enqueue(data)
+      // Interleave: a write completes every other input, a frame runs every third.
+      if (index % 2 === 0) dones.shift()?.()
+      if (index % 3 === 0) frames.shift()?.()
+      pending.push(scheduler.pendingLength())
+    })
+    for (let guard = 0; guard < 10_000 && (frames.length || dones.length); guard++) { dones.shift()?.(); frames.shift()?.() }
+    return { written, pending, left: scheduler.pendingLength() }
+  }
+
+  test('writes the same slices in the same order as the string scheduler, with the same backpressure', () => {
+    let seed = 7
+    const random = (): number => { seed = (seed * 1103515245 + 12345) % 2 ** 31; return seed / 2 ** 31 }
+    const inputs = Array.from({ length: 400 }, (_, index) => `${index}:${'x'.repeat(Math.floor(random() * 3000))}\r\n`)
+    for (const max of [64, 1024, 65536]) {
+      const before = drive(false, inputs, max)
+      const after = drive(true, inputs, max)
+      expect(after.written).toEqual(before.written)
+      expect(after.pending).toEqual(before.pending)
+      expect(after.left).toBe(0)
+      expect(after.written.join('')).toBe(inputs.join(''))
+    }
+  })
+})
+
+describe('lever Q keeps nothing it has written (OXE-411)', () => {
+  test('a pane far behind its output holds only what is still pending', () => {
+    const dones: Array<() => void> = []
+    const frames: Array<() => void> = []
+    const scheduler = createTerminalWriteScheduler({
+      queue: true, maxBytesPerFrame: 1024, immediateBytes: 0, maxBufferedBytes: Number.POSITIVE_INFINITY,
+      write: (_chunk, done) => { dones.push(done) },
+      scheduleFrame: cb => { frames.push(cb); return frames.length },
+      cancelFrame: () => undefined
+    })
+    for (let i = 0; i < 5000; i++) scheduler.enqueue('y'.repeat(1024))
+    for (let i = 0; i < 4000; i++) { dones.shift()?.(); frames.shift()?.() }
+    // What is left is exactly what was not written yet; the written chunks are not kept anywhere.
+    expect(scheduler.pendingLength()).toBe(1000 * 1024)
+    // At most the part a frame split, beyond what is pending.
+    expect(scheduler.retainedLength()).toBeLessThanOrEqual(1000 * 1024 + 1024)
+  })
+})

@@ -25,7 +25,8 @@ import { PaneBranchTracker, samePaneBranch } from './terminal/pane-branch'
 import { SizeLeases } from './terminal/size-lease'
 import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
 import { Da1Filter } from './pty-da1'
-import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import { LEVER_I_FLUSH_BYTES, LEVER_I_FLUSH_MS, TERMINAL_LEVERS_ENV, terminalLevers, type TerminalLever } from '../../../shared/terminal-levers'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 
 export { __resetExecutableCacheForTests } from './terminal/executable'
 export { CONPTY_START_SCREEN }
@@ -95,6 +96,8 @@ export class TerminalManager {
   })
   private readonly sessions = new Map<string, TerminalSession>()
   private readonly platform: NodeJS.Platform
+  /** OXE-411 · Measured levers, H and Q on by default unless OXESPACE_TERM_LEVERS overrides (shared/terminal-levers.ts). */
+  private readonly levers: ReadonlySet<TerminalLever>
   private readonly emitExit: (event: TerminalExitEvent) => void
   private readonly ringCapacityBytes?: number
   /** A18 (T79) / OXE-272 · Each pane's passive shell cwd + OSC 633/133 command state. */
@@ -111,6 +114,7 @@ export class TerminalManager {
     this.clearSession = options.clearSession
     this.currentSession = options.currentSession
     this.platform = options.platform ?? process.platform
+    this.levers = terminalLevers((options.env ?? process.env)[TERMINAL_LEVERS_ENV])
     this.starter = new SessionStarter({
       db,
       pty: options.pty ?? { spawn },
@@ -184,7 +188,9 @@ export class TerminalManager {
       resumed,
       revokeProxy,
       inputQueue: new PtyInputQueue(ptyProcess),
-      outputBatcher: new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event)),
+      outputBatcher: this.levers.has('I')
+        ? new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event), LEVER_I_FLUSH_MS, LEVER_I_FLUSH_BYTES)
+        : new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event)),
       ring: new PtyRingBuffer(this.ringCapacityBytes),
       modes: new PtyModeTracker(),
       // A view always attaches right after starting; assuming attached here
@@ -209,7 +215,8 @@ export class TerminalManager {
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
       if (session) this.output.receive(session, data)
-      this.observer?.output(input.paneId, data)
+      // OXE-411 lever M: the headless screen mirror only for panes started as an agent.
+      if (!this.levers.has('M') || input.agentCommand) this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       this.exitDrain.settle(ptyProcess)
@@ -297,8 +304,8 @@ export class TerminalManager {
   }
 
   /** Unbind the view. The process keeps running and its output keeps accruing. */
-  detach(input: TerminalStopInput): void {
-    this.output.detach(input)
+  detach(input: TerminalDetachInput): TerminalDetachResult | undefined {
+    return this.output.detach(input)
   }
 
   /** The retained output for a reader that is not a view. Nothing is attached or consumed. */
@@ -533,7 +540,8 @@ export class TerminalManager {
     const now = Date.now()
     let oldest: TerminalSession | null = null
     for (const session of this.sessions.values()) {
-      if (session.attached) continue
+      // A parked view (its workspace is hidden, OXE-411) is still the person's terminal: never reclaimed.
+      if (session.attached || session.parked) continue
       if (now - session.lastActivityAt < RECLAIM_IDLE_MS) continue
       if (!oldest || session.lastActivityAt < oldest.lastActivityAt) oldest = session
     }
@@ -556,7 +564,7 @@ export class TerminalManager {
   }
   /** Sessions running with no view attached — surfaced in the status bar. */
   countDetached(): number {
-    let total = 0; for (const session of this.sessions.values()) if (!session.attached) total++; return total
+    let total = 0; for (const session of this.sessions.values()) if (!session.attached && !session.parked) total++; return total
   }
   /** Live foreground process or launched executable of a pane, for approval requester labels (OXE-293). */
   foregroundProcess(paneId: string): string | undefined {
