@@ -245,11 +245,55 @@ export const AGENT_READ_TOOLS: ToolEntry[] = [
   })
 ]
 
+function attachmentEndpoints(args: Args, scope: ActionScope, ctx: ToolContext) {
+  const targetId = str(args, 'paneId', 200)
+  if (!targetId) throw new ActionRefused('paneId is required.', 'invalid')
+  if (scope.owner?.kind === 'pane' && scope.owner.id === targetId) {
+    throw new ActionRefused('An agent cannot transfer attachments to its own pane.', 'invalid')
+  }
+  const { sourceWorkspaceId, targetWorkspace } = resolveReadableWorkspace(args, scope, ctx, targetId)
+  const sourceWorkspace = ctx.workspaceServ.get(sourceWorkspaceId) as WorkspaceLike | null
+  const destinationPane = targetWorkspace.panes?.find(item => item.id === targetId)
+  if (!destinationPane) throw new ActionRefused('No pane with that id in this workspace. Use action list.', 'not-found')
+  const service_ = agents(ctx)
+  const profiles = service_.profiles()
+  const originPaneId = scope.owner?.kind === 'pane' ? scope.owner.id : scope.actor.key
+  const originPane = sourceWorkspace?.panes?.find(item => item.id === originPaneId)
+  const originProvider = paneProvider(originPane, originPane ? service_.state.get(originPane.id) : null, ctx, profiles) ?? 'agent'
+  const destProvider = paneProvider(destinationPane, service_.state.get(destinationPane.id), ctx, profiles) ?? 'agent'
+  const originRoot = originPane?.rootPath || sourceWorkspace?.rootPath || scope.rootPath
+  const destRoot = destinationPane.rootPath || targetWorkspace.rootPath || scope.rootPath
+  const files = Array.isArray(args.files) ? args.files.filter((item): item is string => typeof item === 'string') : []
+  if (files.length === 0) throw new ActionRefused('files must be a non-empty list of relative file paths.', 'invalid')
+  return {
+    origin: {
+      sessionId: originPaneId,
+      provider: originProvider,
+      rootPath: originRoot,
+      label: originPane?.displayName?.trim() || `${providerName(originProvider) ?? originProvider} (${originPaneId})`
+    },
+    destination: {
+      sessionId: destinationPane.id,
+      provider: destProvider,
+      rootPath: destRoot,
+      label: destinationPane.displayName?.trim() || `${providerName(destProvider) ?? destProvider} (${destinationPane.id})`
+    },
+    files,
+    targetDir: str(args, 'targetDir', 200)
+  }
+}
+
 export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
   domainTool('oxespace_agents_change', 'Start a helper agent in a new pane of your Code workspace and work with it: prompt it, stop its turn, close its pane. Nothing is sent to an agent that waits for an approval or answer, and there is no free key input.', {
     start: {
       level: 'write', description: 'Open a new pane running the person\'s agent profile for a configured provider and wait until it is ready for a prompt.',
-      properties: { agent: { type: 'string', maxLength: PROVIDER_MAX, description: 'A configured provider, for example claude, codex or antigravity.' }, model: { type: 'string', maxLength: 100, description: 'Optional model name (claude and codex only).' }, name: { type: 'string', maxLength: 60, description: 'Label for the pane.' } },
+      properties: {
+        agent: { type: 'string', maxLength: PROVIDER_MAX, description: 'A configured provider, for example claude, codex or antigravity.' },
+        model: { type: 'string', maxLength: 100, description: 'Optional model name (claude and codex only).' },
+        name: { type: 'string', maxLength: 60, description: 'Label for the pane.' },
+        worktree: { type: 'string', maxLength: 500, description: 'Git worktree path.' },
+        gitRef: { type: 'string', maxLength: 200, description: 'Git branch, tag or commit.' }
+      },
       required: ['agent'],
       run: async (args, scope, ctx) => {
         const workspaceId = codeWorkspace(scope)
@@ -263,15 +307,76 @@ export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
         const name = str(args, 'name', 60)?.replace(/[\r\n]+/g, ' ')
         const reserved = name ? reservedNameIn(name) : null
         if (reserved) throw new ActionRefused(englishText(mainMessage('agents.name.reserved', { name: reserved })), 'reserved-name')
+        const worktreeArg = str(args, 'worktree', 500)
+        const gitRefArg = str(args, 'gitRef', 200)
+        const target = worktreeArg || gitRefArg
+          ? await (await import('../services/handoff/worktree-ref')).resolveHandoffWorktreeRef(scope.rootPath, { worktree: worktreeArg, gitRef: gitRefArg })
+          : { worktreePath: scope.rootPath, branch: null, gitRef: null, commit: null, isDefault: true }
         const resolved = startLaunch(profile, ctx)
         const modelArgs = modelArguments(resolved.provider, model)
         const { paneId: created } = service_.createPane(workspaceId)
-        service_.workspaceChanged(service_.setPaneAgent(created, profile.agentProfileId, name ?? null))
+        let updatedWorkspace = service_.setPaneAgent(created, profile.agentProfileId, name ?? null)
+        if (!target.isDefault && service_.setPaneRootPath) {
+          updatedWorkspace = service_.setPaneRootPath(created, target.worktreePath)
+        }
+        service_.workspaceChanged(updatedWorkspace)
         owners.set(created, scope.actor.key)
-        await service_.terminal.start({ paneId: created, workspaceId, launch: { executable: resolved.executable, args: [...service_.mcpArgs(resolved.provider), ...modelArgs] } })
+        await service_.terminal.start({
+          paneId: created,
+          workspaceId,
+          ...(!target.isDefault ? { requireCwd: target.worktreePath } : {}),
+          launch: { executable: resolved.executable, args: [...service_.mcpArgs(resolved.provider), ...modelArgs] }
+        })
         const ready = await service_.state.waitFor(created, ['idle', 'done', 'blocked'], START_WAIT_MS)
-        if (ready.state?.state === 'blocked') return { paneId: created, ready: false, state: ready.state, note: 'The agent shows a dialog (for example folder trust) that the person must answer before it can take a prompt.' }
-        return { paneId: created, ready: !ready.timedOut && Boolean(ready.state), state: ready.state, ...(ready.timedOut ? { note: startTimeoutNote(resolved.provider, ready.state) } : {}) }
+        const worktreeMeta = worktreeArg || gitRefArg
+          ? {
+            worktree: target.worktreePath,
+            ...(target.branch ? { branch: target.branch } : {}),
+            ...(target.gitRef ? { gitRef: target.gitRef } : {}),
+            ...(target.commit ? { commit: target.commit } : {})
+          }
+          : {}
+        if (ready.state?.state === 'blocked') return { paneId: created, ready: false, state: ready.state, ...worktreeMeta, note: 'The agent shows a dialog (for example folder trust) that the person must answer before it can take a prompt.' }
+        return { paneId: created, ready: !ready.timedOut && Boolean(ready.state), state: ready.state, ...worktreeMeta, ...(ready.timedOut ? { note: startTimeoutNote(resolved.provider, ready.state) } : {}) }
+      }
+    },
+    transfer_attachments: {
+      level: 'confirm',
+      description: 'Copy validated files to another agent pane.',
+      properties: {
+        paneId,
+        workspaceId: workspaceIdProp,
+        files: { type: 'array', items: { type: 'string', maxLength: 500 }, minItems: 1, maxItems: 25, description: 'Relative file paths.' },
+        targetDir: { type: 'string', maxLength: 200, description: 'Relative destination dir.' }
+      },
+      required: ['paneId', 'files'],
+      confirm: async (args, scope, ctx) => {
+        const endpoints = attachmentEndpoints(args, scope, ctx)
+        const { validateAttachmentTransfer } = await import('../services/handoff/attachment-transfer')
+        const plan = await validateAttachmentTransfer(endpoints)
+        return {
+          summary: `transfer ${plan.files.length} attachment(s) from ${plan.origin.label} to ${plan.destination.label}`,
+          target: plan.approvalTarget,
+          text: plan.approvalText,
+          risk: 'medium',
+          brokerRisk: 'action',
+          deniedMessage: 'Cross-session attachment transfer requires explicit user approval; no files were transferred.'
+        }
+      },
+      run: async (args, scope, ctx) => {
+        const endpoints = attachmentEndpoints(args, scope, ctx)
+        const { validateAttachmentTransfer, copyValidatedAttachments } = await import('../services/handoff/attachment-transfer')
+        const plan = await validateAttachmentTransfer(endpoints)
+        const files = await copyValidatedAttachments(plan)
+        return {
+          approved: true,
+          transferred: true,
+          filesCopied: files.length,
+          origin: { sessionId: plan.origin.sessionId, provider: plan.origin.provider, label: plan.origin.label },
+          destination: { sessionId: plan.destination.sessionId, provider: plan.destination.provider, label: plan.destination.label },
+          destinationDir: plan.destinationDir,
+          files
+        }
       }
     },
     prompt: {

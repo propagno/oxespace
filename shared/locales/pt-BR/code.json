@@ -1395,6 +1395,16 @@
       "density": "Densidade",
       "layout": "Layout",
       "layoutPreset": "Layout predefinido",
+      "accessCeiling": {
+        "title": "Teto de acesso",
+        "label": "Acesso máximo de agentes",
+        "description": "Limita toda sessão neste workspace. O acesso efetivo é sempre o mais restrito entre este teto e o nível da sessão.",
+        "options": {
+          "read-only": "Somente leitura",
+          "workspace-write": "Escrita no workspace",
+          "full-access": "Acesso total"
+        }
+      },
       "preview": "Prévia",
       "terminalNote": "A aparência do terminal e o shell padrão valem na hora.",
       "saved": "Configurações do workspace salvas",
@@ -2506,7 +2516,10 @@
       "reopen": "Reabrir",
       "applying": "Aplicando…",
       "apply": "Aplicar ao agente",
-      "bindToApply": "Vincule um painel a {{member}} para aplicar."
+      "bindToApply": "Vincule um painel a {{member}} para aplicar.",
+      "inboundReplyTitle": "Resposta de {{origin}}",
+      "inboundUpdatedTitle": "Passagem de trabalho atualizada por {{origin}}",
+      "dismissNotice": "Dispensar aviso de passagem de trabalho"
     }
   },
   "review": {

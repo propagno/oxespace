@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { i18n } from '../i18n'
 import { humanizeError } from '../utils/humanizeError'
+import type { HandoffInboundNotice } from '../../shared/types/handoff-notice'
 import type {
   AddIntegrationMemberInput,
   CreateIntegrationGroupInput,
@@ -16,6 +17,7 @@ import type {
 interface IntegrationState {
   groups: IntegrationGroup[]
   handoffs: Record<string, IntegrationHandoff[]>
+  inboundNotices: HandoffInboundNotice[]
   activeGroupId: string | null
   activeMemberId: string | null
   isLoading: boolean
@@ -34,12 +36,15 @@ interface IntegrationState {
   updateGroup: (input: UpdateIntegrationGroupInput) => Promise<IntegrationGroup>
   attachLatestSession: (input: { groupId: string; memberId: string; workspaceId: string; rootPath: string; provider: import('../../shared/types/agent').AgentProvider }) => Promise<void>
   buildContext: (groupId: string, currentMemberId?: string | null) => Promise<IntegrationContextResult>
+  pushInboundNotice: (notice: HandoffInboundNotice) => void
+  dismissInboundNotice: (id: string) => void
   clearError: () => void
 }
 
 export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   groups: [],
   handoffs: {},
+  inboundNotices: [],
   activeGroupId: null,
   activeMemberId: null,
   isLoading: false,
@@ -158,6 +163,14 @@ export const useIntegrationStore = create<IntegrationState>((set, get) => ({
   },
 
   buildContext: (groupId, currentMemberId) => window.oxe.integration.buildContext({ groupId, currentMemberId }),
+
+  pushInboundNotice: (notice) => set((state) => ({
+    inboundNotices: [notice, ...state.inboundNotices.filter((item) => item.id !== notice.id)].slice(0, 50)
+  })),
+
+  dismissInboundNotice: (id) => set((state) => ({
+    inboundNotices: state.inboundNotices.filter((item) => item.id !== id)
+  })),
 
   clearError: () => set({ error: null })
 }))

@@ -92,6 +92,9 @@ export function wireApprovals(sources: {
     return { ok: true, rule: applied.rule }
   }
 
+  approvalCenter.setWorkspaceCeilingLookup(workspaceId =>
+    sources.workspaces().find(item => item.id === workspaceId)?.accessCeiling
+  )
   registerApprovalsIpc(approvalCenter, { preview, alwaysAllow: applyAlwaysAllow })
   // Prepared on first use; requesterFor falls back to a neutral name if the lookup throws.
   let threadProvider: ReturnType<AppDatabase['prepare']> | undefined
