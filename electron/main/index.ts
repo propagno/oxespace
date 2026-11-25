@@ -570,6 +570,7 @@ async function registerIpcHandlers(): Promise<() => void> {
         mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
         createPane: workspaceId => internalMcpWorkspaceServ.createPane(workspaceId),
         setPaneAgent: (paneId, profileId, name) => internalMcpWorkspaceServ.setPaneAgent(paneId, profileId, name),
+        setPaneRootPath: (paneId, rootPath) => internalMcpWorkspaceServ.setPaneRootPath(paneId, rootPath),
         closePane: paneId => internalMcpWorkspaceServ.closePane(paneId),
         workspaceChanged: workspace => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.workspace.onChanged, workspace) }
       }

@@ -102,11 +102,19 @@ const requestKey = { type: 'string', minLength: 8, maxLength: 100, description: 
 export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
   {
     descriptor: { name: 'oxespace_thread_create', description: 'Create a new normal Thread in the same project and provider as this live Thread. Requires a stable key; retrying the key returns the same destination.', inputSchema: {
-      type: 'object', properties: { key: requestKey }, required: ['key'], additionalProperties: false
+      type: 'object',
+      properties: {
+        key: requestKey,
+        worktree: { type: 'string', maxLength: 500, description: 'Optional existing Git worktree path.' },
+        gitRef: { type: 'string', maxLength: 200, description: 'Optional Git branch, tag, or commit ref.' }
+      },
+      required: ['key'],
+      additionalProperties: false
     } },
     requiresWorkspace: true,
     handler: async (args, ctx) => {
-      const originId = origin(ctx), requestKey = key(input(args).key)
+      const values = input(args)
+      const originId = origin(ctx), requestKey = key(values.key)
       if (!ctx.db || !ctx.threads) throw new Error('Thread service is unavailable')
       const manager = await ctx.threads
       const author = manager.read(originId)
@@ -115,16 +123,29 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const existing = ctx.db.prepare('SELECT destination_thread_id FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND request_key = ?')
         .get(originId, requestKey) as { destination_thread_id: string } | undefined
       if (existing) return result({ threadId: existing.destination_thread_id, created: false, projectId: project.projectId })
+      const worktreeArg = typeof values.worktree === 'string' && values.worktree.trim() ? values.worktree.trim() : undefined
+      const gitRefArg = typeof values.gitRef === 'string' && values.gitRef.trim() ? values.gitRef.trim() : undefined
+      const target = worktreeArg || gitRefArg
+        ? await (await import('../services/handoff/worktree-ref')).resolveHandoffWorktreeRef(project.rootPath, { worktree: worktreeArg, gitRef: gitRefArg })
+        : { worktreePath: project.rootPath, branch: null, gitRef: null, commit: null, isDefault: true }
       const count = ctx.db.prepare('SELECT COUNT(*) AS value FROM mcp_thread_handoffs WHERE origin_thread_id = ?').get(originId) as { value: number }
       if (count.value >= 5) throw new Error('This origin Thread has reached the limit of 5 MCP-created destinations')
       const created = ctx.db.transaction(() => {
-        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: project.rootPath, provider: source.provider })
+        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: target.worktreePath, provider: source.provider })
         ctx.db!.prepare('INSERT INTO mcp_thread_handoffs (origin_thread_id, request_key, destination_thread_id, created_at) VALUES (?, ?, ?, ?)')
           .run(originId, requestKey, snapshot.thread.id, Date.now())
         recordTrail(ctx.db!, snapshot.thread.id, 'create', author, null)
         return snapshot.thread.id
       })()
-      return result({ threadId: created, created: true, projectId: project.projectId, next: 'Use oxespace_thread_send with this threadId and a new idempotency key.' })
+      const worktreeMeta = worktreeArg || gitRefArg
+        ? {
+          worktree: target.worktreePath,
+          ...(target.branch ? { branch: target.branch } : {}),
+          ...(target.gitRef ? { gitRef: target.gitRef } : {}),
+          ...(target.commit ? { commit: target.commit } : {})
+        }
+        : {}
+      return result({ threadId: created, created: true, projectId: project.projectId, ...worktreeMeta, next: 'Use oxespace_thread_send with this threadId and a new idempotency key.' })
     }
   },
   {
