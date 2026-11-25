@@ -1,8 +1,10 @@
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, CircleAlert, Sun } from 'lucide-react'
 import { IconButton } from '../../ui'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
+
+const RAIL_BUTTON_STYLE: CSSProperties = { width: 36, height: 36, minWidth: 36, minHeight: 36 }
 
 export interface ThreadRailConversation {
   id: string
@@ -33,6 +35,7 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
               size="lg"
               variant="ghost"
               className="nav-rail-btn"
+              style={RAIL_BUTTON_STYLE}
               label={label}
               title={label}
               aria-current={conv.current ? 'page' : undefined}
@@ -54,6 +57,7 @@ export function ThreadRail({ conversations, onSelect, onArchived }: ThreadRailPr
         size="lg"
         variant="ghost"
         className="nav-rail-btn"
+        style={RAIL_BUTTON_STYLE}
         label={archivedLabel}
         title={archivedLabel}
         onClick={onArchived}
