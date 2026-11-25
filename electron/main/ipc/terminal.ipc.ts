@@ -3,13 +3,14 @@ import type { SizeLeases } from '../services/terminal/size-lease'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
 import {
   parseTerminalAttachInput,
+  parseTerminalDetachInput,
   parseTerminalResizeInput,
   parseTerminalRestartInput,
   parseTerminalStartInput,
   parseTerminalStopInput,
   parseTerminalWriteInput
 } from './validation'
-import type { TerminalAttachResult, TerminalPaneBranch, TerminalStatusResult } from '../../../shared/types/ipc'
+import type { TerminalAttachResult, TerminalDetachResult, TerminalPaneBranch, TerminalStatusResult } from '../../../shared/types/ipc'
 
 export interface TerminalIpcController {
   start(input: ReturnType<typeof parseTerminalStartInput>): Promise<void> | void
@@ -18,7 +19,7 @@ export interface TerminalIpcController {
   stop(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
   restart(input: ReturnType<typeof parseTerminalStopInput>): Promise<void> | void
   attach(input: ReturnType<typeof parseTerminalAttachInput>): TerminalAttachResult
-  detach(input: ReturnType<typeof parseTerminalStopInput>): void
+  detach(input: ReturnType<typeof parseTerminalDetachInput>): TerminalDetachResult | undefined | void
   status(paneId: string): TerminalStatusResult
   hasSession?(paneId: string): boolean
   /** A18 (T73) · The pane's branch for its header; the window only (mcp-coverage: excluded). */
@@ -40,7 +41,7 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   // attach must stay synchronous inside the handler: it flushes, snapshots and
   // flips the attached flag in one tick so no output is duplicated or lost.
   ipcMain.handle(IPC_CHANNELS.terminal.attach, (_event, input: unknown) => controller.attach(parseTerminalAttachInput(input)))
-  ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalStopInput(input)))
+  ipcMain.handle(IPC_CHANNELS.terminal.detach, (_event, input: unknown) => controller.detach(parseTerminalDetachInput(input)))
   ipcMain.handle(IPC_CHANNELS.terminal.branch, (_event, paneId: unknown) => controller.branch?.(String(paneId ?? '')) ?? null)
   // Reads a pane's phone size hold; with takeBack, the person ends it first (the phone is refused until it reopens the terminal).
   ipcMain.handle(IPC_CHANNELS.terminal.sizeLease, (_event, paneId: unknown, takeBack?: unknown) => { const id = String(paneId ?? ''); if (takeBack === true) controller.sizes?.takeBack(id); return controller.sizes?.get(id) ?? null })
