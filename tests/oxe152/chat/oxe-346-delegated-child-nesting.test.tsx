@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { openInMemoryDatabase } from '../../../electron/main/db'
 import { ExecutionRegistry } from '../../../electron/main/services/execution-registry'
@@ -22,10 +24,13 @@ function childGroupOf(container: HTMLElement, parentTitle: string): HTMLElement 
   const item = [...container.querySelectorAll<HTMLElement>('[role="treeitem"], .thread-navigation-item')]
     .find(node => node.textContent?.includes(parentTitle))
   expect(item, `item for "${parentTitle}"`).toBeTruthy()
-  // Mirrors S3-conversations-survive-restart.spec.ts's childOf XPath: following-sibling::*[1] | descendant::*[@role="group"].
-  const group = (item!.nextElementSibling as HTMLElement | null) ?? item!.querySelector<HTMLElement>('[role="group"]')
-  expect(group, `nested group right after "${parentTitle}"`).toBeTruthy()
-  return group!
+  // Mirrors S3-conversations-survive-restart.spec.ts's exact childOf XPath: following-sibling::*[1] | descendant::*[@role="group"]
+  // (in XPath document order, descendants precede following-siblings).
+  const evaluated = typeof document.evaluate === 'function'
+    ? (document.evaluate('following-sibling::*[1] | descendant::*[@role="group"]', item!, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as HTMLElement | null)
+    : (item!.querySelector<HTMLElement>('[role="group"]') ?? (item!.nextElementSibling as HTMLElement | null))
+  expect(evaluated, `nested group for "${parentTitle}"`).toBeTruthy()
+  return evaluated!
 }
 
 describe('OXE-346 · delegated child conversation nesting from mcp_thread_handoffs', () => {
@@ -137,6 +142,24 @@ describe('OXE-346 · delegated child conversation nesting from mcp_thread_handof
       expect(childRows).toHaveLength(1)
       expect(childRows[0]).toHaveAttribute('data-lines', '1')
       expect(childRows[0].closest('[data-thread-row]')).toHaveAttribute('data-parent-thread', parent.id)
+
+      // 2b. [data-thread-row="<parentId>"] contains ONLY the parent's single [data-ui="sidebar-row"] (e2e/oxechat-late-request.spec.ts).
+      const parentThreadRow = container.querySelector<HTMLElement>(`[data-thread-row="${parent.id}"]`)!
+      expect(parentThreadRow).toBeTruthy()
+      const parentSidebarRows = parentThreadRow.querySelectorAll<HTMLElement>('[data-ui="sidebar-row"]')
+      expect(parentSidebarRows).toHaveLength(1)
+      expect(parentSidebarRows[0]).toHaveTextContent('Parent plan')
+      expect(parentSidebarRows[0]).not.toHaveTextContent('Child spike')
+
+      // 2c. Row actions sit AFTER [data-ui="sidebar-row"] (matching NavigationChrome.css [role='button'] + span stacking)
+      //     and stay above the row so "Actions for <title>" is clickable and opens the conversation menu.
+      const actionsButton = within(parentThreadRow).getByRole('button', { name: 'Actions for Parent plan' })
+      expect(parentSidebarRows[0].compareDocumentPosition(actionsButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      const sidebarCss = readFileSync(join(process.cwd(), 'src/components/Threads/ThreadSidebar.module.css'), 'utf8')
+      expect(sidebarCss).not.toMatch(/\.actions\s*\{[^}]*z-index:\s*var\(--layer-raised\)\s*;/)
+      fireEvent.click(actionsButton)
+      expect(await screen.findByRole('menuitem', { name: 'Rename conversation…' })).toBeInTheDocument()
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
 
       // 3. Follows parent's section ("Reviews"): both Parent plan and Child spike sit inside Reviews.
       const reviews = screen.getByRole('region', { name: 'Reviews' })

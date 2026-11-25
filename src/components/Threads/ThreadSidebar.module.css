@@ -53,10 +53,10 @@
 .time { color: var(--tx-muted); font-size: var(--fs-2xs); }
 
 /* Row actions sit over the row's right edge, on hover and focus; on touch they are always there. The age gives way. */
-.actions { position: absolute; z-index: var(--layer-raised); inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
-.row:hover:not(:has(.child:hover)) > .actions, .row:focus-within:not(:has(.child:focus-within)) > .actions { opacity: 1; }
-.row:hover:not(:has(.child:hover)) > .item .time, .row:focus-within:not(:has(.child:focus-within)) > .item .time { visibility: hidden; }
-.childGroup { display: grid; gap: var(--space-0-5); }
+.actions { position: absolute; z-index: calc(var(--layer-raised) + 2); inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.row:hover > .actions, .row:focus-within > .actions { opacity: 1; }
+.row:hover .time, .row:focus-within .time { visibility: hidden; }
+.branch, .childGroup { display: grid; gap: var(--space-0-5); }
 @media (hover: none) { .actions { opacity: 1; } }
 
 /* ── Needs you: the mini card under the waiting conversation ── */

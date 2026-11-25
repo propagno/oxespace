@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
 import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, IconButton, LoadingState, Menu, Notice, SegmentedControl, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
@@ -284,7 +284,7 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
     } catch (error) { setActionError(humanizeError(error, t('sidebar.restoreFailed'))) }
     finally { setRestoringId(null) }
   }
-  const row = (thread: ConversationThread, child = false, nested?: ReactNode) => {
+  const row = (thread: ConversationThread, child = false) => {
     const name = displayThreadTitle(thread.title)
     // Chats do not nest: only a conversation that is no parallel chat starts one (OXE-170 CA-7).
     const parallel = onCreateParallel && !child && !thread.parentThreadId
@@ -315,22 +315,27 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
           // Radix opens the menu on pointerdown; a click with no pointer behind it (detail 0: a screen reader's or a script's
           // activation) opens it too, and a mouse click (detail ≥ 1) is left to Radix.
           onClick={event => { if (event.detail === 0) setRowMenuId(thread.id) }} />} />
-      </>}>{nested}</ThreadSidebarRow>
+      </>} />
   }
   /**
-   * The rows of one list (a section, No section, Pinned): each conversation and, right under it in a role="group",
-   * those of its parallel or delegated children the list shows, as one-line rows (OXE-170, OXE-346). A child whose
-   * parent this list does not show stays a row of its own.
+   * The rows of one list (a section, No section, Pinned): each conversation and, right under it in a sibling role="group"
+   * outside [data-thread-row], those of its parallel or delegated children the list shows, as one-line rows (OXE-170,
+   * OXE-346). A child whose parent this list does not show stays a row of its own.
    */
   const rowsOf = (list: readonly ConversationThread[]) => {
     const shown = new Set(list.map(thread => thread.id))
     return list.flatMap(thread => {
       if (thread.parentThreadId && shown.has(thread.parentThreadId) && childrenOf.has(thread.parentThreadId)) return []
       const children = (childrenOf.get(thread.id) ?? []).filter(child => shown.has(child.id))
-      const nested = children.length > 0
-        ? <div role="group" aria-label={t('sidebar.childConversations', { name: displayThreadTitle(thread.title) })} className={styles.childGroup} onDragStart={event => event.stopPropagation()}>{children.map(child => row(child, true))}</div>
-        : undefined
-      return [row(thread, !!thread.parentThreadId, nested)]
+      if (children.length === 0) return [row(thread, !!thread.parentThreadId)]
+      return [
+        <div key={thread.id} className={cx('thread-navigation-item', styles.branch)} data-thread-branch={thread.id}>
+          {row(thread, !!thread.parentThreadId)}
+          <div role="group" aria-label={t('sidebar.childConversations', { name: displayThreadTitle(thread.title) })} className={styles.childGroup} onDragStart={event => event.stopPropagation()}>
+            {children.map(child => row(child, true))}
+          </div>
+        </div>
+      ]
     })
   }
   // New conversation goes to the synced OxeCode project (if just switched), the selected conversation's project, the active OxeCode workspace, or the first listed.

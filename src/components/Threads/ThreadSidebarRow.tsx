@@ -17,11 +17,12 @@ type DragRowProps = ReturnType<ReturnType<typeof useSectionDrag>['rowProps']>
  * One conversation in the OxeChat sidebar (BRD-02, OXE-166): a src/ui SidebarRow of two lines. Line 1 is the title
  * ([data-ui=row-title]) and the age; line 2 ([data-ui=row-meta]) the worktree branch, +N −N only when the session has
  * changes, the state word, and any failure, unconfirmed, or read-only suffix. No provider product name. The mini card
- * of a waiting request comes right after the row (a card with buttons may not nest in the row's role=button).
+ * of a waiting request comes right after the row (a card with buttons may not nest in the row's role=button), and the
+ * hover actions after it (so NavigationChrome's [role='button'] + span stacking keeps actions above the row).
  * A parallel or delegated child (`child`, OXC-5 / OXE-346) is one line under its parent: the title and the age, on the
- * parent's guide inside a sibling role="group".
+ * parent's guide inside a sibling role="group" outside [data-thread-row].
  */
-export function ThreadSidebarRow({ thread, selected, unread, child = false, changes, request, time, snippet, dragProps, actions, children, onSelect, onMenu, onOpenRequest, onAnswered }: {
+export function ThreadSidebarRow({ thread, selected, unread, child = false, changes, request, time, snippet, dragProps, actions, onSelect, onMenu, onOpenRequest, onAnswered }: {
   thread: ConversationThread
   /** A parallel or delegated child conversation, drawn under its parent's row (OXE-170, OXE-346). */
   child?: boolean
@@ -33,8 +34,6 @@ export function ThreadSidebarRow({ thread, selected, unread, child = false, chan
   snippet?: ReactNode
   dragProps?: DragRowProps
   actions?: ReactNode
-  /** Nested child rows group (role="group"), rendered right after this row so tree/sibling queries find it (OXE-346). */
-  children?: ReactNode
   onSelect: () => void
   onMenu: () => void
   onOpenRequest: () => void
@@ -70,7 +69,6 @@ export function ThreadSidebarRow({ thread, selected, unread, child = false, chan
     event.preventDefault(); onMenu()
   }
   return <div className={cx('thread-navigation-row', styles.row, child && styles.child, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} data-parent-thread={child ? thread.parentThreadId : undefined} {...dragProps} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
-    {actions ? <span className={styles.actions}>{actions}</span> : null}
     <SidebarRow className={cx('thread-navigation-item', styles.item)} data-list-item data-status={status.kind} selected={selected} onSelect={onSelect}
       lead={<span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{icon}</span>}
       title={<>{unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}<span data-ui="row-title" className={cx('thread-session-title', styles.title)}>{title}</span></>}
@@ -78,6 +76,6 @@ export function ThreadSidebarRow({ thread, selected, unread, child = false, chan
       detail={child ? undefined : <span data-ui="row-meta" className={cx('thread-session-meta', styles.meta)}>{line2}{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>} />
     {request ? <ThreadRowAttention request={request} onOpen={onOpenRequest} onAnswered={onAnswered} /> : null}
     {snippet}
-    {children}
+    {actions ? <span className={styles.actions}>{actions}</span> : null}
   </div>
 }
