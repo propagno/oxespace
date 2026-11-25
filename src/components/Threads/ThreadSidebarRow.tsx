@@ -17,9 +17,12 @@ type DragRowProps = ReturnType<ReturnType<typeof useSectionDrag>['rowProps']>
  * ([data-ui=row-title]) and the age; line 2 ([data-ui=row-meta]) the worktree branch, +N −N only when the session has
  * changes, and the state word. No provider product name. The mini card of a waiting request comes right after the row
  * (a card with buttons may not nest in the row's role=button), and the hover actions after it.
+ * A parallel chat (`child`, OXC-5) is one line under its parent: the title and the age, on the parent's guide.
  */
-export function ThreadSidebarRow({ thread, selected, unread, changes, request, time, snippet, dragProps, actions, onSelect, onMenu, onOpenRequest, onAnswered }: {
+export function ThreadSidebarRow({ thread, selected, unread, child = false, changes, request, time, snippet, dragProps, actions, onSelect, onMenu, onOpenRequest, onAnswered }: {
   thread: ConversationThread
+  /** A parallel chat of a session, drawn under its parent's row (OXE-170). */
+  child?: boolean
   selected: boolean
   unread: boolean
   changes?: SessionChanges
@@ -51,12 +54,12 @@ export function ThreadSidebarRow({ thread, selected, unread, changes, request, t
     if (event.defaultPrevented) return
     event.preventDefault(); onMenu()
   }
-  return <div className={cx('thread-navigation-row', styles.row, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} {...dragProps} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
+  return <div className={cx('thread-navigation-row', styles.row, child && styles.child, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} data-parent-thread={child ? thread.parentThreadId : undefined} {...dragProps} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
     <SidebarRow className={cx('thread-navigation-item', styles.item)} data-list-item data-status={status.kind} selected={selected} onSelect={onSelect}
       lead={<span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{icon}</span>}
       title={<>{unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}<span data-ui="row-title" className={cx('thread-session-title', styles.title)}>{title}</span></>}
       meta={<small className={styles.time}>{time}</small>}
-      detail={<span data-ui="row-meta" className={cx('thread-session-meta', styles.meta)}>{line2}{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>} />
+      detail={child ? undefined : <span data-ui="row-meta" className={cx('thread-session-meta', styles.meta)}>{line2}{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>} />
     {request ? <ThreadRowAttention request={request} onOpen={onOpenRequest} onAnswered={onAnswered} /> : null}
     {snippet}
     {actions ? <span className={styles.actions}>{actions}</span> : null}

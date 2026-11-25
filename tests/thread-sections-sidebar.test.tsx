@@ -53,7 +53,8 @@ describe('sections in the conversation list', () => {
     submenu.focus()
     await user.keyboard('{ArrowRight}')
     await user.click(await screen.findByRole('menuitemradio', { name: 'Work' }))
-    await waitFor(() => expect(titlesIn(region('Work'))).toEqual(['Alpha', 'Bravo', 'Nested']))
+    // A32 (OXE-170): a parallel chat is drawn right under its parent, not by its own date.
+    await waitFor(() => expect(titlesIn(region('Work'))).toEqual(['Alpha', 'Nested', 'Bravo']))
 
     await user.click(screen.getByRole('button', { name: 'Actions for Nested' }))
     expect(screen.getByRole('menuitem', { name: 'Section follows the parent conversation' })).toHaveAttribute('aria-disabled', 'true')
@@ -94,7 +95,8 @@ describe('sections in the conversation list', () => {
     fireEvent(loose, over)
     expect(over.defaultPrevented).toBe(true)
     fireEvent.drop(loose, { dataTransfer })
-    await waitFor(() => expect(titlesIn(document.querySelector('.thread-project-rows')!)).toEqual(['Alpha', 'Bravo', 'Nested']))
+    // A32 (OXE-170): a parallel chat is drawn right under its parent, not by its own date.
+    await waitFor(() => expect(titlesIn(document.querySelector('.thread-project-rows')!)).toEqual(['Alpha', 'Nested', 'Bravo']))
     expect(region('Work')).toHaveTextContent('Drag a conversation here')
   })
 

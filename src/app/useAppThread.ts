@@ -1,6 +1,7 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ThreadSnapshot } from '../../shared/types/thread'
+import { attachOpenThreadDraftListener } from '../components/Terminal/threadDraftBridge'
 import { useThreadStore } from '../store/thread.store'
 
 type ShownThread = ThreadSnapshot['thread']
@@ -38,4 +39,38 @@ export function useCommandSnapshot(): ThreadSnapshot | null {
     if (key !== held.current.key) held.current = { key, snapshot }
     return held.current.snapshot
   })
+}
+
+export interface ThreadDraftController {
+  projectId: string | null | undefined
+  rootPath: string | undefined
+  parentId: string | undefined
+  open: (projectId: string | null | undefined, rootPath?: string) => void
+  setProjectId: (projectId: string | null | undefined) => void
+  openParallel: (parentId: string) => void
+  leave: () => void
+}
+
+/** State for the in-place new conversation or parallel chat draft (OXC-3, OXC-5, OXE-170). */
+export function useThreadDraft(selectMode: (view: 'thread') => void): ThreadDraftController {
+  const [projectId, setProject] = useState<string | null | undefined>(undefined)
+  const [rootPath, setRootPath] = useState<string | undefined>()
+  const [parentId, setParentId] = useState<string | undefined>()
+  const setProjectId = (id: string | null | undefined): void => { setParentId(undefined); setProject(id) }
+  const open = (id: string | null | undefined, root?: string): void => { setParentId(undefined); setProject(id); setRootPath(root) }
+  const leave = (): void => { setParentId(undefined); setProject(undefined); setRootPath(undefined) }
+  const openParallel = (id: string): void => {
+    const parent = useThreadStore.getState().threads.find(thread => thread.id === id)
+    if (!parent) return
+    setRootPath(undefined); setProject(parent.projectId); setParentId(id)
+  }
+  useEffect(() => attachOpenThreadDraftListener({
+    selectThreadMode: () => selectMode('thread'),
+    openNewThread: (id, root) => { setParentId(undefined); setProject(id); setRootPath(root) }
+  }), [selectMode])
+  // Choosing a conversation leaves the new one being written (OXC-3).
+  useEffect(() => useThreadStore.subscribe((state, prev) => {
+    if (state.selectedId !== prev.selectedId) { setParentId(undefined); setProject(undefined); setRootPath(undefined) }
+  }), [])
+  return { projectId, rootPath, parentId, open, setProjectId, openParallel, leave }
 }
