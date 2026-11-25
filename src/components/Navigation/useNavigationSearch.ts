@@ -1,8 +1,9 @@
 import { useEffect, type RefObject } from 'react'
 import { useUIStore } from '../../store/ui.store'
 
-export function useNavigationSearch(ref: RefObject<HTMLInputElement | null>, collapsed: boolean, expand: () => void) {
+export function useNavigationSearch(ref: RefObject<HTMLInputElement | null>, collapsed: boolean, expand: () => void, active = true) {
   useEffect(() => {
+    if (!active) return
     const handler = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.key !== '/') return
       if (useUIStore.getState().isSettingsOpen || useUIStore.getState().isWorkspaceSettingsOpen || document.querySelector('[role="dialog"], dialog[open]')) return
@@ -13,5 +14,5 @@ export function useNavigationSearch(ref: RefObject<HTMLInputElement | null>, col
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [ref, collapsed, expand])
+  }, [ref, collapsed, expand, active])
 }

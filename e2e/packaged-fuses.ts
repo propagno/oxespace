@@ -163,11 +163,19 @@ async function launch(root: string, extraEnv: Record<string, string> = {}): Prom
   return { app, page }
 }
 
+async function launchWizardToWorkspace(page: Page): Promise<void> {
+  await page.getByTestId('wizard-launch-btn').click()
+  // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
+  await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+  const firstRun = page.getByTestId('first-run')
+  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
+}
+
 async function openTerminal(page: Page, workspace: string): Promise<string> {
   await page.getByTestId('btn-new-workspace').click()
   await page.getByTestId('wizard-dir-input').fill(workspace)
   await page.getByTestId('wizard-layout-card-1').click()
-  await page.getByTestId('wizard-launch-btn').click()
+  await launchWizardToWorkspace(page)
   await expect(page.getByTestId('terminal-status-label').filter({ hasText: 'running' }).first()).toBeVisible({ timeout: 15_000 })
   const paneId = await page.getByTestId('terminal-pane').first().getAttribute('data-pane-id')
   expect(paneId, 'the terminal exposes its pane id').toBeTruthy()
@@ -199,7 +207,7 @@ async function openClaudePane(page: Page, workspace: string): Promise<void> {
   await page.getByTestId('wizard-layout-card-1').click()
   await page.getByTestId('agent-inc-builtin-agent-claude').click()
   await expect(page.getByTestId('agent-count-builtin-agent-claude')).toHaveText('1')
-  await page.getByTestId('wizard-launch-btn').click()
+  await launchWizardToWorkspace(page)
 }
 
 /** Whether text names the packaged executable, raw or JSON-escaped; Windows paths compare without case. */

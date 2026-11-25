@@ -335,10 +335,10 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     }
     await page.mouse.move(800, 400)
     await page.screenshot({ path: 'test-results/code-sidebar-mode.png' })
-    const codeFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
+    const codeFooter = await codeSidebar.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
     await modeButton(page, 'thread').click()
     await expect(page.locator('.thread-navigation')).toHaveCSS('width', '280px')
-    const threadFooter = await page.locator('.nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
+    const threadFooter = await page.locator('.thread-navigation .nav-rail-footer').evaluate(el => Array.from(el.querySelectorAll('button')).map(button => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height } }))
     // OxeCode's footer dropped the duplicate Panels and collapse triggers (OXE-254 + OXE-255) and stays aligned on src/ui IconButton heights.
     expect(codeFooter.length).toBeGreaterThanOrEqual(2)
     expect(threadFooter.length).toBeGreaterThanOrEqual(2)

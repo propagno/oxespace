@@ -80,6 +80,10 @@ export function registerPackagedSmoke({ platform, label, bootBudgetMs }: Package
       await page.getByTestId('wizard-dir-input').fill(workspaceRoot)
       await page.getByTestId('wizard-layout-card-1').click()
       await page.getByTestId('wizard-launch-btn').click()
+      // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
+      await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+      const firstRun = page.getByTestId('first-run')
+      if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
       await expect(
         page.getByTestId('terminal-status-label').filter({ hasText: 'running' }).first()
       ).toBeVisible({ timeout: 10_000 })
