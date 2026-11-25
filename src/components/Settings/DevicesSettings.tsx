@@ -43,6 +43,8 @@ export function DevicesSettings(): ReactElement {
   const loadError = useRemoteStore(state => state.loadError)
   const [toggling, setToggling] = useState(false)
   const [toggleError, setToggleError] = useState('')
+  const [vpnToggling, setVpnToggling] = useState(false)
+  const [vpnError, setVpnError] = useState('')
   const [firewallOpen, setFirewallOpen] = useState(false)
   // Bumped each time a pairing code shows, so the firewall check reads again at the moment a phone needs to get in.
   const [pairingRound, setPairingRound] = useState(0)
@@ -64,6 +66,14 @@ export function DevicesSettings(): ReactElement {
     if (enabled && !firewallExplained()) { setFirewallOpen(true); return }
     void setEnabled(enabled)
   }
+  const onToggleVpn = async (allowed: boolean): Promise<void> => {
+    const setAllowVpn = remoteApi()?.setAllowVpn
+    if (!setAllowVpn) return
+    setVpnToggling(true); setVpnError('')
+    try {
+      useRemoteStore.getState().apply({ status: await setAllowVpn({ allowed }) })
+    } catch (cause) { setVpnError(t('devices.gateway.vpnFailed', { error: errorText(cause) })) } finally { setVpnToggling(false) }
+  }
   const listening = status.enabled && status.listening
   const full = devices.length >= status.maxDevices
   const blockedReason = !listening ? t('devices.pairing.needsGateway') : full ? t('devices.pairing.full', { max: status.maxDevices }) : null
@@ -80,6 +90,9 @@ export function DevicesSettings(): ReactElement {
             ? t('devices.gateway.listening', { addresses: status.listening.addresses.join(', '), port: status.listening.port }) : t('devices.gateway.off')}</p>
           {status.error ? <div data-testid="devices-gateway-error"><ErrorState compact title={formatMainMessage(status.error)} /></div> : null}
           {toggleError ? <ErrorState compact title={toggleError} /> : null}
+          <Switch checked={Boolean(status.allowVpn)} disabled={vpnToggling} onChange={allowed => void onToggleVpn(allowed)}
+            label={t('devices.gateway.vpnLabel')} description={t('devices.gateway.vpnHint')} />
+          {vpnError ? <ErrorState compact title={vpnError} /> : null}
           {/* T86: on a network Windows calls Public, its firewall blocks phones. P1's firewall check says so when it runs;
               this Notice is its fallback, so one problem gives one alert. */}
           <DevicesFirewall listening={!!listening} pairingKey={String(pairingRound)}

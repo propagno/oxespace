@@ -1,3 +1,4 @@
+import { classifyOxespaceToolKind, oxespaceToolTarget } from './oxespace-mcp-tools'
 import { redactSecrets } from './secrets'
 import type { ThreadEvent } from './types/thread'
 import { isCaseInsensitiveFs, normalizeRootPath } from './utils/path'
@@ -110,9 +111,9 @@ export function classifyToolRowKind(rawName: string): ToolRowKind {
   if (READ_NAMES.has(name)) return 'read'
   if (EDIT_NAMES.has(name)) return 'edit'
   if (RUN_NAMES.has(name)) return 'run'
-  if (/^oxespace_(?:db|mongo)_/.test(name)) return 'query'
   if (HTTP_NAMES.has(name)) return 'http'
-  if (/^oxespace_container/.test(name)) return 'container'
+  const oxespaceKind = classifyOxespaceToolKind(rawName)
+  if (oxespaceKind) return oxespaceKind
   return 'other'
 }
 
@@ -140,6 +141,10 @@ function jsonTarget(rawDetail: string, kind: ToolRowKind): string | null {
 function targetFor(event: Extract<ThreadEvent, { type: 'tool' }>, kind: ToolRowKind, root: string): string {
   if (kind === 'edit' && event.files?.length && event.files[0].path) {
     return cutSafe(relativizeInText(redactSecrets(relativizePath(event.files[0].path, root)), root), TARGET_LIMIT)
+  }
+  const oxespaceTarget = oxespaceToolTarget(event.name, event.detail ?? '')
+  if (oxespaceTarget !== null) {
+    return cutSafe(relativizeInText(redactSecrets(oxespaceTarget), root).trim(), TARGET_LIMIT)
   }
   const named = jsonTarget(event.detail ?? '', kind)
   const firstLine = named ?? (event.detail ?? '').split(/\r?\n/, 1)[0] ?? ''

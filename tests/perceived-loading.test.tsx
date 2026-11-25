@@ -22,13 +22,21 @@ afterEach(() => cleanup())
 
 describe('view sidebar skeleton', () => {
   it('is a busy region with the header, silent: the work area announces the one loading', () => {
-    render(<SidebarSkeleton label="OxePod sidebar" title="OxePod" />)
-    const region = screen.getByRole('complementary', { name: 'OxePod sidebar' })
-    expect(region).toHaveAttribute('aria-busy', 'true')
-    expect(region).toHaveClass('thread-navigation')
-    expect(region).toHaveTextContent('OxePod')
-    expect(screen.queryAllByRole('status')).toHaveLength(0)
-    expect(region.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(1)
+    vi.useFakeTimers()
+    try {
+      render(<SidebarSkeleton label="OxePod sidebar" title="OxePod" />)
+      const region = screen.getByRole('complementary', { name: 'OxePod sidebar' })
+      expect(region).toHaveAttribute('aria-busy', 'true')
+      expect(region).toHaveClass('thread-navigation')
+      expect(region).toHaveTextContent('OxePod')
+      expect(screen.queryAllByRole('status')).toHaveLength(0)
+      // OXE-365: placeholder bars wait 300 ms so fast loads never flash a skeleton.
+      expect(region.querySelector('[data-skeleton]')).toBeNull()
+      act(() => { vi.advanceTimersByTime(300) })
+      expect(region.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('collapsed to the rail it stays busy and silent, without the header', () => {

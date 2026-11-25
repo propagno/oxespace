@@ -114,7 +114,13 @@ class MainActivity : ComponentActivity() {
                     liveDesktop != null -> Live(liveDesktop, status)
                     settingsOpen -> {
                         BackHandler { settingsOpen = false }
-                        SettingsScreen(preferences, version = BuildConfig.VERSION_NAME, onBack = { settingsOpen = false })
+                        SettingsScreen(
+                            preferences,
+                            version = BuildConfig.VERSION_NAME,
+                            onVpnChange = { session.onVpnPreferenceChanged() },
+                            notificationsAllowed = { Notifications(this@MainActivity).allowed() },
+                            onBack = { settingsOpen = false },
+                        )
                     }
                     else -> HomeScreen(
                         status = status,
@@ -201,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     version = BuildConfig.VERSION_NAME,
                     onEnterAddress = { settingsOpen = false; askingAddress = true },
                     onUnpair = { settingsOpen = false; session.unpair() },
+                    onVpnChange = { session.onVpnPreferenceChanged() },
                     notificationsAllowed = { Notifications(this@MainActivity).allowed() },
                     onBack = { settingsOpen = false },
                 )

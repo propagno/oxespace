@@ -165,7 +165,7 @@ for (const theme of THEMES) {
       await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
       await page.locator('.thread-timeline').waitFor()
       await app.evaluate((_context, payload) => {
-        ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
+        ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(payload)
       }, { status: 'idle', title: 'Limit sign-in attempts', provider: 'codex', events: threadEvents() })
       await expect(page.locator('.thread-view')).toContainText('Sign-in is now rate limited')
       // The sidebar may have tried a demo row before the main thread existed; selecting it clears that.

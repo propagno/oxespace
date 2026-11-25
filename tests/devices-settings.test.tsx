@@ -40,6 +40,10 @@ function fakeRemote(options: { status?: Partial<RemoteGatewayStatus>; devices?: 
     setPhoneWrite: vi.fn(async ({ paneId, allowed }: { paneId: string; allowed: boolean }) => {
       status = { ...status, phoneWritePanes: allowed ? [...status.phoneWritePanes, paneId] : status.phoneWritePanes.filter(id => id !== paneId) }
       return status
+    }),
+    setAllowVpn: vi.fn(async ({ allowed }: { allowed: boolean }) => {
+      status = { ...status, allowVpn: allowed }
+      return status
     })
   }
   ;(window as unknown as { oxe: unknown }).oxe = { remote: api, app: { platform: 'win32' } }
@@ -48,6 +52,7 @@ function fakeRemote(options: { status?: Partial<RemoteGatewayStatus>; devices?: 
 
 const pixel: RemoteDevice = { deviceId: 'device-1', name: 'Pixel 8', pairedAt: Date.UTC(2026, 9, 1), lastSeenAt: Date.UTC(2026, 9, 29), connected: true }
 const gatewaySwitch = (): HTMLElement => screen.getByRole('switch', { name: 'Let phones on this network connect' })
+const vpnSwitch = (): HTMLElement => screen.getByRole('switch', { name: 'Also reach this computer over a VPN (Tailscale, WireGuard)' })
 
 beforeEach(() => {
   useRemoteStore.setState({ status: null, devices: null, pairing: null, failure: null, loadError: null }); localStorage.clear(); resetRemoteFollowForTests()
@@ -65,14 +70,15 @@ describe('Settings › Devices', () => {
     expect(gatewaySwitch()).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByRole('button', { name: 'Show pairing code' })).toBeDisabled()
     expect(screen.getByText('Turn on the phone connection first.')).toBeInTheDocument()
-    // The only switch on the page is the connection itself: nothing here widens what the phone may do.
-    expect(screen.getAllByRole('switch')).toHaveLength(1)
+    // Only the connection and its private-VPN opt-in live here (both off by default): nothing widens what the phone may do.
+    expect(screen.getAllByRole('switch')).toHaveLength(2)
+    expect(vpnSwitch()).toHaveAttribute('aria-checked', 'false')
   })
 
   it('explains the firewall before the first time it turns on, and not again', async () => {
     const { api } = fakeRemote()
     render(<DevicesSettings />)
-    await userEvent.click(await screen.findByRole('switch'))
+    await userEvent.click(await screen.findByRole('switch', { name: 'Let phones on this network connect' }))
     let dialog = screen.getByRole('dialog', { name: 'Before phones can connect' })
     expect(dialog).toHaveTextContent('Windows will ask whether OXESpace may accept connections')
     expect(dialog).toHaveTextContent('Nothing is exposed to the internet')
@@ -227,6 +233,31 @@ describe('Settings › Devices', () => {
     expect(api.setPhoneWrite).toHaveBeenCalledWith({ paneId: 'pane-a', allowed: false })
     expect(api.setPhoneWrite).toHaveBeenCalledWith({ paneId: 'pane-b', allowed: false })
     await waitFor(() => expect(screen.getByTestId('devices-typing')).toHaveTextContent('Phones cannot type in any terminal'))
+  })
+
+  it('OXE-383: private VPN opt-in starts off, persists ON/OFF via IPC, and translates EN/PT-BR copy', async () => {
+    const { api } = fakeRemote()
+    render(<DevicesSettings />)
+    const toggle = await screen.findByRole('switch', { name: 'Also reach this computer over a VPN (Tailscale, WireGuard)' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText(/private VPN addresses \(100\.64\/10\)/)).toBeInTheDocument()
+
+    await userEvent.click(toggle)
+    expect(api.setAllowVpn).toHaveBeenLastCalledWith({ allowed: true })
+    await waitFor(() => expect(vpnSwitch()).toHaveAttribute('aria-checked', 'true'))
+
+    await userEvent.click(vpnSwitch())
+    expect(api.setAllowVpn).toHaveBeenLastCalledWith({ allowed: false })
+    await waitFor(() => expect(vpnSwitch()).toHaveAttribute('aria-checked', 'false'))
+
+    api.setAllowVpn.mockRejectedValueOnce(new Error('DB locked'))
+    await userEvent.click(vpnSwitch())
+    expect(await screen.findByText('Could not change the VPN setting: DB locked')).toBeInTheDocument()
+    expect(vpnSwitch()).toHaveAttribute('aria-checked', 'false')
+
+    await act(async () => { await changeLanguage('pt-BR') })
+    expect(screen.getByRole('switch', { name: 'Também alcançar este computador por uma VPN (Tailscale, WireGuard)' })).toBeInTheDocument()
+    expect(screen.getByText(/endereços privados de VPN \(100\.64\/10\)/)).toBeInTheDocument()
   })
 })
 

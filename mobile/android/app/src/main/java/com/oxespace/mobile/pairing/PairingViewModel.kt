@@ -5,7 +5,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.oxespace.mobile.OxeApplication
 import com.oxespace.mobile.notify.SessionService
+import com.oxespace.mobile.protocol.pairing.LanAddress
 import com.oxespace.mobile.protocol.pairing.PairingClient
 import com.oxespace.mobile.protocol.session.RemoteConnection
 import com.oxespace.mobile.protocol.session.TokenHolder
@@ -17,7 +19,8 @@ import kotlinx.coroutines.flow.StateFlow
 /** Holds one pairing attempt across rotations; the work happens in [PairingFlow]. */
 class PairingViewModel(application: Application) : AndroidViewModel(application) {
     private val probeScheduler = Executors.newSingleThreadScheduledExecutor()
-    private val client = PairingClient()
+    private val hostAllowed: (String) -> Boolean = (application as? OxeApplication)?.core?.let { it::isHostAllowed } ?: LanAddress::isPrivate
+    private val client = PairingClient(hostAllowed = hostAllowed)
     private val flow = PairingFlow(
         scope = viewModelScope,
         io = Dispatchers.IO,
@@ -27,9 +30,10 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
         deviceName = deviceName(application),
         // The app is on screen while pairing, so the foreground service may start here.
         onPaired = { SessionService.start(application) },
-        probe = SessionPairingProbe(linkFor = { target, keys -> RemoteConnection(target, keys::sign, TokenHolder(), probeScheduler) }),
+        probe = SessionPairingProbe(linkFor = { target, keys -> RemoteConnection(target, keys::sign, TokenHolder(), probeScheduler, hostAllowed = hostAllowed) }),
         // A15 (MOB-1): asked at step 2, after the scan and before the phone first talks to the computer.
         localNetworkGranted = { LocalNetworkAccess.granted(application) },
+        hostAllowed = hostAllowed,
     )
 
     val state: StateFlow<PairingState> = flow.state
