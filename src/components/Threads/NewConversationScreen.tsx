@@ -3,15 +3,18 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from '
 import { useTranslation } from 'react-i18next'
 import { THREAD_PROVIDERS, threadAgentName } from '../../../shared/threadProviders'
 import { parseThreadWorktreeError, threadWorktreeFailureAdvice, type ThreadWorktreeErrorCode } from '../../../shared/threadWorktree'
-import type { ThreadApi, ThreadProvider } from '../../../shared/types/thread'
+import type { ConversationThread, ThreadApi, ThreadProvider } from '../../../shared/types/thread'
+import type { ThreadActiveWriter } from '../../../shared/types/thread-places'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { MARK_PATH, MARK_VIEWBOX } from '../../design/brand'
 import { useThreadStore } from '../../store/thread.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, ErrorState, IconButton, Menu, Notice, Popover, TextField } from '../../ui'
+import { Button, ErrorState, IconButton, Menu, Notice, Popover, TextField, toast } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { consumePendingNewDraft, newProjectDraftKey, normalizePathForMatch } from '../Terminal/terminalToChat'
+import { consumeIsolatedNewConversationHandoff, type IsolatedNewConversationHandoff } from '../Terminal/threadDraftBridge'
+import { threadError } from './threadError'
 import { threadStarters } from './ThreadEmptyState'
 import { displayThreadTitle } from './threadTitle'
 import { readThreadWorktreePref, writeThreadWorktreePref } from './threadWorktreePref'
@@ -48,12 +51,52 @@ function useInstalledAgents(): readonly ThreadProvider[] {
   return useMemo(() => THREAD_PROVIDERS.filter(id => !missing.includes(id)), [missing])
 }
 
+/** Active writers (running conversations with write access or working Code panes) editing `folder` (AG-07, OXE-189). */
+function fallbackActiveWriters(folder: string, threads: readonly ConversationThread[]): ThreadActiveWriter[] {
+  const target = normalizePathForMatch(folder)
+  if (!target) return []
+  return threads
+    .filter(thread => {
+      if (thread.archived) return false
+      const working = thread.status === 'running' || (thread.background?.running ?? 0) > 0
+      if (!working) return false
+      if (thread.access === 'read-only' || (thread.access as string | undefined) === 'readonly') return false
+      const activeFolder = thread.observedLocation?.sameRepository && thread.observedLocation.checkoutRoot
+        ? thread.observedLocation.checkoutRoot
+        : (thread.ownedWorktree?.path || thread.rootPath)
+      return normalizePathForMatch(activeFolder) === target
+    })
+    .map(thread => ({ id: thread.id, title: thread.title, kind: 'thread' as const }))
+}
+
+function useActiveWriters(folder: string, threads: readonly ConversationThread[]): readonly ThreadActiveWriter[] {
+  const [remote, setRemote] = useState<{ folder: string; writers: readonly ThreadActiveWriter[] } | null>(null)
+  const hasRemoteLookup = typeof window.oxe?.thread?.activeWriters === 'function'
+  const fallback = useMemo(() => (hasRemoteLookup ? [] : fallbackActiveWriters(folder, threads)), [hasRemoteLookup, folder, threads])
+
+  useEffect(() => {
+    const api = window.oxe?.thread
+    if (!folder || typeof api?.activeWriters !== 'function') return
+    let live = true
+    const load = (): void => {
+      void Promise.resolve(api.activeWriters!(folder))
+        .then(list => { if (live) setRemote({ folder, writers: Array.isArray(list) ? list : [] }) })
+        .catch(() => { if (live) setRemote({ folder, writers: [] }) })
+    }
+    load()
+    const off = api.onChanged?.(() => load())
+    return () => { live = false; off?.() }
+  }, [folder, threads])
+
+  return hasRemoteLookup ? (remote?.folder === folder ? remote.writers : []) : fallback
+}
+
 /**
  * The message, with what a terminal selection left waiting for this project or folder (AG-08). Only sending clears the
  * waiting text from the store, so leaving the screen does not lose it; only what is new is added to the message.
  */
-function useMessage(projectId: string, rootPath: string) {
-  const [draft, setDraft] = useState('')
+function useMessage(projectId: string, rootPath: string, initialDraft = '') {
+  const [draft, setDraft] = useState(initialDraft)
   const shown = useRef(new Map<string, string>())
   useEffect(() => {
     const folder = normalizePathForMatch(rootPath)
@@ -122,12 +165,16 @@ function ProjectPicker({ choices, selected, disabled, onPick, onAdd }: { choices
  * the project locked on the parent's and the worktree on the session's, the agent still free; the first message creates
  * the chat with createChat on the parent, never thread.create, and sends the text to it.
  */
-export function NewConversationScreen({ projectId, rootPath, parentThreadId, onCreated, onAddProject }: { projectId: string; rootPath?: string; parentThreadId?: string; onCreated?: (threadId: string) => void; onAddProject?: () => void }): ReactElement {
+export function NewConversationScreen({ projectId, rootPath, parentThreadId, onCreated, onAddProject, onOpenIsolated }: { projectId: string; rootPath?: string; parentThreadId?: string; onCreated?: (threadId: string) => void; onAddProject?: () => void; onOpenIsolated?: (handoff: IsolatedNewConversationHandoff) => void }): ReactElement {
   const { t } = useTranslation('thread')
   const titleId = useId()
+  const [initialHandoff] = useState<IsolatedNewConversationHandoff | null>(() => parentThreadId ? null : consumeIsolatedNewConversationHandoff(projectId, rootPath))
+  const [detachedParallel, setDetachedParallel] = useState(false)
+  const effectiveParentId = detachedParallel ? undefined : parentThreadId
   const projects = useThreadStore(state => state.projects)
-  const parent = useThreadStore(state => parentThreadId ? state.threads.find(thread => thread.id === parentThreadId) : undefined)
-  const parallel = Boolean(parentThreadId)
+  const threads = useThreadStore(state => state.threads)
+  const parent = useMemo(() => (effectiveParentId ? threads.find(thread => thread.id === effectiveParentId) : undefined), [effectiveParentId, threads])
+  const parallel = Boolean(effectiveParentId)
   const choices = useMemo(() => {
     const all: ProjectChoice[] = projects.filter(project => !project.hidden).flatMap(project => project.contexts.map(context => ({ rootPath: context.rootPath, projectId: project.projectId, projectName: project.displayName })))
     return all.filter((choice, index) => all.findIndex(other => other.rootPath === choice.rootPath) === index)
@@ -141,23 +188,54 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
     ?? choices.find(choice => rootPath ? normalizePathForMatch(choice.rootPath) === normalizePathForMatch(rootPath) : choice.projectId === projectId)
     ?? (rootPath ? undefined : choices[0])
   const installed = useInstalledAgents()
-  const [chosenAgent, setChosenAgent] = useState<ThreadProvider | null>(null)
+  const [chosenAgent, setChosenAgent] = useState<ThreadProvider | null>(() => initialHandoff?.provider ?? null)
   const provider: ThreadProvider | undefined = chosenAgent && installed.includes(chosenAgent) ? chosenAgent : installed[0]
   const access = useNewConversationAccess()
   // Off until the person turns it on, then remembered for the project, as the dialog did.
-  const [chosenWorktree, setChosenWorktree] = useState<boolean | null>(null)
+  const [chosenWorktree, setChosenWorktree] = useState<boolean | null>(() => (initialHandoff ? true : null))
   // A parallel chat works in the session's folder or worktree and never owns one (OXE-170 RN-2).
   const inWorktree = !parallel && (chosenWorktree ?? readThreadWorktreePref(context?.projectId))
   const [branch, setBranch] = useState(''), [baseRef, setBaseRef] = useState('')
-  const { draft, setDraft, carried } = useMessage(context?.projectId ?? projectId, context?.rootPath ?? rootPath ?? '')
+  const { draft, setDraft, carried } = useMessage(context?.projectId ?? projectId, context?.rootPath ?? rootPath ?? '', initialHandoff?.draft ?? '')
   const [pending, setPending] = useState(false), [error, setError] = useState('')
   // A refusal the person can act on; working in the project folder instead is offered, never done on its own.
   const [failure, setFailure] = useState<{ code: ThreadWorktreeErrorCode; detail: string } | null>(null)
+  const [dismissedWarningKey, setDismissedWarningKey] = useState<string | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null)
   const agent = threadAgentName(provider ?? THREAD_PROVIDERS[0])
   // A worktree of its own is named by its branch: its folder carries a random suffix nobody chose.
   const folder = inWorktree && branch.trim() ? branch.trim() : folderName(context?.rootPath ?? rootPath ?? '')
+  const targetFolder = parallel
+    ? (parent?.ownedWorktree?.path || parent?.rootPath || context?.rootPath || rootPath || '')
+    : (context?.rootPath ?? rootPath ?? '')
+  const activeWriters = useActiveWriters(targetFolder, threads)
+  const warningKey = parallel ? `parallel:${effectiveParentId ?? ''}:${targetFolder}` : `folder:${targetFolder}`
+  const showFolderWarning = !parallel && !inWorktree && activeWriters.length > 0 && dismissedWarningKey !== warningKey
+  const showParallelWarning = parallel && activeWriters.length > 0 && dismissedWarningKey !== warningKey
   const api = window.oxe?.thread
+
+  const openIsolated = (): void => {
+    const nextProjectId = context?.projectId ?? parent?.projectId ?? projectId
+    const nextRootPath = parent?.ownedWorktree?.projectRoot ?? context?.rootPath ?? rootPath
+    setDetachedParallel(true)
+    if (nextRootPath) setPicked(nextRootPath)
+    setChosenWorktree(true)
+    if (provider) setChosenAgent(provider)
+    setDismissedWarningKey(null)
+    setFailure(null)
+    if (onOpenIsolated) {
+      onOpenIsolated({ projectId: nextProjectId, rootPath: nextRootPath, provider, draft })
+      return
+    }
+    window.dispatchEvent(new CustomEvent('oxe:open-thread-draft', {
+      detail: {
+        threadId: null,
+        projectId: nextProjectId,
+        rootPath: nextRootPath,
+        isolated: { provider, draft }
+      }
+    }))
+  }
 
   const start = async (useWorktree: boolean, allowDirtyBase = false): Promise<void> => {
     const text = draft.trim()
@@ -167,8 +245,8 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
     const worktree = useWorktree ? { ...(branch.trim() ? { branch: branch.trim() } : {}), ...(baseRef.trim() ? { baseRef: baseRef.trim() } : {}), ...(allowDirtyBase ? { allowDirtyBase } : {}) } : undefined
     let threadId: string
     try {
-      const snapshot = parentThreadId
-        ? await api.createChat!(parentThreadId, { provider })
+      const snapshot = effectiveParentId
+        ? await api.createChat!(effectiveParentId, { provider })
         : await api.create({ projectId: context.projectId, rootPath: context.rootPath, provider, ...(worktree ? { worktree } : {}) })
       // Falling back to the project folder is a one-time answer; it does not change what is remembered.
       if (!parallel && useWorktree === inWorktree) writeThreadWorktreePref(context.projectId, inWorktree)
@@ -185,16 +263,19 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
       setPending(false)
       return
     }
-    // The conversation exists now; a failed send leaves the text in its composer instead of losing it.
-    try { await api.send(threadId, text) } catch {
+    // The conversation exists now; a failed send leaves the text in its composer and explains why (OXE-407).
+    try { await api.send(threadId, text) } catch (cause) {
       const waiting = useThreadStore.getState().drafts[threadId]
       useThreadStore.getState().setDraft(threadId, waiting ? `${text}\n\n${waiting}` : text)
+      const reason = threadError(cause)
+      setError(reason)
+      toast({ title: reason, intent: 'warning' })
     }
     setPending(false)
     onCreated?.(threadId)
   }
   const advice = failure ? threadWorktreeFailureAdvice(failure.code) : null
-  const pickProject = (choice: ProjectChoice): void => { setPicked(choice.rootPath); setChosenWorktree(null); setFailure(null) }
+  const pickProject = (choice: ProjectChoice): void => { setPicked(choice.rootPath); setChosenWorktree(null); setFailure(null); setDismissedWarningKey(null) }
 
   return <section className={styles.screen} aria-labelledby={titleId} data-testid="new-conversation">
     <div className={styles.column}>
@@ -234,6 +315,18 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
           <Button size="sm" disabled={pending} onClick={() => void start(false)}>{t('dialogs.worktreeUseProject')}</Button>
         </>}>
         {t(`dialogs.worktreeAdvice.${failure.code}`)}
+      </Notice>}
+      {showFolderWarning && <Notice intent="warning" className={styles.collisionNotice} actions={<>
+        <Button size="sm" variant="primary" disabled={pending} onClick={() => { setChosenWorktree(true); setFailure(null) }}>{t('collision.createWorktree')}</Button>
+        <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissedWarningKey(warningKey)}>{t('collision.continueHere')}</Button>
+      </>}>
+        {t('collision.editingFolder', { conversation: displayThreadTitle(activeWriters[0]?.title), interpolation: { escapeValue: false } })}
+      </Notice>}
+      {showParallelWarning && <Notice intent="warning" className={styles.collisionNotice} actions={<>
+        <Button size="sm" variant="primary" disabled={pending} onClick={openIsolated}>{t('collision.openIsolated')}</Button>
+        <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissedWarningKey(warningKey)}>{t('collision.continueHere')}</Button>
+      </>}>
+        {t('collision.parallelEditing')}
       </Notice>}
       <form data-ui="composer" className={styles.composer} aria-busy={pending} onSubmit={event => { event.preventDefault(); void start(inWorktree) }}>
         <textarea ref={textarea} data-thread-composer="true" className={styles.message} rows={3} aria-label={t('composer.message')} placeholder={t('opening.label')} value={draft} disabled={pending} autoFocus

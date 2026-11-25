@@ -37,7 +37,9 @@ const { registerThreadIpc } = await import('../electron/main/ipc/thread.ipc')
 const { createOxeApi } = await import('../electron/preload/api')
 const { ThreadView } = await import('../src/components/Threads/ThreadView')
 const { ThreadMessageRow } = await import('../src/components/Threads/ThreadMessageRow')
+const { NewConversationScreen } = await import('../src/components/Threads/NewConversationScreen')
 const { CommandBar } = await import('../src/components/CommandBar/CommandBar')
+const { useToasts } = await import('../src/ui/Toast')
 const { useAccountStore } = await import('../src/store/account.store')
 const { useThreadStore } = await import('../src/store/thread.store')
 const { useWorkspaceStore } = await import('../src/store/workspace.store')
@@ -245,5 +247,96 @@ describe('what the person types keeps its authority', () => {
     await userEvent.type(await screen.findByRole('combobox'), '/steer also update the README{Enter}')
     await waitFor(() => expect(steerTyped).toHaveBeenCalledWith('t-A', 'also update the README'))
     expect(steer).not.toHaveBeenCalled()
+  })
+})
+
+describe('the new conversation screen', () => {
+  async function newConversationWindow() {
+    const dir = mkdtempSync(join(tmpdir(), 'oxe-new-conv-'))
+    cleanups.push(() => removeTempDir(dir))
+    execFileSync('git', ['init', '-q'], { cwd: dir, windowsHide: true, stdio: 'ignore' })
+    const db = openInMemoryDatabase()
+    cleanups.push(() => db.close())
+    const runtime = registerThreadIpc(db, { bridge: join(dir, 'bridge.cjs'), prepare: async () => ({ OXESPACE_EXECUTION_ID: 'e1', OXESPACE_EXECUTION_TOKEN: 't1' }), end: () => {} })
+    cleanups.push(() => runtime.stop())
+    const manager = await runtime.manager
+    manager.setNewConversationAccess('read-only')
+    const addedProject = await runtime.projects.add(dir)
+
+    const settled: Array<{ channel: string; error?: string }> = []
+    const invoke = async (channel: string, ...args: unknown[]): Promise<unknown> => {
+      try {
+        const value = await ipc.handlers.get(channel)!({ sender: {}, senderFrame: {} }, ...args)
+        settled.push({ channel })
+        return value
+      } catch (error) {
+        settled.push({ channel, error: (error as Error).message })
+        throw error
+      }
+    }
+    const real = createOxeApi({ invoke, on: () => {}, removeListener: () => {} }).thread as unknown as Record<string, unknown>
+    const thread: Record<string, unknown> = {
+      list: async () => manager.list(),
+      read: async (id: string) => manager.read(id),
+      newConversationAccess: async () => manager.newConversationAccess(),
+      activeWriters: async () => [],
+      onChanged: () => () => {}
+    }
+    for (const name of ['create', 'send', 'sendTyped']) if (typeof real[name] === 'function') thread[name] = real[name]
+    Object.defineProperty(window, 'oxe', {
+      configurable: true,
+      value: { thread, agent: { getReadiness: async () => [{ provider: 'claude', status: 'ready' }] } }
+    })
+    useToasts.setState({ items: [] })
+    useWorkspaceStore.setState({ workspaces: [] })
+    useThreadStore.setState({
+      threads: [],
+      projects: [addedProject],
+      snapshot: null,
+      selectedId: null,
+      secondaryId: null,
+      drafts: {},
+      loading: false,
+      listLoaded: true
+    } as never)
+    return { dir, projectId: addedProject.projectId, manager, settled }
+  }
+
+  it('a typed first command is refused with its reason and kept', async () => {
+    const w = await newConversationWindow()
+    const onCreated = vi.fn()
+    render(<NewConversationScreen projectId={w.projectId} rootPath={w.dir} onCreated={onCreated} />)
+    const box = screen.getByRole('textbox', { name: 'Message' })
+    fireEvent.change(box, { target: { value: '/permissions full-access' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), { timeout: 10_000 })
+    const createdId = onCreated.mock.calls[0][0] as string
+    const sendCall = w.settled.find(entry => entry.channel === IPC_CHANNELS.thread.send)
+    expect(sendCall?.error).toBe('thread.command.windowOnly')
+    expect(w.manager.read(createdId).thread.access).toBe('read-only')
+    expect(useThreadStore.getState().drafts[createdId]).toBe('/permissions full-access')
+
+    const reason = 'Commands run only when you type them in OXESpace.'
+    expect(screen.getByRole('alert')).toHaveTextContent(reason)
+    expect(useToasts.getState().items.some(item => item.title === reason)).toBe(true)
+  })
+
+  it('a non-typed terminal selection or starter never runs as a command', async () => {
+    const w = await newConversationWindow()
+    useThreadStore.getState().setDraft(`new:${w.projectId}`, '/model opus')
+    const onCreated = vi.fn()
+    render(<NewConversationScreen projectId={w.projectId} rootPath={w.dir} onCreated={onCreated} />)
+    const box = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
+    await waitFor(() => expect(box.value).toBe('/model opus'))
+    fireEvent.keyDown(box, { key: 'Enter' })
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), { timeout: 10_000 })
+    const createdId = onCreated.mock.calls[0][0] as string
+    const sendCall = w.settled.find(entry => entry.channel === IPC_CHANNELS.thread.send)
+    expect(sendCall?.error).toBe('thread.command.windowOnly')
+    expect(w.manager.read(createdId).thread.access).toBe('read-only')
+    expect(useThreadStore.getState().drafts[createdId]).toBe('/model opus')
+    expect(screen.getByRole('alert')).toHaveTextContent('Commands run only when you type them in OXESpace.')
   })
 })

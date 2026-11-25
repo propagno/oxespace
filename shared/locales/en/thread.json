@@ -2018,7 +2018,12 @@
   "collision": {
     "alsoEditedBy": "Also edited by {{title}}",
     "more_one": "and {{count}} more",
-    "more_other": "and {{count}} more"
+    "more_other": "and {{count}} more",
+    "editingFolder": "Another agent is editing this folder ({{conversation}}).",
+    "createWorktree": "Create isolated worktree",
+    "continueHere": "Continue here",
+    "parallelEditing": "The other conversation in this session is editing these files now.",
+    "openIsolated": "Open as a new isolated conversation"
   },
   "terminalTab": {
     "agent": "Agent's",
