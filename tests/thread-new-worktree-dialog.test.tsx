@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NewThreadDialog } from '../src/components/Threads/ThreadDialogs'
+import { NewConversationScreen } from '../src/components/Threads/NewConversationScreen'
 import { useThreadStore } from '../src/store/thread.store'
 
 const original = window.oxe
@@ -14,6 +15,39 @@ beforeEach(() => {
   vi.spyOn(useThreadStore.getState(), 'adopt').mockImplementation(() => undefined)
 })
 afterEach(() => { cleanup(); window.oxe = original })
+
+describe('New conversation screen: a worktree refusal', () => {
+  const refuse = async (message: string) => {
+    create.mockRejectedValueOnce(new Error(message))
+    create.mockResolvedValueOnce({ thread: { id: 't' }, events: [] })
+    const send = vi.fn(async () => undefined)
+    window.oxe = { ...window.oxe, thread: { ...window.oxe.thread, send } } as unknown as typeof window.oxe
+    const onCreated = vi.fn()
+    render(<NewConversationScreen projectId="p" onCreated={onCreated} />)
+    fireEvent.click(screen.getByRole('switch', { name: 'Work in an isolated worktree' }))
+    const message_ = document.querySelector('textarea')!
+    fireEvent.change(message_, { target: { value: 'Fix the login' } })
+    fireEvent.keyDown(message_, { key: 'Enter' })
+    return { send, onCreated }
+  }
+
+  it('uses the project folder only when asked, and does not remember that answer', async () => {
+    const { send, onCreated } = await refuse('[thread-worktree:NOT_A_REPO] /repo is not a Git repository, so it cannot have a worktree.')
+    const fallback = await screen.findByRole('button', { name: 'Use the project folder instead' })
+    expect(create).toHaveBeenCalledTimes(1)
+    fireEvent.click(fallback)
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith('t'))
+    expect(create).toHaveBeenLastCalledWith({ projectId: 'p', rootPath: '/repo', provider: 'claude' })
+    expect(send).toHaveBeenCalledWith('t', 'Fix the login')
+    expect(JSON.parse(window.localStorage.getItem('oxe.thread.worktreeDefault') ?? '{}')).toEqual({})
+  })
+
+  it('creates it anyway over uncommitted changes only when asked', async () => {
+    await refuse('[thread-worktree:DIRTY_BASE] The project has uncommitted changes; a new worktree starts from main without them.')
+    fireEvent.click(await screen.findByRole('button', { name: 'Create it anyway' }))
+    await waitFor(() => expect(create).toHaveBeenLastCalledWith({ projectId: 'p', rootPath: '/repo', provider: 'claude', worktree: { allowDirtyBase: true } }))
+  })
+})
 
 describe('New conversation in its own worktree', () => {
   it('sends the branch and base only when the option is chosen', async () => {

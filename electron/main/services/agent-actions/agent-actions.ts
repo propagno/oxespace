@@ -2,6 +2,7 @@ import type { ApprovalBroker, ApprovalRisk as BrokerRisk } from './approval-brok
 import { textHash } from './approval-broker'
 import type { ActionAudit, ActionLevel } from './action-audit'
 import { englishText } from '../../agent-text'
+import type { WorkspaceAccessLevel } from '../../../../shared/access-ceiling'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
 import { APPROVAL_AGENT_TEXT_MAX, type ApprovalRequester, type ApprovalRisk } from '../../../../shared/types/approvals'
 import { ownerFromLabel, requesterFor } from '../approvals/requester'
@@ -47,13 +48,20 @@ export interface ActionRequest {
   deniedMessage?: string
   /** For `confirm`: gets the approval center's record id as soon as the person can answer it (OXE-109). */
   onAsked?: (approvalId: string) => void
+  /** OXE-327: Access ceiling context forwarded to ApprovalCenter. */
+  workspaceCeiling?: WorkspaceAccessLevel
+  sessionAccess?: WorkspaceAccessLevel
+  requiredAccess?: WorkspaceAccessLevel
 }
 
 export const ACTION_RATE_PER_MINUTE = 30
 
 /** The MCP code for a request main denied without showing it (B10): the agent may back off and retry a full queue. */
 export function refusalCode(refusal: MainMessage): string {
-  return refusal.code === 'approvals.denied.queueFull' ? 'queue-full' : refusal.code === 'approvals.denied.tooLong' ? 'too-long' : 'denied'
+  return refusal.code === 'approvals.denied.queueFull' ? 'queue-full'
+    : refusal.code === 'approvals.denied.tooLong' ? 'too-long'
+      : refusal.code === 'approvals.denied.accessCeiling' ? 'access-ceiling'
+        : 'denied'
 }
 /** A person approves exactly what they can read; anything longer is refused rather than shortened (B10: one cap for every door). */
 export const MAX_REVIEWABLE = APPROVAL_AGENT_TEXT_MAX
@@ -103,7 +111,11 @@ export class AgentActions {
           actor: actor.label, tool: `${request.tool}.${request.action}`, risk: brokerRisk, text,
           kind: 'mcp-confirm', requester, level: request.risk ?? 'medium', title: mainMessage('approvals.title.agent', {}),
           summary: mainMessage('approvals.summary.mcpConfirm', { tool: request.tool, action: request.action, target }), target, notes: request.notes ?? [],
-          ...(request.sessionOptionLabel ? { sessionOptionLabel: request.sessionOptionLabel } : {})
+          ...(request.sessionOptionLabel ? { sessionOptionLabel: request.sessionOptionLabel } : {}),
+          workspaceId: actor.workspaceId,
+          ...(request.workspaceCeiling !== undefined ? { workspaceCeiling: request.workspaceCeiling } : {}),
+          ...(request.sessionAccess !== undefined ? { sessionAccess: request.sessionAccess } : {}),
+          ...(request.requiredAccess !== undefined ? { requiredAccess: request.requiredAccess } : {})
         }, undefined, request.onAsked)
         : { state: 'denied' as const }
       if (state.state === 'denied') {

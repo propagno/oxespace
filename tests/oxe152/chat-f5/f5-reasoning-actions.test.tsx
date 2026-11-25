@@ -245,7 +245,7 @@ function fixture(events: unknown[], options: FxOptions = {}) {
     ...options.api
   }
   const clipboard = { writeText: vi.fn(async () => true) }
-  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard, git: { getBranch: vi.fn(async () => ({ branch: 'feat/thread', detached: false, shortSha: null, error: null })), getDiffSummary: vi.fn(async () => ({ files: [], additions: 0, deletions: 0 })) }, github: { listBranches: vi.fn(async () => []), resolveWorktreeBase: vi.fn(async () => null), listWorktrees: vi.fn(async () => []) }, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
   const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
   useAccountStore.setState({ scopes: {}, snapshots: {} })
   useWorkspaceStore.setState({ workspaces: [workspace] })
@@ -287,7 +287,8 @@ const toggleOf = (block: HTMLElement): HTMLElement => {
 const monoish = (value: string | undefined): boolean => /--font-mono|monospace|Plex Mono|Consolas/i.test(value ?? '')
 
 beforeEach(() => { localStorage.clear() })
-afterEach(async () => { cleanup(); vi.restoreAllMocks(); document.documentElement.removeAttribute('data-motion'); await changeLanguage('en') })
+const priorOxe = Object.getOwnPropertyDescriptor(window, 'oxe')
+afterEach(async () => { cleanup(); if (priorOxe) Object.defineProperty(window, 'oxe', priorOxe); else Reflect.deleteProperty(window, 'oxe'); vi.restoreAllMocks(); document.documentElement.removeAttribute('data-motion'); await changeLanguage('en') })
 
 describe('A6 · reasoning (rows 1.1 to 1.4)', () => {
   test.each(['en', 'pt-BR'] as const)('(%s) thinking live: one "Thinking…" line with a pulse and a 2–3 line preview in the interface font, never a <pre>', async locale => {

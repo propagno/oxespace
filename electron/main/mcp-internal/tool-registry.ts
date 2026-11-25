@@ -51,6 +51,8 @@ export interface ToolContext {
   executions?: import('../services/execution-registry').ExecutionRegistry
   executionId?: string
   executionToken?: string
+  /** OXE-327: Optional session access level for this caller; effective access is min(workspaceCeiling, sessionAccess). */
+  sessionAccess?: import('../../../shared/access-ceiling').WorkspaceAccessLevel
   delegationAgents?: () => unknown
   /** R5: AI Memory is gone. local-rpc-server.ts (outside R5's files) still forwards these two; nothing here reads them. */
   memory?: { observe(params: unknown): Promise<unknown> }

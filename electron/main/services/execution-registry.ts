@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { resolve } from 'node:path'
+import type { WorkspaceAccessLevel } from '../../../shared/access-ceiling'
 
 export type ExecutionOwner = { kind: 'pane' | 'thread'; id: string }
 export interface AgentExecution {
@@ -12,6 +13,8 @@ export interface AgentExecution {
   canonicalRoot: string
   generation: number
   token: string
+  /** OXE-327: Optional session access level requested by this execution; capped by workspace ceiling. */
+  access?: WorkspaceAccessLevel
 }
 /**
  * B23 · What an execution asked for lives no longer than the execution. When a pane closes or exits, or a conversation's
@@ -42,7 +45,7 @@ export function executionSignal(owner: ExecutionOwner | undefined): AbortSignal 
 export class ExecutionRegistry {
   private executions = new Map<string, AgentExecution>()
   private generations = new Map<string, number>()
-  register(input: { paneId: string; workspaceId: string; cwd: string } | { owner: ExecutionOwner; workspaceId: string; cwd: string }): Record<string, string> {
+  register(input: ({ paneId: string; workspaceId: string; cwd: string } | { owner: ExecutionOwner; workspaceId: string; cwd: string }) & { access?: WorkspaceAccessLevel }): Record<string, string> {
     // A fresh object per launch, even when the caller reuses one: it is this execution's key to its own signal.
     const owner: ExecutionOwner = 'owner' in input ? { kind: input.owner.kind, id: input.owner.id } : { kind: 'pane', id: input.paneId }
     this.endOwner(owner)
