@@ -673,4 +673,52 @@ describe('TerminalView', () => {
     useTerminalFocusStore.setState({ tabMovesFocus: {}, toggleKeyToShell: {} })
     expect(onInput).not.toHaveBeenCalled()
   })
+
+  // OXE-411 lever H (on by default): a pane in a hidden workspace parks and comes back with only what it missed.
+  test('a pane in a hidden workspace parks, and comes back with only what it missed', async () => {
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => done?.())
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValueOnce({ running: true, seq: 5, prologue: '', replay: 'history', truncated: false, altScreen: false })
+    vi.mocked(window.oxe.terminal.detach).mockResolvedValue({ seq: 42 } as never)
+    const host = document.body.appendChild(document.createElement('div'))
+    host.className = 'workspace-host'
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />, { container: host })
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('history'))
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+
+    host.classList.add('workspace-host-hidden')
+    await waitFor(() => expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1', parked: true }))
+    await act(async () => { await Promise.resolve() })
+    dataListener({ paneId: 'pane-1', data: 'never painted' })
+
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValueOnce({ running: true, seq: 50, prologue: '', replay: 'missed while hidden', truncated: false, altScreen: false })
+    host.classList.remove('workspace-host-hidden')
+    await waitFor(() => expect(window.oxe.terminal.attach).toHaveBeenLastCalledWith({ paneId: 'pane-1', sinceSeq: 42 }))
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('missed while hidden'))
+    dataListener({ paneId: 'pane-1', data: 'live again' })
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('live again', expect.any(Function)))
+    const writes = terminalState.write.mock.calls.map(call => call[0])
+    expect(writes).not.toContain('never painted')
+    // Appended, not restored: no clean screen and no second copy of the history.
+    expect(writes.filter(chunk => chunk === 'history')).toHaveLength(1)
+    host.remove()
+  })
+
+  test('a pane whose main gives no cursor stays live (buffered, not parked) when its workspace hides', async () => {
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => done?.())
+    vi.mocked(window.oxe.terminal.detach).mockResolvedValue(undefined)
+    const host = document.body.appendChild(document.createElement('div'))
+    host.className = 'workspace-host'
+    render(<TerminalView paneId="pane-1" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={vi.fn()} />, { container: host })
+    await waitFor(() => expect(window.oxe.terminal.attach).toHaveBeenCalledTimes(1))
+    const dataListener = vi.mocked(window.oxe.terminal.onData).mock.calls[0][1]
+    host.classList.add('workspace-host-hidden')
+    await waitFor(() => expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-1', parked: true }))
+    await act(async () => { await Promise.resolve() })
+    dataListener({ paneId: 'pane-1', data: 'still live' })
+    // OXE-349 pauses xterm writes while hidden; revealing flushes the buffered chunk without re-attaching.
+    host.classList.remove('workspace-host-hidden')
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('still live', expect.any(Function)))
+    expect(window.oxe.terminal.attach).toHaveBeenCalledTimes(1)
+    host.remove()
+  })
 })

@@ -61,8 +61,8 @@ export type { GitBranchInput, GitBranchStatus, GitDiff, GitDiffFile, GitDiffHunk
 export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, GitHubCommitDetails, GitHubConnectedRepository, GitHubMessageResult, GitHubPanelTab, GitHubPullRequest, GitHubRelease, GitHubRepositorySummary, GitHubWorkflow, GitHubWorkflowRun, GitHubWorkflowRunDetails, GitHubWorkspaceStatus } from './github'
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
-import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, TerminalSizeLease, TerminalSizeLeaseEvent, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDetachInput, TerminalDetachResult, TerminalStatusResult, TerminalSizeLease, TerminalSizeLeaseEvent, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDetachInput, TerminalDetachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
@@ -550,7 +550,7 @@ export interface TerminalApi {
   stop(input: TerminalStopInput): Promise<void>
   restart(input: TerminalStopInput): Promise<void>
   attach(input: TerminalAttachInput): Promise<TerminalAttachResult>
-  detach(input: TerminalStopInput): Promise<void>
+  detach(input: TerminalDetachInput): Promise<TerminalDetachResult | void>
   status(paneId: string): Promise<TerminalStatusResult>
   onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
   onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void
@@ -776,6 +776,8 @@ export interface OxeApi {
     platform: NodeJS.Platform
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
+    /** OXE-411 · OXESPACE_TERM_LEVERS when set, a comma list (shared/terminal-levers.ts); absent, the default levers. */
+    termLevers?: string
   } & AppUpdateApi & import('./app').AppInfoApi
   workspace: WorkspaceApi
   terminal: TerminalApi

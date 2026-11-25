@@ -362,7 +362,7 @@ function createMainWindow(): BrowserWindow {
       webviewTag: false, // the will-attach-webview handler below stays as a backstop
       zoomFactor: savedUiScale(),
       // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
-      additionalArguments: [`--oxe-locale=${systemLocale()}`]
+      additionalArguments: [`--oxe-locale=${systemLocale()}`, ...(process.env.OXESPACE_TERM_LEVERS ? [`--oxe-term-levers=${process.env.OXESPACE_TERM_LEVERS}`] : [])] // OXE-411 levers (H,Q default unless set)
     }
   }))
 
