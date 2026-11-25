@@ -385,6 +385,6 @@ export async function openThreadWithState(app: ElectronApplication, page: Page, 
 export async function setThreadState(app: ElectronApplication, root: string, state: ExtendedThreadStateName): Promise<void> {
   const definition = state === 'approval-sql' ? THREAD_SQL_APPROVAL_STATE : THREAD_STATES[state]
   await app.evaluate((_context, payload) => {
-    ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload)
+    ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(payload)
   }, { status: definition.status, title: definition.title, provider: definition.provider, extra: definition.extra, turns: definition.turns, turnFiles: definition.turnFiles, events: typeof definition.events === 'function' ? definition.events({ root }) : definition.events })
 }

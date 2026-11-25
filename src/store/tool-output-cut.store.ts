@@ -1,10 +1,27 @@
 import { create } from 'zustand'
 import type { AgentHookStatusEvent } from '../../shared/types/agent-hooks'
 
+export const TOOL_OUTPUT_CUT_BYTES = 32 * 1024
+
 export interface ToolOutputCutInfo {
   truncated: boolean
   keptBytes: number
   totalBytes?: number
+}
+
+export function resolveToolOutputCut(
+  cut: ToolOutputCutInfo | undefined,
+  rawOutput: string | undefined,
+  outputTruncated?: boolean
+): ToolOutputCutInfo | undefined {
+  if (cut?.truncated) return cut
+  if (rawOutput && rawOutput.length > TOOL_OUTPUT_CUT_BYTES) {
+    return { truncated: true, keptBytes: TOOL_OUTPUT_CUT_BYTES, totalBytes: rawOutput.length }
+  }
+  if (outputTruncated && rawOutput) {
+    return { truncated: true, keptBytes: Math.min(rawOutput.length, TOOL_OUTPUT_CUT_BYTES) }
+  }
+  return undefined
 }
 
 interface ToolOutputCutState {

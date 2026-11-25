@@ -159,6 +159,8 @@ export interface RemoteApi {
   setPhoneWrite(input: { paneId: string; allowed: boolean }): Promise<RemoteGatewayStatus>
   /** CR-34: "Show on phone" for one pane (shown by default). Hiding also stops typing from the phone. Persisted and audited. */
   setPhoneHidden?(input: { paneId: string; hidden: boolean }): Promise<RemoteGatewayStatus>
+  /** OXE-383: "Also reach this computer over a VPN" (off by default). Stored, audited, and applied by listening again. */
+  setAllowVpn?(input: { allowed: boolean }): Promise<RemoteGatewayStatus>
   /** 1.4.3 P1: whether Windows lets a phone reach the gateway (read only, no elevation). */
   firewallStatus?(): Promise<RemoteFirewallStatus>
   /** 1.4.3 P1: adds the one Private-only rule for this OXESpace.exe and port, through UAC (never silent). */

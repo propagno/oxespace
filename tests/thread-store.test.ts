@@ -154,6 +154,27 @@ describe('Thread navigation store', () => {
     expect(useThreadStore.getState().secondaryId).toBe('secondary')
     expect(useThreadStore.getState().activeCell).toBe('primary')
   })
+  it('resets activeCell to primary when load() clears a missing secondaryId (OXE-372)', async () => {
+    const primary = snapshot('primary')
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list: vi.fn(async () => [primary.thread]), read: vi.fn(async () => primary) } } })
+    useThreadStore.setState({ threads: [primary.thread, snapshot('gone').thread], selectedId: 'primary', snapshot: primary, secondaryId: 'gone', activeCell: 'secondary' })
+    await useThreadStore.getState().load()
+    expect(useThreadStore.getState().secondaryId).toBeNull()
+    expect(useThreadStore.getState().activeCell).toBe('primary')
+  })
+  it('keeps activeCell on secondary when load() retains a valid secondaryId', async () => {
+    const primary = snapshot('primary'), secondary = snapshot('secondary')
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list: vi.fn(async () => [primary.thread, secondary.thread]), read: vi.fn(async () => primary) } } })
+    useThreadStore.setState({ threads: [primary.thread, secondary.thread], selectedId: 'primary', snapshot: primary, secondaryId: 'secondary', activeCell: 'secondary' })
+    await useThreadStore.getState().load()
+    expect(useThreadStore.getState().secondaryId).toBe('secondary')
+    expect(useThreadStore.getState().activeCell).toBe('secondary')
+  })
+  it('ignores setActiveCell("secondary") when no secondary conversation is open', () => {
+    useThreadStore.setState({ secondaryId: null, activeCell: 'primary' })
+    useThreadStore.getState().setActiveCell('secondary')
+    expect(useThreadStore.getState().activeCell).toBe('primary')
+  })
 })
 
 describe('Thread drafts across a restart', () => {

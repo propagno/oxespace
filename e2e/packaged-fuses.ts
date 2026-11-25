@@ -157,7 +157,7 @@ function mainProcessCount(executablePath: string): number {
 async function launch(root: string, extraEnv: Record<string, string> = {}): Promise<{ app: ElectronApplication; page: Page }> {
   const executablePath = process.env.OXESPACE_PACKAGED_EXECUTABLE!
   // A packaged build ignores OXESPACE_DB_PATH (T50): the data lives in this launch's own --user-data-dir.
-  const app = await electron.launch({ executablePath, args: [`--user-data-dir=${join(root, 'user-data')}`], env: { ...process.env, ...extraEnv } })
+  const app = await electron.launch({ executablePath, args: [`--user-data-dir=${join(root, 'user-data')}`], env: { ...process.env, ...extraEnv } as Record<string, string> })
   const page = await app.firstWindow()
   await page.getByTestId('btn-new-workspace').waitFor({ state: 'visible', timeout: 30_000 })
   return { app, page }

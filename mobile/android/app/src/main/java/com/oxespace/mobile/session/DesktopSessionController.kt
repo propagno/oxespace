@@ -57,6 +57,8 @@ class DesktopSessionController(
      * retried at once, and the token's expiry is read on it. The JVM's monotonic nano clock stops while the phone sleeps.
      */
     private val now: () -> Long = { SystemClock.elapsedRealtime() },
+    /** OXE-383: which manual addresses are allowed; private LAN by default, plus 100.64/10 when VPN opt-in is active. */
+    private val hostAllowed: (String) -> Boolean = LanAddress::isPrivate,
 ) {
     private val tokens = TokenHolder()
     private val mutableStatus = MutableStateFlow(initial())
@@ -126,10 +128,10 @@ class DesktopSessionController(
         connect()
     }
 
-    /** An address the person typed; only a LAN address literal is kept. Returns whether it was accepted. */
+    /** An address the person typed; only a reachable LAN (or active VPN CGNAT when opted in) literal is kept. */
     fun setManualHost(host: String): Boolean {
         val address = host.trim()
-        if (!LanAddress.isPrivate(address)) return false
+        if (!hostAllowed(address)) return false
         val desktop = store.load() ?: return false
         store.save(desktop.copy(manualHost = address))
         retry()
