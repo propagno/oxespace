@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ThreadSnapshot } from '../../shared/types/thread'
-import { attachOpenThreadDraftListener } from '../components/Terminal/terminalToChat'
+import { attachOpenThreadDraftListener } from '../components/Terminal/threadDraftBridge'
 import { useThreadStore } from '../store/thread.store'
 
 type ShownThread = ThreadSnapshot['thread']
