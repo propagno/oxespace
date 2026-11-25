@@ -1,7 +1,7 @@
 import { basename, dirname, isAbsolute } from 'node:path'
 import type { AppDatabase } from '../../db'
 import type { ConversationThread, ThreadEvent, ThreadSnapshot } from '../../../../shared/types/thread'
-import { THREAD_PLACE_DRIFT_ANSWERS, type ThreadCollision, type ThreadPane, type ThreadPaneSource, type ThreadPathResolution, type ThreadPlace, type ThreadPlaceDiff, type ThreadPlaceDrift, type ThreadPlaceDriftAnswer, type ThreadPlaceHead, type ThreadPlaceReadResult, type ThreadPlaces, type ThreadPlaceWrite } from '../../../../shared/types/thread-places'
+import { THREAD_PLACE_DRIFT_ANSWERS, type ThreadActiveWriter, type ThreadCollision, type ThreadPane, type ThreadPaneSource, type ThreadPathResolution, type ThreadPlace, type ThreadPlaceDiff, type ThreadPlaceDrift, type ThreadPlaceDriftAnswer, type ThreadPlaceHead, type ThreadPlaceReadResult, type ThreadPlaces, type ThreadPlaceWrite } from '../../../../shared/types/thread-places'
 import { mainMessage, messageFromError, type MainMessage } from '../../../../shared/messages'
 import { MainMessageError } from '../../ipc/main-message-error'
 import { canonicalPath, resolveSessionLocation } from '../git-common-dir'
@@ -14,7 +14,8 @@ import { readPlaceFile as readPlaceFileFrom } from './thread-place-read'
 import { placeDiff as placeDiffOf } from './thread-place-diff'
 import { parseThreadPathInput, resolveThreadPath, type ThreadPathPlace } from './thread-path-resolver'
 import { threadCollisions } from './thread-collisions'
-import { readThreadTitle } from './thread-title'
+import { activeWritersInFolder } from './thread-active-writers'
+import { parseThreadRow, readThreadTitle } from './thread-title'
 
 /** HML 704-1: tools that run shell commands; a HEAD move while one runs is the conversation's own, whatever the command. */
 const SHELL_TOOL = /bash|shell|command|exec|terminal|powershell/i
@@ -423,6 +424,15 @@ export class ThreadPlaceObserver {
       .filter(row => row.id === id || !row.archived)
     await Promise.all(threads.map(row => this.deps.placeStore.idle(row.id)))
     return threadCollisions(this.deps.db, id, threads.map(row => ({ id: row.id, title: readThreadTitle(row.title) })))
+  }
+
+  /**
+   * AG-07 (OXE-189): running conversations with write access and running OxeCode panes working in `rootPath`.
+   */
+  activeWriters(rootPath: string): ThreadActiveWriter[] {
+    const rows = this.deps.db.prepare(`SELECT data_json FROM conversation_threads`).all() as { data_json: string }[]
+    const threads = rows.map(row => parseThreadRow<ConversationThread>(row.data_json))
+    return activeWritersInFolder(rootPath, { threads, panes: this.deps.paneSources() })
   }
 
   collectPlaceEvidence(id: string, snapshot: ThreadSnapshot, event: ThreadEvent): void {

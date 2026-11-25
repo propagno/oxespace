@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ThreadRichText } from './ThreadRichText'
 import type { McpServer, McpStdioConfig } from '../../../shared/types/mcp'
 import { mcpFailureHints } from '../../../shared/mcpFailureHints'
+import { Button } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 /** The key a provider session knows a saved server by: its name as a slug, numbered when two collide. */
@@ -49,12 +50,12 @@ export function ThreadMcpDiagnose({ name, workspaceId }: { name: string; workspa
     }
   }
   return <div className="thread-mcp-diagnose">
-    {result.state !== 'done' && result.state !== 'unknown' && <button type="button" disabled={result.state === 'running'} onClick={() => void run()} aria-label={t('mcpDiagnose.label', { name })}>{result.state === 'running' ? t('mcpDiagnose.testing') : t('mcpDiagnose.diagnose')}</button>}
+    {result.state !== 'done' && result.state !== 'unknown' && <Button size="sm" variant="secondary" disabled={result.state === 'running'} onClick={() => void run()} aria-label={t('mcpDiagnose.label', { name })}>{result.state === 'running' ? t('mcpDiagnose.testing') : t('mcpDiagnose.diagnose')}</Button>}
     {result.state === 'unknown' && <p><ThreadRichText text={t('mcpDiagnose.unmanaged')} /></p>}
     {result.state === 'done' && <div role="status">
       <p className={result.ok ? 'is-ok' : 'is-error'}>{result.ok ? t('mcpDiagnose.ok', { message: result.message }) : result.message}</p>
       {result.hints.length > 0 && <ul>{result.hints.map(hint => <li key={hint}>{hint}</li>)}</ul>}
-      <button type="button" onClick={() => void run()}>{t('mcpDiagnose.again')}</button>
+      <Button size="sm" variant="secondary" onClick={() => void run()}>{t('mcpDiagnose.again')}</Button>
     </div>}
   </div>
 }

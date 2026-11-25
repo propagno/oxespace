@@ -2,7 +2,7 @@ import type { ReactElement } from 'react'
 import { AlertCircle, HelpCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadDelivery } from '../../../shared/types/thread'
-import { Spinner } from '../../ui'
+import { Button, Spinner } from '../../ui'
 
 /**
  * The one line under a user message that is not yet known to be delivered.
@@ -17,6 +17,6 @@ export function ThreadDeliveryNote({ delivery, disabled, onResend }: { delivery:
   return <p className={`thread-delivery-note is-${delivery.state}`} role={delivery.state === 'sending' ? 'status' : 'alert'}>
     {delivery.state === 'sending' ? <Spinner size="sm" decorative /> : <Icon size={12} aria-hidden="true" />}
     <span className="thread-delivery-text">{delivery.error ? t('delivery.withError', { label, error: delivery.error }) : label}</span>
-    {resend && <button type="button" disabled={disabled} onClick={onResend}>{resend}</button>}
+    {resend && <Button size="sm" variant="ghost" disabled={disabled} onClick={onResend}>{resend}</Button>}
   </p>
 }

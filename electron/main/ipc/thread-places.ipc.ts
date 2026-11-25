@@ -97,4 +97,8 @@ export function registerThreadPlacesIpc({ manager }: { manager: Promise<ThreadMa
     const threadId = text(id)
     return (await manager).collisions(threadId)
   })
+  ipcMain.handle(channels.activeWriters, async (_event, rootPath: unknown) => {
+    const folder = text(rootPath)
+    return (await manager).activeWriters(folder)
+  })
 }

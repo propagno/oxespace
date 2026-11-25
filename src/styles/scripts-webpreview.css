@@ -381,14 +381,20 @@
   }
 }
 
+@container web-preview (max-width: 380px) {
+  .web-preview-design-toggle {
+    display: none;
+  }
+}
+
 @container web-preview (max-width: 355px) {
   .web-preview-design-toggle {
     display: none;
   }
 }
 
-/* OXE-353: a 960x720 window with the sidebar, the grid and the Browser leaves the panel about 271px. Back, Forward,
-   Reload, the address and "⋯" must fit: the address gives way first, and Go leaves (Enter in the address opens). */
+/* OXE-353 / OXE-376: a 960x720 window with the sidebar, the grid and the Browser leaves the panel 271-320px. Back,
+   Forward, Reload, the address and "⋯" must fit without Go squeezing the URL bar (Enter in the address opens). */
 @container web-preview (max-width: 340px) {
   .web-preview-address-input {
     flex: 1 1 96px;
@@ -402,6 +408,7 @@
 .web-preview-external-toggle {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   min-block-size: var(--target-min);
   gap: 5px;
   color: var(--tx-muted);
@@ -473,13 +480,32 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--bd-subtle);
   color: var(--tx-muted);
   background: var(--surface-raised);
   font-size: var(--fs-2xs);
+}
+
+.web-preview-agent-access > span {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@container web-preview (max-width: 440px) {
+  .web-preview-agent-access {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .web-preview-agent-access > span {
+    display: none;
+  }
 }
 
 /* ---------------------------------------------------------------------------
