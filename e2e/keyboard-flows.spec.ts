@@ -29,6 +29,9 @@ test('Thread composer: write, break lines, reach its controls and send without a
   try {
     await resizeWindow(app, 1280, 800)
     await installThreadFixtures(app, workspaceRoot)
+    await openDemoWorkspace(page, workspaceRoot)
+    await registerThreadProject(app, page, workspaceRoot)
+    await openThreadWithState(app, page, workspaceRoot, 'conversation')
     // Count what the composer sends, so Enter and Shift+Enter can be told apart.
     await app.evaluate(({ ipcMain }) => {
       const g = globalThis as Record<string, unknown>
@@ -36,9 +39,6 @@ test('Thread composer: write, break lines, reach its controls and send without a
       ipcMain.removeHandler('thread:send')
       ipcMain.handle('thread:send', (_event, ...args: unknown[]) => { (g.keyboardSends as unknown[]).push(args) })
     })
-    await openDemoWorkspace(page, workspaceRoot)
-    await registerThreadProject(app, page, workspaceRoot)
-    await openThreadWithState(app, page, workspaceRoot, 'conversation')
     const sends = () => app.evaluate(() => ((globalThis as Record<string, unknown>).keyboardSends as unknown[]).length)
 
     const message = page.getByRole('textbox', { name: 'Message', exact: true })

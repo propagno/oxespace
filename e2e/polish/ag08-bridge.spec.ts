@@ -32,15 +32,10 @@ test('AG-08 in the app: sends terminal selection to matching OxeChat thread draf
     await expect(sendItem).toBeVisible()
     await sendItem.click()
 
-    // App switches to OxeChat (main.thread-shell) and opens the matching conversation composer or new-conversation dialog
-    // with the fenced ```text draft preserved (without sending automatically).
+    // App switches to OxeChat (main.thread-shell) and opens the matching conversation composer or the in-place
+    // new-conversation screen (OXC-3) with the fenced ```text draft preserved (without sending automatically).
     await expect(page.locator('main.thread-shell')).toBeVisible({ timeout: 15_000 })
-    const newThreadForm = page.locator('#new-thread-form')
     const composer = page.locator('[data-thread-composer="true"]').first()
-    await expect(newThreadForm.or(composer).first()).toBeVisible({ timeout: 15_000 })
-    if (await newThreadForm.isVisible()) {
-      await page.getByRole('button', { name: 'Create conversation', exact: true }).click()
-    }
     await expect(composer).toBeVisible({ timeout: 15_000 })
     await expect(composer).toHaveValue(/```text/, { timeout: 10_000 })
   } finally {

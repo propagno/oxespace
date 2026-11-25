@@ -83,7 +83,7 @@ function fixture(events: unknown[], options: FxOptions = {}) {
     ...options.api
   }
   const clipboard = { writeText: vi.fn(async () => true) }
-  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
+  Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: api, clipboard, git: { getBranch: vi.fn(async () => ({ branch: 'feat/thread', detached: false, shortSha: null, error: null })), getDiffSummary: vi.fn(async () => ({ files: [], additions: 0, deletions: 0 })) }, github: { listBranches: vi.fn(async () => []), resolveWorktreeBase: vi.fn(async () => null), listWorktrees: vi.fn(async () => []) }, agentAccount: { read: vi.fn(async () => ({ provider: 'claude', scopeId: 'test', state: 'connected', method: 'subscription', checkedAt: 1 })) } } })
   const workspace = { id: 'ws', name: 'Repo', rootPath: '/repo', panes: [] } as unknown as Workspace
   useAccountStore.setState({ scopes: {}, snapshots: {} })
   useWorkspaceStore.setState({ workspaces: [workspace] })
@@ -112,7 +112,8 @@ const TURNS = [{ id: 'u1', sequence: 1, status: 'completed', configuration: {} }
 const view = (f: ReturnType<typeof fixture>) => render(<ThreadView workspace={f.workspace} />)
 
 beforeEach(() => { localStorage.clear() })
-afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
+const priorOxe = Object.getOwnPropertyDescriptor(window, 'oxe')
+afterEach(async () => { cleanup(); if (priorOxe) Object.defineProperty(window, 'oxe', priorOxe); else Reflect.deleteProperty(window, 'oxe'); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('A13 · the working-set bar on top of the composer (AG-10 §2.3)', () => {
   test.each(['en', 'pt-BR'] as const)('(%s) inside the composer card, before the message box: "2 files changed +128 −6", closed', async locale => {
