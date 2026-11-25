@@ -20,6 +20,10 @@
 /* ── Conversation row: a SidebarRow of two lines, then its mini card and its hover actions ── */
 .row { position: relative; min-width: 0; }
 .row > .item { border-radius: var(--radius-md); }
+/* OXC-5 (OXE-170): a parallel chat is a one-line row under its parent, its text at 40 px (padding, lead and gap), on a
+   --bd-strong guide that turns toward the row with a --radius-sm elbow. */
+.child > .item { padding-inline-start: var(--space-5); }
+.child::before { content: ''; position: absolute; inset-inline-start: var(--space-3); inset-block-start: 0; width: var(--space-2); height: 50%; border-inline-start: 1px solid var(--bd-strong); border-block-end: 1px solid var(--bd-strong); border-end-start-radius: var(--radius-sm); pointer-events: none; }
 .indicator { display: inline-flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); color: var(--tx-muted); }
 .indicator svg { flex-shrink: 0; color: currentColor; }
 .indicator[data-status='running'] { color: var(--intent-success-solid); }

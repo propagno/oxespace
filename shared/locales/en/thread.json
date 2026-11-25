@@ -1408,6 +1408,7 @@
     }
   },
   "sidebar": {
+    "newParallel": "New parallel conversation",
     "age": {
       "now": "now",
       "minutes_one": "{{count}}m",
@@ -2463,5 +2464,10 @@
       "see": "See schedules"
     },
     "footnote": "Schedules run only while OXESpace is open. They never run with full access or without approvals, and an agent cannot create one."
+  },
+  "parallel": {
+    "title": "New parallel conversation in {{title}}",
+    "notice": "This conversation works in the same folder and starts from the session's changes. Both see the same files.",
+    "locked": "session worktree"
   }
 }
