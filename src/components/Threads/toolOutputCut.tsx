@@ -1,4 +1,8 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
+import type { ToolOutputCutInfo } from '../../store/tool-output-cut.store'
+import { Button, Dialog, copyText } from '../../ui'
 
 function formatBytes(bytes: number, lang: string): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -34,4 +38,47 @@ export function cutNote(keptBytes: number, totalBytes?: number): string {
     return i18n.t('thread:toolOutputCut.withTotal', { kept, total })
   }
   return i18n.t('thread:toolOutputCut.keptOnly', { kept })
+}
+
+export function ToolOutputCutBanner({ cut, fullOutput, toolLabel }: { cut: ToolOutputCutInfo; fullOutput: string; toolLabel: string }) {
+  const { t } = useTranslation('thread')
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    const ok = await copyText(fullOutput)
+    if (ok) {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    }
+  }
+
+  return <>
+    <div className="thread-tool-cut-bar">
+      <p className="thread-tool-cut-note">{cutNote(cut.keptBytes, cut.totalBytes)}</p>
+      {fullOutput.length > 0 && (
+        <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+          {t('toolOutputCut.openFull')}
+        </Button>
+      )}
+    </div>
+    {open && (
+      <Dialog
+        size="xl"
+        title={t('toolOutputCut.modalTitle', { tool: toolLabel })}
+        description={cutNote(cut.keptBytes, cut.totalBytes)}
+        onClose={() => setOpen(false)}
+        actions={{
+          cancel: { label: t('common.close') },
+          extra: (
+            <Button size="sm" onClick={() => void handleCopy()}>
+              {copied ? t('toolOutputCut.copied') : t('toolOutputCut.copyFull')}
+            </Button>
+          )
+        }}
+      >
+        <pre className="thread-tool-full-output" data-ui="full-output">{fullOutput}</pre>
+      </Dialog>
+    )}
+  </>
 }

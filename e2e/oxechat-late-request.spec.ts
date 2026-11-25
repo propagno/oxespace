@@ -19,7 +19,7 @@ test('a request that arrives after the state change shows on the sidebar row', a
 
     // 1. Transition the conversation to 'approval' BEFORE any pending request exists.
     await app.evaluate(() => {
-      ;(globalThis as Record<string, (s: unknown) => void>).applyThreadState({
+      ;(globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState({
         status: 'approval',
         title: 'Update the Thread guide',
         events: [{ type: 'message', id: 'u1', role: 'user', text: 'Update the Thread guide' }]

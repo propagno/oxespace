@@ -35,7 +35,7 @@ for (const appearance of ['light', 'dark'] as Appearance[]) {
       await openDemoWorkspace(page, workspaceRoot)
       await registerThreadProject(app, page, workspaceRoot)
       await openThreadWithState(app, page, workspaceRoot, 'conversation')
-      await app.evaluate((_context, state) => { (globalThis as Record<string, (s: unknown) => void>).applyThreadState(state) }, destructive(workspaceRoot))
+      await app.evaluate((_context, state) => { (globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(state) }, destructive(workspaceRoot))
 
       const card = page.getByRole('region', { name: 'Approve command' })
       const exact = card.getByTestId('approval-exact')
@@ -118,7 +118,7 @@ for (const [width, height] of [[900, 620], [1440, 900]] as const) {
       await openDemoWorkspace(page, workspaceRoot)
       await registerThreadProject(app, page, workspaceRoot)
       await openThreadWithState(app, page, workspaceRoot, 'conversation')
-      await app.evaluate((_context, state) => { (globalThis as Record<string, (s: unknown) => void>).applyThreadState(state) }, longApproval(workspaceRoot))
+      await app.evaluate((_context, state) => { (globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(state) }, longApproval(workspaceRoot))
 
       const card = page.getByRole('region', { name: 'Approve command' })
       const exact = card.getByTestId('approval-exact')
