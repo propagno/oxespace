@@ -10,8 +10,9 @@ import { useViewSwitch } from './app/viewSwitch'; import { useOpenThreadListener
 import { setShownView } from './app/shownView'
 import { hasRememberedAppView, rememberAppView, startAppView } from './app/startView'
 import { SettingsCenter } from './components/Settings/SettingsHost'
-const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
-const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
+import { chunk, lazyFrom } from './lib/chunk'
+const FirstRunHost = lazyFrom(chunk(() => import('./components/Onboarding/FirstRunHost')), m => m.FirstRunHost)
+const DelegationNotice = lazyFrom(chunk(() => import('./components/Delegation/DelegationNotice')), m => m.DelegationNotice)
 import { useTranslation } from 'react-i18next'
 import { queueNewConversationDraft } from './components/Terminal/threadDraftBridge'
 import type { ToolId } from './components/Workspace/toolCatalog'
@@ -26,7 +27,7 @@ import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
 import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
 import { useAppThread, useCommandSnapshot, useThreadDraft } from './app/useAppThread'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
@@ -41,18 +42,18 @@ import { humanizeError } from './utils/humanizeError'
 const loadCommandContributors = () => import('./commands/CommandContributors')
 /** The activity center's producers, loaded after the first frame. */
 const loadActivitySources = () => import('./app/ActivitySources')
-const AgentConfigModal = lazy(() => import('./components/Agents/AgentConfigModal').then((m) => ({ default: m.AgentConfigModal })))
-const DesignSystemPage = lazy(() => import('./components/DesignSystem/DesignSystemPage').then((m) => ({ default: m.DesignSystemPage })))
-const DelegatedWorkDialog = lazy(() => import('./components/Delegation/DelegatedWorkDialog').then(m => ({ default: m.DelegatedWorkDialog })))
-const ProviderAccountsPanel = lazy(() => import('./components/Threads/ProviderAccountsPanel').then(m => ({ default: m.ProviderAccountsPanel })))
-const NewConversationScreen = lazy(() => import('./components/Threads/NewConversationScreen').then(m => ({ default: m.NewConversationScreen })))
-const AddThreadProjectDialog = lazy(() => import('./components/Threads/ThreadDialogs').then(m => ({ default: m.AddThreadProjectDialog })))
-const SlashOverlay = lazy(() => import('./components/SlashOverlay/SlashOverlay').then(m => ({ default: m.SlashOverlay })))
+const AgentConfigModal = lazyFrom(chunk(() => import('./components/Agents/AgentConfigModal')), (m) => m.AgentConfigModal)
+const DesignSystemPage = lazyFrom(chunk(() => import('./components/DesignSystem/DesignSystemPage')), (m) => m.DesignSystemPage)
+const DelegatedWorkDialog = lazyFrom(chunk(() => import('./components/Delegation/DelegatedWorkDialog')), m => m.DelegatedWorkDialog)
+const ProviderAccountsPanel = lazyFrom(chunk(() => import('./components/Threads/ProviderAccountsPanel')), m => m.ProviderAccountsPanel)
+const NewConversationScreen = lazyFrom(chunk(() => import('./components/Threads/NewConversationScreen')), m => m.NewConversationScreen)
+const AddThreadProjectDialog = lazyFrom(chunk(() => import('./components/Threads/ThreadDialogs')), m => m.AddThreadProjectDialog)
+const SlashOverlay = lazyFrom(chunk(() => import('./components/SlashOverlay/SlashOverlay')), m => m.SlashOverlay)
 // The palette waits for the command lists (T52), so its first opening never shows an empty or partial list.
-const CommandMenu = lazy(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()]).then(([m]) => ({ default: m.CommandMenu })))
-const UsageModal = lazy(() => import('./components/Usage/UsageModal').then(m => ({ default: m.UsageModal })))
-const CommandBarHost = lazy(() => import('./components/CommandBar/CommandBarHost').then(m => ({ default: m.CommandBarHost })))
-const ContainersPanel = lazy(() => import('./components/Containers/ContainersPanel').then((m) => ({ default: m.ContainersPanel })))
+const CommandMenu = lazyFrom(chunk(() => Promise.all([import('./components/CommandMenu/CommandMenu'), loadCommandContributors()])), ([m]) => m.CommandMenu)
+const UsageModal = lazyFrom(chunk(() => import('./components/Usage/UsageModal')), m => m.UsageModal)
+const CommandBarHost = lazyFrom(chunk(() => import('./components/CommandBar/CommandBarHost')), m => m.CommandBarHost)
+const ContainersPanel = lazyFrom(chunk(() => import('./components/Containers/ContainersPanel')), (m) => m.ContainersPanel)
 import { useBackgroundStore } from './store/background.store'
 import { useMcpStore } from './store/mcp.store'
 import { useSkillStore } from './store/skill.store'
@@ -63,11 +64,10 @@ import { openAgentPreview, type AgentPreviewApp } from './app/agentPreview'
 import { useNavigationPrefs } from './store/navigation-prefs.store'
 import { Sidebar } from './components/Sidebar/Sidebar'
 import type { WizardLaunchInput } from './components/Workspace/NewWorkspaceModal'
-const NewWorkspaceModal = lazy(() => import('./components/Workspace/NewWorkspaceModal').then((m) => ({ default: m.NewWorkspaceModal })))
+const NewWorkspaceModal = lazyFrom(chunk(() => import('./components/Workspace/NewWorkspaceModal')), (m) => m.NewWorkspaceModal)
 
 
 
-import { chunk, lazyFrom } from './lib/chunk'
 const WORKSPACE_SURFACE_CHUNK = chunk(() => import('./components/Workspace/WorkspaceSurface'))
 const WorkspaceSurface = lazyFrom(WORKSPACE_SURFACE_CHUNK, (m) => m.WorkspaceSurface)
 const NO_WORKSPACE_START_CHUNK = chunk(() => import('./components/Onboarding/NoWorkspaceStart'))
@@ -109,7 +109,7 @@ import { useTerminalPrefsStore, TERMINAL_PREFS_DEFAULTS, FONT_SIZE_MIN, FONT_SIZ
 import { RemotePairingHost } from './components/Remote/RemotePairingHost'
 /** macOS keeps its native application menu; Windows/Linux draw it in the title bar. */
 // Like the palette, the menu bar waits for the command lists (T52) so it never opens short.
-const AppMenuBar = lazy(() => Promise.all([import('./components/Navigation/AppMenuBar'), loadCommandContributors()]).then(([module]) => ({ default: module.AppMenuBar })))
+const AppMenuBar = lazyFrom(chunk(() => Promise.all([import('./components/Navigation/AppMenuBar'), loadCommandContributors()])), ([module]) => module.AppMenuBar)
 const IS_MAC = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 export function App(): ReactElement {
   const { t } = useTranslation()

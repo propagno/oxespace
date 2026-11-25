@@ -2,6 +2,7 @@ import { ChevronRight, ListChecks } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent, ThreadTurn } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
+import { Button } from '../../ui'
 import type { ThreadTurnFold } from './threadTimelineModel'
 
 /** `65 s` → `1m 5s`, the same wording as the turn footer and the reasoning label. */
@@ -48,10 +49,10 @@ export function turnFoldLabel(steps: number): string {
  */
 export function ThreadTurnFoldRow({ fold, turn, events, onToggle }: { fold: ThreadTurnFold; turn?: ThreadTurn; events?: readonly ThreadEvent[]; onToggle: () => void }) {
   const { t } = useTranslation('thread')
-  return <button type="button" className="thread-turn-fold" aria-expanded={fold.expanded} onClick={onToggle}
+  return <Button variant="ghost" size="sm" className="thread-turn-fold" aria-expanded={fold.expanded} onClick={onToggle}
     title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold" data-ui="turn-line">
     <ChevronRight size={14} aria-hidden="true" className="thread-turn-fold-chevron" />
     <ListChecks size={14} aria-hidden="true" />
     <span>{t('turnTiming.actions', { count: fold.steps })}</span>
-  </button>
+  </Button>
 }

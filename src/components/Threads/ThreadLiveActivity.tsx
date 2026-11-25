@@ -2,7 +2,7 @@ import { AlertCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Spinner } from '../../ui'
+import { Button, Spinner } from '../../ui'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStateCheck } from './useThreadStateCheck'
 import { threadToolSummary } from '../../../shared/threadToolSummary'
@@ -141,10 +141,10 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
         {activity.toolElapsed && !activity.stale && <span className="thread-live-activity-tool"> · {activity.toolElapsed}</span>}
         {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title={t('live.slowTitle')}>{t('live.slow')}</span>}</span>{diagnostics && <time title={t('live.turnTitle')} aria-label={t('live.turnElapsed', { time: activity.elapsed })}>{t('live.turn', { time: activity.elapsed })}</time>}
     </div>
-    {!activity.turnRunning && activity.taskIds.length > 0 && <button type="button" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
+    {!activity.turnRunning && activity.taskIds.length > 0 && <Button variant="secondary" size="sm" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
       setStopping(true)
       void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
-    }}>{stopping ? t('live.stopping') : t('live.stopWaiting')}</button>}
+    }}>{stopping ? t('live.stopping') : t('live.stopWaiting')}</Button>}
     {diagnostics && <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>{t('live.mayBeActive')}</span>}</>}</div>}
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>{t('live.checking')}</span> : check.observation && <span>{check.observation.state === 'running' ? t('live.confirmsActiveFull') : check.observation.state === 'awaiting-input' ? t('live.waitingInputFull') : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? t('live.reportsState', { state: t(`live.state.${check.observation.state}`) }) : t('live.notConfirmed')}</span>}
