@@ -1,0 +1,13 @@
+{
+  // OXE-303: the e2e specs and helpers under the repository's strict typecheck (npm run typecheck). window.oxe comes
+  // from the renderer's declaration, js-yaml's from the main process's shim. e2e/acceptance/** is left out: those specs
+  // are frozen acceptance tests (written before their code, run by their own config); typing them is its own card.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "types": ["node"]
+  },
+  "include": ["e2e/**/*.ts", "vite-env.d.ts", "src/types/window.d.ts", "electron/main/services/repo-config/js-yaml.d.ts"],
+  "exclude": ["e2e/acceptance/**", "e2e/out/**"]
+}

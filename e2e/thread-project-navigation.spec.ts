@@ -35,7 +35,7 @@ test('Thread projects and conversations survive restart without creating Code wo
     }
     await add(first); await add(second); await add(first)
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
-    const codeId = await page.evaluate(async directory => (await window.oxe.workspace.create({ rootPath: directory, autoStart: false })).id, codeOnly)
+    const codeId = await page.evaluate(async directory => (await window.oxe.workspace.create({ rootPath: directory, autoStart: false }) as { id: string }).id, codeOnly)
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     expect(await page.evaluate(async () => (await window.oxe.workspace.list()).length)).toBe(1)
     await modeButton(page, 'code').click()

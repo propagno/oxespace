@@ -25,7 +25,7 @@ function history(turns: number): unknown[] {
 }
 
 async function apply(app: ElectronApplication, state: { status: string; events: unknown[]; extra?: Record<string, unknown> }): Promise<void> {
-  await app.evaluate((_context, payload) => { (globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload) }, { title: 'Retries', provider: 'claude', ...state })
+  await app.evaluate((_context, payload) => { (globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(payload) }, { title: 'Retries', provider: 'claude', ...state })
 }
 
 async function startSampling(page: Page): Promise<void> {

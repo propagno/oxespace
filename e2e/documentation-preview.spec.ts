@@ -254,7 +254,7 @@ test('documentation uses the real guest, confirms actions and masks capture inpu
     try { await expect(page.getByTestId('browser-preview-native')).toHaveCount(1) }
     catch (error) {
       // Linux CI intermittently shows no host after Retry; print the state so the next failure carries its own evidence.
-      const state = await page.locator('.web-preview-stage').evaluate(el => el.innerText.slice(0, 400)).catch(() => 'stage unavailable')
+      const state = await page.locator('.web-preview-stage').evaluate(el => (el as HTMLElement).innerText.slice(0, 400)).catch(() => 'stage unavailable')
       const tabs = await page.locator('.web-preview-tab').evaluateAll(items => items.map(item => item.getAttribute('data-active') + ':' + item.textContent?.slice(0, 40))).catch(() => [])
       const guests = await app.evaluate(({webContents}) => webContents.getAllWebContents().map(contents => contents.getType() + ' ' + contents.getURL().slice(0, 80))).catch(() => [])
       console.log('[doc-preview diag] stage=' + JSON.stringify(state) + ' tabs=' + JSON.stringify(tabs) + ' guests=' + JSON.stringify(guests) + ' renderer=' + JSON.stringify(rendererLog.slice(-12)))

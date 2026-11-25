@@ -37,7 +37,7 @@ export function packagedLauncher(): MaturityFlowsOptions['launch'] {
     // A packaged build ignores OXESPACE_DB_PATH (T50): the flows' database is <root>/oxespace.sqlite3, which is
     // where the app keeps it when --user-data-dir is <root>.
     const args = env.OXESPACE_DB_PATH ? [`--user-data-dir=${dirname(env.OXESPACE_DB_PATH)}`] : []
-    return electron.launch({ executablePath, args, env: { ...process.env, ...env } })
+    return electron.launch({ executablePath, args, env: { ...process.env, ...env } as Record<string, string> })
   }
 }
 
@@ -93,7 +93,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
       const contents = await app.evaluate(({ webContents }) => webContents.getAllWebContents()
         .filter(item => !item.isDestroyed() && ['window', 'webview', 'browserView'].includes(item.getType()))
         .map(item => {
-          const preferences = item.getLastWebPreferences() ?? {}
+          const preferences = (item as unknown as { getLastWebPreferences(): Electron.WebPreferences | null }).getLastWebPreferences() ?? {}
           return { type: item.getType(), contextIsolation: preferences.contextIsolation, nodeIntegration: preferences.nodeIntegration, sandbox: preferences.sandbox }
         }))
       expect(contents.length, 'at least the main window').toBeGreaterThan(0)
