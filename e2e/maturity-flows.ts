@@ -73,6 +73,20 @@ async function userVersion(databasePath: string): Promise<number> {
   }
 }
 
+async function openSinglePaneWorkspace(page: Page, workspace: string): Promise<void> {
+  await page.getByTestId('btn-new-workspace').click()
+  await page.getByTestId('wizard-dir-input').fill(workspace)
+  await page.getByTestId('wizard-layout-card-1').click()
+  // This helper leaves the first run itself: the unpackaged harness must not click too (OXE-390).
+  await page.evaluate(() => { (window as unknown as { __oxeE2eHelperLeaves?: boolean }).__oxeE2eHelperLeaves = true })
+  await page.getByTestId('wizard-launch-btn').click()
+  // OXE-331: a workspace made from the first run leaves it on screen; its footer OxeCode opens the workspace.
+  await page.getByTestId('wizard-launch-btn').waitFor({ state: 'hidden', timeout: 30_000 })
+  const firstRun = page.getByTestId('first-run')
+  if (await firstRun.isVisible()) await firstRun.getByRole('button', { name: /^OxeCode\b/ }).click({ timeout: 5_000 }).catch(() => undefined)
+  await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+}
+
 export function registerMaturityFlows(options: MaturityFlowsOptions): void {
   const { label, platform } = options
   const guard = (): void => { if (platform) test.skip(process.platform !== platform, `${label} maturity flows`) }
@@ -84,11 +98,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     const { app, page } = await boot(options, dirs.database)
     try {
       // Open a Web Preview so a guest exists, not only the main window.
-      await page.getByTestId('btn-new-workspace').click()
-      await page.getByTestId('wizard-dir-input').fill(dirs.workspace)
-      await page.getByTestId('wizard-layout-card-1').click()
-      await page.getByTestId('wizard-launch-btn').click()
-      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+      await openSinglePaneWorkspace(page, dirs.workspace)
 
       const contents = await app.evaluate(({ webContents }) => webContents.getAllWebContents()
         .filter(item => !item.isDestroyed() && ['window', 'webview', 'browserView'].includes(item.getType()))
@@ -150,11 +160,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     seed(dirs.workspace)
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.getByTestId('btn-new-workspace').click()
-      await page.getByTestId('wizard-dir-input').fill(dirs.workspace)
-      await page.getByTestId('wizard-layout-card-1').click()
-      await page.getByTestId('wizard-launch-btn').click()
-      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+      await openSinglePaneWorkspace(page, dirs.workspace)
 
       // Open Settings › Integrations › GitHub and verify the "gh auth login" command and copy button.
       await page.getByRole('button', { name: /Open settings/i }).first().click()
@@ -176,11 +182,7 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     seed(dirs.workspace)
     const { app, page } = await boot(options, dirs.database)
     try {
-      await page.getByTestId('btn-new-workspace').click()
-      await page.getByTestId('wizard-dir-input').fill(dirs.workspace)
-      await page.getByTestId('wizard-layout-card-1').click()
-      await page.getByTestId('wizard-launch-btn').click()
-      await page.waitForSelector('[data-testid="workspace-grid"], [data-testid="workspace-split-grid"]', { timeout: 30_000 })
+      await openSinglePaneWorkspace(page, dirs.workspace)
       await togglePanel(page, 'Files')
       const panel = page.getByTestId('workspace-editor-panel')
       await expect(panel).toBeVisible()
