@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { ArrowUp, AtSign, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PreviewElementRef } from '../../../shared/types/design-mode'
@@ -19,21 +19,21 @@ import { composerHints } from './composerModel'
 import { deriveComposerHintStatus } from './threadComposerState'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { isSendKey, sendKeyEvent, sendKeyLabel } from './sendKey'
+import { useThreadCommands } from './useThreadCommands'
+import { useFileMentions } from './useFileMentions'
 
 /** How long a first Escape keeps the stop armed for the second one (OXE-338). */
 const STOP_ESCAPE_WINDOW_MS = 2000
 
-/** The parts of useThreadCommands / useFileMentions the composer wires into its textarea. */
-interface CommandInput {
-  popup: ReactNode
-  open: boolean
+// Stable empty references so Zustand selectors never return a fresh array on every read.
+const NO_ATTACHMENTS: ThreadAttachment[] = []
+const NO_PREVIEW_ELEMENTS: PreviewElementRef[] = []
+
+/** Imperative bridge from ThreadView to the composer's slash-command state without lifting keystroke state up (OXE-348). */
+export interface ThreadComposerCommandsHandle {
+  isOpen: () => boolean
   show: () => void
-  inputProps: object
-  onChange: (value: string, caret: number) => void
-  onSelect: (caret: number) => void
-  onFocus: () => void
-  onBlur: () => void
-  onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean
+  executeLocal: (text: string) => boolean
 }
 
 export interface CompactComposerChipsConfig {
@@ -48,19 +48,15 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, draft, attachments, previewElements = [], pending, running, active, composerState, textarea, fileInput, commands, mentions, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInsertMention, onInterrupt, onCaret }: {
+export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onNewThread, onAccounts }: {
   snapshot: ThreadSnapshot | null
-  draft: string
-  attachments: ThreadAttachment[]
-  previewElements?: readonly PreviewElementRef[]
   pending: boolean
   running: boolean
   active: boolean
   composerState: string
   textarea: RefObject<HTMLTextAreaElement | null>
   fileInput: RefObject<HTMLInputElement | null>
-  commands: CommandInput
-  mentions: { popup: ReactNode; onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => boolean }
+  commandsRef?: RefObject<ThreadComposerCommandsHandle | null>
   openControl: 'model' | 'effort' | 'permissions' | null
   compactChips?: CompactComposerChipsConfig
   workingSet?: ReactNode
@@ -70,12 +66,50 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
   onUpload: (files: File[]) => void
   onRemoveAttachment: (attachmentId: string) => void
   onRemovePreviewElement?: (elementId: string) => void
-  onInsertMention: () => void
   onInterrupt: () => void
-  onCaret: (caret: number) => void
+  onRunAction: (run: () => Promise<unknown>) => Promise<void>
+  onRunCommand: (text: string) => void
+  onNewThread?: () => void
+  onAccounts?: () => void
 }) {
   const { t } = useTranslation('thread')
   const sendKey = useThreadPrefs(state => state.sendKey)
+  const threadId = snapshot?.thread.id
+  // Subscribing inside the composer isolates every keystroke, caret move, attachment and preview chip
+  // from ThreadView so typing never re-renders the message timeline or header (OXE-348).
+  const draft = useThreadStore(state => threadId ? state.drafts[threadId] ?? '' : '')
+  const attachments = useThreadStore(state => threadId ? state.attachments[threadId] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
+  const previewElements = useThreadStore(state => threadId ? state.previewElements[threadId] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
+  const [caret, setCaret] = useState(0)
+  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: onRunAction, onNewThread, onAccounts, onRunCommand, onError })
+  useImperativeHandle(commandsRef, () => ({
+    isOpen: () => commands.open,
+    show: commands.show,
+    executeLocal: commands.executeLocal
+  }))
+  const mentions = useFileMentions({
+    workspaceId: snapshot?.thread.workspaceId,
+    rootPath: snapshot?.thread.rootPath,
+    draft,
+    caret,
+    enabled: Boolean(snapshot) && !pending,
+    onApply: (text, position) => {
+      if (!snapshot) return
+      useThreadStore.getState().setDraft(snapshot.thread.id, text)
+      requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(position, position); setCaret(position) })
+    }
+  })
+  const insertMention = (): void => {
+    if (!snapshot) return
+    const field = textarea.current
+    const currentDraft = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
+    const position = field?.selectionStart ?? currentDraft.length
+    const needsSpace = position > 0 && !/\s/.test(currentDraft[position - 1] ?? '')
+    const text = currentDraft.slice(0, position) + (needsSpace ? ' @' : '@') + currentDraft.slice(position)
+    const next = position + (needsSpace ? 2 : 1)
+    useThreadStore.getState().setDraft(snapshot.thread.id, text)
+    requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(next, next); setCaret(next) })
+  }
   const formRef = useRef<HTMLFormElement>(null)
   const [narrow, setNarrow] = useState(false)
   const [compactModel, setCompactModel] = useState(false)
@@ -139,7 +173,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
-      onChange={e => { onCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { onCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
+      onChange={e => { setCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { setCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (isSendKey(sendKeyEvent(e), sendKey)) { e.preventDefault(); if (!tooLong) onSend() } else if (e.key === 'Escape' && running) { e.preventDefault(); e.stopPropagation(); escapeToStop() } }} />
     <footer data-ui="composer-toolbar" data-width={narrow ? 'narrow' : 'full'}>
@@ -148,7 +182,7 @@ export function ThreadComposerForm({ snapshot, draft, attachments, previewElemen
         <button type="button" data-ui="segment" data-mode="plan" aria-pressed={planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(true)}>{t('config.plan')}</button>
       </div>}
       <Menu label={t('composer.context')} side="top" items={[
-        { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: onInsertMention },
+        { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: insertMention },
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { label: t('composer.commands'), icon: <Slash size={14} />, shortcut: 'Ctrl+/', disabled: blocked, onSelect: commands.show },
         { label: t('moreActions.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
