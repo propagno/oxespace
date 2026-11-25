@@ -21,7 +21,7 @@ import './ThreadHeaderChrome.css'
 /** The conversation's DockPanel each shared panel opens (the Browser is the conversation's preview). */
 const THREAD_PANEL_OF: Partial<Record<WorkbenchPanelId, ThreadPanel>> = {
   session: 'session', terminal: 'terminal', changes: 'changes', browser: 'preview', git: 'git', files: 'files', search: 'search', background: 'background',
-  queries: 'queries', containers: 'containers'
+  httpCalls: 'network', queries: 'queries', containers: 'containers'
 }
 
 /** The badge's short count: none at 0, "99+" above 99 (OXC-4). */
@@ -219,7 +219,7 @@ export function ThreadHeader({
             {thread && THREAD_BAR_PANELS.flatMap(panelItem).map(item => (
               <WorkbenchPanelToggle key={item.id} ui="panel-toggle" iconOnly className="thread-header-panel" item={item} />
             ))}
-            {thread && <WorkbenchPanelMenu items={[...THREAD_MENU_PANELS, ...toolPanels].flatMap(panelItem)} />}
+            {thread && <WorkbenchPanelMenu items={[...new Set([...THREAD_MENU_PANELS, ...toolPanels])].flatMap(panelItem)} />}
             {thread && <span className="thread-heading-separator" aria-hidden="true" />}
             <Menu
               label={t('header.moreActions')}
