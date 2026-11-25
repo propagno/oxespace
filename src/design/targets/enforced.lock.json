@@ -106,6 +106,7 @@
     "BRD-04.tabs.count",
     "BRD-04.panel-toggle.height",
     "BRD-04.panel-toggle.count",
-    "BRD-04.raw-button.count"
+    "BRD-04.raw-button.count",
+    "BRD-02.row1.height"
   ]
 }

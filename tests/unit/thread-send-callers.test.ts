@@ -29,9 +29,9 @@ const CALL_SITES = [
   // Delivery note and failure card: stored text.
   'src/components/Threads/ThreadMessageRow.tsx send 1',
   'src/components/Threads/ThreadTimelineEntry.tsx send 1',
-  // send: the composer, the status line's Retry, the sign-in strip's Retry (legacy failures) and the sign-in failure
+  // send: the composer, the sign-in strip's Retry (legacy failures) and the sign-in failure
   // card's Try again once the account is connected again (LOGIN A, OXE-388): stored text. Typed: the composer only.
-  'src/components/Threads/ThreadView.tsx send 4',
+  'src/components/Threads/ThreadView.tsx send 3',
   'src/components/Threads/ThreadView.tsx sendTyped 1',
   'src/components/Threads/ThreadView.tsx steer 1',
   'src/components/Threads/ThreadView.tsx steerTyped 1'

@@ -136,7 +136,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-02.row-title.font-size",

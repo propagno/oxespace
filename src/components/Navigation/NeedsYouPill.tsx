@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import { connectAttentionFeed } from '../../store/activity.feed'
 import { useActivityStore } from '../../store/activity.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { cx } from '../../ui'
-import { NeedsYouQueue, pendingCount, useAgentsOverview, withWaitingPanes } from './NeedsYouQueue'
+import { pendingCount, useAgentsOverview, withWaitingPanes } from './needsYouModel'
 import styles from './TitleBar.module.css'
 
 connectAttentionFeed()
+
+const QUEUE_CHUNK = chunk(() => import('./NeedsYouQueue'))
+const NeedsYouQueue = lazyFrom(QUEUE_CHUNK, module => module.NeedsYouQueue)
+const preloadQueue = (): void => { void QUEUE_CHUNK.load().catch(() => undefined) }
 
 /**
  * Title-bar needs-you pill (BRD-09, BRD-10): there only while something waits on a person. Its number is the queue's
@@ -26,6 +31,8 @@ export function NeedsYouPill(): ReactElement {
   const count = pendingCount(agents)
   const [open, setOpen] = useState(false)
   const pill = useRef<HTMLButtonElement>(null)
+  const hasPending = count > 0
+  useEffect(() => { if (hasPending) preloadQueue() }, [hasPending])
   useEffect(() => { if (count === 0 && open) setOpen(false) }, [count, open])
   const close = useCallback((restore: boolean) => {
     if (restore) pill.current?.focus()
@@ -49,12 +56,14 @@ export function NeedsYouPill(): ReactElement {
         data-testid="needs-you-pill"
         aria-haspopup="dialog"
         aria-expanded={open}
+        onPointerEnter={preloadQueue}
+        onFocus={preloadQueue}
         onClick={() => setOpen(value => !value)}
       >
         <span className={styles.sun} aria-hidden="true" />
         <span>{t('attention.needsYou', { count })}</span>
       </button>
-      {open && <NeedsYouQueue agents={agents} anchor={pill} onClose={close} />}
+      {open && <Suspense fallback={null}><NeedsYouQueue agents={agents} anchor={pill} onClose={close} /></Suspense>}
     </>
   )
 }
