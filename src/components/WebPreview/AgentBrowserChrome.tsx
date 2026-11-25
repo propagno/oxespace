@@ -40,13 +40,15 @@ export function AgentBrowserChrome({ ownerKey, tabId, agentName, footerLeft = nu
   const [devToolsOpen, setDevToolsOpen] = useState(false)
   const [drawer, setDrawer] = useState<'console' | 'network' | null>(null)
 
-  useEffect(() => {
+  const [prevScope, setPrevScope] = useState({ ownerKey, tabId })
+  if (prevScope.ownerKey !== ownerKey || prevScope.tabId !== tabId) {
+    setPrevScope({ ownerKey, tabId })
     setGrant(null)
     setSteps([])
     setConsoleRows([])
     setNetworkRows([])
     setDevToolsOpen(false)
-  }, [ownerKey, tabId])
+  }
 
   useEffect(() => {
     const subscribe = window.oxe?.browserPreview?.onEvent
