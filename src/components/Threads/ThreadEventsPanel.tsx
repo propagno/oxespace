@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ThreadDebugPage, ThreadDebugRow } from '../../../shared/types/thread'
 import { useTranslation } from 'react-i18next'
-import { EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
+import { Button, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { formatClock, formatNumber } from '../../utils/formatTime'
 import { humanizeError } from '../../utils/humanizeError'
 import './ThreadEventsPanel.css'
@@ -57,7 +57,7 @@ export default function ThreadEventsPanel({ threadId }: { threadId: string }) {
     {error && <ErrorState compact title={error} />}
     <div className="thread-events-bar">
       <TextField aria-label={t('events.filter')} type="search" value={filter} maxLength={500} placeholder={FILTER_SYNTAX} onChange={event => setFilter(event.target.value)} />
-      <button type="button" disabled={rows.length === 0} onClick={() => void copy()}>{copied ? t('events.copied') : t('events.copy')}</button>
+      <Button size="sm" variant="secondary" disabled={rows.length === 0} onClick={() => void copy()}>{copied ? t('events.copied') : t('events.copy')}</Button>
     </div>
     {page === null ? <LoadingState label={t('common.loading')} /> : <p className="thread-events-note" role="status">
       {t('events.shown', { shown: formatNumber(rows.length), count: page.matched })}
@@ -65,14 +65,14 @@ export default function ThreadEventsPanel({ threadId }: { threadId: string }) {
     </p>}
     <div className="thread-events-body">
       <ol className="thread-events-list" aria-label={t('events.list')}>
-        {page?.hasMore && <li><button type="button" className="thread-events-more" onClick={() => void load(filter, rows[0]?.seq)}>{t('events.earlier')}</button></li>}
+        {page?.hasMore && <li><Button size="sm" variant="secondary" className="thread-events-more" onClick={() => void load(filter, rows[0]?.seq)}>{t('events.earlier')}</Button></li>}
         {rows.map(row => <li key={row.seq}>
-          <button type="button" aria-pressed={row.seq === selected} className={`thread-events-row${row.state === 'failed' || row.exitCode ? ' is-failed' : ''}`} onClick={() => setSelected(row.seq === selected ? null : row.seq)}>
+          <Button variant="ghost" size="sm" aria-pressed={row.seq === selected} className={`thread-events-row${row.state === 'failed' || row.exitCode ? ' is-failed' : ''}`} onClick={() => setSelected(row.seq === selected ? null : row.seq)}>
             <time>{clock(row.createdAt)}</time>
             <span className="thread-events-type">{row.type}</span>
             <span className="thread-events-label">{row.label}</span>
             <span className="thread-events-meta">{[row.state, row.exitCode !== undefined ? t('events.exit', { code: row.exitCode }) : '', duration(row.durationMs)].filter(Boolean).join(' · ')}</span>
-          </button>
+          </Button>
         </li>)}
         {page && rows.length === 0 && <li><EmptyState compact title={filter.trim() ? t('events.noMatch') : t('events.none')} /></li>}
       </ol>

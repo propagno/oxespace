@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadTimelineItem } from './threadTimelineModel'
 import { findRows, textRanges } from './threadFind'
-import { TextField } from '../../ui'
+import { IconButton, TextField } from '../../ui'
 
 type Highlights = { set(name: string, value: unknown): void; delete(name: string): void }
 const highlights = (): Highlights | undefined => (globalThis.CSS as unknown as { highlights?: Highlights } | undefined)?.highlights
@@ -61,8 +61,8 @@ export function ThreadFindBar({ rows, scrollRoot, scrollTo, onClose }: {
         else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose() }
       }} />
     <span role="status" aria-live="polite">{query.trim() ? matches.length ? t('find.position', { current: Math.min(current, matches.length - 1) + 1, total: matches.length }) : t('find.none') : ''}</span>
-    <button type="button" aria-label={t('find.previous')} title={t('find.previousTitle')} disabled={!matches.length} onClick={() => step(-1)}><ChevronUp size={14} /></button>
-    <button type="button" aria-label={t('find.next')} title={t('find.nextTitle')} disabled={!matches.length} onClick={() => step(1)}><ChevronDown size={14} /></button>
-    <button type="button" aria-label={t('find.close')} title={t('find.closeTitle')} onClick={onClose}><X size={14} /></button>
+    <IconButton size="sm" label={t('find.previous')} title={t('find.previousTitle')} disabled={!matches.length} icon={<ChevronUp size={14} aria-hidden="true" />} onClick={() => step(-1)} />
+    <IconButton size="sm" label={t('find.next')} title={t('find.nextTitle')} disabled={!matches.length} icon={<ChevronDown size={14} aria-hidden="true" />} onClick={() => step(1)} />
+    <IconButton size="sm" label={t('find.close')} title={t('find.closeTitle')} icon={<X size={14} aria-hidden="true" />} onClick={onClose} />
   </div>
 }

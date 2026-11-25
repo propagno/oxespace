@@ -222,7 +222,8 @@ describe('design lint', () => {
       // OXE-169 (F5 T17): the chat header's Mais ações, the timeline's Load earlier and the three turn actions (Copy code,
       // Quote in reply, Copy final response; CR-62's chat-column measure) are src/ui primitives, 333.
       // OXE-152 (Part A: A2 requests/approvals, A3 changes/review, A4 timeline rows, A6 project terminal/commands): 264.
-      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(264)
+      // OXE-152 (Part B: A1 composer/configuration, A5 conversation frame, A7 src/components/Threads at zero): 223.
+      expect(count(tsx, /<button\b/g)).toBeLessThanOrEqual(223)
     })
     it('alerts outside the primitives do not grow; use <ErrorState> or a field error', () => {
       expect(count(tsx, /role="alert"/g)).toBeLessThanOrEqual(0)
