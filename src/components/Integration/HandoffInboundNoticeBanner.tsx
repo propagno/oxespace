@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import type { ReactElement } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { HandoffInboundNotice } from '../../../shared/types/handoff-notice'
 import { IconButton, Notice } from '../../ui'
 
@@ -14,14 +15,15 @@ export interface HandoffInboundNoticeBannerProps {
  * or renders autofocused controls so typing focus in the pane is never stolen.
  */
 export function HandoffInboundNoticeBanner({ notices, onDismiss }: HandoffInboundNoticeBannerProps): ReactElement | null {
+  const { t } = useTranslation('code')
   if (notices.length === 0) return null
   return (
     <div data-testid="handoff-inbound-notices" aria-live="polite">
       {notices.map(notice => {
         const file = notice.relativePath ?? notice.filePath
         const title = notice.kind === 'peer-reply'
-          ? `Reply from ${notice.origin.label}`
-          : `Handoff updated by ${notice.origin.label}`
+          ? t('integration.handoff.inboundReplyTitle', { origin: notice.origin.label })
+          : t('integration.handoff.inboundUpdatedTitle', { origin: notice.origin.label })
         return (
           <Notice
             key={notice.id}
@@ -31,7 +33,7 @@ export function HandoffInboundNoticeBanner({ notices, onDismiss }: HandoffInboun
               <IconButton
                 size="sm"
                 variant="ghost"
-                label="Dismiss handoff notice"
+                label={t('integration.handoff.dismissNotice')}
                 icon={<X size={12} aria-hidden="true" />}
                 onClick={() => onDismiss(notice.id)}
               />
