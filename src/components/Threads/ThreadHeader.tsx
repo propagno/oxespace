@@ -32,7 +32,9 @@ function changesBadge(count: number): string | undefined {
 /**
  * The quiet header of AG-10 §2.6 (OXE-167) with OXC-4's panels (OXE-169): the title, the conversation's own worktree
  * when it has one, the collision chip (frozen 1.5.0 CR-F4-8), then the four panel toggles of THREAD_BAR_PANELS, Mais
- * painéis, a separator and the ⋯ menu in four groups. The panels open to the right, one at a time.
+ * painéis, a separator and the ⋯ menu in four groups. The panels open to the right, one at a time. The agent ·
+ * workspace?.name · access line and the NowLine strip are no longer drawn here: the sidebar and the composer say them,
+ * the request and failure cards own their actions.
  */
 export function ThreadHeader({
   thread,
