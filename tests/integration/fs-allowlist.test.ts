@@ -300,7 +300,18 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/android/android-devices.ts',
   // F11 (A65): exports the local feature-usage summary JSON only to the path chosen in Electron's native save dialog
   // (mode 0600); never reads files and never accepts a path from the renderer.
-  'electron/main/services/usage/usage-count.ts'
+  'electron/main/services/usage/usage-count.ts',
+  // OXE-298 (CA-2): pre-validates optional Git worktree paths for cross-provider handoffs (stat + realpath only,
+  // matched against `git worktree list --porcelain`). Never reads or writes file contents.
+  'electron/main/services/handoff/worktree-ref.ts',
+  // OXE-298 (CA-3): ApprovalCenter-gated cross-session attachment transfer. Validates canonical containment inside
+  // origin and destination roots, rejects traversal/symlinks/sensitive files, enforces count/byte caps, and re-checks
+  // realpath containment before copying files only after explicit user approval.
+  'electron/main/services/handoff/attachment-transfer.ts',
+  // OXE-298 (CA-1): watches the parent directory of a validated workspace-contained handoff file (for atomic rename
+  // saves) and reads bounded bytes (<= 2 MiB) after realpath containment check solely to compute a SHA-256 fingerprint
+  // for debounced/deduped passive notices. Never writes files.
+  'electron/main/services/handoff/handoff-watcher.ts'
 ])
 
 describe('workspace fs allowlist', () => {

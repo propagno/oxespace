@@ -1,3 +1,6 @@
+import type { WorkspaceAccessLevel } from '../access-ceiling'
+export { DEFAULT_WORKSPACE_ACCESS_CEILING, WORKSPACE_ACCESS_LEVELS, type WorkspaceAccessLevel } from '../access-ceiling'
+
 export type WorkspaceLayout = '1x1' | '1x2' | '2x1' | '2x2' | '2x3' | '2x4' | '2x5' | '2x7' | '3x4' | '4x4'
 
 export type WorkspaceLayoutPreset = 1 | 2 | 4 | 6 | 8 | 10 | 12 | 14 | 16
@@ -63,6 +66,8 @@ export interface Workspace {
   isActive: boolean
   /** Chosen workspace color slot 1–8 (shared/workspace-color.ts); null = derived from the id. */
   color: number | null
+  /** OXE-327: Maximum agent access level allowed in this workspace (`min(workspaceCeiling, sessionAccess)`). */
+  accessCeiling?: WorkspaceAccessLevel
   editorVisible?: boolean
   editorExpanded?: boolean
   editorWidthPercent?: number
@@ -160,4 +165,6 @@ export interface UpdateWorkspaceSettingsInput {
   applyShellToIdlePanes?: boolean
   /** Workspace color slot 1–8; null clears it; undefined leaves it as is. */
   color?: number | null
+  /** OXE-327: Workspace access ceiling (`read-only` | `workspace-write` | `full-access`). */
+  accessCeiling?: WorkspaceAccessLevel
 }

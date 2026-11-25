@@ -9,6 +9,7 @@
  * No Electron import here: the window, the native dialog and the clock are injected, so the rules run in plain tests.
  */
 import { createHash, randomUUID } from 'node:crypto'
+import { accessSatisfies, approvalRequiredAccess, effectiveAccess, type WorkspaceAccessLevel } from '../../../../shared/access-ceiling'
 import { agentTextAdmission, allowTooSoon, approvalPacing, approvalRequestProblems, approvalSurface, boundAgentText } from '../../../../shared/approval-rules'
 import { hasHiddenCharacters } from '../../../../shared/hidden-characters'
 import { mainMessage, type MainMessage } from '../../../../shared/messages'
@@ -30,6 +31,14 @@ export type ApprovalDraft = Omit<ApprovalRequest, 'schemaVersion' | 'id' | 'gene
    * cuts it (`truncated: true`) and offers deny options only, at any risk.
    */
   cutLongText?: boolean
+  /** OXE-327: Workspace id used to resolve the configured workspace access ceiling when `workspaceCeiling` is omitted. */
+  workspaceId?: string | null
+  /** OXE-327: Workspace access ceiling; effective access is `min(workspaceCeiling, sessionAccess)`. */
+  workspaceCeiling?: WorkspaceAccessLevel
+  /** OXE-327: Session's requested access level; capped by `workspaceCeiling`. */
+  sessionAccess?: WorkspaceAccessLevel
+  /** OXE-327: Minimum access level required for this approval; derived from requester/risk/options when omitted. */
+  requiredAccess?: WorkspaceAccessLevel
 }
 
 export interface ApprovalOutcome {
@@ -61,6 +70,8 @@ export interface ApprovalCenterDeps {
   timeoutMs?: number
   ackTimeoutMs?: number
   queueMax?: number
+  /** OXE-327: Resolves a workspace's configured access ceiling by workspace id. */
+  workspaceCeiling?(workspaceId: string): WorkspaceAccessLevel | undefined
 }
 
 interface Entry {
@@ -90,8 +101,16 @@ export class ApprovalCenter {
   private readonly pending = new Map<string, Entry>()
   private readonly answered = new Set<string>()
   private readonly decisions: ApprovalHistoryEntry[] = []
+  private workspaceCeilingLookup?: (workspaceId: string) => WorkspaceAccessLevel | undefined
 
-  constructor(private readonly deps: ApprovalCenterDeps) {}
+  constructor(private readonly deps: ApprovalCenterDeps) {
+    this.workspaceCeilingLookup = deps.workspaceCeiling
+  }
+
+  /** OXE-327: Wires live workspace access ceiling lookup after startup (see wiring.ts). */
+  setWorkspaceCeilingLookup(lookup: (workspaceId: string) => WorkspaceAccessLevel | undefined): void {
+    this.workspaceCeilingLookup = lookup
+  }
 
   private now(): number { return this.deps.now?.() ?? Date.now() }
 
@@ -102,6 +121,16 @@ export class ApprovalCenter {
   ask(draft: ApprovalDraft, signal?: AbortSignal, onAsked?: (request: ApprovalRequest) => void): Promise<ApprovalOutcome> {
     const now = this.now()
     const request = this.build(draft, now, randomUUID(), 1)
+    const ceiling = draft.workspaceCeiling ?? (draft.workspaceId ? this.workspaceCeilingLookup?.(draft.workspaceId) : undefined)
+    const effective = effectiveAccess(ceiling, draft.sessionAccess)
+    const required = draft.requiredAccess ?? approvalRequiredAccess({
+      requesterKind: request.requester.kind,
+      risk: request.risk,
+      hasSessionReadOption: request.options.some(option => option.intent === 'allow-session')
+    })
+    if (!accessSatisfies(effective, required)) {
+      return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.accessCeiling', { effective, required })))
+    }
     if (agentTextAdmission(request.agentText.length, request.risk) === 'refuse' && !draft.cutLongText) return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.tooLong', { max: APPROVAL_AGENT_TEXT_MAX })))
     const max = this.deps.queueMax ?? APPROVAL_QUEUE_MAX
     if (this.pending.size >= max) return Promise.resolve(this.refuse(request, mainMessage('approvals.denied.queueFull', { max })))
@@ -142,7 +171,7 @@ export class ApprovalCenter {
   }
 
   private build(draft: ApprovalDraft, now: number, id: string, generation: number): ApprovalRequest {
-    const { text, ackRequired, cutLongText: _cut, ...given } = draft
+    const { text, ackRequired, cutLongText: _cut, workspaceId: _wsId, workspaceCeiling: _wsCeiling, sessionAccess: _sessionAccess, requiredAccess: _requiredAccess, ...given } = draft
     // R2: bidi controls or invisible characters make the shown text differ from what runs; the text stays verbatim.
     const hidden = hasHiddenCharacters(text)
     const shown = hidden

@@ -1334,6 +1334,16 @@
       "density": "Density",
       "layout": "Layout",
       "layoutPreset": "Layout preset",
+      "accessCeiling": {
+        "title": "Access ceiling",
+        "label": "Maximum agent access",
+        "description": "Caps every session in this workspace. Effective access is always the stricter of this ceiling and the session level.",
+        "options": {
+          "read-only": "Read-only",
+          "workspace-write": "Workspace write",
+          "full-access": "Full access"
+        }
+      },
       "preview": "Preview",
       "terminalNote": "Terminal appearance and the default shell apply right away.",
       "saved": "Workspace settings saved",
@@ -2430,7 +2440,10 @@
       "reopen": "Re-open",
       "applying": "Applying…",
       "apply": "Apply to agent",
-      "bindToApply": "Bind a pane to {{member}} to apply."
+      "bindToApply": "Bind a pane to {{member}} to apply.",
+      "inboundReplyTitle": "Reply from {{origin}}",
+      "inboundUpdatedTitle": "Handoff updated by {{origin}}",
+      "dismissNotice": "Dismiss handoff notice"
     }
   },
   "review": {

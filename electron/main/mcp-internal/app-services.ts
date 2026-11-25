@@ -24,6 +24,7 @@ export interface AppServices {
     mcpArgs: (provider: string) => string[]
     createPane: (workspaceId: string) => { workspace: import('../../../shared/types/workspace').Workspace; paneId: string }
     setPaneAgent: (paneId: string, agentProfileId: string | null, agentName: string | null) => import('../../../shared/types/workspace').Workspace
+    setPaneRootPath?: (paneId: string, rootPath: string | null) => import('../../../shared/types/workspace').Workspace
     closePane: (paneId: string) => import('../../../shared/types/workspace').Workspace | null
     /** Tells the window a workspace changed (a pane opened or closed). */
     workspaceChanged: (workspace: import('../../../shared/types/workspace').Workspace) => void
