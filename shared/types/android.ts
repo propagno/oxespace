@@ -28,10 +28,24 @@ export interface AndroidApkPick { id: string; name: string; sizeBytes: number }
 /** How an action on the device ended. `reason` is the device's own word for a failure, or one of ours for a refusal. */
 export type AndroidActionOutcome = { ok: true } | { ok: false; reason: string }
 
+export interface AndroidEmulatorLaunchOptions {
+  /** Launch with low-footprint flags (-no-boot-anim, -no-audio, -memory 2048, -no-snapshot-save). */
+  lightweight?: boolean
+}
+
+export interface AndroidEmulatorMemoryCheck {
+  ok: boolean
+  freeMb: number
+  requiredMb: number
+  lightweight: boolean
+}
+
 export interface AndroidMirrorStatus {
   adb: 'missing' | 'ok'
   devices: AndroidMirrorDevice[]
   avds: string[]
+  /** Free host memory in MiB at the time status was read, when available. */
+  freeMemoryMb?: number
   /** OXE-112: populated when an active device leaves adb unexpectedly; cleared once it returns. */
   disconnectedDevice?: AndroidDisconnectedDevice | null
 }
@@ -53,7 +67,7 @@ export interface AndroidApi {
   rotate(input: { serial: string }): Promise<void>
   screenshot(input: { serial: string }): Promise<{ path: string; name: string }>
   setAgentsCanSee(input: { serial: string; value: boolean }): Promise<void>
-  startEmulator(avd: string): Promise<void>
+  startEmulator(avd: string, options?: AndroidEmulatorLaunchOptions): Promise<void>
   /** Opens the system's file dialog for an APK to install on the device; null when the person cancels. */
   pickApk(input: { serial: string }): Promise<AndroidApkPick | null>
   /** Installs the APK picked before, by its id, after the person confirmed. */

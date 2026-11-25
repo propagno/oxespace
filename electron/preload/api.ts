@@ -329,6 +329,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       setPhoneHidden: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneHidden, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      setAllowVpn: input => ipc.invoke(IPC_CHANNELS.remote.setAllowVpn, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       firewallStatus: () => ipc.invoke(IPC_CHANNELS.remote.firewallStatus) as Promise<import('../../shared/types/remote').RemoteFirewallStatus>,
       firewallRepair: () => ipc.invoke(IPC_CHANNELS.remote.firewallRepair) as Promise<import('../../shared/types/remote').RemoteFirewallChange>,
       firewallUndo: () => ipc.invoke(IPC_CHANNELS.remote.firewallUndo) as Promise<import('../../shared/types/remote').RemoteFirewallChange>
@@ -597,7 +598,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       rotate: (input) => ipc.invoke(IPC_CHANNELS.android.rotate, input) as Promise<void>,
       screenshot: (input) => ipc.invoke(IPC_CHANNELS.android.screenshot, input) as Promise<{ path: string; name: string }>,
       setAgentsCanSee: (input) => ipc.invoke(IPC_CHANNELS.android.setAgentsCanSee, input) as Promise<void>,
-      startEmulator: (avd) => ipc.invoke(IPC_CHANNELS.android.startEmulator, avd) as Promise<void>,
+      startEmulator: (avd, options) => ipc.invoke(IPC_CHANNELS.android.startEmulator, avd, options) as Promise<void>,
       pickApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pickApk, input) as Promise<import('../../shared/types/ipc').AndroidApkPick | null>,
       installApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.installApk, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,

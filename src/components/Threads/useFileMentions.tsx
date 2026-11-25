@@ -50,6 +50,7 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
     // answers at once, a stale one shows while it is fetched again.
     const hit = getCachedFileList(rootPath)
     if (hit) { setFiles(hit.files); if (hit.fresh) return }
+    else setFiles([])
     let active = true
     const epoch = getFileListCacheEpoch()
     void window.oxe.search?.listFiles({ workspaceId, rootPath }).then(result => {
@@ -63,7 +64,9 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
 
   const results = useMemo(() => mention ? rankMentionFiles(files, mention.query) : [], [files, mention?.query])
   useEffect(() => { setSelected(0) }, [mention?.query])
-  const open = Boolean(mention && results.length && dismissed !== mention.start)
+  const mentionStart = mention?.start ?? null
+  if (dismissed !== null && dismissed !== mentionStart) setDismissed(null)
+  const open = Boolean(mention && results.length && dismissed !== mentionStart)
 
   const pick = (file: string): void => {
     if (!mention) return

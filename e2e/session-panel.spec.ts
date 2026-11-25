@@ -26,7 +26,7 @@ const CONTEXT_REPORT = {
 async function applySession(app: ElectronApplication, root: string): Promise<void> {
   await app.evaluate((_context, { root, report, now }) => {
     const user = (id: string, text: string) => ({ type: 'message', id, role: 'user', text })
-    ;(globalThis as Record<string, (state: unknown) => void>).applyThreadState({
+    ;(globalThis as unknown as Record<string, (state: unknown) => void>).applyThreadState({
       status: 'idle', title: 'Conversation details', provider: 'claude',
       extra: {
         model: 'claude-x', contextReport: report,

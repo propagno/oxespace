@@ -9,6 +9,6 @@ registerMaturityFlows({
   packaged: false,
   launch: env => electron.launch({
     args: [join(process.cwd(), 'e2e', 'electron-main.cjs')],
-    env: { ...process.env, ...env }
+    env: { ...process.env, ...env } as Record<string, string>
   })
 })
