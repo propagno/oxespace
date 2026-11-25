@@ -1,7 +1,7 @@
 import { Bot, ChevronDown, Square } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
-import { StatusSignal, type SignalState } from '../../ui'
+import { Button, StatusSignal, type SignalState } from '../../ui'
 import { SubagentResultCard } from './SubagentResultCard'
 
 type AgentStatus = Extract<ThreadEvent, { type: 'subagent' }>['agents'][number]['status']
@@ -40,7 +40,7 @@ export function ThreadSubagentActivity({
   const metrics = [event.model, event.reasoningEffort].filter((value): value is string => Boolean(value))
 
   return <article className={`thread-subagent${compact ? ' is-compact' : ''}`}>
-    <header><Bot size={14} aria-hidden="true" /><strong>{label}</strong><span className={`thread-subagent-state is-${event.state}`}>{t(`subagent.state.${event.state}`)}</span>{onStop && event.state === 'running' && <button type="button" className="thread-subagent-stop" aria-label={t('subagent.stopLabel', { label })} title={t('subagent.stopTitle')} disabled={stopping} onClick={onStop}><Square size={12} aria-hidden="true" />{t('subagent.stop')}</button>}</header>
+    <header><Bot size={14} aria-hidden="true" /><strong>{label}</strong><span className={`thread-subagent-state is-${event.state}`}>{t(`subagent.state.${event.state}`)}</span>{onStop && event.state === 'running' && <Button variant="secondary" size="sm" className="thread-subagent-stop" aria-label={t('subagent.stopLabel', { label })} title={t('subagent.stopTitle')} disabled={stopping} icon={<Square size={12} aria-hidden="true" />} onClick={onStop}>{t('subagent.stop')}</Button>}</header>
     {(event.model || event.reasoningEffort) && <p className="thread-subagent-config">{[event.model, event.reasoningEffort].filter(Boolean).join(' · ')}</p>}
     {(event.agents.length > 0 || event.receiverThreadIds.length > 0) && <svg data-ui="subagent-connector" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 2 C12 14 20 10 20 22" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>}
     {event.agents.length > 0 && <ul>{event.agents.map(agent => (

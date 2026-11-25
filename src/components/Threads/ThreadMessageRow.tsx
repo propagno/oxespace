@@ -35,7 +35,7 @@ export function ThreadMessageBody({ text, role, streaming = false }: { text: str
   if (!longPrompt) return <ThreadMarkdown text={text} streaming={streaming} />
   return <div className="thread-long-prompt">
     {expanded ? <ThreadMarkdown text={text} streaming={streaming} /> : <p className="thread-long-prompt-preview">{text.replace(/\s+/g, ' ').slice(0, 240).trimEnd()}…</p>}
-    <button type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? t('message.showLess') : t('message.showFull')}</button>
+    <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{expanded ? t('message.showLess') : t('message.showFull')}</Button>
   </div>
 }
 
@@ -145,7 +145,7 @@ export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running,
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>{t('message.brief')}</summary><pre>{event.brief}</pre></details> : null}
     {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
     {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}
-    {event.role === 'assistant' && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label={t('message.suggested')}><small>{t('message.suggestedHint')}</small><div>{quickReplies.map(option => <button type="button" key={option.value} onClick={() => onQuickReply(option.value)}>{option.label}</button>)}</div></div>}
+    {event.role === 'assistant' && quickReplies.length > 0 && <div className="thread-quick-replies" aria-label={t('message.suggested')}><small>{t('message.suggestedHint')}</small><div>{quickReplies.map(option => <Button variant="secondary" size="sm" key={option.value} onClick={() => onQuickReply(option.value)}>{option.label}</Button>)}</div></div>}
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}
     {event.role === 'user' && <PromptCardTools event={event} turnId={turnId ?? event.id} turnEvents={turnEvents} snapshot={snapshot} running={running} copied={copied} text={displayText} action={action} onCopy={onCopy} />}
     {event.role === 'assistant' && <div className="thread-message-actions">

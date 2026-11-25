@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { OctagonX, Play, Plus, Power, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ErrorState } from '../../ui'
+import { Button, ErrorState, IconButton } from '../../ui'
 import { TerminalPane } from '../Panes/TerminalPane'
 import { useTerminalStore } from '../../store/terminal.store'
 import type { ConversationThread } from '../../../shared/types/thread'
@@ -21,10 +21,10 @@ function TerminalTab({ id, label, selected, closable, onSelect, onClose }: {
   const { t } = useTranslation('thread')
   const status = useTerminalStore(state => state.panes[id]?.status ?? 'idle')
   return <span className={`thread-shell-tab${selected ? ' is-selected' : ''}`}>
-    <button type="button" className="thread-shell-tab-main" aria-pressed={selected} onClick={onSelect}>
+    <Button variant="ghost" size="sm" className="thread-shell-tab-main" aria-pressed={selected} onClick={onSelect}>
       <i className="thread-terminal-dot" data-status={status} aria-hidden="true" />{label}
-    </button>
-    {closable && <button type="button" className="thread-shell-tab-close" aria-label={t('terminal.closeTab', { label })} title={t('terminal.closeTab', { label })} onClick={onClose}><X size={12} aria-hidden="true" /></button>}
+    </Button>
+    {closable && <IconButton size="sm" className="thread-shell-tab-close" label={t('terminal.closeTab', { label })} title={t('terminal.closeTab', { label })} icon={<X size={12} aria-hidden="true" />} onClick={onClose} />}
   </span>
 }
 
@@ -49,13 +49,14 @@ export function ThreadProjectTerminal({ thread }: { thread: ConversationThread }
           update(next)
           if (selected === slot) setSelected(next[0] ?? 1)
         }} />)}
-        <button type="button" className="thread-terminal-icon" aria-label={t('terminal.new')} title={t('terminal.new')} disabled={list.length >= MAX_TERMINALS}
-          onClick={() => { const slot = Math.max(0, ...list) + 1; update([...list, slot]); setSelected(slot) }}><Plus size={14} aria-hidden="true" /></button>
+        <IconButton size="sm" className="thread-terminal-icon" label={t('terminal.new')} title={t('terminal.new')} disabled={list.length >= MAX_TERMINALS}
+          icon={<Plus size={14} aria-hidden="true" />}
+          onClick={() => { const slot = Math.max(0, ...list) + 1; update([...list, slot]); setSelected(slot) }} />
       </nav>
       <div className="thread-terminal-actions" role="group" aria-label={t('terminal.controls')}>
-        <button type="button" className="thread-terminal-icon" aria-label={t('terminal.start')} title={t('terminal.start')} onClick={() => window.dispatchEvent(new CustomEvent('oxe:start-pane', { detail: { paneId: id } }))}><Play size={14} aria-hidden="true" /></button>
-        <button type="button" className="thread-terminal-icon" aria-label={t('terminal.interrupt')} title={t('terminal.interruptTitle')} onClick={() => act(window.oxe.terminal.write({ paneId: id, data: '\u0003' }))}><OctagonX size={14} aria-hidden="true" /></button>
-        <button type="button" className="thread-terminal-icon" aria-label={t('terminal.stop')} title={t('terminal.stopTitle')} onClick={() => act(window.oxe.terminal.stop({ paneId: id }))}><Power size={14} aria-hidden="true" /></button>
+        <IconButton size="sm" className="thread-terminal-icon" label={t('terminal.start')} title={t('terminal.start')} icon={<Play size={14} aria-hidden="true" />} onClick={() => window.dispatchEvent(new CustomEvent('oxe:start-pane', { detail: { paneId: id } }))} />
+        <IconButton size="sm" className="thread-terminal-icon" label={t('terminal.interrupt')} title={t('terminal.interruptTitle')} icon={<OctagonX size={14} aria-hidden="true" />} onClick={() => act(window.oxe.terminal.write({ paneId: id, data: '\u0003' }))} />
+        <IconButton size="sm" className="thread-terminal-icon" label={t('terminal.stop')} title={t('terminal.stopTitle')} icon={<Power size={14} aria-hidden="true" />} onClick={() => act(window.oxe.terminal.stop({ paneId: id }))} />
       </div>
     </header>
     {error && <ErrorState compact title={error} />}

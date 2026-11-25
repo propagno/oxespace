@@ -2,7 +2,7 @@ import { useState, type RefObject } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
 import { ChevronDown, ChevronUp, Maximize2, Minimize2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ErrorState } from '../../ui'
+import { Button, ErrorState, IconButton } from '../../ui'
 import type { ThreadRequest, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useOpenRequest } from '../Approvals/openRequest'
@@ -45,15 +45,15 @@ export function ThreadDockRequests({ snapshot, pendingRequests, waiting, pending
       {pendingRequests.length > 1 && <span>{t('requests.waitingMany', { count: pendingRequests.length })}</span>}
       <span className="thread-pending-requests-actions">
         {/* Icon buttons: the word is their name, the tooltip says what they do. */}
-        {!hidden && <button type="button" className="thread-pending-requests-icon" aria-pressed={expanded} aria-label={expanded ? t('requests.shrink') : t('requests.expand')} title={expanded ? t('requests.shrinkTitle') : t('requests.expandTitle')} onClick={toggleExpanded}>{expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />}</button>}
-        <button type="button" className="thread-pending-requests-icon" aria-expanded={!hidden} aria-controls={listId} aria-label={hidden ? t('requests.show') : t('requests.hide')} title={hidden ? t('requests.showTitle') : t('requests.hideTitle')} onClick={() => setHiddenKey(hidden ? null : requestKey)}>{hidden ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}</button>
+        {!hidden && <IconButton size="sm" className="thread-pending-requests-icon" aria-pressed={expanded} label={expanded ? t('requests.shrink') : t('requests.expand')} title={expanded ? t('requests.shrinkTitle') : t('requests.expandTitle')} icon={expanded ? <Minimize2 size={13} aria-hidden="true" /> : <Maximize2 size={13} aria-hidden="true" />} onClick={toggleExpanded} />}
+        <IconButton size="sm" className="thread-pending-requests-icon" aria-expanded={!hidden} aria-controls={listId} label={hidden ? t('requests.show') : t('requests.hide')} title={hidden ? t('requests.showTitle') : t('requests.hideTitle')} icon={hidden ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />} onClick={() => setHiddenKey(hidden ? null : requestKey)} />
       </span>
     </div>}
     {pendingRequests.length > 0 && <section id={listId} className="thread-pending-requests" aria-label={t('requests.label')} hidden={hidden} data-expanded={expanded || undefined}>
       {pendingRequests.map(request => <ThreadRequestCard key={`${id}:${request.id}:${request.generation}`} conversationId={id} agent={agentName} request={request} disabled={pending} onSeeImpact={() => useOpenRequest.getState().open(request.id)} onRespond={response => action(() => api!.respond!(id, request.id, response))}
         onRemember={api?.addPermissionRule ? async suggestions => { for (const item of suggestions) await api.addPermissionRule!(id, { kind: item.kind, pattern: item.pattern, decision: 'allow', scope: 'project' }) } : undefined} />)}
     </section>}
-    {orphanedApproval && <ErrorState compact title={t('requests.orphaned')} actions={<button type="button" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>{t('requests.refresh')}</button>} />}
+    {orphanedApproval && <ErrorState compact title={t('requests.orphaned')} actions={<Button size="sm" variant="secondary" disabled={pending} onClick={() => void action(() => useThreadStore.getState().refresh(id))}>{t('requests.refresh')}</Button>} />}
   </>
 }
 

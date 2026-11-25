@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadFileHunk } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
-import { EmptyState, ErrorState, LoadingState, TextArea } from '../../ui'
+import { Button, EmptyState, ErrorState, LoadingState, TextArea } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
 const MAX_SHOWN_LINES = 40
@@ -46,19 +46,19 @@ export function ThreadHunkReview({ path, loadHunks, onUndoHunk, onComment, disab
       const shown = [...hunk.oldLines.map(line => ['-', line] as const), ...hunk.newLines.map(line => ['+', line] as const)]
       return <section key={hunk.id} className="thread-hunk" aria-label={t('hunks.block', { index: index + 1, total: hunks.length })}>
         <header><span>{hunk.newLines.length ? t('hunks.linesTitle', { from: hunk.newStart + 1, to: hunk.newStart + hunk.newLines.length }) : t('hunks.removedAfter', { line: hunk.newStart })}</span>
-          <button type="button" className="thread-change-view" disabled={disabled || working !== null} onClick={() => { setCommenting(commenting === hunk.id ? null : hunk.id); setComment('') }}>{t('hunks.commentButton')}</button>
-          <button type="button" className="thread-change-view" disabled={disabled || working !== null} onClick={() => {
+          <Button variant="secondary" size="sm" className="thread-change-view" disabled={disabled || working !== null} onClick={() => { setCommenting(commenting === hunk.id ? null : hunk.id); setComment('') }}>{t('hunks.commentButton')}</Button>
+          <Button variant="secondary" size="sm" className="thread-change-view" disabled={disabled || working !== null} onClick={() => {
             setError(''); setWorking(hunk.id)
             void onUndoHunk(hunk.id).then(refresh, cause => setError(humanizeError(cause, t('hunks.undoFailed')))).finally(() => setWorking(null))
-          }}>{working === hunk.id ? t('hunks.undoing') : t('hunks.undo')}</button>
+          }}>{working === hunk.id ? t('hunks.undoing') : t('hunks.undo')}</Button>
         </header>
         <pre>{shown.slice(0, MAX_SHOWN_LINES).map(([sign, line], row) => <span key={row} className={sign === '+' ? 'is-added' : 'is-removed'}>{sign} {line.replace(/\r$/, '')}{'\n'}</span>)}{shown.length > MAX_SHOWN_LINES && <span className="thread-hunk-more">{t('hunks.more', { count: shown.length - MAX_SHOWN_LINES })}</span>}</pre>
         {commenting === hunk.id && <form className="thread-hunk-comment" onSubmit={event => { event.preventDefault(); if (!comment.trim()) return; onComment(hunkComment(path, hunk, comment)); setCommenting(null); setComment('') }}>
           <TextArea aria-label={t('hunks.commentLabel')} value={comment} maxLength={4000} placeholder={t('hunks.commentPlaceholder')} onChange={event => setComment(event.target.value)} />
-          <button type="submit" disabled={!comment.trim()}>{t('hunks.add')}</button>
+          <Button type="submit" variant="primary" size="sm" disabled={!comment.trim()}>{t('hunks.add')}</Button>
         </form>}
       </section>
     })}
-    {!all && hunks.length > 1 && <button type="button" className="thread-change-more" aria-expanded={false} onClick={() => setAll(true)}>{t('hunks.showAll', { count: hunks.length - 1 })}</button>}
+    {!all && hunks.length > 1 && <Button variant="ghost" size="sm" className="thread-change-more" aria-expanded={false} onClick={() => setAll(true)}>{t('hunks.showAll', { count: hunks.length - 1 })}</Button>}
   </div>
 }
