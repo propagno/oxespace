@@ -1,5 +1,10 @@
 /* The OxeChat sidebar (BRD-02, OXE-166) on the src/ui sidebar anatomy, OxeCode's mould. This file only places what the
    primitives leave to the caller: a conversation row's two lines, its mini card, its hover actions and the groups. */
+/* ── State selector under the filter (OXE-133): same anatomy as OxeCode's SidebarNavigation ── */
+.stateFilter { display: flex; margin: 0 var(--space-2) var(--space-2); }
+.stateFilter [role="radio"] { flex: 1 1 0; min-width: 0; gap: var(--space-1); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.stateCount { color: var(--tx-muted); font-variant-numeric: tabular-nums; }
+
 /* ── State chips under the filter (OXE-187): one row, shown on focus or while a chip is on ── */
 .stateChips { display: flex; align-items: center; gap: var(--space-1); height: var(--row-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; }
 
@@ -48,9 +53,10 @@
 .time { color: var(--tx-muted); font-size: var(--fs-2xs); }
 
 /* Row actions sit over the row's right edge, on hover and focus; on touch they are always there. The age gives way. */
-.actions { position: absolute; inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
-.row:hover > .actions, .row:focus-within > .actions { opacity: 1; }
-.row:hover .time, .row:focus-within .time { visibility: hidden; }
+.actions { position: absolute; z-index: var(--layer-raised); inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.row:hover:not(:has(.child:hover)) > .actions, .row:focus-within:not(:has(.child:focus-within)) > .actions { opacity: 1; }
+.row:hover:not(:has(.child:hover)) > .item .time, .row:focus-within:not(:has(.child:focus-within)) > .item .time { visibility: hidden; }
+.childGroup { display: grid; gap: var(--space-0-5); }
 @media (hover: none) { .actions { opacity: 1; } }
 
 /* ── Needs you: the mini card under the waiting conversation ── */

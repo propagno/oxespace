@@ -74,10 +74,17 @@ export function handleListKeyDown(event: KeyboardEvent<HTMLElement>): void {
   }
 }
 
-/** The inline controls of a row: those in the nearest container that holds the row and no other row. */
+/** The inline controls of a row: those in the nearest container that holds the row and no other row (ignoring nested child groups). */
 function rowActions(row: HTMLElement): HTMLElement[] {
   for (let node = row.parentElement; node; node = node.parentElement) {
-    if (node.querySelectorAll(LIST_ITEM).length > 1) return []
+    const items = Array.from(node.querySelectorAll<HTMLElement>(LIST_ITEM))
+    if (items.length > 1) {
+      const own = (el: HTMLElement): boolean => { const group = el.closest('[role="group"]'); return !group || !node!.contains(group) }
+      const ownItems = items.filter(own)
+      if (ownItems.length !== 1 || ownItems[0] !== row) return []
+      const actions = Array.from(node.querySelectorAll<HTMLElement>(LIST_ACTION)).filter(action => enabled(action) && own(action))
+      return actions
+    }
     const actions = Array.from(node.querySelectorAll<HTMLElement>(LIST_ACTION)).filter(enabled)
     if (actions.length) return actions
   }

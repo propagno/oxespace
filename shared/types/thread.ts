@@ -457,6 +457,8 @@ export interface ConversationThread {
   status: ThreadStatus
   /** Last finished turn, used to distinguish a new idle thread from completed work in navigation. */
   lastTurnStatus?: ThreadTurn['status']
+  /** Failure code of the last failed turn, so the sidebar row can name why it failed (OXE-166). */
+  lastFailureCode?: ThreadFailure['code']
   /**
    * Background tasks (shells, agents) the provider reported as started and not yet finished, so lists that
    * do not read the events still know the conversation is busy after its turn ended.

@@ -21,7 +21,7 @@ import { mainLanguage } from '../../i18n'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
-import { deriveThreadTitle, isUnnamedThreadTitle, parseThreadRow } from './thread-title'
+import { deriveThreadTitle, isUnnamedThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
 import { briefBlock, previewNoteFor, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
@@ -226,17 +226,7 @@ export class ThreadOrchestrator {
     }
   }
   list(): ConversationThread[] {
-    return (this.db.prepare(`SELECT data_json,
-      (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
-       WHERE turn.thread_id = conversation_threads.id
-       ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status
-      FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null }[])
-      .map(row => {
-        const thread = parseThreadRow<ConversationThread>(row.data_json)
-        if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
-        return thread
-      })
-      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
+    return this.history.listThreads()
   }
   create(context: Pick<ConversationThread, 'workspaceId' | 'projectId' | 'rootPath' | 'provider' | 'agentProfileId' | 'ownedWorktree' | 'access' | 'parentThreadId' | 'childOrder'>): ThreadSnapshot {
     const now = Date.now()

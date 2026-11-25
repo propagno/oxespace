@@ -94,6 +94,31 @@ export class ThreadHistory {
   }
 
 
+  /** OXE-346: the originating conversation recorded by oxespace_thread_create (mcp_thread_handoffs), if any. */
+  private handoffOrigin(id: string): string | null {
+    const row = this.prepare('SELECT origin_thread_id FROM mcp_thread_handoffs WHERE destination_thread_id = ? ORDER BY created_at ASC LIMIT 1').get(id) as { origin_thread_id: string } | undefined
+    return row?.origin_thread_id && row.origin_thread_id !== id ? row.origin_thread_id : null
+  }
+
+  /** Every conversation with its latest turn status and delegated handoff parent from SQLite (OXE-346). */
+  listThreads(): ConversationThread[] {
+    return (this.prepare(`SELECT data_json,
+      (SELECT json_extract(turn.data_json, '$.status') FROM conversation_turns turn
+       WHERE turn.thread_id = conversation_threads.id
+       ORDER BY CAST(json_extract(turn.data_json, '$.sequence') AS INTEGER) DESC LIMIT 1) AS last_turn_status,
+      (SELECT handoff.origin_thread_id FROM mcp_thread_handoffs handoff
+       WHERE handoff.destination_thread_id = conversation_threads.id
+       ORDER BY handoff.created_at ASC LIMIT 1) AS handoff_origin_id
+      FROM conversation_threads`).all() as { data_json: string; last_turn_status: ConversationThread['lastTurnStatus'] | null; handoff_origin_id: string | null }[])
+      .map(row => {
+        const thread = parseThreadRow<ConversationThread>(row.data_json)
+        if (!thread.lastTurnStatus && row.last_turn_status) thread.lastTurnStatus = row.last_turn_status
+        if (!thread.parentThreadId && row.handoff_origin_id && row.handoff_origin_id !== thread.id) thread.parentThreadId = row.handoff_origin_id
+        return thread
+      })
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt)
+  }
+
   /** Bounded projection for the renderer. Main-process operations keep using read(). */
   readWindow(id: string, limit = 250): ThreadSnapshot {
     let row = this.prepare('SELECT data_json, events_json, history_version FROM conversation_threads WHERE id = ?').get(id) as { data_json: string; events_json: string; history_version: number } | undefined
@@ -104,6 +129,10 @@ export class ThreadHistory {
     }
     const page = this.page(id, undefined, limit)
     const thread = parseThreadRow<ConversationThread>(row!.data_json)
+    if (!thread.parentThreadId) {
+      const origin = this.handoffOrigin(id)
+      if (origin) thread.parentThreadId = origin
+    }
     const turns = this.turns(id)
     const live = (this.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
     return {
@@ -131,6 +160,10 @@ export class ThreadHistory {
     const rows = this.prepare('SELECT seq, data_json FROM conversation_events WHERE thread_id = ? AND rev > ? ORDER BY seq LIMIT ?').all(id, cursor.revision, DELTA_LIMIT + 1) as { seq: number; data_json: string }[]
     if (rows.length > DELTA_LIMIT) return { ok: false, reset: 'limit' }
     const thread: ConversationThread = JSON.parse(row.data_json)
+    if (!thread.parentThreadId) {
+      const origin = this.handoffOrigin(id)
+      if (origin) thread.parentThreadId = origin
+    }
     const turns = this.turns(id)
     const live = (this.prepare('SELECT COUNT(*) AS count FROM conversation_events WHERE thread_id = ?').get(id) as { count: number }).count
     return { ok: true, epoch: row.epoch, revision: row.revision, live, thread, turns,
