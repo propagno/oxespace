@@ -742,8 +742,8 @@ export function App(): ReactElement {
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? appThread?.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
-      {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar draft={threadDraft.projectId ? { projectId: threadDraft.projectId } : null} onLeaveDraft={threadDraft.leave} onCreate={threadDraft.open} onCreateParallel={threadDraft.openParallel} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={openThreadInCode} /></ThreadSidebarBoundary> : <Sidebar
+      {hasOpenedThread && <ThreadSidebarBoundary><ThreadSidebar active={!(showFirstRun && !isNewWorkspaceOpen) && applicationView === 'thread'} draft={threadDraft.projectId ? { projectId: threadDraft.projectId } : null} onLeaveDraft={threadDraft.leave} onCreate={threadDraft.open} onCreateParallel={threadDraft.openParallel} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={openThreadInCode} /></ThreadSidebarBoundary>}
+      {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} /> : applicationView === 'thread' ? null : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}

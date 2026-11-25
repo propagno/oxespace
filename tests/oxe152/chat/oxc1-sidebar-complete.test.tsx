@@ -222,4 +222,80 @@ describe('OXE-166 · complete sidebar acceptance proofs', () => {
     fireEvent.click(archived)
     expect(onArchived).toHaveBeenCalledOnce()
   })
+
+  it('OXE-350: keeps ThreadSidebar hidden without IPC when active=false and reveals it warm without remounting', async () => {
+    let onChangedCb: ((event: { threadId?: string }) => void) | null = null
+    let onPlacesCb: (() => void) | null = null
+    const threads = [
+      conversation('w1', 'Waiting approval', 'p1', { status: 'approval' }),
+      conversation('i1', 'Warm thread', 'p1', { status: 'idle' })
+    ]
+    const api = {
+      list: vi.fn(async () => threads),
+      projects: vi.fn(async () => ({ projects: [project('p1', 'Atlas')], unavailable: [] })),
+      read: vi.fn(async (id: string) => ({ thread: threads.find(item => item.id === id)!, events: [] })),
+      command: vi.fn(async () => undefined),
+      onChanged: vi.fn((cb: (event: { threadId?: string }) => void) => { onChangedCb = cb; return () => {} }),
+      sections: vi.fn(async () => ({ sections: [], assignments: {} })),
+      saveSections: vi.fn(async (_w: string, state: unknown) => ({ ok: true, state })),
+      pendingRequestsAll: vi.fn(async () => []),
+      respondPending: vi.fn(async () => ({ ok: true })),
+      sessions: vi.fn(async () => []),
+      onPlacesChanged: vi.fn((cb: () => void) => { onPlacesCb = cb; return () => {} })
+    }
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { app: { platform: 'win32' }, thread: api as unknown as ThreadApi } })
+    useThreadStore.setState({
+      threads, projects: [project('p1', 'Atlas')], unavailableProjects: [], loading: false, listLoaded: true, selectedId: 'i1', secondaryId: null,
+      snapshot: null, snapshotCache: {}, snapshotCacheOrder: [], errors: {}, hiddenProjects: [], expanded: { p1: true }, unreadIds: []
+    } as never)
+    useUIStore.setState({ collapsedSidebars: { ...useUIStore.getState().collapsedSidebars, thread: false } })
+
+    const props = { onCreate: vi.fn(), onAccounts: vi.fn(), onAddProject: vi.fn(), onOpenInCode: vi.fn(async () => undefined) }
+    const view = render(<ThreadSidebar active={false} {...props} />)
+    const aside = document.querySelector('aside.thread-navigation') as HTMLElement
+    expect(aside).toBeTruthy()
+    expect(aside).toHaveStyle({ display: 'none' })
+    expect(aside).toHaveAttribute('aria-hidden', 'true')
+    expect(api.pendingRequestsAll).not.toHaveBeenCalled()
+    expect(api.sessions).not.toHaveBeenCalled()
+
+    // Revealing the sidebar flushes the initial dirty state and shows the same DOM node without remounting.
+    view.rerender(<ThreadSidebar active {...props} />)
+    expect(document.querySelector('aside.thread-navigation')).toBe(aside)
+    expect(aside.style.display).toBe('')
+    expect(aside).not.toHaveAttribute('aria-hidden')
+    await waitFor(() => {
+      expect(api.pendingRequestsAll).toHaveBeenCalledTimes(1)
+      expect(api.sessions).toHaveBeenCalledTimes(1)
+    })
+
+    // Local filter state survives hide -> show, and a clean warm switch fires zero extra IPC.
+    const filter = screen.getByRole('searchbox', { name: tt('sidebar.filter') }) as HTMLInputElement
+    fireEvent.change(filter, { target: { value: 'Warm' } })
+    expect(filter.value).toBe('Warm')
+
+    view.rerender(<ThreadSidebar active={false} {...props} />)
+    expect(aside).toHaveStyle({ display: 'none' })
+    expect(aside).toHaveAttribute('aria-hidden', 'true')
+
+    // Clean warm switch back: zero IPC and filter input state preserved.
+    view.rerender(<ThreadSidebar active {...props} />)
+    expect(document.querySelector('aside.thread-navigation')).toBe(aside)
+    expect(filter.value).toBe('Warm')
+    expect(api.pendingRequestsAll).toHaveBeenCalledTimes(1)
+    expect(api.sessions).toHaveBeenCalledTimes(1)
+
+    // Events arriving while hidden do not fire IPC until active flips back to true.
+    view.rerender(<ThreadSidebar active={false} {...props} />)
+    onChangedCb?.({ threadId: 'w1' })
+    onPlacesCb?.()
+    expect(api.pendingRequestsAll).toHaveBeenCalledTimes(1)
+    expect(api.sessions).toHaveBeenCalledTimes(1)
+
+    view.rerender(<ThreadSidebar active {...props} />)
+    await waitFor(() => {
+      expect(api.pendingRequestsAll).toHaveBeenCalledTimes(2)
+      expect(api.sessions).toHaveBeenCalledTimes(2)
+    })
+  })
 })

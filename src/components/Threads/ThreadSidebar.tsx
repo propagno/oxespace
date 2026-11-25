@@ -72,7 +72,9 @@ function relativeTime(timestamp: number): string {
  * chats (OXC-5, OXE-170) are one-line rows right under their parent, in the session's order; a parent row offers
  * "New parallel conversation" as its + and in its ⋯ menu, with no shortcut.
  */
-export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddProject, onOpenInCode, draft, onLeaveDraft }: {
+export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAccounts, onAddProject, onOpenInCode, draft, onLeaveDraft }: {
+  /** Kept mounted while hidden after first open so warm switches back to OxeChat skip remounting (OXE-350). */
+  active?: boolean
   onCreate: (projectId: string, rootPath?: string) => void
   /** Opens the new conversation screen for a parallel chat of this conversation's session (OXE-170). */
   onCreateParallel?: (parentId: string) => void
@@ -131,7 +133,7 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
   const chipsRef = useRef<HTMLDivElement>(null)
   // Arrows and j/k move through conversations and projects; one tab stop for the whole list.
   const { ref: attachList, onKeyDown: onListKeyDown } = useListKeyboard<HTMLElement>()
-  useNavigationSearch(search, collapsed, toggleCollapse)
+  useNavigationSearch(search, collapsed, toggleCollapse, active)
   const selected = threads.find(t => t.id === selectedId)
 
   // Needs you: the read-only list every window uses (pendingRequestsAll), one request per waiting conversation.
@@ -139,13 +141,16 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
   const waitingIds = useMemo(() => new Set(threads.filter(thread => thread.status === 'approval').map(thread => thread.id)), [threads])
   const waitingKey = useMemo(() => [...waitingIds].join(','), [waitingIds])
   const waitingIdsRef = useRef(waitingIds)
+  const activeRef = useRef(active)
   const pendingSeq = useRef(0)
   const pendingInFlight = useRef(false)
   const pendingDirty = useRef(false)
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  useEffect(() => { activeRef.current = active }, [active])
   const refreshPending = useCallback(() => {
     const load = () => {
+      if (!activeRef.current) { pendingDirty.current = true; return }
       const read = window.oxe?.thread?.pendingRequestsAll
       if (!read) return
       if (pendingInFlight.current) { pendingDirty.current = true; return }
@@ -158,7 +163,7 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
         setPending(byThread)
       }).catch(() => undefined).finally(() => {
         pendingInFlight.current = false
-        if (mounted.current && pendingDirty.current) {
+        if (mounted.current && activeRef.current && pendingDirty.current) {
           pendingDirty.current = false
           if (waitingIdsRef.current.size > 0) load()
         }
@@ -168,41 +173,69 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
   }, [])
   useEffect(() => {
     waitingIdsRef.current = waitingIds
-    if (waitingKey) { refreshPending(); return }
-    const seq = ++pendingSeq.current
+    if (!waitingKey) {
+      const seq = ++pendingSeq.current
+      pendingDirty.current = false
+      void Promise.resolve().then(() => {
+        if (mounted.current && seq === pendingSeq.current) setPending(prev => prev.size ? new Map() : prev)
+      })
+      return
+    }
+    if (!activeRef.current) { pendingDirty.current = true; return }
     pendingDirty.current = false
-    void Promise.resolve().then(() => {
-      if (mounted.current && seq === pendingSeq.current) setPending(prev => prev.size ? new Map() : prev)
-    })
+    refreshPending()
   }, [waitingIds, waitingKey, refreshPending])
   useEffect(() => {
     const off = window.oxe?.thread?.onChanged?.(event => {
       if (!waitingIdsRef.current.size) return
       if (event?.threadId && !waitingIdsRef.current.has(event.threadId)) return
+      if (!activeRef.current) { pendingDirty.current = true; return }
       refreshPending()
     })
     return () => { if (typeof off === 'function') off() }
   }, [refreshPending])
+  useEffect(() => {
+    if (!active || !pendingDirty.current) return
+    pendingDirty.current = false
+    if (waitingIdsRef.current.size > 0) refreshPending()
+  }, [active, refreshPending])
 
   // Line 2's +N −N: the session view (OXE-170), read again when the list or a conversation's places change.
   const [changes, setChanges] = useState<Map<string, SessionChanges>>(() => new Map())
   // The order each session lists its parallel chats in (OXE-170 CA-4), by the session's (its main chat's) id.
   const [chatOrder, setChatOrder] = useState<Map<string, string[]>>(() => new Map())
   const sessionsKey = useMemo(() => threads.map(thread => `${thread.id}:${thread.status}`).join(','), [threads])
+  const sessionsKeyRef = useRef(sessionsKey)
+  const sessionsDirty = useRef(false)
   const refreshSessions = useCallback(() => {
+    if (!activeRef.current) { sessionsDirty.current = true; return }
     const read = window.oxe?.thread?.sessions
     if (!read) return
     void Promise.resolve(read()).then(list => {
-      if (!Array.isArray(list)) return
+      if (!mounted.current || !Array.isArray(list)) return
       setChanges(new Map(list.map(session => [session.id, session.changes])))
       setChatOrder(new Map(list.map(session => [session.id, session.chats.filter(chat => !chat.main).map(chat => chat.id)])))
     }).catch(() => undefined)
   }, [])
-  useEffect(() => { if (sessionsKey) refreshSessions() }, [sessionsKey, refreshSessions])
   useEffect(() => {
-    const off = window.oxe?.thread?.onPlacesChanged?.(() => refreshSessions())
+    sessionsKeyRef.current = sessionsKey
+    if (!sessionsKey) return
+    if (!activeRef.current) { sessionsDirty.current = true; return }
+    sessionsDirty.current = false
+    refreshSessions()
+  }, [sessionsKey, refreshSessions])
+  useEffect(() => {
+    const off = window.oxe?.thread?.onPlacesChanged?.(() => {
+      if (!activeRef.current) { sessionsDirty.current = true; return }
+      refreshSessions()
+    })
     return () => { if (typeof off === 'function') off() }
   }, [refreshSessions])
+  useEffect(() => {
+    if (!active || !sessionsDirty.current) return
+    sessionsDirty.current = false
+    if (sessionsKeyRef.current) refreshSessions()
+  }, [active, refreshSessions])
 
   // A parallel chat is drawn under its parent, never as a conversation of its own; one whose parent is not listed stays a row.
   const childrenOf = useMemo(() => {
@@ -265,13 +298,13 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
   // A move re-renders the row in its new section, so the menu's focus would fall to the page: give it to the row.
   const { movedId, sectionOf, clearMoved } = sections
   useEffect(() => {
-    if (!movedId) return
+    if (!movedId || !active) return
     const item = document.querySelector<HTMLElement>(`[data-thread-row="${CSS.escape(movedId)}"] [data-list-item]`)
     if (!item) return
     const lost = !document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected
     if (lost) item.focus({ preventScroll: false })
     clearMoved()
-  }, [movedId, sectionOf, clearMoved])
+  }, [active, movedId, sectionOf, clearMoved])
   const restoreArchived = async (thread: ConversationThread) => {
     if (!window.oxe.thread?.command) { setActionError(t('sidebar.restartToRestore')); return }
     setActionError(''); setRestoringId(thread.id)
@@ -349,7 +382,7 @@ export function ThreadSidebar({ onCreate, onCreateParallel, onAccounts, onAddPro
     { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }
   ]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
-  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} data-density={density} data-list-source={listSource} aria-busy={coldSkeleton ? true : undefined} aria-label={t('sidebar.region')}>
+  return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} style={active ? undefined : { display: 'none' }} aria-hidden={active ? undefined : true} data-density={density} data-list-source={listSource} aria-busy={coldSkeleton ? true : undefined} aria-label={t('sidebar.region')}>
     {!collapsed && <Splitter edge orientation="vertical" label={t('sidebar.width')} value={width} min={SIDEBAR_MIN_WIDTH} max={SIDEBAR_MAX_WIDTH} defaultValue={SIDEBAR_WIDTH} step={SIDEBAR_RESIZE_STEP} onChange={setWidth} />}
     {collapsed && <ThreadRail
       conversations={threads.filter(thread => !thread.archived && !hiddenProjects.includes(thread.projectId))
