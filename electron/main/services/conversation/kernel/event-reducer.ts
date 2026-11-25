@@ -81,6 +81,7 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
     if (activeTurn?.status !== 'running') return { save: null, before, after }
     activeTurn.nativeId = event.nativeTurnId
     delete snapshot.thread.providerObservation
+    delete snapshot.thread.lastFailureCode
     if (operationId) before.push({ kind: 'operation', operationId, state: 'acknowledged' })
     after.push({ kind: 'memory-event' })
     return { save: { eventsFrom: snapshot.events.length }, before, after }
@@ -140,6 +141,11 @@ export function reduceThreadEvent(snapshot: ThreadSnapshot, event: ThreadEvent, 
     })
     snapshot.thread.status = event.status === 'completed' ? 'idle' : event.status
     snapshot.thread.lastTurnStatus = event.status
+    if (event.status === 'failed') {
+      const code = event.failure?.code ?? event.errorCode
+      if (code) snapshot.thread.lastFailureCode = code
+      else delete snapshot.thread.lastFailureCode
+    } else delete snapshot.thread.lastFailureCode
     // A stopped or failed turn must not silently start the next queued message:
     // the user decides whether the follow-up still makes sense.
     if (event.status !== 'completed' && snapshot.thread.queue?.some(item => item.state === 'queued')) {

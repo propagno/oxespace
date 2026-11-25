@@ -115,7 +115,7 @@ function deltaEnabled(): boolean {
 /** How long a conversation switch keeps the current conversation up before showing the next one's skeleton. */
 export const CONVERSATION_SKELETON_AFTER_MS = 300
 let generation = 0, catalogGeneration = 0, projectGeneration = 0, prefetchedList: Promise<ConversationThread[]> | null = null
-export function warmThreadList(): void { if (!prefetchedList && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
+export function warmThreadList(): void { if (!prefetchedList && catalogGeneration === 0 && !useThreadStore.getState().listLoaded && window.oxe?.thread?.list) prefetchedList = window.oxe.thread.list().catch(err => { prefetchedList = null; throw err }) }
 export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   threads: [], projects: [], projectsState: 'pending', unavailableProjects: [], selectedId: null, snapshot: null, secondaryId: null, activeCell: 'primary', splitRatio: SPLIT_RATIO_DEFAULT, snapshotCache: {}, snapshotCacheOrder: [], drafts: storedDrafts.drafts, attachments: {}, previewElements: {}, scrollPositions: {}, expanded: {}, errors: {}, loading: false, listLoaded: false, hiddenProjects: [], unreadIds: [], syncedCodeRootPath: null, pendingCodeRootPath: null, syncedProjectId: null,
   syncActiveCodeWorkspace: async (rootPath, platformOverride) => {
@@ -367,7 +367,7 @@ export const useThreadStore = create<ThreadState>()(persist((set, get) => ({
   clearPreviewElements: id => set(state => ({ previewElements: { ...state.previewElements, [id]: [] } })),
   setScroll: (id, top, following) => set(state => ({ scrollPositions: { ...state.scrollPositions, [id]: { top, following } } })),
   toggle: id => set(state => ({ expanded: { ...state.expanded, [id]: !(state.expanded[id] ?? true) } })),
-  adopt: snapshot => { ++generation; ++catalogGeneration; set(state => {
+  adopt: snapshot => { ++generation; ++catalogGeneration; prefetchedList = null; set(state => {
     const cache = cacheThreadSnapshot({ snapshots: state.snapshotCache, order: state.snapshotCacheOrder }, snapshot)
     return { snapshot, selectedId: snapshot.thread.id, syncedProjectId: state.syncedProjectId === snapshot.thread.projectId ? state.syncedProjectId : null, secondaryId: state.secondaryId === snapshot.thread.id ? null : state.secondaryId, activeCell: state.secondaryId === snapshot.thread.id || !state.secondaryId ? 'primary' as const : state.activeCell, unreadIds: state.unreadIds.filter(id => id !== snapshot.thread.id), snapshotCache: cache.snapshots, snapshotCacheOrder: cache.order, hiddenProjects: state.hiddenProjects.filter(id => id !== snapshot.thread.projectId), threads: [snapshot.thread, ...state.threads.filter(t => t.id !== snapshot.thread.id)], loading: false }
   }) },

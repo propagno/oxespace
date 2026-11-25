@@ -193,3 +193,54 @@ describe('Thread drafts across a restart', () => {
     }
   })
 })
+
+describe('warmThreadList prefetch race protection (OXE-166)', () => {
+  it('does not arm a stale prefetch after load() has already run, preserving an adopted conversation on reload', async () => {
+    localStorage.removeItem('oxe.thread-navigation')
+    vi.resetModules()
+    const created = snapshot('created')
+    const list = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([created.thread])
+    const read = vi.fn(async () => created)
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list, read } } })
+
+    const { useThreadStore: store, warmThreadList } = await import('../src/store/thread.store')
+    await store.getState().load()
+    expect(list).toHaveBeenCalledTimes(1)
+
+    // Delayed RAF/setTimeout warmThreadList() fires after the initial load() already ran.
+    warmThreadList()
+    expect(list).toHaveBeenCalledTimes(1)
+
+    store.getState().adopt(created)
+    await store.getState().load()
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(store.getState().threads.map(t => t.id)).toEqual(['created'])
+    expect(store.getState().selectedId).toBe('created')
+  })
+
+  it('clears a pending prefetchedList on adopt() so a subsequent load() fetches fresh instead of consuming stale []', async () => {
+    localStorage.removeItem('oxe.thread-navigation')
+    vi.resetModules()
+    const created = snapshot('adopted-after-warm')
+    const list = vi.fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([created.thread])
+    const read = vi.fn(async () => created)
+    Object.defineProperty(window, 'oxe', { configurable: true, value: { thread: { list, read } } })
+
+    const { useThreadStore: store, warmThreadList } = await import('../src/store/thread.store')
+    // warmThreadList() runs first while the catalog is still empty.
+    warmThreadList()
+    expect(list).toHaveBeenCalledTimes(1)
+
+    // User creates and adopts a conversation before load() consumes prefetchedList.
+    store.getState().adopt(created)
+    await store.getState().load()
+
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(store.getState().threads.map(t => t.id)).toEqual(['adopted-after-warm'])
+    expect(store.getState().selectedId).toBe('adopted-after-warm')
+  })
+})

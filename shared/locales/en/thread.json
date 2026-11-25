@@ -1448,6 +1448,20 @@
     "filterPlaceholder": "Filter…",
     "filterUnread": "Unread",
     "filterByState": "Filter by state",
+    "stateFilter": {
+      "label": "Show",
+      "all": "All",
+      "needsYou": "Needs you",
+      "working": "Working",
+      "emptyNeedsYou": "Nothing needs you right now",
+      "emptyWorking": "Nothing is working right now",
+      "showAll": "Show all"
+    },
+    "meta": {
+      "unconfirmed": "Unconfirmed",
+      "readOnly": "Read-only"
+    },
+    "childConversations": "Child conversations of {{name}}",
     "projectsRegion": "OxeChat projects",
     "loading": "Loading conversations…",
     "projects": "Projects",

@@ -187,8 +187,8 @@ export function SegmentedControl<T extends string>({ value, onChange, options, l
   const enabled = options.filter(option => !option.disabled)
   const keys = radioKeys(enabled, onChange)
   const move = (event: KeyboardEvent<HTMLButtonElement>, index: number): void => { const at = enabled.indexOf(options[index]); if (at >= 0) keys(event, at) }
-  return <div role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
-    {options.map((option, index) => <button key={option.value} type="button" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? option === enabled[0] : option.value === value) ? 0 : -1} disabled={disabled || option.disabled}
+  return <div data-ui="segmented-control" role="radiogroup" aria-label={label} aria-disabled={disabled || undefined} className={cx(styles.segmented, className)}>
+    {options.map((option, index) => <button key={option.value} type="button" data-ui="segmented-option" role="radio" data-value={option.value} data-tone={option.tone} aria-checked={option.value === value} tabIndex={(value === null ? option === enabled[0] : option.value === value) ? 0 : -1} disabled={disabled || option.disabled}
       className={styles.segment} onClick={() => onChange(option.value)} onKeyDown={event => move(event, index)}>{option.icon}{option.label}</button>)}
   </div>
 }
