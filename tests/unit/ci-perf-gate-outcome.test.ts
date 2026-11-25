@@ -125,30 +125,37 @@ const MAIN_WINDOWS_LOG = `
 `
 const known = () => JSON.parse(workflow.env?.PERF_GATE_KNOWN_FAILURES ?? '[]') as Array<{ card: string; os: string; test: string; error: string }>
 
+const SAMPLE_KNOWN = [
+  {
+    card: 'OXE-412',
+    os: 'Windows',
+    test: 'e2e/memory-footprint.spec.ts › memory footprint: one long Thread, four terminals, seeded history',
+    error: '^browser private memory \\d+(\\.\\d+)? MB exceeded 270 MB$',
+  },
+  {
+    card: 'OXE-350',
+    os: 'Windows',
+    test: 'e2e/perceived-perf.spec.ts › perceived performance: first feedback, first content and blank time per surface',
+    error: '^OxeChat \\(Thread\\) warm: first content against the 33 ms baseline( \\(round 1 \\d+, round 2 \\d+\\))?$',
+  },
+]
+
 describe('OXE-389: only the named Windows failures are accepted, each with its card', () => {
-  it('ci.yml names at most the two failures of today, each with its card, on Windows only', () => {
-    const list = known()
-    expect(list.length).toBeGreaterThan(0)
-    expect(list.length).toBeLessThanOrEqual(2)
-    for (const entry of list) {
-      expect(['OXE-412', 'OXE-350'], `${entry.test}: an accepted failure names its open card`).toContain(entry.card)
-      expect(entry.os).toBe('Windows')
-      expect(entry.test).toMatch(/^e2e\/[\w-]+\.spec\.ts › /)
-      expect(entry.error.startsWith('^') && entry.error.endsWith('$'), 'the error is matched whole').toBe(true)
-    }
-    expect(new Set(list.map(entry => entry.card)).size).toBe(list.length)
+  it('ci.yml currently accepts no known failures (OXE-412 and OXE-350 are fixed)', () => {
+    expect(known()).toEqual([])
+    expect(classifyGate({ outcome: 'failure', os: 'Windows', log: MAIN_WINDOWS_LOG, known: known() }).outcome).toBe('failure')
   })
 
-  it("main's Windows failures of today are the known ones, and keep their cards in the record", () => {
+  it('named failures match only their exact test/OS/error and keep their cards in the record', () => {
     expect(parseFailures(MAIN_WINDOWS_LOG).failed).toBe(2)
-    const result = classifyGate({ outcome: 'failure', os: 'Windows', log: MAIN_WINDOWS_LOG, known: known() })
+    const result = classifyGate({ outcome: 'failure', os: 'Windows', log: MAIN_WINDOWS_LOG, known: SAMPLE_KNOWN })
     expect(result.outcome).toBe('known')
     expect(result.unknown).toEqual([])
-    expect(result.known.map((k: { card: string }) => k.card).sort()).toEqual(known().map(entry => entry.card).sort())
+    expect(result.known.map((k: { card: string }) => k.card).sort()).toEqual(SAMPLE_KNOWN.map(entry => entry.card).sort())
   })
 
   it('any other failure still fails: a third error, a timeout, another budget, another OS or no summary', () => {
-    const list = known()
+    const list = SAMPLE_KNOWN
     const third = MAIN_WINDOWS_LOG.replace('Error: OxeChat (Thread) warm', 'Error: OxeQuery warm: first content against the 26 ms baseline (round 1 60, round 2 61)\n\n    Error: OxeChat (Thread) warm')
     expect(classifyGate({ outcome: 'failure', os: 'Windows', log: third, known: list }).outcome).toBe('failure')
     const timeout = MAIN_WINDOWS_LOG.replace('    Error: browser private memory', '    Test timeout of 240000ms exceeded.\n\n    Error: browser private memory')
