@@ -112,6 +112,9 @@
 .changes-review-comments b { font-weight: 600; color: var(--tx-primary); }
 @container (max-width: 640px) { .changes-review-label { display: none; } }
 
+.changes-review-agent-body { display: grid; gap: 12px; }
+.changes-review-agent-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
+
 /* In a narrow side panel the file list stacks above the diff instead of squeezing it to a sliver. */
 @container (max-width: 560px) {
   .changes-body { flex-direction: column-reverse; }

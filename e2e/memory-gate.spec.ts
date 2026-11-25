@@ -8,5 +8,5 @@ registerPackagedMemory({
   label: 'unpackaged',
   platform: process.platform,
   packaged: false,
-  launch: (env, args) => electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs'), ...args], env: { ...process.env, ...env } })
+  launch: (env, args) => electron.launch({ args: [join(process.cwd(), 'e2e', 'electron-main.cjs'), ...args], env: { ...process.env, ...env } as Record<string, string> })
 })

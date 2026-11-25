@@ -46,7 +46,7 @@ async function measure(page: Page): Promise<unknown> {
     }
     const lum = (c: number[]) => c.slice(0, 3).map(x => x / 255).map(x => x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4)
       .reduce((s, x, i) => s + x * [.2126, .7152, .0722][i], 0)
-    const contrast: Array<{ text: string; ratio: number; size: string }> = []
+    const contrast: Array<{ cls: string; parent: string; text: string; ratio: number; size: string }> = []
     let elements = 0
     for (const el of document.querySelectorAll('body *')) {
       if (!visible(el)) continue

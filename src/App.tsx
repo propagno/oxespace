@@ -13,7 +13,7 @@ import { SettingsCenter } from './components/Settings/SettingsHost'
 const FirstRunHost = lazy(() => import('./components/Onboarding/FirstRunHost').then(m => ({ default: m.FirstRunHost })))
 const DelegationNotice = lazy(() => import('./components/Delegation/DelegationNotice').then(m => ({ default: m.DelegationNotice })))
 import { useTranslation } from 'react-i18next'
-import { attachOpenThreadDraftListener, queueNewConversationDraft } from './components/Terminal/terminalToChat'
+import { queueNewConversationDraft } from './components/Terminal/terminalToChat'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -27,7 +27,7 @@ import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import { useAppThread, useCommandSnapshot } from './app/useAppThread'
+import { useAppThread, useCommandSnapshot, useThreadDraft } from './app/useAppThread'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
@@ -152,24 +152,10 @@ export function App(): ReactElement {
     window.addEventListener('oxe:open-pane', open)
     return () => window.removeEventListener('oxe:open-pane', open)
   }, [selectMode])
-  const [newThreadWorkspaceId, setDraftProject] = useState<string | null | undefined>(undefined)
-  const [newThreadRootPath, setNewThreadRootPath] = useState<string | undefined>()
-  // The conversation whose session a parallel chat is being written for (OXC-5, OXE-170); any other new conversation leaves it.
-  const [newThreadParentId, setNewThreadParentId] = useState<string | undefined>()
-  const setNewThreadWorkspaceId = (projectId: string | null | undefined): void => { setNewThreadParentId(undefined); setDraftProject(projectId) }
-  const openParallelThread = (parentId: string): void => {
-    const parent = useThreadStore.getState().threads.find(thread => thread.id === parentId)
-    if (!parent) return
-    setNewThreadRootPath(undefined); setDraftProject(parent.projectId); setNewThreadParentId(parentId)
-  }
-  useEffect(() => attachOpenThreadDraftListener({
-    selectThreadMode: () => selectMode('thread'),
-    openNewThread: (projectId, rootPath) => { setNewThreadParentId(undefined); setDraftProject(projectId); setNewThreadRootPath(rootPath) }
-  }), [selectMode])
   const [isThreadProjectOpen, setThreadProjectOpen] = useState(false)
   const appThread = useAppThread(), commandSnapshot = useCommandSnapshot()
   const threadSelection = useThreadStore(state => state.selectedId)
-  useEffect(() => { setNewThreadParentId(undefined); setDraftProject(undefined); setNewThreadRootPath(undefined) }, [threadSelection]) // choosing a conversation leaves the new one being written (OXC-3)
+  const threadDraft = useThreadDraft(selectMode)
   const codeSidebarWidth = useNavigationPrefs(state => state.width)
   const [accountsOpen, setAccountsOpen] = useState(false)
   const [containersOpen, setContainersOpen] = useState(false)
@@ -698,14 +684,14 @@ export function App(): ReactElement {
     const project = threadProject ?? threadProjects.find(item => !item.hidden)
     if (!project) { setThreadProjectOpen(true); return }
     if (typeof draft === 'string') queueNewConversationDraft(project.projectId, draft)
-    setNewThreadWorkspaceId(project.projectId)
+    threadDraft.setProjectId(project.projectId)
   }
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
   const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
   const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'),
-    leaveDraft: () => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }, newThread, newThreadIn: setNewThreadWorkspaceId,
+    leaveDraft: threadDraft.leave, newThread, newThreadIn: threadDraft.setProjectId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
   const openDelegation = async (task: DelegationTask): Promise<boolean> => {
     const showDelegationDetails = () => {
@@ -757,7 +743,7 @@ export function App(): ReactElement {
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}
         onClose={() => { setDelegatedWorkOpen(false); setDelegationTarget(null) }} onOpen={openDelegation} /></Suspense>}
       {showFirstRun && !isNewWorkspaceOpen ? null : isDataView(applicationView) ? <DataSidebar view={applicationView} />
-      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar draft={newThreadWorkspaceId ? { projectId: newThreadWorkspaceId } : null} onLeaveDraft={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} onCreate={(id, rootPath) => { setNewThreadRootPath(rootPath); setNewThreadWorkspaceId(id) }} onCreateParallel={openParallelThread} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={openThreadInCode} /></ThreadSidebarBoundary> : <Sidebar
+      : applicationView === 'thread' ? <ThreadSidebarBoundary><ThreadSidebar draft={threadDraft.projectId ? { projectId: threadDraft.projectId } : null} onLeaveDraft={threadDraft.leave} onCreate={threadDraft.open} onCreateParallel={threadDraft.openParallel} onAccounts={openThreadAccounts} onAddProject={() => setThreadProjectOpen(true)} onOpenInCode={openThreadInCode} /></ThreadSidebarBoundary> : <Sidebar
         onDelegations={() => { setDelegationTarget(null); setDelegatedWorkOpen(true) }}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
@@ -789,15 +775,15 @@ export function App(): ReactElement {
             setHasOpenedThread(true)
             selectMode('thread')
             const project = folder ? threadProjects.find(item => item.contexts.some(ctx => isSameRootPath(ctx.rootPath, folder, window.oxe.app.platform))) : threadProjects.find(item => !item.hidden)
-            if (project) setNewThreadWorkspaceId(project.projectId)
-            else if (folder) { setNewThreadRootPath(folder); setNewThreadWorkspaceId(null) }
+            if (project) threadDraft.setProjectId(project.projectId)
+            else if (folder) threadDraft.open(null, folder)
             else setThreadProjectOpen(true)
           }} /></Suspense>
         ) : activeWorkspace || applicationView !== 'code' ? (
           <>
             <DataHosts view={applicationView} />
             <AgentHooksPromptHost />
-            {hasOpenedThread && <div className="thread-host" data-view="thread" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<ViewSkeleton name="OxeChat" />}>{newThreadWorkspaceId !== undefined ? <NewConversationScreen key={`${newThreadWorkspaceId ?? ''}:${newThreadRootPath ?? ''}:${newThreadParentId ?? ''}`} projectId={newThreadWorkspaceId ?? ''} rootPath={newThreadRootPath} parentThreadId={newThreadParentId} onAddProject={() => setThreadProjectOpen(true)} onCreated={() => { setNewThreadWorkspaceId(undefined); setNewThreadRootPath(undefined) }} /> : <ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} />}</Suspense></ErrorBoundary></div>}
+            {hasOpenedThread && <div className="thread-host" data-view="thread" style={{ display: applicationView === 'thread' ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={applicationView !== 'thread'}><ErrorBoundary id="conversations" label={t('app.boundary.conversations')} onReset={ThreadGrid.retry}><Suspense fallback={<ViewSkeleton name="OxeChat" />}>{threadDraft.projectId !== undefined ? <NewConversationScreen key={`${threadDraft.projectId ?? ''}:${threadDraft.rootPath ?? ''}:${threadDraft.parentId ?? ''}`} projectId={threadDraft.projectId ?? ''} rootPath={threadDraft.rootPath} parentThreadId={threadDraft.parentId} onAddProject={() => setThreadProjectOpen(true)} onCreated={threadDraft.leave} /> : <ThreadGrid onNewThread={newThread} onAccounts={openThreadAccounts} onDelegations={() => setDelegatedWorkOpen(true)} />}</Suspense></ErrorBoundary></div>}
             {workspaces
               .filter((ws) => ws.id === activeWorkspaceId || visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
