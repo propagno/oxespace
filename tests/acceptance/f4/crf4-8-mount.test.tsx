@@ -82,18 +82,20 @@ describe('CR-F4-8 · the F4 tabs, chips and badge are mounted and reach main thr
   test('CR-F4-8 · the conversation shows the tab strip, and a pane main reports adds no Terminal tab, after a push', async () => {
     let panes: ThreadPane[] = []
     const bridge = conversation({ 'thread.panes': () => panes })
-    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes']))
+    await waitFor(() => { expect(screen.getByRole('heading', { level: 1, name: 'Auth investigation' })).toBeInTheDocument(); expect(screen.queryByRole('tablist', { name: 'Conversation tabs' })).toBeNull(); expect(screen.queryByRole('tab', { name: /^Terminal|Pull request/ })).toBeNull(); expect(screen.queryByRole('tabpanel', { name: /^Terminal|Pull request/ })).toBeNull() })
+    const reads = bridge.invoked.filter(([key]) => key === 'thread.toolTabs').length
     panes = PANES
     await act(async () => { bridge.emit('thread.placesChanged', { threadId: 'thread' }); bridge.emit('thread.toolTabsChanged', { threadId: 'thread' }) })
     await new Promise(resolve => setTimeout(resolve, 100))
-    expect(tabNames()).toEqual(['Conversation', 'Changes'])
+    expect(screen.queryByRole('tablist', { name: 'Conversation tabs' })).toBeNull(); expect(screen.queryByRole('tab', { name: /^Terminal|Pull request/ })).toBeNull(); expect(screen.queryByRole('tabpanel', { name: /^Terminal|Pull request/ })).toBeNull()
+    expect(bridge.invoked.filter(([key]) => key === 'thread.toolTabs').length).toBeGreaterThan(reads)
   }, 30_000)
 
   // Changed on 2026-11-13 by the product owner's decision: the Terminal and Pull request tabs left the conversation
   // (1.5.2), so their two tests (the panes under Agent's and Yours, the PR asked with the root and branch) went with them.
   test('CR-F4-8 · with panes and a pull request in main, the conversation shows neither a Terminal nor a Pull request tab', async () => {
     conversation({ 'thread.panes': () => PANES, 'pullRequest.state': () => PR })
-    await waitFor(() => expect(tabNames()).toEqual(['Conversation', 'Changes']))
+    await waitFor(() => { expect(screen.getByRole('heading', { level: 1, name: 'Auth investigation' })).toBeInTheDocument(); expect(screen.queryByRole('tablist', { name: 'Conversation tabs' })).toBeNull(); expect(screen.queryByRole('tab', { name: /^Terminal|Pull request/ })).toBeNull(); expect(screen.queryByRole('tabpanel', { name: /^Terminal|Pull request/ })).toBeNull() })
     expect(screen.queryByRole('tab', { name: /^Terminal|Pull request/ })).toBeNull()
   }, 30_000)
 

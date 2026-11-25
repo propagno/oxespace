@@ -27,7 +27,7 @@
     {
       "id": "BRD-04.tabs.count",
       "scene": "chat-conversation",
-      "select": "main [data-ui=tabs]",
+      "select": "[data-ui=chat-column] [data-ui=tabs]",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -41,7 +41,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.panel-toggle.height",
@@ -60,7 +60,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.panel-toggle.count",
@@ -79,7 +79,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.column.width",
@@ -266,7 +266,7 @@
     {
       "id": "BRD-04.raw-button.count",
       "scene": "chat-conversation",
-      "select": "main button:not([data-ui])",
+      "select": "[data-ui=chat-column] button:not([data-ui])",
       "prop": "count",
       "expect": {
         "eq": 0
@@ -280,7 +280,7 @@
         "light",
         "dark"
       ],
-      "state": "pending"
+      "state": "enforced"
     },
     {
       "id": "BRD-04.request.radius",

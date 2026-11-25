@@ -149,8 +149,8 @@ export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running,
     {event.role !== 'user' && event.attachments?.length ? <div className="thread-message-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <span key={attachment.id}><Paperclip size={12} />{attachment.name}<small>{kilobytes(attachment.bytes)}</small></span>)}</div> : null}
     {event.role === 'user' && <PromptCardTools event={event} turnId={turnId ?? event.id} turnEvents={turnEvents} snapshot={snapshot} running={running} copied={copied} text={displayText} action={action} onCopy={onCopy} />}
     {event.role === 'assistant' && <div className="thread-message-actions">
-      <button type="button" aria-label={t('message.quote')} title={t('message.quote')} onClick={() => onQuote(copyText)}><Quote size={14} /></button>
-      <button type="button" aria-label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)}>{copied ? <Check size={14} className="oxe-confirm" /> : <Copy size={14} />}</button>
+      <IconButton size="sm" label={t('message.quote')} title={t('message.quote')} onClick={() => onQuote(copyText)} icon={<Quote size={14} aria-hidden="true" />} />
+      <IconButton size="sm" label={copied ? t('message.copiedLabel') : final ? t('message.copyFinal') : t('message.copyResponse')} title={copied ? t('message.copied') : final ? t('message.copyFinal') : t('message.copyResponse')} onClick={() => onCopy(event.id, copyText)} icon={copied ? <Check size={14} className="oxe-confirm" aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} />
     </div>}
   </article>
 }

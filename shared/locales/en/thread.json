@@ -1093,7 +1093,10 @@
     "background": "Background activity",
     "httpCalls": "HTTP calls",
     "android": "Android",
-    "containers": "Containers"
+    "containers": "Containers",
+    "queries": "Queries",
+    "changesCount_one": "Changes, {{count}} file",
+    "changesCount_other": "Changes, {{count}} files"
   },
   "patch": {
     "region": "File diff",

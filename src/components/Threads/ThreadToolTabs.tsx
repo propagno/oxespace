@@ -1,25 +1,16 @@
-import { Suspense, useEffect, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
+import { Suspense, useId, useState, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ThreadToolTabEntry } from '../../../shared/types/ipc'
 import { PlacesChanges, type PlacesSend } from './PlacesChanges'
 import { placesBridge } from './placesModel'
 import { lazyFrom } from '../../lib/chunk'
 import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
+import { useThreadToolTabs, type ThreadTabId } from './useThreadToolTabs'
 
 const ChangesPanel = lazyFrom(SHARED_PANEL_CHUNKS.changes, module => module.ChangesPanel)
 const ActivityPanel = lazyFrom(SHARED_PANEL_CHUNKS.activity, module => module.ActivityPanel)
 const ContainersPanel = lazyFrom(SHARED_PANEL_CHUNKS.containers, module => module.ContainersPanel)
 
-export type ThreadTabId = ThreadToolTabEntry['tab']
-
-interface ToolTabsBridge {
-  thread?: {
-    toolTabs?: (threadId: string) => Promise<ThreadToolTabEntry[] | null | undefined>
-    onToolTabsChanged?: (listener: (event: { threadId?: string } | undefined) => void) => () => void
-  }
-}
-
-const DEFAULT_TABS: ThreadToolTabEntry[] = [{ tab: 'conversation', count: null }]
+export type { ThreadTabId }
 
 const TAB_KEY = {
   conversation: 'threadTabs.conversation',
@@ -27,10 +18,6 @@ const TAB_KEY = {
   containers: 'threadTabs.containers',
   changes: 'threadTabs.changes'
 } as const satisfies Record<ThreadTabId, string>
-
-function bridge(): ToolTabsBridge | undefined {
-  return (window as unknown as { oxe?: ToolTabsBridge }).oxe
-}
 
 export function ThreadToolTabs(props: {
   threadId: string
@@ -45,30 +32,9 @@ export function ThreadToolTabs(props: {
   const { threadId, workspaceId, rootPath, branch, activeTab, onOpen, onSendToConversation, trailing } = props
   const { t } = useTranslation('thread')
   const base = useId()
-  const [entries, setEntries] = useState<ThreadToolTabEntry[]>(DEFAULT_TABS)
+  const entries = useThreadToolTabs(threadId)
   const [internalSelected, setInternalSelected] = useState<ThreadTabId>('conversation')
   const selected = activeTab ?? internalSelected
-
-  useEffect(() => {
-    const api = bridge()
-    let alive = true
-    const load = (): void => {
-      if (!api?.thread?.toolTabs) return
-      void api.thread.toolTabs(threadId).then(
-        // A tab this window doesn't know (one that left, from a main that still lists it) is not drawn.
-        next => { if (alive && Array.isArray(next) && next.length > 0) setEntries(next.filter(entry => entry.tab in TAB_KEY)) },
-        () => undefined
-      )
-    }
-    load()
-    const off = api?.thread?.onToolTabsChanged?.(event => {
-      if (!event?.threadId || event.threadId === threadId) load()
-    })
-    return () => {
-      alive = false
-      off?.()
-    }
-  }, [threadId])
 
   const tabs = entries.map(entry => entry.tab)
   const current = tabs.includes(selected) ? selected : 'conversation'

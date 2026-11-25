@@ -31,7 +31,10 @@ const ThreadProjectTerminal = lazyFrom(SHARED_PANEL_CHUNKS.threadTerminal, modul
 /** Thread panels named as everywhere else (src/components/Workbench/panelCatalog.ts). */
 const ThreadNetworkPanel = lazyFrom(SHARED_PANEL_CHUNKS.threadNetwork, module => module.ThreadNetworkPanel)
 const AndroidPanel = lazyFrom(SHARED_PANEL_CHUNKS.android, module => module.AndroidPanel)
-const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls', android: 'android' }
+/** The conversation's Queries and Containers, which main lists as its tool tabs (OXC-4: from Mais painéis, no tab row). */
+const ActivityPanel = lazyFrom(SHARED_PANEL_CHUNKS.activity, module => module.ActivityPanel)
+const ContainersPanel = lazyFrom(SHARED_PANEL_CHUNKS.containers, module => module.ContainersPanel)
+const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls', android: 'android', queries: 'queries', containers: 'containers' }
 
 export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }): void | boolean | Promise<void | boolean>; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
   const { t } = useTranslation('thread')
@@ -72,6 +75,8 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
       : panel === 'preview' ? <div className="thread-review-body thread-tool-surface">{scopedWorkspace ? <Suspense fallback={<LoadingState label={t('workbench.loadingPreview')} />}><WebPreviewPanel workspace={scopedWorkspace} threadId={id} embedded onClose={onClose} onRunCommand={() => {}} onSendToAgent={onSendToConversation ? prompt => { void onSendToConversation(prompt) } : undefined} onOpenFile={openSearchFile} /></Suspense> : unavailable}</div>
       : panel === 'network' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingNetwork')} />}><ThreadNetworkPanel threadId={id} workspaceId={snapshot.thread.workspaceId} /></Suspense></div>
       : panel === 'android' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingAndroid')} />}><AndroidPanel /></Suspense></div>
+      : panel === 'queries' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={null}><ActivityPanel active scope="database" /></Suspense></div>
+      : panel === 'containers' ? <div className="thread-review-body thread-tool-surface"><Suspense fallback={null}><ContainersPanel /></Suspense></div>
       : <div className="thread-review-body thread-tool-surface thread-terminal-surface"><Suspense fallback={<LoadingState label={t('workbench.loadingTerminal')} />}><ThreadProjectTerminal key={id} thread={snapshot.thread} /></Suspense></div>}
   </aside>
 }

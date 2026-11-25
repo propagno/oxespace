@@ -1124,7 +1124,11 @@
     "background": "Atividade em segundo plano",
     "httpCalls": "Chamadas HTTP",
     "android": "Android",
-    "containers": "Contêineres"
+    "containers": "Contêineres",
+    "queries": "Consultas",
+    "changesCount_one": "Alterações, {{count}} arquivo",
+    "changesCount_many": "Alterações, {{count}} arquivos",
+    "changesCount_other": "Alterações, {{count}} arquivos"
   },
   "patch": {
     "region": "Diff do arquivo",
