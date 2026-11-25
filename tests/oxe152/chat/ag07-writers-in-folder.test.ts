@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -65,11 +65,13 @@ describe('OXE-189 AG-07 active writers lookup (CA-5)', () => {
     mkdirSync(worktreeDir, { recursive: true })
     mkdirSync(otherDir, { recursive: true })
 
-    // Variant spellings of repoDir: trailing slash, opposite slashes, and different case on Windows.
+    // Variant spellings of repoDir: trailing slash, redundant segments, and opposite slashes/case on Windows.
     const queryRepo = process.platform === 'win32'
       ? `${repoDir.toLowerCase().replace(/\\/g, '/')}/`
       : `${repoDir}/`
-    const mixedRepo = `${repoDir.replace(/\//g, '\\')}\\`
+    const mixedRepo = process.platform === 'win32'
+      ? `${repoDir.replace(/\//g, '\\')}\\`
+      : `${base}/./MyRepo///`
 
     const threads: ConversationThread[] = [
       makeThread('t-write', 'Refactor login', { rootPath: mixedRepo, status: 'running', access: 'full-access' }),
@@ -98,6 +100,16 @@ describe('OXE-189 AG-07 active writers lookup (CA-5)', () => {
       { id: 't-write', title: 'Refactor login', kind: 'thread' },
       { id: 'pane-active', title: 'Claude Code', kind: 'pane' }
     ])
+
+    // On POSIX, realpath resolves symlinks to the same canonical folder.
+    if (process.platform !== 'win32') {
+      const repoLink = join(base, 'MyRepo-link')
+      symlinkSync(repoDir, repoLink)
+      expect(activeWritersInFolder(repoLink, { threads, panes })).toEqual([
+        { id: 't-write', title: 'Refactor login', kind: 'thread' },
+        { id: 'pane-active', title: 'Claude Code', kind: 'pane' }
+      ])
+    }
 
     // Pure lookup on ownedWorktree path: matches thread owning that worktree + pane working in it.
     const queryWorktree = process.platform === 'win32'
@@ -145,6 +157,21 @@ describe('OXE-189 AG-07 active writers lookup (CA-5)', () => {
     expect(found).toEqual([
       { id: writer.thread.id, title: 'Live thread', kind: 'thread' },
       { id: 'code-1', title: 'Code Pane', kind: 'pane' }
+    ])
+  })
+
+  it('normalizes Windows drive-letter paths consistently across platforms', () => {
+    const threads: ConversationThread[] = [
+      makeThread('t-win', 'Windows repo edit', { rootPath: 'C:\\Users\\Dev\\MyRepo\\', status: 'running', access: 'full-access' }),
+      makeThread('t-win-other', 'Other Windows repo', { rootPath: 'C:\\Users\\Dev\\OtherRepo', status: 'running', access: 'full-access' })
+    ]
+    const panes: ThreadPaneSource[] = [
+      { paneId: 'pane-win', title: 'Win Code', workspaceId: 'ws1', launchDir: 'C:\\Other', agentCwd: 'C:/Users/Dev/./MyRepo///', agent: true, working: true }
+    ]
+
+    expect(activeWritersInFolder('c:/users/dev/myrepo/', { threads, panes })).toEqual([
+      { id: 't-win', title: 'Windows repo edit', kind: 'thread' },
+      { id: 'pane-win', title: 'Win Code', kind: 'pane' }
     ])
   })
 })

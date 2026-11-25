@@ -1,12 +1,19 @@
+import { win32 } from 'node:path'
 import type { ConversationThread } from '../../../../shared/types/thread'
 import type { ThreadActiveWriter, ThreadPaneSource } from '../../../../shared/types/thread-places'
 import { canonicalPath } from '../git-common-dir'
 import { readThreadTitle } from './thread-title'
 
+const WINDOWS_DRIVE_PATH = /^[A-Za-z]:[\\/]/
+
 function normalizeFolder(path: string | null | undefined): string | null {
   if (typeof path !== 'string') return null
   const trimmed = path.trim()
   if (!trimmed || trimmed.length > 4096 || trimmed.includes('\0')) return null
+  if (process.platform !== 'win32' && WINDOWS_DRIVE_PATH.test(trimmed)) {
+    const normalized = win32.normalize(trimmed).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    return normalized || null
+  }
   try {
     const canonical = canonicalPath(trimmed).replace(/\/+$/, '')
     return canonical || '/'
