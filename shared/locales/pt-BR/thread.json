@@ -2082,7 +2082,12 @@
     "alsoEditedBy": "Também editado por {{title}}",
     "more_one": "e mais {{count}}",
     "more_many": "e mais {{count}}",
-    "more_other": "e mais {{count}}"
+    "more_other": "e mais {{count}}",
+    "editingFolder": "Outro agente está editando esta pasta ({{conversation}}).",
+    "createWorktree": "Criar worktree isolada",
+    "continueHere": "Continuar aqui",
+    "parallelEditing": "A outra conversa desta sessão está editando estes arquivos agora.",
+    "openIsolated": "Abrir como nova conversa isolada"
   },
   "terminalTab": {
     "agent": "Do agente",

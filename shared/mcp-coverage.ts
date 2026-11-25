@@ -300,7 +300,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   'thread.places': {
     label: 'A conversation\'s places, their diffs, path links, panes, collisions and agent summary (F4)',
     excluded: 'The person\'s window: read models of where a conversation worked. Agents read their own checkout with oxespace_git.',
-    ipc: ['thread.places', 'thread.placeDiff', 'thread.resolvePath', 'thread.panes', 'thread.collisions', 'thread.agentSummary', 'thread.placesChanged']
+    ipc: ['thread.places', 'thread.placeDiff', 'thread.resolvePath', 'thread.panes', 'thread.collisions', 'thread.activeWriters', 'thread.agentSummary', 'thread.placesChanged']
   },
   'thread.cockpit': {
     label: 'A conversation\'s tool tabs and background shells (F6)',

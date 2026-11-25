@@ -71,7 +71,9 @@ export type ThreadPlaceActionResult = { ok: true } | { ok: false; refusal: impor
 /** A17 (ccr-t71-task-places.md §4.1 thread:place-read): fs:read-file's shape for a file in a place from evidence; never writable. */
 export interface ThreadPlaceReadResult extends FileSystemReadFileResult { readOnly: true }
 /** A pane as the app's pane registry describes it, for the places a pane works in. */
-export interface ThreadPaneSource { paneId: string; title: string; workspaceId: string; launchDir: string; agentCwd?: string | null; shellCwd?: string | null; agent?: boolean }
+export interface ThreadPaneSource { paneId: string; title: string; workspaceId: string; launchDir: string; agentCwd?: string | null; shellCwd?: string | null; agent?: boolean; working?: boolean; readOnly?: boolean }
+/** AG-07 (OXE-189): an agent currently working with write access in a folder (an OxeChat conversation or an OxeCode pane). */
+export interface ThreadActiveWriter { id: string; title: string; kind: 'thread' | 'pane' }
 /** How a pane's cwd was known: its shell's OSC report, its agent's hook location, or the folder it was launched in. */
 export type ThreadPaneVia = 'launch' | 'agent-location' | 'shell-osc'
 /** A18 (ccr-t71-task-places.md §6, thread:panes): a pane whose newest known cwd is in one of the task's places. */
