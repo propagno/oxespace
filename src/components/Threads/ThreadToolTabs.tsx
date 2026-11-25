@@ -5,6 +5,7 @@ import { placesBridge } from './placesModel'
 import { lazyFrom } from '../../lib/chunk'
 import { SHARED_PANEL_CHUNKS } from '../../lib/panelChunks'
 import { useThreadToolTabs, type ThreadTabId } from './useThreadToolTabs'
+import { Button } from '../../ui'
 
 const ChangesPanel = lazyFrom(SHARED_PANEL_CHUNKS.changes, module => module.ChangesPanel)
 const ActivityPanel = lazyFrom(SHARED_PANEL_CHUNKS.activity, module => module.ActivityPanel)
@@ -79,10 +80,11 @@ export function ThreadToolTabs(props: {
             const isSelected = entry.tab === current
             const showCount = typeof entry.count === 'number'
             return (
-              <button
+              <Button
                 key={entry.tab}
                 id={tabId(entry.tab)}
-                type="button"
+                variant="ghost"
+                size="sm"
                 role="tab"
                 tabIndex={isSelected ? 0 : -1}
                 aria-selected={isSelected}
@@ -93,7 +95,7 @@ export function ThreadToolTabs(props: {
               >
                 <span>{t(TAB_KEY[entry.tab])}</span>
                 {showCount && <span className="thread-tab-count">{` ${entry.count}`}</span>}
-              </button>
+              </Button>
             )
           })}
         </div>

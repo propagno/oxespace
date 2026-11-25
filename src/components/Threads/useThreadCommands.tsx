@@ -4,7 +4,7 @@ import { Command, RefreshCw, Slash } from 'lucide-react'
 import type { ThreadCommand, ThreadCommandCatalog, ThreadProvider, ThreadSnapshot } from '../../../shared/types/thread'
 import { CODEX_THREAD_COMMANDS, NATIVE_CLI_COMMANDS } from '../../../shared/threadCommands'
 import { hasDesktopCommand } from '../../../shared/threadDesktopCommands'
-import { EmptyState, ErrorState, LoadingState, Spinner } from '../../ui'
+import { Button, EmptyState, ErrorState, IconButton, LoadingState, Spinner } from '../../ui'
 import { useTranslation } from 'react-i18next'
 import { useThreadStore } from '../../store/thread.store'
 import { i18n } from '../../i18n'
@@ -177,12 +177,12 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     onSelect: (position: number) => setCursor(position),
     inputProps: { 'aria-autocomplete': 'list' as const, 'aria-haspopup': 'listbox' as const, 'aria-controls': open ? listId : undefined, 'aria-activedescendant': open && commands.length ? `${listId}-${activeIndex}` : undefined },
     popup: open ? <div className="thread-command-popup" style={{ maxHeight: popupHeight }}>
-      <header><Command size={14} /><span>{t('commands.title')}</span>{loading && <Spinner size="sm" label={t('commands.loading')} />}<button type="button" aria-label={t('commands.refresh')} title={t('commands.refresh')} disabled={loading} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }}><RefreshCw size={14} /></button></header>
+      <header><Command size={14} /><span>{t('commands.title')}</span>{loading && <Spinner size="sm" label={t('commands.loading')} />}<IconButton size="sm" label={t('commands.refresh')} title={t('commands.refresh')} disabled={loading} icon={<RefreshCw size={14} aria-hidden="true" />} onMouseDown={event => event.preventDefault()} onClick={() => { refreshRequested.current = true; setCatalogRevision(value => value + 1) }} /></header>
       <div className="thread-command-list" id={listId} role="listbox" aria-label={t('commands.list')} ref={menu}>
-        {commands.map((command, index) => <button key={command.name} type="button" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
+        {commands.map((command, index) => <Button key={command.name} variant="ghost" size="sm" role="option" id={`${listId}-${index}`} aria-selected={activeIndex === index} tabIndex={-1}
           onMouseDown={event => event.preventDefault()} onMouseMove={() => setSelected(index)} onClick={() => choose(command)}>
           <Slash size={14} /><span><strong>/{command.name}{command.argumentHint && <small>{command.argumentHint}</small>}</strong><span>{command.description}</span></span><small>{command.execution === 'desktop' || localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name) ? 'OxeChat' : command.source === 'oxe' ? t('commands.skill') : threadAgentName(command.source)}</small>
-        </button>)}
+        </Button>)}
       </div>
       {!commands.length && (loading ? <LoadingState label={t('commands.loading')} /> : <EmptyState compact title={t('commands.none')} />)}
       {catalog.warning && <ErrorState compact title={catalog.warning} />}

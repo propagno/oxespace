@@ -2,6 +2,7 @@ import { File } from 'lucide-react'
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getCachedFileList, getFileListCacheEpoch, setCachedFileList } from '../../lib/fileListCache'
+import { Button } from '../../ui'
 
 /** Matches the `@partial/path` the caret is currently inside. */
 const MENTION = /(^|\s)@([^\s@]*)$/
@@ -87,10 +88,10 @@ export function useFileMentions({ workspaceId, rootPath, draft, caret, enabled, 
   const popup = open ? <div className="thread-mention-menu" role="listbox" aria-label={t('composer.files')}>
     {results.map((file, index) => {
       const slash = file.lastIndexOf('/')
-      return <button key={file} type="button" role="option" aria-selected={index === selected} className={index === selected ? 'is-selected' : undefined}
+      return <Button key={file} variant="ghost" size="sm" role="option" aria-selected={index === selected} className={index === selected ? 'is-selected' : undefined}
         onMouseDown={event => { event.preventDefault(); pick(file) }} onMouseEnter={() => setSelected(index)}>
         <File size={14} aria-hidden="true" /><strong>{file.slice(slash + 1)}</strong><small>{slash > 0 ? file.slice(0, slash) : ''}</small>
-      </button>
+      </Button>
     })}
   </div> : null
 

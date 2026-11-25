@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadActivity, ThreadActivityVerb } from '../../../shared/types/agents'
 import type { NowLineAction } from './threadMoreActions'
+import { Button } from '../../ui'
 
 type VerbI18nKey =
   | 'nowLine.verbs.editing'
@@ -132,15 +133,16 @@ export function NowLine(props: {
       {buttons.length > 0 && !(requestInView && (activity.kind === 'needs-you' || activity.kind === 'question')) && (
         <div className="thread-now-line-actions">
           {buttons.slice(0, 2).map(item => (
-            <button
+            <Button
               key={item.action}
-              type="button"
+              variant={item.danger ? 'danger' : 'secondary'}
+              size="sm"
               className="thread-now-line-action"
               data-danger={item.danger ? 'true' : undefined}
               onClick={() => onAction(item.action)}
             >
               {item.label}
-            </button>
+            </Button>
           ))}
         </div>
       )}

@@ -170,7 +170,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
     {mentions.popup}
     {workingSet}
     {previewElements.length > 0 && onRemovePreviewElement && <PreviewElementChips elements={previewElements} disabled={pending} onRemove={onRemovePreviewElement} />}
-    {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><button type="button" aria-label={t('composer.remove', { name: attachment.name })} disabled={pending} onClick={() => onRemoveAttachment(attachment.id)}><X size={12} /></button></div>)}</div>}
+    {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><IconButton size="sm" label={t('composer.remove', { name: attachment.name })} title={t('composer.remove', { name: attachment.name })} disabled={pending} icon={<X size={12} aria-hidden="true" />} onClick={() => onRemoveAttachment(attachment.id)} /></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
       onChange={e => { setCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { setCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
@@ -178,8 +178,8 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (isSendKey(sendKeyEvent(e), sendKey)) { e.preventDefault(); if (!tooLong) onSend() } else if (e.key === 'Escape' && running) { e.preventDefault(); e.stopPropagation(); escapeToStop() } }} />
     <footer data-ui="composer-toolbar" data-width={narrow ? 'narrow' : 'full'}>
       {!compactChips && <div className="thread-mode-toggle" data-ui="mode-switch" role="group" aria-label={t('config.mode')} title={t('config.modeTitle')}>
-        <button type="button" data-ui="segment" aria-pressed={!planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(false)}>{t('config.agent')}</button>
-        <button type="button" data-ui="segment" data-mode="plan" aria-pressed={planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(true)}>{t('config.plan')}</button>
+        <Button variant="ghost" size="sm" data-ui="segment" aria-pressed={!planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(false)}>{t('config.agent')}</Button>
+        <Button variant="ghost" size="sm" data-ui="segment" data-mode="plan" aria-pressed={planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(true)}>{t('config.plan')}</Button>
       </div>}
       <Menu label={t('composer.context')} side="top" items={[
         { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: insertMention },

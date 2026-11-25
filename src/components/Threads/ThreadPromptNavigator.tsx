@@ -2,6 +2,7 @@ import { CornerUpLeft } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, type RefObject } from 'react'
 import type { ThreadTimelineItem } from './threadTimelineModel'
+import { Button } from '../../ui'
 
 /** Offset below the top edge where a jump places its row and where the turn being read is measured. */
 const READING_LINE_PX = 48
@@ -79,9 +80,8 @@ export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
 
   const prompt = current >= 0 ? rows[current].event : undefined
   if (!inView?.hidden || prompt?.type !== 'message') return null
-  return <button type="button" className="thread-sticky-prompt" data-testid="thread-sticky-prompt" onClick={() => scrollTo(current)}
-    title={t('navigator.back')}>
-    <CornerUpLeft size={13} aria-hidden="true" />
+  return <Button variant="ghost" size="sm" className="thread-sticky-prompt" data-testid="thread-sticky-prompt" onClick={() => scrollTo(current)}
+    title={t('navigator.back')} icon={<CornerUpLeft size={13} aria-hidden="true" />}>
     <span>{prompt.text.trim().split(/\r?\n/)[0]}</span>
-  </button>
+  </Button>
 }
