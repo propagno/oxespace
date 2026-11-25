@@ -130,6 +130,7 @@ describe('OXE-189 AG-07 preventive collision warning', () => {
 
     const box = screen.getByRole('textbox', { name: tt('composer.message') })
     fireEvent.change(box, { target: { value: 'Add validation' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: tt('composer.send') })).toBeEnabled(), { timeout: 10_000 })
     fireEvent.keyDown(box, { key: 'Enter' })
 
     await waitFor(() => expect(api.create).toHaveBeenCalledWith({
@@ -158,6 +159,7 @@ describe('OXE-189 AG-07 preventive collision warning', () => {
     expect(screen.getByRole('switch', { name: tt('dialogs.inWorktree') })).not.toBeChecked()
     expect(box.value).toBe('Keep my draft')
     await waitFor(() => expect(screen.getByRole('group', { name: tt('opening.context') })).toHaveTextContent(tt('opening.access.full-access')))
+    await waitFor(() => expect(screen.getByRole('button', { name: tt('composer.send') })).toBeEnabled(), { timeout: 10_000 })
 
     fireEvent.keyDown(box, { key: 'Enter' })
     await waitFor(() => expect(api.create).toHaveBeenCalledWith({
@@ -222,6 +224,7 @@ describe('OXE-189 AG-07 preventive collision warning', () => {
       await waitFor(() => expect(screen.getByRole('group', { name: tt('opening.context') })).toHaveTextContent(tt('opening.access.full-access')))
 
       // Sending now calls api.create with worktree (NOT createChat — NOT a child!).
+      await waitFor(() => expect(screen.getByRole('button', { name: tt('composer.send') })).toBeEnabled(), { timeout: 10_000 })
       fireEvent.keyDown(box, { key: 'Enter' })
       await waitFor(() => expect(api.create).toHaveBeenCalledWith({
         projectId: 'p1',
@@ -259,6 +262,7 @@ describe('OXE-189 AG-07 preventive collision warning', () => {
 
     const box = screen.getByRole('textbox', { name: tt('composer.message') })
     fireEvent.change(box, { target: { value: 'Work together in same folder' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: tt('composer.send') })).toBeEnabled(), { timeout: 10_000 })
     fireEvent.keyDown(box, { key: 'Enter' })
 
     await waitFor(() => expect(api.createChat).toHaveBeenCalledWith('parent-1', { provider: 'claude' }))

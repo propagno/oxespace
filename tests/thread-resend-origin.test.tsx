@@ -252,7 +252,8 @@ describe('what the person types keeps its authority', () => {
 
 describe('the new conversation screen', () => {
   async function newConversationWindow() {
-    const dir = mkdtempSync(join(tmpdir(), 'oxe-new-conv-'))
+    // Expand Windows 8.3 short paths (e.g. RUNNER~1) and symlinks so rootPath matches ThreadProjectService.add's realpath.
+    const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-new-conv-')))
     cleanups.push(() => removeTempDir(dir))
     execFileSync('git', ['init', '-q'], { cwd: dir, windowsHide: true, stdio: 'ignore' })
     const db = openInMemoryDatabase()
@@ -262,6 +263,7 @@ describe('the new conversation screen', () => {
     const manager = await runtime.manager
     manager.setNewConversationAccess('read-only')
     const addedProject = await runtime.projects.add(dir)
+    const rootPath = addedProject.contexts[0]?.rootPath ?? dir
 
     const settled: Array<{ channel: string; error?: string }> = []
     const invoke = async (channel: string, ...args: unknown[]): Promise<unknown> => {
@@ -299,7 +301,7 @@ describe('the new conversation screen', () => {
       loading: false,
       listLoaded: true
     } as never)
-    return { dir, projectId: addedProject.projectId, manager, settled }
+    return { dir: rootPath, projectId: addedProject.projectId, manager, settled }
   }
 
   it('a typed first command is refused with its reason and kept', async () => {
@@ -308,6 +310,7 @@ describe('the new conversation screen', () => {
     render(<NewConversationScreen projectId={w.projectId} rootPath={w.dir} onCreated={onCreated} />)
     const box = screen.getByRole('textbox', { name: 'Message' })
     fireEvent.change(box, { target: { value: '/permissions full-access' } })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled(), { timeout: 10_000 })
     fireEvent.keyDown(box, { key: 'Enter' })
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), { timeout: 10_000 })
@@ -328,7 +331,8 @@ describe('the new conversation screen', () => {
     const onCreated = vi.fn()
     render(<NewConversationScreen projectId={w.projectId} rootPath={w.dir} onCreated={onCreated} />)
     const box = screen.getByRole('textbox', { name: 'Message' }) as HTMLTextAreaElement
-    await waitFor(() => expect(box.value).toBe('/model opus'))
+    await waitFor(() => expect(box.value).toBe('/model opus'), { timeout: 10_000 })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled(), { timeout: 10_000 })
     fireEvent.keyDown(box, { key: 'Enter' })
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1), { timeout: 10_000 })
