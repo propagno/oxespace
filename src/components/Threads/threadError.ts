@@ -1,5 +1,7 @@
+import { isMessageCode, messageFromError, type MainMessage } from '../../../shared/messages'
 import { i18n } from '../../i18n'
-import { humanizeError } from '../../utils/humanizeError'
+import { formatMainMessage } from '../../i18n/mainMessage'
+import { errorText, humanizeError } from '../../utils/humanizeError'
 
 /** A readable message for an error from a Thread action (see humanizeError). */
 /**
@@ -11,5 +13,12 @@ export const isAccountUnavailable = (error: unknown): boolean => String(error in
 
 export function threadError(error: unknown): string {
   if (isAccountUnavailable(error)) return i18n.t('thread:errors.accountUnavailable')
+  const structured = messageFromError(error)
+  if (structured) return formatMainMessage(structured)
+  const raw = errorText(error)
+  if (isMessageCode(raw)) {
+    const formatted = formatMainMessage({ code: raw, params: {} } as MainMessage)
+    if (formatted && !formatted.includes('{{')) return formatted
+  }
   return humanizeError(error, i18n.t('thread:errors.action'))
 }

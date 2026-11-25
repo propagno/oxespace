@@ -137,6 +137,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
         if (!terminalManager.hasSession(row.id)) continue
         const launchDir = terminalManager.status(row.id).launchDirectory
         if (!launchDir) continue
+        const paneState = agentState.get(row.id)
         sources.push({
           paneId: row.id,
           title: row.display_name || row.agent_name || 'Terminal',
@@ -144,7 +145,8 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
           launchDir,
           agentCwd: paneAgentCwd.get(row.id) ?? null,
           shellCwd: terminalManager.shellCwd(row.id),
-          agent: agentState.get(row.id) !== null || Boolean(row.agent_name)
+          agent: paneState !== null || Boolean(row.agent_name),
+          working: paneState?.state === 'working'
         })
       }
       return sources

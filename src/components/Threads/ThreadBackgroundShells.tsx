@@ -80,7 +80,7 @@ export function ThreadBackgroundShells(props: {
   return (
     <section className="thread-background-shells" aria-label={t('backgroundShells.region')}>
       {hiddenCount > 0 && (
-        <button type="button" className="thread-background-more" onClick={() => setShowAll(true)}>{t('backgroundShells.showEarlier', { count: hiddenCount })}</button>
+        <Button variant="ghost" size="sm" className="thread-background-more" onClick={() => setShowAll(true)}>{t('backgroundShells.showEarlier', { count: hiddenCount })}</Button>
       )}
       {visible.map(shell => {
         const finished = shell.state === 'stopped'
@@ -135,7 +135,7 @@ export function ThreadBackgroundShells(props: {
         )
       })}
       {showAll && finishedIds.length > FINISHED_SHOWN && (
-        <button type="button" className="thread-background-more" onClick={() => setShowAll(false)}>{t('backgroundShells.showFewer')}</button>
+        <Button variant="ghost" size="sm" className="thread-background-more" onClick={() => setShowAll(false)}>{t('backgroundShells.showFewer')}</Button>
       )}
     </section>
   )

@@ -807,6 +807,8 @@ export interface ThreadApi {
   panes?(id: string): Promise<import('./thread-places').ThreadPane[]>
   /** A54: files this conversation and another one both wrote and left dirty in the same checkout. */
   collisions?(id: string): Promise<import('./thread-places').ThreadCollision[]>
+  /** AG-07 (OXE-189): running conversations and Code panes with write access in `rootPath`. */
+  activeWriters?(rootPath: string): Promise<import('./thread-places').ThreadActiveWriter[]>
   /** FE-P9: the Pull request tab's summary of what the agent did. */
   agentSummary?(id: string): Promise<import('./thread-places').ThreadAgentSummary | null>
   /** Main pushes thread:places-changed when a conversation's places, drift or writes change. */

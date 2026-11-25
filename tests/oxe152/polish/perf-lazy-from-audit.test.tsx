@@ -443,6 +443,7 @@ describe('OXE-308 · remaining OxeCode surfaces on lazyFrom', () => {
       'src/components/Panes/PaneContent.tsx',
       'src/components/AgentSessions/PaneResume.tsx',
       'src/components/Panes/TerminalPane.tsx',
+      'src/App.tsx',
     ]
     for (const rel of migrated) {
       const src = readFileSync(resolve(process.cwd(), rel), 'utf8')

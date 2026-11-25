@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { ThreadSnapshot, ThreadTurnFileStatus } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { humanizeError } from '../../utils/humanizeError'
-import { EmptyState, ErrorState, LoadingState } from '../../ui'
+import { Button, EmptyState, ErrorState, LoadingState } from '../../ui'
 import { ThreadHunkReview } from './ThreadHunkReview'
 import { TurnPath } from './ThreadFileActivity'
 import { threadChanges } from './threadChanges'
@@ -69,7 +69,7 @@ export function ThreadTurnReview({ snapshot, turnId, onShowAll, onComment }: {
         <strong>{turn ? t('turnReview.turn', { number: turn.sequence }) : t('turnReview.thisTurn')}</strong>
         <small title={checkout ?? snapshot.thread.rootPath}>{files ? t('turnReview.files', { count: files.length }) : t('common.loading')}{checkout && t('turnReview.in', { folder: folderName(checkout) })}</small>
       </div>
-      <button type="button" className="thread-change-view" onClick={onShowAll} title={t('turnReview.allTitle')}><GitCompare size={13} aria-hidden="true" />{t('turnReview.all')}</button>
+      <Button variant="secondary" size="sm" className="thread-change-view" onClick={onShowAll} title={t('turnReview.allTitle')} icon={<GitCompare size={13} aria-hidden="true" />}>{t('turnReview.all')}</Button>
     </header>
     {error && <ErrorState compact title={error} />}
     {files === null ? <LoadingState label={t('turnReview.loading')} />
@@ -82,12 +82,12 @@ export function ThreadTurnReview({ snapshot, turnId, onShowAll, onComment }: {
           const other = file.root && file.root !== snapshot.thread.rootPath ? file.root : null
           const inProject = parseProjectPath(file.path, other ?? snapshot.thread.rootPath)
           return <li key={file.path}><WithPathMenu request={inProject ? { workspaceId: snapshot.thread.workspaceId, rootPath: other ?? snapshot.thread.rootPath, relativePath: inProject.relativePath } : null}
-            render={onContextMenu => <button type="button" aria-current={file.path === selected || undefined} title={file.root ? `${file.root.replace(/[\\/]+$/, '')}/${file.path}` : file.path} onClick={() => setSelected(file.path)} onContextMenu={onContextMenu}>
+            render={onContextMenu => <Button variant="ghost" size="sm" aria-current={file.path === selected || undefined} title={file.root ? `${file.root.replace(/[\\/]+$/, '')}/${file.path}` : file.path} onClick={() => setSelected(file.path)} onContextMenu={onContextMenu}>
             <span className="thread-change-file-name"><TurnPath path={file.path} roots={roots} /></span>
             {file.state !== 'pending' && <span className="thread-change-file-state">{t(`turnReview.${file.state}`)}</span>}
             {!file.postExists && <span className="thread-change-file-state">{t('turnReview.deleted')}</span>}
             {!file.preExists && file.postExists && <span className="thread-change-file-state">{t('turnReview.added')}</span>}
-          </button>} /></li>
+          </Button>} /></li>
         })}</ul>
         {current && <div className="thread-turn-review-diff">
           {current.state === 'pending'

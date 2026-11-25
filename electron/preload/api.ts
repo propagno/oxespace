@@ -149,6 +149,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       placeDiscard: (id, placeId, input) => ipc.invoke(IPC_CHANNELS.thread.placeDiscard, id, placeId, input) as Promise<import('../../shared/types/thread-places').ThreadPlaceActionResult>,
       panes: id => ipc.invoke(IPC_CHANNELS.thread.panes, id) as Promise<import('../../shared/types/thread-places').ThreadPane[]>,
       collisions: id => ipc.invoke(IPC_CHANNELS.thread.collisions, id) as Promise<import('../../shared/types/thread-places').ThreadCollision[]>,
+      activeWriters: rootPath => ipc.invoke(IPC_CHANNELS.thread.activeWriters, rootPath) as Promise<import('../../shared/types/thread-places').ThreadActiveWriter[]>,
       agentSummary: id => ipc.invoke(IPC_CHANNELS.thread.agentSummary, id) as Promise<import('../../shared/types/thread-places').ThreadAgentSummary | null>,
       onPlacesChanged: listener => subscribe<{ threadId: string }>(ipc, IPC_CHANNELS.thread.placesChanged, listener),
       steerQueued: (id, itemId) => ipc.invoke(IPC_CHANNELS.thread.steerQueued, id, itemId) as Promise<void>,
