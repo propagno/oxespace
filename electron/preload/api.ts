@@ -329,6 +329,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       setDesktopName: input => ipc.invoke(IPC_CHANNELS.remote.setDesktopName, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       setPhoneWrite: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneWrite, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       setPhoneHidden: input => ipc.invoke(IPC_CHANNELS.remote.setPhoneHidden, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
+      setAllowVpn: input => ipc.invoke(IPC_CHANNELS.remote.setAllowVpn, input) as Promise<import('../../shared/types/remote').RemoteGatewayStatus>,
       firewallStatus: () => ipc.invoke(IPC_CHANNELS.remote.firewallStatus) as Promise<import('../../shared/types/remote').RemoteFirewallStatus>,
       firewallRepair: () => ipc.invoke(IPC_CHANNELS.remote.firewallRepair) as Promise<import('../../shared/types/remote').RemoteFirewallChange>,
       firewallUndo: () => ipc.invoke(IPC_CHANNELS.remote.firewallUndo) as Promise<import('../../shared/types/remote').RemoteFirewallChange>
@@ -602,6 +603,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       installApk: (input) => ipc.invoke(IPC_CHANNELS.androidActions.installApk, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       openLink: (input) => ipc.invoke(IPC_CHANNELS.androidActions.openLink, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       pair: (input) => ipc.invoke(IPC_CHANNELS.androidActions.pair, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
+      stopEmulator: (input) => ipc.invoke(IPC_CHANNELS.androidActions.stopEmulator, input) as Promise<import('../../shared/types/ipc').AndroidActionOutcome>,
       onChanged: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorStatus | undefined>(ipc, IPC_CHANNELS.android.changed, listener),
       onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
       onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)

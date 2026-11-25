@@ -160,6 +160,15 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'Capture a screenshot of an Android device when Agents can see is on',
     tools: { oxespace_device_screenshot: 'read' }
   },
+  'android.lifecycle': {
+    label: 'Android device lifecycle with explicit consent: start AVD, install workspace APK, launch app, tail logcat',
+    tools: {
+      oxespace_android_avd_start: 'confirm',
+      oxespace_android_apk_install: 'confirm',
+      oxespace_android_app_launch: 'confirm',
+      oxespace_android_logcat_tail: 'read'
+    }
+  },
   'android.controls': {
     label: 'Android mirror window controls, input and the Agents can see switch',
     forbidden: 'The person\'s Android mirror, input and device access switch; no MCP tool may send input to a device or raise access.',
@@ -435,9 +444,9 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'remote.devices_read': { label: 'Remote gateway status and paired phones', excluded: 'The person\'s devices, shown in Settings › Devices; agents have no use for them.', ipc: ['remote.status', 'remote.devices'] },
   'remote.gateway_admin': {
-    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane, keep a pane off the phone',
+    label: 'Turn the remote gateway on or off, pair, answer, revoke or rename a phone, name the desktop, let a phone type into a pane, keep a pane off the phone, allow private VPN addresses',
     forbidden: 'Opens a network surface and grants device access.',
-    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.setPhoneHidden', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
+    ipc: ['remote.setEnabled', 'remote.startPairing', 'remote.cancelPairing', 'remote.answerPairing', 'remote.revoke', 'remote.rename', 'remote.setDesktopName', 'remote.setPhoneWrite', 'remote.setPhoneHidden', 'remote.setAllowVpn', 'remote.firewallStatus', 'remote.firewallRepair', 'remote.firewallUndo']
   },
   'mcp.tool_rules_admin': { label: 'Choose, per MCP tool, to run it without asking, ask, or block it', forbidden: 'Approvals and access stay with the person.', ipc: ['mcpInternal.setToolRule'] },
   'settings.data_export': {

@@ -9,15 +9,16 @@ import type { MessageCode } from '../messages'
  * The groups. `team` and `worker` follow the conversation's role; `code` is the Code terminal's own, always on there and
  * never offered to an OxeChat conversation.
  */
-export const MCP_TOOL_GROUP_IDS = ['core', 'orchestration', 'data', 'docs', 'preview', 'app', 'team', 'worker', 'code'] as const
+export const MCP_TOOL_GROUP_IDS = ['core', 'orchestration', 'data', 'docs', 'preview', 'android', 'app', 'team', 'worker', 'code'] as const
 export type McpToolGroupId = typeof MCP_TOOL_GROUP_IDS[number]
 
 /**
  * Groups a project can switch between modes. `core` is always on; `team`, `worker` and `code` follow the role.
  * `preview` holds the Web Preview and Android device tools (OXE-108); they left `docs`, which keeps its id so a saved
  * configuration that names it still reads, and holds nothing for now.
+ * `android` holds the Android emulator and app lifecycle tools (OXE-111).
  */
-export const CONFIGURABLE_MCP_TOOL_GROUPS = ['orchestration', 'data', 'docs', 'preview', 'app'] as const satisfies readonly McpToolGroupId[]
+export const CONFIGURABLE_MCP_TOOL_GROUPS = ['orchestration', 'data', 'docs', 'preview', 'android', 'app'] as const satisfies readonly McpToolGroupId[]
 export type ConfigurableMcpToolGroup = typeof CONFIGURABLE_MCP_TOOL_GROUPS[number]
 
 /**
@@ -36,7 +37,7 @@ export type McpToolGroupMode = typeof MCP_TOOL_GROUP_MODES[number]
  * Turning `docs` off, or the 1.3 list form, does not touch `preview`: only naming `preview` does.
  */
 export const MCP_TOOL_GROUP_DEFAULT_MODES: Readonly<Record<ConfigurableMcpToolGroup, McpToolGroupMode>> = {
-  orchestration: 'on-demand', data: 'on-demand', docs: 'on-demand', preview: 'always', app: 'on-demand'
+  orchestration: 'on-demand', data: 'on-demand', docs: 'on-demand', preview: 'always', android: 'on-demand', app: 'on-demand'
 }
 
 /** Estimated size of what a provider receives. Tokens are an estimate from characters (`CHARS_PER_TOKEN`); the page labels them so. */

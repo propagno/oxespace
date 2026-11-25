@@ -22,7 +22,7 @@ test("an inline path opens from the turn's folder, and a missing one names the p
     await registerThreadProject(app, page, workspaceRoot)
     await openThreadWithState(app, page, workspaceRoot, 'conversation')
     const now = Date.now()
-    await app.evaluate((_context, payload) => { (globalThis as Record<string, (s: unknown) => void>).applyThreadState(payload) }, {
+    await app.evaluate((_context, payload) => { (globalThis as unknown as Record<string, (s: unknown) => void>).applyThreadState(payload) }, {
       status: 'idle', title: 'Authentication flow', provider: 'claude', events: [
         { type: 'message', id: 'u-t70', role: 'user', text: 'Write the PoC script in prd-0311.' },
         { type: 'request', id: 'r-t70', request: { id: 'r-t70', nativeId: 'n-t70', nativeMethod: 'item/commandExecution/requestApproval', kind: 'approval', title: 'Run node', command: 'node gravar-poc-prd.js', cwd: folder, generation: 1, createdAt: now, state: 'resolved' } },

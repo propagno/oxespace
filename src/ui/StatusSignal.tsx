@@ -18,7 +18,7 @@ import styles from './StatusSignal.module.css'
 export const SIGNAL_STATES = ['needs-you', 'working', 'failed', 'done', 'waiting', 'interrupted', 'unconfirmed'] as const
 export type SignalState = typeof SIGNAL_STATES[number]
 
-export function StatusSignal({ state, label, size = 16, className }: { state: SignalState; label: string; size?: number; className?: string }): ReactElement {
+export function StatusSignal({ state, label, size = 16, className, 'data-testid': testId }: { state: SignalState; label: string; size?: number; className?: string; 'data-testid'?: string }): ReactElement {
   return <svg
     className={cx(styles.signal, styles[state], className)}
     width={size}
@@ -29,6 +29,7 @@ export function StatusSignal({ state, label, size = 16, className }: { state: Si
     aria-label={label}
     data-ui="status-signal"
     data-state={state}
+    data-testid={testId}
   >
     <title>{label}</title>
     {SHAPES[state]}

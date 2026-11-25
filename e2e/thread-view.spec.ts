@@ -143,7 +143,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
       ipcMain.handle('agent-account:browser', () => {})
       ipcMain.handle('thread:list', () => snapshot ? [snapshot.thread, ...(manyThreads ? [...Array.from({ length: 70 }, (_, index) => ({ ...(snapshot!.thread as object), id: `history-${index}`, title: `History conversation ${index}`, status: 'idle', updatedAt: Date.now() - (index + 1) * 60000 })), { ...(snapshot!.thread as object), id: 'archived-fixture', title: 'Archived agent work', status: 'idle', archived: !archivedRestored }] : [])] : [])
       ipcMain.handle('thread:read', (_event, id) => id !== 'e2e-thread' && snapshot ? ({
-        thread: { ...snapshot.thread, id, title: id.startsWith('history-') ? `History conversation ${id.slice('history-'.length)}` : id === 'archived-fixture' ? 'Archived agent work' : String(id), status: 'idle', ...(id === 'archived-fixture' ? { archived: !archivedRestored } : {}) },
+        thread: { ...(snapshot.thread as object), id, title: id.startsWith('history-') ? `History conversation ${id.slice('history-'.length)}` : id === 'archived-fixture' ? 'Archived agent work' : String(id), status: 'idle', ...(id === 'archived-fixture' ? { archived: !archivedRestored } : {}) },
         events: [{ type: 'message', id: `${id}-answer`, role: 'assistant', text: `Independent conversation ${id}` }, { type: 'completed', status: 'completed' }]
       }) : snapshot)
       ipcMain.handle('thread:create', (_event, input) => {
@@ -657,11 +657,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     const liveActivity = page.locator('.thread-live-activity')
     await expect(liveActivity.getByRole('status')).toHaveText('Analyzing request')
     await expect(liveActivity).toContainText('Last provider signal')
-    await app.evaluate(() => (globalThis as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(true))
+    await app.evaluate(() => (globalThis as unknown as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(true))
     await expect(liveActivity).toContainText('Running command')
     await expect(liveActivity.locator('time')).toContainText('Turn ·')
     expect(await liveActivity.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
-    await app.evaluate(() => (globalThis as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(false))
+    await app.evaluate(() => (globalThis as unknown as Record<string, (enabled: boolean) => void>).longThreadCommandFixture(false))
     const runningDot = page.locator('.thread-session-indicator[data-status="running"]').first()
     await expect(runningDot).toBeVisible()
     const runningColors = await runningDot.evaluate(el => ({ label: getComputedStyle(el).color, dot: getComputedStyle(el, '::before').backgroundColor, green: (() => { const token = document.createElement('span'); token.style.color = 'var(--intent-success-solid)'; document.body.append(token); const color = getComputedStyle(token).color; token.remove(); return color })() }))
@@ -694,7 +694,7 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     // The provider's summary is a reasoning block in the conversation, not repeated in the live status.
     await expect(liveActivity.locator('details')).toHaveCount(0)
     await page.screenshot({ path: 'test-results/thread-reading.png' })
-    await app.evaluate(() => (globalThis as Record<string, () => void>).silenceThreadFixture())
+    await app.evaluate(() => (globalThis as unknown as Record<string, () => void>).silenceThreadFixture())
     await expect(liveActivity).toContainText('Execution outcome is not confirmed. Your message was not resent.')
     await expect(liveActivity.getByRole('status').first()).toHaveText('Waiting for a confirmed provider update')
     await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('Unsent draft')
@@ -1043,9 +1043,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(savedApproval.locator('button, input')).toHaveCount(0)
     expect(await savedApproval.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     await page.screenshot({ path: 'test-results/thread-lost-approval.png' })
-    await app.evaluate(() => (globalThis as Record<string, (missing: boolean) => void>).missingInputFixture(true))
+    await app.evaluate(() => (globalThis as unknown as Record<string, (missing: boolean) => void>).missingInputFixture(true))
     await expect(page.getByRole('button', { name: 'Refresh request', exact: true })).toBeVisible()
-    await app.evaluate(() => (globalThis as Record<string, (missing: boolean) => void>).missingInputFixture(false))
+    await app.evaluate(() => (globalThis as unknown as Record<string, (missing: boolean) => void>).missingInputFixture(false))
     const requestDock = page.getByRole('region', { name: 'Pending agent requests' })
     await expect(requestDock.getByText('Allow this memory update?')).toBeVisible()
     await timeline.evaluate(element => { element.scrollTop = 0 })

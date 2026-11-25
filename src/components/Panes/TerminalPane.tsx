@@ -1,5 +1,5 @@
 import { Bone, Check, History, MoreHorizontal, Play } from 'lucide-react'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { SessionSummary } from '../../../shared/types/session'
 import type { WorkspacePane } from '../../../shared/types/workspace'
@@ -11,12 +11,14 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
 // The pane's usage chips read quotas and context after the terminal is up; they load on their own.
-const CopilotCreditsStatus = lazy(() => import('../Terminal/CopilotCreditsStatus').then(module => ({ default: module.CopilotCreditsStatus })))
-const ContextUsageStatus = lazy(() => import('../Terminal/ContextUsageStatus').then(module => ({ default: module.ContextUsageStatus })))
+// OXE-308: lazyFrom, so a chip whose chunk has arrived renders at once instead of holding the fallback.
+const CopilotCreditsStatus = lazyFrom(chunk(() => import('../Terminal/CopilotCreditsStatus')), module => module.CopilotCreditsStatus)
+const ContextUsageStatus = lazyFrom(chunk(() => import('../Terminal/ContextUsageStatus')), module => module.ContextUsageStatus)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 
 import { Button, Dialog, EmptyState, ErrorState, LoadingState, TextField } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import { formatDateTime } from '../../utils/formatTime'
 import { resolvePaneIdentity } from '../../utils/paneDisplay'
 import { i18n } from '../../i18n'

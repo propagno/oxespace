@@ -209,7 +209,7 @@ export const IPC_CHANNELS = {
   remote: {
     status: 'remote:status', devices: 'remote:devices', changed: 'remote:changed', setEnabled: 'remote:set-enabled', startPairing: 'remote:start-pairing',
     cancelPairing: 'remote:cancel-pairing', answerPairing: 'remote:answer-pairing', revoke: 'remote:revoke', rename: 'remote:rename',
-    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', pairingFailed: 'remote:pairing-failed',
+    setDesktopName: 'remote:set-desktop-name', setPhoneWrite: 'remote:set-phone-write', setPhoneHidden: 'remote:set-phone-hidden', setAllowVpn: 'remote:set-allow-vpn', pairingFailed: 'remote:pairing-failed',
     firewallStatus: 'remote:firewall-status', firewallRepair: 'remote:firewall-repair', firewallUndo: 'remote:firewall-undo'
   },
   agentHooks: {
@@ -436,7 +436,7 @@ export const IPC_CHANNELS = {
   /** The person's own actions on a device from the Android panel; apart from the mirror's channels, which F5 fixed. */
   /** The person's schedules: requests to an agent sent at a set time. Never reachable by an agent. */
   schedules: { state: 'schedules:state', runs: 'schedules:runs', save: 'schedules:save', remove: 'schedules:remove', setEnabled: 'schedules:set-enabled', setPaused: 'schedules:set-paused', runNow: 'schedules:run-now', changed: 'schedules:changed' },
-  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair' },
+  androidActions: { pickApk: 'android-actions:pick-apk', installApk: 'android-actions:install-apk', openLink: 'android-actions:open-link', pair: 'android-actions:pair', stopEmulator: 'android-actions:stop-emulator' },
   oxeContext: {
     buildPaneManifest: 'oxe-context:build-pane-manifest'
   },

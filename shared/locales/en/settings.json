@@ -582,7 +582,10 @@
       "listening": "Listening on {{addresses}}, port {{port}}",
       "off": "Off. No port is open.",
       "failed": "Could not change the phone connection: {{error}}",
-      "on": "Phones can now connect to this computer"
+      "on": "Phones can now connect to this computer",
+      "vpnLabel": "Also reach this computer over a VPN (Tailscale, WireGuard)",
+      "vpnHint": "Off by default. When on, OXESpace also listens on private VPN addresses (100.64/10) so paired phones can connect over your own VPN. Changing this restarts the phone connection.",
+      "vpnFailed": "Could not change the VPN setting: {{error}}"
     },
     "network": {
       "publicTitle": "Windows calls “{{network}}” a Public network, so phones can’t reach this computer",
@@ -810,6 +813,10 @@
       "preview": {
         "name": "Preview",
         "description": "Web Preview and Android devices: open, capture and drive a preview, and take a device screenshot. On from the start."
+      },
+      "android": {
+        "name": "Android",
+        "description": "Android emulators and apps: start an emulator, install an APK, launch an app and read logcat. Starting, installing and launching ask you first."
       },
       "app": {
         "name": "App",
