@@ -2,10 +2,10 @@ import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
 import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
 import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
-import { threadAgentName, threadProductName } from '../../../shared/threadProviders'
+import { threadProductName } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, ArrowDown, ArrowUp, MessageSquarePlus, TerminalSquare, Image as ImageIcon } from 'lucide-react'
 import { blocksThreadInput } from '../../../shared/threadHistoryNotice'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -17,8 +17,6 @@ import { useThreadStore } from '../../store/thread.store'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useAccountStore, selectAccount } from '../../store/account.store'
 import { accountContext, accountMessage } from './accountMessages'
-import { useThreadCommands } from './useThreadCommands'
-import { useFileMentions } from './useFileMentions'
 import { PrStatusBar } from '../GitHub/PrStatusBar'
 import { usePrArchiveOffer } from './usePrArchiveOffer'
 import { ThreadLiveActivity } from './ThreadLiveActivity'
@@ -44,16 +42,14 @@ import { authText, ThreadMessageBody } from './ThreadMessageRow'
 import { ThreadHeader } from './ThreadHeader'
 import { useOwnWorktreeFileCount } from './placesModel'
 import { useThreadToolTabs } from './useThreadToolTabs'
-import { deriveThreadActivity } from './deriveThreadActivity'
 import { useCompactFeedback } from './useCompactFeedback'
 import type { NowLineAction } from './threadMoreActions'
-import { useOpenRequest } from '../Approvals/openRequest'
 import { useThreadShortcuts } from './useThreadShortcuts'
 import { ThreadFindBar } from './ThreadFindBar'
 import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { requestThreadOpenInCode } from './threadMoreActions'
-import { ThreadComposerForm } from './ThreadComposerForm'
+import { ThreadComposerForm, type ThreadComposerCommandsHandle } from './ThreadComposerForm'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
 import { ThreadDockChanges } from './ThreadDockChanges'
@@ -93,9 +89,6 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   // The panel sits beside the conversation, as OxeCode's do, whenever both keep their minimum width; only a workbench
   // too narrow for that gets the drawer over the conversation.
   const drawer = availableWidth > 0 && availableWidth < CONVERSATION_MIN_WIDTH + REVIEW_MIN_WIDTH
-  const draft = useThreadStore(state => snapshot ? state.drafts[snapshot.thread.id] ?? '' : '')
-  const attachments = useThreadStore(state => snapshot ? state.attachments[snapshot.thread.id] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
-  const previewElements = useThreadStore(state => snapshot ? state.previewElements[snapshot.thread.id] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
   const [error, setError] = useState(''), [pending, setPending] = useState(false)
   // What the person can't act on (a code from main), shown under Details; cleared with the error.
   const [errorDetail, setErrorDetail] = useState('')
@@ -107,11 +100,24 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const [delegationOpen, setDelegationOpen] = useState(false)
   const [prOfThread, setPrOfThread] = useState<{ threadId: string; url: string | null } | null>(null)
   const textarea = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), actionInFlight = useRef(false)
+  const commandsRef = useRef<ThreadComposerCommandsHandle | null>(null)
   // T40: its own PR closed or merged, the conversation offers to archive itself (src/components/Threads/usePrArchiveOffer.ts).
   const onPrStatus = usePrArchiveOffer(snapshot?.thread)
   const hasPullRequest = Boolean(snapshot && prOfThread?.threadId === snapshot.thread.id && prOfThread.url)
-  const scroll = useThreadScrollAnchor(snapshot, shownId)
-  const { timeline, scrollEnd } = scroll
+  const {
+    timeline,
+    content: timelineContent,
+    following: timelineFollowing,
+    updateTimelineViewport,
+    timelineProps,
+    showEnd,
+    newMessages,
+    loadingEarlier,
+    historyFeedback,
+    scrollEnd,
+    loadEarlier,
+    reinitialize: reinitializeScroll
+  } = useThreadScrollAnchor(snapshot, shownId)
   // The branch of the checkout the conversation works in, which is a worktree once the provider moves into one.
   const branch = useGitBranch(workspace?.id ?? '', snapshot ? threadWorkingRoot(snapshot.thread) : workspace?.rootPath ?? '')
   const api = window.oxe?.thread
@@ -164,25 +170,24 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const contextKey = JSON.stringify(context)
   useEffect(() => { const ctx = JSON.parse(contextKey); if (ctx.workspaceId) void useAccountStore.getState().read(ctx) }, [contextKey])
   const running = snapshot?.thread.status === 'running' || snapshot?.thread.status === 'approval'
-  // One pass per events array instead of several scans per render: typing re-renders this view on every key.
+  // One pass per events array instead of several scans per render.
   const events = snapshot?.events ?? NO_EVENTS
   const summary = useMemo(() => summarizeThreadEvents(events), [events])
   const pendingRequests = running ? (snapshot?.pendingRequests ?? summary.pendingRequests) : NO_REQUESTS
-  const activity = useMemo(() => deriveThreadActivity(snapshot, pendingRequests), [snapshot, pendingRequests])
   useCompactFeedback(snapshot)
-  const irreversible = Boolean(pendingRequests[0]?.impact && !pendingRequests[0].impact.reversible)
   const viewMode = useThreadViewModeStore(state => state.mode)
   // A stable key, so the timeline is not rebuilt on every render only because this array is new.
   const pendingRequestKey = pendingRequests.map(request => request.id).join('\n')
+  const shownThreadId = snapshot?.thread.id
   // Finished turns fold their intermediate work ("Completed N steps in Xs"), except in the verbose view and
   // while Find is open, so a search never misses a hidden row. The open folds reset with the conversation.
   const [openFolds, setOpenFolds] = useState<{ threadId: string | undefined; turns: Set<string> }>({ threadId: undefined, turns: new Set() })
-  const expandedFolds = openFolds.threadId === snapshot?.thread.id ? openFolds.turns : EMPTY_FOLDS
+  const expandedFolds = openFolds.threadId === shownThreadId ? openFolds.turns : EMPTY_FOLDS
   const toggleFold = useCallback((turnId: string) => setOpenFolds(current => {
-    const turns = new Set(current.threadId === snapshot?.thread.id ? current.turns : [])
+    const turns = new Set(current.threadId === shownThreadId ? current.turns : [])
     if (turns.has(turnId)) turns.delete(turnId); else turns.add(turnId)
-    return { threadId: snapshot?.thread.id, turns }
-  }), [snapshot?.thread.id])
+    return { threadId: shownThreadId, turns }
+  }), [shownThreadId])
   // Rebuilds only the turns a streamed delta changed (threadTimelineModel.ts).
   const [buildTimeline] = useState(createThreadTimelineBuilder)
   const turns = useMemo(() => {
@@ -191,7 +196,6 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     return foldFinishedTurns(built, expandedFolds, new Set(pendingRequestKey ? pendingRequestKey.split('\n') : []))
   }, [buildTimeline, events, viewMode, finding, expandedFolds, pendingRequestKey])
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
-  const shownThreadId = snapshot?.thread.id
   const pendingMessage = useMemo(() => outgoing && shownThreadId === outgoing.threadId && !events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null, [outgoing, shownThreadId, events])
   const { lastResult, lastMessage: lastConversationMessage, lastPrompt } = summary
   const idle = snapshot?.thread.status === 'idle'
@@ -215,7 +219,6 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     if (copied) setCopiedMessageId(id)
     else setError(t('view.copyFailed'))
   }
-  useLayoutEffect(() => { const el = timeline.current; if (el && scroll.following.current) el.scrollTop = el.scrollHeight }, [draft, timeline, scroll.following])
   const action = async (run: () => Promise<unknown>, onSettled?: (success: boolean) => void): Promise<void> => {
     if (actionInFlight.current) return
     actionInFlight.current = true
@@ -241,26 +244,6 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     setError(''); setErrorDetail('')
     void interrupt(id).then(() => useThreadStore.getState().refresh(id)).catch(cause => setError(threadError(cause))).finally(() => { stopInFlight.current = false })
   }
-  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: action, onNewThread, onAccounts, onRunCommand: text => { void action(() => runCommand(text)) }, onError: setError })
-  const [caret, setCaret] = useState(0)
-  const mentions = useFileMentions({
-    workspaceId: snapshot?.thread.workspaceId, rootPath: snapshot?.thread.rootPath, draft, caret, enabled: Boolean(snapshot) && !pending,
-    onApply: (text, position) => {
-      if (!snapshot) return
-      useThreadStore.getState().setDraft(snapshot.thread.id, text)
-      requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(position, position); setCaret(position) })
-    }
-  })
-  const insertMention = (): void => {
-    if (!snapshot) return
-    const field = textarea.current
-    const position = field?.selectionStart ?? draft.length
-    const needsSpace = position > 0 && !/\s/.test(draft[position - 1] ?? '')
-    const text = draft.slice(0, position) + (needsSpace ? ' @' : '@') + draft.slice(position)
-    const next = position + (needsSpace ? 2 : 1)
-    useThreadStore.getState().setDraft(snapshot.thread.id, text)
-    requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(next, next); setCaret(next) })
-  }
   const runCommand = async (text: string) => {
     if (!snapshot || !api?.command) throw Error(t('view.restartForCommands'))
     const id = snapshot.thread.id
@@ -283,7 +266,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     } else if (result.surface === 'model' || result.surface === 'effort' || result.surface === 'permissions') setOpenControl(result.surface)
     else if (result.surface === 'accounts') onAccounts?.()
     else if (result.surface === 'settings') useUIStore.setState({ isSettingsOpen: true, settingsInitialPage: undefined })
-    else if (result.surface === 'commands') { commands.show(); return }
+    else if (result.surface === 'commands') { commandsRef.current?.show(); return }
     else if (result.surface === 'changes') { togglePanel('changes', true); return }
     else if (result.surface === 'sessions') setPanel({ ...result, title: t('commandDialog.resume'), resume: await loadResumeData(snapshot.thread) })
     else if (result.surface === 'delegations') setPanel(await loadDelegationPanel(snapshot.thread, result))
@@ -295,7 +278,8 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     if (!snapshot || !api?.attach || !files.length) return
     const id = snapshot.thread.id
     await action(async () => {
-      for (const file of files.slice(0, Math.max(0, 8 - attachments.length))) {
+      const existingCount = (useThreadStore.getState().attachments[id] ?? NO_ATTACHMENTS).length
+      for (const file of files.slice(0, Math.max(0, 8 - existingCount))) {
         if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) throw Error(t('view.unsupportedImage', { name: file.name }))
         const attachment = await api.attach!(id, { name: file.name, mimeType: file.type as import('../../../shared/types/thread').ThreadAttachment['mimeType'], data: await file.arrayBuffer() })
         useThreadStore.getState().addAttachment(id, attachment)
@@ -324,12 +308,18 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     return ids
   }
   const send = (mode: 'queue' | 'steer' = 'queue') => {
-    if (!snapshot || pending || actionInFlight.current || (!draft.trim() && !attachments.length && !previewElements.length)) return
+    if (!snapshot || pending || actionInFlight.current) return
+    const id = snapshot.thread.id
+    const storeState = useThreadStore.getState()
+    const draft = storeState.drafts[id] ?? ''
+    const attachments = storeState.attachments[id] ?? NO_ATTACHMENTS
+    const previewElements = storeState.previewElements[id] ?? NO_PREVIEW_ELEMENTS
+    if (!draft.trim() && !attachments.length && !previewElements.length) return
     const command = draft.trim().match(/^\/([\w:-]+)/)?.[1]
     if (command && hasDesktopCommand(snapshot.thread.provider, command) && api?.command) { void action(() => runCommand(draft)); return }
-    if (commands.executeLocal(draft)) return
+    if (commandsRef.current?.executeLocal(draft)) return
     if (snapshot.thread.cliActive) { setError(t('view.cliOwns')); return }
-    const text = draft, id = snapshot.thread.id
+    const text = draft
     const keptElements = previewElements
     const attachmentIds = attachments.map(value => value.id)
     const composed = composeMessageWithElements(text, keptElements)
@@ -380,71 +370,12 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     if (api?.recover) await api.recover(snapshot.thread.id)
     await useThreadStore.getState().refresh(snapshot.thread.id)
     await useAccountStore.getState().read(context)
-    scroll.reinitialize()
+    reinitializeScroll()
   }
-  // Whether the first pending request's buttons are on screen in the timeline. Its footer is what is watched: a long
-  // command can show the top of the card while Deny and Allow are still below the fold.
-  const firstPendingId = pendingRequests[0]?.id
-  const [requestInView, setRequestInView] = useState(false)
-  useEffect(() => {
-    const root = workbench.current?.querySelector<HTMLElement>('.thread-timeline')
-    if (!firstPendingId || !root || typeof IntersectionObserver === 'undefined') { setRequestInView(false); return }
-    let watched: Element | null = null
-    const observer = new IntersectionObserver(entries => setRequestInView(entries.some(entry => entry.isIntersecting)), { root, threshold: 0.6 })
-    const attach = (): void => {
-      const card = root.querySelector<HTMLElement>(`[data-request-id="${CSS.escape(firstPendingId)}"]`)
-      const target = card?.querySelector('footer') ?? card ?? null
-      if (target === watched) return
-      if (watched) observer.unobserve(watched)
-      watched = target
-      // The timeline is virtual: a card scrolled far away leaves the page, and is not on screen.
-      if (target) observer.observe(target); else setRequestInView(false)
-    }
-    attach()
-    const rows = new MutationObserver(attach)
-    rows.observe(root, { childList: true, subtree: true })
-    return () => { observer.disconnect(); rows.disconnect() }
-  }, [firstPendingId])
   const handleNowAction = (act: NowLineAction): void => {
-    if (!snapshot) return
-    const firstPending = pendingRequests[0]
-    const respond = api?.respond
-    if (act === 'deny' && firstPending && respond) {
-      void action(() => respond(snapshot.thread.id, firstPending.id, { decision: 'decline' }))
-      return
-    }
-    if (act === 'allow' && firstPending && respond) {
-      void action(() => respond(snapshot.thread.id, firstPending.id, { decision: 'accept' }))
-      return
-    }
-    if (act === 'see-impact' && firstPending) {
-      if (firstPending.impact && !firstPending.impact.reversible) useOpenRequest.getState().open(firstPending.id)
-      else {
-        const inlineCard = workbench.current?.querySelector<HTMLElement>(`.thread-timeline [data-request-id="${firstPending.id}"]`)
-        inlineCard?.scrollIntoView({ block: 'nearest' })
-        ;(inlineCard?.querySelector<HTMLElement>('button') ?? workbench.current?.querySelector<HTMLElement>('.thread-request-approval .thread-request-decline, .thread-request-approval button'))?.focus()
-      }
-      return
-    }
-    if (act === 'answer') {
-      const inlineQuestion = firstPending ? workbench.current?.querySelector<HTMLElement>(`.thread-timeline [data-request-id="${firstPending.id}"]`) : null
-      inlineQuestion?.scrollIntoView({ block: 'nearest' })
-      ;(inlineQuestion?.querySelector<HTMLElement>('input, select, textarea, button') ?? workbench.current?.querySelector<HTMLElement>('.thread-pending-requests input, .thread-pending-requests select, .thread-pending-requests button'))?.focus()
-      return
-    }
-    if (act === 'stop') {
-      stopTurn()
-      return
-    }
-    const sendApi = api?.send
-    if (act === 'retry' && sendApi && lastPrompt?.type === 'message') {
-      void action(() => sendApi(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))
-      return
-    }
     // The pull request opens on its provider's site, as the PR bar's own Open does (the Pull request tab left in 1.5.2).
     if (act === 'open-pr' && hasPullRequest && prOfThread?.url) void openExternalLink(prOfThread.url, { source: 'github' })
   }
-  const welcomeStarters = useMemo(() => threadStarters(), [t])
   // OXC-4: the Changes badge counts what its panel opens to. With the conversation's own worktree, that worktree's diff
   // against its base; in a shared folder, only the files the conversation's turns changed (tool evidence).
   const ownWorktreePath = snapshot?.thread.ownedWorktree?.path
@@ -461,23 +392,23 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     [snapshot, pendingRequests]
   )
   // Esc first gives a maximized panel its place back, then closes it.
-  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commands.open && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
+  return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commandsRef.current?.isOpen() && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} changesCount={changesCount} toolPanels={toolPanels} cell={cell}
-      activity={activity} irreversible={irreversible} hasPullRequest={hasPullRequest} onNowAction={handleNowAction} requestInView={requestInView}
+      hasPullRequest={hasPullRequest} onNowAction={handleNowAction}
       onTogglePanel={togglePanel} onCloseCell={onCloseCell} onOpenInCode={requestThreadOpenInCode}
       onCommand={command => void action(async () => { setPanel(null); await runCommand(command) })}
       onExport={snapshot && api?.exportPortable ? () => void action(async () => { const path = await api.exportPortable!(snapshot.thread.id); if (path) setPanel({ kind: 'panel', title: t('view.exported'), text: path }) }) : undefined}
       onImport={snapshot && api?.importPortable ? () => { setPending(true); setError(''); void api.importPortable!(snapshot.thread.id).then(imported => { if (imported) useThreadStore.getState().adopt(imported) }).catch(cause => setError(humanizeError(cause, t('view.importFailed')))).finally(() => setPending(false)) } : undefined}
       onDelegate={() => setDelegationOpen(true)} onPin={() => { if (snapshot) void action(() => api!.pin(snapshot.thread.id, !snapshot.thread.pinned)) }} />
     {finding && <ThreadFindBar rows={timelineRows} scrollRoot={timeline} scrollTo={scrollTo} onClose={() => { setFinding(false); requestAnimationFrame(() => textarea.current?.focus()) }} />}
-    <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...scroll.timelineProps}>
-      <div ref={scroll.content} className="thread-reading-column" data-ui="chat-column">
+    <div ref={timeline} className="thread-timeline" role="region" tabIndex={0} aria-label={t('view.history')} {...timelineProps}>
+      <div ref={timelineContent} className="thread-reading-column" data-ui="chat-column">
         {/* Zero-height sticky anchor: the strip overlays the top edge without shifting the rows below. */}
         {snapshot && <div className="thread-sticky-prompt-anchor"><ThreadPromptNavigator rows={timelineRows} scrollRef={timeline} scrollTo={scrollTo} /></div>}
-        {snapshot?.page?.hasMore && <Button size="sm" className="thread-load-earlier" disabled={scroll.loadingEarlier} onClick={() => void scroll.loadEarlier()} icon={scroll.loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} aria-hidden="true" />}>{t('view.loadEarlier')}</Button>}
-        {scroll.historyFeedback?.id === shownId && <p className="thread-history-feedback" role={scroll.historyFeedback.error ? 'alert' : 'status'}>{scroll.historyFeedback.text}</p>}
+        {snapshot?.page?.hasMore && <Button size="sm" className="thread-load-earlier" disabled={loadingEarlier} onClick={() => void loadEarlier()} icon={loadingEarlier ? <Spinner size="sm" decorative /> : <ArrowUp size={14} aria-hidden="true" />}>{t('view.loadEarlier')}</Button>}
+        {historyFeedback?.id === shownId && <p className="thread-history-feedback" role={historyFeedback.error ? 'alert' : 'status'}>{historyFeedback.text}</p>}
         {!snapshot && selectedId && <div className={cx('thread-opening', skeletonStyles.viewSkeleton)} role="status" aria-label={t('view.opening')} data-view-skeleton=""><Skeleton decorative lines={2} /><Skeleton decorative variant="block" /><Skeleton decorative lines={3} /></div>}
         {!snapshot && !selectedId && <div className="thread-welcome">
           <span className="thread-welcome-mark"><MessageSquarePlus size={26} strokeWidth={1.5} /></span>
@@ -487,10 +418,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
             {onNewThread && <Button variant="primary" icon={<MessageSquarePlus size={14} />} onClick={() => onNewThread()}>{t('view.newConversation')}</Button>}
           </div>
           {onNewThread && <div className="thread-opening-starters">
-            {welcomeStarters.map(starter => <Button key={starter.id} variant="secondary" className="thread-opening-starter" onClick={() => onNewThread(starter.prompt)}><strong>{starter.label}</strong><span>{starter.prompt}</span></Button>)}
+            {threadStarters().map(starter => <Button key={starter.id} variant="secondary" className="thread-opening-starter" onClick={() => onNewThread(starter.prompt)}><strong>{starter.label}</strong><span>{starter.prompt}</span></Button>)}
           </div>}
         </div>}
-        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={scroll.following} onViewportUpdateRef={scroll.updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
+        <ThreadTimelineWindow key={snapshot?.thread.id ?? 'empty'} rows={timelineRows} scrollRef={timeline} followingRef={timelineFollowing} onViewportUpdateRef={updateTimelineViewport} scrollToRef={scrollToRow}>{row => <ThreadTimelineEntry row={row} snapshot={snapshot} viewMode={viewMode} running={running} pending={pending} pendingRequests={pendingRequests}
           lastResult={lastResult} lastMessageId={lastConversationMessage?.id} quickReplies={quickReplies} copiedMessageId={copiedMessageId} action={action} runCommand={runCommand}
           onCopy={(id, text) => void copyMessage(id, text)} onPermissions={() => setOpenControl('permissions')} onReconnect={onAccounts} onResend={resendPrompt && (() => void action(() => api!.send(snapshot!.thread.id, resendPrompt.text, resendPrompt.attachments?.map(attachment => attachment.id) ?? [])))} onQuote={text => appendToConversation(quoteMarkdown(text))} onDraft={appendToConversation}
           onQuickReply={value => { useThreadStore.getState().setDraft(snapshot!.thread.id, value); requestAnimationFrame(() => textarea.current?.focus()) }} onToggleFold={toggleFold} />}</ThreadTimelineWindow>
@@ -503,7 +434,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     {(Boolean(snapshot) || Boolean(error) || !api) && <div className="thread-composer-dock"><div className="thread-composer-column">
       {snapshot && <ThreadAnnouncer thread={snapshot.thread} pendingRequests={pendingRequests.length} />}
       {snapshot && <ThreadDockRequests snapshot={snapshot} pendingRequests={orphanPendingRequests} waiting={pendingRequests.length} pending={pending} action={action} />}
-      {scroll.showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />{scroll.newMessages > 0 ? t('view.latestCount', { count: scroll.newMessages }) : t('view.latest')}</button>}
+      {showEnd && <button type="button" className="thread-scroll-end" onClick={scrollEnd}><ArrowDown size={12} />{newMessages > 0 ? t('view.latestCount', { count: newMessages }) : t('view.latest')}</button>}
       {snapshot && needsLogin && <div className="thread-connection-notice"><AlertCircle size={14} /><span>{authFailure ? t('view.signIn', { provider: threadProductName(snapshot.thread.provider) }) : accountMessage(account)}</span><Button size="sm" variant={authFailure && account?.state === 'connected' ? 'secondary' : 'primary'} onClick={onAccounts}>{authFailure ? t('view.reconnect') : t('view.connect')}</Button>{authFailure && lastPrompt?.type === 'message' && <Button size="sm" variant={account?.state === 'connected' && account.method === 'subscription' ? 'primary' : 'secondary'} title={t('view.resendTitle')} disabled={pending || account?.state !== 'connected' || account.method !== 'subscription'} onClick={() => void action(() => api!.send(snapshot.thread.id, lastPrompt.text, lastPrompt.attachments?.map(attachment => attachment.id) ?? []))}>{t('view.retry')}</Button>}</div>}
       {degradedConnection && !signInNeeded && <div className="thread-connection-notice is-warning" role="status"><AlertCircle size={14} /><span>{degradedConnection.detail || t('view.connectionUnavailable')}{degradedConnection.nextRetryAt ? ` ${t('view.retryAfter', { time: formatClock(degradedConnection.nextRetryAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })}` : ''}</span></div>}
       {snapshot && blocksThreadInput(snapshot.thread) && <div className="thread-connection-notice"><TerminalSquare size={14} /><span>{t('view.recoverBody')}</span><button type="button" disabled={pending} onClick={() => void action(returnFromCli)}>{t('view.recover')}</button></div>}
@@ -513,10 +444,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
-      <ThreadComposerForm snapshot={snapshot} draft={draft} attachments={attachments} previewElements={previewElements} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput}
+      <ThreadComposerForm snapshot={snapshot} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput} commandsRef={commandsRef}
         workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={path => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', ...(path ? { selection: path } : {}) })} /> : undefined}
-        commands={commands} mentions={mentions} openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onCaret={setCaret}
-        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInsertMention={insertMention} onInterrupt={stopTurn} />
+        openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onNewThread={onNewThread} onAccounts={onAccounts}
+        onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInterrupt={stopTurn} />
     </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
