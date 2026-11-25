@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
+import { terminalLevers } from '../../../shared/terminal-levers'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
@@ -596,8 +597,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const queuedWhileAttaching: string[] = []
 
     const bridge = transport ?? window.oxe.terminal
+    const levers = terminalLevers(window.oxe?.app?.termLevers)
     const writeScheduler = createTerminalWriteScheduler({
       paused: isHidden(),
+      queue: levers.has('Q'),
       write: (chunk, done, meta) => {
         if (disposed) {
           done()
@@ -640,58 +643,30 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         }, 300)
       }
     })
-    // OXE-349: Hidden workspaces/panes pause xterm writes (retaining a bounded
-    // buffer) and release WebGL so background PTY bursts never burn renderer
-    // CPU or balloon DOM/canvas RAM. Becoming visible resumes coalesced RAF
-    // flushing, restores WebGL, and refits.
-    const stopObservingVisibility = observeTerminalVisibility(hostRef.current, (hidden) => {
-      if (disposed) return
-      if (hidden) {
-        releaseWebgl()
-        writeScheduler.setPaused(true)
-        if (previewTimer) {
-          clearTimeout(previewTimer)
-          previewTimer = null
-        }
-        if (fitFrameRef.current !== null) {
-          window.cancelAnimationFrame(fitFrameRef.current)
-          fitFrameRef.current = null
-        }
-        return
-      }
-      writeScheduler.setPaused(false)
-      if (!webglAddon) loadWebgl()
-      scheduleFit()
-      try { terminal.refresh(0, Math.max(0, terminal.rows - 1)) } catch { /* disposed */ }
-    })
-    const unsubscribeData = bridge.onData(paneId, (event) => {
-      if (attachPending) {
-        queuedWhileAttaching.push(event.data)
-        return
-      }
-      if (writeScheduler.isPaused() && !transport) {
-        useTerminalStore.getState().updateActivity(paneId, event.data)
-      }
-      writeScheduler.enqueue(event.data)
-    })
-    const unsubscribeExit = bridge.onExit(paneId, (event) => {
-      terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
-      onExitRef.current?.(event.exitCode)
-    })
+    // OXE-411 lever H (on by default; OXESPACE_TERM_LEVERS=none turns it off): a pane in a hidden workspace parks.
+    const detachHidden = !transport && levers.has('H')
+    let parked = false
+    let parking = false
+    let parkedSeq: number | null = null
 
-    void (async () => {
+    const attachView = async (sinceSeq: number | null = null): Promise<void> => {
+      const reattach = sinceSeq !== null
       let attached: TerminalAttachResult | null = null
       try {
-        // Optional-chained: some test harnesses stub only part of the bridge.
-        attached = (await bridge.attach?.({ paneId })) ?? null
-      } catch {
-        // Main could not answer — fall through and render as a fresh view.
-      }
+        attached = (await bridge.attach?.(reattach ? { paneId, sinceSeq } : { paneId })) ?? null
+      } catch { /* main could not answer — fall through and render as a fresh view */ }
       if (disposed) return
 
-      if (attached?.running || attached?.exit) {
-        // The buffer we are restoring may be missing its head, so start from a
-        // clean screen rather than appending onto a partial frame.
+      const delta = reattach && attached?.running === true && !attached.truncated && !attached.altScreen
+      if (delta) {
+        const prePark = writeScheduler.takePending()
+        if (prePark.truncated) terminal.write('\x1b[2J\x1b[H')
+        if (prePark.data) terminal.write(prePark.data)
+        if (attached?.replay) terminal.write(attached.replay)
+      } else if (reattach && !attached?.running && !attached?.exit) {
+        // Main could not answer the reattach: keep what the view shows and go on live.
+      } else if (attached?.running || attached?.exit) {
+        if (reattach) { writeScheduler.takePending(); terminal.reset() }
         if (attached.truncated) terminal.write('\x1b[2J\x1b[H')
         if (attached.prologue) terminal.write(attached.prologue)
         if (attached.replay) terminal.write(attached.replay)
@@ -707,18 +682,71 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       }
       queuedWhileAttaching.length = 0
       attachPending = false
-      // Attach used to bounce the PTY before xterm consumed the prologue, so
-      // Codex painted its alternate-screen frame into an unready viewport.
+      if (isHidden()) { writeScheduler.setPaused(true); void park() }
+      else writeScheduler.setPaused(false)
       if (attached?.running && attached.altScreen) {
         terminal.write('', () => {
-          window.requestAnimationFrame(() => {
-            if (!disposed) onResizeRef.current(terminal.cols, terminal.rows)
-          })
+          window.requestAnimationFrame(() => { if (!disposed) onResizeRef.current(terminal.cols, terminal.rows) })
         })
-      } else if (attached?.replay) {
+      } else if (attached?.replay && !delta) {
         terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
       }
-    })()
+    }
+    const unpark = (): void => {
+      if (!parked) return
+      parked = false
+      attachPending = true
+      writeScheduler.setPaused(true)
+      void attachView(parkedSeq)
+    }
+    const park = async (): Promise<void> => {
+      if (!detachHidden || parked || parking || attachPending || disposed) return
+      parking = true
+      let result: { seq: number } | void | undefined
+      try { result = await bridge.detach?.({ paneId, parked: true }) } catch { result = undefined }
+      parking = false
+      if (disposed || !result || typeof result.seq !== 'number') return
+      parkedSeq = result.seq
+      parked = true
+      if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
+      if (!isHidden()) unpark()
+    }
+
+    // OXE-349 + OXE-411 lever H: hidden panes release WebGL, pause writes, and park from main (no IPC);
+    // becoming visible re-attaches from parkedSeq (or flushes buffered chunks) and restores WebGL + fit.
+    const stopObservingVisibility = observeTerminalVisibility(hostRef.current, (hidden) => {
+      if (disposed) return
+      if (hidden) {
+        releaseWebgl()
+        writeScheduler.setPaused(true)
+        if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
+        if (fitFrameRef.current !== null) { window.cancelAnimationFrame(fitFrameRef.current); fitFrameRef.current = null }
+        void park()
+        return
+      }
+      if (parked) unpark()
+      else if (!attachPending) writeScheduler.setPaused(false)
+      if (!webglAddon) loadWebgl()
+      scheduleFit()
+      try { terminal.refresh(0, Math.max(0, terminal.rows - 1)) } catch { /* disposed */ }
+    })
+    const unsubscribeData = bridge.onData(paneId, (event) => {
+      if (parked) return
+      if (attachPending) {
+        queuedWhileAttaching.push(event.data)
+        return
+      }
+      if (writeScheduler.isPaused() && !transport) {
+        useTerminalStore.getState().updateActivity(paneId, event.data)
+      }
+      writeScheduler.enqueue(event.data)
+    })
+    const unsubscribeExit = bridge.onExit(paneId, (event) => {
+      terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
+      onExitRef.current?.(event.exitCode)
+    })
+
+    void attachView()
 
     return () => {
       disposed = true

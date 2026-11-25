@@ -68,6 +68,20 @@ export interface TerminalActivityEvent {
   command?: ShellCommandState
 }
 
+/**
+ * terminal:detach. `parked` (OXE-411): the view is still mounted, its workspace is hidden, and it will attach again with
+ * the returned `seq`; the session is then neither counted as running without a view nor reclaimed when idle.
+ */
+export interface TerminalDetachInput {
+  paneId: string
+  parked?: boolean
+}
+
+export interface TerminalDetachResult {
+  /** The ring's cursor at the detach: attaching with it as `sinceSeq` returns only what came after. */
+  seq: number
+}
+
 export interface TerminalAttachInput {
   paneId: string
   /** Cursor from a previous attach; omit to receive the whole retained buffer. */
