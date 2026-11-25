@@ -17,7 +17,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build && npm run verify:bundle",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.e2e.json",
     "pr:ready": "node scripts/pr-ready.mjs",
     "release": "node scripts/release.mjs",
     "lint": "node scripts/check-file-size.mjs && eslint src electron shared tests e2e scripts",
