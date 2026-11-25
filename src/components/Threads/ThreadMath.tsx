@@ -4,21 +4,34 @@ import DOMPurify from 'dompurify'
 type Katex = typeof import('katex').default
 let katex: Katex | null = null
 let loadingKatex: Promise<Katex> | null = null
+let katexCssLoaded = false
+let loadingKatexCss: Promise<void> | null = null
 
 /**
- * KaTeX, once its chunk and its stylesheet are in; null until then. Asked for only by an answer that has a formula,
- * so a conversation without one never loads it.
+ * KaTeX, once its chunk and its stylesheet are in; null until then. Asked for only by an answer that has a formula
+ * without precomputed worker markup, so a conversation without one never loads it.
  */
-function useKatex(): Katex | null {
+function useKatex(wanted: boolean): Katex | null {
   const [, setLoaded] = useState(0)
   useEffect(() => {
-    if (katex) return
+    if (!wanted || katex) return
     let live = true
-    loadingKatex ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([module]) => module.default)
+    loadingKatex ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(([module]) => {
+      katexCssLoaded = true
+      return module.default
+    })
     void loadingKatex.then(module => { katex = module; if (live) setLoaded(value => value + 1) }, () => { loadingKatex = null })
     return () => { live = false }
-  }, [])
-  return katex
+  }, [wanted])
+  return wanted ? katex : null
+}
+
+/** Loads only KaTeX's stylesheet when the worker already rendered the formula HTML off the main thread. */
+function useKatexCss(wanted: boolean): void {
+  useEffect(() => {
+    if (!wanted || katexCssLoaded) return
+    loadingKatexCss ??= import('katex/dist/katex.min.css').then(() => { katexCssLoaded = true }, () => { loadingKatexCss = null })
+  }, [wanted])
 }
 
 /**
@@ -35,12 +48,18 @@ export function mathMarkup(lib: Katex, tex: string, display: boolean): string | 
 }
 
 /**
- * A formula of an answer, drawn. Until KaTeX is in, and for TeX it cannot read (an answer still arriving, a typo), the
- * source shows as code: nothing is lost and nothing flashes red.
+ * A formula of an answer, drawn. Uses precomputed KaTeX HTML from the render worker when present (sanitized again),
+ * falling back to lazy main-thread KaTeX while streaming or when no worker ran. Invalid TeX shows as code.
  */
-export function MathView({ tex, display = false }: { tex: string; display?: boolean }): ReactElement {
-  const lib = useKatex()
-  const markup = useMemo(() => lib ? mathMarkup(lib, tex, display) : null, [lib, tex, display])
+export function MathView({ tex, display = false, html }: { tex: string; display?: boolean; html?: string | null }): ReactElement {
+  const needsClientKatex = html === undefined
+  const lib = useKatex(needsClientKatex)
+  useKatexCss(typeof html === 'string')
+  const markup = useMemo(() => {
+    if (typeof html === 'string') return DOMPurify.sanitize(html, { USE_PROFILES: { html: true, mathMl: true } })
+    if (html === null) return null
+    return lib ? mathMarkup(lib, tex, display) : null
+  }, [html, lib, tex, display])
   if (markup === null) return display ? <pre className="thread-math-source"><code>{tex}</code></pre> : <code className="thread-math-source">{tex}</code>
   return display
     ? <div className="thread-math thread-math-block" role="math" aria-label={tex} data-testid="thread-math-block" dangerouslySetInnerHTML={{ __html: markup }} />
