@@ -1,7 +1,7 @@
 import { Check, ChevronDown, Undo2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, ConfirmDialog, ErrorState, Spinner } from '../../ui'
+import { Button, ConfirmDialog, ErrorState, IconButton, Spinner } from '../../ui'
 import type { ThreadSnapshot } from '../../../shared/types/thread'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -94,18 +94,18 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
   // A header with one toggle and the actions beside it: controls are never nested inside the toggle.
   return <section className="thread-dock-changes" data-ui="working-set" data-testid="thread-dock-changes" data-open={open ? 'true' : undefined} data-has-error={error ? 'true' : undefined} aria-label={t('dockChanges.label')}>
     <div className="thread-dock-changes-header">
-      <button type="button" className="thread-dock-changes-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
+      <Button variant="ghost" size="sm" className="thread-dock-changes-toggle" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(value => !value)}>
         <ChevronDown size={14} aria-hidden="true" className="thread-dock-changes-chevron" />
         <span className="thread-dock-changes-summary">
           <strong>{t('dockChanges.files', { count: files })}</strong>
           {totalAdditions > 0 && <>{' '}<span className="thread-working-set-add">+{totalAdditions}</span></>}
           {totalDeletions > 0 && <>{' '}<span className="thread-working-set-del">−{totalDeletions}</span></>}
         </span>
-      </button>
+      </Button>
       <span className="thread-dock-changes-actions">
-        <button type="button" aria-label={t('dockChanges.keepAll')} title={t('dockChanges.keepAll')} disabled={busy !== null} onClick={() => keep(changes)}><Check size={13} aria-hidden="true" /><span className="thread-dock-changes-action-label">{t('dockChanges.keepAll')}</span></button>
-        <button type="button" aria-label={t('dockChanges.undoAll')} title={t('dockChanges.undoAll')} disabled={busy !== null || !api?.undoTurnFile} onClick={() => setConfirmUndoAll(true)}>{busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />}<span className="thread-dock-changes-action-label">{t('dockChanges.undoAll')}</span></button>
-        <button type="button" onClick={() => onViewChanges()}>{t('files.view')}</button>
+        <Button variant="ghost" size="sm" aria-label={t('dockChanges.keepAll')} title={t('dockChanges.keepAll')} disabled={busy !== null} icon={<Check size={13} aria-hidden="true" />} onClick={() => keep(changes)}><span className="thread-dock-changes-action-label">{t('dockChanges.keepAll')}</span></Button>
+        <Button variant="ghost" size="sm" aria-label={t('dockChanges.undoAll')} title={t('dockChanges.undoAll')} disabled={busy !== null || !api?.undoTurnFile} icon={busy === 'all' ? <Spinner size="sm" decorative /> : <Undo2 size={13} aria-hidden="true" />} onClick={() => setConfirmUndoAll(true)}><span className="thread-dock-changes-action-label">{t('dockChanges.undoAll')}</span></Button>
+        <Button variant="ghost" size="sm" onClick={() => onViewChanges()}>{t('files.view')}</Button>
       </span>
     </div>
     {error && <ErrorState compact title={error} />}
@@ -116,8 +116,8 @@ export function ThreadDockChanges({ snapshot, running, onViewChanges }: { snapsh
         {(change.additions ?? 0) > 0 && (change.deletions ?? 0) > 0 && ' '}
         {(change.deletions ?? 0) > 0 && <span className="thread-working-set-del">−{change.deletions}</span>}
       </span>}
-      <button type="button" aria-label={t('dockChanges.keep', { path: change.path })} disabled={busy !== null} onClick={() => keep([change])}><Check size={13} aria-hidden="true" /></button>
-      <button type="button" aria-label={t('dockChanges.undo', { path: change.path })} disabled={busy !== null || !api?.undoTurnFile} onClick={() => void undo([change])}>{busy === changeKey(change) ? <Spinner size="sm" label={t('dockChanges.undoing')} /> : <Undo2 size={13} aria-hidden="true" />}</button>
+      <IconButton size="sm" label={t('dockChanges.keep', { path: change.path })} title={t('dockChanges.keep', { path: change.path })} disabled={busy !== null} icon={<Check size={13} aria-hidden="true" />} onClick={() => keep([change])} />
+      <IconButton size="sm" label={t('dockChanges.undo', { path: change.path })} title={t('dockChanges.undo', { path: change.path })} disabled={busy !== null || !api?.undoTurnFile} icon={busy === changeKey(change) ? <Spinner size="sm" label={t('dockChanges.undoing')} /> : <Undo2 size={13} aria-hidden="true" />} onClick={() => void undo([change])} />
     </li>)}</ul>
     {confirmUndoAll && <ConfirmDialog
       title={t('dockChanges.undoAllTitle', { count: files })}
