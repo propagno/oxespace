@@ -3,9 +3,9 @@ import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { deviceLinkRefusal, type PhoneAppBuild } from '../../../shared/android-actions'
-import type { AndroidDisconnectedDevice } from '../../../shared/types/android'
+import type { AndroidDisconnectedDevice, AndroidEmulatorLaunchOptions } from '../../../shared/types/android'
 import { IPC_CHANNELS, type AndroidActionOutcome, type AndroidApkPick, type AndroidMirrorDevice, type AndroidMirrorFrame, type AndroidMirrorStatus } from '../../../shared/types/ipc'
-import { assertValidSerial, isApkPath, type AndroidAgentAccess, type AndroidDevices, type AndroidPersonAction } from '../services/android/android-devices'
+import { assertValidSerial, checkEmulatorMemory, isApkPath, type AndroidAgentAccess, type AndroidDevices, type AndroidPersonAction } from '../services/android/android-devices'
 
 export interface AndroidDeviceDisconnectedEvent extends AndroidDisconnectedDevice {
   /** Agent sessions that held an active screenshot grant for this device. */
@@ -16,6 +16,8 @@ export interface AndroidIpcDeps {
   devices: AndroidDevices
   access: AndroidAgentAccess
   picturesDir?: () => string
+  /** Returns current free host RAM in bytes; defaults to `os.freemem()`. */
+  freeMemoryBytes?: () => number
   /** The APK the person picks in the system's file dialog, or null when they cancel. The window never names a path. */
   pickApk?: (owner: BrowserWindow | null) => Promise<string | null>
   /** Opens pairing on this desktop and gives its link; rejects when phones may not connect yet. */
@@ -136,10 +138,12 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): () => void {
       ...(builds[index] ? { phoneApp: builds[index] } : {}),
       ...(ownedSerials.has(device.serial) ? { owned: true } : {})
     }))
+    const { freeMb } = checkEmulatorMemory({ freeBytes: deps.freeMemoryBytes?.() })
     return {
       adb: listed.adb,
       devices,
       avds,
+      freeMemoryMb: freeMb,
       ...(lastDisconnected ? { disconnectedDevice: lastDisconnected } : {})
     }
   }
@@ -297,8 +301,8 @@ export function registerAndroidIpc(deps: AndroidIpcDeps): () => void {
     notifyChanged()
   })
 
-  ipcMain.handle(IPC_CHANNELS.android.startEmulator, async (_event, avd: string) => {
-    await deps.devices.startAvd(String(avd ?? ''))
+  ipcMain.handle(IPC_CHANNELS.android.startEmulator, async (_event, avd: string, options?: AndroidEmulatorLaunchOptions) => {
+    await deps.devices.startAvd(String(avd ?? ''), options)
     notifyChanged()
   })
 
