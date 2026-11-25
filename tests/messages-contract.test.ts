@@ -347,6 +347,7 @@ const PARAMETERS: Record<MessageCode, string[]> = {
   'approvals.denied.timeout': [],
   'approvals.denied.cancelled': [],
   'approvals.denied.tooLong': ['max'],
+  'approvals.denied.accessCeiling': ['effective', 'required'],
   'approvals.alwaysAllow.notOffered': [],
   'approvals.alwaysAllow.invalidSettings': [],
   'approvals.alwaysAllow.outsideProject': [],

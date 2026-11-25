@@ -15,6 +15,7 @@ import type {
   TerminalWriteInput
 } from '../../../shared/types/ipc'
 import { isWorkspaceColor } from '../../../shared/workspace-color'
+import { isWorkspaceAccessLevel, type WorkspaceAccessLevel } from '../../../shared/access-ceiling'
 import type { GitCompareMode, GitDiffInput, GitFileAtRefInput, GitFileOriginalInput } from '../../../shared/types/git'
 import type { LinearIssueScope, LinearListIssuesInput, LinearWorktreeFromIssueInput } from '../../../shared/types/linear'
 import type {
@@ -295,8 +296,17 @@ export function parseUpdateWorkspaceSettingsInput(value: unknown): UpdateWorkspa
     defaultShellProfileId: input.defaultShellProfileId === undefined ? undefined : expectNonEmptyString(input.defaultShellProfileId, 'defaultShellProfileId'),
     layoutPreset: input.layoutPreset === undefined ? undefined : expectLayoutPreset(input.layoutPreset),
     applyShellToIdlePanes: input.applyShellToIdlePanes === undefined ? undefined : expectBoolean(input.applyShellToIdlePanes, 'applyShellToIdlePanes'),
-    color: input.color === undefined ? undefined : expectWorkspaceColor(input.color)
+    color: input.color === undefined ? undefined : expectWorkspaceColor(input.color),
+    accessCeiling: input.accessCeiling === undefined ? undefined : expectWorkspaceAccessCeiling(input.accessCeiling)
   }
+}
+
+/** A workspace access ceiling caps effective agent access as min(workspaceCeiling, sessionAccess). */
+function expectWorkspaceAccessCeiling(value: unknown): WorkspaceAccessLevel {
+  if (!isWorkspaceAccessLevel(value)) {
+    throw new Error("accessCeiling must be 'read-only', 'workspace-write', or 'full-access'")
+  }
+  return value
 }
 
 /** A workspace color is a slot 1–8 (shared/workspace-color.ts) or null to clear it. */

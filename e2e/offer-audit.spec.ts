@@ -273,7 +273,7 @@ test.describe('offer audit', () => {
       const received = (): Promise<string[]> => app.evaluate(() => [...((globalThis as { offerAuditCommands?: string[] }).offerAuditCommands ?? [])])
       const sent = (text: string): Check => async () => { await expect.poll(received).toContain(text) }
       const THREAD_EFFECTS: Record<string, Check> = {
-        'thread.new': both(view('thread'), dialog('New conversation')),
+        'thread.new': both(view('thread'), testId('new-conversation')),
         'thread.add-project': both(view('thread'), dialog('Add project')),
         'thread.project.offer': both(view('thread'), async p => { await expect(p.locator('.thread-navigation-item[aria-current]')).toContainText('Offer audit') }),
         'thread.resume': sent('/resume'), 'thread.rename': sent('/rename'), 'thread.spending': sent('/spending'),

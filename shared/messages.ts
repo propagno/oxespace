@@ -502,8 +502,9 @@ export interface MessageParams extends PlaceMessageParams {
   'approvals.denied.queueFull': { max: number }
   'approvals.denied.timeout': Record<string, never>
   'approvals.denied.cancelled': Record<string, never>
-  /** Denied before it was shown: the text to approve is longer than a person reviews. */
+  /** Denied before it was shown: too long to review, or effective access min(workspaceCeiling, sessionAccess) is below required. */
   'approvals.denied.tooLong': { max: number }
+  'approvals.denied.accessCeiling': { effective: string; required: string }
   'approvals.alwaysAllow.notOffered': Record<string, never>
   'approvals.alwaysAllow.invalidSettings': Record<string, never>
   'approvals.alwaysAllow.outsideProject': Record<string, never>
@@ -883,6 +884,7 @@ export const MESSAGE_CODES = [
   'approvals.denied.timeout',
   'approvals.denied.cancelled',
   'approvals.denied.tooLong',
+  'approvals.denied.accessCeiling',
   'approvals.alwaysAllow.notOffered',
   'approvals.alwaysAllow.invalidSettings',
   'approvals.alwaysAllow.outsideProject',

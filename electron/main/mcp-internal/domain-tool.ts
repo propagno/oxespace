@@ -1,4 +1,5 @@
 import { basename } from 'node:path'
+import { accessSatisfies, actionRequiredAccess, DEFAULT_WORKSPACE_ACCESS_CEILING, effectiveAccess, type WorkspaceAccessLevel } from '../../../shared/access-ceiling'
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { ActionRefused, AgentActions, type ActionActor } from '../services/agent-actions/agent-actions'
 import type { ActionLevel } from '../services/agent-actions/action-audit'
@@ -19,6 +20,12 @@ export interface ActionScope {
   /** The pane or Thread that is calling, when it is a live execution. */
   owner?: { kind: 'pane' | 'thread'; id: string }
   actor: ActionActor
+  /** OXE-327: Workspace's configured access ceiling (`full-access` when unset). */
+  workspaceCeiling: WorkspaceAccessLevel
+  /** OXE-327: Session's requested access level (`full-access` when unset). */
+  sessionAccess: WorkspaceAccessLevel
+  /** OXE-327: Effective access = min(workspaceCeiling, sessionAccess). */
+  effectiveAccess: WorkspaceAccessLevel
 }
 
 /** `summary` is for the audit trail; the person sees a C3 summary with the tool, action and target, and `notes` (B10). */
@@ -43,6 +50,8 @@ export interface Approval {
 export interface DomainAction {
   level: ActionLevel
   description: string
+  /** OXE-327: Optional explicit minimum access level required (overrides actionRequiredAccess). */
+  requiredAccess?: WorkspaceAccessLevel
   /** JSON-Schema properties this action reads, merged into the tool's schema. */
   properties?: Record<string, unknown>
   required?: string[]
@@ -73,10 +82,15 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
   let execution: ReturnType<NonNullable<ToolContext['executions']>['authenticate']> | undefined
   try { execution = ctx.executions?.authenticate(ctx.executionId, ctx.executionToken, ctx.workspaceId) } catch { /* not a live execution */ }
   if (execution) {
-    const workspace = execution.workspaceId.startsWith('thread:') ? null : ctx.workspaceServ.get(execution.workspaceId)
+    const workspace = execution.workspaceId.startsWith('thread:')
+      ? ctx.workspaceServ?.list?.().find(item => item.rootPath === execution.canonicalRoot) ?? null
+      : ctx.workspaceServ?.get?.(execution.workspaceId) ?? null
+    const workspaceCeiling = workspace?.accessCeiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING
+    const sessionAccess = ctx.sessionAccess ?? execution.access ?? DEFAULT_WORKSPACE_ACCESS_CEILING
     return {
       rootPath: execution.canonicalRoot, name: workspace?.name ?? basename(execution.canonicalRoot), workspaceId: execution.workspaceId, owner: execution.owner,
-      actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true, requester: requesterFor(execution.owner) }
+      actor: { key: execution.id, label: `${execution.owner.kind}:${execution.owner.id}`, workspaceId: execution.workspaceId, authenticated: true, requester: requesterFor(execution.owner) },
+      workspaceCeiling, sessionAccess, effectiveAccess: effectiveAccess(workspaceCeiling, sessionAccess)
     }
   }
   // The same refusal as requireProjectScope (tool-handlers.ts).
@@ -84,9 +98,12 @@ export async function resolveScope(ctx: ToolContext): Promise<ActionScope> {
   const named = ctx.workspaceId ? ctx.workspaceServ.get(ctx.workspaceId) : null
   const workspace = named ?? ctx.workspaceServ.list().find(item => item.isActive === true) ?? null
   if (!workspace) throw new ActionRefused('No workspace is open in OXESpace. Open the project first.', 'no-workspace')
+  const workspaceCeiling = workspace.accessCeiling ?? DEFAULT_WORKSPACE_ACCESS_CEILING
+  const sessionAccess = ctx.sessionAccess ?? DEFAULT_WORKSPACE_ACCESS_CEILING
   return {
     rootPath: workspace.rootPath, name: workspace.name, workspaceId: workspace.id,
-    actor: { key: `unauthenticated:${workspace.id}`, label: 'agent', workspaceId: workspace.id, authenticated: false }
+    actor: { key: `unauthenticated:${workspace.id}`, label: 'agent', workspaceId: workspace.id, authenticated: false },
+    workspaceCeiling, sessionAccess, effectiveAccess: effectiveAccess(workspaceCeiling, sessionAccess)
   }
 }
 
@@ -127,6 +144,13 @@ export function domainTool(name: string, summary: string, actions: Record<string
           : action.level === 'read' && approval
             ? 'confirm'
             : action.level
+        const requiredAccess = action.requiredAccess ?? actionRequiredAccess(level, { risk: approval?.risk, brokerRisk: approval?.brokerRisk })
+        if (!accessSatisfies(scope.effectiveAccess, requiredAccess)) {
+          throw new ActionRefused(
+            `Action "${name}.${key}" requires "${requiredAccess}" access, but effective access is "${scope.effectiveAccess}" (workspace ceiling: "${scope.workspaceCeiling}", session: "${scope.sessionAccess}").`,
+            'access-ceiling'
+          )
+        }
         const result = await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
           tool: name, action: key, level,
           target: approval?.target ?? scope.rootPath,
@@ -137,7 +161,10 @@ export function domainTool(name: string, summary: string, actions: Record<string
           brokerRisk: approval?.brokerRisk,
           risk: approval?.risk,
           sessionOptionLabel: approval?.sessionOptionLabel,
-          deniedMessage: approval?.deniedMessage
+          deniedMessage: approval?.deniedMessage,
+          workspaceCeiling: scope.workspaceCeiling,
+          sessionAccess: scope.sessionAccess,
+          requiredAccess
         }, () => action.run(args, scope, ctx))
         return reply({ schemaVersion: 1, ok: true, result })
       } catch (error) {

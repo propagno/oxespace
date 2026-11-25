@@ -1,3 +1,4 @@
+import { accessSatisfies, actionRequiredAccess } from '../../../shared/access-ceiling'
 import type { ToolContext } from './tool-registry'
 import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-internal'
 import { codeWorkspace, int, resolveScope, service, str, type ActionScope, type Approval, type Args, type Gate } from './domain-tool'
@@ -81,8 +82,16 @@ export async function runGated(gate: Gate, raw: unknown, ctx: ToolContext, onAsk
   try {
     const scope = await resolveScope(ctx)
     const approval = gate.level === 'confirm' ? await gate.confirm?.(args, scope) : undefined
+    const requiredAccess = actionRequiredAccess(gate.level, { risk: approval?.risk, brokerRisk: approval?.brokerRisk })
+    if (!accessSatisfies(scope.effectiveAccess, requiredAccess)) {
+      throw new ActionRefused(
+        `Action "${gate.tool}" requires "${requiredAccess}" access, but effective access is "${scope.effectiveAccess}" (workspace ceiling: "${scope.workspaceCeiling}", session: "${scope.sessionAccess}").`,
+        'access-ceiling'
+      )
+    }
     return await (ctx.agentActions ?? fallbackActions).run(scope.actor, {
-      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes, onAsked
+      tool: gate.tool, action: 'call', level: gate.level, target: scope.rootPath, summary: approval?.summary, text: approval?.text, notes: approval?.notes, onAsked,
+      workspaceCeiling: scope.workspaceCeiling, sessionAccess: scope.sessionAccess, requiredAccess
     }, () => gate.handler(raw, ctx))
   } catch (error) {
     if (!(error instanceof ActionRefused)) throw error
