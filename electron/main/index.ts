@@ -1,73 +1,39 @@
 import { app, BrowserWindow, clipboard, crashReporter, dialog, ipcMain, Notification, session } from 'electron'
 import log from 'electron-log/main.js'
-import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
-import { APP_VERSION } from './services/app-info'
-import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
-import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
-import { RendererRecoveryPolicy, showRendererGiveUp } from './renderer-recovery'
-import { installCloseGuard } from './window-close-guard'
-import { flushStorage } from './storage-flush'
-import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
-import { mainLanguage, systemLocale, tMain } from './i18n'
-import { messageKey, messageValues } from '../../shared/messages'
-import { ApprovalNotifier } from './services/approvals/approval-notifier'
 import { randomUUID } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { bootstrapCoreServices, type DelegationHandleRef } from './bootstrap/core-services'
+import { bootstrapInternalMcpAndAudit } from './bootstrap/internal-mcp-and-audit'
+import { bootstrapWorkspaceServices } from './bootstrap/workspace-services'
 import { openDatabaseWithMetadata, resolveAppDatabasePath, type AppDatabase } from './db/index'
-import { registerAgentIpc } from './ipc/agent.ipc'
-import { registerFileSystemIpc } from './ipc/file-system.ipc'
-import { registerBackgroundIpc } from './ipc/background.ipc'
-import { registerSessionIpc } from './ipc/session.ipc'
-import { broadcastSkillChange, registerSkillIpc } from './ipc/skill.ipc'
-import { broadcastMcpHealth, registerMcpIpc } from './ipc/mcp.ipc'
-import { registerFeatureUsageIpc } from './ipc/feature-usage.ipc'
-import { registerHostsProxyIpc } from './ipc/hosts-proxy.ipc'
-import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
-import { notificationsEnabled, registerNotificationsIpc } from './ipc/notifications.ipc'
-import { registerAppInfoIpc } from './ipc/app-info.ipc'
-import { singleInstanceDisabled } from './test-switches'
 import { e2eMocksEnabled } from './e2e/e2e-mode'
-import { registerClipboardTextIpc } from './ipc/clipboard.ipc'
-import { registerOxeIpc } from './ipc/oxe.ipc'
-import { registerCopilotIpc } from './ipc/copilot.ipc'
-import { registerOxeContextIpc } from './ipc/oxe-context.ipc'
-import { SkillService } from './services/skill.service'
-import { McpManager } from './services/mcp.service'
-import { WorkspaceService } from './services/workspace.service'
-import type { RpcServerHandle } from './runtime/rpc/server'
-import { registerTaskIpc } from './ipc/task.ipc'
-import { registerTerminalIpc } from './ipc/terminal.ipc'
-import { registerWorkspaceIpc } from './ipc/workspace.ipc'
-import { installIncidentHooks, registerDiagnosticsIpc } from './ipc/diagnostics.ipc'
-import { registerPolicyIpc } from './ipc/policy.ipc'
-import type { AgentActivity } from './services/agent-activity/read-model'
-import { policyStore } from './services/policy'
-import { approvalCenter } from './services/approvals'
-import { BackgroundManager } from './services/background.service'
-import { TerminalManager } from './services/terminal.service'
-import { configureExperimentalFeatures } from './services/experimental-features'
-import { ExecutionRegistry } from './services/execution-registry'
-import { AgentLaunchService, agentMcpArguments, codeAgentMcpLaunch, providerForExecutable } from './services/agent-launch.service'
-import { AgentService } from './services/agent.service'
-import { registerAgentHooksIpc } from './ipc/agent-hooks.ipc'
-import { AgentHookServer } from './services/agent-hooks/server'
-import { hookServerOptionsFor } from './services/agent-hooks/hook-pipeline'
-import { resolveSessionLocation } from './services/git-common-dir'
-import { SearchService } from './services/search.service'
-import { fallbackShellProfiles } from './services/shell-profile.defaults'
-import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
-import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
+import { mainLanguage, systemLocale, tMain } from './i18n'
+import { registerAppUpdateIpc, startAutoUpdater } from './ipc/app-update.ipc'
+import { initialWindowColors, registerAppearanceIpc, savedUiScale } from './ipc/appearance.ipc'
 import { registerBrowserPreviewIpc } from './ipc/browser-preview.ipc'
-import { setPreviewGrantAudit } from './services/browser-preview/preview-grants'
-import { mainMessage } from '../../shared/messages'
-import { IPC_CHANNELS } from '../../shared/types/ipc'
-import type { ShellProfile } from '../../shared/types/workspace'
-import { redactLogMessage } from './services/log-redaction'
+import { installIncidentHooks } from './ipc/diagnostics.ipc'
 import { installIpcSenderGuard, trustAppWindow } from './ipc/ipc-sender-guard'
+import { notificationsEnabled } from './ipc/notifications.ipc'
+import { RendererRecoveryPolicy, showRendererGiveUp } from './renderer-recovery'
+import type { RpcServerHandle } from './runtime/rpc/server'
+import { removeLegacyAgentHooks } from './services/agent-hooks/legacy-cleanup'
+import { APP_VERSION } from './services/app-info'
+import { ApprovalNotifier } from './services/approvals/approval-notifier'
+import { securePreviewGuest, securePreviewSession, WEB_PREVIEW_PARTITION_PREFIX } from './services/browser-preview-security'
+import { configureExperimentalFeatures } from './services/experimental-features'
+import { redactLogMessage } from './services/log-redaction'
+import { recordRuntime, startRuntimeDiagnostics, stopRuntimeDiagnostics } from './services/runtime-diagnostics'
+import { markAppReady, measureStartup, trackWindowStartup } from './startup-timing'
+import { flushStorage } from './storage-flush'
+import { singleInstanceDisabled } from './test-switches'
+import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
+import { installCloseGuard } from './window-close-guard'
+import { messageKey, messageValues } from '../../shared/messages'
+import { IPC_CHANNELS } from '../../shared/types/ipc'
 
 installIpcSenderGuard() // B12: before any channel exists (markAppReady registers one ahead of registerIpcHandlers)
 log.initialize()
@@ -166,251 +132,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   ipcMain.handle(IPC_CHANNELS.app.startupFailure, () => null)
 
   configureExperimentalFeatures(app.getPath('userData'))
-  const [{ DelegationService }, { registerDelegationIpc }, { AndroidAgentAccess, AndroidDevices }, { registerAndroidIpc }] = await Promise.all([
-    import('./services/delegation.service'), import('./ipc/delegation.ipc'),
-    import('./services/android/android-devices'), import('./ipc/android.ipc')
-  ])
-  const executions = new ExecutionRegistry()
-  const personAuditStmt = db.prepare("INSERT INTO person_action_audit (ts, actor, action, target, outcome, code) VALUES (?, 'person', ?, ?, ?, ?)")
-  setPreviewGrantAudit(entry => {
-    try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, null) } catch { /* best-effort audit */ }
-  })
-  const androidDevices = new AndroidDevices()
-  const androidAccess = new AndroidAgentAccess({
-    devices: androidDevices,
-    audit: {
-      record: entry => {
-        try { personAuditStmt.run(Date.now(), entry.action, entry.target, 'ok', entry.outcome) } catch { /* best-effort audit */ }
-      }
-    }
-  })
-  // The Android panel opens pairing through the gateway, which is registered further down.
-  const remotePairing: { start?: () => Promise<{ uri: string; expiresAt: number }> } = {}
-  const androidDisconnect: { notify?: (e: { serial: string; name: string; sessionKeys: string[] }) => void } = {}
-  registerAndroidIpc({ devices: androidDevices, access: androidAccess, startPairing: () => remotePairing.start ? remotePairing.start() : Promise.reject(new Error('Pairing is not ready yet')),
-    audit: entry => { try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, entry.detail) } catch { /* best-effort audit */ } },
-    onDeviceDisconnected: event => { log.info(`[android] device disconnected: ${event.serial} (${event.name})`); androidDisconnect.notify?.(event) } })
-  registerAgentHooksIpc(app.getPath('userData'))
-  // What each pane's agent is doing (working, blocked, done...), from its hooks and its screen.
-  const [{ AgentStateService }, { loadManifests }, { BUNDLED_MANIFESTS }, { registerAgentStateIpc, broadcastAgentState }, { notifyAgentsChanged, onAgentsChanged }] = await Promise.all([
-    import('./services/agent-state/agent-state.service'), import('./services/agent-state/manifest'),
-    import('./services/agent-state/bundled-manifests'), import('./ipc/agent-state.ipc'), import('./services/agents/agents-notifier')
-  ])
-  const agentManifests = loadManifests(BUNDLED_MANIFESTS, join(app.getPath('userData'), 'agent-detection'))
-  for (const warning of agentManifests.warnings) log.warn(`[agent-state] ${warning}`)
-  // eslint-disable-next-line prefer-const -- assigned below; the history callback runs only after terminals start
-  let terminalForHistory: { peek(paneId: string): { data: string } | null } | undefined
-  const agentState = new AgentStateService({
-    manifests: () => agentManifests.manifests,
-    emit: event => { broadcastAgentState(event); notifyAgentsChanged() },
-    history: paneId => terminalForHistory?.peek(paneId)?.data ?? null
-  })
-  registerAgentStateIpc(agentState)
-  // S7.1: every agent in one overview (panes, conversations, delegations, work runs), for the window and later the phone.
-  const [{ AgentsReadModel }, { registerAgentsIpc }, { ThreadHistory }, { englishText }] = await Promise.all([
-    import('./services/agents/agents-read-model'), import('./ipc/agents.ipc'), import('./services/conversation/thread-history'), import('./agent-text')
-  ])
-  const agentThreadHistory = new ThreadHistory(db)
-  const agentsModel = new AgentsReadModel({ db, panes: () => agentState.list(), threadRequests: () => agentThreadHistory.pendingRequestsAll(), markPaneSeen: paneId => agentState.markSeen(paneId) })
-  registerAgentsIpc(agentsModel)
-  const { PaneAgentSessions } = await import('./services/agent-state/pane-sessions')
-  const paneAgentSessions = new PaneAgentSessions(db)
-  // Agents' own lifecycle hooks report here. Deliveries authenticate with the
-  // same per-pane execution credentials the terminal already carries, so a
-  // hook script outside an OXESpace terminal is simply inert.
-  // A18 (P7) · the cwd each pane's agent reported last, for the task's Terminal tab.
-  const paneAgentCwd = new Map<string, string>()
-  const agentHookServer = new AgentHookServer(hookServerOptionsFor({
-    db,
-    authenticate: ({ executionId, token, workspaceId }) => {
-      try {
-        const execution = executions.authenticate(executionId, token, workspaceId)
-        return execution.owner.kind === 'pane' ? { paneId: execution.owner.id, workspaceId: execution.workspaceId, launchRoot: execution.cwd } : null
-      } catch {
-        return null
-      }
-    },
-    onStatus: (event) => {
-      const hookAgent = event.agent === 'codex' ? 'codex' : 'claude'
-      agentState.hook(event.paneId, hookAgent, event.state)
-      // Remember the native session so the pane can reopen it after a restart; an ended session is forgotten.
-      const sessionBefore = paneAgentSessions.current(event.paneId)?.sessionId
-      if (event.state === 'ended') { paneAgentSessions.clear(event.paneId); paneAgentCwd.delete(event.paneId) }
-      else if (event.sessionId) paneAgentSessions.record(event.paneId, hookAgent, event.sessionId, 'hook', event.permissionMode)
-      // BE-A46-c5: the phone's reader of this pane's conversation hears a new (or ended) session: a higher epoch, one signal.
-      if (paneAgentSessions.current(event.paneId)?.sessionId !== sessionBefore) void import('./services/remote/pane-conversation').then(module => module.announcePaneSession(event.paneId), () => undefined)
-      if (event.agent === 'codex' && event.state === 'done') {
-        const codexSessionId = event.sessionId ?? paneAgentSessions.current(event.paneId)?.sessionId
-        if (codexSessionId) {
-          void Promise.all([import('./services/http-audit/codex-rollout'), import('./services/http-audit/store')]).then(async ([rollout, store]) => {
-            const file = await rollout.findCodexRolloutFile(codexSessionId)
-            if (file) await rollout.ingestCodexRollout(new store.HttpAuditLog(db), { file, paneId: event.paneId, workspaceId: event.workspaceId, sessionId: codexSessionId })
-          }).catch(() => undefined)
-        }
-      }
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.agentHooks.onStatus, event)
-      }
-    },
-    resolveLocation: resolveSessionLocation,
-    onLocation: (event) => {
-      paneAgentCwd.set(event.paneId, event.cwd)
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.agentHooks.onLocation, event)
-      }
-    }
-  }))
-  // A bind failure only costs the hook signal; the heuristic keeps working.
-  void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
-  app.once('before-quit', () => agentHookServer.stop())
-  const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
-  registerFeatureUsageIpc(db); const hostsProxy = registerHostsProxyIpc(db, log)
-  const terminalManager: TerminalManager = new TerminalManager(db, { ...(await (await import('./services/terminal/utility-pty')).appPtyOption(process.env, join(app.getAppPath(), 'out', 'main', 'pty-host.js'), message => log.warn(message))), // OXE-400: node-pty in a utility process (OXESPACE_PTY_HOST=main: in main)
-    rootExists: existsSync, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
-    oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
-    grantProxy: origin => hostsProxy.grant(origin),
-    observer: agentState,
-    resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again), assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'), clearSession: paneId => paneAgentSessions.clear(paneId), currentSession: paneId => paneAgentSessions.current(paneId),
-    isManagedPane: paneId => delegationService?.ownsPane(paneId) ?? false,
-    onLaunchExit: (paneId) => { const ex = executions.forOwner({ kind: 'pane', id: paneId }); if (ex) androidAccess.revokeSession(ex.id); executions.end(paneId); delegationService?.exited(paneId) },
-    executionEnvironment: (input) => {
-      const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
-      const hookPort = agentHookServer.port
-      return { ...executions.register(input), ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
-    },
-    agentMcpArgs: (executable, args, workspaceId) => codeAgentMcpLaunch(db, providerForExecutable(executable), join(app.getPath('userData'),'bin','oxespace-mcp.cjs'), workspaceId, args),
-    emitData: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.terminal.onData, event)
-      }
-    },
-    emitExit: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.terminal.onExit, event)
-      }
-    },
-    // Detached sessions send this instead of their output, so the sidebar and
-    // notifications still reflect a background agent without shipping bytes
-    // that no view would render.
-    // A18 (T73) · The pane header's branch, pushed when it changes.
-    emitBranchChanged: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.branchChanged, event)
-      }
-    },
-    emitActivity: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.terminal.onActivity, event)
-      }
-    },
-    emitSizeLease: (event) => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.terminal.sizeLeaseChanged, event) }, // a phone took or gave back a pane's size
-    userDataPath: app.getPath('userData')
-  })
-  
-  terminalForHistory = terminalManager
-  registerWorkspaceIpc(db, terminalManager)
-  registerTerminalIpc(terminalManager)
-  registerAgentIpc(db)
-  const taskService = registerTaskIpc(db, terminalManager)
-  // Source-control/search/integration surfaces are not required to create the
-  // first window. Load them as one deferred group so their implementation does
-  // not inflate the main entry or block startup parsing.
-  const [
-    { registerGitIpc }, { registerSearchIpc }, { registerGitHubIpc }, { registerIntegrationIpc }, { registerRemoteIpc },
-    { GitHubService }, { GitService }, { registerPullRequestIpc }, { paneConversationsFor }, { registerPaneConversationIpc },
-    { createInternalMcpHandle }, { registerMcpInternalIpc }, { registerMcpToolsIpc }, { registerDataExportIpc }, { startSchedules },
-    { registerAgentCreditsIpc }, { registerContextUsageIpc }, { registerHttpAuditIpc }, { registerAgentActivityIpc }, { AgentActivity }, { HttpAuditHistory }, { productionHostsFor }
-  ] = await Promise.all([
-    import('./ipc/git.ipc'), import('./ipc/search.ipc'), import('./ipc/github.ipc'), import('./ipc/integration.ipc'), import('./ipc/remote.ipc'),
-    import('./services/github.service'), import('./services/git.service'), import('./ipc/pull-request.ipc'), import('./services/remote/pane-conversation'), import('./ipc/pane-conversation.ipc'),
-    import('./mcp-internal/bootstrap'), import('./ipc/mcp-internal.ipc'), import('./ipc/mcp-tools.ipc'), import('./ipc/data-export.ipc'), import('./services/schedules'),
-    import('./ipc/agentCredits.ipc'), import('./ipc/contextUsage.ipc'), import('./ipc/http-audit.ipc'), import('./ipc/agent-activity.ipc'),
-    import('./services/agent-activity/read-model'), import('./services/http-audit/history'), import('./services/http-audit/production-hosts')
-  ])
-  const gitService = registerGitIpc()
-  registerSearchIpc()
-  // Agents search with their own instance: a new search cancels the previous one of the same service.
-  const agentSearch = new SearchService()
-  const gitHubService = registerGitHubIpc(db)
-  const pullRequestProvider = registerPullRequestIpc()
-  gitHubService.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
-  registerIntegrationIpc(db)
-  const backgroundListeners = new Set<() => void>()
-  const backgroundManager = new BackgroundManager(db, {
-    emitOutput: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.background.onOutput, event)
-      }
-      for (const listener of backgroundListeners) listener()
-    },
-    emitUpdate: (event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(IPC_CHANNELS.background.onUpdate, event)
-      }
-      for (const listener of backgroundListeners) listener()
-    }
-  })
-  registerBackgroundIpc(backgroundManager)
-  registerSessionIpc(db)
-  // OxePod (containers) loads on its first request; OxeQuery (databases) reaches a database container through it, in process.
-  const oxePod = (await import('./services/oxepod/startup')).startOxePod(db)
-  oxeQueryShells.shellFor = paneId => oxePod.peek()?.shellFor(paneId)
-  const oxeQuery = await (await import('./services/oxequery/startup')).startOxeQuery(db, async () => (await oxePod.load()).containers)
-  const { registerThreadIpc } = await import('./ipc/thread.ipc')
-  const delegatedThreadObserver: { current?: (thread: import('../../shared/types/thread').ConversationThread) => void } = {}
-  // Conversations started in their own worktree use the same creation path as the Worktrees panel.
-  const threadWorktrees = {
-    createWorktree: (input: import('../../shared/types/github').GitHubCreateWorktreeInput) => gitHubService.createWorktree(input),
-    resolveBaseRef: async (rootPath: string) => (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef, removeWorktree: (input: import('../../shared/types/github').GitHubRemoveWorktreeInput) => gitHubService.removeWorktree(input)
-  }
-  const sharedAgentActivity: { current?: AgentActivity } = {}
-  const threadManager = registerThreadIpc(db, {
-    observed: thread => delegatedThreadObserver.current?.(thread),
-    bridge: join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'),
-    prepare: async thread => {
-      // The internal MCP starts after first paint: a conversation sent in the first seconds waits for it (bounded).
-      const { waitForInternalMcp } = await import('./mcp-internal/ready')
-      const meta = await waitForInternalMcp(() => db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined)
-      if (!meta) throw Error('Internal MCP is still starting. Retry shortly.')
-      const execution = executions.register({ owner: { kind: 'thread', id: thread.id }, workspaceId: thread.workspaceId, cwd: thread.rootPath })
-      return { ...execution, OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token, OXESPACE_WORKSPACE_ID: thread.workspaceId }
-    },
-    end: (threadId, executionId) => {
-      const current = executions.forOwner({ kind: 'thread', id: threadId })
-      if (executionId && current?.id !== executionId) return
-      if (current) androidAccess.revokeSession(current.id)
-      executions.endOwner({ kind: 'thread', id: threadId })
-    }
-  }, threadWorktrees, () => sharedAgentActivity.current, {
-    // F6 A22: the conversation's own OXESpace jobs with their last lines; Stop stays on background:stop.
-    jobs: thread => backgroundManager.list(thread.workspaceId).map(job => ({ job, tail: backgroundManager.getOutput(job.id).lines.slice(-5) })),
-    onJobsChanged: listener => { backgroundListeners.add(listener); return () => { backgroundListeners.delete(listener) } },
-    pullRequest: async ({ rootPath, branch }) => {
-      const state = await pullRequestProvider.state({ rootPath, branch }).catch(() => null)
-      return state?.pr ? { number: state.pr.number } : null
-    }
-  })
-  // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its
-  // shell's OSC cwd (F4-P6); `agent` = the pane runs an agent CLI.
-  const paneRows = db.prepare('SELECT id, workspace_id, display_name, agent_name FROM panes')
-  void threadManager.manager.then(manager => {
-    androidDisconnect.notify = e => { for (const k of e.sessionKeys) void manager.steer(k.replace(/^thread:/, ''), `Android device ${e.name} (${e.serial}) disconnected from adb.`).catch(() => {}) }
-    manager.configureHostsProxy(hostsProxy); manager.configurePanes(() => {
-    const sources: import('../../shared/types/thread-places').ThreadPaneSource[] = []
-    for (const row of paneRows.all() as { id: string; workspace_id: string; display_name: string | null; agent_name: string | null }[]) {
-      if (!terminalManager.hasSession(row.id)) continue
-      const launchDir = terminalManager.status(row.id).launchDirectory
-      if (!launchDir) continue
-      sources.push({ paneId: row.id, title: row.display_name || row.agent_name || 'Terminal', workspaceId: row.workspace_id, launchDir,
-        agentCwd: paneAgentCwd.get(row.id) ?? null, shellCwd: terminalManager.shellCwd(row.id), agent: agentState.get(row.id) !== null || Boolean(row.agent_name) })
-    }
-    return sources
-  }) }).catch(error => log.warn('Thread panes unavailable', error))
-  const skillService = new SkillService({ onChange: broadcastSkillChange })
-  registerSkillIpc(skillService, (input) => terminalManager.write(input))
-  const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
-  registerMcpIpc(mcpManager)
-  registerClipboardTextIpc()
+  const delegationRef: DelegationHandleRef = {}
+  const core = await bootstrapCoreServices({ db, rootExists: existsSync, delegationRef })
+  const workspace = await bootstrapWorkspaceServices(core)
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
     if (!item) return null
@@ -424,75 +148,23 @@ async function registerIpcHandlers(): Promise<() => void> {
     timer.unref?.()
     return filePath
   })
-  registerNotificationsIpc()
-  const paneConversations = paneConversationsFor(db, () => {
-    const rows = db.prepare('SELECT root_path AS root FROM workspaces UNION SELECT root_path FROM thread_project_contexts').all() as Array<{ root: string | null }>
-    return rows.map(row => row.root).filter((root): root is string => typeof root === 'string' && root.length > 0)
-  })
-  const disposePaneConversationIpc = registerPaneConversationIpc(ipcMain, {
-    conversations: paneConversations,
-    push: (senderId, payload) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (!window.isDestroyed() && window.webContents.id === senderId) {
-          window.webContents.send(IPC_CHANNELS.paneConversation.changed, payload)
-        }
-      }
-    }
-  })
-  app.once('before-quit', disposePaneConversationIpc)
-  // Schedules: the person's requests sent at a set time, through the same calls "New conversation" makes.
-  app.once('before-quit', startSchedules(db, { service: () => threadManager.manager, context: (projectId, rootPath) => threadManager.projects.context(projectId, rootPath) }))
-  remotePairing.start = registerRemoteIpc(db, {
-    threads: threadManager.manager, terminals: terminalManager, agentState, paneConversations,
-    // S7.1: the phone's `agents` topic; a mark from the phone reaches the window too.
-    agents: {
-      overview: () => agentsModel.overview(),
-      // Only an agent the overview lists: a phone cannot push the person's real marks out of the store with made-up
-      // keys (SECURITY #531 L2). The answer is ok either way; the phone already sees every row.
-      markSeen: key => {
-        const { kind, id } = (key ?? {}) as { kind?: unknown; id?: unknown }
-        if (!agentsModel.overview().agents.some(row => row.kind === kind && row.id === id)) return false
-        const ok = agentsModel.markSeen(key)
-        if (ok) notifyAgentsChanged()
-        return ok
-      },
-      onChanged: onAgentsChanged, text: englishText
-    }
-  }).startPairing; app.once('before-quit', registerAppInfoIpc(db))
-  registerCopilotIpc()
-  const creditsService = registerAgentCreditsIpc()
-  const contextUsageService = registerContextUsageIpc(undefined, (paneId, provider) => { const own = paneAgentSessions.current(paneId); return own && own.agent === provider ? own.sessionId : null }) // A7: the pane's own session
-  const oxeService = registerOxeIpc()
-  const fileSystemService = registerFileSystemIpc(db)
-  registerMcpToolsIpc(db, fileSystemService)
-  // Internal oxespace MCP server — auto-starts on app boot, registers a
-  // global row in mcp_servers, syncs to every workspace's .mcp.json. The
-  // bridge script lives under <userData>/bin/ and is spawned by each
-  // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
-  const internalMcpWorkspaceServ = new WorkspaceService(db, { isPaneRunning: (paneId) => terminalManager.hasSession(paneId) || terminalManager.isStarting(paneId) })
-  const internalMcpGithub = new GitHubService(db)
-  internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
-  const internalMcpGit = new GitService()
-  const delegationAgents = new AgentService(db)
-  const launcher = new AgentLaunchService(terminalManager, () => delegationAgents.list(), app.getPath('userData'))
-  const { ThreadDelegationHost } = await import('./services/delegation/thread-delegation-host')
-  const threadDelegationHost = new ThreadDelegationHost(threadManager.manager, executions, agentProfileId => {
-    const provider = launcher.resolve(agentProfileId).provider
-    if (provider !== 'claude' && provider !== 'codex') throw new Error('Unsupported delegation provider')
-    return provider
-  }, agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {},
-  async rootPath => (await new (await import('./services/conversation/thread-projects')).ThreadProjectService(db).add(rootPath)).projectId)
+  const { DelegationService } = core
   const delegationService = new DelegationService(db, {
-    workspace: internalMcpWorkspaceServ, git: internalMcpGithub, executions,
-    validateAgent: id => { launcher.resolve(id) },
-    threadHost: threadDelegationHost,
-    launch: task => launcher.launch(task), stop: paneId => terminalManager.stop({ paneId }),
+    workspace: workspace.internalMcpWorkspaceServ,
+    git: workspace.internalMcpGithub,
+    executions: core.executions,
+    validateAgent: id => { workspace.launcher.resolve(id) },
+    threadHost: workspace.threadDelegationHost,
+    launch: task => workspace.launcher.launch(task),
+    stop: paneId => core.terminalManager.stop({ paneId }),
     changed: (workspaceId, taskId) => {
       for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.delegation.changed, { workspaceId, taskId })
-      notifyAgentsChanged()
+      core.notifyAgentsChanged()
     }
     // R0d: no enrich. The delegated agent starts from the explicit handoff, evidence files and selected conversations.
   })
+  delegationRef.current = delegationService
+
   const seenApprovalNotifications = new Map<string, Set<string>>()
   const approvalNotifier = new ApprovalNotifier({
     show: ({ title, body, actions, onAction }) => {
@@ -522,10 +194,10 @@ async function registerIpcHandlers(): Promise<() => void> {
       for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send(IPC_CHANNELS.approvals.openRequest, requestId)
     }
   })
-  delegatedThreadObserver.current = thread => {
+  workspace.delegatedThreadObserver.current = thread => {
     delegationService.observeThread(thread)
     try {
-      const pending = agentThreadHistory.pendingRequestsOf(thread.id) // OXE-413: not the whole window on every change
+      const pending = core.agentThreadHistory.pendingRequestsOf(thread.id) // OXE-413: not the whole window on every change
       const previous = seenApprovalNotifications.get(thread.id) ?? new Set<string>()
       const current = new Set<string>()
       for (const req of pending) {
@@ -546,122 +218,9 @@ async function registerIpcHandlers(): Promise<() => void> {
       seenApprovalNotifications.set(thread.id, current)
     } catch { /* notification bookkeeping never blocks thread observation */ }
   }
-  registerDelegationIpc(delegationService)
+  core.registerDelegationIpc(delegationService)
 
-  // B10: outside the main entry, but awaited here, so the approval channels exist before the window can ask.
-  const approvals = await import('./services/approvals/wiring')
-  approvals.wireApprovals({ db, workspaces: () => internalMcpWorkspaceServ.list(), profiles: () => delegationAgents.list(), oxeQuery: () => oxeQuery.agent, paneProcess: paneId => terminalManager.foregroundProcess(paneId) })
-  const internalMcp = createInternalMcpHandle({
-    threads: threadManager.manager,
-    delegation: delegationService, executions,
-    delegationAgents: () => delegationAgents.list().filter(p => ['claude','codex'].includes(p.parentProvider ?? p.provider)).map(p => {
-      try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
-      catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
-    }),
-    oxeQuery: () => oxeQuery.agent,
-    oxeQueryError: () => oxeQuery.error,
-    git: gitService,
-    app: {
-      github: gitHubService, tasks: taskService, skills: skillService,
-      terminal: terminalManager, mcpServers: mcpManager, search: agentSearch, contextUsage: contextUsageService, credits: creditsService,
-      notify: approvals.showAgentNotice,
-      agents: {
-        state: agentState, terminal: terminalManager, profiles: () => delegationAgents.list(), resolve: id => launcher.resolve(id),
-        mcpArgs: provider => agentMcpArguments(provider, join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs')),
-        createPane: workspaceId => internalMcpWorkspaceServ.createPane(workspaceId),
-        setPaneAgent: (paneId, profileId, name) => internalMcpWorkspaceServ.setPaneAgent(paneId, profileId, name),
-        setPaneRootPath: (paneId, rootPath) => internalMcpWorkspaceServ.setPaneRootPath(paneId, rootPath),
-        closePane: paneId => internalMcpWorkspaceServ.closePane(paneId),
-        workspaceChanged: workspace => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.workspace.onChanged, workspace) }
-      }
-    },
-    db,
-    mcpManager,
-    workspaceServ: internalMcpWorkspaceServ,
-    github: internalMcpGithub,
-    background: backgroundManager,
-    fileSystem: fileSystemService,
-    androidDevices: () => androidDevices,
-    androidAccess: () => androidAccess, openAndroidPanel: request => { for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send(IPC_CHANNELS.android.openPanel, request) },
-    askAndroidScreenshot: async ({ serial, owner }) => {
-      const [{ brokerDraft }, { requesterFor }] = await Promise.all([import('./services/approvals/drafts'), import('./services/approvals/requester')])
-      const outcome = await approvalCenter.ask(brokerDraft({
-        kind: 'mcp-confirm',
-        requester: requesterFor(owner),
-        level: 'medium',
-        risk: 'read',
-        title: mainMessage('approvals.title.agent', {}),
-        summary: mainMessage('approvals.summary.mcpConfirm', { tool: 'oxespace_device_screenshot', action: 'screenshot', target: serial }),
-        target: serial,
-        notes: [],
-        text: serial
-      }))
-      return outcome.intent === 'allow' || outcome.intent === 'allow-session'
-    },
-    askAndroidLifecycle: async req => (await import('./mcp-internal/android-lifecycle-handler')).promptAndroidLifecycle(approvalCenter, req)
-  })
-  registerMcpInternalIpc(internalMcp)
-  // A63 / N9: the Worktrees panel. The window and the oxespace_remove_worktree tool share its guarded removal; the
-  // merged state follows A60 (the pull request provider first, git as the fallback); each Remove a person makes is audited.
-  const worktreeOwnersCache: { current: import('./services/github/worktrees-panel').WorktreeOwner[] } = { current: [] }
-  {
-    const [{ WorktreesPanel, setAppWorktreesPanel }, { registerWorktreesPanelIpc }, { PersonActionAudit }, { GhExec }, { createPullRequestProvider }] = await Promise.all([
-      import('./services/github/worktrees-panel'), import('./ipc/worktrees-panel.ipc'), import('./services/person-action-audit'),
-      import('./services/github/gh-exec'), import('./ipc/pull-request.ipc')
-    ])
-    const panelGh = new GhExec()
-    const prProvider = createPullRequestProvider(panelGh)
-    const worktreesPanel = new WorktreesPanel({
-      gh: panelGh,
-      owners: () => worktreeOwnersCache.current,
-      provider: {
-        merged: async ({ rootPath, branch }) => {
-          const baseRef = (await gitHubService.resolveWorktreeBase({ workspaceId: '', rootPath })).baseRef
-          const base = baseRef.replace(/^(refs\/remotes\/)?origin\//, '') || 'main'
-          return prProvider.merged({ rootPath, branch, base })
-        }
-      },
-      removeWorktree: input => gitHubService.removeWorktree(input),
-      // A live pane or conversation execution inside the worktree keeps it from being removed (HML 704-6).
-      busy: path => executions.liveWithin(path) > 0 ? 'pane' : null,
-      audit: new PersonActionAudit(db)
-    })
-    setAppWorktreesPanel(worktreesPanel)
-    registerWorktreesPanelIpc(worktreesPanel)
-  }
-  // R0b: Settings › Data and the notice band; the first-run export itself starts in the deferred init below.
-  const runDataExport = registerDataExportIpc({
-    db,
-    userData: app.getPath('userData'),
-    workspaceRoots: () => internalMcpWorkspaceServ.list().map(workspace => workspace.rootPath),
-    previousDbVersion
-  })
-  registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
-  // Loads the policy and the accepted-config gate and answers policy:get; the HTTP audit below reads policyStore().
-  await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })
-  const httpAuditLog = new HttpAuditHistory(db, undefined, {
-    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined })
-  })
-  registerHttpAuditIpc(httpAuditLog)
-  httpAuditLog.prune()
-  const pruneHttpInterval = setInterval(() => httpAuditLog.prune(), 24 * 60 * 60 * 1000)
-  app.once('before-quit', () => clearInterval(pruneHttpInterval))
-  const agentActivity = new AgentActivity(db, {
-    isProductionHost: productionHostsFor({ db, policy: policyStore() ?? undefined }),
-    pendingFor: connectionId => Boolean(oxeQuery.agent?.hasPending(connectionId))
-  })
-  sharedAgentActivity.current = agentActivity
-  registerAgentActivityIpc(agentActivity)
-  // OXESpace context manifest — prepended to the agent's initial prompt on pane spawn so the CLI knows the
-  // workspace state without calling any MCP tool. Read shortcut; MCP is still the action path (see oxe-context.service.ts).
-  registerOxeContextIpc({
-    db,
-    workspaceServ: internalMcpWorkspaceServ,
-    github: internalMcpGithub,
-    git: internalMcpGit,
-    background: backgroundManager,
-    fileSystem: fileSystemService
-  })
+  const { internalMcp, runDataExport } = await bootstrapInternalMcpAndAudit({ core, workspace, delegationService, previousDbVersion })
   let memoryShutdownComplete = false
   let memoryShutdownStarted = false
   app.on('before-quit', (event) => {
@@ -669,7 +228,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     event.preventDefault()
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
-    const terminalsDrained = terminalManager.stopAllAndDrain() // OXE-392: every terminal exit reaches JS before teardown
+    const terminalsDrained = core.terminalManager.stopAllAndDrain() // OXE-392: every terminal exit reaches JS before teardown
     // Quitting can still stall after the drain, for example on a native handle a terminal left
     // open on Windows; the window is gone by then, so end the process instead of lingering.
     const quit = (): void => {
@@ -681,7 +240,7 @@ async function registerIpcHandlers(): Promise<() => void> {
       memoryShutdownComplete = true
       quit()
     }, 10000)
-    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), threadManager.stop(), delegationService?.stop(), androidDevices.stopOwned()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
+    void Promise.allSettled([terminalsDrained, flushStorage(session.defaultSession), workspace.threadManager.stop(), delegationService?.stop(), core.androidDevices.stopOwned()]).then(() => internalMcp.stop()).catch(() => {}).finally(() => {
       clearTimeout(shutdownDeadline)
       if (memoryShutdownComplete) return
       memoryShutdownComplete = true
@@ -690,13 +249,13 @@ async function registerIpcHandlers(): Promise<() => void> {
   })
   app.once('before-quit', () => {
     for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
-    fileSystemService.closeAll()
-    terminalManager.stopAll()
-    backgroundManager.stopAll()
-    skillService.dispose()
-    mcpManager.stopAll()
-    oxeService.disposeAll()
-    void hostsProxy.stop()
+    workspace.fileSystemService.closeAll()
+    core.terminalManager.stopAll()
+    workspace.backgroundManager.stopAll()
+    workspace.skillService.dispose()
+    workspace.mcpManager.stopAll()
+    workspace.oxeService.disposeAll()
+    void core.hostsProxy.stop()
     // Keep the hook metadata bridge alive for the bounded memory shutdown drain.
     void rpcServer?.stop()
   })
@@ -707,9 +266,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   // writes each workspace's .mcp.json from the table; internalMcp.start() then
   // rewrites its own row with the live port last.
   return () => {
-    mcpManager.primeConfigs()
-    skillService.init()
-    backgroundManager.init()
+    workspace.mcpManager.primeConfigs()
+    workspace.skillService.init()
+    workspace.backgroundManager.init()
     void internalMcp.start()
     // R0b: the one-time export of the removed features' data, after the window shows; it never throws.
     void runDataExport()
@@ -724,7 +283,7 @@ async function registerIpcHandlers(): Promise<() => void> {
     void import('./runtime/rpc/server')
       .then(({ startRpcServer }) => startRpcServer({
         db,
-        gitHubService,
+        gitHubService: workspace.gitHubService,
         appVersion: APP_VERSION,
         userDataPath: app.getPath('userData'),
         onError: (error) => log.warn('[rpc] transport error:', error.message)
