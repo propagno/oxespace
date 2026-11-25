@@ -11,8 +11,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ThreadView } from '../../../src/components/Threads/ThreadView'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { THREAD_REVIEW_HOST_CHUNK, ThreadView } from '../../../src/components/Threads/ThreadView'
+import { SHARED_PANEL_CHUNKS } from '../../../src/lib/panelChunks'
 import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS, type WorkbenchPanelId } from '../../../src/components/Workbench/panelCatalog'
 import { changeLanguage, i18n } from '../../../src/i18n'
 import { useAccountStore } from '../../../src/store/account.store'
@@ -109,7 +110,61 @@ function mountThread(toolTabs: Array<{ tab: string; count: number | null }> = [{
       },
       fs: {
         listTree: vi.fn(async () => []),
-        readFile: vi.fn(async () => '')
+        readFile: vi.fn(async () => ({ relativePath: '', content: '', size: 0, mtimeMs: 1 })),
+        watchFile: vi.fn(async () => ({ watchId: 'watch-376' })),
+        unwatchFile: vi.fn(async () => undefined),
+        onFileChanged: vi.fn(() => () => undefined)
+      },
+      git: {
+        getBranch: vi.fn(async () => ({ branch: 'feat/oxe-376', detached: false, shortSha: null })),
+        getStatus: vi.fn(async () => ({ branch: 'feat/oxe-376', upstream: null, ahead: 0, behind: 0, files: [] })),
+        getDiffSummary: vi.fn(async () => ({ files: [], base: 'HEAD' })),
+        getFileOriginal: vi.fn(async () => ({ content: '' })),
+        getFileAtRef: vi.fn(async () => ({ content: '' }))
+      },
+      github: {
+        listBranches: vi.fn(async () => []),
+        resolveWorktreeBase: vi.fn(async () => null),
+        listWorktrees: vi.fn(async () => [])
+      },
+      browserPreview: {
+        session: vi.fn(async () => ({ tabs: [], activeTabId: null })),
+        onEvent: vi.fn(() => () => undefined),
+        back: vi.fn(async () => undefined),
+        forward: vi.fn(async () => undefined),
+        reload: vi.fn(async () => undefined),
+        designMode: vi.fn(async () => undefined),
+        setAccess: vi.fn(async () => undefined),
+        setDevice: vi.fn(async () => undefined)
+      },
+      terminal: {
+        start: vi.fn(async () => undefined),
+        stop: vi.fn(async () => undefined),
+        write: vi.fn(async () => undefined),
+        resize: vi.fn(async () => undefined),
+        status: vi.fn(async () => ({ running: false })),
+        attach: vi.fn(async () => null),
+        detach: vi.fn(async () => undefined),
+        onData: vi.fn(() => () => undefined),
+        onExit: vi.fn(() => () => undefined),
+        sizeLease: vi.fn(async () => null),
+        onSizeLeaseChanged: vi.fn(() => () => undefined)
+      },
+      delegation: {
+        status: vi.fn(async () => ({ tasks: [] })),
+        control: vi.fn(async () => undefined),
+        onChanged: vi.fn(() => () => undefined)
+      },
+      session: {
+        list: vi.fn(async () => [])
+      },
+      httpAudit: {
+        list: vi.fn(async () => []),
+        onChanged: vi.fn(() => () => undefined)
+      },
+      oxePod: {
+        call: vi.fn(async () => ({ containers: [], runtime: null })),
+        onEvent: vi.fn(() => () => undefined)
       },
       featureUsage: {
         record: vi.fn(async () => undefined)
@@ -141,6 +196,21 @@ function containerBlock(css: string, px: number): string {
   throw new Error('unclosed @container block')
 }
 
+beforeAll(async () => {
+  await Promise.all([
+    THREAD_REVIEW_HOST_CHUNK.load(),
+    SHARED_PANEL_CHUNKS.changes.load(),
+    SHARED_PANEL_CHUNKS.git.load(),
+    SHARED_PANEL_CHUNKS.files.load(),
+    SHARED_PANEL_CHUNKS.search.load(),
+    SHARED_PANEL_CHUNKS.background.load(),
+    SHARED_PANEL_CHUNKS.webPreview.load(),
+    SHARED_PANEL_CHUNKS.containers.load(),
+    SHARED_PANEL_CHUNKS.activity.load(),
+    SHARED_PANEL_CHUNKS.threadTerminal.load(),
+    SHARED_PANEL_CHUNKS.threadNetwork.load()
+  ])
+}, 30_000)
 beforeEach(() => { localStorage.clear() })
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
