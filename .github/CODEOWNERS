@@ -5,5 +5,7 @@
 /electron/main/ipc/                            @propagno
 /electron/preload/                             @propagno
 /.github/workflows/                            @propagno
+/.github/actions/                              @propagno
+/scripts/ci/                                   @propagno
 /electron-builder.yml                          @propagno
 /scripts/verify-release-artifacts.mjs          @propagno

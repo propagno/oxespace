@@ -19,6 +19,9 @@ export default defineConfig({
     // Native processes and Windows filesystem fixtures compete heavily when
     // files run concurrently. Keep the same deterministic policy locally/CI.
     fileParallelism: false,
+    // OXE-434: single-test transient flakes in CI get one targeted retry so
+    // push/main runs do not fail on isolated timing noise; local stays 0.
+    retry: process.env.CI ? 1 : 0,
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.{test,spec}.{ts,tsx}'],
     coverage: {

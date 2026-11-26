@@ -10,7 +10,7 @@ run-name: Performance under load · ${{ github.ref_name }}
 
 on:
   push:
-    branches: [main, "ci/perf-load-*"]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
