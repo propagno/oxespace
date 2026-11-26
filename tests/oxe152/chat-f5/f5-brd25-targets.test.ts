@@ -68,7 +68,8 @@ function notEnforced(ids: readonly string[]): string[] {
 type Target = { id: string; scene: string; select: string | { text: string; within?: string }; prop: string; expect: Record<string, unknown>; of?: string; attr?: string; state: string; tolerance: number; densities: string[]; themes: string[] }
 const BRD25: Array<Omit<Target, 'state' | 'tolerance' | 'densities' | 'themes'>> = [
   { id: 'BRD-25.column.width', scene: 'chat-conversation', select: '[data-ui=chat-column]', prop: 'width', expect: { token: '--measure-chat' } },
-  { id: 'BRD-25.prompt.align', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'inline-start-offset', of: '[data-ui=chat-column]', expect: { px: 0 } },
+  // OXE-441: explicit user decision supersedes AG-10 §2.1 left-axis prompt card with a right-aligned user bubble.
+  { id: 'BRD-25.prompt.align', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'inline-end-offset', of: '[data-ui=chat-column]', expect: { px: 0 } },
   { id: 'BRD-25.prompt.radius', scene: 'chat-conversation', select: '[data-ui=prompt-card]', prop: 'border-radius', expect: { token: '--radius-lg' } },
   { id: 'BRD-25.turn-gap', scene: 'chat-anatomy', select: '[data-row-index]:not([data-row-index="0"]) > [data-ui=turn][data-turn-start]', prop: 'margin-block-start', expect: { token: '--space-6' } },
   { id: 'BRD-25.fold.height', scene: 'chat-anatomy', select: '[data-ui=turn-line]', prop: 'height', expect: { token: '--row-1' } },
@@ -151,7 +152,7 @@ describe('A14 · the AG-10/11 brand targets (brd-25.json) and the chat-anatomy s
     const spec = pbRead('e2e/brand/brand-conformance.spec.ts')
     expect(spec).toMatch(/setThreadState\([^)]*['"]anatomy['"]/)
     expect(spec).toMatch(/measureScene\([^)]*['"]chat-anatomy['"]/)
-    for (const prop of ['margin-block-start', 'border-left-width', 'border-left-color', 'background-color', 'inline-start-offset', "'attr'"]) expect(spec, prop).toContain(prop)
+    for (const prop of ['margin-block-start', 'border-left-width', 'border-left-color', 'background-color', 'inline-start-offset', 'inline-end-offset', "'attr'"]) expect(spec, prop).toContain(prop)
     expect(spec, 'a count can have a max').toMatch(/\bmax\b/)
     expect(spec, 'a text can be counted within an element').toMatch(/\bwithin\b/)
   })

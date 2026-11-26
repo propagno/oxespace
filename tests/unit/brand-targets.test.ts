@@ -40,7 +40,7 @@ const generated = readFileSync(join(process.cwd(), 'src/styles/tokens.generated.
 const tokenNames = new Set([...generated.matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]))
 const measures = targets.flatMap(({ doc }) => doc.measures.map(measure => ({ ...measure, brd: doc.brd, platform: doc.platform })))
 
-const DESKTOP_PROPS = new Set(['height', 'width', 'font-size', 'font-weight', 'font-family', 'border-radius', 'count', 'margin-block-start', 'border-left-width', 'border-left-color', 'background-color', 'inline-start-offset', 'attr'])
+const DESKTOP_PROPS = new Set(['height', 'width', 'font-size', 'font-weight', 'font-family', 'border-radius', 'count', 'margin-block-start', 'border-left-width', 'border-left-color', 'background-color', 'inline-start-offset', 'inline-end-offset', 'attr'])
 const ANDROID_PROPS = new Set(['font-size', 'font-weight', 'min-font-size', 'radius'])
 
 describe('brand targets (OXE-149)', () => {
@@ -87,7 +87,7 @@ describe('brand targets (OXE-149)', () => {
       else if (measure.prop === 'attr') {
         expect(measure.attr, `${measure.id}: an attr measure names its attribute`).toBeTruthy()
         expect('eq' in expected, measure.id).toBe(true)
-      } else if (measure.prop === 'inline-start-offset') {
+      } else if (measure.prop === 'inline-start-offset' || measure.prop === 'inline-end-offset') {
         expect(measure.of, `${measure.id}: an offset names the element it is measured from`).toBeTruthy()
         expect('px' in expected || 'token' in expected, measure.id).toBe(true)
       }
