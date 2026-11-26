@@ -25,14 +25,18 @@ describe('selectWorkspacesToEvict', () => {
     expect(evict(['a', 'b', 'c', 'd', 'e', 'f'], { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1 }, 'f', 8)).toEqual([])
   })
 
-  test('evicts pane-heavy workspaces that blow the WebGL budget', () => {
-    // Four four-pane workspaces = 16 contexts, over the budget of 12. Evicting
-    // just the oldest brings it back to exactly 12, so it stops there — the
-    // workspace-count budget would have kept all four.
-    expect(evict(['a', 'b', 'c', 'd'], { a: 4, b: 4, c: 4, d: 4 }, 'd', 8)).toEqual(['a'])
+  test('evicts pane-heavy workspaces that blow a tight mounted-pane budget', () => {
+    // Four four-pane workspaces = 16 panes, over an explicit budget of 12. Evicting
+    // just the oldest brings it back to exactly 12, so it stops there.
+    expect(evict(['a', 'b', 'c', 'd'], { a: 4, b: 4, c: 4, d: 4 }, 'd', 8, 12)).toEqual(['a'])
 
     // One more pane-heavy workspace forces a second eviction.
-    expect(evict(['a', 'b', 'c', 'd', 'e'], { a: 4, b: 4, c: 4, d: 4, e: 4 }, 'e', 8)).toEqual(['a', 'b'])
+    expect(evict(['a', 'b', 'c', 'd', 'e'], { a: 4, b: 4, c: 4, d: 4, e: 4 }, 'e', 8, 12)).toEqual(['a', 'b'])
+  })
+
+  test('OXE-443: keeps 5 four-pane workspaces mounted under the default 32-pane budget', () => {
+    expect(MAX_MOUNTED_TERMINAL_PANES).toBe(32)
+    expect(evict(['a', 'b', 'c', 'd', 'e'], { a: 4, b: 4, c: 4, d: 4, e: 4 }, 'e', 8)).toEqual([])
   })
 
   test('never evicts the active workspace', () => {
