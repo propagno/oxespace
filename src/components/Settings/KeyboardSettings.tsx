@@ -98,7 +98,7 @@ export function KeyboardSettings(): ReactElement {
       </div>
     </div>)}
     <div className="settings-inline-actions">
-      <Button variant="ghost" disabled={!customized} onClick={() => void handleResetAll()}>{t('keyboard.resetAll')}</Button>
+      <Button variant="secondary" disabled={!customized} onClick={() => void handleResetAll()}>{t('keyboard.resetAll')}</Button>
     </div>
   </section>
 }

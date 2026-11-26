@@ -234,4 +234,22 @@ describe('Settings › Tools', () => {
     expect(screen.getByTestId('tools-codex-note')).toHaveTextContent('Todo grupo que não está desligado fica disponível desde o início')
     expect(within(await panel('Orquestração')).getByText('≈ 13 tokens · 31 caracteres')).toBeVisible()
   })
+
+  it('OXE-429 & OXE-431: separates MCP and Skills into tabs and uses secondary buttons in the MCP header', async () => {
+    mount()
+    const reloadBtn = await screen.findByRole('button', { name: /Reload/ })
+    expect(reloadBtn).toHaveAttribute('data-variant', 'secondary')
+    const manageBtn = screen.getByRole('button', { name: /Manage MCP servers/i })
+    expect(manageBtn).toHaveAttribute('data-variant', 'secondary')
+
+    // Skills is in its own tab, not buried below MCP tool groups.
+    expect(screen.queryByRole('region', { name: 'Skills' })).toBeNull()
+    const tabs = screen.getByRole('radiogroup', { name: 'MCP and Skills sections' })
+    fireEvent.click(within(tabs).getByRole('radio', { name: 'Skills' }))
+    expect(await screen.findByRole('region', { name: 'Skills' })).toBeVisible()
+    expect(screen.queryByRole('region', { name: 'Core tools' })).toBeNull()
+
+    fireEvent.click(within(tabs).getByRole('radio', { name: 'MCP' }))
+    expect(await panel('Core tools')).toBeVisible()
+  })
 })

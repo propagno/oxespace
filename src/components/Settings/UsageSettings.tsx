@@ -155,7 +155,7 @@ export function UsageSettings(): ReactElement {
 
             <div className={styles.actions}>
               {!showAll && sortedRows.length > 12 ? (
-                <Button variant="ghost" size="sm" onClick={() => setShowAll(true)}>
+                <Button variant="secondary" size="sm" onClick={() => setShowAll(true)}>
                   {t('usage.showAll')}
                 </Button>
               ) : null}

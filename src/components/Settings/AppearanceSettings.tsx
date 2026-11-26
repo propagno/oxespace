@@ -76,11 +76,11 @@ function ScaleAndDensity(): ReactElement {
       <SegmentedControl label={t('appearance.density.title')} value={density} options={densityOptions} onChange={setDensity} />
       {ownDensity.length > 0 && <p className={styles.override} data-testid="workspace-density-override">
         <span>{t('appearance.density.workspaceOverride', { count: ownDensity.length })}</span>
-        <Button variant="ghost" size="sm" onClick={() => { for (const workspaceId of ownDensity) void updateWorkspace({ workspaceId, uiDensity: 'default' }).catch(() => {}) }}>{t('appearance.density.useAppInWorkspaces')}</Button>
+        <Button variant="secondary" size="sm" onClick={() => { for (const workspaceId of ownDensity) void updateWorkspace({ workspaceId, uiDensity: 'default' }).catch(() => {}) }}>{t('appearance.density.useAppInWorkspaces')}</Button>
       </p>}
       {threadDensity !== null && <p className={styles.override} data-testid="thread-density-override">
         <span>{t('appearance.density.threadOverride', { density: t(`appearance.density.${threadDensity}`) })}</span>
-        <Button variant="ghost" size="sm" onClick={() => setThreadDensity(null)}>{t('appearance.density.useAppInThread')}</Button>
+        <Button variant="secondary" size="sm" onClick={() => setThreadDensity(null)}>{t('appearance.density.useAppInThread')}</Button>
       </p>}
     </section>
     <section className={styles.group} aria-labelledby="appearance-motion-title">

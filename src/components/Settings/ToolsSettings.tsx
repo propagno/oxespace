@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { PolicyView } from '../../../shared/policy'
@@ -8,6 +8,7 @@ import {
   type McpToolGroupMode, type McpToolGroupsReport, type McpToolRule
 } from '../../../shared/types/mcp-tools'
 import { Badge, Button, ConfirmDialog, EmptyState, ErrorState, LoadingState, Notice, Panel, SegmentedControl, Select, toast, type Intent } from '../../ui'
+import { SettingsPageTitle } from '../../ui/Settings'
 import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'common')
@@ -62,6 +63,7 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
   onRule: (rule: McpToolRule, decision: McpToolDecision) => void
 }): ReactElement {
   const { t } = useTranslation('settings')
+  const [rulesOpen, setRulesOpen] = useState(false)
   const name = groupName(t, group.id)
   const fixed = claudeFixedCost(group)
   const groupRules = rules ? group.tools.map(tool => ruleFor(rules, OXESPACE_SERVER, tool)) : []
@@ -87,8 +89,11 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
         onChange={mode => onMode(group.id as ConfigurableMcpToolGroup, mode)} disabled={busy || locked} />
       <p className={styles.hint}>{locked ? t('tools.invalidYaml.modeLocked', { file: OXE_YAML }) : t(`tools.modeHints.${group.mode}`)}</p>
     </div>}
-    {rules && <details className={styles.rules}>
-      <summary>{t('tools.rules.summary', { count: ruled })}</summary>
+    {rules && <details className={styles.rules} onToggle={event => setRulesOpen(event.currentTarget.open)}>
+      <summary className={styles.rulesSummary}>
+        {rulesOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+        <span>{t('tools.rules.summary', { count: ruled })}</span>
+      </summary>
       <ul aria-label={t('tools.rules.listLabel', { group: name })}>{groupRules.map(rule => <RuleRow key={rule.tool} rule={rule} busy={busy} onChoose={onRule} />)}</ul>
     </details>}
   </Panel>
@@ -99,11 +104,14 @@ function GroupPanel({ group, rules, busy, unread = false, locked = false, onMode
  * oxe.yaml, what each costs per provider, and per-tool rules. Modes and rules are the person's choices, made only
  * here (never by an MCP tool); the organization's policy is shown read only.
  */
-export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspaceId }: { rootPath: string; workspaceId?: string }): ReactElement {
+export type ToolsTab = 'mcp' | 'skills'
+
+export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspaceId, initialTab = 'mcp' }: { rootPath: string; workspaceId?: string; initialTab?: ToolsTab }): ReactElement {
   const activeWs = useWorkspaceStore(s => s.workspaces.find(w => w.id === s.activeWorkspaceId) ?? s.workspaces[0])
   const rootPath = propRootPath || activeWs?.rootPath || ''
   const workspaceId = propWorkspaceId ?? activeWs?.id
   const { t } = useTranslation('settings')
+  const [tab, setTab] = useState<ToolsTab>(initialTab)
   const [report, setReport] = useState<McpToolGroupsReport | null>(null)
   const [groupsError, setGroupsError] = useState('')
   const [rules, setRules] = useState<McpToolRule[] | null>(null)
@@ -197,59 +205,72 @@ export function ToolsSettings({ rootPath: propRootPath, workspaceId: propWorkspa
   return <section className={styles.page} data-testid="tools-settings" aria-label={t('tools.title')}>
     <div className={styles.header}>
       <div className={styles.titleBlock}>
-        <h2 className={styles.pageTitle}>{t('center.pages.mcp.label')}</h2>
-        <p className={styles.intro}>{t('tools.intro')} <code title={rootPath || undefined}>{OXE_YAML}</code> · <code>{THREAD_TOOLS_KEY}</code></p>
+        <SettingsPageTitle>{t('center.sections.mcp.label')}</SettingsPageTitle>
+        {tab === 'mcp' && <p className={styles.intro}>{t('tools.intro')} <code title={rootPath || undefined}>{OXE_YAML}</code> · <code>{THREAD_TOOLS_KEY}</code></p>}
       </div>
-      {rootPath && <Button variant="ghost" size="sm" disabled={busy} onClick={reload}><RefreshCw size={14} aria-hidden="true" /> {t('tools.reload')}</Button>}
+      {tab === 'mcp' && <div className={styles.headerActions}>
+        <Button variant="secondary" size="sm" onClick={() => useUIStore.getState().openMcpPanel()}>{t('tools.manageMcp')}</Button>
+        {rootPath && <Button variant="secondary" size="sm" disabled={busy} onClick={reload}><RefreshCw size={14} aria-hidden="true" /> {t('tools.reload')}</Button>}
+      </div>}
     </div>
-    <div className={styles.providers} role="note" aria-label={t('tools.providers.title')}>
-      <p data-testid="tools-where-to-add">{t('tools.whereToAdd')}</p>
-      <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
-      <p data-testid="tools-codex-note"><strong>{CODEX}</strong> {t('tools.providers.codex')}</p>
+    <div className={styles.tabs}>
+      <SegmentedControl<ToolsTab>
+        label={t('tools.tabs.label')}
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'mcp', label: t('tools.tabs.mcp') },
+          { value: 'skills', label: t('tools.tabs.skills') }
+        ]}
+      />
     </div>
-    {(status || readAgain) && <p className={styles.status} role="status">{status || t('tools.invalidYaml.readAgain')}</p>}
-    {actionError && <ErrorState compact title={actionError.title} message={actionError.message} />}
-    {!rootPath ? <EmptyState compact title={t('tools.noProject.title')}>{t('tools.noProject.body')}</EmptyState>
-      : groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
-        : !report ? <LoadingState label={t('tools.loading')} />
-          : <>
-            {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
-              <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
-            </Notice>}
-            <dl className={styles.totals} aria-label={t('tools.totals.title')}>
-              <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
-              <div><dt>{t('tools.totals.everything')}</dt><dd>{costText(t, report.totals.everythingOnDemand)}</dd></div>
-            </dl>
-            <p className={styles.hint}>{t('tools.totals.estimate')}</p>
-            {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
-            <h3 className={styles.sectionTitle}>{t('tools.sections.project')}</h3>
-            <p className={styles.hint}>{t('tools.rules.intro')}</p>
-            <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
-            <h3 className={styles.sectionTitle}>{t('tools.sections.role')}</h3>
-            <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
-            <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
-          </>}
-    <div className={styles.sectionHeader}>
-      <h3 className={styles.sectionTitle}>{t('tools.sections.mcpAndSkills')}</h3>
-      <Button variant="secondary" size="sm" onClick={() => useUIStore.getState().openMcpPanel()}>{t('tools.manageMcp')}</Button>
-    </div>
-    {rules && <Panel className={styles.group} label={t('tools.rules.otherTitle')} title={t('tools.rules.otherTitle')}>
-      {others.length ? <ul aria-label={t('tools.rules.otherTitle')} className={styles.list}>{others.map(rule => <RuleRow key={`${rule.server}/${rule.tool}`} rule={rule} busy={busy} onChoose={chooseRule} />)}</ul>
-        : <EmptyState compact title={t('tools.rules.otherEmpty')} />}
-    </Panel>}
-    <SkillsList />
-    <Panel className={styles.group} label={t('tools.policy.title')} title={t('tools.policy.title')}>
-      <p className={styles.hint}>{t('tools.policy.intro')}</p>
-      {policyError ? <ErrorState compact title={t('tools.policy.loadFailed')} message={policyError} />
-        : organization.length ? <ul className={styles.list} aria-label={t('tools.policy.title')}>
-          {organization.map(({ source, rule }, index) => <li key={`${source.path}-${index}`} className={styles.policyRule}>
-            <Badge intent={rule.effect === 'deny' ? 'warning' : 'success'}>{t(`tools.policy.effect.${rule.effect}`)}</Badge>
-            <code className={styles.toolName}>{rule.resource}</code>
-            <span className={styles.ruleNote} title={source.path}>{t(`tools.policy.layer.${source.layer}`)}{source.organization ? ` · ${source.organization}` : ''}</span>
-          </li>)}
-        </ul>
-          : policy ? <EmptyState compact title={t('tools.policy.empty')} /> : null}
-    </Panel>
+    {tab === 'skills' ? <SkillsList /> : <>
+      <div className={styles.providers} role="note" aria-label={t('tools.providers.title')}>
+        <p data-testid="tools-where-to-add">{t('tools.whereToAdd')}</p>
+        <p><strong>{CLAUDE}</strong> {t('tools.providers.claude')}</p>
+        <p data-testid="tools-codex-note"><strong>{CODEX}</strong> {t('tools.providers.codex')}</p>
+      </div>
+      {(status || readAgain) && <p className={styles.status} role="status">{status || t('tools.invalidYaml.readAgain')}</p>}
+      {actionError && <ErrorState compact title={actionError.title} message={actionError.message} />}
+      {!rootPath ? <EmptyState compact title={t('tools.noProject.title')}>{t('tools.noProject.body')}</EmptyState>
+        : groupsProblem ? <ErrorState title={t('tools.loadFailed')} message={groupsProblem} onRetry={reload} />
+          : !report ? <LoadingState label={t('tools.loading')} />
+            : <>
+              {invalid && <Notice intent="warning" title={t('tools.invalidYaml.title', { file: OXE_YAML })}>
+                <code>{yamlPath(rootPath)}</code>: {t(effectiveFrom === 'last-valid' ? 'tools.invalidYaml.bodyLastValid' : effectiveFrom === 'defaults' ? 'tools.invalidYaml.bodyDefaults' : 'tools.invalidYaml.body')}
+              </Notice>}
+              <div className={styles.totalsWrap}>
+                <dl className={styles.totals} aria-label={t('tools.totals.title')}>
+                  <div><dt>{t('tools.totals.plain')}</dt><dd>{costText(t, report.totals.plainConversation)}</dd></div>
+                  <div><dt>{t('tools.totals.everything')}</dt><dd>{costText(t, report.totals.everythingOnDemand)}</dd></div>
+                </dl>
+                <p className={styles.estimate}>{t('tools.totals.estimate')}</p>
+              </div>
+              {rulesProblem && <ErrorState compact title={t('tools.rules.loadFailed')} message={rulesProblem} />}
+              <h3 className={styles.sectionTitle}>{t('tools.sections.project')}</h3>
+              <p className={styles.hint}>{t('tools.rules.intro')}</p>
+              <div className={styles.groups}>{chosen.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} unread={unread} locked={invalid} onMode={onMode} onRule={chooseRule} />)}</div>
+              <h3 className={styles.sectionTitle}>{t('tools.sections.role')}</h3>
+              <p className={styles.hint}>{t('tools.sections.roleIntro')}</p>
+              <div className={styles.groups}>{byRole.map(group => <GroupPanel key={group.id} group={group} rules={rules} busy={busy} onMode={onMode} onRule={chooseRule} />)}</div>
+            </>}
+      {rules && <Panel className={styles.group} label={t('tools.rules.otherTitle')} title={t('tools.rules.otherTitle')}>
+        {others.length ? <ul aria-label={t('tools.rules.otherTitle')} className={styles.list}>{others.map(rule => <RuleRow key={`${rule.server}/${rule.tool}`} rule={rule} busy={busy} onChoose={chooseRule} />)}</ul>
+          : <EmptyState compact title={t('tools.rules.otherEmpty')} />}
+      </Panel>}
+      <Panel className={styles.group} label={t('tools.policy.title')} title={t('tools.policy.title')}>
+        <p className={styles.hint}>{t('tools.policy.intro')}</p>
+        {policyError ? <ErrorState compact title={t('tools.policy.loadFailed')} message={policyError} />
+          : organization.length ? <ul className={styles.list} aria-label={t('tools.policy.title')}>
+            {organization.map(({ source, rule }, index) => <li key={`${source.path}-${index}`} className={styles.policyRule}>
+              <Badge intent={rule.effect === 'deny' ? 'warning' : 'success'}>{t(`tools.policy.effect.${rule.effect}`)}</Badge>
+              <code className={styles.toolName}>{rule.resource}</code>
+              <span className={styles.ruleNote} title={source.path}>{t(`tools.policy.layer.${source.layer}`)}{source.organization ? ` · ${source.organization}` : ''}</span>
+            </li>)}
+          </ul>
+            : policy ? <EmptyState compact title={t('tools.policy.empty')} /> : null}
+      </Panel>
+    </>}
     {confirmAllow && <ConfirmDialog danger title={t('tools.rules.confirmAllow.title', { tool: confirmAllow.tool })}
       description={t('tools.rules.confirmAllow.description', { tool: confirmAllow.tool })} confirmLabel={t('tools.rules.confirmAllow.confirm')}
       onCancel={() => setConfirmAllow(null)} onConfirm={() => { const rule = confirmAllow; setConfirmAllow(null); void applyRule(rule, 'allow') }} />}

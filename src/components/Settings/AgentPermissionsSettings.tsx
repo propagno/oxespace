@@ -160,7 +160,7 @@ export function AgentPermissionsSettings({ workspaceId }: { workspaceId: string 
           <li key={`${section}-${index}-${row.text}`} className="diagnostics-check">
             <code>{row.text}</code>
             <span>{t('agentPermissions.policy.fromFile')}</span>
-            <Button variant="ghost" size="sm" onClick={() => void openPolicyInEditor()}>
+            <Button variant="secondary" size="sm" onClick={() => void openPolicyInEditor()}>
               {t('agentPermissions.policy.openInEditor')}
             </Button>
           </li>
@@ -185,7 +185,7 @@ export function AgentPermissionsSettings({ workspaceId }: { workspaceId: string 
                   <code>{rule.text}</code>
                   <p>{ruleSubtitle(rule)}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void handleRevoke(rule)}>
+                <Button variant="secondary" size="sm" onClick={() => void handleRevoke(rule)}>
                   {t('agentPermissions.revoke')}
                 </Button>
               </li>
