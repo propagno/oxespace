@@ -1,6 +1,6 @@
 import type { ProviderCompatibility } from '../../../shared/providerCompatibility'
 
-/** Published each night by .github/workflows/provider-contract.yml on the `provider-contract` branch. */
+/** Published each night by .github/workflows/nightly.yml (provider-report) on the `provider-contract` branch. */
 export const COMPATIBILITY_URL = 'https://raw.githubusercontent.com/propagno/oxespace/provider-contract/compatibility.json'
 const CACHE_MS = 6 * 60 * 60 * 1000
 

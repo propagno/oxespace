@@ -69,11 +69,11 @@ const VISUAL_BASELINE = /^e2e\/visual\/__screenshots__\/(linux|win32)\/.+\.png$/
 /** Other committed snapshot images (Android goldens and the like): no workflow regenerates them, so CI decides. */
 const OTHER_SNAPSHOT = /(^|\/)(__screenshots__|__snapshots__|snapshots)\/.+\.png$/
 const PACKAGE_FILE = /(^|\/)package(-lock)?\.json$/
-export const VISUAL_WORKFLOW = 'visual-baselines.yml'
+export const VISUAL_WORKFLOW = 'visual.yml'
 
 /**
  * What kind of change this is, which decides how it is proven (TECH LEAD, 07/11):
- * - 'images': only visual baselines; a green visual-baselines.yml run on this sha, for each platform touched;
+ * - 'images': only visual baselines; a green visual.yml (mode=baselines) run on this sha, for each platform touched;
  * - 'packages': only package.json / package-lock.json files, or only other snapshot images; the PR's own CI;
  * - 'code': anything else; the local checks.
  * Neither of the first two needs node_modules.
@@ -84,7 +84,7 @@ export function classifyChange(files) {
   return 'code'
 }
 
-/** The platforms whose visual baselines a change touches, as visual-baselines.yml names them. */
+/** The platforms whose visual baselines a change touches, as visual.yml names them. */
 export function visualPlatforms(files) {
   return [...new Set(files.map(file => VISUAL_BASELINE.exec(file)?.[1]).filter(Boolean).map(dir => (dir === 'win32' ? 'windows' : dir)))].sort()
 }
@@ -169,7 +169,7 @@ function changeSteps({ files, related, base = 'origin/main', full = false, nodeM
   const kind = classifyChange(files)
   if (kind === 'images') {
     const platforms = visualPlatforms(files)
-    return [{ name: `visual-baselines.yml green on this head (${platforms.join(', ')})`, kind: 'visual', args: platforms }]
+    return [{ name: `${VISUAL_WORKFLOW} baselines green on this head (${platforms.join(', ')})`, kind: 'visual', args: platforms }]
   }
   if (kind === 'packages') return [{ name: 'packages only: the PR\'s CI unit jobs on this head', kind: 'ci', args: CI_UNIT_JOBS }]
   const steps = nodeModules
@@ -228,8 +228,8 @@ export function ciEvidence(checkRuns, jobs = CI_UNIT_JOBS, sha = null) {
 }
 
 /**
- * Whether visual-baselines.yml proves `sha` for every platform in `platforms`: the latest run per platform on that
- * exact sha completed with success (its generate and both stable verifies passed). `runs`: the workflow's runs,
+ * Whether visual.yml (mode=baselines) proves `sha` for every platform in `platforms`: the latest run per platform on
+ * that exact sha completed with success (its generate and both stable verifies passed). `runs`: the workflow's runs,
  * [{ id, head_sha, status, conclusion, display_title, created_at }]; the platform is in the run title
  * ("Visual baselines · <platform> · <ref>").
  */
@@ -241,7 +241,7 @@ export function visualEvidence(runs, platforms, sha) {
       .filter(run => run.head_sha === sha && String(run.display_title ?? '').startsWith(`Visual baselines · ${platform} ·`))
       .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
     const run = mine[0]
-    if (!run) missing.push(`${platform}: no ${VISUAL_WORKFLOW} run on this head (dispatch it with platform=${platform} on the PR branch)`)
+    if (!run) missing.push(`${platform}: no ${VISUAL_WORKFLOW} run on this head (dispatch it with mode=baselines, platform=${platform} on the PR branch)`)
     else if (run.status !== 'completed') missing.push(`${platform}: run ${run.id} still ${run.status}`)
     else if (run.conclusion !== 'success') missing.push(`${platform}: run ${run.id} ${run.conclusion}`)
     else ids.push(run.id)
@@ -251,7 +251,7 @@ export function visualEvidence(runs, platforms, sha) {
 
 /**
  * The marker's content: how the head was proven, and the runs that prove it. `evidence`: 'local' (the checks ran
- * here), 'ci' (the PR's CI unit jobs) or 'images' (visual-baselines.yml). `runs`: the Actions run ids, for ci and images.
+ * here), 'ci' (the PR's CI unit jobs) or 'images' (visual.yml mode=baselines). `runs`: the Actions run ids, for ci and images.
  */
 export function markerContent({ sha, at, base, steps, evidence = 'local', runs = [], lint = null, tests = null }) {
   return { ok: true, sha, at, evidence, runs, base, steps, ...(lint ? { lint } : {}), ...(tests ? { tests } : {}) }

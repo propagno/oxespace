@@ -1,5 +1,5 @@
 // The perf-gate's statistical method (OXE-163, 1.5.3 onwards), pure and testable (tests/unit/perf-gate-stats.test.ts).
-// Used by .github/workflows/perf-gate.yml (launch order of each round) and perf-gate/summarize.mjs (the table).
+// Used by .github/workflows/manual-ops.yml (operation=perf-gate, launch order of each round) and perf-gate/summarize.mjs (the table).
 // Why: on 1.5.2 (OXE-105) the Windows `process → interactive` moved ±40-75 ms between runs of the same tree, and one
 // round of the bisect 43644280439 ran 170-290 ms slower on one side (a runner background task). So, for boot:
 //  - the candidate and the baseline swap who launches first every round (candidate first on odd rounds, baseline first

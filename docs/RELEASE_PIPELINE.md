@@ -1,29 +1,46 @@
 # Release pipeline
 
-OXESpace uses a **single GitHub Actions workflow** — **CI and Release**
-(`.github/workflows/ci.yml`) — so packaging and publish never start until
-typecheck, tests, build and E2E have succeeded on the same commit.
+OXESpace separates pure read-only verification (**CI**, `.github/workflows/ci.yml`) from Desktop + Android
+publishing (**Release**, `.github/workflows/release.yml`, which invokes `ci.yml` via `workflow_call` with
+`strict_perf_gate: true`) — so packaging and publish never start until typecheck, tests, build, E2E and
+`acceptance-release` have succeeded on the exact tagged commit.
 
-The workflow uses the repository's built-in GitHub Actions token and needs no
-release secrets. The **release** job runs in the `release` environment, whose required
-reviewer is the release owner: everything is built and verified first, then the
-run waits for **Review deployments → Approve** on its page before it tags and
-publishes. The environment must exist with that reviewer before this job is merged
-(a missing environment would be created without protection).
+Desktop publishing uses the repository's built-in GitHub Actions token and needs no release secrets. The
+**`publish-desktop`** job runs in the protected `release` environment (`ubuntu-24.04`), and the isolated
+**`sign-android`** job runs in the protected `android-release` environment (`ubuntu-24.04`, holding the Android
+keystore secrets per `SECURITY #231`). Everything is built and verified first — including unsigned Android APK
+build + minified emulator smoke in parallel (`android-build`, zero secrets) — then both environments enter
+**Review deployments → Approve** simultaneously (one approval modal, two isolated environments per `SRE-04`).
 
 ## Jobs
 
+### CI (`.github/workflows/ci.yml`)
+
 | Job | When | What |
 |-----|------|------|
-| **changes** | Always (not on a draft PR) | Classifies a PR's files (docs-only, OxeQuery) and resolves the one commit every later job checks out. |
-| **quick** (`linux-x64`) | Unless the PR is docs-only | Plans build vs release → dependency and build-tool audits → notices → Electron support window → typecheck → lint (file-size guard first) → migration-numbering guard → build with bundle budgets. The first red, in about 6 minutes. |
-| **unit** (matrix: `windows-x64`, `linux-x64`) | Same as quick, in parallel with it | Unit and integration tests with coverage (serial, as before); uploads `coverage-summary-<platform>`. |
-| **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–3) | On a PR, after quick passes; on main, tags and dispatches always | Each shard builds the app (bundle budgets) → native verify → its third of the E2E specs (`--shard=i/3`, weights `PWTEST_SHARD_WEIGHTS=15:7:6`). Shard 1 also runs the upgrade rehearsal and the OxeQuery coverage gate, shard 2 uploads `main-sourcemaps-<platform>` (when the run does not package) and checks the Windows notices, shard 3 runs the performance gate. Every shard keeps `e2e-blob-<platform>-<shard>`, and `e2e-traces-<os>-<shard>` on failure. Outside a publishing run the performance gate does not fail the shard: it records `perf-gate-<platform>` (outcome and numbers). |
-| **perf-plan** / **perf-recheck** | After e2e passes, outside a publishing run | `perf-plan` reads both platforms' `perf-gate-<platform>` records; a missing or unreadable record fails it. For each platform whose gate failed, `perf-recheck` runs the same gate (`OXESPACE_PERF_GATE=1 npm run bench:ui`) once on a fresh runner, and the run summary shows both runs' numbers. A slow runner then costs one recheck instead of a red `main` (flakes.md FL-04, FL-24); a gate that fails on both runners fails `CI result`. Before calling such a failure noise or a regression, read the metric's per-OS trend on `main` and the tags (FL-21). A publishing run (tag, `publish_release`) keeps the hard gate in e2e. |
-| **a11y** (matrix: `ubuntu`, `windows`) | On a PR whose files can change what the scan sees (not docs, tests, `mobile/`, the phone protocol or other workflows); on main and dispatches always | The axe scan (`npm run test:a11y`, strict): a critical or serious finding fails it, and with it `CI result`. Keeps `a11y-report-<os>`. Until 09/11 it was its own workflow, `a11y-axe.yml`. |
-| **package** (matrix: `windows-x64`, `linux-x64`) | Only when a release or a packaged smoke was planned, after quick, unit and e2e pass | Builds the planned commit, packages it (NSIS installer; AppImage and `.deb`), runs the packaged-build smoke test, and for a release produces the SBOM, checksums and uploads artifacts. The two legs never cancel each other. |
-| **release** | Only if every job above succeeds **and** a release was planned | Ensures the `vX.Y.Z` tag points at the verified SHA → draft release + assets → re-download verify → publish → **confirm the release is live** (not draft, required assets present). |
-| **CI result** | Every non-draft run, after everything | One check for the whole run: fails when a job failed or was cancelled, or when a job that had to run was skipped. Merges the E2E blob reports into `e2e-report` (one HTML report per platform). |
+| **changes** | Always (not on a draft PR) | Classifies a PR's files (docs-only, a11y, OxeQuery, deps) and resolves the single commit SHA every job checks out. |
+| **quick** (`Quick checks (linux-x64)`) | Unless the PR is docs-only | Fast-gate (`<2 min`): typecheck, lint (file-size guard + ESLint), fast guardrail tests (`workflow-governance`, `css-classes-guard`, `design-lint`, `design-lint-target-size`, `i18n-catalog`, `migration-numbering`), notices, Electron support window, and dependency/tool/bundled audits. Gates heavy job fan-out. |
+| **build** (matrix: `linux-x64`, `windows-x64`) | After `quick` passes | Compiles `out/` **once per OS** with bundle budgets and `check-bundle-imports.mjs`; uploads `app-build-<platform>` (reused by downstream E2E, brand, a11y, OxeQuery live, and packaging jobs) and `main-sourcemaps-<platform>`. |
+| **unit-shard** + **unit** (5 Windows / 4 Linux shards) | After `quick` passes | Unit and integration tests in Node/Vitest (no Electron/Xvfb download; CI `retry: 1` for transient flakes), merged per OS with coverage floors (`coverage-summary-<platform>`). |
+| **brand-conformance** (`windows-x64`, `linux-x64`) | After `build` passes | Dedicated, unmasked OXE-149 brand fidelity test (`playwright.brand.config.ts`) posting `marca/conformidade` status. |
+| **e2e-impacted** (`linux-x64`) | On PRs touching code, after `build` passes | Targeted smoke + acceptance E2E specs selected by `scripts/related-e2e.mjs` so UI/IPC regressions fail on the PR instead of post-merge. |
+| **e2e** (matrix: `windows-x64`, `linux-x64` × shards 1–4) | On `main`, dispatches, and `workflow_call` (after `build`) | Full E2E suite across 4 shards per OS, reusing `app-build-<platform>`. Shard 1 also runs upgrade rehearsal and OxeQuery coverage; shard 4 runs the performance gate (soft + `perf-plan`/`perf-recheck` on `main`, hard when `strict_perf_gate=true` from `release.yml`). |
+| **a11y** (`ubuntu-22.04`, `windows-2022`) | PRs touching UI/renderer; `main`/dispatches always | Strict axe scan (`npm run test:a11y`), reusing `app-build-<platform>`. |
+| **oxequery-live** / **oxequery-live-versions** | PRs touching OxeQuery; `main`/dispatches always | Live PostgreSQL/MongoDB/SSH container suites reusing `app-build-linux-x64`. |
+| **package** (`windows-x64`, `linux-x64`) | Only when `packaged_smoke_only=true` (manual dispatch or `nightly.yml` via `workflow_call`) | Packages installers via `.github/actions/package-electron` and runs packaged-app E2E without publishing. |
+| **CI result** | Every non-draft run, after everything | Single required branch-protection check: merges E2E blob reports, verifies every required job succeeded, and posts `CI result` / `marca/conformidade` statuses. |
+
+### Release (`.github/workflows/release.yml`)
+
+| Job | When | What |
+|-----|------|------|
+| **plan** | `v*.*.*` tag push or `workflow_dispatch(target=full\|android-only)` | Validates tag format, `package.json` version parity, and `origin/main` ancestry for stable releases. |
+| **verify** | `target=full` | Calls `.github/workflows/ci.yml` (`strict_perf_gate: true`) on the verified tag SHA. |
+| **acceptance-release** | `target=full` (parallel with `verify` & `android-build`) | Full `e2e/acceptance` suite on Linux against the verified tag SHA. |
+| **android-build** | Stable tags (parallel with `verify` & `acceptance-release`) | Zero secrets, `contents: read` (`SECURITY #231`): builds unsigned release APK + runs `ReleaseSmokeTest` on minified emulator build. |
+| **package-desktop** | After `verify` + `acceptance-release` | Reuses `app-build-*` from `verify`, packages Windows NSIS and Linux AppImage/`.deb`, checks fuses + `.deb` `chrome-sandbox`, runs packaged E2E, generates SBOMs and checksums. |
+| **publish-desktop** (`environment: release`, `ubuntu-24.04`) | After `package-desktop` + `android-build` + approval | Combines checksums, attests build provenance, creates/refreshes draft release, re-downloads & verifies every asset, publishes (`draft=false`), and confirms the release is live. |
+| **sign-android** (`environment: android-release`, `ubuntu-24.04`) | Enters `waiting` simultaneously with `publish-desktop` | Signs unsigned APK with `apksigner`, verifies v2/v3 cert, attests provenance, waits up to 3 min for live release, and attaches APK + `.sha256` without `--clobber`. |
 
 ---
 
@@ -43,9 +60,9 @@ git commit -m "chore(release): X.Y.Z"
 git push -u origin HEAD
 ```
 
-Before opening the PR, dispatch **CI and Release** on the release branch with
+Before opening the PR, dispatch **CI** (`ci.yml`) on the release branch with
 **packaged_smoke_only = true**. It runs the full checks and the installed-app smoke without
-publishing. Regenerate visual baselines there if the UI changed.
+publishing. Regenerate visual baselines via `visual.yml` (`mode=baselines`) if the UI changed.
 
 **Required before every release: repeat the real tool-cost measurement (T8).** What OXESpace's MCP tools cost
 depends on the agents' own behaviour, which changes between versions of Claude Code and Codex. With the versions the
@@ -67,16 +84,14 @@ git tag vX.Y.Z <candidate sha>
 git push origin vX.Y.Z
 ```
 
-The `release` environment accepts only `v*` tags: a **Run workflow** dispatch with **publish_release** from `main`
-builds, then stops at the publish job. Use the tag.
+The `release` and `android-release` environments accept only `v*` tags. Always publish by pushing a tag (or use
+`npm run release -- tag X.Y.Z --run` followed by `npm run release -- approve X.Y.Z --run`).
 
 Rules the pipeline enforces:
 
-- `package.json` version must be `X.Y.Z`
-- Release tag will be `vX.Y.Z` (or the value you pass in **tag**)
-- If `vX.Y.Z` already exists, it must point at **this** commit
-- A stable release must be a commit on `main`; any other ref stops in the plan step, before the
-  build. Prereleases (`X.Y.Z-beta.N`) may still be published from any branch.
+- `package.json` version must match the `vX.Y.Z` tag
+- A stable release must be a commit on `main`; any other ref stops in `plan`, before building. Prereleases
+  (`X.Y.Z-beta.N`) may still be published from any branch (Desktop only).
 
 ### Run names
 
@@ -84,33 +99,33 @@ Each run says what it is, in the Actions list:
 
 | Run name | Started by |
 |---|---|
-| `Publish · main` | Run workflow with **publish_release** (`Publish vX.Y.Z · main` when **tag** is set) |
-| `Publish vX.Y.Z` | A tag push |
-| `Packaged smoke · <branch>` | Run workflow with **packaged_smoke_only** |
-| `Full check · <branch>` | Run workflow with neither |
-| `PR #N · <title>` | A pull request to `main` |
-| `Push · main` | A push to `main` |
-| `Visual baselines · <platform> · <branch>` | Visual baselines |
+| `Publish vX.Y.Z` | Tag push to `release.yml` (`Publish vX.Y.Z (Android only)` when `target=android-only`) |
+| `Packaged smoke · <branch>` | `ci.yml` Run workflow with **packaged_smoke_only** |
+| `Full check · <branch>` | `ci.yml` Run workflow without **packaged_smoke_only** |
+| `PR #N · <title>` | A pull request to `main` (`ci.yml`) |
+| `Push · main` | A push to `main` (`ci.yml`) |
+| `Visual baselines · <platform> · <branch>` | `visual.yml` with `mode=baselines` |
+| `Visual regression · <branch>` | `visual.yml` PR or `mode=compare` |
 
 ### 3. What the pipeline does
 
 ```text
-build (typecheck → test → build → e2e)
-   │
-   ├─ no release (PR, push to main, dispatch)  → stop (green CI only)
-   │
-   └─ tag push vX.Y.Z (release environment: waits for approval)
-         → dist + SBOM + checksums
-         → create tag vX.Y.Z on the verified SHA (if missing)
-         → draft GitHub Release + assets
-         → re-download & verify
-         → publish (draft=false)
-         → confirm live assets
+vX.Y.Z tag push → release.yml (plan)
+   ├─ verify (workflow_call → ci.yml, strict_perf_gate=true)
+   ├─ acceptance-release (e2e/acceptance on Linux)
+   └─ android-build (unsigned APK + minified emulator smoke, zero secrets)
+         │
+         ▼
+   package-desktop (Windows + Linux installers, fuses, packaged E2E, SBOM, checksums)
+         │
+         ▼ (simultaneous approval modal: release + android-release)
+   ├─ publish-desktop (ubuntu-24.04) → draft → re-download & verify → publish → confirm live
+   └─ sign-android    (ubuntu-24.04) → apksigner → attest → wait for live release → attach APK
 ```
 
 ### 4. Confirm
 
-- Actions run is green (both jobs when publishing)
+- Actions run is green (`publish-desktop` and `sign-android`)
 - https://github.com/propagno/oxespace/releases/tag/vX.Y.Z is **not** draft
 - Assets: see [Published release payload](#published-release-payload)
 
@@ -124,7 +139,7 @@ git fetch origin && git tag vX.Y.Z origin/main
 git push origin vX.Y.Z
 ```
 
-Same pipeline: **build → release** (no manual Run workflow). Tag must match `package.json` and the commit, and a stable tag must point at a commit on `main`.
+Same pipeline: **plan → verify + acceptance-release + android-build → package-desktop → simultaneous approval → publish-desktop + sign-android**. Tag must match `package.json` and the commit, and a stable tag must point at a commit on `main`.
 
 ---
 
@@ -132,10 +147,10 @@ Same pipeline: **build → release** (no manual Run workflow). Tag must match `p
 
 | Trigger | Result |
 |---------|--------|
-| Push / PR to `main` | build only |
-| Run workflow with **publish_release = false** | build only on the selected branch |
-| Run workflow with **packaged_smoke_only = true** | build + installers + installed-app smoke, nothing published |
-| Dispatched by the merge train | build on the PR branch it updated, or on `main` after it merged (see below) |
+| Push / PR to `main` | verification only (`ci.yml`) |
+| `ci.yml` Run workflow (`packaged_smoke_only = false`) | full verification on the selected branch |
+| `ci.yml` Run workflow (`packaged_smoke_only = true`) | full verification + installers + installed-app smoke, nothing published |
+| Dispatched by the merge train | verification on the PR branch it updated, or on `main` after it merged (see below) |
 
 ---
 
@@ -265,7 +280,7 @@ Every release contains:
 
 Consumers can compare `SHA256SUMS.txt` before installation. The installers and
 `SHA256SUMS.txt` also carry a GitHub build-provenance attestation, a signed
-statement that the file was built by this repository's `CI and Release`
+statement that the file was built by this repository's `Release`
 workflow. To check a download:
 
 ```sh
@@ -330,8 +345,5 @@ success path.
 
 ## Notes
 
-- The workflow file must exist on the branch selected in **Use workflow from**
-  (usually keep `ci.yml` in sync on `main` and feature branches).
-- A thin **Release (redirect)** workflow only forwards old bookmarks to this
-  pipeline with `publish_release=true`; for a stable release that stops at the `release` environment, which
-  accepts only tags.
+- All 8 canonical workflows are governed by `tests/unit/workflow-governance.test.ts` and `.github/CODEOWNERS`.
+- Reusable setup/build/packaging steps live in `.github/actions/{setup-oxespace,build-oxespace,package-electron,setup-android}`.

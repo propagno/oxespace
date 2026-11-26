@@ -1,16 +1,18 @@
 # Releasing the Android app
 
-The signed APK is attached to each GitHub release by `.github/workflows/android-release.yml`. The
-desktop's "CI and Release" pipeline starts it on the tag right after it publishes a release (`GITHUB_TOKEN`
-publishes fire no `release` event, so that run's last step dispatches it). It also runs by hand (Actions › Android release › Run workflow, with
-**Use workflow from** set to the `vX.Y.Z` tag; from a branch it stops at once). It's not on the Play Store.
+The signed APK is attached to each GitHub release by **`.github/workflows/release.yml`** (the unified Desktop +
+Android release workflow triggered by pushing a `vX.Y.Z` tag). It can also be re-run for Android only by hand
+(Actions › Release › Run workflow, **Use workflow from** set to the `vX.Y.Z` tag, `target=android-only`; from a branch
+it stops at once). It's not on the Play Store.
 
-It has two jobs, so the key is never near build or test code:
-- **Build and smoke test:** no secrets, read-only. It checks out the tag by its full name and checks that HEAD is that
-  tag, then builds the release APK unsigned, runs lint and the unit tests, and runs the minified smoke test.
-- **Sign, attest and attach:** runs in the `android-release` environment, which holds the signing secrets. In a single
-  step it writes the key, signs the APK from the first job with `apksigner`, and deletes the key. Then it verifies,
-  attests and attaches.
+It keeps two isolated jobs, so the signing key is never near build or test code (`SECURITY #231`):
+- **`android-build` (Android build and minified smoke test):** zero secrets, `contents: read`, runs in parallel with
+  Desktop verification before approval. It checks out the tag by its full name, builds the unsigned release APK, runs
+  lint and unit tests, and executes the minified emulator smoke test (`ReleaseSmokeTest`).
+- **`sign-android` (Sign, attest and attach Android APK):** runs in the protected `android-release` environment (which
+  enters `waiting` simultaneously with Desktop's `release` environment so both are approved in one modal). In a single
+  step it writes the key, signs the APK from `android-build` with `apksigner`, and deletes the key; then it verifies,
+  attests, waits briefly for `publish-desktop` to mark the GitHub Release live, and attaches the APK (without `--clobber`).
 
 ## One-time setup (maintainer)
 

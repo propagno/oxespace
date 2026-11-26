@@ -47,7 +47,7 @@ describe('R-deps · the final F2 dependency PR', () => {
   })
 
   test('R-deps: electron-builder.yml and the workflows no longer name transformers, ONNX, sharp or the slim step', () => {
-    const files = ['electron-builder.yml', '.github/workflows/ci.yml', '.github/workflows/install-over.yml']
+    const files = ['electron-builder.yml', '.github/workflows/ci.yml', '.github/workflows/manual-ops.yml']
     expect(files.filter(file => NO_MENTION.test(read(file)))).toEqual([])
     expect([...files, 'package.json'].filter(file => /slim-pack-deps|slim:pack/.test(read(file)))).toEqual([])
   })

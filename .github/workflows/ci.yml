@@ -1,28 +1,26 @@
-name: CI and Release
+name: CI
 # What each run is, in the Actions list (see docs/RELEASE_PIPELINE.md#run-names).
 run-name: >-
   ${{ github.event_name == 'pull_request' && format('PR #{0} · {1}', github.event.pull_request.number, github.event.pull_request.title)
-  || startsWith(github.ref, 'refs/tags/') && format('Publish {0}', github.ref_name)
   || github.event_name == 'push' && format('Push · {0}', github.ref_name)
-  || inputs.publish_release && format('Publish{0} · {1}', inputs.tag && format(' {0}', inputs.tag) || '', inputs.branch || github.ref_name)
   || inputs.packaged_smoke_only && format('Packaged smoke · {0}', inputs.branch || github.ref_name)
   || format('Full check · {0}', inputs.branch || github.ref_name) }}
 
-# Unified pipeline, fastest signal first (OXE-434):
+# Canonical CI pipeline (OXE-434): read-only verification (no release publishing or write tokens).
+# Release packaging and publishing live in .github/workflows/release.yml (which calls this workflow).
 #   1) changes — classifies PR paths and pins the single commit SHA every job checks out
-#   2) quick (fast-gate, <2m) — plan, typecheck, lint, fast guardrail tests, notices, audits; gates PR fan-out
+#   2) quick (fast-gate, <2m) — typecheck, lint, fast guardrail tests, notices, audits; gates PR fan-out
 #   3) build (Windows, Linux) — compiles out/ ONCE per OS (bundle budgets + import check + sourcemaps)
 #      unit-shard (5 Windows / 4 Linux) → unit (coverage merge + floors)
 #   4) brand-conformance (Windows, Linux, enforced — never masked)
 #      e2e-impacted (Linux, PRs only — targeted smoke + acceptance via scripts/related-e2e.mjs)
-#      e2e (Windows, Linux, 4 shards each — main, tags, dispatches, workflow_call) + perf-plan/perf-recheck
-#      a11y (Windows, Linux), oxequery-live (Docker/Podman + DB versions), acceptance-release (releases)
-#   5) package (Windows, Linux) → release (environment: release) → ci-result ("CI result") → wake-merge-train
+#      e2e (Windows, Linux, 4 shards each — main, dispatches, workflow_call) + perf-plan/perf-recheck
+#      a11y (Windows, Linux), oxequery-live (Docker/Podman + DB versions)
+#   5) package (Windows, Linux — packaged_smoke_only only) → ci-result ("CI result") → wake-merge-train
 
 on:
   push:
     branches: [main]
-    tags: ["v*.*.*"]
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -30,15 +28,6 @@ on:
     inputs:
       branch:
         description: Optional override — leave empty to use "Use workflow from"
-        required: false
-        type: string
-      publish_release:
-        description: After a successful build, package and publish a GitHub Release
-        required: false
-        default: false
-        type: boolean
-      tag:
-        description: Optional release tag (vX.Y.Z). Empty = v{package.json version}
         required: false
         type: string
       packaged_smoke_only:
@@ -53,18 +42,13 @@ on:
         required: false
         default: ""
         type: string
-      publish_release:
-        description: Run the built-in release publish job (false when caller orchestrates release)
+      packaged_smoke_only:
+        description: Build installers and run packaged-app E2E on both platforms without publishing
         required: false
         default: false
         type: boolean
-      tag:
-        description: Optional release tag (vX.Y.Z)
-        required: false
-        default: ""
-        type: string
-      packaged_smoke_only:
-        description: Build installers and run packaged-app E2E on both platforms without publishing
+      strict_perf_gate:
+        description: Fail e2e directly on a performance gate miss instead of soft recheck (used by release.yml)
         required: false
         default: false
         type: boolean
@@ -77,8 +61,6 @@ on:
         value: ${{ jobs.quick.outputs.version }}
 
 concurrency:
-  # Only PR runs cancel superseded pushes; main, tags, and dispatches always run to completion.
-  # Draft PR pushes use a separate group so a draft skip never cancels a ready_for_review run (#429).
   group: >-
     ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call')
     && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
@@ -120,13 +102,12 @@ jobs:
           EVENT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if [ "$EVENT" = "workflow_dispatch" ] || [ "$EVENT" = "workflow_call" ]; then
-            ref="$(printf '%s' "$INPUT_BRANCH" | tr -d '[:space:]')"
-            [ -n "$ref" ] || ref="$REF_NAME"
-            if [ -z "$ref" ]; then
-              echo "Could not resolve a ref (set Use workflow from, or branch input)." >&2; exit 1
-            fi
+          ref="$(printf '%s' "$INPUT_BRANCH" | tr -d '[:space:]')"
+          if [ -n "$ref" ]; then
             sha=$(gh api "repos/$REPO/commits/$ref" --jq .sha)
+          elif [ "$EVENT" = "workflow_dispatch" ]; then
+            [ -n "$REF_NAME" ] || { echo "Could not resolve a ref (set Use workflow from, or branch input)." >&2; exit 1; }
+            sha=$(gh api "repos/$REPO/commits/$REF_NAME" --jq .sha)
           else
             sha="$EVENT_SHA"
           fi
@@ -158,12 +139,11 @@ jobs:
           fi
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
           echo "$files" | sed 's/^/  /'
-          # Here-strings avoid SIGPIPE under pipefail (#747).
           code=false; oxequery=false; a11y=false
           if grep -Eqv '^(docs/|\.claude/|.*\.md$)' <<<"$files"; then code=true; fi
           nondoc=$(grep -Evc '^(docs/|\.claude/|.*\.md$)' <<<"$files" || true)
           echo "nondoc=$nondoc" >> "$GITHUB_OUTPUT"
-          if grep -Eqv '^(docs/|\.claude/|.*\.md$|electron/main/.*\.test\.ts$|tests/|mobile/|scripts/android/|shared/remote/|\.github/workflows/(android|provider-contract|visual-baselines|visual-regression)\.yml$)' <<<"$files"; then a11y=true; fi
+          if grep -Eqv '^(docs/|\.claude/|.*\.md$|electron/main/.*\.test\.ts$|tests/|mobile/|scripts/android/|shared/remote/|\.github/workflows/(android|nightly|visual|manual-ops|jira-sync|merge-train)\.yml$)' <<<"$files"; then a11y=true; fi
           if grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)' <<<"$files"; then oxequery=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"; echo "a11y=$a11y" >> "$GITHUB_OUTPUT"
           deps=false; if grep -Eq "$manifests" <<<"$files"; then deps=true; fi
@@ -251,9 +231,7 @@ jobs:
           console.log(`Origin verified for ${report.commits} commit(s) in PR #${report.pr}`)
           EOF
 
-  # Stage 1 (fast-gate, <2 min): cheap deterministic checks gate PR fan-out so lint, typecheck, file-size,
-  # CSS, design-lint, i18n, migration, or governance regressions fail before any Windows runner boots.
-  # Keeps the exact job display name "Quick checks (linux-x64)" read by scripts/pr-ready.mjs.
+  # Stage 1 (fast-gate, <2 min): keeps exact job display name "Quick checks (linux-x64)" read by scripts/pr-ready.mjs.
   quick:
     name: Quick checks (linux-x64)
     needs: [changes]
@@ -263,92 +241,37 @@ jobs:
     permissions:
       contents: read
     outputs:
-      should_release: ${{ steps.plan.outputs.should_release }}
       packaged_smoke: ${{ steps.plan.outputs.packaged_smoke }}
       version: ${{ steps.plan.outputs.version }}
-      tag: ${{ steps.plan.outputs.tag }}
-      prerelease: ${{ steps.plan.outputs.prerelease }}
       channel: ${{ steps.plan.outputs.channel }}
-      manifest: ${{ steps.plan.outputs.manifest }}
-      manifest_linux: ${{ steps.plan.outputs.manifest_linux }}
       sha: ${{ steps.plan.outputs.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+          fetch-depth: 1
 
-      - name: Plan build vs release
+      - name: Plan CI run
         id: plan
-        shell: pwsh
+        shell: bash
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
-          INPUT_TAG: ${{ inputs.tag }}
           INPUT_PACKAGED_SMOKE_ONLY: ${{ inputs.packaged_smoke_only }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $version = node -p "require('./package.json').version"
-          $sha = git rev-parse HEAD
-          $event = $env:EVENT_NAME
-          $publishInput = $env:INPUT_PUBLISH_RELEASE
-          $tagInput = "$env:INPUT_TAG".Trim()
-
-          $shouldRelease = $false
-          $tag = $null
-
-          if ($event -eq 'push' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) {
-            $shouldRelease = $true
-            $tag = $env:GITHUB_REF_NAME
-          } elseif (($event -eq 'workflow_dispatch' -or $event -eq 'workflow_call') -and $publishInput -eq 'true') {
-            $shouldRelease = $true
-            if ($tagInput -and $tagInput -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
-              throw "Release tag '$tagInput' is not vMAJOR.MINOR.PATCH[-prerelease]."
-            }
-            $tag = if ($tagInput) { $tagInput } else { "v$version" }
-          }
-
-          if ($shouldRelease) {
-            if ($tag -ne "v$version") {
-              throw "Release tag $tag does not match package.json version $version."
-            }
-            git show-ref --verify --quiet "refs/tags/$tag"
-            $tagExists = $LASTEXITCODE -eq 0
-            $global:LASTEXITCODE = 0
-            if ($tagExists) {
-              $tagCommit = git rev-list -n 1 $tag
-              if ($sha -ne $tagCommit) {
-                throw "Checked-out commit $sha does not match tag $tag ($tagCommit)."
-              }
-            } elseif ($event -ne 'workflow_dispatch' -and $event -ne 'workflow_call') {
-              throw "$tag is not an existing Git tag."
-            }
-          }
-
-          $channel = if ($version -match '-([a-z]+)(?:[.-]|$)') { $Matches[1].ToLowerInvariant() } else { 'latest' }
-          $isPrerelease = $channel -ne 'latest'
-
-          if ($shouldRelease -and -not $isPrerelease) {
-            git merge-base --is-ancestor $sha origin/main
-            $onMain = $LASTEXITCODE -eq 0
-            $global:LASTEXITCODE = 0
-            if (-not $onMain) {
-              throw "$tag is a stable release, and $sha is not on main. Merge the release PR into main, then publish from main."
-            }
-          }
-
-          $packagedSmoke = ($event -eq 'workflow_dispatch' -or $event -eq 'workflow_call') -and $env:INPUT_PACKAGED_SMOKE_ONLY -eq 'true' -and -not $shouldRelease
-          "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "manifest_linux=$channel-linux.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-          Write-Host "version=$version tag=$tag should_release=$shouldRelease packaged_smoke=$packagedSmoke sha=$sha"
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          sha=$(git rev-parse HEAD)
+          channel=$(node -p "const m = /-([a-z]+)(?:[.-]|$)/i.exec(process.argv[1]); m ? m[1].toLowerCase() : 'latest'" "$version")
+          packaged_smoke=false
+          if [ "$INPUT_PACKAGED_SMOKE_ONLY" = "true" ]; then
+            packaged_smoke=true
+          fi
+          {
+            echo "packaged_smoke=$packaged_smoke"
+            echo "version=$version"
+            echo "channel=$channel"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$version channel=$channel packaged_smoke=$packaged_smoke sha=$sha"
 
       - name: Setup OXESpace
         uses: ./.github/actions/setup-oxespace
@@ -383,12 +306,10 @@ jobs:
           npm run security:audit:tools
           npm run security:audit:bundled
 
-  # Stage 2a (OXE-434): compile out/ ONCE per OS (preserving OS-specific bundles) and share via short-lived
-  # artifacts to brand-conformance, e2e-impacted, e2e, a11y, oxequery-live, acceptance-release, perf-recheck, and package.
   build:
     name: Build (${{ matrix.label }})
     needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     permissions:
@@ -397,10 +318,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: linux-x64
-            os: ubuntu-22.04
-          - label: windows-x64
-            os: windows-2022
+          - { label: linux-x64, os: ubuntu-22.04 }
+          - { label: windows-x64, os: windows-2022 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -419,12 +338,10 @@ jobs:
           upload-build: "true"
           upload-sourcemaps: "true"
 
-  # Stage 2b: Vitest unit & integration suite, balanced 5 shards on Windows / 4 shards on Linux.
-  # Runs under system Node 22 with rebuild:native:node only (no Electron download or Xvfb needed).
   unit-shard:
     name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/${{ matrix.total }})
     needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     permissions:
@@ -474,7 +391,7 @@ jobs:
   unit:
     name: Unit and integration tests (${{ matrix.label }})
     needs: [changes, quick, unit-shard]
-    if: ${{ always() && !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ always() && !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     permissions:
@@ -525,8 +442,6 @@ jobs:
           retention-days: 30
           path: coverage/coverage-summary.json
 
-  # Stage 3a (OXE-149 / OXE-434): dedicated visible brand conformance gate on both platforms.
-  # Fails visibly on any enforced divergence (pending measures stay reported, non-failing).
   brand-conformance:
     name: Brand conformance (${{ matrix.label }})
     needs: [changes, quick, build]
@@ -582,9 +497,6 @@ jobs:
           retention-days: 7
           path: brand-out
 
-  # Stage 3b (OXE-434): targeted PR E2E on Linux via scripts/related-e2e.mjs.
-  # Runs in parallel with unit-shard so it adds 0 min to PR wall-clock while catching UI/selector/acceptance
-  # regressions before merge. Skips setup in ~10s when a PR only changes tests or CI files.
   e2e-impacted:
     name: E2E impacted (linux-x64)
     needs: [changes, quick, build]
@@ -670,8 +582,6 @@ jobs:
           retention-days: 7
           path: test-results/**/trace.zip
 
-  # Stage 3c: full 2-OS E2E suite in 4 evenly balanced shards per OS (main, tags, dispatches, workflow_call).
-  # Shard 1 carries native upgrade/process-tree/OxeQuery coverage; shard 4 carries the performance gate.
   e2e:
     name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/4)
     needs: [changes, quick, build]
@@ -692,7 +602,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          # Only shard 1 runs upgrade-rehearsal.native.test.ts, which reads the previous stable release tag.
           fetch-depth: ${{ matrix.shard == 1 && 0 || 1 }}
 
       - name: Setup OXESpace (Electron + native)
@@ -775,7 +684,7 @@ jobs:
       - name: E2E performance gate (Linux)
         id: perf_linux
         if: runner.os == 'Linux' && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true'
-        continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
+        continue-on-error: ${{ !inputs.strict_perf_gate }}
         env:
           OXESPACE_PERF_GATE: "1"
         run: |
@@ -785,7 +694,7 @@ jobs:
       - name: E2E performance gate (Windows)
         id: perf_windows
         if: runner.os == 'Windows' && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true'
-        continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
+        continue-on-error: ${{ !inputs.strict_perf_gate }}
         shell: bash
         env:
           OXESPACE_PERF_GATE: "1"
@@ -794,7 +703,7 @@ jobs:
           npm run bench:ui 2>&1 | tee perf-gate.log
 
       - name: Record the performance gate
-        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && !inputs.strict_perf_gate }}
         shell: bash
         env:
           OUTCOME: ${{ (runner.os == 'Windows' && steps.perf_windows.outcome) || (runner.os == 'Linux' && steps.perf_linux.outcome) || 'skipped' }}
@@ -804,7 +713,7 @@ jobs:
           grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log > perf-gate/results.txt 2>/dev/null || true
 
       - name: Upload the performance gate record
-        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && !inputs.strict_perf_gate }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-gate-${{ matrix.label }}
@@ -812,14 +721,14 @@ jobs:
           path: perf-gate
 
       - name: Performance benchmark (informational)
-        if: matrix.shard == 4 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
+        if: matrix.shard == 4 && !inputs.strict_perf_gate && needs.quick.outputs.packaged_smoke != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
   perf-plan:
     name: Performance gate recheck plan
     needs: [quick, e2e]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.e2e.result == 'success' && !inputs.strict_perf_gate && needs.quick.outputs.packaged_smoke != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -1080,60 +989,15 @@ jobs:
           OXE_LIVE_MONGO_IMAGE: ${{ steps.mongo.outputs.image }}
         run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
 
-  acceptance-release:
-    name: Acceptance e2e (release gate)
-    needs: [changes, quick, build]
-    if: ${{ !cancelled() && needs.quick.outputs.should_release == 'true' && needs.build.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.quick.outputs.sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Setup OXESpace (Electron + native)
-        uses: ./.github/actions/setup-oxespace
-        with:
-          linux-deps: "true"
-          electron: "true"
-          native: electron
-          verify-native: "false"
-          scrub-live-env: "true"
-
-      - name: Restore Linux build
-        uses: ./.github/actions/build-oxespace
-        with:
-          mode: download
-          platform-label: linux-x64
-
-      - name: Run acceptance suite (Linux)
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts --trace retain-on-failure
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: acceptance-release-${{ github.run_id }}-linux
-          if-no-files-found: ignore
-          retention-days: 7
-          path: test-results/
-
+  # Packaged smoke (no release publishing): triggered by workflow_dispatch or nightly.yml via workflow_call.
   package:
-    name: Package (${{ matrix.label }})
-    needs: [changes, quick, build, unit, brand-conformance, e2e, acceptance-release]
+    name: Package smoke (${{ matrix.label }})
+    needs: [changes, quick, build, unit, brand-conformance, e2e]
     if: >-
       ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success'
       && needs.build.result == 'success' && needs.unit.result == 'success'
       && needs.brand-conformance.result == 'success' && needs.e2e.result == 'success'
-      && ((needs.quick.outputs.should_release == 'true' && needs.acceptance-release.result == 'success')
-      || needs.quick.outputs.packaged_smoke == 'true') }}
+      && needs.quick.outputs.packaged_smoke == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -1170,7 +1034,7 @@ jobs:
           platform-flag: ${{ matrix.builder_flag }}
           channel: ${{ needs.quick.outputs.channel }}
           prepare-inspect-copy: "true"
-          verify-deb-sandbox: ${{ needs.quick.outputs.should_release == 'true' }}
+          verify-deb-sandbox: "true"
 
       - name: E2E packaged Linux build
         if: runner.os == 'Linux'
@@ -1186,276 +1050,9 @@ jobs:
           OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
         run: npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
 
-      - name: Generate production dependency SBOM
-        if: needs.quick.outputs.should_release == 'true'
-        shell: pwsh
-        run: npm sbom --sbom-format spdx --omit dev | Out-File -FilePath dist/sbom.spdx.json -Encoding utf8
-
-      - name: Generate and validate release artifacts
-        if: needs.quick.outputs.should_release == 'true'
-        shell: pwsh
-        env:
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
-          node scripts/verify-release-artifacts.mjs `
-            --dir dist `
-            --version "${{ needs.quick.outputs.version }}" `
-            --tag "$env:RELEASE_TAG" `
-            --platform ${{ runner.os == 'Windows' && 'win' || 'linux' }}
-
-      - name: Namespace the per-platform aux files
-        if: needs.quick.outputs.should_release == 'true'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Move-Item dist/SHA256SUMS.txt "dist/SHA256SUMS-${{ matrix.label }}.txt" -Force
-          Move-Item dist/sbom.spdx.json "dist/sbom-${{ matrix.label }}.spdx.json" -Force
-
-      - name: Upload immutable release payload (Windows)
-        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Windows'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-${{ matrix.label }}
-          if-no-files-found: error
-          retention-days: 30
-          path: |
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap
-            dist/*.yml
-            dist/sbom-${{ matrix.label }}.spdx.json
-            dist/SHA256SUMS-${{ matrix.label }}.txt
-
-      - name: Upload immutable release payload (Linux)
-        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Linux'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-${{ matrix.label }}
-          if-no-files-found: error
-          retention-days: 30
-          path: |
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
-            dist/*.deb
-            dist/*.yml
-            dist/sbom-${{ matrix.label }}.spdx.json
-            dist/SHA256SUMS-${{ matrix.label }}.txt
-
-  release:
-    name: Publish GitHub Release
-    needs: [quick, unit, brand-conformance, e2e, acceptance-release, package, oxequery-live, oxequery-live-versions]
-    if: needs.quick.outputs.should_release == 'true'
-    environment:
-      name: release
-      url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.quick.outputs.tag) }}
-    runs-on: windows-2022
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      actions: write
-      id-token: write
-      attestations: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.quick.outputs.sha }}
-          fetch-depth: 0
-
-      - name: Ensure release tag points at the verified build
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-          BUILD_SHA: ${{ needs.quick.outputs.sha }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch --tags --force origin
-          git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
-          $tagExists = $LASTEXITCODE -eq 0
-          $global:LASTEXITCODE = 0
-          $PSNativeCommandUseErrorActionPreference = $true
-          if ($tagExists) {
-            $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
-            if ($tagCommit -ne $env:BUILD_SHA) {
-              throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
-            }
-            Write-Host "Tag $env:RELEASE_TAG already points at verified build $env:BUILD_SHA."
-          } else {
-            Write-Host "Creating tag $env:RELEASE_TAG at $env:BUILD_SHA"
-            git tag -a $env:RELEASE_TAG $env:BUILD_SHA -m "OXESpace $env:RELEASE_TAG"
-            git push origin "refs/tags/$env:RELEASE_TAG"
-          }
-
-      - name: Download verified Windows build artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-windows-x64
-          path: dist
-
-      - name: Download verified Linux build artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-linux-x64
-          path: dist
-
-      - name: Generate combined checksums
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Remove-Item dist/SHA256SUMS-*.txt -Force
-          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
-
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
-            dist/*.deb
-            dist/SHA256SUMS.txt
-
-      - name: Create or refresh draft GitHub release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $version = '${{ needs.quick.outputs.version }}'
-          $manifest = '${{ needs.quick.outputs.manifest }}'
-          $manifestLinux = '${{ needs.quick.outputs.manifest_linux }}'
-          $deb = Get-ChildItem dist/*.deb | Select-Object -First 1
-          if (-not $deb) { throw 'No .deb produced by the Linux build.' }
-          $assets = @(
-            "dist/OXESpace-$version-x64.exe",
-            "dist/OXESpace-$version-x64.exe.blockmap",
-            "dist/$manifest",
-            "dist/OXESpace-$version-x64.AppImage",
-            $deb.FullName,
-            "dist/$manifestLinux",
-            'dist/sbom-windows-x64.spdx.json',
-            'dist/sbom-linux-x64.spdx.json',
-            'dist/SHA256SUMS.txt'
-          )
-          foreach ($path in $assets) {
-            if (-not (Test-Path -LiteralPath $path)) { throw "Missing release asset after download: $path" }
-          }
-          gh release view $env:RELEASE_TAG 2>$null
-          $notesPath = "docs/releases/$version.md"
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG --clobber @assets
-            gh release edit $env:RELEASE_TAG --draft=true
-            if (Test-Path -LiteralPath $notesPath) { gh release edit $env:RELEASE_TAG --notes-file $notesPath }
-          } else {
-            $createArgs = @(
-              'release', 'create', $env:RELEASE_TAG,
-              '--draft',
-              '--title', "OXESpace $env:RELEASE_TAG",
-              '--target', '${{ needs.quick.outputs.sha }}'
-            )
-            if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
-            else { $createArgs += '--generate-notes' }
-            if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
-            $createArgs += $assets
-            gh @createArgs
-          }
-
-      - name: Download draft and verify the published payload
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
-          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
-          gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
-          foreach ($platform in @('win', 'linux')) {
-            node scripts/verify-release-artifacts.mjs `
-              --dir $downloadDir `
-              --version '${{ needs.quick.outputs.version }}' `
-              --tag $env:RELEASE_TAG `
-              --platform $platform
-            if ($LASTEXITCODE -ne 0) { throw "Release payload verification failed for $platform." }
-          }
-
-      - name: Publish verified release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          gh release edit $env:RELEASE_TAG --draft=false
-          if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') {
-            gh release edit $env:RELEASE_TAG --prerelease
-          }
-
-      - name: Confirm release is live
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $json = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,tagName,url,assets
-          if ($LASTEXITCODE -ne 0) { throw "Failed to query release $env:RELEASE_TAG" }
-          $release = $json | ConvertFrom-Json
-          if ($release.isDraft) { throw "Release $env:RELEASE_TAG is still draft after publish." }
-          $expectedPrerelease = '${{ needs.quick.outputs.prerelease }}' -eq 'true'
-          if ([bool]$release.isPrerelease -ne $expectedPrerelease) {
-            throw "Release prerelease flag mismatch for $env:RELEASE_TAG (got $($release.isPrerelease), expected $expectedPrerelease)."
-          }
-          if ($release.tagName -ne $env:RELEASE_TAG) {
-            throw "Release tagName $($release.tagName) does not match $env:RELEASE_TAG."
-          }
-          $assetNames = @($release.assets | ForEach-Object { $_.name })
-          $required = @(
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe",
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap",
-            '${{ needs.quick.outputs.manifest }}',
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage",
-            '${{ needs.quick.outputs.manifest_linux }}',
-            'sbom-windows-x64.spdx.json',
-            'sbom-linux-x64.spdx.json',
-            'SHA256SUMS.txt'
-          )
-          $missing = $required | Where-Object { $_ -notin $assetNames }
-          if ($missing.Count -gt 0) { throw "Published release is missing asset(s): $($missing -join ', ')" }
-          $debAssets = @($assetNames | Where-Object { $_ -match '\.deb$' })
-          if ($debAssets.Count -ne 1) {
-            throw "Published release must contain exactly one .deb; found $($debAssets.Count): $($debAssets -join ', ')"
-          }
-          Write-Host "Release is live: $($release.url)"
-          Write-Host "Assets: $($assetNames -join ', ')"
-
-      - name: Start the Android release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
-            Write-Host "Android release: $env:RELEASE_TAG is not vX.Y.Z, not started."
-            exit 0
-          }
-          $runs = gh run list --workflow android-release.yml --branch $env:RELEASE_TAG --json databaseId,status,conclusion --limit 20 | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw "Failed to list Android release runs for $env:RELEASE_TAG" }
-          $live = @($runs | Where-Object { $_.status -ne 'completed' -or $_.conclusion -eq 'success' })
-          if ($live.Count -gt 0) {
-            Write-Host "Android release for $env:RELEASE_TAG already started (run $($live[0].databaseId)), not started again."
-            exit 0
-          }
-          gh workflow run android-release.yml --ref $env:RELEASE_TAG
-          if ($LASTEXITCODE -ne 0) { throw "Failed to start android-release.yml on $env:RELEASE_TAG" }
-          Write-Host "Android release started on $env:RELEASE_TAG; it waits for approval in the android-release environment."
-
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, check-origin, quick, build, unit, brand-conformance, e2e-impacted, e2e, a11y, perf-plan, perf-recheck, acceptance-release, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, check-origin, quick, build, unit, brand-conformance, e2e-impacted, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1510,6 +1107,7 @@ jobs:
         env:
           NEEDS: ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
+          STRICT_PERF: ${{ inputs.strict_perf_gate }}
         run: |
           node - <<'EOF'
           const needs = JSON.parse(process.env.NEEDS)
@@ -1518,6 +1116,7 @@ jobs:
           const oxequery = needs.changes.outputs?.oxequery === 'true'
           const deps = needs.changes.outputs?.deps === 'true'
           const a11y = needs.changes.outputs?.a11y === 'true'
+          const strictPerf = process.env.STRICT_PERF === 'true'
           const problems = []
           for (const [job, { result }] of Object.entries(needs)) {
             console.log(`${job}: ${result}`)
@@ -1529,11 +1128,10 @@ jobs:
           if (!pr) required.push('quick', 'build', 'unit', 'brand-conformance', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'build', 'unit', 'brand-conformance', 'e2e-impacted', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           if (pr && a11y) required.push('a11y')
-          if (needs.quick.outputs?.should_release === 'true') required.push('acceptance-release', 'package', 'release')
-          else if (needs.quick.outputs?.packaged_smoke === 'true') required.push('package')
+          if (needs.quick.outputs?.packaged_smoke === 'true') required.push('package')
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
-          const publishing = needs.quick.outputs?.should_release === 'true' || needs.quick.outputs?.packaged_smoke === 'true'
-          if (needs.e2e.result === 'success' && !publishing && !pr) {
+          const packagedSmoke = needs.quick.outputs?.packaged_smoke === 'true'
+          if (needs.e2e.result === 'success' && !packagedSmoke && !strictPerf && !pr) {
             if (needs['perf-plan'].result !== 'success') problems.push(`perf-plan should have passed and is ${needs['perf-plan'].result}`)
             else if ((needs['perf-plan'].outputs?.recheck ?? '[]') !== '[]' && needs['perf-recheck'].result !== 'success') problems.push(`perf-recheck should have passed and is ${needs['perf-recheck'].result}`)
             for (const k of JSON.parse(needs['perf-plan'].outputs?.known || '[]')) console.log(`::warning title=Known performance failure (${k.card})::accepted while ${k.card} is open: ${k.label} ${k.test} — ${k.error}`)
@@ -1546,7 +1144,7 @@ jobs:
           EOF
 
       - name: Post the result as a commit status for the tested commit
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.changes.outputs.sha != '' && github.ref_name != github.event.repository.default_branch }}
+        if: ${{ always() && github.workflow == 'CI' && github.event_name == 'workflow_dispatch' && needs.changes.outputs.sha != '' && github.ref_name != github.event.repository.default_branch }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -1560,7 +1158,7 @@ jobs:
           echo "status CI result=$state on $SHA"
 
       - name: Download the brand conformance results
-        if: ${{ !cancelled() && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ !cancelled() && github.workflow == 'CI' && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1569,7 +1167,7 @@ jobs:
           merge-multiple: true
 
       - name: Post the brand conformance status (OXE-149)
-        if: ${{ !cancelled() && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
+        if: ${{ !cancelled() && github.workflow == 'CI' && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1606,8 +1204,9 @@ jobs:
     name: Wake the merge train
     needs: [ci-result]
     if: >-
-      ${{ always() && github.event_name == 'workflow_dispatch' && github.triggering_actor == 'github-actions[bot]'
-      && !inputs.publish_release && !inputs.packaged_smoke_only && (inputs.branch == '' || inputs.branch == github.ref_name) }}
+      ${{ always() && github.workflow == 'CI' && github.event_name == 'workflow_dispatch'
+      && github.triggering_actor == 'github-actions[bot]'
+      && !inputs.packaged_smoke_only && (inputs.branch == '' || inputs.branch == github.ref_name) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

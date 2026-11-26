@@ -1,4 +1,4 @@
-// OXE-163: the perf-gate's boot method (perf-gate/stats.mjs, perf-gate/summarize.mjs, .github/workflows/perf-gate.yml).
+// OXE-163: the perf-gate's boot method (perf-gate/stats.mjs, perf-gate/summarize.mjs, .github/workflows/manual-ops.yml).
 // CA-1: strict alternation of who launches first; CA-2: the single worst boot round per side is dropped before the CI95
 // and the summary says which values; CA-3's wiring (the run itself is the workflow's): N=9 boot rounds, the order from
 // the tested module and the method plus run id in the table.
@@ -56,10 +56,10 @@ describe('OXE-163 · perf-gate boot method', () => {
 
     // CA-3 wiring: the job defaults to 9 boot rounds (5-15), asks stats.mjs for each round's order, runs only the boot
     // probe past `rounds`, and the table names the method and the CI run.
-    const yml = readFileSync(join(ROOT, '.github/workflows/perf-gate.yml'), 'utf8')
-    const workflow = load(yml) as { on: { workflow_dispatch: { inputs: Record<string, { default: string }> } }; jobs: { gate: { env: Record<string, string> } } }
+    const yml = readFileSync(join(ROOT, '.github/workflows/manual-ops.yml'), 'utf8')
+    const workflow = load(yml) as { on: { workflow_dispatch: { inputs: Record<string, { default: string }> } }; jobs: { 'perf-gate': { env: Record<string, string> } } }
     expect(workflow.on.workflow_dispatch.inputs.boot_rounds.default).toBe('9')
-    expect(workflow.jobs.gate.env.BOOT_ROUNDS).toBe("${{ inputs.boot_rounds || '9' }}")
+    expect(workflow.jobs['perf-gate'].env.BOOT_ROUNDS).toBe("${{ inputs.boot_rounds || '9' }}")
     expect(yml).toContain('BOOT_ROUNDS < 5 || BOOT_ROUNDS > 15')
     expect(yml).toContain('node harness/perf-gate/stats.mjs order "$r" C B A')
     expect(yml).toContain('if (( round <= BOOT_ROUNDS )); then run perf-gate-boot.spec.ts')

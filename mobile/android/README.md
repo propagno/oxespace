@@ -22,7 +22,7 @@ Then, from `mobile/android`:
 The debug APK lands in `app/build/outputs/apk/debug/`. CI runs the same command (`.github/workflows/android.yml`).
 
 Instrumented tests (Keystore, pinned TLS, the WSS session) need a device or emulator: `./gradlew connectedDebugAndroidTest`.
-On CI they run on request: Actions › Android emulator › Run workflow (`.github/workflows/android-emulator.yml`).
+On CI they run on request: Actions › Android › Run workflow (`.github/workflows/android.yml`, with `run_emulator=true`).
 
 ## Screenshots
 

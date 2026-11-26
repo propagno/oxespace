@@ -1,5 +1,5 @@
 /**
- * The nightly provider contract check (.github/workflows/provider-contract.yml) publishes its summary,
+ * The nightly provider contract check (.github/workflows/nightly.yml) publishes its summary,
  * and Settings compares it with the CLI installed here.
  */
 export interface ProviderCompatibility {

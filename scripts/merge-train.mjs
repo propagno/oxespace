@@ -40,7 +40,7 @@ export const PREFIX = 'merge-train:'
 export const STATE_MARKER = 'merge-train-state'
 /** The workflow's own job name: its check run on a PR head is never a check the PR must pass. */
 export const TRAIN_JOB_NAME = 'Merge train step'
-export const CI_WORKFLOW = 'CI and Release'
+export const CI_WORKFLOW = 'CI'
 /** Workflows whose run on the head must be finished before the PR can merge (when they ran for it). */
 export const WATCHED_WORKFLOWS = [CI_WORKFLOW, 'Android']
 /**
@@ -55,7 +55,7 @@ export const DISPATCHABLE_WORKFLOWS = ['ci.yml', 'android.yml']
 export const WORKFLOW_NAME_BY_FILE = {
   'ci.yml': CI_WORKFLOW,
   'android.yml': 'Android',
-  'provider-contract.yml': 'Provider contract',
+  'nightly.yml': 'Nightly',
 }
 /** The workflow name for a run's `path` (".github/workflows/ci.yml"), or `fallback` for an unlisted file. */
 export function workflowName(path, fallback) {
