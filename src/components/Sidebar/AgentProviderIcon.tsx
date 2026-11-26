@@ -1,39 +1,69 @@
-import { Bot, Code2, MousePointer2, Sparkles, Zap } from 'lucide-react'
-import { Github } from '../Brand/GithubIcon'
+import { Bot } from 'lucide-react'
 import type { ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
+import {
+  AntigravityMark,
+  ClaudeMark,
+  CodexMark,
+  CopilotMark,
+  CursorMark,
+  GrokMark
+} from './ProviderMarks'
 
 interface AgentProviderIconProps {
   provider: AgentProvider
   size?: number
 }
 
-function ClaudeAsterisk(): ReactElement {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-      <path d="M6 1v10M1 6h10M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="white" strokeWidth="1.6" strokeLinecap="round"/>
-    </svg>
-  )
+interface ProviderBadgeStyle {
+  bg: string
+  border?: string
 }
 
-const PROVIDER_TOKENS: Record<AgentProvider, { bg: string; icon: ReactElement }> = {
-  claude:       { bg: 'var(--provider-claude)',  icon: <ClaudeAsterisk /> },
-  'gh-copilot': { bg: 'var(--provider-copilot)', icon: <Github size={12} color="white" /> },
-  copilot:      { bg: 'var(--provider-copilot)', icon: <Github size={12} color="white" /> },
-  antigravity:  { bg: 'var(--provider-antigravity)', icon: <Sparkles size={12} color="white" /> },
-  codex:        { bg: 'var(--provider-codex)',   icon: <Code2 size={12} color="white" /> },
-  cursor:       { bg: 'var(--provider-cursor)',  icon: <MousePointer2 size={12} color="white" /> },
-  grok:         { bg: 'var(--provider-grok)',    icon: <Zap size={12} color="white" /> },
-  custom:       { bg: 'var(--provider-custom)',  icon: <Bot size={12} color="white" /> },
+const PROVIDER_BADGES: Record<AgentProvider, ProviderBadgeStyle> = {
+  claude:       { bg: 'var(--provider-claude)' },
+  'gh-copilot': { bg: 'var(--provider-copilot)' },
+  copilot:      { bg: 'var(--provider-copilot)' },
+  // Multicolor Google gradient needs a neutral theme-aware surface badge so the blue legs and rainbow arch read cleanly in both light and dark modes.
+  antigravity:  { bg: 'var(--surface-sunken)', border: 'var(--bd-subtle)' },
+  codex:        { bg: 'var(--provider-codex)' },
+  cursor:       { bg: 'var(--provider-cursor)' },
+  grok:         { bg: 'var(--provider-grok)' },
+  custom:       { bg: 'var(--provider-custom)' },
+}
+
+function renderProviderMark(provider: AgentProvider, glyphSize: number): ReactElement {
+  switch (provider) {
+    case 'antigravity':
+      return <AntigravityMark size={glyphSize} />
+    case 'claude':
+      return <ClaudeMark size={glyphSize} />
+    case 'codex':
+      return <CodexMark size={glyphSize} />
+    case 'cursor':
+      return <CursorMark size={glyphSize} />
+    case 'copilot':
+    case 'gh-copilot':
+      return <CopilotMark size={glyphSize} />
+    case 'grok':
+      return <GrokMark size={glyphSize} />
+    case 'custom':
+    default:
+      return <Bot size={glyphSize} color="white" aria-hidden="true" />
+  }
 }
 
 export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProps): ReactElement {
-  const config = PROVIDER_TOKENS[provider] ?? PROVIDER_TOKENS.custom
+  const badge = PROVIDER_BADGES[provider] ?? PROVIDER_BADGES.custom
+  const glyphSize = Math.max(8, Math.round(size * 0.72))
+
   return (
     <span
       className="agent-provider-icon"
+      data-provider={provider}
       style={{
-        backgroundColor: config.bg,
+        backgroundColor: badge.bg,
+        boxShadow: badge.border ? `inset 0 0 0 1px ${badge.border}` : undefined,
         width: size,
         height: size,
         flexShrink: 0,
@@ -43,7 +73,7 @@ export function AgentProviderIcon({ provider, size = 20 }: AgentProviderIconProp
       }}
       aria-hidden="true"
     >
-      {config.icon}
+      {renderProviderMark(provider, glyphSize)}
     </span>
   )
 }
