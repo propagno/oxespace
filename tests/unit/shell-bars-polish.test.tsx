@@ -28,8 +28,9 @@ describe('OXE-426 · title bar mode switch visual separation', () => {
     expect(titleBarCss).toMatch(/border-inline-end\s*:\s*1px\s+solid\s+var\(--bd-default\)/)
     expect(titleBarCss).toMatch(/padding-inline-end\s*:\s*var\(--space-3\)/)
 
+    expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*height\s*:\s*var\(--bar-md\)/)
     expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*background\s*:\s*var\(--surface-canvas\)/)
-    expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*border\s*:\s*1px\s+solid\s+var\(--bd-subtle\)/)
+    expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*box-shadow\s*:\s*0\s+0\s+0\s+1px\s+var\(--bd-subtle\)/)
     expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*border-radius\s*:\s*var\(--radius-md\)/)
     expect(modeSwitchCss).toMatch(/\.option\[data-state='active'\]\s*\{[^}]*background\s*:\s*var\(--fill-selected\)/)
 

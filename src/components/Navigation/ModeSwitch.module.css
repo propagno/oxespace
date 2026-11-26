@@ -4,11 +4,12 @@
   display: inline-flex;
   align-items: center;
   justify-self: start;
+  height: var(--bar-md);
   gap: var(--space-0-5);
   padding: 0 var(--space-0-5);
-  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-canvas);
+  box-shadow: 0 0 0 1px var(--bd-subtle);
   -webkit-app-region: no-drag;
 }
 
