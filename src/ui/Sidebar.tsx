@@ -45,11 +45,11 @@ export const SidebarFilter = forwardRef<HTMLInputElement, InputHTMLAttributes<HT
   </div>
 })
 
-/** A section label (11/500, sentence case). Its action shows on hover and focus. */
-export function SidebarSection({ label, action, id }: { label: ReactNode; action?: ReactNode; id?: string }): ReactElement {
+/** A section label (11/500, sentence case). Its action shows on hover and focus unless `alwaysShowAction` is set. */
+export function SidebarSection({ label, action, alwaysShowAction = false, id }: { label: ReactNode; action?: ReactNode; alwaysShowAction?: boolean; id?: string }): ReactElement {
   return <div data-ui="sidebar-section" className={styles.section}>
     <span className={styles.sectionLabel} id={id}>{label}</span>
-    {action ? <span className={styles.reveal}>{action}</span> : null}
+    {action ? <span className={cx(styles.sectionActions, !alwaysShowAction && styles.reveal)} data-always-visible={alwaysShowAction ? 'true' : undefined}>{action}</span> : null}
   </div>
 }
 

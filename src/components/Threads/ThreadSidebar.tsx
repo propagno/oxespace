@@ -108,6 +108,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
   const [confirmation, setConfirmation] = useState<{ kind: 'thread' | 'archive' | 'project'; id: string; title: string } | null>(null)
   const [actionError, setActionError] = useState(''), [acting, setActing] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
+  const [showRemoved, setShowRemoved] = useState<boolean | null>(null)
   const workspaces = useWorkspaceStore(state => state.workspaces)
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId)
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
@@ -292,6 +293,18 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
     && (`${displayThreadTitle(thread.title)} ${thread.provider} ${thread.rootPath} ${projects.find(project => project.projectId === thread.projectId)?.displayName ?? ''}`.toLowerCase().includes(query.toLowerCase()) || contentHit(thread)))
     .sort((a, b) => b.updatedAt - a.updatedAt), [threads, projects, hiddenProjects, query, contentHit])
   const pinned = threads.filter(t => t.pinned && matches(t, projects.find(p => p.projectId === t.projectId)?.displayName ?? '')).sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
+  const removedProjects = useMemo(() => hiddenProjects
+    .map(id => projects.find(item => item.projectId === id))
+    .filter((project): project is ThreadProjectSummary => Boolean(project)), [hiddenProjects, projects])
+  const matchingRemovedProjects = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    if (!term) return removedProjects
+    return removedProjects.filter(project => `${project.displayName} ${project.identityLabel}`.toLowerCase().includes(term))
+  }, [removedProjects, query])
+  const removedVisible = query.trim() ? matchingRemovedProjects : removedProjects
+  const noActiveProjects = !groups.length && !pinned.length && !query.trim() && !hasStateFilter
+  const queryMatchesRemoved = Boolean(query.trim()) && matchingRemovedProjects.length > 0
+  const removedOpen = queryMatchesRemoved || (showRemoved ?? noActiveProjects)
   // Sections inside each project (F13): dragging a row and its "Move to section" menu make the same move.
   const sections = useThreadSections(useMemo(() => groups.map(group => group.id), [groups]), threads)
   const drag = useSectionDrag(threads, (thread, sectionId) => void sections.moveTo(thread, sectionId))
@@ -418,7 +431,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
           <SidebarSection label={<span role="heading" aria-level={2}>{t('sidebar.pinnedHeading')}</span>} />
           <div className={cx('thread-pinned-rows', styles.rows)}>{rowsOf(pinned)}</div>
         </section>}
-        {!coldSkeleton && <SidebarSection label={t('sidebar.projects')} action={<>
+        {!coldSkeleton && <SidebarSection label={t('sidebar.projects')} alwaysShowAction action={<>
           <IconButton size="sm" label={t('sidebar.compact')} title={density === 'compact' ? t('sidebar.comfortableSpacing') : t('sidebar.compactSpacing')} aria-pressed={density === 'compact'}
             icon={<AlignJustify size={14} aria-hidden="true" />} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} />
           {onAddProject && <IconButton size="sm" label={t('sidebar.addProject')} title={t('sidebar.addProject')} icon={<FolderPlus size={14} aria-hidden="true" />} onClick={onAddProject} />}
@@ -486,13 +499,13 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
               actions={<Button size="sm" variant="secondary" onClick={() => { setNavStateFilter('thread', 'all'); setStateFilter(null) }}>{t('sidebar.stateFilter.showAll')}</Button>} />
           : <EmptyState compact title={stateFilter ? t('sidebar.noMatches') : hiddenProjects.length ? t('sidebar.restoreOrAdd') : t('sidebar.addToStart')}
               actions={!query && !stateFilter && onAddProject ? <Button size="sm" variant="secondary" icon={<FolderPlus size={12} aria-hidden="true" />} onClick={onAddProject}>{t('sidebar.addProject')}</Button> : undefined} />)}
-        {hiddenProjects.length > 0 && <section data-ui="thread-hidden-section" aria-label={t('sidebar.removedProjects')}>
-          <SidebarSection label={t('sidebar.removedProjects')} />
-          {hiddenProjects.map(id => {
-            const project = projects.find(item => item.projectId === id)
-            if (!project) return null
-            return <Button key={id} variant="ghost" size="sm" data-list-item className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} icon={<ArchiveRestore size={14} aria-hidden="true" />} onClick={() => void useThreadStore.getState().restoreProject(id)}><span>{project.displayName}</span>{' '}<small>{t('sidebar.restore')}</small></Button>
-          })}
+        {removedVisible.length > 0 && <section data-ui="thread-hidden-section" className={styles.removedSection} aria-label={t('sidebar.removedProjects')}>
+          <SidebarGroup className={cx('thread-project-toggle', styles.groupRow, styles.removedGroup)} data-list-item aria-expanded={removedOpen} aria-label={`${t('sidebar.removedProjects')} ${removedVisible.length}`}
+            lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />} title={t('sidebar.removedProjects')} meta={<span className={styles.count}>{removedVisible.length}</span>} onSelect={() => setShowRemoved(!removedOpen)} />
+          {removedOpen && <div className={styles.rows}>{removedVisible.map(project =>
+            <Button key={project.projectId} variant="ghost" size="sm" data-list-item className={cx('thread-restore-project', styles.restore)} title={project.identityLabel} icon={<ArchiveRestore size={14} aria-hidden="true" />}
+              onClick={() => { setShowRemoved(removedProjects.length > 1 ? true : null); void useThreadStore.getState().restoreProject(project.projectId) }}><span>{project.displayName}</span>{' '}<small>{t('sidebar.restore')}</small></Button>
+          )}</div>}
         </section>}
       </nav>
       <SidebarFooterBar className="nav-rail-footer" context={railContext} onToggle={toggleCollapse} />
@@ -522,7 +535,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
       onCancel={() => setConfirmation(null)}
       onConfirm={() => {
         // Removing a project and archiving show at once; a failed save undoes them with a toast.
-        if (confirmation.kind === 'project') { setConfirmation(null); void useThreadStore.getState().hideProject(confirmation.id); return }
+        if (confirmation.kind === 'project') { setConfirmation(null); if (groups.length <= 1 && !pinned.length) setShowRemoved(null); void useThreadStore.getState().hideProject(confirmation.id); return }
         if (confirmation.kind === 'archive' && window.oxe.thread?.command) {
           setConfirmation(null); void useThreadStore.getState().archiveThread(confirmation.id).then(saved => { if (saved) setShowArchived(true) }); return
         }

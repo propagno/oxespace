@@ -74,6 +74,10 @@
 /* ── Archived and removed projects ── */
 .archivedSection { margin-top: var(--space-3); }
 .archivedRow > .item { color: var(--tx-secondary); }
+.removedSection { margin-top: var(--space-3); }
+.archivedSection + .removedSection { margin-top: var(--space-1); }
+.removedGroup { color: var(--tx-secondary); font-weight: var(--weight-medium); }
+.removedGroup:hover { color: var(--tx-primary); }
 .restore { justify-content: flex-start; width: 100%; color: var(--tx-secondary); }
 .restore small { margin-inline-start: auto; color: var(--tx-muted); }
 

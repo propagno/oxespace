@@ -14,6 +14,7 @@
 
 .section { display: flex; align-items: center; gap: var(--space-1); height: var(--bar-sm); margin-top: var(--space-2); padding: 0 var(--space-1-5); }
 .sectionLabel { flex: 1; min-width: 0; font-size: var(--fs-2xs); font-weight: var(--weight-medium); color: var(--tx-muted); }
+.sectionActions { display: flex; align-items: center; gap: var(--space-0-5); }
 
 .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: var(--space-2); min-height: var(--row-1); padding: 0 var(--space-1-5); border-radius: var(--radius-sm); color: var(--tx-secondary); font-size: var(--fs-sm); cursor: default; }
 .row[role='button'] { cursor: pointer; }
