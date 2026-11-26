@@ -1,6 +1,10 @@
-import { describe, expect, test } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { createElement } from 'react'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import type { Workspace, WorkspacePane } from '../../shared/types/workspace'
-import { compactPathLabel, derivePaneDisplayState, sanitizeTerminalPreview } from '../../src/utils/paneDisplay'
+import { PaneSessionRow } from '../../src/components/Sidebar/PaneSessionRow'
+import { useTerminalStore } from '../../src/store/terminal.store'
+import { compactPathLabel, derivePaneDisplayState, sanitizeTerminalIntent, sanitizeTerminalPreview } from '../../src/utils/paneDisplay'
 
 const workspace: Pick<Workspace, 'name' | 'rootPath'> = {
   name: 'oxespace',
@@ -119,5 +123,169 @@ describe('pane display model', () => {
     })
     expect(shellOnly.providerLabel).toBe('PowerShell')
     expect(shellOnly.providerKey).toBe('shell')
+  })
+})
+
+describe('OXE-440 · temp oxe-paste-* path sanitization', () => {
+  afterEach(() => {
+    cleanup()
+    useTerminalStore.setState({ panes: {}, pendingCommands: {}, activePaneId: null })
+  })
+
+  test('strips Windows unquoted, quoted, and spaced temp paste paths from previews and intents', () => {
+    const winUnquoted = 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png /usage'
+    expect(sanitizeTerminalPreview(winUnquoted)).toBe('/usage')
+    expect(sanitizeTerminalIntent(winUnquoted)).toBe('/usage')
+
+    const winDoubleQuoted = '"C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png" analise este erro'
+    expect(sanitizeTerminalPreview(winDoubleQuoted)).toBe('analise este erro')
+    expect(sanitizeTerminalIntent(winDoubleQuoted)).toBe('analise este erro')
+
+    const winSingleQuoted = "'C:\\Users\\John Doe\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.jpeg' confira o log"
+    expect(sanitizeTerminalPreview(winSingleQuoted)).toBe('confira o log')
+    expect(sanitizeTerminalIntent(winSingleQuoted)).toBe('confira o log')
+
+    const winUnquotedSpaces = 'C:\\Users\\John Doe\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.PNG /usage'
+    expect(sanitizeTerminalPreview(winUnquotedSpaces)).toBe('/usage')
+    expect(sanitizeTerminalIntent(winUnquotedSpaces)).toBe('/usage')
+  })
+
+  test('strips POSIX /tmp and /var/folders temp paste paths across common image extensions', () => {
+    expect(sanitizeTerminalPreview('/tmp/oxe-paste-abcd1234.png explain')).toBe('explain')
+    expect(sanitizeTerminalPreview('/var/folders/5x/ab12cd/T/oxe-paste-abcd1234.webp fix header')).toBe('fix header')
+    expect(sanitizeTerminalIntent('"/tmp/oxe-paste-abcd1234.jpg" check diff')).toBe('check diff')
+    expect(sanitizeTerminalIntent('/tmp/sub/oxe-paste-abcd1234.gif inspect animation')).toBe('inspect animation')
+  })
+
+  test('strips multiple pasted image paths while preserving surrounding user text', () => {
+    const multi = [
+      'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-1111.png',
+      '"C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2222.jpg"',
+      '/tmp/oxe-paste-3333.webp',
+      'compare these screenshots'
+    ].join(' ')
+    expect(sanitizeTerminalPreview(multi)).toBe('compare these screenshots')
+    expect(sanitizeTerminalIntent(multi)).toBe('compare these screenshots')
+  })
+
+  test('returns null when only temp paste image paths remain', () => {
+    expect(sanitizeTerminalPreview('C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png')).toBeNull()
+    expect(sanitizeTerminalPreview('"C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png"')).toBeNull()
+    expect(sanitizeTerminalPreview('/tmp/oxe-paste-abcd1234.png')).toBeNull()
+    expect(sanitizeTerminalPreview('/tmp/oxe-paste-1.png /tmp/oxe-paste-2.gif')).toBeNull()
+    expect(sanitizeTerminalIntent('C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png')).toBeNull()
+    expect(sanitizeTerminalIntent('"/tmp/oxe-paste-abcd1234.webp"')).toBeNull()
+  })
+
+  test('preserves normal file paths and URLs that are not temp oxe-paste-* attachments', () => {
+    expect(sanitizeTerminalPreview('Compare C:\\Users\\dudu-\\Pictures\\screenshot.png with mockup'))
+      .toBe('Compare C:\\Users\\dudu-\\Pictures\\screenshot.png with mockup')
+    expect(sanitizeTerminalIntent('Open https://example.com/tmp/oxe-paste-1234.png'))
+      .toBe('Open https://example.com/tmp/oxe-paste-1234.png')
+    expect(sanitizeTerminalIntent('Fix oxe-paste- title sanitization'))
+      .toBe('Fix oxe-paste- title sanitization')
+  })
+
+  test('derivePaneDisplayState hides pasted image paths and falls back when intent is paste-only', () => {
+    const agent = { ...terminal, agentState: 'idle' as const }
+    expect(derivePaneDisplayState({
+      pane,
+      workspace,
+      terminal: {
+        ...agent,
+        lastIntent: 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png /usage'
+      },
+      profile: null,
+      paneIndex: 0
+    }).title).toBe('/usage')
+
+    expect(derivePaneDisplayState({
+      pane,
+      workspace,
+      terminal: {
+        ...agent,
+        lastIntent: 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png',
+        lastOutput: 'Tests passed'
+      },
+      profile: null,
+      paneIndex: 0
+    }).title).toBe('Tests passed')
+  })
+
+  test('setLastIntent sanitizes pasted paths before truncating and does not clobber prior intent on paste-only Enter', () => {
+    const store = useTerminalStore.getState()
+    store.setLastIntent('pane-1', 'Investigate auth race')
+    expect(useTerminalStore.getState().getStatus('pane-1').lastIntent).toBe('Investigate auth race')
+
+    // Bare pasted image path must NOT overwrite a meaningful prior intent.
+    store.setLastIntent('pane-1', 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png')
+    expect(useTerminalStore.getState().getStatus('pane-1').lastIntent).toBe('Investigate auth race')
+
+    // Temp path is stripped BEFORE the 120-char cap so the user's real prompt stays intact.
+    const realPrompt = 'Please inspect the stack trace in this screenshot and fix the pane title truncation logic'
+    store.setLastIntent('pane-1', `C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png ${realPrompt}`)
+    expect(useTerminalStore.getState().getStatus('pane-1').lastIntent).toBe(realPrompt)
+  })
+
+  test('PaneSessionRow hides temp oxe-paste-* paths in sidebar labels and falls back cleanly on paste-only intent', () => {
+    const fullWorkspace = { ...workspace, id: 'workspace-1', panes: [pane] } as unknown as Workspace
+    useTerminalStore.setState({
+      panes: {
+        'pane-1': {
+          status: 'running',
+          error: null,
+          lastActivityAt: Date.now(),
+          lastOutput: 'Tests passed',
+          lastIntent: 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png /usage',
+          lastIntentAt: Date.now(),
+          isWorking: false,
+          hasUnread: false,
+          hookState: null,
+          hookAt: null,
+          agentState: 'idle',
+          agentSource: 'hook',
+          agentName: 'claude',
+          location: null,
+          shellCommand: null,
+          detached: false
+        }
+      },
+      pendingCommands: {},
+      activePaneId: null
+    })
+
+    render(createElement(PaneSessionRow, {
+      pane,
+      paneIndex: 0,
+      workspace: fullWorkspace,
+      isActive: false,
+      agentProfiles: [],
+      onClick: vi.fn(),
+      onActivatePane: vi.fn()
+    }))
+    expect(screen.getByText('Claude · /usage')).toBeInTheDocument()
+
+    cleanup()
+    useTerminalStore.setState({
+      panes: {
+        'pane-1': {
+          ...useTerminalStore.getState().getStatus('pane-1'),
+          lastIntent: 'C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png'
+        }
+      },
+      pendingCommands: {},
+      activePaneId: null
+    })
+
+    render(createElement(PaneSessionRow, {
+      pane,
+      paneIndex: 0,
+      workspace: fullWorkspace,
+      isActive: false,
+      agentProfiles: [],
+      onClick: vi.fn(),
+      onActivatePane: vi.fn()
+    }))
+    expect(screen.getByText('Claude · Tests passed')).toBeInTheDocument()
   })
 })
