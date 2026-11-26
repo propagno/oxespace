@@ -10,7 +10,9 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({ app: { isPackaged: false, isReady: () => false, getLocale: () => 'en', getPath: () => tmpdir() } }))
 import { OxeQueryCore } from '../../electron/main/services/oxequery/oxequery-core'
 import type { ResolvedConnection } from '../../electron/main/services/oxequery/oxequery-errors'
 import { AgentGateway, type GatewayDeps } from '../../electron/main/services/oxequery/agent-gateway'

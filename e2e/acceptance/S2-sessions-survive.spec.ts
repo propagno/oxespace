@@ -24,8 +24,8 @@ const STANDIN = String.raw`
 const fs = require('fs'), path = require('path'), crypto = require('crypto')
 const [agent, log] = [process.env.ACC_AGENT, process.env.ACC_LOG]
 const args = process.argv.slice(2)
-// The app probes the CLIs (--version, --help, mcp …): answer and exit, as the real ones do; that is not a session.
-if (['--version', '-v', '--help', '-h', 'mcp', 'doctor', 'login', 'logout', 'auth'].includes(args[0])) { console.log('9.9.9 (stand-in)'); process.exit(0) }
+// The app probes the CLIs (--version, --help, mcp, auth, app-server, acp …): answer and exit, as the real ones do; that is not a session.
+if (['--version', '-v', '--help', '-h', 'mcp', 'doctor', 'login', 'logout', 'auth', 'app-server', 'acp'].includes(args[0])) { console.log('9.9.9 (stand-in)'); process.exit(0) }
 const flag = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const resumed = agent === 'claude' ? flag('--resume') : flag('resume')
 const id = resumed || (agent === 'claude' && flag('--session-id')) || crypto.randomUUID()
