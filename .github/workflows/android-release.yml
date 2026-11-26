@@ -46,7 +46,7 @@ jobs:
         run: echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::Tag $TAG is not vX.Y.Z"; exit 1; }
 
       # The tag by its full name: a branch called like the tag is never built in its place.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ env.TAG }}
 

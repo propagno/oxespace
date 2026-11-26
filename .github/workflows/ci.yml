@@ -141,7 +141,7 @@ jobs:
           # workflow, not on its own, so its result is part of CI result: one required check that reports on every
           # pull request (docs-only too) and on the merge train's dispatched runs, where a pull_request-only
           # workflow never starts. The base is where the head left main.
-          manifests='^(package\.json|package-lock\.json|mobile/.*\.gradle(\.kts)?|mobile/.*libs\.versions\.toml|\.github/workflows/.*)$'
+          manifests='^(package\.json|package-lock\.json|mobile/.*\.gradle(\.kts)?|mobile/.*libs\.versions\.toml|\.github/(workflows|actions)/.*)$'
           if [ "$EVENT" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"; echo "a11y=true" >> "$GITHUB_OUTPUT"
             deps=false; base=
@@ -775,12 +775,12 @@ jobs:
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
-      # OXE-149: the built app against the approved brand target (src/design/targets), once per platform. It reports
-      # every measure and fails only on an enforced one; this job does not fail on it. ci-result turns both platforms'
-      # results into the marca/conformidade status on the PR head, which pr:ready requires on interface paths.
+      # OXE-149 / OXE-434: the built app against the approved brand target (src/design/targets), once per platform.
+      # It reports every measure and fails the job on an enforced divergence (pending measures stay informational).
+      # test.afterAll always writes BRAND_OUT and the upload step below runs under !cancelled(), so ci-result still
+      # posts both platforms' results as the marca/conformidade status on the PR head.
       - name: Brand conformance (OXE-149)
         if: ${{ !cancelled() && matrix.shard == 2 }}
-        continue-on-error: true
         shell: bash
         env:
           BRAND_OUT: brand-out/brand-conformance-${{ matrix.label }}.json
@@ -1132,8 +1132,14 @@ jobs:
   # commit quick planned, from scratch, and packages it; the release job publishes what it uploads.
   package:
     name: Package (${{ matrix.label }})
-    needs: [changes, quick, unit, e2e]
-    if: needs.quick.outputs.should_release == 'true' || needs.quick.outputs.packaged_smoke == 'true'
+    needs: [changes, quick, unit, e2e, acceptance-release]
+    # On a release run, require acceptance-release to pass before burning packaging runners; on packaged_smoke_only,
+    # acceptance-release is intentionally skipped, so check each prerequisite explicitly instead of implicit success().
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success'
+      && needs.unit.result == 'success' && needs.e2e.result == 'success'
+      && ((needs.quick.outputs.should_release == 'true' && needs.acceptance-release.result == 'success')
+      || needs.quick.outputs.packaged_smoke == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     permissions:
@@ -1555,7 +1561,7 @@ jobs:
   # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, check-origin, quick, unit, e2e, a11y, perf-plan, perf-recheck, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, check-origin, quick, unit, e2e, a11y, perf-plan, perf-recheck, acceptance-release, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1632,6 +1638,8 @@ jobs:
           if (!pr) required.push('quick', 'unit', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
           else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           if (pr && a11y) required.push('a11y')
+          if (needs.quick.outputs?.should_release === 'true') required.push('acceptance-release', 'package', 'release')
+          else if (needs.quick.outputs?.packaged_smoke === 'true') required.push('package')
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
           // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
           // it planned must have passed on its fresh runner.

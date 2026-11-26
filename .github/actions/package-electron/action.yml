@@ -1,0 +1,164 @@
+name: Package Electron App
+description: Run electron-builder, verify no source maps ship inside app.asar, check B13 Electron fuses, optionally verify .deb chrome-sandbox and prepare an isolated inspect-enabled test copy.
+
+inputs:
+  platform-flag:
+    description: electron-builder platform flag (--win or --linux)
+    required: true
+  channel:
+    description: Publish update channel written to latest/beta manifests (latest or beta)
+    required: false
+    default: "latest"
+  dir-only:
+    description: Build unpacked directory only (--dir), skipping installers
+    required: false
+    default: "false"
+  check-asar-sourcemaps:
+    description: Fail if any out/**/*.map file reached resources/app.asar
+    required: false
+    default: "true"
+  check-fuses:
+    description: Read back and assert B13 Electron fuses on the packaged executable
+    required: false
+    default: "true"
+  prepare-inspect-copy:
+    description: Copy dist/*-unpacked outside the checkout and enable only EnableNodeCliInspectArguments for Playwright
+    required: false
+    default: "false"
+  inspect-copy-name:
+    description: Folder name under RUNNER_TEMP for the isolated test copy
+    required: false
+    default: "oxespace-installed"
+  verify-deb-sandbox:
+    description: On Linux, assert the .deb postinst unconditionally sets chrome-sandbox to 4755 without unshare probing
+    required: false
+    default: "false"
+
+outputs:
+  executable-path:
+    description: Absolute path to the isolated inspect-enabled executable (when prepare-inspect-copy is true)
+    value: ${{ steps.inspect_copy.outputs.exe }}
+
+runs:
+  using: composite
+  steps:
+    - name: Package with electron-builder
+      shell: bash
+      env:
+        PLATFORM_FLAG: ${{ inputs.platform-flag }}
+        CHANNEL: ${{ inputs.channel }}
+        DIR_ONLY: ${{ inputs.dir-only }}
+      run: |
+        set -euo pipefail
+        case "$PLATFORM_FLAG" in
+          --win|--linux) ;;
+          *) echo "::error::platform-flag must be --win or --linux, got: $PLATFORM_FLAG"; exit 1 ;;
+        esac
+        args=("$PLATFORM_FLAG" "--config.npmRebuild=false" "--publish" "never")
+        if [ "$DIR_ONLY" = "true" ]; then
+          args+=("--dir")
+        else
+          args+=("--config.publish.channel=$CHANNEL")
+        fi
+        npx electron-builder "${args[@]}"
+        # Installer size visibility in logs
+        for f in dist/*.exe dist/*.deb dist/*.AppImage; do
+          [ -f "$f" ] || continue
+          bytes=$(node -p "require('node:fs').statSync(process.argv[1]).size" "$f")
+          mb=$(node -p "(Number(process.argv[1]) / (1024 * 1024)).toFixed(1)" "$bytes")
+          echo "[installer-size] $(basename "$f") ${mb} MB"
+        done
+
+    - name: Verify no source maps in app.asar
+      if: inputs.check-asar-sourcemaps == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        node - <<'EOF'
+        const asar = require('@electron/asar')
+        const fs = require('node:fs')
+        const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked'))
+        if (!dirs.length) throw new Error('no unpacked app in dist')
+        for (const dir of dirs) {
+          const maps = asar.listPackage(`dist/${dir}/resources/app.asar`, {})
+            .filter(file => /^[\\/]out[\\/].*\.map$/.test(file))
+          if (maps.length) throw new Error(`${dir} ships source maps: ${maps.slice(0, 5).join(', ')}`)
+          console.log(`[sourcemaps] ${dir}: none in app.asar`)
+        }
+        EOF
+
+    - name: Read and verify B13 Electron fuses
+      if: inputs.check-fuses == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          exe=$(ls dist/win-unpacked/OXESpace*.exe | head -1)
+        else
+          exe=$(find dist/linux-unpacked -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)
+        fi
+        if [ -z "${exe:-}" ]; then
+          echo "::error::No packaged OXESpace executable found to read fuses."
+          exit 1
+        fi
+        npx --no-install @electron/fuses read --app "$exe"
+        node scripts/check-fuses.mjs --app "$exe"
+
+    - name: Verify the .deb secures the chrome-sandbox helper
+      if: inputs.verify-deb-sandbox == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euo pipefail
+        deb=$(ls dist/*.deb | head -1)
+        code=$(dpkg-deb --info "$deb" postinst | sed -e 's/#.*$//')
+        if ! grep -qF "chmod 4755 '/opt/OXESpace/chrome-sandbox'" <<<"$code"; then
+          echo "postinst does not unconditionally setuid chrome-sandbox:" >&2
+          dpkg-deb --info "$deb" postinst >&2
+          exit 1
+        fi
+        if grep -qF 'unshare --user' <<<"$code"; then
+          echo "postinst still probes user namespaces — the stock template is back." >&2
+          dpkg-deb --info "$deb" postinst >&2
+          exit 1
+        fi
+        echo "OK: chrome-sandbox is setuid root unconditionally."
+
+    - name: Prepare isolated inspect-enabled test copy
+      id: inspect_copy
+      if: inputs.prepare-inspect-copy == 'true'
+      shell: bash
+      env:
+        COPY_NAME: ${{ inputs.inspect-copy-name }}
+      run: |
+        set -euo pipefail
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          src="dist/win-unpacked"
+        else
+          src="dist/linux-unpacked"
+        fi
+        dest="$RUNNER_TEMP/$COPY_NAME"
+        rm -rf "$dest"
+        cp -a "$src" "$dest"
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          exe=$(ls "$dest"/OXESpace*.exe | head -1)
+          # Normalize to native Windows path for Playwright on Windows
+          if command -v cygpath >/dev/null 2>&1; then
+            exe_win=$(cygpath -w "$exe")
+          else
+            exe_win="$exe"
+          fi
+        else
+          exe=$(find "$dest" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)
+          exe_win="$exe"
+        fi
+        if [ -z "${exe:-}" ]; then
+          echo "::error::No packaged OXESpace executable found in $src"
+          exit 1
+        fi
+        npx --no-install @electron/fuses write --app "$exe_win" EnableNodeCliInspectArguments=on
+        shipped="$src/$(basename "$exe")"
+        if [ "$RUNNER_OS" = "Windows" ] && command -v cygpath >/dev/null 2>&1; then
+          shipped=$(cygpath -w "$shipped")
+        fi
+        node scripts/check-fuses.mjs --app "$exe_win" --test-copy-of "$shipped"
+        echo "exe=$exe_win" >> "$GITHUB_OUTPUT"

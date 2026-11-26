@@ -21,8 +21,6 @@ name: Performance gate
 run-name: Performance gate · v1.5.0 · v1.5.1 · ${{ inputs.candidate || 'main' }} · ${{ github.ref_name }}
 
 on:
-  push:
-    branches: ["ci/perf-gate-*"]
   workflow_dispatch:
     inputs:
       candidate:

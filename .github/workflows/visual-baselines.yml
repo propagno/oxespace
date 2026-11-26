@@ -28,6 +28,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: visual-baselines-${{ inputs.platform || 'linux' }}-${{ inputs.branch || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   baselines:
     name: Generate and verify ${{ inputs.platform || 'linux' }} visual baselines
