@@ -39,13 +39,14 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
       {content}
     </RadixDialog.Content>
   </RadixDialog.Portal></RadixDialog.Root>
-  if (maximized) return <div className="thread-review-host is-maximized">{content}</div>
-  // As wide as it was dragged, up to leaving the conversation its minimum width.
+  // Keep the Fragment -> [splitter | false, div.thread-review-host] shape across maximize/restore so React reconciles
+  // the panel in place instead of unmounting WebPreviewPanel / NativePreviewHost (which closes WebContentsView and
+  // clears preview session grants) or ThreadProjectTerminal (OXE-442).
   const width = clampToolPanelWidth(reviewWidth, availableWidth)
   return <>
-    <ToolPanelSplitter width={width} available={availableWidth}
-      onChange={value => useThreadWorkbenchStore.getState().setWidth(value)} />
-    <div className="thread-review-host" style={{ width }}>
+    {!maximized && <ToolPanelSplitter width={width} available={availableWidth}
+      onChange={value => useThreadWorkbenchStore.getState().setWidth(value)} />}
+    <div className={maximized ? 'thread-review-host is-maximized' : 'thread-review-host'} style={maximized ? undefined : { width }}>
       {content}
     </div>
   </>

@@ -7,8 +7,11 @@
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({ app: { isPackaged: false, isReady: () => false, getLocale: () => 'en', getPath: () => tmpdir() } }))
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { LocalExecutionHost } from '../../electron/main/runtime/execution-host'
 import { OxeQueryService } from '../../electron/main/services/oxequery/service'

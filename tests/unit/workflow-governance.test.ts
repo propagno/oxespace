@@ -266,6 +266,12 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
 
     const e2eShards = (ci.jobs?.e2e as { strategy?: { matrix?: { shard?: number[] } } })?.strategy?.matrix?.shard ?? []
     expect(e2eShards).toEqual([1, 2, 3, 4])
+
+    // Shard 1 runs upgrade-rehearsal.native.test.ts (needs tag v1.3.3); numeric `&& 0 || 1` is falsy in GHA expressions.
+    const e2eCheckout = (ci.jobs?.e2e?.steps?.[0] as { with?: { 'fetch-depth'?: unknown; 'fetch-tags'?: unknown } } | undefined)?.with
+    expect(String(e2eCheckout?.['fetch-depth'] ?? '')).toContain("'0'")
+    expect(String(e2eCheckout?.['fetch-depth'] ?? '')).not.toMatch(/&&\s*0\s*\|\|/)
+    expect(String(e2eCheckout?.['fetch-tags'] ?? '')).toContain('matrix.shard == 1')
   })
 
   it('keeps workflow filenames referenced by repo scripts in sync with .github/workflows/', () => {

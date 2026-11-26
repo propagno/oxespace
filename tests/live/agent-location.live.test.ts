@@ -7,7 +7,9 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
+
+vi.mock('electron', () => ({ app: { isPackaged: false, isReady: () => false, getLocale: () => 'en', getPath: () => tmpdir() } }))
 import { openInMemoryDatabase } from '../../electron/main/db'
 import { ThreadManager } from '../../electron/main/services/conversation/thread-manager'
 import { ClaudeConversationAdapter } from '../../electron/main/services/conversation/claude-conversation'
