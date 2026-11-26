@@ -15,6 +15,7 @@ const FirstRunHost = lazyFrom(chunk(() => import('./components/Onboarding/FirstR
 const DelegationNotice = lazyFrom(chunk(() => import('./components/Delegation/DelegationNotice')), m => m.DelegationNotice)
 import { useTranslation } from 'react-i18next'
 import { queueNewConversationDraft } from './components/Terminal/threadDraftBridge'
+import { resolveWorkspaceSurfaceVisibility } from './components/Terminal/terminalVisibility'
 import type { ToolId } from './components/Workspace/toolCatalog'
 import { type WorkbenchPanelItem } from './components/Workbench/WorkbenchPanelMenu'
 import { Button, cx, Toaster, TitleTooltips, TooltipProvider } from './ui'
@@ -788,7 +789,8 @@ export function App(): ReactElement {
             {workspaces
               .filter((ws) => ws.id === activeWorkspaceId || visitedWorkspaceIds.includes(ws.id))
               .map((ws) => {
-                const isActive = ws.id === activeWorkspaceId && applicationView === 'code'
+                const surfaceVis = resolveWorkspaceSurfaceVisibility({ workspaceId: ws.id, activeWorkspaceId, applicationView, paneIds: ws.panes.map((p) => p.id), maximizedPaneId, activePaneId: activePane?.id ?? null, isIntegrationPanelOpen, isSearchPanelOpen, containersOpen })
+                const { isActive } = surfaceVis
                 return (
                   <div
                     key={ws.id}
@@ -799,15 +801,15 @@ export function App(): ReactElement {
                       workspace={ws}
                       isActive={isActive}
                       agentProfiles={agentProfiles}
-                      maximizedPaneId={isActive ? maximizedPaneId : null}
+                      maximizedPaneId={surfaceVis.maximizedPaneId}
                       onClosePane={handleClosePane}
                       onToggleMaximize={(paneId) => setMaximizedPane(maximizedPaneId === paneId ? null : paneId)}
                       onSplitPane={(paneId, dir) => splitWorkspacePane(ws.id, paneId, dir)}
                       onActivatePane={setActivePane}
                       webPreviewVisible={webPreviewOpenByWorkspace[ws.id] === true}
-                      integrationVisible={isActive && isIntegrationPanelOpen}
-                      searchVisible={isActive && isSearchPanelOpen}
-                      containersVisible={isActive && containersOpen}
+                      integrationVisible={surfaceVis.integrationVisible}
+                      searchVisible={surfaceVis.searchVisible}
+                      containersVisible={surfaceVis.containersVisible}
                       onCloseWebPreview={() => closeWebPreview(ws.id)}
                       onCloseIntegration={closeIntegrationPanel}
                       onCloseSearch={closeSearchPanel}
@@ -821,7 +823,7 @@ export function App(): ReactElement {
                       onUpdateBackgroundState={(input) => void updateBackgroundState(input)}
                       onUpdateWorktreeState={(input) => void updateWorktreeState(input)}
                       onRunCommand={(command) => void runCommandInTerminal(command)}
-                      activePaneId={isActive ? activePane?.id ?? null : null}
+                      activePaneId={surfaceVis.activePaneId}
                       panels={isActive ? codePanelItems : undefined}
                     /></Suspense>
                   </div>
