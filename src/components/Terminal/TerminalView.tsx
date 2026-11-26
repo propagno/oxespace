@@ -25,7 +25,7 @@ import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { personActedElsewhereSince, runWithTerminalAutoFocus, terminalKeyRoute, watchPersonInput } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
-import { isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
+import { createRevealScheduler, isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
 import { buildTerminalTheme, decodeOsc52ClipboardWrite, resolveInactiveCursorStyle, searchDecorations } from './terminalViewHelpers'
 import { resolveWindowsPty } from '../../../shared/windows-pty'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
@@ -532,33 +532,28 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
 
     const notified: HeldGrid = { cols: 0, rows: 0 }
-    const fitTerminal = (): void => {
+    const fitTerminal = (forceRefresh = false): void => {
+      if (isHidden()) return
       try {
-        // Preserve absolute scroll position. A relative scroll after fit can jump
-        // when Copilot prints wide tables and the terminal reflows lines.
+        // Preserve absolute scroll position across reflows (e.g. wide tables).
         const buf = terminal.buffer.active
         const viewportY = buf.viewportY
         const wasAtBottom = viewportY >= buf.baseY
 
         const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, (cols, rows) => onResizeRef.current(cols, rows))
 
-        // Force the viewport scroll area to re-measure after large layout
-        // changes (pane maximize/restore). Without a refresh, xterm can keep a
-        // stale scrollHeight and the mouse wheel appears dead.
-        if (dimensionsChanged) terminal.refresh(0, Math.max(0, terminal.rows - 1))
+        // Force full-screen repaint and scrollArea re-measure on resize or post-hidden reveal.
+        if (dimensionsChanged || forceRefresh) terminal.refresh(0, Math.max(0, terminal.rows - 1))
         syncViewportScrollArea()
 
-        if (buf.type === 'alternate') {
-          // TUI owns scrolling; don't fight it after fit.
-          return
-        }
+        if (buf.type === 'alternate') return
         if (wasAtBottom) terminal.scrollToBottom()
         else terminal.scrollToLine(Math.min(viewportY, terminal.buffer.active.baseY))
       } catch {
         // xterm may not have measurable dimensions during first layout.
       }
     }
-    refitRef.current = fitTerminal
+    refitRef.current = () => fitTerminal()
 
     const scheduleFit = (): void => {
       if (isHidden() || fitFrameRef.current !== null) return
@@ -661,12 +656,15 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       } catch { /* main could not answer — fall through and render as a fresh view */ }
       if (disposed) return
 
-      const delta = reattach && attached?.running === true && !attached.truncated && !attached.altScreen
+      const delta = reattach && attached?.running === true && !attached.truncated
       if (delta) {
         const prePark = writeScheduler.takePending()
+        const preBuf = terminal.buffer.active, pinY = preBuf.type === 'normal' && preBuf.viewportY < preBuf.baseY ? preBuf.viewportY : null
+        const restorePin = pinY !== null ? (): void => { if (!disposed && terminal.buffer.active.type === 'normal') terminal.scrollToLine(Math.min(pinY, terminal.buffer.active.baseY)) } : undefined
         if (prePark.truncated) terminal.write('\x1b[2J\x1b[H\x1b[?2026l')
         if (prePark.data) terminal.write(prePark.data)
-        if (attached?.replay) terminal.write(attached.replay)
+        if (attached?.replay) { if (restorePin) terminal.write(attached.replay, restorePin); else terminal.write(attached.replay) }
+        else if (restorePin && prePark.data) terminal.write('', restorePin)
       } else if (reattach && !attached?.running && !attached?.exit) {
         // Main could not answer the reattach: keep what the view shows and go on live.
       } else if (attached?.running || attached?.exit) {
@@ -688,10 +686,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       attachPending = false
       if (isHidden()) { writeScheduler.setPaused(true); void park() }
       else writeScheduler.setPaused(false)
-      if (attached?.running && (attached.altScreen || attached.truncated)) {
+      if (attached?.running && !delta && (attached.altScreen || attached.truncated)) {
         terminal.write('', () => {
-          if (!disposed && attached.replay && !delta) terminal.scrollToBottom()
-          window.requestAnimationFrame(() => { if (!disposed) onResizeRef.current(terminal.cols, terminal.rows) })
+          if (!disposed && attached.replay) terminal.scrollToBottom()
+          window.requestAnimationFrame(() => { if (!disposed && !isHidden() && notified.cols > 0 && notified.rows > 0) onResizeRef.current(terminal.cols, terminal.rows) })
         })
       } else if (attached?.replay && !delta) {
         terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
@@ -710,18 +708,20 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       let result: { seq: number } | void | undefined
       try { result = await bridge.detach?.({ paneId, parked: true }) } catch { result = undefined }
       parking = false
-      if (disposed || !result || typeof result.seq !== 'number') return
+      if (disposed) return
+      if (!result || typeof result.seq !== 'number') { if (!isHidden() && !attachPending) writeScheduler.setPaused(false); return }
       parkedSeq = result.seq
       parked = true
       if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
       if (!isHidden()) unpark()
     }
 
-    // OXE-349 + OXE-411 lever H: hidden panes release WebGL, pause writes, and park from main (no IPC);
-    // becoming visible re-attaches from parkedSeq (or flushes buffered chunks) and restores WebGL + fit.
+    // OXE-349 + OXE-411 + OXE-443: hidden panes release WebGL, pause writes, and park; reveal runs post-layout.
+    const revealScheduler = createRevealScheduler(() => { if (!disposed && !isHidden()) { if (!webglAddon) loadWebgl(); fitTerminal(true) } })
     const stopObservingVisibility = observeTerminalVisibility(hostRef.current, (hidden) => {
       if (disposed) return
       if (hidden) {
+        revealScheduler.cancel()
         releaseWebgl()
         writeScheduler.setPaused(true)
         if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
@@ -730,10 +730,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         return
       }
       if (parked) unpark()
-      else if (!attachPending) writeScheduler.setPaused(false)
-      if (!webglAddon) loadWebgl()
-      scheduleFit()
-      try { terminal.refresh(0, Math.max(0, terminal.rows - 1)) } catch { /* disposed */ }
+      else if (!attachPending && !parking) writeScheduler.setPaused(false)
+      revealScheduler.schedule()
     })
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (parked) return
@@ -759,6 +757,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
       void bridge.detach?.({ paneId })
+      revealScheduler.cancel()
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
