@@ -37,6 +37,18 @@ export interface BrowserPreviewSessionState {
   sessionId: string
   activeTabId: string
   tabs: BrowserPreviewTabState[]
+  /** Authoritative main-process agent access grant for this owner (T43). */
+  agentAccess?: boolean
+  /** Per-owner External preview opt-in remembered while the window stays open. */
+  allowExternal?: boolean
+  /** Per-owner Auto-verify preference when explicitly configured. */
+  autoVerify?: boolean
+  /** Per-owner zoom percentage (50–150). */
+  zoom?: number
+  /** Per-owner emulated device preset id, or null for desktop. */
+  deviceId?: string | null
+  /** Per-owner device rotation state. */
+  rotated?: boolean
 }
 
 export interface BrowserPreviewGrant {

@@ -9,13 +9,16 @@ const BOUNDS_COALESCE_MS = 48
 /** How many refused bounds reports in a row are retried before waiting for the next change. */
 const MAX_REFUSED_RETRIES = 5
 
-export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPreviewMount; active: boolean; zoom: number }): ReactElement {
+export function NativePreviewHost({ mount, active, zoom, device }: { mount: BrowserPreviewMount; active: boolean; zoom: number; device?: { deviceId: string | null; rotated: boolean } }): ReactElement {
   const { t } = useTranslation('code')
   const ref = useRef<HTMLDivElement>(null)
   const leasePromise = useRef<Promise<BrowserPreviewMountResult> | null>(null)
   const lastZoom = useRef<string | null>(null)
+  const lastDevice = useRef<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const {ownerKey,tabId,url,workspaceId,threadId,allowExternal,agentAccess} = mount
+  const deviceId = device?.deviceId ?? null
+  const deviceRotated = deviceId === null ? false : device?.rotated === true
   useEffect(() => {
     let cancelled = false
     const promise = window.oxe.browserPreview.mount({ownerKey,tabId,url,workspaceId,threadId,allowExternal,agentAccess})
@@ -25,6 +28,7 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
   },[ownerKey,tabId,url,workspaceId,threadId,allowExternal,agentAccess])
   useEffect(() => () => {
     lastZoom.current = null
+    lastDevice.current = null
     const promise = leasePromise.current
     if (promise) void promise.then(({lease}) => window.oxe.browserPreview.close({ownerKey,tabId,lease})).catch(() => {})
   },[ownerKey,tabId])
@@ -35,6 +39,18 @@ export function NativePreviewHost({ mount, active, zoom }: { mount: BrowserPrevi
     lastZoom.current = signature
     void window.oxe.browserPreview.setZoom({ownerKey,tabId,zoom}).catch(() => { if (lastZoom.current === signature) lastZoom.current = null })
   },[ownerKey,tabId,zoom,mounted])
+  useEffect(() => {
+    if (!mounted) { lastDevice.current = null; return }
+    if (lastDevice.current === null && deviceId === null && !deviceRotated) return
+    const signature = `${ownerKey}\0${tabId}\0${deviceId ?? ''}\0${deviceRotated}`
+    if (lastDevice.current === signature) return
+    lastDevice.current = signature
+    const setDevice = window.oxe?.browserPreview?.setDevice
+    if (typeof setDevice !== 'function') return
+    void Promise.resolve(setDevice({ ownerKey, tabId, deviceId, rotated: deviceRotated })).catch(() => {
+      if (lastDevice.current === signature) lastDevice.current = null
+    })
+  }, [ownerKey, tabId, deviceId, deviceRotated, mounted])
   useEffect(() => {
     if (!mounted) return
     const api = window.oxe.browserPreview

@@ -50,6 +50,45 @@ const NO_CONTEXT: DesignGrabContext = { source: null, candidates: [], components
 const keptGrabs = new Map<string, DesignGrabItem[]>()
 const NO_GRABS: DesignGrabItem[] = []
 
+export interface PreviewDeviceChoice {
+  deviceId: string | null
+  rotated: boolean
+}
+
+export interface PreviewOwnerSettings {
+  allowExternal: boolean
+  agentAutomation: boolean
+  autoVerifyChoice: boolean | null
+  zoom: number
+  deviceChoice: PreviewDeviceChoice
+}
+
+const DEFAULT_DEVICE_CHOICE: PreviewDeviceChoice = { deviceId: null, rotated: false }
+const DEFAULT_OWNER_SETTINGS: PreviewOwnerSettings = {
+  allowExternal: false,
+  agentAutomation: false,
+  autoVerifyChoice: null,
+  zoom: 100,
+  deviceChoice: DEFAULT_DEVICE_CHOICE
+}
+/** Per-owner preview access and display preferences kept across panel unmounts and chat switches while the window runs (OXE-442). */
+const keptSettings = new Map<string, PreviewOwnerSettings>()
+
+function readKeptSettings(ownerKey: string): PreviewOwnerSettings {
+  return keptSettings.get(ownerKey) ?? DEFAULT_OWNER_SETTINGS
+}
+
+function writeKeptSettings(ownerKey: string, patch: Partial<PreviewOwnerSettings>): PreviewOwnerSettings {
+  const next: PreviewOwnerSettings = { ...readKeptSettings(ownerKey), ...patch }
+  keptSettings.set(ownerKey, next)
+  return next
+}
+
+/** Resets cached per-owner preview settings (intended for test isolation). */
+export function resetKeptPreviewSettings(): void {
+  keptSettings.clear()
+}
+
 const DEFAULT_URL = 'http://localhost:3000'
 
 type Viewport = 'desktop' | 'tablet' | 'mobile'
@@ -69,42 +108,22 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const previewKey = threadId ? `thread:${threadId}` : workspace.id
   const [tabs, setTabs] = useState<PreviewTab[]>([])
   const [activeTabId, setActiveTabId] = useState('')
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null)
   const activeTab = useMemo(() => tabs.find(tab => tab.id === activeTabId) ?? NO_TAB, [tabs, activeTabId])
   const { draftUrl, url, loading, error: pageError, canGoBack, canGoForward } = activeTab
   const updateTab = useCallback((id: string, update: (tab: PreviewTab) => PreviewTab): void => setTabs(current => current.map(tab => tab.id === id ? update(tab) : tab)), [])
   const [captureNotice, setCaptureNotice] = useState<string | null>(null)
-  // OXE-306: another preview (workspace or conversation) starts from no tabs, reset while rendering rather than by an
-  // effect that set state and rendered twice; the effect below only opens that preview's session.
-  const [sessionKey, setSessionKey] = useState(previewKey)
-  if (sessionKey !== previewKey) {
-    setSessionKey(previewKey)
-    setTabs([])
-    setActiveTabId('')
-  }
-  const applySession = useCallback((session: BrowserPreviewSessionState): void => {
-    setTabs(current => session.tabs.map(tab => {
-      const previous = current.find(item => item.id === tab.id)
-      return {id:tab.id,url:tab.url,draftUrl:previous?.draftUrl ?? tab.url ?? DEFAULT_URL,loading:tab.loading,error:tab.error,canGoBack:tab.canGoBack,canGoForward:tab.canGoForward}
-    }))
-    setActiveTabId(session.activeTabId)
-  },[])
-  useEffect(() => {
-    let cancelled = false
-    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => { if (!cancelled) applySession(session) }).catch(error => { if (!cancelled) setCaptureNotice(humanizeError(error, tc('preview.error.tabs'))) })
-    return () => { cancelled = true }
-  },[previewKey,applySession])
-  const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
-  const [zoom, setZoom] = useState(100)
-  const [deviceChoice, setDeviceChoice] = useState<{ deviceId: string | null; rotated: boolean }>({ deviceId: null, rotated: false })
+  const [zoom, setZoomState] = useState(() => readKeptSettings(previewKey).zoom)
+  const [deviceChoice, setDeviceChoiceState] = useState<PreviewDeviceChoice>(() => readKeptSettings(previewKey).deviceChoice)
   const [capturing, setCapturing] = useState(false)
   const [capturingArtifact, setCapturingArtifact] = useState(false)
-  const [allowExternal, setAllowExternal] = useState(false)
+  const [allowExternal, setAllowExternalState] = useState(() => readKeptSettings(previewKey).allowExternal)
   const externalPageBlocked = Boolean(url && !normalizePreviewUrl(url, allowExternal))
-  const [agentAutomation, setAgentAutomation] = useState(false)
+  const [agentAutomation, setAgentAutomationState] = useState(() => readKeptSettings(previewKey).agentAutomation)
   const [consentOpen, setConsentOpen] = useState(false)
   // Checking after an edit: with access on, the agent is told to look at this page after it edits (on unless turned off
   // here or by `autoVerify: false` in the project's launch file); and what broke since the page loaded is counted here.
-  const [autoVerifyChoice, setAutoVerifyChoice] = useState<boolean | null>(null)
+  const [autoVerifyChoice, setAutoVerifyChoiceState] = useState<boolean | null>(() => readKeptSettings(previewKey).autoVerifyChoice)
   const [problems, setProblems] = useState<PreviewProblems>(NO_PREVIEW_PROBLEMS)
   // #3 Design Mode: pick an element in the previewed page and hand it to an agent.
   const [designMode, setDesignMode] = useState(false)
@@ -123,9 +142,105 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const patchGrab = useCallback((id: string, patch: (item: DesignGrabItem) => DesignGrabItem): void => setGrabs(current => current.map(item => item.id === id ? patch(item) : item)), [setGrabs])
   // `send()` and `capturePage()` throw until the guest emits dom-ready.
   const [guestReady, setGuestReady] = useState(false)
+  // OXE-306 / OXE-442: switching preview owners resets transient tab state and restores that owner's kept preferences
+  // synchronously during render instead of in an effect; the effect below then opens and reconciles the session.
+  const [sessionKey, setSessionKey] = useState(previewKey)
+  if (sessionKey !== previewKey) {
+    const restored = readKeptSettings(previewKey)
+    setSessionKey(previewKey)
+    setHydratedKey(null)
+    setTabs([])
+    setActiveTabId('')
+    setCaptureNotice(null)
+    setZoomState(restored.zoom)
+    setDeviceChoiceState(restored.deviceChoice)
+    setAllowExternalState(restored.allowExternal)
+    setAgentAutomationState(restored.agentAutomation)
+    setConsentOpen(false)
+    setAutoVerifyChoiceState(restored.autoVerifyChoice)
+    setProblems(NO_PREVIEW_PROBLEMS)
+    setDesignMode(false)
+    setDesignKeep(false)
+    setGuestReady(false)
+  }
+  const updateZoom = useCallback((next: number): void => {
+    writeKeptSettings(previewKey, { zoom: next })
+    setZoomState(next)
+  }, [previewKey])
+  const setDeviceChoice = useCallback((next: PreviewDeviceChoice): void => {
+    writeKeptSettings(previewKey, { deviceChoice: next })
+    setDeviceChoiceState(next)
+  }, [previewKey])
+  const setAllowExternal = useCallback((next: boolean): void => {
+    writeKeptSettings(previewKey, { allowExternal: next })
+    setAllowExternalState(next)
+  }, [previewKey])
+  const setAgentAutomation = useCallback((next: boolean): void => {
+    writeKeptSettings(previewKey, { agentAutomation: next })
+    setAgentAutomationState(next)
+  }, [previewKey])
+  const setAutoVerifyChoice = useCallback((next: boolean | null): void => {
+    writeKeptSettings(previewKey, { autoVerifyChoice: next })
+    setAutoVerifyChoiceState(next)
+  }, [previewKey])
   const readyTabs = useRef(new Set<string>())
   const lastAccessByTab = useRef(new Map<string, string>())
   const lastDesignMode = useRef<string | null>(null)
+  const hydratedRef = useRef<string | null>(null)
+  const activeOwnerRef = useRef(previewKey)
+  const applySession = useCallback((session: BrowserPreviewSessionState, hydrateOwner = false): void => {
+    setTabs(current => session.tabs.map(tab => {
+      const previous = current.find(item => item.id === tab.id)
+      return {id:tab.id,url:tab.url,draftUrl:previous?.draftUrl ?? tab.url ?? DEFAULT_URL,loading:tab.loading,error:tab.error,canGoBack:tab.canGoBack,canGoForward:tab.canGoForward}
+    }))
+    setActiveTabId(session.activeTabId ?? '')
+    const patch: Partial<PreviewOwnerSettings> = {}
+    // T43: main is authoritative for agent access whenever it reports agentAccess.
+    if (typeof session.agentAccess === 'boolean') {
+      patch.agentAutomation = session.agentAccess
+      setAgentAutomationState(session.agentAccess)
+    }
+    if (hydrateOwner) {
+      setHydratedKey(previewKey)
+      if (typeof session.allowExternal === 'boolean') {
+        patch.allowExternal = session.allowExternal
+        setAllowExternalState(session.allowExternal)
+      }
+      if (typeof session.autoVerify === 'boolean') {
+        patch.autoVerifyChoice = session.autoVerify
+        setAutoVerifyChoiceState(session.autoVerify)
+      }
+      if (typeof session.zoom === 'number' && Number.isFinite(session.zoom)) {
+        patch.zoom = session.zoom
+        setZoomState(session.zoom)
+      }
+      if (session.deviceId !== undefined) {
+        const nextDevice: PreviewDeviceChoice = {
+          deviceId: session.deviceId,
+          rotated: session.deviceId === null ? false : session.rotated === true
+        }
+        patch.deviceChoice = nextDevice
+        setDeviceChoiceState(nextDevice)
+      }
+    }
+    if (Object.keys(patch).length > 0) writeKeptSettings(previewKey, patch)
+  }, [previewKey])
+  useEffect(() => {
+    let cancelled = false
+    activeOwnerRef.current = previewKey
+    hydratedRef.current = null
+    lastAccessByTab.current.clear()
+    readyTabs.current.clear()
+    lastDesignMode.current = null
+    void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => {
+      if (cancelled) return
+      const initial = hydratedRef.current !== previewKey
+      if (initial) hydratedRef.current = previewKey
+      applySession(session, initial)
+    }).catch(error => { if (!cancelled) setCaptureNotice(humanizeError(error, tc('preview.error.tabs'))) })
+    return () => { cancelled = true }
+  },[previewKey,applySession])
+  const setDraftUrl = (value: string): void => updateTab(activeTabId, tab => ({ ...tab, draftUrl: value }))
   const normalizedUrl = useMemo(() => normalizePreviewUrl(draftUrl, allowExternal), [draftUrl, allowExternal])
   const canOpen = normalizedUrl !== null
   const open = (): void => {
@@ -197,7 +312,12 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   useEffect(() => {
     return window.oxe.browserPreview.onEvent((event: BrowserPreviewEvent) => {
       if (event.ownerKey !== previewKey) return
-      if (event.type === 'session' && event.session) { applySession(event.session); return }
+      if (event.type === 'session' && event.session) {
+        const initial = hydratedRef.current !== previewKey
+        if (initial) hydratedRef.current = previewKey
+        applySession(event.session, initial)
+        return
+      }
       // Main took agent access away (T43): show it off; turning it on asks the person again.
       if (event.type === 'access') { if (event.agentAccess === false) { lastAccessByTab.current.clear(); setAgentAutomation(false) } return }
       if (event.type === 'navigation' && event.url) updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
@@ -228,7 +348,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
         .then(found => patchGrab(id, item => ({ ...item, locating: false, context: { ...item.context, ...found } })))
         .catch(() => patchGrab(id, item => ({ ...item, locating: false })))
     })
-  }, [previewKey, activeTabId, applySession, patchGrab, setGrabs, updateTab, workspace.id, workspace.rootPath])
+  }, [previewKey, activeTabId, applySession, patchGrab, setAgentAutomation, setGrabs, updateTab, workspace.id, workspace.rootPath])
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
@@ -249,6 +369,8 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   }, [designMode, designKeep, guestReady, previewKey, activeTabId])
 
   useEffect(() => {
+    // Wait until session('open') has hydrated this owner so remounts/chat switches never send stale false defaults.
+    if (hydratedKey !== previewKey) return
     // Main answers what applies (T43): if it says off, the toggle shows off, and turning it on asks the person again.
     // Deduplicate per tab so typing in the address bar or loading/navigation events do not burst identical setAccess IPCs.
     const activeIds = new Set<string>()
@@ -258,11 +380,15 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       const signature = `${previewKey}\0${tab.id}\0${agentAutomation}\0${allowExternal}\0${autoVerify}`
       if (lastAccessByTab.current.get(tab.id) === signature) continue
       lastAccessByTab.current.set(tab.id, signature)
-      void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal,autoVerify})
+      void Promise.resolve(window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:tab.id,agentAccess:agentAutomation,allowExternal,autoVerify}))
         .then(result => {
           if (agentAutomation && result?.agentAccess === false) {
-            lastAccessByTab.current.delete(tab.id)
-            setAgentAutomation(false)
+            if (activeOwnerRef.current === previewKey) {
+              lastAccessByTab.current.delete(tab.id)
+              setAgentAutomation(false)
+            } else {
+              writeKeptSettings(previewKey, { agentAutomation: false })
+            }
           }
         })
         .catch(() => {
@@ -272,7 +398,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     for (const id of [...lastAccessByTab.current.keys()]) {
       if (!activeIds.has(id)) lastAccessByTab.current.delete(id)
     }
-  }, [tabs, previewKey, agentAutomation, allowExternal, autoVerify])
+  }, [tabs, previewKey, hydratedKey, agentAutomation, allowExternal, autoVerify, setAgentAutomation])
 
   const toggleDesignMode = useCallback((): void => {
     if (!url || !guestReady) {
@@ -341,7 +467,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     setCaptureNotice(null)
     updateTab(tabId, tab => ({ ...tab, draftUrl: pending }))
     void window.oxe.browserPreview.session({ownerKey:previewKey,action:'navigate',tabId,url:nextUrl,allowExternal:allowExternal || external}).then(session => { applySession(session); setPendingWebPreview(previewKey, null) }).catch(error => setCaptureNotice(humanizeError(error, tc('preview.error.open')))).finally(() => { loadingPending.current = null })
-  }, [previewKey, setPendingWebPreview, allowExternal, applySession, updateTab])
+  }, [previewKey, setPendingWebPreview, allowExternal, applySession, setAllowExternal, updateTab])
   useEffect(() => {
     if (!pendingWebPreview || !activeTabId || loadingPending.current === pendingWebPreview) return
     // Taken in a microtask, so the effect itself sets no state (OXE-306); a newer request or an unmount drops it.
@@ -350,8 +476,14 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     return () => { current = false }
   }, [pendingWebPreview, activeTabId, loadPending])
   const approvalOwner = useMemo(() => threadId ? { threadId, paneIds: [] } : { paneIds: (workspace.panes ?? []).map(pane => pane.id) }, [threadId, workspace.panes])
-  const zoomOut = (): void => setZoom((value) => Math.max(50, value - 10))
-  const zoomIn = (): void => setZoom((value) => Math.min(150, value + 10))
+  const applyZoom = (next: number): void => {
+    updateZoom(next)
+    if (!url && activeTabId) {
+      void Promise.resolve(window.oxe?.browserPreview?.setZoom?.({ ownerKey: previewKey, tabId: activeTabId, zoom: next })).catch(() => {})
+    }
+  }
+  const zoomOut = (): void => applyZoom(Math.max(50, zoom - 10))
+  const zoomIn = (): void => applyZoom(Math.min(150, zoom + 10))
   const openExternal = (): void => { if (url) void openExternalLink(url, { source: 'preview' }) }
   const activeDevice = PREVIEW_DEVICES.find(item => item.id === (deviceChoice.deviceId ?? 'desktop')) ?? PREVIEW_DEVICES[0]
   const deviceFrame = activeDevice.id !== 'desktop' ? fitDeviceFrame(activeDevice, deviceChoice.rotated, { width: 420, height: 560 }) : null
@@ -518,25 +650,43 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       {consentOpen && <ConfirmDialog title={t('preview.access.title')} confirmLabel={t('preview.access.allow')} onCancel={() => setConsentOpen(false)}
         onConfirm={() => {
           // The one grant main accepts (T43): the effect's re-sends below can keep or lower access, never raise it.
-          void window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:activeTabId,agentAccess:true,allowExternal,grant:true}).catch(() => {})
+          void Promise.resolve(window.oxe.browserPreview.setAccess({ownerKey:previewKey,tabId:activeTabId,agentAccess:true,allowExternal,grant:true,...(autoVerifyChoice !== null ? { autoVerify: autoVerifyChoice } : {})})).catch(() => {})
           setAgentAutomation(true); setConsentOpen(false)
         }}
         description={t('preview.access.body')} />}
       <div className="web-preview-agent-access">
         <label className="web-preview-external-toggle" title={t('preview.access.toggleTitle')}>
           <input type="checkbox" aria-label={t('preview.access.toggleLabel')} checked={agentAutomation} onChange={event => {
-            if (!event.currentTarget.checked) { setAgentAutomation(false); return }
+            if (!event.currentTarget.checked) {
+              setAgentAutomation(false)
+              if (!tabs.some(tab => Boolean(tab.url)) && activeTabId) {
+                void Promise.resolve(window.oxe?.browserPreview?.setAccess?.({ownerKey:previewKey,tabId:activeTabId,agentAccess:false,allowExternal,...(autoVerifyChoice !== null ? { autoVerify: autoVerifyChoice } : {})})).catch(() => {})
+              }
+              return
+            }
             setConsentOpen(true)
           }} />{t('preview.access.toggle')}
         </label>
         <span>{agentAutomation ? t('preview.access.on') : t('preview.access.off')}</span>
         {agentAutomation && threadId ? (
           <label className="web-preview-external-toggle" title={t('preview.verify.toggleTitle')}>
-            <input type="checkbox" data-testid="preview-auto-verify" checked={autoVerify} onChange={event => setAutoVerifyChoice(event.currentTarget.checked)} />{t('preview.verify.toggle')}
+            <input type="checkbox" data-testid="preview-auto-verify" checked={autoVerify} onChange={event => {
+              const next = event.currentTarget.checked
+              setAutoVerifyChoice(next)
+              if (!tabs.some(tab => Boolean(tab.url)) && activeTabId) {
+                void Promise.resolve(window.oxe?.browserPreview?.setAccess?.({ownerKey:previewKey,tabId:activeTabId,agentAccess:agentAutomation,allowExternal,autoVerify:next})).catch(() => {})
+              }
+            }} />{t('preview.verify.toggle')}
           </label>
         ) : null}
         <label className="web-preview-external-toggle" title={t('preview.externalTitle')}>
-          <input type="checkbox" checked={allowExternal} onChange={(event) => setAllowExternal(event.currentTarget.checked)} />
+          <input type="checkbox" checked={allowExternal} onChange={(event) => {
+            const next = event.currentTarget.checked
+            setAllowExternal(next)
+            if (!tabs.some(tab => Boolean(tab.url)) && activeTabId) {
+              void Promise.resolve(window.oxe?.browserPreview?.setAccess?.({ownerKey:previewKey,tabId:activeTabId,agentAccess:agentAutomation,allowExternal:next,...(autoVerifyChoice !== null ? { autoVerify: autoVerifyChoice } : {})})).catch(() => {})
+            }
+          }} />
           {t('preview.external')}
         </label>
       </div>
@@ -565,7 +715,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
                 <span>{deviceFrame ? t('deviceEmulation.activeLabel', { name: activeDevice.name, width: deviceChoice.rotated ? activeDevice.height : activeDevice.width, height: deviceChoice.rotated ? activeDevice.width : activeDevice.height }) : t('deviceEmulation.desktop')}</span>
                 <code>{url}</code>
               </div>
-              <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentAutomation}} active={tab.id === activeTabId} zoom={zoom} />
+              <NativePreviewHost key={tab.id} mount={{ownerKey:previewKey,workspaceId:workspace.id,threadId,tabId:tab.id,url:tab.url,allowExternal,agentAccess:agentAutomation}} active={tab.id === activeTabId} zoom={zoom} device={deviceChoice} />
             </div>
           </div>)}
         {(!url || externalPageBlocked || pageError) && (

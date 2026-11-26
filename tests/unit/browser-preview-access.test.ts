@@ -20,7 +20,8 @@ vi.mock('electron', () => {
     webContents = {
       on: () => undefined, once: () => undefined, isDestroyed: () => false, getURL: () => 'http://localhost:5173/', getTitle: () => 'App',
       isLoading: () => false, canGoBack: () => false, canGoForward: () => false, loadURL: async () => undefined, close: () => undefined,
-      setZoomFactor: () => undefined, id: Math.floor(Math.random() * 1e6)
+      setZoomFactor: () => undefined, getUserAgent: () => 'Mozilla/5.0', enableDeviceEmulation: () => undefined, disableDeviceEmulation: () => undefined, setUserAgent: () => undefined,
+      id: Math.floor(Math.random() * 1e6)
     }
     setBackgroundColor(): void {}
     setVisible(): void {}
@@ -114,5 +115,91 @@ describe('T43 · agent access to the preview: main decides, the window asks or r
     service.setAccess(window, { ownerKey: OWNER, tabId: second, agentAccess: true, allowExternal: false, grant: true })
     expect(await automation.run(OWNER, { action: 'tabs' } as never, () => undefined)).toMatchObject({ tabs: [{ id: first }, { id: second }] })
     expect(service.activeFor(OWNER)?.tabId).toBe(second)
+  })
+})
+
+describe('OXE-442 · per-owner preview access and settings survive tab close and chat switches', () => {
+  beforeEach(() => { sent.length = 0 })
+
+  it('preserves agentAccess, allowExternal, autoVerify, zoom, and device across close/reopen while isolating other chats', async () => {
+    const service = new BrowserPreviewService()
+    const threadA = 'thread:chat-a'
+    const threadB = 'thread:chat-b'
+    const stateA = service.session(window, { ownerKey: threadA, action: 'open' })
+    const tabA = stateA.activeTabId
+    await service.mount(window, { ownerKey: threadA, workspaceId: OWNER, threadId: 'chat-a', tabId: tabA, url: 'https://example.com/', allowExternal: true, agentAccess: false })
+    service.bounds(window, { ownerKey: threadA, tabId: tabA, x: 0, y: 0, width: 400, height: 300, visible: true })
+    expect(service.setAccess(window, { ownerKey: threadA, tabId: tabA, agentAccess: true, allowExternal: true, autoVerify: false, grant: true })).toEqual({ agentAccess: true })
+    service.setZoom(window, { ownerKey: threadA, tabId: tabA, zoom: 120 })
+    await service.setDevice(window, { ownerKey: threadA, tabId: tabA, deviceId: 'pixel-8', rotated: true })
+
+    // Switching away unmounts NativePreviewHost and closes the live WebContentsView, keeping session state.
+    service.close(window, { ownerKey: threadA, tabId: tabA })
+    expect(service.activeFor(OWNER, { kind: 'thread', id: 'chat-a' })).toBeNull()
+
+    // Another chat starts clean and never inherits Thread A's grants or display settings.
+    const openedB = service.session(window, { ownerKey: threadB, action: 'open' })
+    expect(openedB.agentAccess).toBe(false)
+    expect(openedB.allowExternal).toBe(false)
+    expect(openedB.autoVerify).toBeUndefined()
+    expect(openedB.zoom).toBeUndefined()
+    expect(openedB.deviceId).toBeUndefined()
+
+    // Returning to Thread A returns all persisted settings from main.
+    const reopenedA = service.session(window, { ownerKey: threadA, action: 'open' })
+    expect(reopenedA.agentAccess).toBe(true)
+    expect(reopenedA.allowExternal).toBe(true)
+    expect(reopenedA.autoVerify).toBe(false)
+    expect(reopenedA.zoom).toBe(120)
+    expect(reopenedA.deviceId).toBe('pixel-8')
+    expect(reopenedA.rotated).toBe(true)
+
+    // Remounting Thread A with its hydrated settings keeps access and respects saved autoVerify=false.
+    await service.mount(window, { ownerKey: threadA, workspaceId: OWNER, threadId: 'chat-a', tabId: tabA, url: URL, allowExternal: true, agentAccess: true })
+    service.bounds(window, { ownerKey: threadA, tabId: tabA, x: 0, y: 0, width: 400, height: 300, visible: true })
+    expect(service.hasAgentAccess(window, threadA)).toBe(true)
+    expect(service.activeFor(OWNER, { kind: 'thread', id: 'chat-a' })).toMatchObject({ tabId: tabA, external: true })
+    expect(service.autoVerifyNote('chat-a')).toBeNull()
+
+    // Turning autoVerify back on updates both tab and ownerSettings.
+    expect(service.setAccess(window, { ownerKey: threadA, tabId: tabA, agentAccess: true, allowExternal: true, autoVerify: true })).toEqual({ agentAccess: true })
+    expect(service.autoVerifyNote('chat-a')).toContain('http://localhost:5173/')
+    expect(service.session(window, { ownerKey: threadA, action: 'open' }).autoVerify).toBe(true)
+  })
+
+  it('T43: revoking agent access while away makes session(open) report agentAccess=false while keeping non-grant settings', async () => {
+    const service = new BrowserPreviewService()
+    const threadA = 'thread:chat-revoke'
+    const tabA = service.session(window, { ownerKey: threadA, action: 'open' }).activeTabId
+    await service.mount(window, { ownerKey: threadA, workspaceId: OWNER, threadId: 'chat-revoke', tabId: tabA, url: 'https://example.com/', allowExternal: true, agentAccess: false })
+    service.setAccess(window, { ownerKey: threadA, tabId: tabA, agentAccess: true, allowExternal: true, grant: true })
+    service.close(window, { ownerKey: threadA, tabId: tabA })
+
+    expect(service.revokeAgentAccess({ ownerKey: threadA })).toBe(1)
+
+    const reopened = service.session(window, { ownerKey: threadA, action: 'open' })
+    expect(reopened.agentAccess).toBe(false)
+    expect(reopened.allowExternal).toBe(true)
+    expect(service.setAccess(window, { ownerKey: threadA, tabId: tabA, agentAccess: true, allowExternal: true })).toEqual({ agentAccess: false })
+    expect(service.hasAgentAccess(window, threadA)).toBe(false)
+  })
+
+  it('persists allowExternal, autoVerify, zoom, and device even before any URL mounts, while still refusing ungranted agentAccess (T43)', async () => {
+    const service = new BrowserPreviewService()
+    const threadPre = 'thread:chat-pre'
+    const tabId = service.session(window, { ownerKey: threadPre, action: 'open' }).activeTabId
+
+    // No tab mounted yet: settings save, but agentAccess cannot be raised without grant:true.
+    expect(service.setAccess(window, { ownerKey: threadPre, tabId, agentAccess: true, allowExternal: true, autoVerify: false })).toEqual({ agentAccess: false })
+    service.setZoom(window, { ownerKey: threadPre, tabId, zoom: 130 })
+    await service.setDevice(window, { ownerKey: threadPre, tabId, deviceId: 'iphone-15', rotated: false })
+
+    const reopened = service.session(window, { ownerKey: threadPre, action: 'open' })
+    expect(reopened.agentAccess).toBe(false)
+    expect(reopened.allowExternal).toBe(true)
+    expect(reopened.autoVerify).toBe(false)
+    expect(reopened.zoom).toBe(130)
+    expect(reopened.deviceId).toBe('iphone-15')
+    expect(reopened.rotated).toBe(false)
   })
 })

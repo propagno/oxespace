@@ -38,6 +38,14 @@ interface BrowserTab {
   emulationLease?: DebuggerLease
 }
 
+interface BrowserOwnerSettings {
+  allowExternal: boolean
+  autoVerify?: boolean
+  zoom?: number
+  deviceId?: string | null
+  rotated?: boolean
+}
+
 function checkedUrl(raw: string, allowExternal: boolean): string {
   const url = new URL(raw)
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Preview accepts HTTP(S) URLs without embedded credentials')
@@ -53,8 +61,19 @@ export class BrowserPreviewService {
   private watchedSessions = new WeakSet<Session>()
   /** The agent access main lets each owner have (T43); a tab follows its owner. */
   private agentGrants = new Map<string, {granted: boolean; ownerKey: string; workspaceId?: string}>()
+  /** Per-owner preview preferences preserved across tab close / chat switches while the window stays open (OXE-442). */
+  private ownerSettings = new Map<string, BrowserOwnerSettings>()
   private key(window: BrowserWindow, ownerKey: string, tabId: string): string { return `${window.id}:${ownerKey}:${tabId}` }
   private ownerKey(window: BrowserWindow, ownerKey: string): string { return `${window.id}:${ownerKey}` }
+  private settingsFor(window: BrowserWindow, ownerKey: string): BrowserOwnerSettings {
+    const key = this.ownerKey(window, ownerKey)
+    let settings = this.ownerSettings.get(key)
+    if (!settings) {
+      settings = { allowExternal: false }
+      this.ownerSettings.set(key, settings)
+    }
+    return settings
+  }
   private find(window: BrowserWindow, ownerKey: string, tabId: string): BrowserTab {
     const tab = this.tabs.get(this.key(window, ownerKey, tabId))
     if (!tab || tab.view.webContents.isDestroyed()) throw new Error('Browser tab is no longer open')
@@ -108,7 +127,7 @@ export class BrowserPreviewService {
       const id = randomUUID()
       state = {ownerKey:input.ownerKey,sessionId:this.sessionId(input.ownerKey),activeTabId:id,tabs:[{id,url:null,title:'New tab',loading:false,error:null,canGoBack:false,canGoForward:false}]}
       this.tabSessions.set(key,state)
-      window.once('closed',() => { this.tabSessions.delete(key); this.agentGrants.delete(key); previewGrants.endSession(this.sessionId(input.ownerKey)) })
+      window.once('closed',() => { this.tabSessions.delete(key); this.agentGrants.delete(key); this.ownerSettings.delete(key); previewGrants.endSession(this.sessionId(input.ownerKey)) })
     }
     if (input.action === 'new') {
       const id = randomUUID()
@@ -118,6 +137,7 @@ export class BrowserPreviewService {
       const meta = state.tabs.find(tab => tab.id === input.tabId && tab.id === state.activeTabId)
       if (!meta || typeof input.url !== 'string') throw new Error('Browser tab changed; select it before navigating')
       const nextUrl = checkedUrl(input.url,input.allowExternal === true)
+      if (typeof input.allowExternal === 'boolean') this.settingsFor(window, input.ownerKey).allowExternal = input.allowExternal
       // A failed guest can have queued failure events even after close. Give
       // the replacement a new tab ID so those events cannot affect its state.
       if (meta.error) {
@@ -149,12 +169,21 @@ export class BrowserPreviewService {
     return snapshot
   }
   private snapshot(window: BrowserWindow, state: BrowserPreviewSessionState): BrowserPreviewSessionState {
-    return {...state,tabs:state.tabs.map(meta => {
-      const tab = this.tabs.get(this.key(window,state.ownerKey,meta.id))
-      if (!tab || tab.view.webContents.isDestroyed()) return {...meta}
-      const guest = tab.view.webContents
-      return {...meta,url:meta.url ?? guest.getURL(),title:guest.getTitle().slice(0,100) || meta.title,loading:guest.isLoading(),canGoBack:guest.canGoBack(),canGoForward:guest.canGoForward()}
-    })}
+    const settings = this.ownerSettings.get(this.ownerKey(window, state.ownerKey))
+    return {
+      ...state,
+      agentAccess: this.hasAgentAccess(window, state.ownerKey),
+      allowExternal: settings?.allowExternal ?? false,
+      ...(settings?.autoVerify !== undefined ? { autoVerify: settings.autoVerify } : {}),
+      ...(settings?.zoom !== undefined ? { zoom: settings.zoom } : {}),
+      ...(settings?.deviceId !== undefined ? { deviceId: settings.deviceId, rotated: settings.rotated === true } : {}),
+      tabs: state.tabs.map(meta => {
+        const tab = this.tabs.get(this.key(window,state.ownerKey,meta.id))
+        if (!tab || tab.view.webContents.isDestroyed()) return {...meta}
+        const guest = tab.view.webContents
+        return {...meta,url:meta.url ?? guest.getURL(),title:guest.getTitle().slice(0,100) || meta.title,loading:guest.isLoading(),canGoBack:guest.canGoBack(),canGoForward:guest.canGoForward()}
+      })
+    }
   }
   private emit(tab: BrowserTab, event: Omit<BrowserPreviewEvent,'ownerKey'|'tabId'>): void {
     if (!tab.window.isDestroyed()) tab.window.webContents.send(IPC_CHANNELS.browserPreview.onEvent, {ownerKey:tab.ownerKey,tabId:tab.tabId,...event})
@@ -172,12 +201,15 @@ export class BrowserPreviewService {
     const meta = state?.tabs.find(tab => tab.id === input.tabId)
     if (!meta) throw new Error('Browser tab is no longer open')
     meta.url = url
+    const settings = this.settingsFor(window, input.ownerKey)
+    settings.allowExternal = input.allowExternal === true
     let tab = this.tabs.get(key)
     if (!tab) {
       const view = new WebContentsView({webPreferences:{session:previewSessionFor(input.ownerKey),preload:join(app.getAppPath(),'out','preload','design-guest.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,defaultEncoding:'UTF-8',...guestProbeWebPreferences()}})
       this.watchSessionNetwork(view.webContents.session)
       view.setBackgroundColor('#07080e')
-      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:true,visible:false,lease:randomUUID()}
+      if (settings.zoom !== undefined && typeof view.webContents.setZoomFactor === 'function') view.webContents.setZoomFactor(settings.zoom / 100)
+      tab = {window,view,ownerKey:input.ownerKey,workspaceId:input.workspaceId,threadId:input.threadId,tabId:input.tabId,allowExternal:input.allowExternal === true,agentAccess:false,autoVerify:settings.autoVerify ?? true,visible:false,lease:randomUUID()}
       this.tabs.set(key,tab)
       window.contentView.addChildView(view)
       view.setVisible(false)
@@ -267,6 +299,7 @@ export class BrowserPreviewService {
       view.webContents.once('destroyed', () => { current.emulationLease?.release(); current.emulationLease = undefined; if (this.tabs.get(key) === current) this.tabs.delete(key) })
     }
     tab.allowExternal = input.allowExternal === true
+    tab.autoVerify = settings.autoVerify ?? tab.autoVerify
     this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,false,input.workspaceId)
     const lease = randomUUID()
     tab.lease = lease
@@ -316,9 +349,19 @@ export class BrowserPreviewService {
    */
   setAccess(window: BrowserWindow, input: {ownerKey:string;tabId:string;agentAccess:boolean;allowExternal:boolean;grant?:boolean;autoVerify?:boolean}): {agentAccess:boolean} {
     if (!input || typeof input.ownerKey !== 'string' || typeof input.tabId !== 'string') throw new Error('Invalid browser access')
+    const ownerSession = this.tabSessions.get(this.ownerKey(window, input.ownerKey))
     const tab = this.tabs.get(this.key(window,input.ownerKey,input.tabId))
-    if (!tab && input.grant !== true) this.find(window,input.ownerKey,input.tabId)
-    if (tab) tab.allowExternal = input.allowExternal === true
+    if (!tab && input.grant !== true && !ownerSession) this.find(window,input.ownerKey,input.tabId)
+    const settings = this.settingsFor(window, input.ownerKey)
+    settings.allowExternal = input.allowExternal === true
+    if (typeof input.autoVerify === 'boolean') settings.autoVerify = input.autoVerify
+    for (const candidate of this.tabs.values()) {
+      if (candidate.window === window && candidate.ownerKey === input.ownerKey) {
+        candidate.allowExternal = settings.allowExternal
+        if (typeof input.autoVerify === 'boolean') candidate.autoVerify = input.autoVerify
+      }
+    }
+    if (tab) tab.allowExternal = settings.allowExternal
     if (tab && typeof input.autoVerify === 'boolean') tab.autoVerify = input.autoVerify
     return {agentAccess:this.applyAgentAccess(window,input.ownerKey,input.agentAccess === true,input.grant === true,tab?.workspaceId)}
   }
@@ -381,7 +424,13 @@ export class BrowserPreviewService {
     }
     const preset = PREVIEW_DEVICES.find(item => item.id === (input.deviceId ?? 'desktop'))
     if (!preset) throw new Error('Unknown preview device')
-    const tab = this.find(window, input.ownerKey, input.tabId)
+    const ownerSession = this.tabSessions.get(this.ownerKey(window, input.ownerKey))
+    const tab = this.tabs.get(this.key(window, input.ownerKey, input.tabId))
+    if (!tab && !ownerSession) this.find(window, input.ownerKey, input.tabId)
+    const settings = this.settingsFor(window, input.ownerKey)
+    settings.deviceId = input.deviceId
+    settings.rotated = input.deviceId === null ? false : input.rotated
+    if (!tab || tab.view.webContents.isDestroyed()) return
     const guest = tab.view.webContents
     tab.defaultUserAgent ??= guest.getUserAgent()
     const emulation = emulationFor(preset, input.rotated)
@@ -409,7 +458,11 @@ export class BrowserPreviewService {
   }
   setZoom(window: BrowserWindow, input: {ownerKey:string;tabId:string;zoom:number}): void {
     if (!Number.isFinite(input.zoom) || input.zoom < 50 || input.zoom > 150) throw new Error('Invalid browser zoom')
-    this.find(window,input.ownerKey,input.tabId).view.webContents.setZoomFactor(input.zoom / 100)
+    const ownerSession = this.tabSessions.get(this.ownerKey(window, input.ownerKey))
+    const tab = this.tabs.get(this.key(window, input.ownerKey, input.tabId))
+    if (!tab && !ownerSession) this.find(window, input.ownerKey, input.tabId)
+    this.settingsFor(window, input.ownerKey).zoom = input.zoom
+    if (tab && !tab.view.webContents.isDestroyed()) tab.view.webContents.setZoomFactor(input.zoom / 100)
   }
   async reload(window: BrowserWindow, input: {ownerKey:string;tabId:string}): Promise<void> {
     this.find(window,input.ownerKey,input.tabId).view.webContents.reload()
