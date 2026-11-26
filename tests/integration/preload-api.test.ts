@@ -263,6 +263,12 @@ describe('preload api', () => {
       } else {
         expect(api.app.windowsBuildNumber).toBeUndefined()
       }
+
+      process.argv = [...origArgv.filter((arg) => !arg.startsWith('--oxe-win-build=')), '--oxe-win-build=invalid']
+      expect(createOxeApi(createFakeIpc()).app.windowsBuildNumber).toBeUndefined()
+
+      process.argv = origArgv.filter((arg) => !arg.startsWith('--oxe-win-build='))
+      expect(createOxeApi(createFakeIpc()).app.windowsBuildNumber).toBeUndefined()
     } finally {
       process.argv = origArgv
     }

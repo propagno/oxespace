@@ -31,21 +31,6 @@ export function parseWindowsBuildNumber(releaseString: string | undefined): numb
 }
 
 /**
- * Reads the Windows build number in the sandboxed preload: prefers the
- * `--oxe-win-build=<n>` argument forwarded by main, falling back to Electron's
- * `process.getSystemVersion()` when present.
- */
-export function readWindowsBuildFromArgv(
-  argv: readonly string[],
-  platform: NodeJS.Platform,
-  systemVersion?: string
-): number | undefined {
-  if (platform !== 'win32') return undefined
-  const rawArg = argv.find((arg) => arg.startsWith(WINDOWS_BUILD_ARG))?.slice(WINDOWS_BUILD_ARG.length)
-  return parseWindowsBuildNumber(rawArg) ?? parseWindowsBuildNumber(systemVersion)
-}
-
-/**
  * Builds the `@xterm/xterm` `windowsPty` option on Windows ConPTY hosts.
  * Passing this aligns xterm's `Buffer.resize()` scrollback behavior with ConPTY
  * instead of assuming a POSIX PTY.

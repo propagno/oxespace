@@ -3,7 +3,6 @@ import { trimStringToSafeVtTail } from '../../shared/vt-trim'
 import {
   DEFAULT_WINDOWS_CONPTY_BUILD,
   parseWindowsBuildNumber,
-  readWindowsBuildFromArgv,
   resolveWindowsPty
 } from '../../shared/windows-pty'
 import { createTerminalWriteScheduler } from '../../src/components/Terminal/terminalWriteScheduler'
@@ -18,13 +17,6 @@ describe('OXE-436 · Windows ConPTY build detection & windowsPty resolution', ()
     expect(parseWindowsBuildNumber('')).toBeUndefined()
     expect(parseWindowsBuildNumber('10.0.abc')).toBeUndefined()
     expect(parseWindowsBuildNumber('0')).toBeUndefined()
-  })
-
-  test('reads build number from preload argv on win32 with systemVersion fallback', () => {
-    expect(readWindowsBuildFromArgv(['electron', '--oxe-win-build=26200'], 'win32')).toBe(26200)
-    expect(readWindowsBuildFromArgv(['electron'], 'win32', '10.0.26100')).toBe(26100)
-    expect(readWindowsBuildFromArgv(['electron', '--oxe-win-build=26200'], 'linux')).toBeUndefined()
-    expect(readWindowsBuildFromArgv(['electron', '--oxe-win-build=26200'], 'darwin')).toBeUndefined()
   })
 
   test('resolves xterm windowsPty only on win32 with 22621 fallback', () => {
