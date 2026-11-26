@@ -17,26 +17,16 @@ const ROOT = process.cwd()
 const WORKFLOWS_DIR = join(ROOT, '.github', 'workflows')
 const ACTIONS_DIR = join(ROOT, '.github', 'actions')
 
-// OXE-434 PR 1: transitional allowlist covering the 16 tracked workflows on main.
-// PR 3 tightens this to the 8 final canonical workflows:
-//   ci.yml, release.yml, android.yml, nightly.yml, visual.yml, manual-ops.yml, merge-train.yml, jira-sync.yml
+// OXE-434 (Decision A4): exact 8 canonical workflows allowed in .github/workflows/.
 const ALLOWED_WORKFLOWS = new Set([
-  'acceptance-nightly.yml',
-  'acceptance.yml',
-  'android-emulator.yml',
-  'android-release.yml',
   'android.yml',
   'ci.yml',
-  'hml-packaged-pass.yml',
-  'install-over.yml',
   'jira-sync.yml',
+  'manual-ops.yml',
   'merge-train.yml',
-  'packaged-smoke-nightly.yml',
-  'perf-gate.yml',
-  'perf-load.yml',
-  'provider-contract.yml',
-  'visual-baselines.yml',
-  'visual-regression.yml'
+  'nightly.yml',
+  'release.yml',
+  'visual.yml'
 ])
 
 const EXPECTED_ACTIONS = [
@@ -205,7 +195,7 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
     expect(violations, `Workflow hygiene violation(s):\n${violations.join('\n')}`).toEqual([])
   })
 
-  it('guards against v1.6.0/v1.6.1 CI regressions (brand conformance, acceptance-release wiring, flake retry, CODEOWNERS)', () => {
+  it('guards against v1.6.0/v1.6.1 CI regressions and enforces release/security invariants (SRE-04, SECURITY #231)', () => {
     const ci = loadWorkflow('ci.yml')
     const brandSteps = Object.entries(ci.jobs ?? {}).flatMap(([jobId, job]) =>
       (job.steps ?? [])
@@ -217,8 +207,35 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
       expect(step['continue-on-error'], `${jobId} › ${step.name} must not mask failures with continue-on-error`).not.toBe(true)
     }
 
-    expect(normalizeNeeds(ci.jobs?.package?.needs)).toContain('acceptance-release')
-    expect(normalizeNeeds(ci.jobs?.['ci-result']?.needs)).toContain('acceptance-release')
+    // ci.yml is purely read-only CI (required check "CI result", no release publishing or tag trigger).
+    expect((ci.jobs?.['ci-result'] as { name?: string })?.name).toBe('CI result')
+    expect(ci.jobs?.release, 'release publishing must live in release.yml, not ci.yml').toBeUndefined()
+    expect((ci.on?.push as { tags?: string[] } | undefined)?.tags, 'tag triggers belong exclusively to release.yml').toBeUndefined()
+
+    // release.yml preserves SRE-04, SECURITY #231 (unsigned build has zero secrets), and acceptance-release gating.
+    const releaseRaw = readFileSync(join(WORKFLOWS_DIR, 'release.yml'), 'utf8')
+    const release = loadWorkflow('release.yml')
+    expect(release.jobs?.verify?.uses).toBe('./.github/workflows/ci.yml')
+    expect(normalizeNeeds(release.jobs?.['package-desktop']?.needs)).toEqual(expect.arrayContaining(['verify', 'acceptance-release']))
+    expect((release.jobs?.['publish-desktop'] as { environment?: { name?: string }; 'runs-on'?: string })?.environment?.name).toBe('release')
+    expect((release.jobs?.['publish-desktop'] as { 'runs-on'?: string })?.['runs-on']).toBe('ubuntu-24.04')
+    expect((release.jobs?.['sign-android'] as { environment?: string })?.environment).toBe('android-release')
+    expect((release.jobs?.['android-build'] as { permissions?: Record<string, string> })?.permissions).toEqual({ contents: 'read' })
+    const androidBuildSection = releaseRaw.slice(releaseRaw.indexOf('\n  android-build:'), releaseRaw.indexOf('\n  package-desktop:'))
+    expect(androidBuildSection, 'android-build must never reference secrets (SECURITY #231)').not.toContain('secrets.')
+
+    // nightly.yml calls ci.yml natively via workflow_call (no idle watcher runner).
+    const nightly = loadWorkflow('nightly.yml')
+    expect(nightly.jobs?.['packaged-smoke']?.uses).toBe('./.github/workflows/ci.yml')
+
+    // visual.yml keeps compare read-only on PRs (Linux + Windows automatic per Decision A5).
+    const visual = loadWorkflow('visual.yml')
+    expect((visual.jobs?.compare as { permissions?: Record<string, string> })?.permissions).toEqual({ contents: 'read' })
+
+    // manual-ops.yml stays within GitHub's 10-input workflow_dispatch limit.
+    const manualOps = loadWorkflow('manual-ops.yml')
+    const manualInputs = (manualOps.on?.workflow_dispatch as { inputs?: Record<string, unknown> } | undefined)?.inputs ?? {}
+    expect(Object.keys(manualInputs).length).toBeLessThanOrEqual(10)
 
     const codeowners = readFileSync(join(ROOT, '.github', 'CODEOWNERS'), 'utf8')
     expect(codeowners).toContain('/.github/workflows/')

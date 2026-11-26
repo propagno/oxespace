@@ -1,4 +1,4 @@
-// Release gate table (OXE-105, .github/workflows/perf-gate.yml). Reads one OS's results folder:
+// Release gate table (OXE-105, .github/workflows/manual-ops.yml operation=perf-gate). Reads one OS's results folder:
 //   heads.json                      [{ side: 'A', ref: 'v1.5.0', sha }, …], the sides in table order; B is the
 //                                   baseline (the previous release), C the candidate
 //   <side>-entry.json               the renderer entry chunk of that side's build ({ file, bytes, gzipBytes })

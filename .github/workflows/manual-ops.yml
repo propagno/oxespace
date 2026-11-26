@@ -1,0 +1,833 @@
+name: Manual ops
+run-name: >-
+  ${{ github.event_name == 'pull_request' && format('Release E2E PR #{0}', github.event.pull_request.number)
+  || format('Manual ops · {0} · {1}', inputs.operation || 'ops', inputs.product_ref || github.ref_name) }}
+
+# On-demand release & QA operations (OXE-434):
+#   - acceptance        : single e2e/acceptance spec from spec_ref overlaid onto product_ref (no npm cache, read-only)
+#   - hml-packaged-pass : unpacked packaged pass (e2e/release/hml-packaged-pass.spec.ts) on Windows/Linux
+#   - install-over      : G4/G8/B13 upgrade over last stable + shipped-exe smoke + rollback + uninstall
+#   - perf-gate         : OXE-105 / OXE-163 interleaved 3-way A/B/C performance gate on same runner
+#
+# Also validates e2e/release/** specs on PRs that modify them.
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operation to execute
+        required: true
+        default: acceptance
+        type: choice
+        options: [acceptance, hml-packaged-pass, install-over, perf-gate]
+      product_ref:
+        description: App/candidate branch or tag (acceptance, hml-packaged-pass, perf-gate)
+        required: false
+        default: main
+        type: string
+      spec_ref:
+        description: Branch or tag holding the spec (acceptance, hml-packaged-pass)
+        required: false
+        default: main
+        type: string
+      os:
+        description: Runner OS (acceptance uses windows-2022/ubuntu-24.04; hml & install-over support both)
+        required: false
+        default: both
+        type: choice
+        options: [both, windows-2022, ubuntu-24.04, ubuntu-22.04]
+      spec:
+        description: Single acceptance spec file, e.g. e2e/acceptance/S2-sessions-survive.spec.ts (acceptance)
+        required: false
+        default: ""
+        type: string
+      grep:
+        description: Optional Playwright test title filter -g (acceptance)
+        required: false
+        default: ""
+        type: string
+      from_tag:
+        description: Base release tag for install-over (latest-stable resolves newest published stable)
+        required: false
+        default: latest-stable
+        type: string
+      candidate_version:
+        description: Version stamped on candidate installer (install-over)
+        required: false
+        default: "99.0.0-ci.0"
+        type: string
+      rounds:
+        description: Interleaved full-suite rounds per ref, 3-15 (perf-gate)
+        required: false
+        default: "7"
+        type: string
+      boot_rounds:
+        description: Boot probe rounds per ref, 5-15; worst per side dropped (perf-gate)
+        required: false
+        default: "9"
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - "e2e/release/**"
+
+concurrency:
+  group: >-
+    manual-ops-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number)
+    || format('{0}-{1}', inputs.operation || 'ops', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1) acceptance (S0.4 — single spec from spec_ref overlaid onto product_ref)
+  # ---------------------------------------------------------------------------
+  acceptance:
+    name: Acceptance · ${{ inputs.spec || 'spec' }} on ${{ inputs.product_ref || 'main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'acceptance' }}
+    runs-on: ${{ inputs.os == 'ubuntu-24.04' && 'ubuntu-24.04' || inputs.os == 'ubuntu-22.04' && 'ubuntu-22.04' || 'windows-2022' }}
+    timeout-minutes: 45
+    env:
+      PRODUCT_REF: ${{ inputs.product_ref || 'main' }}
+      SPEC_REF: ${{ inputs.spec_ref || 'main' }}
+      SPEC: ${{ inputs.spec }}
+      GREP: ${{ inputs.grep }}
+    steps:
+      - name: Check inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref='^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$'
+          for name in PRODUCT_REF SPEC_REF; do
+            value="${!name}"
+            if [[ ! "$value" =~ $ref || "$value" == *..* || "$value" == */ || "$value" == *.lock || "$value" == refs/* ]]; then
+              echo "::error::$name must be a branch or tag name of this repository"; exit 1
+            fi
+            if [[ "$value" =~ ^[0-9a-fA-F]{40}([0-9a-fA-F]{24})?$ ]]; then
+              echo "::error::$name looks like a commit SHA; use a branch or tag name"; exit 1
+            fi
+          done
+          spec='^e2e/acceptance/[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.spec\.ts$'
+          if [[ ! "$SPEC" =~ $spec || "$SPEC" == *..* ]]; then
+            echo "::error::spec must be a file directly under e2e/acceptance/ ending in .spec.ts"; exit 1
+          fi
+          grep_ok='^[A-Za-z0-9 ._()\\:-]{1,80}$'
+          if [[ -n "$GREP" && ( ! "$GREP" =~ $grep_ok || "$GREP" == -* ) ]]; then
+            echo "::error::grep may use letters, digits, spaces and . _ ( ) \\ : - (80 at most), and may not start with -"; exit 1
+          fi
+
+      - name: Resolve both refs to pinned commits in this repository
+        id: refs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sha='^[0-9a-f]{40}$'
+          for name in PRODUCT_REF SPEC_REF; do
+            value="${!name}"
+            commit=''
+            if commit=$(gh api "repos/$REPO/git/ref/heads/$value" -q '.object.sha' 2>/dev/null); then echo "$name: branch $value"
+            elif tagged=$(gh api "repos/$REPO/git/ref/tags/$value" -q '.object.type + " " + .object.sha' 2>/dev/null); then
+              echo "$name: tag $value"
+              commit="${tagged#* }"
+              if [[ "${tagged%% *}" == tag ]]; then commit=$(gh api "repos/$REPO/git/tags/$commit" -q '.object.sha'); fi
+            else
+              echo "::error::$name is not a branch or tag of $REPO"; exit 1
+            fi
+            [[ "$commit" =~ $sha ]] || { echo "::error::$name did not resolve to a commit"; exit 1; }
+            echo "$(tr 'A-Z' 'a-z' <<< "$name")=$commit" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Check out the app under test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.refs.outputs.product_ref }}
+          persist-credentials: false
+
+      - name: Check out the spec (only copied, never installed)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.refs.outputs.spec_ref }}
+          path: .acceptance-spec-src
+          persist-credentials: false
+          sparse-checkout: |
+            e2e/acceptance
+            playwright.acceptance.config.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Overlay ONLY e2e/acceptance/** and playwright.acceptance.config.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=.acceptance-spec-src
+          test -f "$src/$SPEC" || { echo "::error::$SPEC is not in spec_ref"; exit 1; }
+          test -f "$src/playwright.acceptance.config.ts" || { echo "::error::spec_ref has no playwright.acceptance.config.ts"; exit 1; }
+          links=$(find "$src/e2e/acceptance" "$src/playwright.acceptance.config.ts" -type l)
+          [ -z "$links" ] || { echo "::error::spec_ref holds symlinks"; exit 1; }
+          rm -rf e2e/acceptance && mkdir -p e2e/acceptance
+          cp -R "$src/e2e/acceptance/." e2e/acceptance/
+          cp "$src/playwright.acceptance.config.ts" playwright.acceptance.config.ts
+          rm -rf "$src"
+
+      - name: Setup OXESpace (no npm cache)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          npm-cache: "false"
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          verify-native: "false"
+          scrub-live-env: "true"
+
+      - name: Build app
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: ${{ runner.os == 'Windows' && 'windows-x64' || 'linux-x64' }}
+          rebuild-native-node: "false"
+          check-bundle-imports: "false"
+
+      - name: Run acceptance spec
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(-c playwright.acceptance.config.ts "$SPEC" --trace retain-on-failure)
+          if [[ -n "$GREP" ]]; then args+=("--grep=$GREP"); fi
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            bash scripts/run-with-xvfb.sh npx playwright test "${args[@]}"
+          else
+            npx playwright test "${args[@]}"
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-${{ github.run_id }}-${{ runner.os }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
+
+  # ---------------------------------------------------------------------------
+  # 2) hml-packaged-pass (SPEC A70 — unpacked packaged UI pass)
+  # ---------------------------------------------------------------------------
+  hml-plan:
+    name: Plan HML packaged pass
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'hml-packaged-pass')
+      || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          OS: ${{ inputs.os || 'both' }}
+          PRODUCT_REF: ${{ inputs.product_ref }}
+          SPEC_REF: ${{ inputs.spec_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+            if ! grep -qx 'e2e/release/hml-packaged-pass.spec.ts' <<< "$files"; then
+              echo "run=false" >> "$GITHUB_OUTPUT"
+              echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          ref='^[A-Za-z0-9._/-]{1,200}$'
+          for v in "$PRODUCT_REF" "$SPEC_REF"; do
+            [[ -z "$v" ]] && continue
+            if [[ ! "$v" =~ $ref || "$v" == *..* || "$v" == -* ]]; then echo "::error::bad ref $v"; exit 1; fi
+          done
+          linux='{"os":"ubuntu-22.04","label":"linux","platform_label":"linux-x64","flag":"--linux"}'
+          windows='{"os":"windows-2022","label":"windows","platform_label":"windows-x64","flag":"--win"}'
+          case "$OS" in
+            ubuntu-22.04|ubuntu-24.04) m="[$linux]" ;;
+            windows-2022) m="[$windows]" ;;
+            *) m="[$linux,$windows]" ;;
+          esac
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"include\":$m}" >> "$GITHUB_OUTPUT"
+
+  hml-packaged-pass:
+    name: HML packaged pass (${{ matrix.label }})
+    needs: [hml-plan]
+    if: needs.hml-plan.outputs.run == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.hml-plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.ref || inputs.product_ref || 'main' }}
+          persist-credentials: false
+
+      - name: Check out HML spec from spec_ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.ref || inputs.spec_ref || 'main' }}
+          path: .hml-spec-src
+          persist-credentials: false
+          sparse-checkout: |
+            e2e/release/hml-packaged-pass.spec.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Overlay the spec
+        run: |
+          set -euo pipefail
+          src=.hml-spec-src/e2e/release/hml-packaged-pass.spec.ts
+          test -f "$src" && test ! -L "$src" || { echo "::error::no spec in spec_ref"; exit 1; }
+          mkdir -p e2e/release && cp "$src" e2e/release/ && rm -rf .hml-spec-src
+
+      - name: Setup OXESpace (no npm cache)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          npm-cache: "false"
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          verify-native: "false"
+          scrub-live-env: "true"
+
+      - name: Build app
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: ${{ matrix.platform_label }}
+          rebuild-native-node: "false"
+          check-bundle-imports: "false"
+
+      - name: Package unpacked and prepare inspect copy
+        id: pkg
+        uses: ./.github/actions/package-electron
+        with:
+          platform-flag: ${{ matrix.flag }}
+          dir-only: "true"
+          check-asar-sourcemaps: "false"
+          prepare-inspect-copy: "true"
+          inspect-copy-name: oxespace-pass
+
+      - name: Run the HML pass
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+          else
+            npx playwright test --config playwright.tools.config.ts e2e/release/hml-packaged-pass.spec.ts
+          fi
+
+      - name: Upload the pass
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hml-pass-${{ matrix.label }}-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: test-results/
+
+  # ---------------------------------------------------------------------------
+  # 3) install-over (G4/G8/B13 — upgrade, shipped-exe smoke, rollback, uninstall)
+  # ---------------------------------------------------------------------------
+  install-over-plan:
+    name: Plan install-over
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'install-over')
+      || (github.event_name == 'pull_request' && !github.event.pull_request.draft) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_win: ${{ steps.plan.outputs.run_win }}
+      run_linux: ${{ steps.plan.outputs.run_linux }}
+      from_tag: ${{ steps.plan.outputs.from_tag }}
+    steps:
+      - id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+          OS: ${{ inputs.os || 'both' }}
+          RAW_FROM_TAG: ${{ inputs.from_tag || 'latest-stable' }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            files=$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+            if ! grep -Eq '^e2e/release/upgrade-over-' <<< "$files"; then
+              echo "run_win=false" >> "$GITHUB_OUTPUT"
+              echo "run_linux=false" >> "$GITHUB_OUTPUT"
+              echo "from_tag=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          from_tag="$RAW_FROM_TAG"
+          if [ "$from_tag" = "latest-stable" ] || [ -z "$from_tag" ]; then
+            from_tag=$(gh release list --repo "$GH_REPO" --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName')
+          fi
+          [[ "$from_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::invalid from_tag: $from_tag"; exit 1; }
+          run_win=true; run_linux=true
+          case "$OS" in
+            windows-2022) run_linux=false ;;
+            ubuntu-22.04|ubuntu-24.04) run_win=false ;;
+          esac
+          {
+            echo "run_win=$run_win"
+            echo "run_linux=$run_linux"
+            echo "from_tag=$from_tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "install-over base=$from_tag win=$run_win linux=$run_linux"
+
+  install-over-win:
+    name: Install over ${{ needs.install-over-plan.outputs.from_tag }} (windows-x64)
+    needs: [install-over-plan]
+    if: needs.install-over-plan.outputs.run_win == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      FROM_TAG: ${{ needs.install-over-plan.outputs.from_tag }}
+      CANDIDATE_VERSION: ${{ inputs.candidate_version || '99.0.0-ci.0' }}
+      OXESPACE_UPGRADE_STATE: ${{ github.workspace }}\upgrade-state
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup OXESpace (Electron)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          electron: "true"
+
+      - name: Install ${{ env.FROM_TAG }} silently
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/ci/install-over-win.ps1 -Phase install-from
+
+      - name: "Seed: the old release creates a workspace"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: seed
+
+      - name: Build candidate installer (${{ env.CANDIDATE_VERSION }})
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase build-candidate
+
+      - name: Install candidate over ${{ env.FROM_TAG }} silently
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase install-candidate
+
+      - name: "B13: enable inspect fuse on installed candidate"
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase enable-inspect
+
+      - name: Verify the upgrade
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-upgrade
+          OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      - name: Verify shipped exe runs without Playwright
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase verify-shipped-exe
+
+      - name: "Rollback: reinstall ${{ env.FROM_TAG }}"
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase rollback-reinstall
+
+      - name: "Rollback: previous release refuses upgraded database"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-refuse
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
+
+      - name: "Rollback: restore pre-upgrade backup"
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase rollback-restore
+
+      - name: "Rollback: previous release opens restored data"
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-rollback
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
+
+      - name: Uninstall silently
+        shell: pwsh
+        run: ./scripts/ci/install-over-win.ps1 -Phase uninstall
+
+      - name: Verify the uninstall
+        run: npx playwright test -c playwright.tools.config.ts e2e/release/upgrade-over-1.3.3.spec.ts
+        env:
+          OXESPACE_UPGRADE_STEP: verify-uninstall
+
+      - name: Keep state and reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-over-windows-x64
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            upgrade-state/
+            test-results/
+            playwright-report/
+
+  install-over-linux:
+    name: Install over ${{ needs.install-over-plan.outputs.from_tag }} (linux-x64, ${{ matrix.kind }})
+    needs: [install-over-plan]
+    if: needs.install-over-plan.outputs.run_linux == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [deb, appimage]
+    env:
+      FROM_TAG: ${{ needs.install-over-plan.outputs.from_tag }}
+      CANDIDATE_VERSION: ${{ inputs.candidate_version || '99.0.0-ci.0' }}
+      OXESPACE_UPGRADE_STATE: ${{ github.workspace }}/upgrade-state
+      OXESPACE_INSTALL_KIND: ${{ matrix.kind }}
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+      SPEC: e2e/release/upgrade-over-1.3.3.spec.ts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup OXESpace (Linux deps + x11-utils + Electron)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          extra-apt-packages: x11-utils
+          electron: "true"
+
+      - name: Download ${{ env.FROM_TAG }} (${{ matrix.kind }})
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/install-over-linux.sh download-from
+
+      - name: Install ${{ env.FROM_TAG }}
+        run: bash scripts/ci/install-over-linux.sh install-from
+
+      - name: "Seed: the old release creates a workspace"
+        run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
+        env:
+          OXESPACE_UPGRADE_STEP: seed
+
+      - name: Build candidate packages (${{ env.CANDIDATE_VERSION }})
+        run: bash scripts/ci/install-over-linux.sh build-candidate
+
+      - name: Install candidate over ${{ env.FROM_TAG }}
+        run: bash scripts/ci/install-over-linux.sh install-candidate
+
+      - name: "B13: enable inspect fuse on installed candidate"
+        run: bash scripts/ci/install-over-linux.sh enable-inspect
+
+      - name: Verify the upgrade
+        run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
+        env:
+          OXESPACE_UPGRADE_STEP: verify-upgrade
+          OXESPACE_EXPECT_VERSION: ${{ env.CANDIDATE_VERSION }}
+
+      - name: Verify shipped binary runs without Playwright
+        run: bash scripts/ci/install-over-linux.sh verify-shipped-bin
+
+      - name: "Rollback: back to ${{ env.FROM_TAG }}"
+        run: bash scripts/ci/install-over-linux.sh rollback-reinstall
+
+      - name: "Rollback: previous release refuses upgraded database"
+        run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
+        env:
+          OXESPACE_UPGRADE_STEP: verify-refuse
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
+
+      - name: "Rollback: restore pre-upgrade backup"
+        run: bash scripts/ci/install-over-linux.sh rollback-restore
+
+      - name: "Rollback: previous release opens restored data"
+        run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
+        env:
+          OXESPACE_UPGRADE_STEP: verify-rollback
+          OXESPACE_EXPECT_VERSION: ${{ env.FROM_VERSION }}
+
+      - name: Uninstall (deb)
+        if: matrix.kind == 'deb'
+        run: sudo apt-get remove -y oxespace
+
+      - name: Verify the uninstall (deb)
+        if: matrix.kind == 'deb'
+        run: xvfb-run -a npx playwright test -c playwright.tools.config.ts "$SPEC"
+        env:
+          OXESPACE_UPGRADE_STEP: verify-uninstall
+
+      - name: Keep state and reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: install-over-linux-x64-${{ matrix.kind }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            upgrade-state/
+            test-results/
+            playwright-report/
+
+  # ---------------------------------------------------------------------------
+  # 4) perf-gate (OXE-105 / OXE-163 — interleaved 3-way A/B/C performance gate)
+  # ---------------------------------------------------------------------------
+  perf-gate-plan:
+    name: Resolve previous two stable releases
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'perf-gate' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ref_a: ${{ steps.refs.outputs.ref_a }}
+      ref_b: ${{ steps.refs.outputs.ref_b }}
+    steps:
+      - name: Resolve baseline tags A and B
+        id: refs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE: ${{ inputs.product_ref || 'main' }}
+        run: |
+          set -euo pipefail
+          mapfile -t tags < <(gh release list --repo "$GH_REPO" --exclude-drafts --exclude-pre-releases --limit 10 --json tagName --jq '.[] | .tagName' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$CANDIDATE")
+          if [ "${#tags[@]}" -lt 2 ]; then
+            echo "::error::need at least 2 published stable releases before $CANDIDATE, found ${#tags[@]}"
+            exit 1
+          fi
+          echo "ref_b=${tags[0]}" >> "$GITHUB_OUTPUT"
+          echo "ref_a=${tags[1]}" >> "$GITHUB_OUTPUT"
+          echo "A=${tags[1]} B=${tags[0]} C=$CANDIDATE"
+
+  perf-gate:
+    name: Performance gate (${{ matrix.label }})
+    needs: [perf-gate-plan]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'perf-gate' && needs.perf-gate-plan.result == 'success' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: windows-x64, os: windows-2022, flag: --win }
+          - { label: linux-x64, os: ubuntu-22.04, flag: --linux }
+    env:
+      REF_A: ${{ needs.perf-gate-plan.outputs.ref_a }}
+      REF_B: ${{ needs.perf-gate-plan.outputs.ref_b }}
+      REF_C: ${{ inputs.product_ref || 'main' }}
+      ROUNDS: ${{ inputs.rounds || '7' }}
+      BOOT_ROUNDS: ${{ inputs.boot_rounds || '9' }}
+      GATE_LAUNCHES: "4"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Inputs
+        run: |
+          set -euo pipefail
+          if ! [[ "$ROUNDS" =~ ^[0-9]+$ ]] || (( ROUNDS < 3 || ROUNDS > 15 )); then echo "::error::rounds must be 3-15, got $ROUNDS"; exit 1; fi
+          if ! [[ "$BOOT_ROUNDS" =~ ^[0-9]+$ ]] || (( BOOT_ROUNDS < 5 || BOOT_ROUNDS > 15 )); then echo "::error::boot_rounds must be 5-15, got $BOOT_ROUNDS"; exit 1; fi
+          if ! [[ "$REF_C" =~ ^[A-Za-z0-9._/-]{1,100}$ ]] || [[ "$REF_C" == *..* || "$REF_C" == -* ]]; then echo "::error::bad candidate ref"; exit 1; fi
+
+      - name: Harness (this commit)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: harness
+          persist-credentials: false
+      - name: A = ${{ env.REF_A }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_A }}
+          path: A
+          persist-credentials: false
+      - name: B = ${{ env.REF_B }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_B }}
+          path: B
+          persist-credentials: false
+      - name: C = candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF_C }}
+          path: C
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            A/package-lock.json
+            B/package-lock.json
+            C/package-lock.json
+
+      - name: Cache the Electron download
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
+          key: electron-gate-${{ runner.os }}-${{ hashFiles('A/package-lock.json', 'B/package-lock.json', 'C/package-lock.json') }}
+
+      - name: Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          alsa=libasound2
+          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4
+
+      - name: No live OXESpace env reaches the run
+        run: |
+          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_|AI_MEMORY_)'; then echo "::error::OXESPACE_/AI_MEMORY_ variables are set on the runner"; exit 1; fi
+
+      - name: Build, package and overlay the harness on each ref
+        run: |
+          set -euo pipefail
+          mkdir -p results/rounds
+          : > sides.env
+          heads='['
+          for side in A B C; do
+            ref_var="REF_$side"; ref="${!ref_var}"
+            echo "::group::$side = $ref"
+            cd "$GITHUB_WORKSPACE/$side"
+            npm ci --ignore-scripts
+            npm rebuild electron
+            npm run rebuild:native:node
+            npm run build 2>&1 | tee "$GITHUB_WORKSPACE/results/$side-build.log"
+            npm run fix:native
+            npm run verify:native
+            node "$GITHUB_WORKSPACE/harness/perf-gate/entry-size.mjs" . > "$GITHUB_WORKSPACE/results/$side-entry.json"
+            cat "$GITHUB_WORKSPACE/results/$side-entry.json"
+            npx electron-builder ${{ matrix.flag }} --dir --config.npmRebuild=false --publish never
+            src="$(ls -d dist/*-unpacked | head -1)"
+            dest="$RUNNER_TEMP/oxespace-gate-$side"
+            rm -rf "$dest"; cp -a "$src" "$dest"
+            if [[ "$RUNNER_OS" == Windows ]]; then exe="$(ls "$dest"/OXESpace*.exe | head -1)"; else exe="$(find "$dest" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"; fi
+            test -n "$exe" || { echo "::error::$side: no packaged executable"; exit 1; }
+            npx --no-install @electron/fuses write --app "$exe" EnableNodeCliInspectArguments=on
+            node scripts/check-fuses.mjs --app "$exe" --test-copy-of "$src/$(basename "$exe")"
+            rm -rf dist
+            printf "EXE_%s='%s'\n" "$side" "$exe" >> "$GITHUB_WORKSPACE/sides.env"
+            for f in perf-benchmark.spec.ts perceived-perf.spec.ts memory-footprint.spec.ts perf-resume.spec.ts helpers/input-timer.ts helpers/memory-budget.ts helpers/perf-launch.ts helpers/modes.ts helpers/panels.ts helpers/thread-fixtures.ts; do
+              mkdir -p "e2e/$(dirname "$f")"; cp "$GITHUB_WORKSPACE/harness/e2e/$f" "e2e/$f"
+            done
+            cp "$GITHUB_WORKSPACE/harness/perf-gate/boot-probe.spec.ts" e2e/perf-gate-boot.spec.ts
+            git status --short | tee "$GITHUB_WORKSPACE/results/$side-overlay.txt"
+            heads+="$( [ "$side" = A ] || echo ,){\"side\":\"$side\",\"ref\":\"$ref\",\"sha\":\"$(git rev-parse HEAD)\"}"
+            cd "$GITHUB_WORKSPACE"
+            echo "::endgroup::"
+          done
+          echo "$heads]" > results/heads.json
+          cat results/heads.json sides.env
+
+      - name: Sample alternating (C B A / B C A), ${{ env.BOOT_ROUNDS }} boot rounds and ${{ env.ROUNDS }} suite rounds per ref
+        env:
+          OXESPACE_PERF_LAUNCHES: "1"
+          OXESPACE_PERF_SHOTS: "0"
+          OXESPACE_PERF_CONFIRM: "0"
+        run: |
+          set +e -uo pipefail
+          source sides.env
+          skip='boot \+ workspace create|workspace transition:|repository: Files|boot: window interactive|memory: main process|idle memory cost|windows baselines'
+          run() {
+            if [[ "$RUNNER_OS" == Linux ]]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts "$@" --reporter=line
+            else npx playwright test --config playwright.tools.config.ts "$@" --reporter=line; fi
+          }
+          sample() {
+            local side=$1 round=$2 exe_var="EXE_$1" start boot_log bench_log
+            start=$(date +%s)
+            boot_log="$GITHUB_WORKSPACE/results/rounds/$side-r$round-boot.log"
+            bench_log="$GITHUB_WORKSPACE/results/rounds/$side-r$round-bench.log"
+            ( cd "$side" && export OXESPACE_PACKAGED_EXECUTABLE="${!exe_var}" GATE_SIDE="$side" GATE_ROUND="$round"
+              if (( round <= BOOT_ROUNDS )); then run perf-gate-boot.spec.ts > "$boot_log" 2>&1; fi
+              if (( round <= ROUNDS )); then run perf-benchmark.spec.ts memory-footprint.spec.ts perceived-perf.spec.ts perf-resume.spec.ts --grep-invert "$skip" > "$bench_log" 2>&1; fi )
+            echo "round $round $side: $(grep -acs '\[GATE-BOOT\].*warmup=0' "$boot_log") boots, $(grep -acs '\[RESULT\]' "$bench_log") results, $(( $(date +%s) - start )) s" | tee -a results/samples.txt
+          }
+          total=$(( ROUNDS > BOOT_ROUNDS ? ROUNDS : BOOT_ROUNDS ))
+          for r in $(seq 1 "$total"); do
+            order="$(node harness/perf-gate/stats.mjs order "$r" C B A)" || { echo "::error::launch order for round $r"; exit 1; }
+            echo "round $r order: $order" | tee -a results/order.txt
+            for side in $order; do sample "$side" "$r"; done
+          done
+          exit 0
+
+      - name: Table
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          node harness/perf-gate/summarize.mjs results "${{ matrix.label }}" --json results/perf-gate.json | tee results/perf-gate.md
+          cat results/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-gate-${{ matrix.label }}
+          retention-days: 90
+          path: results/
+
+  perf-gate-table:
+    name: Performance gate summary table
+    needs: [perf-gate-plan, perf-gate]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.operation == 'perf-gate' && needs.perf-gate.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: perf-gate-*-x64
+          path: perf-results
+      - name: One table for both OS
+        shell: bash
+        env:
+          REF_A: ${{ needs.perf-gate-plan.outputs.ref_a }}
+          REF_B: ${{ needs.perf-gate-plan.outputs.ref_b }}
+          REF_C: ${{ inputs.product_ref || 'main' }}
+          ROUNDS: ${{ inputs.rounds || '7' }}
+          BOOT_ROUNDS: ${{ inputs.boot_rounds || '9' }}
+        run: |
+          set -euo pipefail
+          mkdir -p perf-gate-table
+          {
+            echo "## Performance gate (OXE-105, OXE-163): ${REF_A} × ${REF_B} × ${REF_C}, same runner"
+            echo
+            echo "Method: alternating order (candidate first on odd rounds, baseline first on even) + worst boot round dropped per side before the CI95 + N=${BOOT_ROUNDS} boot rounds (${ROUNDS} for the other metrics). CI run: [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
+            echo
+            for os in windows-x64 linux-x64; do
+              if [ -f "perf-results/perf-gate-$os/perf-gate.md" ]; then cat "perf-results/perf-gate-$os/perf-gate.md"; else echo "### $os"; echo; echo "(no results)"; fi
+              echo
+            done
+          } > perf-gate-table/perf-gate.md
+          cat perf-gate-table/perf-gate.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-gate-table
+          retention-days: 90
+          path: perf-gate-table/

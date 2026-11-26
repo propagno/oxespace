@@ -119,7 +119,7 @@ describe('merge train step', () => {
     const action = step(
       input({
         behindBy: 3,
-        runs: [ciRun(), ciRun({ name: 'Android', path: '.github/workflows/android.yml' }), ciRun({ name: 'x', path: '.github/workflows/provider-contract.yml' })],
+        runs: [ciRun(), ciRun({ name: 'Android', path: '.github/workflows/android.yml' }), ciRun({ name: 'x', path: '.github/workflows/nightly.yml' })],
       }),
     )
     expect(action.type).toBe('update')
@@ -984,7 +984,7 @@ describe('merge-train workflow', () => {
     expect(wake.needs).toEqual(['ci-result'])
     expect(wake.permissions).toEqual({ actions: 'write' })
     // Green or red, only the train's own dispatches: the bot, and no override that changes the run's title.
-    for (const part of ['always()', "github.triggering_actor == 'github-actions[bot]'", '!inputs.publish_release', '!inputs.packaged_smoke_only'])
+    for (const part of ['always()', "github.triggering_actor == 'github-actions[bot]'", '!inputs.packaged_smoke_only'])
       expect(wake.if).toContain(part)
     expect(wake.steps.some((s) => s.run?.includes('gh workflow run merge-train.yml') && s.run.includes('wait_for_run='))).toBe(true)
 

@@ -101,6 +101,37 @@ describe('release script: approvals', () => {
     ]
     expect(approvals(pending, HEAD).map(item => item.run)).toEqual([1, 2])
   })
+
+  it('approves both release and android-release in one call when they wait on the same release.yml run (Option A)', () => {
+    const ghCalls: string[][] = []
+    const logs: string[] = []
+    const git = (args: string[]) => (args[0] === 'ls-remote' ? `${HEAD}\trefs/tags/v1.6.2\n` : '')
+    const gh = (args: string[]) => {
+      ghCalls.push(args)
+      if (args[1]?.includes('/actions/runs?head_sha=')) return JSON.stringify([{ id: 500, head_sha: HEAD, status: 'waiting' }])
+      if (args[1]?.endsWith('/pending_deployments')) {
+        return JSON.stringify([
+          { environment: { id: 20, name: 'android-release' }, current_user_can_approve: true },
+          { environment: { id: 10, name: 'release' }, current_user_can_approve: true },
+        ])
+      }
+      return ''
+    }
+    const io = {
+      run: true, git, gh, exec: () => '', log: (line: string) => logs.push(line),
+      tryGit: (args: string[]) => git(args).trim(),
+      write: (label: string, fn: () => unknown) => { logs.push(`→ ${label}`); return fn() },
+      repo: () => 'propagno/oxespace',
+    }
+    expect(main(['approve', '1.6.2', '--run'], io, {})).toBe(0)
+    const post = ghCalls.find(args => args.includes('POST'))
+    expect(post).toEqual([
+      'api', '-X', 'POST', 'repos/propagno/oxespace/actions/runs/500/pending_deployments',
+      '-F', 'environment_ids[]=10', '-F', 'environment_ids[]=20',
+      '-f', 'state=approved', '-f', 'comment=v1.6.2: npm run release -- approve',
+    ])
+    expect(logs.some(line => line.includes('release + android-release on run 500'))).toBe(true)
+  })
 })
 
 describe('release script: the APK', () => {

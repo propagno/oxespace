@@ -1,5 +1,5 @@
 /**
- * Boot probe of the release gate (OXE-105, .github/workflows/perf-gate.yml). Copied into each measured ref's e2e/ as
+ * Boot probe of the release gate (OXE-105, .github/workflows/manual-ops.yml operation=perf-gate). Copied into each measured ref's e2e/ as
  * e2e/perf-gate-boot.spec.ts; never run from here. Launches the app GATE_LAUNCHES times (default 4), the first one a
  * discarded warm-up, and prints one `[GATE-BOOT]` line per launch with the app's own marks:
  *  - interactive: main's `oxe:interactive` measure, process start to the first painted screen;

@@ -173,7 +173,7 @@ describe('changes that need no node_modules (TECH LEAD, 07/11)', () => {
     expect(visualPlatforms([win('a/x'), win('b/y'), lin('c/z')])).toEqual(['linux', 'windows'])
   })
 
-  it('proves images with visual-baselines.yml and packages with CI, with no local step', () => {
+  it('proves images with visual.yml (mode=baselines) and packages with CI, with no local step', () => {
     // Visual baselines are interface, so the brand gate (OXE-148) follows the visual-baselines evidence. An images-only
     // PR is not docs-only, so CI's e2e runs and its brand conformance job posts marca/conformidade on it too.
     expect(buildSteps({ files: [win('a/x')], related: plan() })).toEqual([{ name: expect.stringContaining('(windows)'), kind: 'visual', args: ['windows'] }, { name: expect.stringContaining('marca/conformidade'), kind: 'brand', args: ['marca/conformidade'] }])
@@ -183,7 +183,7 @@ describe('changes that need no node_modules (TECH LEAD, 07/11)', () => {
   it('needs a green visual-baselines run on this exact sha for every platform touched', () => {
     const run = (id: number, platform: string, over: Record<string, unknown> = {}) => ({ id, head_sha: SHA, status: 'completed', conclusion: 'success', display_title: `Visual baselines · ${platform} · test/x`, created_at: '2026-11-07T10:00:00Z', ...over })
     expect(visualEvidence([run(1, 'linux'), run(2, 'windows')], ['linux', 'windows'], SHA)).toEqual({ ok: true, missing: [], runs: [1, 2] })
-    expect(visualEvidence([run(1, 'linux')], ['linux', 'windows'], SHA).missing).toEqual([expect.stringMatching(/^windows: no visual-baselines\.yml run on this head/)])
+    expect(visualEvidence([run(1, 'linux')], ['linux', 'windows'], SHA).missing).toEqual([expect.stringMatching(/^windows: no visual\.yml run on this head/)])
     expect(visualEvidence([run(1, 'windows', { head_sha: 'b'.repeat(40) })], ['windows'], SHA).ok).toBe(false)
     expect(visualEvidence([run(1, 'windows', { status: 'in_progress', conclusion: null })], ['windows'], SHA).missing).toEqual(['windows: run 1 still in_progress'])
     // The latest run of a platform decides: a later failure is not hidden by an earlier pass.

@@ -48,8 +48,8 @@ export const ENVIRONMENTS = ['release', 'android-release']
 export const MAIN_JOBS = [
   { file: 'ci.yml' },
   { file: 'android.yml' },
-  { file: 'visual-regression.yml' },
-  { file: 'android-emulator.yml', inputs: { 'api-level': '36' } },
+  { file: 'visual.yml', inputs: { mode: 'compare' } },
+  { file: 'android.yml', inputs: { run_emulator: 'true', api_level: '36' } },
 ]
 export const SNAPSHOT_IMAGE = /(^|\/)(__screenshots__|__snapshots__|snapshots)\/.+\.png$/
 
@@ -351,11 +351,22 @@ function approve(io, parsed) {
     io.log(`nothing waits on ${name} (${sha.slice(0, 8)}) in ${ENVIRONMENTS.join(' or ')}`)
     return 0
   }
-  const item = next[0]
-  if (!item.canApprove) throw new Error(`run ${item.run} waits on ${item.environment}, and this account may not approve it`)
-  io.write(`approve ${item.environment} on run ${item.run} (${name} ${sha.slice(0, 8)})`, () => io.gh(['api', '-X', 'POST', `repos/${repo}/actions/runs/${item.run}/pending_deployments`,
-    '-F', `environment_ids[]=${item.environmentId}`, '-f', 'state=approved', '-f', `comment=${name}: npm run release -- approve`]))
-  if (item.environment === 'release') io.log(`next: when the desktop is published, android-release starts; approve it the same way, then verify-apk ${parsed.version}`)
+  const byRun = new Map()
+  for (const item of next) {
+    if (!item.canApprove) throw new Error(`run ${item.run} waits on ${item.environment}, and this account may not approve it`)
+    const list = byRun.get(item.run) ?? []
+    list.push(item)
+    byRun.set(item.run, list)
+  }
+  const approved = new Set()
+  for (const [runId, items] of byRun) {
+    const names = items.map(item => item.environment)
+    const idArgs = items.flatMap(item => ['-F', `environment_ids[]=${item.environmentId}`])
+    io.write(`approve ${names.join(' + ')} on run ${runId} (${name} ${sha.slice(0, 8)})`, () => io.gh(['api', '-X', 'POST', `repos/${repo}/actions/runs/${runId}/pending_deployments`,
+      ...idArgs, '-f', 'state=approved', '-f', `comment=${name}: npm run release -- approve`]))
+    for (const envName of names) approved.add(envName)
+  }
+  if (approved.has('release') && !approved.has('android-release')) io.log(`next: when android-release waits, approve it the same way, then verify-apk ${parsed.version}`)
   else io.log(`next: npm run release -- verify-apk ${parsed.version}`)
   return 0
 }

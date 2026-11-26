@@ -1,0 +1,610 @@
+name: Release
+run-name: Publish ${{ github.ref_name }}${{ inputs.target == 'android-only' && ' (Android only)' || '' }}
+
+# Unified Desktop + Android Release pipeline (OXE-434, User Decision A3 Option A):
+#   1) plan — validates vX.Y.Z[-prerelease] tag, package.json version, and main ancestry for stable releases
+#   2) In parallel:
+#        - verify (workflow_call → ci.yml with strict_perf_gate=true)
+#        - acceptance-release (full e2e/acceptance suite on Linux)
+#        - android-build (unsigned release APK + minified emulator smoke, ZERO secrets per SECURITY #231)
+#   3) package-desktop (Windows + Linux installers, packaged E2E, SBOM, checksums) — gated on verify + acceptance
+#   4) Simultaneous approval gate (1 Review deployments modal, 2 isolated environments per SRE-04 & SECURITY #231):
+#        - publish-desktop (environment: release, ubuntu-24.04) → draft → re-download verify → publish → confirm live
+#        - sign-android (environment: android-release, ubuntu-24.04) → apksigner → attest → wait for live release → attach APK (no --clobber)
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Release target (must be dispatched from an existing v*.*.* tag)
+        required: false
+        default: full
+        type: choice
+        options: [full, android-only]
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BUILD_TOOLS: "36.0.0"
+
+jobs:
+  plan:
+    name: Plan release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.plan.outputs.sha }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      channel: ${{ steps.plan.outputs.channel }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+      is_stable: ${{ steps.plan.outputs.is_stable }}
+      manifest: ${{ steps.plan.outputs.manifest }}
+      manifest_linux: ${{ steps.plan.outputs.manifest_linux }}
+      run_desktop: ${{ steps.plan.outputs.run_desktop }}
+      run_android: ${{ steps.plan.outputs.run_android }}
+    steps:
+      - name: Require a v*.*.* tag ref
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$REF" != refs/tags/v* ]] || ! [[ "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release must run from a vX.Y.Z[-prerelease] tag (got $REF)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate tag, version, and main ancestry
+        id: plan
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          TARGET: ${{ inputs.target || 'full' }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          sha=$(git rev-parse HEAD)
+          tag_commit=$(git rev-list -n 1 "refs/tags/$TAG")
+          if [ "$sha" != "$tag_commit" ]; then
+            echo "::error::HEAD ($sha) does not match tag $TAG ($tag_commit)"
+            exit 1
+          fi
+          version=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+          channel=$(node -p "const m = /-([a-z]+)(?:[.-]|$)/i.exec(process.argv[1]); m ? m[1].toLowerCase() : 'latest'" "$version")
+          prerelease=false; is_stable=true
+          if [ "$channel" != "latest" ]; then prerelease=true; is_stable=false; fi
+
+          if [ "$is_stable" = "true" ]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            if ! git merge-base --is-ancestor "$sha" origin/main; then
+              echo "::error::$TAG is a stable release, and $sha is not on main. Merge the release PR into main first."
+              exit 1
+            fi
+          fi
+
+          run_desktop=true
+          run_android="$is_stable"
+          if [ "$TARGET" = "android-only" ]; then
+            if [ "$is_stable" != "true" ]; then
+              echo "::error::android-only target requires a stable vX.Y.Z tag (got $TAG)"
+              exit 1
+            fi
+            run_desktop=false
+            run_android=true
+          fi
+
+          {
+            echo "sha=$sha"
+            echo "version=$version"
+            echo "tag=$TAG"
+            echo "channel=$channel"
+            echo "prerelease=$prerelease"
+            echo "is_stable=$is_stable"
+            echo "manifest=$channel.yml"
+            echo "manifest_linux=$channel-linux.yml"
+            echo "run_desktop=$run_desktop"
+            echo "run_android=$run_android"
+          } >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG version=$version sha=$sha stable=$is_stable desktop=$run_desktop android=$run_android"
+
+  verify:
+    name: Verify Desktop (CI)
+    needs: [plan]
+    if: needs.plan.outputs.run_desktop == 'true'
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+      actions: write
+    uses: ./.github/workflows/ci.yml
+    with:
+      branch: ${{ needs.plan.outputs.sha }}
+      packaged_smoke_only: false
+      strict_perf_gate: true
+
+  acceptance-release:
+    name: Acceptance e2e (release gate)
+    needs: [plan]
+    if: needs.plan.outputs.run_desktop == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: both
+          verify-native: "false"
+          scrub-live-env: "true"
+
+      - name: Build app
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: linux-x64
+          rebuild-native-node: "false"
+          check-bundle-imports: "false"
+
+      - name: Run acceptance suite (Linux)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts --trace retain-on-failure
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-release-${{ github.run_id }}-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
+
+  # Runs in parallel with Desktop verification; ZERO secrets per SECURITY #231.
+  android-build:
+    name: Android build and minified smoke test
+    needs: [plan]
+    if: needs.plan.outputs.run_android == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mobile/android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.plan.outputs.tag }}
+          persist-credentials: false
+
+      - name: Setup Android toolchain and KVM
+        uses: ./.github/actions/setup-android
+        with:
+          packages: platform-tools platforms;android-37.0 build-tools;36.0.0
+          gradle-cache-read-only: "true"
+          enable-kvm: "true"
+
+      - name: Build the unsigned release APK
+        env:
+          ANDROID_VERSION_NAME: ${{ needs.plan.outputs.version }}
+        run: ./gradlew --no-daemon -Pandroid.onlyEnableUnitTestForTheTestedBuildType=false lint testReleaseUnitTest :protocol:test assembleRelease
+
+      - name: Build the minified app and its smoke test
+        env:
+          ANDROID_VERSION_NAME: ${{ needs.plan.outputs.version }}
+        run: ./gradlew --no-daemon -Poxespace.testBuildType=minified assembleMinified assembleMinifiedAndroidTest
+
+      - name: Smoke test the minified build
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          disk-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          working-directory: mobile/android
+          script: |
+            ./gradlew --no-daemon -Poxespace.testBuildType=minified connectedMinifiedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.oxespace.mobile.ReleaseSmokeTest
+            grep -Eq 'tests="[3-9]' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest did not run"; exit 1; }
+            grep -Eq 'skipped="0"' app/build/outputs/androidTest-results/connected/minified/*.xml || { echo "::error::ReleaseSmokeTest skipped tests"; exit 1; }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: unsigned-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  package-desktop:
+    name: Package (${{ matrix.label }})
+    needs: [plan, verify, acceptance-release]
+    if: needs.plan.outputs.run_desktop == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, label: windows-x64, builder_flag: "--win", platform_arg: win }
+          - { os: ubuntu-22.04, label: linux-x64, builder_flag: "--linux", platform_arg: linux }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+
+      - name: Restore verified same-OS build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: ${{ matrix.label }}
+
+      - name: Package installer and verify fuses (${{ matrix.label }})
+        id: pkg
+        uses: ./.github/actions/package-electron
+        with:
+          platform-flag: ${{ matrix.builder_flag }}
+          channel: ${{ needs.plan.outputs.channel }}
+          prepare-inspect-copy: "true"
+          verify-deb-sandbox: "true"
+
+      - name: E2E packaged Linux build
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts packaged-linux.spec.ts
+
+      - name: E2E packaged Windows build
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
+        run: npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
+
+      - name: Generate SBOM, checksums, and validate release artifacts
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORM_ARG: ${{ matrix.platform_arg }}
+          LABEL: ${{ matrix.label }}
+        run: |
+          set -euo pipefail
+          npm sbom --sbom-format spdx --omit dev > dist/sbom.spdx.json
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+          node scripts/verify-release-artifacts.mjs --dir dist --version "$RELEASE_VERSION" --tag "$RELEASE_TAG" --platform "$PLATFORM_ARG"
+          mv -f dist/SHA256SUMS.txt "dist/SHA256SUMS-${LABEL}.txt"
+          mv -f dist/sbom.spdx.json "dist/sbom-${LABEL}.spdx.json"
+
+      - name: Upload immutable release payload (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ needs.plan.outputs.version }}-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/OXESpace-${{ needs.plan.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.plan.outputs.version }}-x64.exe.blockmap
+            dist/*.yml
+            dist/sbom-${{ matrix.label }}.spdx.json
+            dist/SHA256SUMS-${{ matrix.label }}.txt
+
+      - name: Upload immutable release payload (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ needs.plan.outputs.version }}-${{ matrix.label }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            dist/OXESpace-${{ needs.plan.outputs.version }}-x64.AppImage
+            dist/*.deb
+            dist/*.yml
+            dist/sbom-${{ matrix.label }}.spdx.json
+            dist/SHA256SUMS-${{ matrix.label }}.txt
+
+  # Enters `waiting` simultaneously with sign-android (1 approval modal, 2 isolated environments).
+  publish-desktop:
+    name: Publish Desktop Release
+    needs: [plan, package-desktop, android-build]
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.run_desktop == 'true'
+      && needs.package-desktop.result == 'success'
+      && (needs.plan.outputs.run_android != 'true' || needs.android-build.result == 'success') }}
+    environment:
+      name: release
+      url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.plan.outputs.tag) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Download verified Windows release payload
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ needs.plan.outputs.version }}-windows-x64
+          path: dist
+
+      - name: Download verified Linux release payload
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ needs.plan.outputs.version }}-linux-x64
+          path: dist
+
+      - name: Generate combined checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f dist/SHA256SUMS-*.txt
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/OXESpace-${{ needs.plan.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.plan.outputs.version }}-x64.AppImage
+            dist/*.deb
+            dist/SHA256SUMS.txt
+
+      - name: Create or refresh draft GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          MANIFEST: ${{ needs.plan.outputs.manifest }}
+          MANIFEST_LINUX: ${{ needs.plan.outputs.manifest_linux }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          deb=$(ls dist/*.deb | head -1)
+          [ -n "$deb" ] || { echo "::error::No .deb produced by the Linux build"; exit 1; }
+          assets=(
+            "dist/OXESpace-${VERSION}-x64.exe"
+            "dist/OXESpace-${VERSION}-x64.exe.blockmap"
+            "dist/${MANIFEST}"
+            "dist/OXESpace-${VERSION}-x64.AppImage"
+            "$deb"
+            "dist/${MANIFEST_LINUX}"
+            "dist/sbom-windows-x64.spdx.json"
+            "dist/sbom-linux-x64.spdx.json"
+            "dist/SHA256SUMS.txt"
+          )
+          for path in "${assets[@]}"; do
+            [ -f "$path" ] || { echo "::error::Missing release asset after download: $path"; exit 1; }
+          done
+          notes="docs/releases/${VERSION}.md"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" --clobber "${assets[@]}"
+            gh release edit "$RELEASE_TAG" --draft=true
+            if [ -f "$notes" ]; then gh release edit "$RELEASE_TAG" --notes-file "$notes"; fi
+          else
+            args=(release create "$RELEASE_TAG" --draft --title "OXESpace $RELEASE_TAG" --target "$SHA")
+            if [ -f "$notes" ]; then args+=(--notes-file "$notes"); else args+=(--generate-notes); fi
+            if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
+            args+=("${assets[@]}")
+            gh "${args[@]}"
+          fi
+
+      - name: Download draft and verify the published payload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/release-download"
+          mkdir -p "$dir"
+          gh release download "$RELEASE_TAG" --dir "$dir" --clobber
+          for platform in win linux; do
+            node scripts/verify-release-artifacts.mjs --dir "$dir" --version "$VERSION" --tag "$RELEASE_TAG" --platform "$platform"
+          done
+
+      - name: Publish verified release and confirm live
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          MANIFEST: ${{ needs.plan.outputs.manifest }}
+          MANIFEST_LINUX: ${{ needs.plan.outputs.manifest_linux }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --draft=false
+          if [ "$PRERELEASE" = "true" ]; then gh release edit "$RELEASE_TAG" --prerelease; fi
+          json=$(gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,tagName,url,assets)
+          node - "$json" <<'EOF'
+          const rel = JSON.parse(process.argv[2])
+          const tag = process.env.RELEASE_TAG
+          const version = process.env.VERSION
+          const expectedPre = process.env.PRERELEASE === 'true'
+          if (rel.isDraft) throw new Error(`Release ${tag} is still draft after publish`)
+          if (Boolean(rel.isPrerelease) !== expectedPre) throw new Error(`Prerelease mismatch: ${rel.isPrerelease} vs ${expectedPre}`)
+          if (rel.tagName !== tag) throw new Error(`Tag mismatch: ${rel.tagName} vs ${tag}`)
+          const names = (rel.assets || []).map(a => a.name)
+          const required = [
+            `OXESpace-${version}-x64.exe`, `OXESpace-${version}-x64.exe.blockmap`, process.env.MANIFEST,
+            `OXESpace-${version}-x64.AppImage`, process.env.MANIFEST_LINUX,
+            'sbom-windows-x64.spdx.json', 'sbom-linux-x64.spdx.json', 'SHA256SUMS.txt'
+          ]
+          const missing = required.filter(name => !names.includes(name))
+          if (missing.length) throw new Error(`Missing assets: ${missing.join(', ')}`)
+          const debs = names.filter(name => name.endsWith('.deb'))
+          if (debs.length !== 1) throw new Error(`Expected 1 .deb, found ${debs.length}`)
+          console.log(`Release is live: ${rel.url}`)
+          console.log(`Assets: ${names.join(', ')}`)
+          EOF
+
+  # Isolated Android signing job (SECURITY #231): enters `waiting` simultaneously with publish-desktop.
+  sign-android:
+    name: Sign, attest and attach Android APK
+    needs: [plan, package-desktop, android-build]
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.run_android == 'true'
+      && needs.android-build.result == 'success'
+      && (needs.plan.outputs.run_desktop != 'true' || needs.package-desktop.result == 'success') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: android-release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check the signing secrets
+        shell: bash
+        env:
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+          HAS_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+          HAS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS != '' }}
+          HAS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}
+        run: |
+          missing=""
+          [ "$HAS_KEYSTORE" = "true" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ "$HAS_STORE_PASSWORD" = "true" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ "$HAS_ALIAS" = "true" ] || missing="$missing ANDROID_KEY_ALIAS"
+          [ "$HAS_KEY_PASSWORD" = "true" ] || missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Secrets missing in the android-release environment:$missing. See mobile/android/RELEASING.md."
+            exit 1
+          fi
+
+      - name: Android build-tools
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          cmdline-tools-version: "16111833" # cmdline-tools 23.0
+          log-accepted-android-sdk-licenses: false
+          packages: build-tools;36.0.0
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: unsigned-apk
+          path: ${{ runner.temp }}/unsigned
+
+      - name: Sign the APK
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          key="$RUNNER_TEMP/release.jks"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$key"
+          "$tools/zipalign" -P 16 -f 4 "$RUNNER_TEMP/unsigned/app-release-unsigned.apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$key" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+            --out "$RUNNER_TEMP/app-release.apk" "$RUNNER_TEMP/aligned.apk"
+
+      - name: Verify the signature and name the file
+        shell: bash
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/app-release.apk"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apksigner.txt"
+          grep -Eq "Verified using v(2|3) scheme \(APK Signature Scheme v(2|3)\): true" "$RUNNER_TEMP/apksigner.txt"
+          name="oxespace-android-${TAG}.apk"
+          cp "$apk" "$RUNNER_TEMP/$name"
+          (cd "$RUNNER_TEMP" && sha256sum "$name" > "$name.sha256")
+          {
+            echo "### Android APK"
+            echo '```'
+            cat "$RUNNER_TEMP/$name.sha256"
+            grep "certificate SHA-256 digest" "$RUNNER_TEMP/apksigner.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "APK_NAME=$name" >> "$GITHUB_ENV"
+
+      - name: Attest the APK's provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/${{ env.APK_NAME }}
+
+      # Both publish-desktop and sign-android start at the same instant after simultaneous approval; wait briefly
+      # for publish-desktop to publish the live release, then attach the APK without --clobber.
+      - name: Wait for live release and attach APK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ready=false
+          for _ in $(seq 1 36); do
+            if is_draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+              if [ "$is_draft" = "false" ]; then ready=true; break; fi
+            fi
+            sleep 5
+          done
+          if [ "$ready" != "true" ]; then
+            echo "::error::Release $TAG did not become published within 3 minutes; retry with target=android-only once live."
+            exit 1
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/$APK_NAME" "$RUNNER_TEMP/$APK_NAME.sha256" --repo "$GITHUB_REPOSITORY"

@@ -26,7 +26,7 @@ function api(collaboratorRole: () => Promise<string | null>) {
     async behindBy() { return 0 },
     async changesRequested() { return false },
     async listRuns() {
-      return [{ name: 'CI and Release', path: '.github/workflows/ci.yml', headSha: HEAD, status: 'completed', conclusion: 'success', createdAt: '2026-11-23T20:10:00Z' }]
+      return [{ name: 'CI', path: '.github/workflows/ci.yml', headSha: HEAD, status: 'completed', conclusion: 'success', createdAt: '2026-11-23T20:10:00Z' }]
     },
     async listChecks() { return green },
     async requiredChecks() { return [] },

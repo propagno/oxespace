@@ -1,0 +1,349 @@
+name: Visual
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'baselines'
+  && format('Visual baselines · {0} · {1}', inputs.platform || 'linux', inputs.branch || github.ref_name)
+  || format('Visual regression · {0}', inputs.branch || github.ref_name) }}
+
+# Unified visual testing workflow (OXE-434, Decision A5):
+# - pull_request (renderer/locale/visual paths): automatic Linux + Windows comparison, informative (never blocks PR,
+#   never opens issues, read-only token on project-code jobs).
+# - workflow_dispatch (mode=compare): Linux + Windows comparison; on failure opens/updates a per-platform issue from an
+#   isolated write job that runs zero project code.
+# - workflow_dispatch (mode=baselines): generates e2e/visual/__screenshots__/<platform>, verifies twice, uploads
+#   artifact, and optionally commits ONLY __screenshots__/<platform>/ to a test/visual-baselines-* branch from an
+#   isolated write job.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/**"
+      - "shared/locales/**"
+      - "e2e/visual/**"
+      - "playwright.visual.config.ts"
+      - ".github/workflows/visual.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: compare (visual regression diff) or baselines (generate & verify new goldens)
+        required: false
+        default: compare
+        type: choice
+        options: [compare, baselines]
+      branch:
+        description: Optional override — leave empty to use "Use workflow from"
+        required: false
+        type: string
+      platform:
+        description: Which baselines to generate (used when mode=baselines)
+        required: false
+        default: linux
+        type: choice
+        options: [linux, windows]
+      commit_to_branch:
+        description: Optional (mode=baselines). On a green run, commit images to test/visual-baselines-*
+        required: false
+        type: string
+
+concurrency:
+  group: >-
+    visual-${{ inputs.mode || 'compare' }}-${{ inputs.mode == 'baselines' && (inputs.platform || 'linux') || 'all' }}-${{ github.event.pull_request.number || inputs.branch || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (inputs.mode || 'compare') == 'compare' }}
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    name: Compare ${{ matrix.label }} surfaces
+    if: >-
+      ${{ (github.event_name == 'pull_request' && !github.event.pull_request.draft)
+      || (github.event_name == 'workflow_dispatch' && (inputs.mode || 'compare') == 'compare') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, label: linux, platform_label: linux-x64, run: "bash scripts/run-with-xvfb.sh" }
+          - { os: windows-2022, label: windows, platform_label: windows-x64, run: "" }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          persist-credentials: false
+
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+
+      - name: Build app
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: ${{ matrix.platform_label }}
+          rebuild-native-node: "false"
+          check-bundle-imports: "false"
+
+      # The first launch after a build is slower; a throwaway pass warms it up so it does not read as a difference.
+      - name: Warm-up (result ignored)
+        continue-on-error: true
+        run: ${{ matrix.run }} npx playwright test --config playwright.visual.config.ts anchor-surfaces -g "light desktop$"
+
+      - name: Compare with the baselines
+        id: compare
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: ${{ matrix.run }} npx playwright test --config playwright.visual.config.ts
+
+      - name: Side-by-side review
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' }}
+        run: node scripts/visual-review.mjs test-results test-results/visual-review.html
+
+      - name: Upload the review
+        id: upload
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-review-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: test-results/**
+
+      - name: Surfaces that changed
+        if: ${{ !cancelled() }}
+        env:
+          PLATFORM: ${{ matrix.label }}
+          OUTCOME: ${{ steps.compare.outcome }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          count=$(find test-results -name '*-actual.png' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$OUTCOME" = success ]; then echo "### $PLATFORM: every surface matches its baseline" >> "$GITHUB_STEP_SUMMARY"; exit 0; fi
+          {
+            echo "### $PLATFORM: $count surface(s) differ from the baselines"
+            echo "Side-by-side review (baseline, this change, difference): [visual-review-$PLATFORM]($ARTIFACT_URL), open \`visual-review.html\`."
+            find test-results -name '*-actual.png' | sed 's#.*/\(.*\)-actual.png#- `\1`#' | sort | head -60
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Visual differences::$count surface(s) differ on $PLATFORM; see the run summary for the review"
+
+      - name: Record issue metadata for non-PR failures
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' && github.event_name != 'pull_request' }}
+        env:
+          PLATFORM: ${{ matrix.label }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/visual-meta"
+          node - <<'EOF'
+          const fs = require('node:fs')
+          const { execFileSync } = require('node:child_process')
+          const raw = execFileSync('find', ['test-results', '-name', '*-actual.png'], { encoding: 'utf8' }).trim()
+          const files = raw ? raw.split('\n').filter(Boolean) : []
+          const surfaces = files
+            .map(f => f.replace(/^.*\/(.*)-actual\.png$/, '- `$1`'))
+            .sort()
+            .slice(0, 60)
+          const meta = {
+            platform: process.env.PLATFORM,
+            count: files.length,
+            surfaces,
+            artifactUrl: process.env.ARTIFACT_URL || '',
+            sha: (process.env.GITHUB_SHA || '').slice(0, 8),
+          }
+          fs.writeFileSync(`${process.env.RUNNER_TEMP}/visual-meta/${meta.platform}.json`, JSON.stringify(meta, null, 2))
+          EOF
+
+      - name: Upload issue metadata
+        if: ${{ !cancelled() && steps.compare.outcome == 'failure' && github.event_name != 'pull_request' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-issue-meta-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 1
+          path: ${{ runner.temp }}/visual-meta/*.json
+
+  # Isolated write job (zero project code executed): opens/comments visual regression issues on manual dispatch failures.
+  compare-issue:
+    name: Report visual regression issue
+    needs: [compare]
+    if: >-
+      ${{ always() && !cancelled() && github.event_name == 'workflow_dispatch'
+      && (inputs.mode || 'compare') == 'compare' && needs.compare.result == 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: visual-issue-meta-*
+          path: meta
+          merge-multiple: true
+
+      - name: Open or update per-platform issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh label create visual-regression --color c5def5 --description "A surface differs from its visual baseline" 2>/dev/null || true
+          shopt -s nullglob
+          for file in meta/*.json; do
+            platform=$(jq -r .platform "$file")
+            count=$(jq -r .count "$file")
+            sha=$(jq -r .sha "$file")
+            artifact_url=$(jq -r '.artifactUrl // ""' "$file")
+            surfaces=$(jq -r '.surfaces | join("\n")' "$file")
+            title="Visual regression on ${platform}"
+            body=$(printf '%s surface(s) differ from the baselines after %s.\n\n%s\n\nSide-by-side review: download [visual-review-%s](%s) and open `visual-review.html`. Run: %s\n\nFix the regression, or accept the change: dispatch visual.yml (mode=baselines) for %s, review the images and commit them.' \
+              "$count" "$sha" "$surfaces" "$platform" "${artifact_url:-$RUN_URL}" "$RUN_URL" "$platform")
+            existing=$(gh issue list --label visual-regression --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+            if [ -n "$existing" ]; then gh issue comment "$existing" --body "$body"; else gh issue create --title "$title" --label visual-regression --body "$body"; fi
+          done
+
+  baselines:
+    name: Generate and verify ${{ inputs.platform || 'linux' }} visual baselines
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'baselines' }}
+    runs-on: ${{ inputs.platform == 'windows' && 'windows-2022' || 'ubuntu-22.04' }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUN: ${{ inputs.platform != 'windows' && 'bash scripts/run-with-xvfb.sh' || '' }}
+      SHOTS: ${{ inputs.platform == 'windows' && 'win32' || 'linux' }}
+    outputs:
+      tested: ${{ steps.tested.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.branch || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record the tested commit
+        id: tested
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+
+      - name: Build app
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: ${{ inputs.platform == 'windows' && 'windows-x64' || 'linux-x64' }}
+          rebuild-native-node: "false"
+          check-bundle-imports: "false"
+
+      - name: Warm-up (result ignored)
+        continue-on-error: true
+        run: $RUN npx playwright test --config playwright.visual.config.ts anchor-surfaces
+
+      - name: Generate the baselines
+        run: $RUN npx playwright test --config playwright.visual.config.ts --update-snapshots
+
+      - name: Verify stable, run 1
+        run: $RUN npx playwright test --config playwright.visual.config.ts
+
+      - name: Verify stable, run 2
+        run: $RUN npx playwright test --config playwright.visual.config.ts
+
+      - name: Upload the baselines
+        if: success()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-baselines-${{ env.SHOTS }}
+          if-no-files-found: error
+          retention-days: 14
+          path: e2e/visual/__screenshots__/${{ env.SHOTS }}/**
+
+      - name: Upload the diffs when it is not stable
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-diffs-${{ env.SHOTS }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**
+
+  # Isolated write job (zero project code executed): commits ONLY e2e/visual/__screenshots__/<shots> to test/visual-baselines-*.
+  commit:
+    name: Commit the ${{ inputs.platform || 'linux' }} baselines to ${{ inputs.commit_to_branch }}
+    needs: [baselines]
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'baselines'
+      && inputs.commit_to_branch != '' && needs.baselines.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    env:
+      BRANCH: ${{ inputs.commit_to_branch }}
+      TESTED: ${{ needs.baselines.outputs.tested }}
+      SHOTS: ${{ inputs.platform == 'windows' && 'win32' || 'linux' }}
+      PLATFORM: ${{ inputs.platform || 'linux' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check the branch name and the tested commit
+        run: |
+          set -euo pipefail
+          [[ "$BRANCH" =~ ^test/visual-baselines-[A-Za-z0-9._-]+$ ]] || { echo "::error::commit_to_branch must be test/visual-baselines-<name>, got: $BRANCH"; exit 1; }
+          [[ "$BRANCH" != *..* ]] || { echo "::error::commit_to_branch may not contain '..'"; exit 1; }
+          [[ "$TESTED" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::no tested commit from the baselines job"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.baselines.outputs.tested }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: visual-baselines-${{ inputs.platform == 'windows' && 'win32' || 'linux' }}
+          path: ${{ runner.temp }}/shots
+
+      - name: Commit the images and push, without force
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          dir="e2e/visual/__screenshots__/$SHOTS"
+          for attempt in 1 2 3; do
+            if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+              git fetch -q origin "$BRANCH"
+              git checkout -q -B "$BRANCH" FETCH_HEAD
+              outside=$(git diff --name-only "$TESTED"...HEAD | grep -v '^e2e/visual/__screenshots__/' || true)
+              [ -z "$outside" ] || { echo "::error::$BRANCH changes files outside the baselines:"; echo "$outside"; exit 1; }
+            else
+              git checkout -q -B "$BRANCH" "$TESTED"
+            fi
+            rm -rf "$dir" && mkdir -p "$dir"
+            cp -R "$RUNNER_TEMP/shots/." "$dir/"
+            git add -A "$dir"
+            other=$(git status --porcelain | grep -v " $dir/" || true)
+            [ -z "$other" ] || { echo "::error::refusing to commit anything but $dir:"; echo "$other"; exit 1; }
+            if git diff --cached --quiet; then echo "No change in $dir: nothing to commit."; exit 0; fi
+            git commit -q -m "test(visual): $PLATFORM baselines from visual.yml" -m "Generated and verified twice on $TESTED by $RUN_URL."
+            if git push -q origin "HEAD:refs/heads/$BRANCH"; then
+              echo "Pushed $(git rev-parse --short HEAD) to $BRANCH ($(git diff --name-only HEAD~1 | wc -l) file(s))."
+              echo "### Committed the $PLATFORM baselines to \`$BRANCH\` ($(git rev-parse --short HEAD))" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Push rejected (the other platform pushed first?); trying again ($attempt/3)."
+            git reset -q --hard "$TESTED"
+          done
+          echo "::error::could not push to $BRANCH"; exit 1

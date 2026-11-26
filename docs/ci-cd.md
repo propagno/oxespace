@@ -11,50 +11,52 @@ apps read.
 ## The flow
 
 ```
-commit ─▶ pull request ─▶ CI and Release (PR)          first red ≈ 3 min (quick), full ≈ 25–40 min
-                          + Accessibility (axe), Android, Provider contract (by path)
+commit ─▶ pull request ─▶ CI (PR)                       first red < 2 min (fast-gate), full ≈ 12–18 min
+                          + Visual (Linux + Windows, informative), Android, Nightly provider-probe (by path)
        ─▶ label na-fila ─▶ Merge train                  updates the PR with main, dispatches CI on that head,
                                                         merges when every check is green, one PR at a time
-       ─▶ main ─▶ CI and Release (push)                 everything runs, including the OxeQuery live matrices
-       ─▶ the release owner pushes the tag vX.Y.Z     package (Windows + Linux, packaged-app E2E)
-          on the candidate commit of main               → draft → wait for approval (environment `release`)
-                                                        → re-download and verify → publish
+       ─▶ main ─▶ CI (push)                             everything runs (4 E2E shards/OS + OxeQuery live matrices)
+       ─▶ the release owner pushes the tag vX.Y.Z       Release (release.yml): CI + acceptance-release + unsigned Android APK
+          on the candidate commit of main               in parallel → package-desktop → simultaneous approval gate
+                                                        (`release` + `android-release`) → publish Desktop + attach signed APK
        ─▶ installed apps                                electron-updater reads the feed; stable installs get
                                                         stable releases, beta installs also get prereleases
 ```
 
-## Pipelines
+## Pipelines (8 canonical workflows)
 
 | Workflow | Trigger | What it gates |
 |---|---|---|
-| `ci.yml` — CI and Release | PR, push to main, `v*.*.*` tag, dispatch | The single pipeline: quick checks, unit (Windows + Linux), E2E (3 shards per OS), perf gate, live DB tests, packaging and release, and the dependency review when a manifest, lockfile or workflow changes (a high or critical advisory fails it). `CI result` is the one check for the run, and the one branch protection requires. A dispatched run (the merge train's) also posts it as a commit status on the commit it tested, since GitHub does not count a `workflow_dispatch` check run toward a pull request's required checks. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
-| `merge-train.yml` | `na-fila` label, workflow_run, schedule, dispatch | Merges PRs one at a time ([RELEASE_PIPELINE.md#merge-train](RELEASE_PIPELINE.md#merge-train)). PRs that change `.github/workflows/**` can't be merged by its token and are merged by hand. |
-| `provider-contract.yml` | PR (provider paths), schedule | Claude/Codex CLI contract (no paid calls). |
-| `android.yml` | PR (not a draft), push, dispatch | Android lint, unit tests, screenshot goldens (Paparazzi) and build. The run summary lists the phone screens that differ, with the images in `android-reports`. |
-| `android-emulator.yml` | dispatch | Instrumented tests on an emulator (`api-level` input, default 36). From 37 the SDK names levels `37.0`, `37.1`…: `37` means `37.0`. A level with no Google APIs x86_64 image is skipped with a notice, not failed. |
-| `acceptance.yml` | dispatch | `e2e/acceptance` specs. They are written before the feature, so red is expected until the item lands. |
-| `visual-regression.yml` | PR touching `src/`, the locales or the visual specs (not a draft); dispatch | Screenshot comparison of the surfaces with the baselines, on Linux and Windows. On a PR it is informative: never red, it publishes the side-by-side review of what differs and lists it in the run summary. On dispatch it opens or updates an issue per platform. |
-| `visual-baselines.yml` | dispatch | Regenerates the baselines, once per batch on main, not per PR, then verifies them in the same job. A verify failure right after a green regeneration means a capture that is not stable, not a stale baseline: rerun the job once and report the shot to the visuals owner (`code-changes-diff` is a known case). |
+| `ci.yml` — **CI** | PR, push to main, dispatch, `workflow_call` | Pure read-only verification: `fast-gate` (`Quick checks (linux-x64)`), single build per OS (`build`), unit shards (5 Windows / 4 Linux), dedicated `brand-conformance`, targeted `e2e-impacted` on PRs, 4-shard full E2E + perf gate on `main`/tags, `a11y`, live DB matrices, dependency review, and optional `packaged_smoke_only`. `CI result` is the required status check in branch protection. See [RELEASE_PIPELINE.md](RELEASE_PIPELINE.md#jobs). |
+| `release.yml` — **Release** | `v*.*.*` tag push, dispatch (`target=full\|android-only`) | Unified Desktop + Android release: calls `ci.yml` (`strict_perf_gate=true`), runs `acceptance-release` and unsigned `android-build` (zero secrets, `SECURITY #231`) in parallel, packages Windows/Linux installers, then pauses on simultaneous `release` + `android-release` environment approvals (`SRE-04`) before publishing Desktop (`ubuntu-24.04`) and signing/attaching the Android APK. |
+| `android.yml` — **Android** | PR (not a draft), push, dispatch (`run_emulator`, `api_level`) | Default: Android lint, unit tests, screenshot goldens (Paparazzi) and debug APK build. With `run_emulator=true`: instrumented tests on a KVM emulator (`api_level` default `36`; `37` resolves `37.0`). |
+| `nightly.yml` — **Nightly** | Schedule (`05:00 UTC`), PR (provider probe paths), dispatch (`suite`) | Consolidated nightly health: Claude/Codex CLI `provider-contract`, `packaged-smoke` (via native `workflow_call` to `ci.yml`), full `acceptance` e2e suite (with issue sync), and `perf-load` (Windows + Linux with cached Electron). |
+| `visual.yml` — **Visual** | PR touching `src/`, locales or visual specs (not a draft); dispatch (`mode=compare\|baselines`) | `compare` (automatic Linux + Windows on PRs, informative/read-only; on dispatch opens per-platform issues from an isolated write job) and `baselines` (regenerates, verifies twice, optionally commits ONLY `e2e/visual/__screenshots__/<platform>/` to `test/visual-baselines-*`). |
+| `manual-ops.yml` — **Manual ops** | dispatch (`operation=acceptance\|hml-packaged-pass\|install-over\|perf-gate`), PR (`e2e/release/**`) | On-demand QA/release operations: single `acceptance` spec across refs (no npm cache), `hml-packaged-pass`, `install-over` (G4/G8/B13 upgrade/rollback/uninstall against `latest-stable`), and `perf-gate` (OXE-105/OXE-163 3-way A/B/C comparison against the previous 2 stable tags). |
+| `merge-train.yml` — **Merge train** | `na-fila` label, `workflow_run` (`CI`), schedule, dispatch | Merges PRs one at a time ([RELEASE_PIPELINE.md#merge-train](RELEASE_PIPELINE.md#merge-train)). PRs that change `.github/workflows/**` can't be merged by its token and are merged by hand. |
+| `jira-sync.yml` — **Jira sync** | PR opened/closed/reopened/ready/edited | Links PRs and syncs card status with Jira. |
+
+Shared setup/build/packaging boilerplate lives in 4 local composite actions under `.github/actions/` (`setup-oxespace`, `build-oxespace`, `package-electron`, `setup-android`), enforced by `tests/unit/workflow-governance.test.ts` and `.github/CODEOWNERS`.
 
 Useful dispatches of `ci.yml`, all from the branch chosen in **Use workflow from**:
 
 - no inputs: a full check of that branch (what the train uses);
 - `packaged_smoke_only=true`: builds the installer layout and runs the packaged-app E2E on both platforms, publishes
-  nothing. Use it before any release and on any PR that touches packaging, `electron-builder.yml` or the fuses;
-- `publish_release=true` (+ optional `tag`): **not how a stable version is published.** The publish job runs in the
-  `release` environment, which accepts only `v*` tags, so a dispatch from `main` stops at that job.
+  nothing. Use it before any release and on any PR that touches packaging, `electron-builder.yml` or the fuses.
 
 **Publishing a release** is a tag push by the release owner (the user), on the candidate commit of `main`:
 
 ```sh
-git tag v1.4.0 <candidate sha>     # package.json on that commit says 1.4.0
-git push origin v1.4.0
+git tag v1.6.2 <candidate sha>     # package.json on that commit says 1.6.2
+git push origin v1.6.2
 ```
 
-The tag's CI run (`Publish vX.Y.Z`) checks the tag matches `package.json` and is on `main`, builds and verifies
-everything, then waits on **Review deployments → Approve** (the `release` environment's required reviewer) before it
-publishes. Its last step starts `android-release.yml` on the tag (a release published with `GITHUB_TOKEN` fires no
-`release` event, so it would not start on its own), which signs and attaches the APK after its own approval.
+The tag push triggers **`Release`** (`.github/workflows/release.yml`, run title `Publish vX.Y.Z`): it validates the tag
+matches `package.json` and is on `main`, runs Desktop CI + `acceptance-release` + unsigned `android-build` in parallel,
+packages Windows & Linux installers, then enters **Review deployments → Approve** for both `release` and
+`android-release` simultaneously (one modal, two isolated protected environments). Once approved, `publish-desktop` and
+`sign-android` complete in parallel (~90 seconds). To re-attach only the Android APK on an already-live release,
+dispatch `release.yml` from the `vX.Y.Z` tag with `target=android-only`.
 
 ### Draft pull requests
 
@@ -99,7 +101,7 @@ No PR is labelled `na-fila` without a green `npm run pr:ready` on its exact head
 - **The checks:** lint and typecheck; the gate tests every PR passes (design-lint, fs-allowlist); and the tests related to the change (`scripts/related-tests.mjs`). Vitest runs under Electron's ABI with 2 workers. When the protocol, the design tokens or a `mobile` catalog changes, `tests/android-generated.test.ts` checks that the committed Kotlin matches (`android:generate --check`).
 - **Whole suite:** when a change touches every test (`package.json`, the vitest or TypeScript config, the test setup), the PR's CI unit jobs, green on that head, stand for the whole suite. It doesn't fit in local memory. `--full` runs it locally anyway.
 - **Changes that need no `node_modules`:**
-  - **Images only** (visual baselines under `e2e/visual/__screenshots__/{linux,win32}/`): proven by a green `visual-baselines.yml` run on that exact head, one per platform touched. Dispatch it on the PR branch first. The marker says `evidence: "images"`.
+  - **Images only** (visual baselines under `e2e/visual/__screenshots__/{linux,win32}/`): proven by a green `visual.yml` (`mode=baselines`) run on that exact head, one per platform touched. Dispatch it on the PR branch first. The marker says `evidence: "images"`.
   - **Packages only** (`package.json` / `package-lock.json`, at the root or in `playground/`), or other snapshot images: proven by the PR's CI unit jobs, with no local step. The marker says `evidence: "ci"`.
 - **The `pr:ready` commit status:** on green, `pr:ready` also posts a `pr:ready` success status on that exact sha (the evidence kind and its runs), so GitHub and the merge train can see that the head passed. The head must be pushed first; otherwise the marker stays local and `pr:ready` exits 1, saying so. `pr:ready` is **not** a required check in branch protection: the train's batch branches and its update-branch merges never carry it.
 - **Clean tree:** the working tree must be clean, since the marker vouches for HEAD. `--dry-run` prints the plan; `--base <ref>` changes the base.
@@ -121,7 +123,7 @@ time through the team's heavy-run lock, with enough free memory.
 
 ## Before publishing a release
 
-1. `main` has a **completed green** `CI and Release` run on the commit to release (a cancelled run is not green).
+1. `main` has a **completed green** `CI` run on the commit to release (a cancelled run is not green).
 2. A `packaged_smoke_only=true` run on that commit is green on both platforms.
 3. `docs/releases/X.Y.Z.md` exists; `PREVIOUS_STABLE` in the upgrade rehearsal points at the last stable tag.
 4. Prefer a prerelease first (`vX.Y.Z-rc.N` or `-beta.N`): only beta installs receive it, so it works as a staged
@@ -186,10 +188,11 @@ Copy-Item $backup.FullName "$data\oxespace.sqlite3"
 What changed after the update (new workspaces, threads, settings) is not in the backup. When the fixed version
 ships, it upgrades the restored data again, with a new backup.
 
-**Tested:** the `Install over the last stable` workflow (`.github/workflows/install-over.yml`) does exactly these
-steps on a clean Windows runner. It installs 1.3.3, creates data, installs the candidate over it, checks the upgrade,
-reinstalls 1.3.3, checks that it leaves the upgraded database byte-identical, restores the backup, and checks that
-1.3.3 opens it with the workspace. First green run: 1.4.0-rc.0 over 1.3.3,
+**Tested:** the `Manual ops` workflow (`.github/workflows/manual-ops.yml`, `operation=install-over`) does exactly these
+steps on clean Windows and Linux runners (against `latest-stable` by default, or an explicit `from_tag`). It installs
+the previous release, creates data, installs the candidate over it, checks the upgrade, reinstalls the previous release,
+checks that it leaves the upgraded database byte-identical, restores the backup, and checks that the previous release
+opens it with the workspace. First green run: 1.4.0-rc.0 over 1.3.3,
 [41318110576](https://github.com/propagno/oxespace/actions/runs/41318110576). That a "pause" in the manifest stops
 updates is tested in `tests/unit/update-feed-pause.test.ts`, against the electron-updater version we ship.
 

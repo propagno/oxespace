@@ -2,7 +2,7 @@
  * Side-by-side review of a visual comparison run. Playwright writes, for each surface that differs, the baseline
  * (`*-expected.png`), what the run drew (`*-actual.png`) and the difference (`*-diff.png`) under test-results/. This
  * builds one HTML page with the three next to each other, so a person can decide per surface: a regression to fix,
- * or a change to accept by regenerating the baselines (visual-baselines.yml).
+ * or a change to accept by regenerating the baselines (visual.yml, mode=baselines).
  *
  *   node scripts/visual-review.mjs [results-dir] [out.html]
  *
@@ -49,7 +49,7 @@ h1 { font-size: 20px; } h2 { margin: 32px 0 8px; font-size: 15px; }
 figure { margin: 0; } figcaption { margin-bottom: 4px; font-size: 12px; opacity: .7; }
 img { display: block; width: 100%; height: auto; border: 1px solid #8884; }
 </style></head><body><h1>Visual review: ${entries.length} surface${entries.length === 1 ? '' : 's'} differ</h1>
-<p>Fix a regression in the code, or accept an intended change by regenerating the baselines (visual-baselines.yml) and reviewing them.</p>
+<p>Fix a regression in the code, or accept an intended change by regenerating the baselines (visual.yml, mode=baselines) and reviewing them.</p>
 ${body}</body></html>\n`
 }
 
