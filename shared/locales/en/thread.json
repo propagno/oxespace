@@ -11,6 +11,7 @@
     "busy": "Signing in",
     "failed": "Could not complete this action. Try again.",
     "code": "Sign-in code",
+    "pasteCodeToggle": "Paste a code",
     "continue": "Continue",
     "cancel": "Cancel sign-in",
     "openBrowser": "Open browser",

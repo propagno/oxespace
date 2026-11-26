@@ -6,6 +6,7 @@ import { AgentRpcPeer } from './rpc-peer'
 import { ThreadAgentError } from './thread-failure'
 import { AgentProcessTransport } from './process-transport'
 import { noteAccount } from '../diagnostics/facts'
+import { stripAnsi } from '../../utils/strip-ansi'
 
 export interface NativeAuthScope { id: string; provider: ThreadProvider; command: string; cwd: string }
 export interface AccountTransport {
@@ -33,6 +34,8 @@ function authRefusal(error: unknown): boolean {
   const words = [error instanceof Error ? error.message : '', error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
   return /auth|log ?in|sign(?:ed)? ?(?:in|out)|credential/i.test(words)
 }
+/** Recognizes CLI prompts asking for an OAuth/verification/callback code without leaking raw process output. */
+const CODE_PROMPT = /(?:paste|enter|input|provide|type)\s+(?:the\s+|your\s+)?(?:(?:verification|auth|authentication|authorization|login|sign[- ]?in|callback)\s+)?(?:code|callback\s+url(?:\s*(?:\/|or)\s*code)?)\b|\b(?:verification|auth|authentication|authorization|login|sign[- ]?in)\s+code\b(?!\s+(?:flow|grant)\b)|\bcallback\s+url\s*(?:\/|or)\s*code\b|(?<!\b(?:exit|error|status)\s+)\bcode:[ \t]*(?:\r?\n|$)/i
 /** The start arguments of each provider's account process: status, sign-in and sign-out. */
 const ACCOUNT_ARGS: Record<ThreadProvider, Record<'probe' | 'login' | 'logout', string[]>> = {
   codex: { probe: ['app-server', '--listen', 'stdio://'], login: ['app-server', '--listen', 'stdio://'], logout: ['app-server', '--listen', 'stdio://'] },
@@ -192,11 +195,12 @@ export class NativeAccountService {
         const receive = (data: Uint8Array) => {
           if (!this.attempts.has(id)) return
           pending = (pending + decoder.write(Buffer.from(data))).slice(-16384)
+          const clean = stripAnsi(pending)
           // Only recognized prompts/HTTPS URLs leave this parser, never raw process output.
-          const urls = pending.match(/https:\/\/[^\s<>"\u001b]+/g) ?? []
+          const urls = clean.match(/https:\/\/[^\s<>"\u001b]+/g) ?? []
           const url = urls.map(value => loginUrl(value, scope.provider)).find(Boolean)
           if (url) attempt.url = url
-          const codePrompt = /(?:paste|enter) (?:the |your )?(?:authentication |authorization |login )?code|paste code here/i.test(pending)
+          const codePrompt = CODE_PROMPT.test(clean)
           this.publish({ provider: scope.provider, scopeId: scope.id, state: codePrompt ? 'awaiting-code' : 'awaiting-browser', method: 'unknown', checkedAt: Date.now(), attemptId: id, canOpenBrowser: Boolean(attempt.url) })
         }
         transport.onData(receive); transport.onDiagnostic(receive)
@@ -249,8 +253,10 @@ export class NativeAccountService {
   async cancel(id: string): Promise<void> { const attempt = this.attempts.get(id); if (attempt) await this.finish(attempt, 'cancelled') }
   async submitCode(id: string, code: string): Promise<void> {
     const attempt = this.attempts.get(id)
-    if (!attempt || attempt.scope.provider === 'codex' || this.snapshots.get(attempt.scope.id)?.state !== 'awaiting-code' || !code || code.length > 4096 || /[\r\n\0]/.test(code)) throw Error('Invalid login code')
-    attempt.transport?.write(code + '\n')
+    const state = attempt ? this.snapshots.get(attempt.scope.id)?.state : undefined
+    const trimmed = code.trim()
+    if (!attempt || attempt.completing || attempt.scope.provider === 'codex' || (state !== 'awaiting-code' && state !== 'awaiting-browser') || !trimmed || code.length > 4096 || /[\r\n\0]/.test(code)) throw Error('Invalid login code')
+    attempt.transport?.write(trimmed + '\n')
   }
   async openBrowser(id: string): Promise<void> { const attempt = this.attempts.get(id); if (!attempt?.url) throw Error('Login browser link unavailable'); await this.deps.openExternal(attempt.url) }
   async stop(): Promise<void> { this.stopped = true; await Promise.all([...this.probes].map(transport => transport.close())); await Promise.all([...this.attempts.values()].map(attempt => this.finish(attempt, 'cancelled'))) }
