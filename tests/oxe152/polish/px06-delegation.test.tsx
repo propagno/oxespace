@@ -1,12 +1,9 @@
-// Frozen acceptance test for 1.5.2 Polimento 2 (Jira OXE-271, PX-06·12, CA-1 to CA-3; A13–A15). Written by the planner;
-// the executor must not edit it. The delegation dialogs on main f65fa5374: DelegatedWorkDialog.css capitalizes the task
-// line (text-transform: capitalize over translated text), DelegationCreateDialog.css gives its fields and strategy
-// labels min-height: 36px, its section heading font-weight: 650 and its focus ring var(--accent); DelegatedWorkDialog.tsx
-// keeps English defaultValue fallbacks (`Blocked: …`, `Waits for: …`, task.state) although code:delegated.* exists.
-// Contract: no capitalize in either file; .delegation-section-heading h3 uses var(--weight-semibold); the form fields
-// (input, textarea, select) and .delegation-strategies label use var(--control-lg), never 36px; the fields' focus-visible
-// outline is 2px solid var(--focus-ring); every delegated.* line comes from the catalog, with no defaultValue in the TSX.
-// tests/acceptance/f2/r13-work-into-delegation.test.tsx (English) stays green: en/code.json has the same words.
+// Regression test for 1.5.2 Polimento 2 (OXE-271, PX-06·12) updated for 1.6.1 OXE-422:
+// DelegationCreateDialog migrated completely onto src/ui primitives (Select, TextField, TextArea, Checkbox,
+// SegmentedControl) without broad legacy CSS overrides. Contract preserved: no text-transform: capitalize in either
+// dialog stylesheet; .delegation-section-heading h3 uses var(--weight-semibold); single-line controls stay on
+// var(--control-lg) with no 36px literal; interactive focus rings use var(--focus-ring); every delegated.* line comes
+// from the catalog with no defaultValue in DelegatedWorkDialog.tsx.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -18,6 +15,7 @@ const ROOT = process.cwd()
 const source = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const WORK_CSS = 'src/components/Delegation/DelegatedWorkDialog.css'
 const CREATE_CSS = 'src/components/Delegation/DelegationCreateDialog.css'
+const CREATE_TSX = 'src/components/Delegation/DelegationCreateDialog.tsx'
 /** Rules of a stylesheet: selector and body, comments dropped. */
 const rules = (css: string): Array<{ selector: string; body: string }> => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(m => ({ selector: m[1].trim(), body: m[2] }))
 const decl = (body: string, property: string): string | undefined => body.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`))?.[1].trim()
@@ -31,28 +29,32 @@ const task = (id: string, objective: string, dependencies: Dependency[], extra: 
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('OXE-271 · PX-06·12 the delegation dialogs on the brand scale, in pt-BR', () => {
-  test('[css] delegation dialogs omit text-transform capitalize, use --weight-semibold and size inputs with --control-lg', () => {
+  test('[css] delegation dialogs omit text-transform capitalize, use --weight-semibold, src/ui primitives and --control-lg', () => {
     for (const file of [WORK_CSS, CREATE_CSS]) expect(source(file), `${file} has no capitalize`).not.toMatch(/text-transform\s*:\s*capitalize/)
-    const create = rules(source(CREATE_CSS))
+    const createCss = source(CREATE_CSS)
+    const create = rules(createCss)
     const heading = create.filter(rule => /\.delegation-section-heading\s+h3$/.test(rule.selector))
     expect(heading.length).toBeGreaterThan(0)
     for (const rule of heading) expect(decl(rule.body, 'font-weight'), rule.selector).toBe('var(--weight-semibold)')
-    const fields = create.filter(rule => /\binput\b/.test(rule.selector) && /\btextarea\b/.test(rule.selector) && /\bselect\b/.test(rule.selector) && !/:focus|::placeholder/.test(rule.selector))
-    expect(fields.length, 'the form fields rule').toBeGreaterThan(0)
-    for (const rule of fields) {
-      expect(decl(rule.body, 'min-height'), `${rule.selector} min-height`).toBe('var(--control-lg)')
-      const height = decl(rule.body, 'height')
-      if (height !== undefined) expect(height, `${rule.selector} height`).toBe('var(--control-lg)')
-    }
-    const strategies = create.filter(rule => /\.delegation-strategies\s+label$/.test(rule.selector))
-    expect(strategies.length).toBeGreaterThan(0)
-    for (const rule of strategies) expect(decl(rule.body, 'min-height'), rule.selector).toBe('var(--control-lg)')
-    expect(source(CREATE_CSS), 'no 36px control height left').not.toMatch(/(?:min-)?height\s*:\s*36px/)
+
+    const control = create.filter(rule => /^\.delegation-control$/.test(rule.selector))
+    expect(control.length, 'single-line controls height rule').toBeGreaterThan(0)
+    for (const rule of control) expect(decl(rule.body, 'height'), `${rule.selector} height`).toBe('var(--control-lg)')
+    expect(createCss, 'no 36px control height left').not.toMatch(/(?:min-)?height\s*:\s*36px/)
+
+    // OXE-422: no broad legacy overrides on raw controls and no raw HTML controls in TSX.
+    const rawControlOverrides = create.filter(rule => /\.delegation-form-body\s+(?:label|input|textarea|select)\b/.test(rule.selector))
+    expect(rawControlOverrides.map(rule => rule.selector)).toEqual([])
+    const tsx = source(CREATE_TSX)
+    expect(tsx).not.toMatch(/<(?:textarea|input|select|fieldset)\b/)
+    expect(tsx).toMatch(/<SegmentedControl\b/)
+    expect(tsx).toMatch(/<TextArea\b/)
+    expect(tsx).toMatch(/<Checkbox\b/)
   })
 
-  test('[css] DelegationCreateDialog focus-visible outline is 2 px var(--focus-ring)', () => {
-    const focus = rules(source(CREATE_CSS)).filter(rule => /:focus-visible/.test(rule.selector) && /\b(?:input|textarea|select)\b/.test(rule.selector))
-    expect(focus.length, 'the fields focus-visible rule').toBeGreaterThan(0)
+  test('[css] DelegationCreateDialog interactive focus-visible outlines use 2 px var(--focus-ring)', () => {
+    const focus = rules(source(CREATE_CSS)).filter(rule => /:focus-visible/.test(rule.selector))
+    expect(focus.length, 'disclosure focus-visible rule').toBeGreaterThan(0)
     for (const rule of focus) expect(decl(rule.body, 'outline'), rule.selector).toBe('2px solid var(--focus-ring)')
   })
 

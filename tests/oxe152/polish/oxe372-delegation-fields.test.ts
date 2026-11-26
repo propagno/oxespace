@@ -1,6 +1,6 @@
-// OXE-372 (#1031, the UI part left): in DelegationCreateDialog the Select and the inputs keep the Field primitive's own
-// padding (the Select's room for its chevron), only the textareas pad themselves, and the context row's four fields sit
-// in four columns, two by two at 750 px and one under the other at 520 px.
+// OXE-372 (#1031) & OXE-422: in DelegationCreateDialog all inputs, selects and textareas use src/ui Field primitives
+// and keep Field.module.css padding (including the Select's room for its chevron and TextArea's --space-2 padding);
+// the context row's four fields sit in four columns, two by two at 750 px and one under the other at 520 px.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -39,17 +39,18 @@ const count = (value: string | undefined): number => {
 }
 
 describe('OXE-372 · DelegationCreateDialog fields and context row', () => {
-  it('CA-1: no rule of the dialog pads an input or a select, so the Field primitive keeps the Select clear of its chevron', () => {
-    const padded = all.filter(rule => /\b(?:input|select)\b/.test(rule.selector) && !/:focus|::placeholder/.test(rule.selector) && /(^|[\s;])padding(-[a-z]+)?\s*:/.test(rule.body))
-      .filter(rule => !/\.delegation-(?:session-list|strategies|options|memory-option)\b/.test(rule.selector))
+  it('CA-1: no rule of the dialog overrides padding or border on Field primitives, keeping Select chevron and TextArea spacing intact', () => {
+    const padded = all.filter(rule => /\b(?:input|select|textarea)\b/.test(rule.selector) && !/:focus|::placeholder/.test(rule.selector) && /(^|[\s;])padding(-[a-z]+)?\s*:/.test(rule.body))
     expect(padded.map(rule => rule.selector)).toEqual([])
-    const textarea = all.filter(rule => /\.delegation-form-body textarea$/.test(rule.selector))
-    expect(textarea.some(rule => /(^|[\s;])padding\s*:\s*var\(--space-2\)/.test(rule.body)), 'the textareas pad themselves with a token').toBe(true)
+    const bordered = all.filter(rule => /\b(?:input|select|textarea)\b/.test(rule.selector) && /(^|[\s;])border(-color)?\s*:/.test(rule.body))
+    expect(bordered.map(rule => rule.selector)).toEqual([])
+    expect(TSX).not.toMatch(/<textarea\b/)
+    expect((TSX.match(/<TextArea\b/g) ?? []).length).toBeGreaterThanOrEqual(4)
   })
 
   it('CA-1: the context row has four fields in four columns, two by two up to 750 px, one column up to 520 px', () => {
     const row = /<div className="delegation-context-row">([\s\S]*?)<\/div>/.exec(TSX)?.[1] ?? ''
-    expect((row.match(/<label>/g) ?? []).length).toBe(4)
+    expect((row.match(/<Select\b/g) ?? []).length).toBe(4)
     const base = all.find(rule => rule.selector === '.delegation-context-row' && rule.media === null)
     expect(count(columns(base?.body ?? ''))).toBe(4)
     const at750 = all.filter(rule => rule.media?.includes('750px') && /\.delegation-context-row/.test(rule.selector))
