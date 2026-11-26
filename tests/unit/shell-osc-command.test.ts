@@ -199,7 +199,7 @@ describe('OXE-272 · OSC 633/133 shell command duration and outcome', () => {
     expect(headerText).not.toContain('0s')
     cleanup()
 
-    // RN-2: Agent pane keeps PaneAgentState.since and never renders two timers even if shellCommand exists.
+    // OXE-428: Agent pane omits header elapsed timer and shell command badge even when agentState.since or shellCommand exist.
     const since = Date.now() - 120_000
     preloadOxe({
       'terminal.branch': () => ({ branch: 'main', startedOn: 'main', switched: false }),
@@ -212,8 +212,8 @@ describe('OXE-272 · OSC 633/133 shell command duration and outcome', () => {
     const agentView = render(createElement(PaneContainer, {
       pane: agentPane, workspace: agentWs, agentProfile: null, autoStart: false, isMaximized: false, onToggleMaximize: () => undefined
     }))
-    await waitFor(() => expect(agentView.container.querySelectorAll('[data-ui="pane-running-time"]')).toHaveLength(1))
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 40)) })
+    expect(agentView.container.querySelectorAll('[data-ui="pane-running-time"]')).toHaveLength(0)
     expect(agentView.container.querySelectorAll('[data-testid="pane-command-status"]')).toHaveLength(0)
-    expect(agentView.container.querySelector('[data-ui="pane-running-time"]')?.textContent).toBe('2m')
   })
 })

@@ -146,7 +146,7 @@ describe('OXE-82 BRD-14 the terminal pane (A30)', () => {
     expect(container.querySelectorAll('.terminal-cmd-input, input[aria-label="' + tc('terminalPane.commandPlaceholder') + '"]')).toHaveLength(0)
   }, 30_000)
 
-  it('an agent pane shows its time in state from PaneAgentState.since; a plain shell has no running-time field', async () => {
+  it('neither an agent pane nor a plain shell shows an agent elapsed timer in the pane header (OXE-428)', async () => {
     const since = Date.now() - 65_000
     preloadOxe({ 'terminal.branch': () => ({ branch: 'feat/pix-webhook', startedOn: 'feat/pix-webhook', switched: false }),
       'agentState.list': () => [{ paneId: 'p2', workspaceId: 'ws-1', agent: 'claude', state: 'working', source: 'hook', seen: false, since, stateChangeSeq: 1, completionSeq: 0 }] })
@@ -155,8 +155,8 @@ describe('OXE-82 BRD-14 the terminal pane (A30)', () => {
     useWorkspaceStore.setState({ workspaces: [withAgent], shellProfiles: [] } as never)
     const { PaneContainer } = await import('../../../src/components/Grid/PaneContainer')
     const agent = render(<PaneContainer pane={agentPane} workspace={withAgent} agentProfile={null} autoStart={false} isMaximized={false} onToggleMaximize={() => undefined} />)
-    await waitFor(() => expect(agent.container.querySelectorAll('[data-ui="pane-running-time"]')).toHaveLength(1))
-    expect(agent.container.querySelector('[data-ui="pane-running-time"]')?.textContent ?? '').toMatch(/\d/)
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)) })
+    expect(agent.container.querySelectorAll('[data-ui="pane-running-time"]'), 'no elapsed timer on an agent pane (OXE-428)').toHaveLength(0)
     cleanup()
     const shell = await mount('p1')
     expect(shell.querySelectorAll('[data-ui="pane-running-time"]'), 'no running-time field on a plain shell').toHaveLength(0)

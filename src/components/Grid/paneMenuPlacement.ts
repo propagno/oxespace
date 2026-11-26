@@ -11,8 +11,8 @@ export interface PaneMenuPlacement {
 
 const GAP = 6
 const MARGIN = 8
-/** Below this much room under the button (about the full menu of a terminal pane), it opens upward if there is more above. */
-const COMFORTABLE = 360
+/** Below this much room under the button (full terminal menu with an expanded submenu, OXE-427), it opens upward if there is more above. */
+const COMFORTABLE = 440
 
 /**
  * The menu stays between the window's top and `floor`: the top of the status bar, or the window's bottom when there
@@ -27,20 +27,44 @@ export function paneMenuPlacement(trigger: Pick<DOMRect, 'top' | 'bottom' | 'rig
   return { top: trigger.bottom + GAP, right, maxHeight: Math.max(0, below) }
 }
 
-/** About the menu's width (`min(260px, 75vw)`), so a menu opened at the pointer does not run off the window's right edge. */
-const MENU_WIDTH = 260
+/** About the menu's width (`min(292px, 80vw)`), so a menu opened at the pointer does not run off the window's right edge. */
+const MENU_WIDTH = 292
 
 /**
  * The same menu opened at the pointer by a right click on the pane header (CODE-8): its top-left corner at the pointer,
  * pulled back inside the window, and upward when the pointer is low and there is more room above, as for the button.
  */
 export function paneMenuAtPointer(point: { x: number; y: number }, viewport: { width: number; height: number }, floor = viewport.height): PaneMenuPlacement {
-  const width = Math.min(MENU_WIDTH, viewport.width * 0.75)
+  const width = Math.min(MENU_WIDTH, viewport.width * 0.8)
   const left = Math.max(MARGIN, Math.min(point.x, viewport.width - width - MARGIN))
   const below = floor - point.y - MARGIN
   const above = point.y - MARGIN
   if (below < COMFORTABLE && above > below) return { bottom: viewport.height - point.y, left, maxHeight: Math.max(0, above) }
   return { top: point.y, left, maxHeight: Math.max(0, below) }
+}
+
+/**
+ * Keeps an open menu (especially after expanding a submenu, OXE-427) from clipping its bottom items ("Close pane")
+ * when the trigger sits near the middle of the viewport: if `contentHeight` exceeds `placement.maxHeight` while more
+ * vertical room exists between `MARGIN` and `floor - MARGIN`, shifts the popover inside that band.
+ */
+export function fitPaneMenuPlacement(
+  placement: PaneMenuPlacement,
+  contentHeight: number,
+  viewportHeight: number,
+  floor = viewportHeight
+): PaneMenuPlacement {
+  if (contentHeight <= 0 || contentHeight <= placement.maxHeight) return placement
+  const available = Math.max(0, floor - MARGIN * 2)
+  if (available <= placement.maxHeight) return placement
+  const height = Math.min(contentHeight, available)
+  const top = Math.max(MARGIN, floor - MARGIN - height)
+  return {
+    top,
+    ...(placement.right !== undefined ? { right: placement.right } : {}),
+    ...(placement.left !== undefined ? { left: placement.left } : {}),
+    maxHeight: Math.max(0, floor - MARGIN - top)
+  }
 }
 
 /** The top of the app's status bar, where a menu has to stop; the window's height when no bar is shown. */

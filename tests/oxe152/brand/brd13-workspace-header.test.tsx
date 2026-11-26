@@ -95,16 +95,15 @@ afterEach(async () => {
 })
 
 describe('OXE-79 BRD-13 the OxeCode workspace header (A29)', () => {
-  it.each(['en', 'pt-BR'])('the title (%s) is the workspace: dot, name and the branch in mono; no "OxeCode ·" nor pane count', async locale => {
+  it.each(['en', 'pt-BR'])('the title (%s) is the workspace without duplicated branch; no "OxeCode ·" nor pane count', async locale => {
     await changeLanguage(locale)
-    // liberação de teste congelado: coordenação 20/11 (OXE-279 / POLISH-09 #2(b)), 'demo-repo' no workspace-header é verificado com a lateral recolhida (isSidebarCollapsed: true); nenhuma outra asserção do BRD-13 muda
+    // liberação de teste congelado: coordenação 20/11 (OXE-279 / POLISH-09 #2(b)), 'demo-repo' no workspace-header é verificado com a lateral recolhida (isSidebarCollapsed: true);
+    // OXE-432: o branch duplicado sai da barra superior do OxeCode (já exibido na AppStatusBar); nenhuma outra asserção do BRD-13 muda.
     useUIStore.setState({ isSidebarCollapsed: true, collapsedSidebars: { ...useUIStore.getState().collapsedSidebars, code: true } })
     renderSurface()
     expect(header()).toHaveAccessibleName(tc('workspace.topbar.label'))
     expect(header()).toHaveTextContent('demo-repo')
-    const branch = header().querySelectorAll('[data-ui="workspace-branch"]')
-    expect(branch).toHaveLength(1)
-    expect((branch[0].textContent ?? '').trim()).toBe('feat/pix-webhook')
+    expect(header().querySelectorAll('[data-ui="workspace-branch"]')).toHaveLength(0)
     const text = header().textContent ?? ''
     expect(text).not.toMatch(/OxeCode\s*·/)
     expect(text).not.toContain(tc('workspace.status.panes', { count: 4 }))

@@ -1,5 +1,5 @@
-import { EyeOff, Smartphone } from 'lucide-react'
-import { useId, type ReactElement } from 'react'
+import { Check, EyeOff, Smartphone } from 'lucide-react'
+import type { ReactElement } from 'react'
 import { Button, toast } from '../../ui'
 import { i18n } from '../../i18n'
 import { remoteApi, useRemoteGateway, useRemoteStore } from '../../store/remote.store'
@@ -60,27 +60,33 @@ export function PanePhoneHeaderMark({ paneId }: { paneId: string }): ReactElemen
 }
 
 /** The ⋯ menu entry that turns typing from the phone on or off for one terminal. */
-export function PhoneWriteMenuItem({ paneId, allowed, onDone, disabled = false, describedBy }: { paneId: string; allowed: boolean; onDone: (action: () => void) => void; disabled?: boolean; describedBy?: string }): ReactElement {
+export function PhoneWriteMenuItem({ paneId, allowed, onDone, disabled = false, describedBy, hint }: { paneId: string; allowed: boolean; onDone: (action: () => void) => void; disabled?: boolean; describedBy?: string; hint?: string }): ReactElement {
   return <Button variant="ghost" role="menuitemcheckbox" aria-checked={allowed} aria-describedby={describedBy} disabled={disabled} className={paneMenu.item} data-testid="pane-phone-write-toggle"
     onClick={event => { event.stopPropagation(); if (disabled) return; onDone(() => { void setPhoneWrite(paneId, !allowed) }) }}>
-    <Smartphone size={14} aria-hidden="true" />{tc('paneMenu.phoneWrite')}<span className={styles.check} aria-hidden="true">{allowed ? '✓' : ''}</span>
+    <Smartphone size={14} aria-hidden="true" />
+    <span className={styles.itemText}>
+      <span>{tc('paneMenu.phoneWrite')}</span>
+      {hint ? <small className={styles.hint}>{hint}</small> : null}
+    </span>
+    {allowed ? <Check size={14} className={paneMenu.check} aria-hidden="true" /> : null}
   </Button>
 }
 
 /** CR-34: the ⋯ menu's phone group: Show on phone, then Allow typing from the phone, gated by it. */
 export function PanePhoneMenuItems({ paneId, onDone }: { paneId: string; onDone: (action: () => void) => void }): ReactElement | null {
   const phone = usePhoneWrite(paneId)
-  const showHint = useId()
-  const typingHint = useId()
   if (!phone.offered) return null
   const shown = !phone.hidden
   return <>
-    <Button variant="ghost" role="menuitemcheckbox" aria-checked={shown} aria-describedby={shown ? showHint : undefined} className={paneMenu.item} data-testid="pane-phone-show-toggle"
+    <Button variant="ghost" role="menuitemcheckbox" aria-checked={shown} className={paneMenu.item} data-testid="pane-phone-show-toggle"
       onClick={event => { event.stopPropagation(); onDone(() => { void setPhoneHidden(paneId, shown) }) }}>
-      <Smartphone size={14} aria-hidden="true" />{tc('paneMenu.phoneShow')}<span className={styles.check} aria-hidden="true">{shown ? '✓' : ''}</span>
+      <Smartphone size={14} aria-hidden="true" />
+      <span className={styles.itemText}>
+        <span>{tc('paneMenu.phoneShow')}</span>
+        {shown ? <small className={styles.hint}>{tc('paneMenu.phoneShowHint')}</small> : null}
+      </span>
+      {shown ? <Check size={14} className={paneMenu.check} aria-hidden="true" /> : null}
     </Button>
-    {shown && <div id={showHint} className={styles.hint}>{tc('paneMenu.phoneShowHint')}</div>}
-    <PhoneWriteMenuItem paneId={paneId} allowed={phone.allowed && shown} disabled={!shown} describedBy={shown ? undefined : typingHint} onDone={onDone} />
-    {!shown && <div id={typingHint} className={styles.hint}>{tc('paneMenu.phoneWriteNeedsShow')}</div>}
+    <PhoneWriteMenuItem paneId={paneId} allowed={phone.allowed && shown} disabled={!shown} hint={!shown ? tc('paneMenu.phoneWriteNeedsShow') : undefined} onDone={onDone} />
   </>
 }

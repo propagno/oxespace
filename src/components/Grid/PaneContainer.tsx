@@ -13,7 +13,7 @@ import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { PaneBranchBadge } from '../Panes/PaneBranchBadge'
 import { Button, Dialog, PaneHeader, StatusSignal } from '../../ui'
 import paneMenu from './PaneMenu.module.css'
-import { paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
+import { fitPaneMenuPlacement, paneMenuAtPointer, paneMenuPlacement, statusBarFloor, type PaneMenuPlacement } from './paneMenuPlacement'
 import { DetailList } from '../Navigation/DetailList'
 import { formatDateTime } from '../../utils/formatTime'
 import { i18n } from '../../i18n'
@@ -86,7 +86,7 @@ function PaneSubmenu({ id, label, icon, open, onToggle, children }: { id: string
     <Button variant="ghost" role="menuitem" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? listId : undefined} className={paneMenu.item} data-testid={`pane-menu-group-${id}`}
       onClick={event => { event.stopPropagation(); onToggle(id) }}
       onKeyDown={event => { if ((event.key === 'ArrowRight' && !open) || (event.key === 'ArrowLeft' && open)) { event.preventDefault(); onToggle(id) } }}>
-      {icon}{label}{open ? <ChevronDown size={14} className={paneMenu.chevron} aria-hidden="true" /> : <ChevronRight size={14} className={paneMenu.chevron} aria-hidden="true" />}
+      {icon}<span className={paneMenu.label}>{label}</span>{open ? <ChevronDown size={14} className={paneMenu.chevron} aria-hidden="true" /> : <ChevronRight size={14} className={paneMenu.chevron} aria-hidden="true" />}
     </Button>
     {open ? <div id={listId} role="menu" aria-label={label} className={paneMenu.submenu}>{children}</div> : null}
   </>
@@ -117,33 +117,9 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   // BRD-14: the focused pane's header is the primitive's `focused`; the grid says which, else the terminal store.
   const storeActive = useTerminalStore((s) => s.activePaneId === pane.id)
   const focused = isActive ?? storeActive
-  // CA-4: an agent pane shows how long its agent has been in its state (main's PaneAgentState.since); a shell uses OSC 633/133 (OXE-272).
+  // OXE-272: plain shell panes track command duration & exit outcome via OSC 633/133; agent panes omit header elapsed timers (OXE-428).
   const hasAgent = Boolean(pane.agentProfileId || agentProfile)
   const setShellCommand = useTerminalStore((s) => s.setShellCommand)
-  const [agentSince, setAgentSince] = useState<number | null>(null)
-  // Another pane, workspace or agent starts with no time in state: reset while rendering it (OXE-310), not in the
-  // effect below, which only reads and subscribes.
-  const sinceKey = [workspace.id, pane.id, String(hasAgent)].join(' ')
-  const [shownSinceKey, setShownSinceKey] = useState(sinceKey)
-  if (shownSinceKey !== sinceKey) {
-    setShownSinceKey(sinceKey)
-    setAgentSince(null)
-  }
-  useEffect(() => {
-    const api = window.oxe?.agentState
-    if (!hasAgent || !api) return
-    let live = true
-    void Promise.resolve(api.list(workspace.id)).then(list => {
-      if (!live || !Array.isArray(list)) return
-      const own = list.find(entry => entry.paneId === pane.id)
-      setAgentSince(own ? own.since : null)
-    }).catch(() => undefined)
-    const off = api.onChanged?.(event => {
-      if (!live || event.paneId !== pane.id) return
-      setAgentSince('cleared' in event ? null : event.since)
-    })
-    return () => { live = false; off?.() }
-  }, [hasAgent, pane.id, workspace.id])
   useEffect(() => {
     if (!isTerminalPane || hasAgent) return
     let live = true
@@ -161,14 +137,13 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const shellCommandRunning = Boolean(shellCommand?.running)
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (agentSince === null && !shellCommandRunning) return
+    if (!shellCommandRunning) return
     // The first tick right away, from a timer (OXE-310: no state set synchronously in the effect).
     const tick = (): void => setNow(Date.now())
     const first = setTimeout(tick, 0)
-    const timer = setInterval(tick, shellCommandRunning ? 1_000 : 15_000)
+    const timer = setInterval(tick, 1_000)
     return () => { clearTimeout(first); clearInterval(timer) }
-  }, [agentSince, shellCommandRunning])
-  const runningTime = hasAgent && agentSince !== null ? elapsedLabel(now - agentSince) : null
+  }, [shellCommandRunning])
   const shellDuration = shellCommand
     ? elapsedLabel((shellCommand.running ? now : (shellCommand.finishedAt ?? shellCommand.startedAt)) - shellCommand.startedAt)
     : null
@@ -190,24 +165,22 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
         : shellOutcome === 'failure'
           ? tc('pane.commandFailed', { code: shellCommand!.exitCode, duration: shellDuration })
           : tc('pane.commandFinished', { duration: shellDuration })
-  const headerMeta = runningTime
-    ? <span data-ui="pane-running-time">{runningTime}</span>
-    : shellCommand && shellOutcome && shellDuration
-      ? (
-        <span
-          className="pane-command-meta"
-          data-ui="pane-running-time"
-          data-testid="pane-command-status"
-          data-state={shellOutcome}
-          data-exit-code={typeof shellCommand.exitCode === 'number' ? String(shellCommand.exitCode) : undefined}
-          title={shellLabel}
-          aria-label={shellLabel}
-        >
-          {shellOutcome === 'success' ? <Check size={12} aria-hidden="true" /> : shellOutcome === 'failure' ? <X size={12} aria-hidden="true" /> : null}
-          {shellDuration}
-        </span>
-      )
-      : null
+  const headerMeta = shellCommand && shellOutcome && shellDuration
+    ? (
+      <span
+        className="pane-command-meta"
+        data-ui="pane-running-time"
+        data-testid="pane-command-status"
+        data-state={shellOutcome}
+        data-exit-code={typeof shellCommand.exitCode === 'number' ? String(shellCommand.exitCode) : undefined}
+        title={shellLabel}
+        aria-label={shellLabel}
+      >
+        {shellOutcome === 'success' ? <Check size={12} aria-hidden="true" /> : shellOutcome === 'failure' ? <X size={12} aria-hidden="true" /> : null}
+        {shellDuration}
+      </span>
+    )
+    : null
   const terminalCanRestart = terminalState.status !== 'starting'
 
 
@@ -256,9 +229,11 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
     return () => { active = false }
   }, [detailsOpen, pane.id, terminalState.status])
   // Fixed placement so the menu is not clipped by the pane it belongs to, and kept above the status bar.
-  const [menuPlacement, setMenuPlacement] = useState<PaneMenuPlacement>({ top: 0, right: 0, maxHeight: 320 })
+  const [menuPlacement, setMenuPlacement] = useState<PaneMenuPlacement>({ top: 0, right: 0, maxHeight: 440 })
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement | null>(null)
+  const menuAnchorRef = useRef<{ kind: 'button' } | { kind: 'pointer'; x: number; y: number }>({ kind: 'button' })
 
   // CODE-8: a right click (or Shift+F10, the context-menu key) on the header opens the ⋯ actions at the pointer.
   // The rename field keeps its own menu (cut, copy, paste).
@@ -270,8 +245,13 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
     const viewport = { width: window.innerWidth, height: window.innerHeight }
     const fromKeyboard = event.clientX === 0 && event.clientY === 0
     const button = menuButtonRef.current
-    if (fromKeyboard && button) setMenuPlacement(paneMenuPlacement(button.getBoundingClientRect(), viewport, statusBarFloor()))
-    else setMenuPlacement(paneMenuAtPointer({ x: event.clientX, y: event.clientY }, viewport, statusBarFloor()))
+    if (fromKeyboard && button) {
+      menuAnchorRef.current = { kind: 'button' }
+      setMenuPlacement(paneMenuPlacement(button.getBoundingClientRect(), viewport, statusBarFloor()))
+    } else {
+      menuAnchorRef.current = { kind: 'pointer', x: event.clientX, y: event.clientY }
+      setMenuPlacement(paneMenuAtPointer({ x: event.clientX, y: event.clientY }, viewport, statusBarFloor()))
+    }
     setMenuOpen(true)
   }
 
@@ -360,6 +340,40 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   // A closed menu forgets its open group, adjusted while rendering (OXE-310).
   if (!menuOpen && submenu !== null) setSubmenu(null)
   const toggleSubmenu = (id: string): void => setSubmenu(current => current === id ? null : id)
+  // OXE-427: recompute placement when a submenu expands/collapses or lazy items load so "Close pane" is never clipped.
+  useEffect(() => {
+    if (!menuOpen) return
+    const adjust = (): void => {
+      const popover = popoverRef.current
+      if (!popover) return
+      const viewport = { width: window.innerWidth, height: window.innerHeight }
+      const floor = statusBarFloor()
+      const anchor = menuAnchorRef.current
+      const base = anchor.kind === 'pointer'
+        ? paneMenuAtPointer(anchor, viewport, floor)
+        : menuButtonRef.current
+          ? paneMenuPlacement(menuButtonRef.current.getBoundingClientRect(), viewport, floor)
+          : null
+      if (!base) return
+      const next = fitPaneMenuPlacement(base, popover.scrollHeight, viewport.height, floor)
+      setMenuPlacement(current =>
+        current.top === next.top &&
+        current.bottom === next.bottom &&
+        current.right === next.right &&
+        current.left === next.left &&
+        current.maxHeight === next.maxHeight
+          ? current
+          : next
+      )
+    }
+    const frame = requestAnimationFrame(adjust)
+    const observer = typeof ResizeObserver === 'function' && popoverRef.current ? new ResizeObserver(adjust) : null
+    if (observer && popoverRef.current) observer.observe(popoverRef.current)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+    }
+  }, [menuOpen, submenu])
   // At most 8 items (BRD-16): where the Arrange group takes the last place, Rename is that group's first item.
   const renameItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => startRename()) }}><Pencil size={14} aria-hidden="true" />{tc('paneMenu.rename')}</Button>
   const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
@@ -475,6 +489,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
               onClick={(e) => {
                 e.stopPropagation()
                 const trigger = e.currentTarget.getBoundingClientRect()
+                menuAnchorRef.current = { kind: 'button' }
                 setMenuPlacement(paneMenuPlacement(trigger, { width: window.innerWidth, height: window.innerHeight }, statusBarFloor()))
                 setMenuOpen((open) => !open)
               }}
@@ -482,7 +497,7 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
               <MoreHorizontal size={12} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right ?? 'auto', left: menuPlacement.left ?? 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(260px, 75vw)', maxWidth: 'calc(100vw - 32px)' }}>
+              <div ref={popoverRef} className="pane-actions-popover" role="menu" data-testid="pane-actions-menu" data-placement={menuPlacement.bottom === undefined ? 'below' : 'above'} style={{ position: 'fixed', top: menuPlacement.top ?? 'auto', bottom: menuPlacement.bottom ?? 'auto', right: menuPlacement.right ?? 'auto', left: menuPlacement.left ?? 'auto', maxHeight: menuPlacement.maxHeight, overflowY: 'auto', width: 'min(292px, 80vw)', maxWidth: 'calc(100vw - 32px)' }}>
                 {isTerminalPane ? <>
                   <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => setDetailsOpen(true)) }}><Info size={14} aria-hidden="true" />{tc('paneMenu.details')}</Button>
                   <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-why-status" onClick={event => { event.stopPropagation(); runMenuAction(() => setExplainOpen(true)) }}><CircleHelp size={14} aria-hidden="true" />{tc('paneMenu.whyStatus')}</Button>

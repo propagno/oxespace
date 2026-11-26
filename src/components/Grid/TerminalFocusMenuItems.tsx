@@ -23,15 +23,21 @@ export function TerminalFocusMenuItems({ paneId, onDone }: { paneId: string; onD
   return <>
     <Button variant="ghost" role="menuitemcheckbox" aria-checked={tabOn} className={styles.item} data-testid="pane-menu-tab-moves-focus"
       onClick={event => { event.stopPropagation(); onDone(); setTabMovesFocus(paneId, !tabOn) }}>
-      <ArrowRightLeft size={14} aria-hidden="true" />{t('keys.terminalFocus.menu')}{tabOn ? <Check size={14} aria-hidden="true" /> : null}
+      <ArrowRightLeft size={14} aria-hidden="true" />
+      <span className={styles.label}>{t('keys.terminalFocus.menu')}</span>
+      {tabOn ? <Check size={14} className={styles.check} aria-hidden="true" /> : null}
     </Button>
     {key ? <Button variant="ghost" role="menuitemcheckbox" aria-checked={keyToShell} className={styles.item} data-testid="pane-menu-toggle-key-to-shell"
       onClick={event => { event.stopPropagation(); onDone(); store.setToggleKeyToShell(paneId, !keyToShell) }}>
-      <CornerDownLeft size={14} aria-hidden="true" />{t('keys.terminalFocus.toggleKeyToShell', { key })}{keyToShell ? <Check size={14} aria-hidden="true" /> : null}
+      <CornerDownLeft size={14} aria-hidden="true" />
+      <span className={styles.label}>{t('keys.terminalFocus.toggleKeyToShell', { key })}</span>
+      {keyToShell ? <Check size={14} className={styles.check} aria-hidden="true" /> : null}
     </Button> : null}
     {key ? <Button variant="ghost" role="menuitemcheckbox" aria-checked={f6ToProgram} className={styles.item} data-testid="pane-menu-f6-to-program"
       onClick={event => { event.stopPropagation(); onDone(); store.setF6ToProgram(paneId, !f6ToProgram) }}>
-      <Keyboard size={14} aria-hidden="true" />{t('keys.terminalFocus.f6ToProgram')}{f6ToProgram ? <Check size={14} aria-hidden="true" /> : null}
+      <Keyboard size={14} aria-hidden="true" />
+      <span className={styles.label}>{t('keys.terminalFocus.f6ToProgram')}</span>
+      {f6ToProgram ? <Check size={14} className={styles.check} aria-hidden="true" /> : null}
     </Button> : null}
   </>
 }

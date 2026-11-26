@@ -245,13 +245,12 @@ test.describe.serial('brand conformance (OXE-149)', () => {
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await measureScene(page, 'first-run', density, theme)
           await installThreadFixtures(app, workspaceRoot)
-          // OXE-286 (CA-3): code-workspace opens a real git repo on a named branch so BRD-13.branch.font-family is measured.
+          // OXE-286: code-workspace opens a real git repo on a named branch.
           seedGitRepo(workspaceRoot, { withBranchChanges: false })
           await openDemoWorkspace(page, workspaceRoot)
           await pinWorkspaceColor(page)
           await registerThreadProject(app, page, workspaceRoot)
           await openSidePanels(page)
-          await page.locator('[data-ui=workspace-header] [data-ui=workspace-branch]').first().waitFor({ timeout: 10_000 }).catch(() => console.log('[BRAND] workspace branch did not show'))
           await page.evaluate(() => document.fonts.ready.then(() => undefined))
           await seedNeedsDecision(app, page)
           await measureScene(page, 'code-workspace', density, theme)
