@@ -226,10 +226,25 @@ describe('OXE-425 · Always-visible Add project and distinct new-conversation pi
     const rawButtons = [...document.querySelectorAll('button')].filter(btn => !btn.hasAttribute('data-ui'))
     expect(rawButtons).toEqual([])
 
-    // CSS distinguishes status tags (no border) from select pickers and toggle chips.
+    // Composer footer renders a quiet keyboard hint alongside the send button.
+    const composerHint = document.querySelector<HTMLElement>('[data-ui="composer-hint"]')
+    expect(composerHint).not.toBeNull()
+    expect(composerHint).toHaveTextContent(`Enter`)
+    expect(composerHint).toHaveTextContent(tt('opening.hintSend'))
+    expect(composerHint).toHaveTextContent(`Shift+Enter`)
+    expect(composerHint).toHaveTextContent(tt('opening.hintNewLine'))
+
+    // CSS keeps cohesive solid control pills, high-contrast OFF/ON toggle track, subtle read-only status tag,
+    // and single-ring composer focus with no raw browser resize handle (OXE-438).
     const css = readFileSync(join(ROOT, 'src/components/Threads/NewConversationScreen.module.css'), 'utf8')
-    expect(css).toMatch(/\.pickers\s+\.statusTag\s*\{[^}]*border:\s*1px solid transparent/)
-    expect(css).toMatch(/\.pickers\s+\.togglePicker\s*\{[^}]*border:\s*1px dashed/)
+    expect(css).toMatch(/\.pickers\s+\.statusTag\s*\{[^}]*border:\s*1px solid var\(--bd-subtle\)[^}]*background:\s*var\(--surface-sunken\)[^}]*cursor:\s*default/)
+    expect(css).toMatch(/\.pickers\s+\.togglePicker\s*\{[^}]*border:\s*1px solid var\(--bd-control\)[^}]*background:\s*var\(--surface-raised\)/)
+    expect(css).not.toMatch(/\.togglePicker[^{]*\{[^}]*dashed/)
+    expect(css).toMatch(/\.toggleTrack\s*\{[^}]*background:\s*var\(--surface-sunken\)[^}]*var\(--bd-strong\)/)
+    expect(css).toMatch(/\.toggleThumb\s*\{[^}]*background:\s*var\(--tx-secondary\)/)
+    expect(css).toMatch(/\.message\s*\{[^}]*resize:\s*none/)
+    expect(css).toMatch(/\.message:focus,\s*\.message:focus-visible\s*\{[^}]*outline:\s*none[^}]*box-shadow:\s*none/)
+    expect(css).toMatch(/\.composer:focus-within\s*\{[^}]*border-color:\s*var\(--accent-border\)[^}]*box-shadow:/)
   })
 
   it('omits the project dropdown chevron when locked in parallel mode', () => {

@@ -9,7 +9,7 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { MARK_PATH, MARK_VIEWBOX } from '../../design/brand'
 import { useThreadStore } from '../../store/thread.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, ErrorState, IconButton, Menu, Notice, Popover, TextField, cx, toast } from '../../ui'
+import { Button, ErrorState, IconButton, Kbd, Menu, Notice, Popover, TextField, cx, toast } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { consumePendingNewDraft, newProjectDraftKey, normalizePathForMatch } from '../Terminal/terminalToChat'
@@ -344,7 +344,12 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
           onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void start(inWorktree) } }} />
         <div className={styles.actions}>
-          <IconButton type="submit" variant="primary" label={t('composer.send')} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider || (parallel && !api.createChat)} />
+          <span className={styles.composerHint} data-ui="composer-hint">
+            <span className={styles.hintItem}><Kbd>Enter</Kbd><span>{t('opening.hintSend')}</span></span>
+            <span className={styles.hintSeparator} aria-hidden="true">·</span>
+            <span className={styles.hintItem}><Kbd>Shift+Enter</Kbd><span>{t('opening.hintNewLine')}</span></span>
+          </span>
+          <IconButton type="submit" variant="primary" className={styles.sendButton} label={t('composer.send')} title={t('composer.sendTitle', { key: 'Enter' })} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider || (parallel && !api.createChat)} />
         </div>
       </form>
       <div className={styles.starters} role="group" aria-label={t('opening.starters')}>

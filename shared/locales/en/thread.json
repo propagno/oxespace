@@ -1043,6 +1043,8 @@
     "title": "What should {{agent}} work on in {{folder}}?",
     "context": "Where the agent works",
     "starters": "Starters",
+    "hintSend": "to send",
+    "hintNewLine": "for a new line",
     "accessUnreadable": "Access could not be read",
     "noAgent": "No agent installed",
     "access": {
