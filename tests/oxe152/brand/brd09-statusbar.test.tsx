@@ -75,15 +75,19 @@ beforeEach(() => {
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); await changeLanguage('en') })
 
 describe('OXE-72 BRD-09 status bar (A25)', () => {
-  it.each(['en', 'pt-BR'])('the status bar (%s) is [data-ui=status-bar] with the workspace, the branch, and Claude and Codex usage', async locale => {
+  // OXE-423: status bar unifies all connected providers into one Usage control (one trigger opening UsagePopover)
+  // instead of multiplying per-provider chips along the bar; Claude and Codex readings are both summarized there.
+  it.each(['en', 'pt-BR'])('the status bar (%s) is [data-ui=status-bar] with the workspace, the branch, and unified Claude and Codex usage', async locale => {
     await changeLanguage(locale)
     setUsage({ claude: reading('claude', 42), codex: reading('codex', 17) })
     render(<AppStatusBar workspace={WORKSPACE} activePaneId="pane-1" appVersion="1.5.2" />)
     expect(bar()).toHaveAttribute('data-ui', 'status-bar')
     expect(bar()).toHaveTextContent('demo-repo')
     expect(bar()).toHaveTextContent('feat/pix-webhook')
-    await within(bar()).findByText(/Claude\s+42%/)
-    expect(within(bar()).getByText(/Codex\s+17%/)).toBeInTheDocument()
+    const usage = await within(bar()).findByTestId('usage-status')
+    expect(within(bar()).getAllByTestId('usage-status')).toHaveLength(1)
+    expect(usage).toHaveTextContent(new RegExp(`${tc('workspace.usage.label')}\\s+42%`))
+    expect(usage).toHaveAccessibleName(/Codex 17%.*Claude 42%/)
   })
 
   it.each(['en', 'pt-BR'])('it says nothing about agents working (%s) and never shows the version', async locale => {
@@ -99,7 +103,10 @@ describe('OXE-72 BRD-09 status bar (A25)', () => {
   it('a provider with no reading has no item: never 0% nor a dash', async () => {
     setUsage({ claude: reading('claude', 42) })
     render(<AppStatusBar workspace={WORKSPACE} activePaneId="pane-1" />)
-    await within(bar()).findByText(/Claude\s+42%/)
+    const usage = await within(bar()).findByTestId('usage-status')
+    expect(usage).toHaveTextContent(/Usage\s+42%/)
+    expect(usage).toHaveAccessibleName(/Claude 42%/)
+    expect(usage.getAttribute('aria-label') ?? '').not.toMatch(/Codex/)
     const text = bar().textContent ?? ''
     expect(text).not.toMatch(/Codex/)
     expect(text).not.toMatch(/(^|\D)0%/)

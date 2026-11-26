@@ -1,8 +1,9 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentCreditsSnapshot } from '../shared/types/agentCredits'
-import { formatResetIn, USAGE_POLL_MS, UsageStatus, usageText } from '../src/components/Workspace/UsageStatus'
+import { formatResetIn, formatUsageAge, USAGE_POLL_MS, UsageStatus, usageText } from '../src/components/Workspace/UsageStatus'
 import { useAgentCreditsStore } from '../src/store/agentCredits.store'
+import { changeLanguage } from '../src/i18n'
 
 const now = Date.parse('2026-10-19T12:00:00Z')
 const snapshot = (overrides: Partial<AgentCreditsSnapshot> = {}): AgentCreditsSnapshot => ({
@@ -20,7 +21,20 @@ describe('usage in the status bar', () => {
     expect(text.detail).toBe('Claude (max)\n5-hour window: 42% used, resets in 1h 20m\nWeekly window: 18% used, resets in 3d 4h\nRead 5s ago')
     expect(usageText(snapshot({ stale: true }), now).detail).toContain('Last known reading, 5s old')
     expect(formatResetIn(now + 35 * 60_000, now)).toBe('35m')
+    expect(formatResetIn(now, now)).toBeNull()
+    expect(formatResetIn(now - 13 * 86_400_000, now)).toBeNull()
     expect(formatResetIn(null, now)).toBeNull()
+  })
+
+  it('formats stale and past reading ages in minutes, hours or days (OXE-423)', async () => {
+    expect(formatUsageAge(12 * 60_000)).toBe('12m')
+    expect(formatUsageAge(5 * 3_600_000)).toBe('5h')
+    expect(formatUsageAge(19_130 * 60_000)).toBe('13d')
+    await changeLanguage('pt-BR')
+    expect(formatUsageAge(12 * 60_000)).toBe('12 min')
+    expect(formatUsageAge(5 * 3_600_000)).toBe('5 h')
+    expect(formatUsageAge(19_130 * 60_000)).toBe('13 d')
+    await changeLanguage('en')
   })
 
   it('a quota split by group of models (OXE-174): the bar reads the first group, named; the detail lists every group', () => {
@@ -106,6 +120,60 @@ describe('usage in the status bar', () => {
       render(<UsageStatus provider="codex" />)
       await act(async () => { await Promise.resolve() })
       expect(screen.queryByTestId('usage-status')).toBeNull()
+    })
+
+    it('unified mode (OXE-423): polls all providers into one trigger, formats stale ages/expired resets cleanly and uses secondary popover actions', async () => {
+      const staleObservedAt = now - 19_130 * 60_000
+      const expiredResetAt = now - 12 * 86_400_000
+      get.mockImplementation(async ({ provider }: { provider: string }) => {
+        if (provider === 'claude') {
+          return snapshot({
+            provider: 'claude',
+            stale: true,
+            observedAtMs: staleObservedAt,
+            windows: [{ kind: 'session', usedPct: 100, resetsAtMs: expiredResetAt }]
+          })
+        }
+        if (provider === 'codex') {
+          return snapshot({
+            provider: 'codex',
+            planLabel: 'plus',
+            observedAtMs: now - 30_000,
+            windows: [{ kind: 'session', usedPct: 5, resetsAtMs: now + 90 * 60_000 }]
+          })
+        }
+        return snapshot({ provider: 'antigravity', available: false, installed: false, windows: [], display: null })
+      })
+
+      render(<UsageStatus activeProvider="codex" />)
+      await act(async () => { await Promise.resolve() })
+
+      const triggers = screen.getAllByTestId('usage-status')
+      expect(triggers).toHaveLength(1)
+      const trigger = triggers[0]
+      expect(trigger).toHaveTextContent('Usage 100%')
+      expect(trigger).toHaveAccessibleName('Usage 100%: Codex 5%, Claude 100%')
+      expect(trigger.getAttribute('title')).toContain('Codex (plus)')
+      expect(trigger.getAttribute('title')).toContain('Claude (max)')
+      expect(trigger.getAttribute('title')).toContain('13d ago')
+      expect(trigger.getAttribute('title')).not.toMatch(/resets in 0m|\b0m\b/)
+      expect(trigger.className).toMatch(/usageCritical/)
+
+      vi.useRealTimers()
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
+      try {
+        fireEvent.click(trigger)
+        const detail = await screen.findByTestId('usage-popover')
+        const regions = within(detail).getAllByRole('region')
+        expect(regions.map(r => r.getAttribute('aria-label'))).toEqual(['Codex usage', 'Claude usage'])
+        expect(detail).toHaveTextContent('13d ago')
+        expect(detail.textContent).not.toMatch(/19130/)
+        expect(detail.textContent).not.toMatch(/renews in 0m/)
+        expect(within(detail).getByRole('button', { name: 'Read now' })).toHaveAttribute('data-variant', 'secondary')
+        expect(within(detail).getByRole('button', { name: 'Usage details' })).toHaveAttribute('data-variant', 'secondary')
+      } finally {
+        clock.mockRestore()
+      }
     })
   })
 })

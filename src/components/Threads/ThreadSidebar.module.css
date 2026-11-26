@@ -1,9 +1,10 @@
 /* The OxeChat sidebar (BRD-02, OXE-166) on the src/ui sidebar anatomy, OxeCode's mould. This file only places what the
    primitives leave to the caller: a conversation row's two lines, its mini card, its hover actions and the groups. */
-/* ── State selector under the filter (OXE-133): same anatomy as OxeCode's SidebarNavigation ── */
+/* ── State selector under the filter (OXE-133, OXE-433): content-proportional so labels and counts never clip at 110% ── */
 .stateFilter { display: flex; margin: 0 var(--space-2) var(--space-2); }
-.stateFilter [role="radio"] { flex: 1 1 0; min-width: 0; gap: var(--space-1); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.stateCount { color: var(--tx-muted); font-variant-numeric: tabular-nums; }
+.stateFilter [role="radio"] { flex: 1 1 auto; justify-content: center; min-width: 0; padding: 0 var(--space-1-5); gap: var(--space-1); font-size: var(--fs-2xs); white-space: nowrap; }
+.stateLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stateCount { flex-shrink: 0; color: var(--tx-muted); font-variant-numeric: tabular-nums; }
 
 /* ── State chips under the filter (OXE-187): one row, shown on focus or while a chip is on ── */
 .stateChips { display: flex; align-items: center; gap: var(--space-1); height: var(--row-1); padding: 0 var(--space-2); overflow-x: auto; scrollbar-width: none; }

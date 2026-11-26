@@ -414,7 +414,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
         onKeyDown={event => { if (event.key === 'Escape' && !query && navStateFilter !== 'all') { event.preventDefault(); event.stopPropagation(); setNavStateFilter('thread', 'all') } }}
         onFocus={() => setFilterFocused(true)} onBlur={event => { if (!chipsRef.current?.contains(event.relatedTarget as Node | null)) setFilterFocused(false) }} />
       <SegmentedControl className={cx('sidebar-state-filter', styles.stateFilter)} label={t('sidebar.stateFilter.label')} value={navStateFilter} onChange={value => setNavStateFilter('thread', value)}
-        options={NAV_STATE_FILTERS.map(value => ({ value, label: <>{t(`sidebar.stateFilter.${NAV_STATE_KEYS[value]}`)}{' '}<span className={cx('sidebar-state-count', styles.stateCount)}>{stateCounts[value]}</span></> }))} />
+        options={NAV_STATE_FILTERS.map(value => ({ value, label: <><span className={styles.stateLabel}>{t(`sidebar.stateFilter.${NAV_STATE_KEYS[value]}`)}</span>{' '}<span className={cx('sidebar-state-count', styles.stateCount)}>{stateCounts[value]}</span></> }))} />
       {(filterFocused || stateFilter) && <div ref={chipsRef} role="group" aria-label={t('sidebar.filterByState')} data-ui="thread-state-chips" className={styles.stateChips}
         onBlur={event => { const next = event.relatedTarget as Node | null; if (next !== search.current && !event.currentTarget.contains(next)) setFilterFocused(false) }}>
         {STATE_CHIPS.map(chip => <Button key={chip.filter} size="sm" variant={stateFilter === chip.filter ? 'secondary' : 'ghost'} aria-pressed={stateFilter === chip.filter}

@@ -4,7 +4,7 @@
   display: grid;
   /* Brand + inline menus on the left, mode switch next to them, command bar + attention + settings on the right. */
   grid-template-columns: auto auto minmax(0, 1fr);
-  column-gap: var(--space-2);
+  column-gap: var(--space-3);
   align-items: center;
   /* Follows the density: 36 compact, 40 comfortable. */
   height: var(--bar-lg);
@@ -23,7 +23,16 @@
 :root[data-platform='darwin'] .bar { padding-left: 78px; }
 .bar :is(button, a, input, select, [role='button']) { -webkit-app-region: no-drag; }
 
-.brand { display: flex; align-items: center; gap: var(--space-1); min-width: 0; flex-shrink: 0; color: var(--tx-primary); }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex-shrink: 0;
+  padding-inline-end: var(--space-3);
+  border-inline-end: 1px solid var(--bd-default);
+  color: var(--tx-primary);
+}
 
 .trailing { display: flex; align-items: center; justify-content: flex-end; justify-self: stretch; gap: var(--space-1-5, 6px); min-width: 0; padding-right: var(--space-1); }
 

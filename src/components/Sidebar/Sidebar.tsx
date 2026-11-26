@@ -245,7 +245,7 @@ export function Sidebar({
         // Escape clears the text first (the filter does), then the state.
         onKeyDown={event => { if (event.key === 'Escape' && !searchQuery && stateFilter !== 'all') { event.preventDefault(); event.stopPropagation(); setStateFilter('code', 'all') } }} />
       <SegmentedControl className="sidebar-state-filter" label={t('sidebar.stateFilter.label')} value={stateFilter} onChange={value => setStateFilter('code', value)}
-        options={STATE_FILTERS.map(value => ({ value, label: <>{t(`sidebar.stateFilter.${STATE_KEYS[value]}`)}{' '}<span className="sidebar-state-count">{stateCounts[value]}</span></> }))} />
+        options={STATE_FILTERS.map(value => ({ value, label: <><span className="sidebar-state-label">{t(`sidebar.stateFilter.${STATE_KEYS[value]}`)}</span>{' '}<span className="sidebar-state-count">{stateCounts[value]}</span></> }))} />
 
       <nav ref={attachList} onKeyDown={onListKeyDown} className="ws-group-list" aria-label={t('sidebar.workspaces')}>
 

@@ -16,9 +16,6 @@ import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
 
-/** Claude and Codex are always read (BRD-09, RT-1); another provider shows only while it is the one in use. */
-const ALWAYS_SHOWN: readonly UsageProvider[] = ['claude', 'codex']
-
 interface AppStatusBarProps {
   workspace: Workspace | null
   activePaneId: string | null
@@ -43,7 +40,6 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
     return USAGE_PROVIDERS.find(candidate => providers.includes(candidate)) ?? null
   }, [activePane?.agentProfileId, profiles])
   const provider = usageProvider === undefined ? paneProvider : usageProvider
-  const shownProviders = provider && !ALWAYS_SHOWN.includes(provider) ? [...ALWAYS_SHOWN, provider] : ALWAYS_SHOWN
   const path = rootPath ?? workspace?.rootPath ?? null
   const [settled, setSettled] = useState(false)
   useEffect(() => { if (firstRun) { setSettled(false); return } const id = window.setTimeout(() => setSettled(true), 250); return () => window.clearTimeout(id) }, [firstRun, path])
@@ -100,7 +96,7 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
       <div className={styles.group}>
         {offline ? <span className={cx(styles.item, styles.offline)} role="status" title={i18n.t('ui.offline.message')} data-testid="offline-indicator"><WifiOff size={12} aria-hidden="true" />{i18n.t('ui.offline.title')}</span> : null}
         {settled ? <Suspense fallback={null}>
-          {shownProviders.map(each => <UsageStatus key={each} provider={each} />)}
+          <UsageStatus activeProvider={provider} />
         </Suspense> : null}
         {backgroundPaneIds.length > 0 ? (
           <button
