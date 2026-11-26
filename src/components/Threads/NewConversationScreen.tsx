@@ -1,4 +1,4 @@
-import { ArrowUp, Check, FolderGit2, GitBranch, Plus, Shield } from 'lucide-react'
+import { ArrowUp, Check, ChevronDown, FolderGit2, FolderPlus, GitBranch, Shield } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { THREAD_PROVIDERS, threadAgentName } from '../../../shared/threadProviders'
@@ -9,7 +9,7 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { MARK_PATH, MARK_VIEWBOX } from '../../design/brand'
 import { useThreadStore } from '../../store/thread.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, ErrorState, IconButton, Menu, Notice, Popover, TextField, toast } from '../../ui'
+import { Button, ErrorState, IconButton, Menu, Notice, Popover, TextField, cx, toast } from '../../ui'
 import { errorText, humanizeError } from '../../utils/humanizeError'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { consumePendingNewDraft, newProjectDraftKey, normalizePathForMatch } from '../Terminal/terminalToChat'
@@ -130,7 +130,7 @@ function useMessage(projectId: string, rootPath: string, initialDraft = '') {
 }
 
 /** Project picker: every project folder with its color and full path, a filter, and Add project. */
-function ProjectPicker({ choices, selected, disabled, onPick, onAdd }: { choices: ProjectChoice[]; selected?: ProjectChoice; disabled: boolean; onPick: (choice: ProjectChoice) => void; onAdd?: () => void }): ReactElement {
+function ProjectPicker({ choices, selected, disabled, locked = false, onPick, onAdd }: { choices: ProjectChoice[]; selected?: ProjectChoice; disabled: boolean; locked?: boolean; onPick: (choice: ProjectChoice) => void; onAdd?: () => void }): ReactElement {
   const { t } = useTranslation('thread')
   const workspaces = useWorkspaceStore(state => state.workspaces)
   const [open, setOpen] = useState(false)
@@ -138,11 +138,14 @@ function ProjectPicker({ choices, selected, disabled, onPick, onAdd }: { choices
   const change = (next: boolean): void => { setOpen(next); if (!next) setQuery('') }
   const found = choices.filter(choice => `${choice.projectName} ${choice.rootPath}`.toLowerCase().includes(query.trim().toLowerCase()))
   return <Popover label={t('dialogs.chooseProject')} open={open} onOpenChange={change}
-    trigger={<Button data-ui="context-picker" className={styles.picker} title={selected?.rootPath} disabled={disabled} icon={<FolderGit2 size={14} aria-hidden="true" />}>{selected?.projectName ?? t('dialogs.noProject')}</Button>}>
+    trigger={<Button data-ui="context-picker" data-picker-kind="select" className={cx(styles.picker, styles.selectPicker)} title={selected?.rootPath} disabled={disabled} icon={<FolderGit2 size={14} aria-hidden="true" />}>
+      <span>{selected?.projectName ?? t('dialogs.noProject')}</span>
+      {!locked && <ChevronDown size={12} className={styles.chevron} aria-hidden="true" />}
+    </Button>}>
     <div className={styles.projects}>
       <TextField aria-label={t('dialogs.filterProjects')} placeholder={t('dialogs.filterProjects')} value={query} onChange={event => setQuery(event.target.value)} />
       <div className={styles.options}>
-        {found.map(choice => {
+        {found.length > 0 ? found.map(choice => {
           const color = workspaces.find(workspace => workspace.rootPath === choice.rootPath)?.color ?? null
           const current = choice.rootPath === selected?.rootPath
           return <Button key={choice.rootPath} variant="ghost" className={styles.option} aria-pressed={current} onClick={() => { onPick(choice); change(false) }}>
@@ -150,9 +153,11 @@ function ProjectPicker({ choices, selected, disabled, onPick, onAdd }: { choices
             <span className={styles.optionText}><strong>{choice.projectName}</strong><code>{choice.rootPath}</code></span>
             {current && <Check size={14} aria-hidden="true" />}
           </Button>
-        })}
+        }) : <p className={styles.noMatch}>{t('dialogs.noProjectMatch')}</p>}
       </div>
-      {onAdd && <Button variant="ghost" icon={<Plus size={14} aria-hidden="true" />} onClick={() => { change(false); onAdd() }}>{t('dialogs.add')}</Button>}
+      {onAdd && <div className={styles.addFooter}>
+        <Button variant="ghost" className={styles.addOption} icon={<FolderPlus size={14} aria-hidden="true" />} onClick={() => { change(false); onAdd() }}>{t('dialogs.add')}</Button>
+      </div>}
     </div>
   </Popover>
 }
@@ -284,21 +289,27 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
         <h2 id={titleId} data-ui="new-conversation-title" className={styles.title}>{parallel ? t('parallel.title', { title: displayThreadTitle(parent?.title) }) : t('opening.title', { agent, folder })}</h2>
       </div>
       <div role="group" aria-label={t('opening.context')} className={styles.pickers}>
-        <ProjectPicker choices={choices} selected={context} disabled={pending || parallel} onPick={pickProject} onAdd={onAddProject} />
+        <ProjectPicker choices={choices} selected={context} disabled={pending || parallel} locked={parallel} onPick={pickProject} onAdd={onAddProject} />
         <Menu label={t('dialogs.agent')} items={installed.map(id => ({ label: threadAgentName(id), icon: id === provider ? <Check size={14} /> : undefined, onSelect: () => setChosenAgent(id) }))}
-          trigger={<Button data-ui="context-picker" className={styles.picker} disabled={pending || !provider} icon={provider && <AgentProviderIcon provider={provider} size={14} />}>{provider ? agent : t('opening.noAgent')}</Button>} />
+          trigger={<Button data-ui="context-picker" data-picker-kind="select" className={cx(styles.picker, styles.selectPicker)} disabled={pending || !provider} icon={provider && <AgentProviderIcon provider={provider} size={14} />}>
+            <span>{provider ? agent : t('opening.noAgent')}</span>
+            <ChevronDown size={12} className={styles.chevron} aria-hidden="true" />
+          </Button>} />
         {parallel
-          ? <span data-ui="context-picker" className={styles.picker} data-locked="true"><GitBranch size={14} aria-hidden="true" />{t('parallel.locked')}</span>
-          : <Button data-ui="context-picker" className={styles.picker} role="switch" aria-checked={inWorktree} aria-label={t('dialogs.inWorktree')} disabled={pending}
-            icon={<GitBranch size={14} aria-hidden="true" />} onClick={() => { setChosenWorktree(!inWorktree); setFailure(null) }}>{t('dialogs.inWorktreeShort')}</Button>}
-        <span data-ui="context-picker" className={styles.picker} data-access={access ?? undefined} aria-busy={access === null}>
+          ? <span data-ui="context-picker" data-picker-kind="status" className={cx(styles.picker, styles.statusTag)} data-locked="true"><GitBranch size={14} aria-hidden="true" />{t('parallel.locked')}</span>
+          : <Button data-ui="context-picker" data-picker-kind="toggle" variant="ghost" className={cx(styles.picker, styles.togglePicker)} role="switch" aria-checked={inWorktree} aria-label={t('dialogs.inWorktree')} disabled={pending}
+            icon={<GitBranch size={14} aria-hidden="true" />} onClick={() => { setChosenWorktree(!inWorktree); setFailure(null) }}>
+            <span>{t('dialogs.inWorktreeShort')}</span>
+            <span className={styles.toggleTrack} aria-hidden="true"><span className={styles.toggleThumb} /></span>
+          </Button>}
+        <span data-ui="context-picker" data-picker-kind="status" className={cx(styles.picker, styles.statusTag)} data-access={access ?? undefined} aria-busy={access === null}>
           <Shield size={14} aria-hidden="true" />{access === 'unreadable' ? t('opening.accessUnreadable') : access && t(`opening.access.${access}`)}
         </span>
       </div>
       {parallel && <Notice intent="info">{t('parallel.notice')}</Notice>}
       {!parallel && !context && onAddProject && <div className={styles.unregistered}>
         {rootPath && <code>{rootPath}</code>}
-        <Button icon={<Plus size={14} aria-hidden="true" />} onClick={onAddProject}>{t('dialogs.add')}</Button>
+        <Button icon={<FolderPlus size={14} aria-hidden="true" />} onClick={onAddProject}>{t('dialogs.add')}</Button>
       </div>}
       {inWorktree && <div className={styles.worktree}>
         <p className={styles.hint}>{t('dialogs.inWorktreeHint')}</p>
