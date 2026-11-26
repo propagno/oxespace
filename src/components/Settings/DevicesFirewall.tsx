@@ -108,7 +108,7 @@ export function DevicesFirewall({ listening, pairingKey, publicFallback }: { lis
 
   const rule = t('devices.firewallCheck.rule', { port: status.port })
   const undoButton = canUndo ? <Button size="sm" disabled={busy} onClick={() => setConfirming('undo')}>{t('devices.firewallCheck.undo.action')}</Button> : null
-  const checkButton = <Button size="sm" variant="ghost" loading={checking} disabled={busy} onClick={() => void check()}>{t('devices.firewallCheck.checkAgain')}</Button>
+  const checkButton = <Button size="sm" variant="secondary" loading={checking} disabled={busy} onClick={() => void check()}>{t('devices.firewallCheck.checkAgain')}</Button>
 
   return <div className={styles.stack} data-testid="devices-firewall-check">
     {problem ? <Notice intent="warning" title={t(`devices.firewallCheck.${problem}.title`)}

@@ -67,14 +67,14 @@ export const APPLICATION_SETTINGS_PAGES = [
   appPage('terminal', SquareTerminal, 'Terminal', 'Default shell, scrollback buffer and font overrides.', ['shell', 'scrollback', 'cursor', 'powershell', 'bash', 'zsh']),
   appPage('mcp', Wrench, 'MCP servers and skills', 'Connected MCP servers, custom tools and agent skills.', ['mcp', 'tools', 'skills', 'servers', 'oxe.yaml']),
   appPage('devices', Smartphone, 'Phone and devices', 'Linked mobile devices and companion app connections.', ['phone', 'mobile', 'android', 'mirror', 'qr', 'network', 'pairing']),
-  appPage('github', GitBranch, 'GitHub', 'GitHub CLI authentication and pull request integration.', ['github', 'gh', 'auth', 'login', 'git', 'pr', 'pull request']),
+  appPage('github', GitBranch, 'GitHub', 'GitHub CLI authentication and pull request integration.', ['github', 'gh', 'azure', 'azure devops', 'az', 'auth', 'login', 'git', 'pr', 'pull request']),
   appPage('privacy', Lock, 'Data and privacy', 'Usage count and data export', ['export', 'privacy', 'usage', 'count']),
   appPage('activity', History, 'Agent activity', 'What agents changed through OXESpace, and what you decided.', ['audit', 'outgoing', 'proxy', 'hosts', 'network', 'changes', 'containers']),
   appPage('diagnostics', Activity, 'Diagnostics', 'System health, runtime logs and active background tasks.', ['health', 'logs', 'doctor', 'troubleshooting', 'support']),
   appPage('about', ArrowUpCircle, 'About', 'Version details, release notes and open-source licenses.', ['version', 'updates', 'release', 'changelog', 'licenses'])
 ] as const
 
-export type AppSectionId = 'general' | 'appearance' | 'agents' | 'notifications' | 'keyboard' | 'terminal' | 'integrations' | 'data' | 'about'
+export type AppSectionId = 'general' | 'appearance' | 'agents' | 'notifications' | 'keyboard' | 'terminal' | 'mcp' | 'devices' | 'git' | 'data' | 'about'
 
 function appSection(id: AppSectionId, icon: LucideIcon, pages: readonly AppPage[]) {
   return {
@@ -87,8 +87,8 @@ function appSection(id: AppSectionId, icon: LucideIcon, pages: readonly AppPage[
 }
 
 /**
- * BRD-23 (OXE-100): the nine sections of the application's settings, in order. A section of several pages shows them
- * as a choice above the page; every page keeps its id, so deep links and saved destinations still land.
+ * Application settings sections, in order (BRD-23 + OXE-431). A section of several pages shows them as a choice above
+ * the page; every page keeps its id, so deep links and saved destinations still land.
  */
 export const APPLICATION_SETTINGS_SECTIONS = [
   appSection('general', Settings2, ['general']),
@@ -97,7 +97,9 @@ export const APPLICATION_SETTINGS_SECTIONS = [
   appSection('notifications', Bell, ['notifications']),
   appSection('keyboard', Keyboard, ['keyboard']),
   appSection('terminal', SquareTerminal, ['terminal']),
-  appSection('integrations', Wrench, ['mcp', 'devices', 'github']),
+  appSection('mcp', Wrench, ['mcp']),
+  appSection('devices', Smartphone, ['devices']),
+  appSection('git', GitBranch, ['github']),
   appSection('data', Activity, ['privacy', 'activity', 'diagnostics']),
   appSection('about', ArrowUpCircle, ['about'])
 ] as const
@@ -131,6 +133,8 @@ export function searchSettingsPages(query: string): Page[] {
  * The application page a deep link or a saved destination opens. A page that no longer exists lands on Settings' first page.
  */
 export function resolveAppPage(page: string): AppPage {
+  if (page === 'git') return 'github'
+  if (page === 'skills') return 'mcp'
   return (APPLICATION_SETTINGS_PAGES.find(p => p.id === page)?.id as AppPage) ?? 'general'
 }
 

@@ -20,7 +20,9 @@
       "notifications": { "label": "Notifications", "hint": "Desktop alerts and sounds" },
       "keyboard": { "label": "Keyboard", "hint": "Shortcuts and key bindings" },
       "terminal": { "label": "Terminal", "hint": "Font, cursor, scrolling and behavior" },
-      "integrations": { "label": "Integrations", "hint": "MCP servers, skills and paired devices" },
+      "mcp": { "label": "MCP and Skills", "hint": "MCP servers, tool rules and agent skills" },
+      "devices": { "label": "Phone and devices", "hint": "Phones and paired devices" },
+      "git": { "label": "Git", "hint": "GitHub and Azure DevOps CLI authentication and pull requests" },
       "data": { "label": "Data & diagnostics", "hint": "Usage, agent activity and diagnostics" },
       "about": { "label": "About", "hint": "Version, updates and licenses" }
     },
@@ -424,8 +426,7 @@
       "title": "Built-in tools",
       "subtitle": "Updated with each application release",
       "included": "included",
-      "caveman": "In-app prompt / agent workflow",
-      "codegraph": "Vendored code intelligence"
+      "caveman": "In-app prompt / agent workflow"
     },
     "preferences": {
       "label": "How OXESpace updates",
@@ -558,9 +559,9 @@
     "command": "Command"
   },
   "github": {
-    "title": "GitHub",
-    "intro": "Sign in with the GitHub CLI to create pull requests, check workflow runs and sync repositories.",
-    "section": "Connection",
+    "title": "Git",
+    "intro": "Configure Git provider CLIs for pull requests, checks, workflow runs and repository status.",
+    "section": "GitHub (gh CLI)",
     "statusLabel": "GitHub CLI status",
     "checking": "Checking GitHub CLI…",
     "connected": "Signed in as @{{user}}",
@@ -568,7 +569,18 @@
     "noCli": "GitHub CLI (gh) was not found on this machine.",
     "disconnectedBadge": "Not connected",
     "authLabel": "Authenticate in a terminal",
-    "authHint": "Copy and run this command in your terminal to link your GitHub account."
+    "authHint": "Copy and run this command in your terminal to link your GitHub account.",
+    "azure": {
+      "section": "Azure DevOps (az CLI)",
+      "description": "OXESpace automatically detects dev.azure.com and *.visualstudio.com remotes via Azure CLI.",
+      "detectionLabel": "Remote detection",
+      "detectionHint": "Pull requests, reviewers, branch policies and merge status use the local Azure CLI (az) automatically.",
+      "cliBadge": "Azure CLI (az)",
+      "authLabel": "Sign in to Azure",
+      "authHint": "Copy and run this command in your terminal to sign in with your Azure account.",
+      "extensionLabel": "Install the Azure DevOps extension",
+      "extensionHint": "Required once so az repos can read pull requests and policies."
+    }
   },
   "devices": {
     "title": "Phone and devices",
@@ -746,6 +758,11 @@
     }
   },
   "tools": {
+    "tabs": {
+      "label": "MCP and Skills sections",
+      "mcp": "MCP",
+      "skills": "Skills"
+    },
     "whereToAdd": "To add or remove an MCP server, use Tools › Manage MCP servers.",
     "manageMcp": "Manage MCP servers…",
     "skillsList": {

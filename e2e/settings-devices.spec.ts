@@ -23,7 +23,7 @@ test('Settings › Devices pairs a phone by QR and removes it', async () => {
 
     await openSettings(page)
     const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
-    await openSettingsPage(settings, 'Integrations', 'Phone and devices')
+    await openSettingsPage(settings, 'Phone and devices')
     const devices = settings.getByTestId('devices-settings')
     await expect(devices.getByTestId('devices-gateway-state')).toHaveText('Off. No port is open.')
     await expect(devices.getByRole('button', { name: 'Show pairing code' })).toBeDisabled()

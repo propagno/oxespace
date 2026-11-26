@@ -64,7 +64,7 @@ const SETTINGS_MEASURES: readonly Pin[] = [
   { id: 'BRD-23.section-title.font-weight', scene: 'settings-general', prop: 'font-weight', expect: { token: '--weight-semibold' } }
 ]
 
-const SECTIONS = ['General', 'Appearance', 'Agents & permissions', 'Notifications', 'Keyboard', 'Terminal', 'Integrations', 'Data & diagnostics', 'About']
+const SECTIONS = ['General', 'Appearance', 'Agents & permissions', 'Notifications', 'Keyboard', 'Terminal', 'MCP and Skills', 'Phone and devices', 'Git', 'Data & diagnostics', 'About']
 const workspace = { id: 'ws', name: 'demo', rootPath: '/repo', themeId: 'midnight', uiDensity: 'compact', layoutPreset: 4, defaultShellProfileId: 'sh', panes: [] } as unknown as Workspace
 function open(initialWorkspaceId?: string): void {
   render(<SettingsCenter initialPage="general" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()} {...(initialWorkspaceId ? { initialWorkspaceId } : {})}
@@ -75,18 +75,18 @@ const navNames = (): string[] => within(nav()).getAllByRole('button').map(button
 
 afterEach(async () => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); await changeLanguage('en') })
 
-describe('OXE-100 BRD-23 Settings, 9 sections and the App / workspace selector (A33)', () => {
-  it('the application has exactly the 9 sections of the target, in order', async () => {
+describe('OXE-100 BRD-23 + OXE-431 Settings sections and the App / workspace selector (A33)', () => {
+  it('the application has the 11 sections in order (MCP and Skills, Phone and devices, Git)', async () => {
     open()
-    await waitFor(() => expect(navNames()).toHaveLength(9), { timeout: 10_000 })
+    await waitFor(() => expect(navNames()).toHaveLength(11), { timeout: 10_000 })
     navNames().forEach((name, index) => expect(name.startsWith(SECTIONS[index]), `section ${index + 1} is ${SECTIONS[index]}: "${name}"`).toBe(true))
   }, 30_000)
 
-  it('pt-BR has the same 9 sections, with the brand\'s names', async () => {
+  it('pt-BR has the same 11 sections, with the brand\'s names', async () => {
     await changeLanguage('pt-BR')
     open()
-    await waitFor(() => expect(navNames()).toHaveLength(9), { timeout: 10_000 })
-    const PT = ['Geral', 'Aparência', 'Agentes e permissões', 'Notificações', 'Teclado', 'Terminal', 'Integrações', 'Dados e diagnóstico', 'Sobre']
+    await waitFor(() => expect(navNames()).toHaveLength(11), { timeout: 10_000 })
+    const PT = ['Geral', 'Aparência', 'Agentes e permissões', 'Notificações', 'Teclado', 'Terminal', 'MCP e Skills', 'Celular e dispositivos', 'Git', 'Dados e diagnóstico', 'Sobre']
     navNames().forEach((name, index) => expect(name.startsWith(PT[index]), `seção ${index + 1} é ${PT[index]}: "${name}"`).toBe(true))
   }, 30_000)
 
@@ -105,7 +105,7 @@ describe('OXE-100 BRD-23 Settings, 9 sections and the App / workspace selector (
 
   it('Agents & permissions: "Custom agent" is a Button in a section header, not a field', async () => {
     open()
-    await waitFor(() => expect(navNames()).toHaveLength(9), { timeout: 10_000 })
+    await waitFor(() => expect(navNames()).toHaveLength(11), { timeout: 10_000 })
     fireEvent.click(within(nav()).getAllByRole('button')[SECTIONS.indexOf('Agents & permissions')])
     const button = await screen.findByRole('button', { name: 'Custom agent' }, { timeout: 10_000 })
     expect(button).toHaveAttribute('data-ui', 'button')

@@ -147,6 +147,8 @@ describe('analysis summary', () => {
     expect(summary).toContain('- incident.mcp.quarantined (mcp): 2 times, last 2026-10-29')
     expect(summary).toContain('- main: 1 process, CPU 2.0%, 150 MB')
     expect(summary).toContain('- free on the data volume: 100.0 GB')
+    expect(summary).toContain('- the OxeQuery worker runs inside the main process and is counted in it')
+    expect(summary).not.toContain('CodeGraph')
     expect(summary).toContain('3 total, 2 healthy, 1 quarantined, 0 failing')
     expect(summary).not.toContain('3fa9c1d2')
   })

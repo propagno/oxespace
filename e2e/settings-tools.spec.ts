@@ -29,7 +29,7 @@ test('Settings › MCP servers and skills: groups and costs, turning a group on 
     await openSettings(page)
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
     await expect(modal).toBeVisible()
-    const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Integrations/ })
+    const category = modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^MCP and Skills/ })
     await category.click()
     await expect(category).toHaveAttribute('aria-current', 'page')
     const tools = modal.getByTestId('tools-settings')

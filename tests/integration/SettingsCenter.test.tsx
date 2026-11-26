@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { SettingsCenter } from '../../src/components/Settings/SettingsCenter'
+import { resolveAppPage, SettingsCenter } from '../../src/components/Settings/SettingsCenter'
 import type { Workspace } from '../../shared/types/workspace'
 import { useUIStore } from '../../src/store/ui.store'
 import { useWorkspaceStore } from '../../src/store/workspace.store'
@@ -86,4 +86,25 @@ test('workspace settings lists General, Projects and Policy after 1.5 removals',
   expect(within(nav).getByRole('button', { name: /^Projects/ })).toHaveAttribute('aria-current', 'page')
   fireEvent.click(within(nav).getByRole('button', { name: /^Policy/ }))
   expect(within(nav).getByRole('button', { name: /^Policy/ })).toHaveAttribute('aria-current', 'page')
+})
+
+test('OXE-431: Integrations is split into MCP and Skills, Phone and devices, and Git with alias deep links', async () => {
+  expect(resolveAppPage('git')).toBe('github')
+  expect(resolveAppPage('github')).toBe('github')
+  expect(resolveAppPage('skills')).toBe('mcp')
+  expect(resolveAppPage('mcp')).toBe('mcp')
+
+  render(<SettingsCenter initialPage="general" workspaces={[workspace]} shellProfiles={[]} onSave={vi.fn()} onClose={vi.fn()}
+    agentProfiles={[]} agentReadiness={[]} isDiscoveringAgents={false} onDiscoverAgents={vi.fn()} onConfigureAgent={vi.fn()} onNewCustomAgent={vi.fn()} />)
+  const nav = screen.getByRole('navigation', { name: 'Settings categories' })
+  expect(within(nav).queryByRole('button', { name: /^Integrations/ })).toBeNull()
+  expect(within(nav).getByRole('button', { name: /^MCP and Skills/ })).toBeInTheDocument()
+  expect(within(nav).getByRole('button', { name: /^Phone and devices/ })).toBeInTheDocument()
+  const gitBtn = within(nav).getByRole('button', { name: /^Git\b/ })
+  expect(gitBtn).toBeInTheDocument()
+
+  fireEvent.click(gitBtn)
+  expect(await screen.findByTestId('settings-github-page', {}, { timeout: 10_000 })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Git' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Azure DevOps (az CLI)' })).toBeVisible()
 })

@@ -42,7 +42,7 @@ export function PolicySettings({ workspaceId, scope = 'workspace', hideHeading =
       </div>
     })}
     <div className="settings-inline-actions">
-      <Button variant="ghost" onClick={() => setReloads(count => count + 1)}><RefreshCw size={14} aria-hidden="true" /> {t('policy.reload')}</Button>
+      <Button variant="secondary" onClick={() => setReloads(count => count + 1)}><RefreshCw size={14} aria-hidden="true" /> {t('policy.reload')}</Button>
     </div>
   </section>
 }

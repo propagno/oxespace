@@ -67,6 +67,7 @@ describe('Settings agents UI', () => {
     expect(onDiscoverAgents).toHaveBeenCalledTimes(1)
 
     await user.click(screen.getByTestId('btn-configure-agent-claude'))
+    expect(screen.getByTestId('btn-configure-agent-claude')).toHaveAttribute('data-variant', 'secondary')
     expect(onConfigureAgent).toHaveBeenCalledWith(profiles[0])
 
     await user.click(screen.getByTestId('btn-toggle-missing-providers'))
@@ -223,9 +224,13 @@ describe('Settings agents UI', () => {
     // Development builds can check Releases, but installation is manual.
     expect(screen.getByTestId('app-update-pill')).toHaveTextContent(/Dev build/i)
     expect(screen.getByTestId('btn-check-app-updates')).toBeEnabled()
+    expect(screen.getByTestId('btn-check-app-updates')).toHaveAttribute('data-variant', 'secondary')
     expect(screen.getByTestId('btn-check-app-updates')).toHaveTextContent(/Check for updates/i)
     expect(screen.getByText(/Development and Linux package installs cannot update in place/)).toBeInTheDocument()
-    expect(screen.getByTestId('settings-bundled-tools')).toBeInTheDocument()
+    const bundledTools = screen.getByTestId('settings-bundled-tools')
+    expect(bundledTools).toBeInTheDocument()
+    expect(bundledTools).toHaveTextContent('Caveman')
+    expect(bundledTools).not.toHaveTextContent(/CodeGraph/i)
     // R4 took RTK out: no RTK card, and no update or check button for it.
     expect(screen.queryByTestId('settings-rtk-update')).toBeNull()
     expect(screen.queryByTestId('btn-update-rtk')).toBeNull()

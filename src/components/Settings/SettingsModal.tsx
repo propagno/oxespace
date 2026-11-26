@@ -131,7 +131,7 @@ function DiagnosticsSettingsSection(): ReactElement {
         titleId="settings-diagnostics-title"
         description={t('diagnostics.description')}
         actions={
-          <Button variant="ghost" onClick={refresh} title={t('diagnostics.refreshTitle')}>
+          <Button variant="secondary" size="sm" onClick={refresh} title={t('diagnostics.refreshTitle')}>
             <RefreshCw size={14} aria-hidden="true" />
             <span>{t('diagnostics.refresh')}</span>
           </Button>
@@ -375,7 +375,8 @@ function ProvidersSettingsSection({
             ) : null}
             {status === 'missing' && install ? (
               <Button
-                variant="ghost"
+                variant="secondary"
+                size="sm"
                 aria-label={installDocLabel(install)}
                 title={install.url}
                 onClick={() => openInstallDocs(install.url)}
@@ -386,7 +387,8 @@ function ProvidersSettingsSection({
               </Button>
             ) : null}
             <Button
-              variant="ghost"
+              variant="secondary"
+              size="sm"
               aria-label={t('providers.card.configureLabel', { name: profile.name })}
               title={t('providers.card.configureTitle')}
               onClick={() => onConfigureAgent(profile)}
@@ -1010,7 +1012,7 @@ function UpdatesSettingsSection(): ReactElement {
                 </Button>
               ) : null}
               <Button
-                variant="ghost"
+                variant="secondary"
                 disabled={app.status === 'checking' || app.status === 'downloading'}
                 onClick={() => void checkAppUpdates()}
                 data-testid="btn-check-app-updates"
@@ -1053,10 +1055,6 @@ function UpdatesSettingsSection(): ReactElement {
             <li>
               <strong>Caveman</strong>
               <span>{t('updates.bundled.caveman')}</span>
-            </li>
-            <li>
-              <strong>CodeGraph</strong>
-              <span>{t('updates.bundled.codegraph')}</span>
             </li>
           </ul>
         </article>

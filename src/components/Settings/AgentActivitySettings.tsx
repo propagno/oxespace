@@ -198,7 +198,7 @@ export function AgentActivitySettings(): ReactElement {
       {failedSources.length > 0 && (
         <div className="settings-notice" role="status">
           <span>{t('activity.sourcesFailed')}</span>
-          <Button variant="ghost" size="sm" onClick={handleTryAgain}>
+          <Button variant="secondary" size="sm" onClick={handleTryAgain}>
             {t('activity.tryAgain')}
           </Button>
         </div>

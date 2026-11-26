@@ -162,10 +162,9 @@ export function registerMaturityFlows(options: MaturityFlowsOptions): void {
     try {
       await openSinglePaneWorkspace(page, dirs.workspace)
 
-      // Open Settings › Integrations › GitHub and verify the "gh auth login" command and copy button.
+      // Open Settings › Git and verify the "gh auth login" command and copy button.
       await page.getByRole('button', { name: /Open settings/i }).first().click()
-      await page.getByRole('button', { name: /^Integrations/i }).click()
-      await page.getByRole('radio', { name: 'GitHub' }).click()
+      await page.getByRole('button', { name: /^Git\b/i }).click()
       const ghPage = page.getByTestId('settings-github-page')
       await expect(ghPage).toBeVisible()
       await expect(ghPage).toContainText('gh auth login')

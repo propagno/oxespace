@@ -1,13 +1,40 @@
-// PU-03·8 (OXE-211): GitHub integration page in Settings › Integrations.
+// PU-03·8 (OXE-211) & OXE-431: Git integration page in Settings (GitHub gh CLI + Azure DevOps az CLI).
 // Follows the BRD-06 settings mould (SettingsPageTitle, SettingsSection, SettingRow, src/ui Button)
-// and copies "gh auth login" through copyText so success and failure always confirm with a toast.
+// and copies CLI commands through copyText so success and failure always confirm with a toast.
+import { Copy } from 'lucide-react'
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { GitHubCliStatus } from '../../../shared/types/github'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { SettingRow, SettingsSection as SettingsGroup } from '../../ui'
+import { Badge, Button, copyText, SettingRow, SettingsSection as SettingsGroup } from '../../ui'
 import { SettingsPageTitle } from '../../ui/Settings'
 import { GitHubAuthCommandRow } from '../GitHub/GitHubAuthCommandRow'
+
+const AZURE_LOGIN_COMMAND = 'az login'
+const AZURE_DEVOPS_EXTENSION_COMMAND = 'az extension add --name azure-devops'
+
+function CliCommandRow({ command }: { command: string }): ReactElement {
+  const { t: tc } = useTranslation('code')
+  const copyCommand = (): void => {
+    void copyText(command, tc('github.setup.command'), tc('github.setup.commandCopied'))
+  }
+
+  return (
+    <div className="github-setup-cmd-row">
+      <code>{command}</code>
+      <Button
+        size="sm"
+        variant="secondary"
+        title={tc('github.actions.copy')}
+        aria-label={tc('github.setup.copy', { command })}
+        onClick={copyCommand}
+      >
+        <Copy size={12} aria-hidden="true" />
+        {tc('github.actions.copy')}
+      </Button>
+    </div>
+  )
+}
 
 export function GitHubIntegrationSettings(): ReactElement {
   const { t } = useTranslation('settings')
@@ -52,12 +79,34 @@ export function GitHubIntegrationSettings(): ReactElement {
         <SettingRow
           label={t('github.statusLabel')}
           description={statusText}
-          control={<span>{isConnected ? `@${cli!.user}` : t('github.disconnectedBadge')}</span>}
+          control={
+            <Badge intent={isConnected ? 'success' : 'neutral'}>
+              {isConnected ? `@${cli!.user}` : t('github.disconnectedBadge')}
+            </Badge>
+          }
         />
         <SettingRow
           label={t('github.authLabel')}
           description={t('github.authHint')}
           control={<GitHubAuthCommandRow showCopyLabel />}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={t('github.azure.section')} description={t('github.azure.description')}>
+        <SettingRow
+          label={t('github.azure.detectionLabel')}
+          description={t('github.azure.detectionHint')}
+          control={<Badge>{t('github.azure.cliBadge')}</Badge>}
+        />
+        <SettingRow
+          label={t('github.azure.authLabel')}
+          description={t('github.azure.authHint')}
+          control={<CliCommandRow command={AZURE_LOGIN_COMMAND} />}
+        />
+        <SettingRow
+          wide
+          label={t('github.azure.extensionLabel')}
+          description={t('github.azure.extensionHint')}
+          control={<CliCommandRow command={AZURE_DEVOPS_EXTENSION_COMMAND} />}
         />
       </SettingsGroup>
     </section>

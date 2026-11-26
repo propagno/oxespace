@@ -126,4 +126,29 @@ describe('OXE-211 · PU-03·8 copy "gh auth login" with copyText and toast', () 
     await waitFor(() => expect(webWriteText).toHaveBeenCalledWith('gh auth login'))
     await waitFor(() => expect(document.body.textContent).toMatch(/Could not copy/i))
   })
+
+  test('OXE-431: Git settings page renders Git heading and Azure DevOps az CLI copyable commands', async () => {
+    render(
+      <>
+        <Toaster />
+        <GitHubIntegrationSettings />
+      </>
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Git' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'GitHub (gh CLI)' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Azure DevOps (az CLI)' })).toBeInTheDocument()
+
+    const azLoginBtn = screen.getByRole('button', { name: /copy.*az login/i })
+    expect(azLoginBtn).toHaveAttribute('data-variant', 'secondary')
+    fireEvent.click(azLoginBtn)
+    await waitFor(() => expect(nativeWriteText).toHaveBeenCalledWith('az login'))
+    await waitFor(() => expect(document.body.textContent).toMatch(/Command copied/i))
+
+    nativeWriteText.mockClear()
+    const azExtBtn = screen.getByRole('button', { name: /copy.*az extension add --name azure-devops/i })
+    expect(azExtBtn).toHaveAttribute('data-variant', 'secondary')
+    fireEvent.click(azExtBtn)
+    await waitFor(() => expect(nativeWriteText).toHaveBeenCalledWith('az extension add --name azure-devops'))
+  })
 })

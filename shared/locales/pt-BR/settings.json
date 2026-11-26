@@ -20,7 +20,9 @@
       "notifications": { "label": "Notificações", "hint": "Alertas e sons na área de trabalho" },
       "keyboard": { "label": "Teclado", "hint": "Atalhos e combinações de teclas" },
       "terminal": { "label": "Terminal", "hint": "Fonte, cursor, rolagem e comportamento" },
-      "integrations": { "label": "Integrações", "hint": "Servidores MCP, skills e dispositivos pareados" },
+      "mcp": { "label": "MCP e Skills", "hint": "Servidores MCP, regras de ferramentas e skills" },
+      "devices": { "label": "Celular e dispositivos", "hint": "Celulares e dispositivos pareados" },
+      "git": { "label": "Git", "hint": "Autenticação de CLIs do GitHub e Azure DevOps e pull requests" },
       "data": { "label": "Dados e diagnóstico", "hint": "Uso, atividade dos agentes e diagnóstico" },
       "about": { "label": "Sobre", "hint": "Versão, atualizações e licenças" }
     },
@@ -447,8 +449,7 @@
       "title": "Ferramentas embutidas",
       "subtitle": "Atualizadas a cada versão do aplicativo",
       "included": "incluído",
-      "caveman": "Prompt e fluxo de agente dentro do app",
-      "codegraph": "Inteligência de código embutida"
+      "caveman": "Prompt e fluxo de agente dentro do app"
     },
     "preferences": {
       "label": "Como o OXESpace se atualiza",
@@ -581,9 +582,9 @@
     "command": "Comando"
   },
   "github": {
-    "title": "GitHub",
-    "intro": "Entre com a CLI do GitHub para criar pull requests, acompanhar workflows e sincronizar repositórios.",
-    "section": "Conexão",
+    "title": "Git",
+    "intro": "Configure as CLIs de provedores Git para pull requests, verificações, workflows e status dos repositórios.",
+    "section": "GitHub (CLI gh)",
     "statusLabel": "Status da CLI do GitHub",
     "checking": "Verificando a CLI do GitHub…",
     "connected": "Conectado como @{{user}}",
@@ -591,7 +592,18 @@
     "noCli": "A CLI do GitHub (gh) não foi encontrada neste computador.",
     "disconnectedBadge": "Não conectado",
     "authLabel": "Autenticar no terminal",
-    "authHint": "Copie e rode este comando no terminal para conectar sua conta do GitHub."
+    "authHint": "Copie e rode este comando no terminal para conectar sua conta do GitHub.",
+    "azure": {
+      "section": "Azure DevOps (CLI az)",
+      "description": "O OXESpace detecta automaticamente remotos dev.azure.com e *.visualstudio.com pela Azure CLI.",
+      "detectionLabel": "Detecção de remoto",
+      "detectionHint": "Pull requests, revisores, políticas de branch e status de merge usam a Azure CLI (az) local automaticamente.",
+      "cliBadge": "Azure CLI (az)",
+      "authLabel": "Entrar no Azure",
+      "authHint": "Copie e rode este comando no terminal para entrar na sua conta do Azure.",
+      "extensionLabel": "Instalar a extensão Azure DevOps",
+      "extensionHint": "Necessária uma única vez para que az repos leia pull requests e políticas."
+    }
   },
   "devices": {
     "title": "Celular e dispositivos",
@@ -769,6 +781,11 @@
     }
   },
   "tools": {
+    "tabs": {
+      "label": "Seções de MCP e Skills",
+      "mcp": "MCP",
+      "skills": "Skills"
+    },
     "whereToAdd": "Para adicionar ou remover um servidor MCP, use Ferramentas › Gerenciar servidores MCP.",
     "manageMcp": "Gerenciar servidores MCP…",
     "skillsList": {
