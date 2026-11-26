@@ -15,15 +15,22 @@
   white-space: nowrap;
 }
 .label { overflow: hidden; text-overflow: ellipsis; }
-.check { margin-left: auto; color: var(--tx-accent); }
 .hiddenMark {
   display: inline-flex;
   align-items: center;
   flex: none;
   color: var(--tx-muted);
 }
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  flex: 1;
+  min-width: 0;
+}
 .hint {
-  padding: 0 var(--space-3) var(--space-1);
   color: var(--tx-muted);
   font-size: var(--fs-2xs);
+  font-weight: var(--weight-regular);
+  line-height: 1.3;
 }

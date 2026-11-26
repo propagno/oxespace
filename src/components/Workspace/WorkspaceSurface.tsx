@@ -82,7 +82,6 @@ import { useTranslation } from 'react-i18next'
 import { selectMcpServers, useMcpStore } from '../../store/mcp.store'
 import { quarantinedCount } from '../MCP/mcpQuarantine'
 import { preloadMcpPanel } from '../MCP/McpHost'
-import { useGitBranch } from '../../hooks/useGitBranch'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -198,9 +197,6 @@ function WorkspaceSurfaceComponent({
   const openConnections = useUIStore((s) => s.openMcpPanel)
   const workspaceMcp = useMcpStore(useMemo(() => selectMcpServers(workspace.id), [workspace.id]))
   const quarantinedMcp = quarantinedCount(workspaceMcp)
-  // The header names the workspace's branch (BRD-13). A branch git does not know is not shown, never "unavailable".
-  const gitBranch = useGitBranch(workspace.id, workspace.rootPath ?? null, isActive)
-  const branchLabel = gitBranch?.branch ?? gitBranch?.shortSha ?? null
   // …including a worktree the pane's agent moved into, as reported by its hooks.
   const activeLocation = useTerminalStore((s) => (activePaneId ? s.panes[activePaneId]?.location : null) ?? null)
   const panelScope = useMemo(
@@ -524,7 +520,6 @@ function WorkspaceSurfaceComponent({
         </span>
       ) : null}
       {showSubPath ? <div className="workspace-topbar-breadcrumb"><span className="workspace-topbar-path" title={workspace.rootPath}>{folderName}</span></div> : null}
-      {branchLabel ? <span className="workspace-topbar-branch" data-ui="workspace-branch" title={branchLabel}>{branchLabel}</span> : null}
       {onSplitPane && splitTargetPaneId ? (
         <Button
           variant="ghost"

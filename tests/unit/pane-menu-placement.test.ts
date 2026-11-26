@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { paneMenuPlacement, statusBarFloor } from '../../src/components/Grid/paneMenuPlacement'
+import { fitPaneMenuPlacement, paneMenuPlacement, statusBarFloor } from '../../src/components/Grid/paneMenuPlacement'
 
 const viewport = { width: 1280, height: 860 }
 const STATUS_TOP = 836 // a 24 px status bar
@@ -33,4 +33,16 @@ test('the floor is the top of a shown status bar, else the window bottom', () =>
   expect(statusBarFloor(document, 860)).toBe(836)
   bar.getBoundingClientRect = () => ({ top: 0, height: 0, bottom: 0, left: 0, right: 0, width: 0, x: 0, y: 0, toJSON: () => ({}) })
   expect(statusBarFloor(document, 860)).toBe(860)
+})
+
+test('OXE-427: expanding a submenu on a mid-screen pane shifts upward so Close pane is not clipped', () => {
+  // Mid-viewport trigger: 398px below, 386px above (initial placement opens below with maxHeight 398).
+  const initial = paneMenuPlacement({ top: 400, bottom: 424, right: 1200 }, viewport, STATUS_TOP)
+  expect(initial).toEqual({ top: 430, right: 80, maxHeight: 398 })
+  // Expanded submenu needs 460px: fitPaneMenuPlacement shifts top upward within [8, STATUS_TOP - 8] so nothing clips.
+  const fitted = fitPaneMenuPlacement(initial, 460, viewport.height, STATUS_TOP)
+  expect(fitted).toEqual({ top: 368, right: 80, maxHeight: 460 })
+  expect(fitted.top! + fitted.maxHeight).toBeLessThanOrEqual(STATUS_TOP - 8)
+  // When collapsed back to 280px, placement stays untouched at the trigger.
+  expect(fitPaneMenuPlacement(initial, 280, viewport.height, STATUS_TOP)).toBe(initial)
 })
