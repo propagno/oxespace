@@ -7,12 +7,14 @@ import { useAccountStore, selectAccount } from '../../store/account.store'
 import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { Badge, Button, Dialog, Notice, Spinner, TextField } from '../../ui'
+import { humanizeError } from '../../utils/humanizeError'
 import { accountContext, accountMessage } from './accountMessages'
 
 function AccountCard({ context }: { context: AgentAccountContext }) {
   const { t } = useTranslation('thread')
   const status = useAccountStore(selectAccount(context))
-  const [error, setError] = useState(''), [pending, setPending] = useState(false), [codeInput, setCodeInput] = useState({ id: '', value: '' }), [manualCodeAttempt, setManualCodeAttempt] = useState<string | null>(null)
+  const [errorState, setErrorState] = useState<{ checkedAt: number | undefined; message: string }>({ checkedAt: undefined, message: '' }), [pending, setPending] = useState(false), [codeInput, setCodeInput] = useState({ id: '', value: '' }), [manualCodeAttempt, setManualCodeAttempt] = useState<string | null>(null)
+  const error = errorState.checkedAt === status?.checkedAt ? errorState.message : ''
   const attemptId = status?.attemptId
   const busy = Boolean(attemptId)
   const connected = status?.state === 'connected' && status.method === 'subscription'
@@ -20,7 +22,15 @@ function AccountCard({ context }: { context: AgentAccountContext }) {
   const manualCode = Boolean(attemptId && manualCodeAttempt === attemptId)
   const showCodeForm = Boolean(attemptId) && (status?.state === 'awaiting-code' || (canManualCode && manualCode))
   const code = attemptId && codeInput.id === attemptId ? codeInput.value : ''
-  const run = async (action: () => Promise<unknown>) => { setPending(true); setError(''); try { await action() } catch { setError(t('accounts.failed')) } finally { setPending(false) } }
+  const run = async (action: () => Promise<unknown>) => {
+    setPending(true)
+    setErrorState({ checkedAt: status?.checkedAt, message: '' })
+    try { await action() }
+    catch (cause) {
+      const currentCheckedAt = selectAccount(context)(useAccountStore.getState())?.checkedAt ?? status?.checkedAt
+      setErrorState({ checkedAt: currentCheckedAt, message: humanizeError(cause, t('accounts.failed')) })
+    } finally { setPending(false) }
+  }
   return <section className="thread-account-card"><div className="thread-account-heading"><AgentProviderIcon provider={context.provider} size={28} /><div><strong>{threadProductName(context.provider)}</strong><small>{context.provider === 'claude' ? t('accounts.claudePlan') : context.provider === 'antigravity' ? t('accounts.antigravityPlan') : t('accounts.codexPlan')}</small></div>{connected ? <Badge intent="success">{t('accounts.connected')}</Badge> : busy ? <Spinner label={t('accounts.busy')} /> : null}</div>
     <p>{accountMessage(status)}</p>{status?.accountLabel && <small>{status.accountLabel}</small>}
     {showCodeForm && <form className="thread-auth-code" onSubmit={e => { e.preventDefault(); void run(async () => { await window.oxe!.agentAccount!.submitCode(attemptId!, code); setCodeInput({ id: '', value: '' }) }) }}><label>{t('accounts.code')}<TextField autoComplete="off" type="password" value={code} onChange={e => setCodeInput({ id: attemptId!, value: e.target.value })} /></label><Button variant="primary" type="submit" disabled={!code.trim() || pending}>{t('accounts.continue')}</Button></form>}
@@ -31,7 +41,8 @@ function AccountCard({ context }: { context: AgentAccountContext }) {
 export function ProviderAccountsPanel({ workspaceId, onClose }: { workspaceId: string; onClose: () => void }) {
   const { t } = useTranslation('thread')
   const thread = useThreadStore(state => state.snapshot?.thread)
-  const threadId = thread?.id, threadProvider = thread?.provider
+  const matchingThread = thread && (thread.workspaceId === workspaceId || (thread.projectId && workspaceId === `thread:${thread.projectId}`)) ? thread : undefined
+  const threadId = matchingThread?.id, threadProvider = matchingThread?.provider
   useEffect(() => {
     const refresh = () => {
       for (const provider of THREAD_PROVIDERS) void useAccountStore.getState().read(accountContext(provider, workspaceId, threadId && threadProvider ? { id: threadId, provider: threadProvider } : undefined))
@@ -43,7 +54,7 @@ export function ProviderAccountsPanel({ workspaceId, onClose }: { workspaceId: s
     return () => { window.removeEventListener('focus', focus) }
   }, [workspaceId, threadId, threadProvider])
   return <Dialog size="md" closeLabel={t('common.close')} title={t('accounts.title')} description={t('accounts.description')} onClose={onClose}><div className="thread-accounts-body">
-    {THREAD_PROVIDERS.map(provider => <AccountCard key={provider} context={accountContext(provider, workspaceId, thread)} />)}
+    {THREAD_PROVIDERS.map(provider => <AccountCard key={provider} context={accountContext(provider, workspaceId, matchingThread)} />)}
     <p className="thread-account-note">{t('accounts.note')}</p></div>
   </Dialog>
 }

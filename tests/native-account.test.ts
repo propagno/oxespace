@@ -89,9 +89,17 @@ describe('Native subscription accounts', () => {
     expect(() => claudeAccount(scope, { error: 'sensitive stderr' })).toThrow('Invalid status')
   })
   it('isolates subprocess credentials without mutating the host environment', () => {
-    const source = { Path: 'native-path', OXESPACE_MCP_TOKEN: 'secret', ANTHROPIC_API_KEY: 'secret', OPENAI_API_KEY: 'secret', CODEX_HOME: 'native-home', CLAUDE_CONFIG_DIR: 'native-claude', HTTPS_PROXY: 'proxy' }
+    const source = {
+      Path: 'native-path', OXESPACE_MCP_TOKEN: 'secret', AI_MEMORY_KEY: 'secret',
+      ANTHROPIC_API_KEY: 'secret', OPENAI_API_KEY: 'secret',
+      GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret',
+      ANTIGRAVITY_LS_ADDRESS: '127.0.0.1:9999', antigravity_token: 'secret',
+      CODEX_HOME: 'native-home', CLAUDE_CONFIG_DIR: 'native-claude', HTTPS_PROXY: 'proxy'
+    }
     expect(subscriptionEnvironment(source)).toEqual({ Path: 'native-path', CODEX_HOME: 'native-home', CLAUDE_CONFIG_DIR: 'native-claude', HTTPS_PROXY: 'proxy' })
     expect(source.ANTHROPIC_API_KEY).toBe('secret')
+    expect(source.GEMINI_API_KEY).toBe('secret')
+    expect(source.ANTIGRAVITY_LS_ADDRESS).toBe('127.0.0.1:9999')
   })
   it('starts a managed Codex login without creating a model thread and cancels it', async () => {
     const f = fixture()
@@ -196,6 +204,88 @@ describe('Native subscription accounts', () => {
     login.emit({ method: 'account/login/completed', params: { loginId: 'native-login', success: true } })
     await vi.waitFor(() => expect(connected).toHaveBeenCalledOnce())
     expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({ state: 'connected', method: 'subscription' })
+    await service.stop()
+  })
+  it('accepts Antigravity ACP session/list responses larger than 1 MiB and maps auth refusals to signed-out (OXE-435)', async () => {
+    const huge = Array.from({ length: 1500 }, (_, i) => ({ sessionId: `sess-${i}`, title: 'x'.repeat(1024) }))
+    const largeProbe = new FakeTransport(method => method === 'initialize' ? { protocolVersion: 1, agentCapabilities: {} } : method === 'session/list' ? { sessions: huge } : {})
+    const service = new NativeAccountService({
+      resolve: async () => ({ ...scope, provider: 'antigravity', command: 'agy' }),
+      openExternal: vi.fn(async () => {}),
+      changed: vi.fn(),
+      transport: () => largeProbe
+    })
+    const status = await service.read({ provider: 'antigravity', workspaceId: 'ws' })
+    expect(status).toMatchObject({ state: 'connected', method: 'subscription', planLabel: 'Google' })
+    expect(largeProbe.requests.every(r => r.jsonrpc === '2.0')).toBe(true)
+    await service.stop()
+
+    const signedOutTransport = new FakeTransport(method => method === 'initialize' ? { protocolVersion: 1, agentCapabilities: {} } : {})
+    const origWrite = signedOutTransport.write.bind(signedOutTransport)
+    signedOutTransport.write = line => {
+      const request = JSON.parse(line)
+      if (request.method === 'session/list') {
+        signedOutTransport.writes.push(line)
+        signedOutTransport.requests.push(request)
+        queueMicrotask(() => signedOutTransport.emit({ id: request.id, error: { code: -32000, message: 'Authentication required' } }))
+        return
+      }
+      origWrite(line)
+    }
+    const signedOutService = new NativeAccountService({
+      resolve: async () => ({ ...scope, provider: 'antigravity', command: 'agy' }),
+      openExternal: vi.fn(async () => {}),
+      changed: vi.fn(),
+      transport: () => signedOutTransport
+    })
+    expect(await signedOutService.read({ provider: 'antigravity', workspaceId: 'ws' })).toMatchObject({ state: 'signed-out', method: 'unknown' })
+    await signedOutService.stop()
+  })
+  it('auto-opens Antigravity OAuth URL once after completion, survives openExternal failure, and does not double-open Claude (OXE-435)', async () => {
+    const openExternal = vi.fn(async () => { throw Error('no browser handler') })
+    const login = new FakeTransport()
+    const changed = vi.fn()
+    const service = new NativeAccountService({
+      resolve: async () => ({ ...scope, provider: 'antigravity', command: 'agy' }),
+      openExternal,
+      changed,
+      transport: () => login
+    })
+    const status = await service.login({ provider: 'antigravity', workspaceId: 'ws' })
+    // Split URL across two chunks: must wait for terminator so we never open a truncated URL.
+    login.data(Buffer.from('Open this URL in your local browser to sign in:\nhttps://accounts.google.com/o/oauth2/v2/auth?client_id=abc'))
+    expect(openExternal).not.toHaveBeenCalled()
+    login.data(Buffer.from('&state=xyz\n'))
+    expect(openExternal).toHaveBeenCalledTimes(1)
+    expect(openExternal).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/v2/auth?client_id=abc&state=xyz')
+    // Follow-up output must not re-open the same URL, and a rejected auto-open must keep the attempt alive.
+    login.data(Buffer.from('Enter verification code: '))
+    await Promise.resolve()
+    expect(openExternal).toHaveBeenCalledTimes(1)
+    expect(changed.mock.calls.at(-1)?.[0]).toMatchObject({ state: 'awaiting-code', canOpenBrowser: true, attemptId: status.attemptId })
+    await service.submitCode(status.attemptId!, '4/0A-code')
+    expect(login.writes.at(-1)).toBe('4/0A-code\n')
+    await service.stop()
+
+    // Claude opens its own browser via `claude auth login`; auto-open must stay off for Claude.
+    const claude = fixture('claude')
+    await claude.service.login({ provider: 'claude', workspaceId: 'ws' })
+    claude.login.data(Buffer.from('https://claude.ai/oauth/authorize?state=claude-state\n'))
+    expect(claude.openExternal).not.toHaveBeenCalled()
+    expect(claude.changed.mock.calls.at(-1)?.[0]).toMatchObject({ state: 'awaiting-browser', canOpenBrowser: true })
+    await claude.service.stop()
+  })
+  it('returns a structured configuration error snapshot from read() when scope resolution fails (OXE-435)', async () => {
+    const changed = vi.fn()
+    const service = new NativeAccountService({
+      resolve: async () => { throw Error('Configure the provider in Agent Settings') },
+      openExternal: vi.fn(async () => {}),
+      changed,
+      transport: vi.fn()
+    })
+    const snapshot = await service.read({ provider: 'antigravity', workspaceId: 'missing-ws' })
+    expect(snapshot).toMatchObject({ provider: 'antigravity', state: 'error', errorCode: 'configuration', method: 'unknown' })
+    await expect(service.requireSubscription({ provider: 'antigravity', workspaceId: 'missing-ws' })).rejects.toThrow('THREAD_ACCOUNT_UNAVAILABLE')
     await service.stop()
   })
 })

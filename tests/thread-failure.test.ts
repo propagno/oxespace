@@ -10,6 +10,10 @@ describe('thread failure diagnostics', () => {
   ])('classifies %s independently of authentication', (providerCode, httpStatusCode, expected) => {
     expect(threadFailure({ codexErrorInfo: httpStatusCode ? { [providerCode!]: { httpStatusCode } } : providerCode, message: 'Action failed' })).toMatchObject({ code: expected, providerCode, detail: 'Action failed' })
   })
+  it('classifies "Authentication required" as an authentication failure (OXE-435)', () => {
+    expect(threadFailure({ message: 'Authentication required' })).toMatchObject({ code: 'authentication' })
+    expect(threadFailure({ message: 'authentication_required: sign in again' })).toMatchObject({ code: 'authentication' })
+  })
   it('bounds diagnostics and removes credentials, URL credentials and query strings without losing the useful reason', () => {
     const result = diagnosticText('Usage exhausted. Bearer abc-secret api_key=key-secret password="long secret with spaces" https://user:pass@example.com/path?token=url-secret#fragment sk-sensitive-key eyJheader.eyJpayload.signature')
     expect(result).toContain('Usage exhausted.')

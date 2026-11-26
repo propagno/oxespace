@@ -1,6 +1,8 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { openExternalOrRecord } from '../utils/external-open'
+import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import type { NativeAccountService, NativeAuthScope } from '../services/conversation/native-account.service'
 import type { ThreadManager } from '../services/conversation/thread-manager'
 import type { AppDatabase } from '../db'
@@ -19,7 +21,7 @@ import { registerThreadSectionsIpc } from './thread-sections.ipc'
 import { registerThreadPlacesIpc } from './thread-places.ipc'
 import { registerThreadSessionsIpc } from './thread-sessions.ipc'
 import { forwardPlacesChanged } from './thread-places-changed'
-import type { ThreadRequestResponse } from '../../../shared/types/thread'
+import type { ConversationThread, ThreadRequestResponse } from '../../../shared/types/thread'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import { MainRefusal } from '../services/main-refusal'
 import { threadToolTabs } from '../services/conversation/thread-tool-tabs'
@@ -92,18 +94,44 @@ export function registerThreadIpc(
     return pane.root_path ?? ws.root_path
   }
   const threadProjects = new ThreadProjectService(db)
+  const existingDirectory = (path: string | null | undefined): string | null => (path && existsSync(path) ? path : null)
+  const fallbackAccountRoot = (): string => {
+    for (const project of threadProjects.catalog().projects) {
+      if (project.hidden) continue
+      const found = project.contexts.find(ctx => existsSync(ctx.rootPath))
+      if (found) return found.rootPath
+    }
+    return homedir()
+  }
+  const resolveAccountRoot = (context: AgentAccountContext, thread: ConversationThread | null): string => {
+    const threadRoot = existingDirectory(thread?.rootPath)
+    if (threadRoot) return threadRoot
+    try {
+      const primary = context.workspaceId.startsWith('thread:')
+        ? threadProjects.context(context.workspaceId.slice('thread:'.length)).rootPath
+        : workspaceCwd(context.workspaceId, context.paneId)
+      const primaryRoot = existingDirectory(primary)
+      if (primaryRoot) return primaryRoot
+    } catch {
+      // Native accounts are user-global: fall back cleanly when a project is hidden/removed,
+      // an OxeCode workspace was closed, or first-run passes 'thread:first-run'.
+    }
+    return fallbackAccountRoot()
+  }
   // Keep account/project implementation out of the startup entry bundle.
   const accounts: Promise<NativeAccountService> = import('../services/conversation/native-account.service').then(({ NativeAccountService, authScopeId }) => new NativeAccountService({
     resolve: async (context: AgentAccountContext): Promise<NativeAuthScope> => {
-      const thread = context.threadId ? (await manager).readThread(context.threadId) : null
-      if (thread && (thread.workspaceId !== context.workspaceId || thread.provider !== context.provider)) throw Error('Invalid account context')
+      let thread: ConversationThread | null = null
+      if (context.threadId) {
+        try { thread = (await manager).readThread(context.threadId) } catch { thread = null }
+      }
+      const sameWorkspace = !thread || thread.workspaceId === context.workspaceId || (Boolean(thread.projectId) && context.workspaceId === `thread:${thread.projectId}`)
+      if (thread && (!sameWorkspace || thread.provider !== context.provider)) throw Error('Invalid account context')
       const profiles = new AgentService(db).list()
       const selected = thread?.agentProfileId ? profiles.find(p => p.agentProfileId === thread.agentProfileId) : undefined
       const profile = selected && !selected.parentProvider ? selected : profiles.find(p => p.provider === context.provider && !p.parentProvider)
       if (!profile || (profile.parentProvider ?? profile.provider) !== context.provider) throw Error('Configure the provider in Agent Settings')
-      const root = thread ? thread.rootPath : context.workspaceId.startsWith('thread:')
-        ? threadProjects.context(context.workspaceId.slice('thread:'.length)).rootPath
-        : workspaceCwd(context.workspaceId, context.paneId)
+      const root = resolveAccountRoot(context, thread)
       return { id: authScopeId(context.provider, profile.command, root), provider: context.provider, command: profile.command, cwd: root }
     },
     // A failed system open is the login's failure: the account shows it instead of waiting for a browser.

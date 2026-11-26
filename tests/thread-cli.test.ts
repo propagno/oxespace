@@ -118,6 +118,30 @@ describe('native conversation command resolution (B13: never the app binary as N
     expect(conversationCommand('codex', args, { PATH: folder }, 'win32', 'x64').executable).toBe(exe)
   })
 
+  it('falls back to common Windows user install folders (%LOCALAPPDATA%\\agy\\bin, %APPDATA%\\npm, %LOCALAPPDATA%\\Programs) while keeping PATH priority and security guards (OXE-435)', async () => {
+    const root = await tempFolder()
+    const localAppData = join(root, 'LocalAppData')
+    const appData = join(root, 'Roaming')
+    const agyExe = await touch(join(localAppData, 'agy', 'bin', 'agy.exe'))
+    const programsExe = await touch(join(localAppData, 'Programs', 'claude.exe'))
+    const npmDir = join(appData, 'npm')
+    const { root: codexRoot } = await npmCodex(npmDir)
+    const codexExe = await touch(join(codexRoot, 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe'))
+    await touch(join(npmDir, 'arbitrary.cmd'))
+    const env = { PATH: '', LocalAppData: localAppData, AppData: appData }
+
+    expect(conversationCommand('agy', ['acp'], env, 'win32', 'x64').executable).toBe(agyExe)
+    expect(conversationCommand('claude', ['auth', 'status'], env, 'win32', 'x64').executable).toBe(programsExe)
+    expect(conversationCommand('codex', ['app-server'], env, 'win32', 'x64').executable).toBe(codexExe)
+    expect(refusalCode(() => conversationCommand('arbitrary', [], env, 'win32', 'x64'))).toBe('thread.agent.scriptUnsupported')
+    expect(refusalCode(() => conversationCommand('agy', ['acp'], env, 'win32', 'x64', agyExe))).toBe('thread.agent.scriptUnsupported')
+
+    // Explicit PATH still wins over fallback install dirs.
+    const customPath = join(root, 'custom-bin')
+    const pathAgy = await touch(join(customPath, 'agy.exe'))
+    expect(conversationCommand('agy', ['acp'], { ...env, PATH: customPath }, 'win32', 'x64').executable).toBe(pathAgy)
+  })
+
   it('invariant: no input, on any platform, yields the app binary or ELECTRON_RUN_AS_NODE', async () => {
     const folder = await tempFolder()
     const { shim, root } = await npmCodex(folder)

@@ -2,6 +2,7 @@ import { JsonLinesDecoder } from './json-lines'
 import { ThreadAgentError, threadFailure } from './thread-failure'
 
 export interface AgentRpcMessage {
+  jsonrpc?: '2.0'
   id?: string | number
   method?: string
   params?: unknown
@@ -43,7 +44,7 @@ export class AgentRpcPeer {
         reject(new Error(`Agent request timed out: ${method}`))
       }, timeoutMs)
       this.pending.set(id, { resolve, reject, timer })
-      try { this.send({ id, method, params }) } catch {
+      try { this.send({ jsonrpc: '2.0', id, method, params }) } catch {
         clearTimeout(timer)
         this.pending.delete(id)
         reject(new Error('Could not write to agent connection'))
