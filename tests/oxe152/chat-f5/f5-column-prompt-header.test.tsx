@@ -361,12 +361,14 @@ describe('A5 · one left axis and the prompt card (AG-10 §2.1)', () => {
     expect([...ids].filter(Boolean).sort(), 'one per turn').toEqual(['u0', 'u1'])
   })
 
-  test('[css] the prompt card is on the same left axis: nothing pushes it right or narrows it, and it reads as the card AG-10 drew', () => {
+  // OXE-441: explicit user decision supersedes AG-10 §2.1 left-axis prompt card with a right-aligned user bubble.
+  test('[css] the prompt bubble is right-aligned and bounded inside the column, keeping surface, border, radius and padding tokens (OXE-441)', () => {
     view(fixture(TURN))
     const card = userCards()[0]
-    for (const prop of ['margin-left', 'margin-inline-start']) expect(css(card, prop) ?? '', `${prop} never auto`).not.toMatch(/auto/)
-    for (const prop of ['align-self', 'justify-self']) expect(css(card, prop) ?? '', `${prop} never end`).not.toMatch(/end|right/)
-    expect(css(card, 'max-width') ?? 'none', 'no max-width under the column').toMatch(/^(none|100%)$/)
+    expect(css(card, ['margin-left', 'margin-inline-start']) ?? '', 'pushed to the right edge of the reading column').toBe('auto')
+    expect(css(card, ['margin-right', 'margin-inline-end']) ?? '', 'flush with the column right edge').toMatch(/^0(px)?$/)
+    expect(css(card, 'width') ?? '', 'shrinks to fit short prompts').toBe('fit-content')
+    expect(css(card, 'max-width') ?? '', 'bounded width under the reading column').not.toMatch(/^(none|100%|)$/)
     expect(usesTok(css(card, ['background', 'background-color']), 'surface-raised'), 'background var(--surface-raised)').toBe(true)
     expect(usesTok(css(card, ['border', 'border-color']), 'bd-subtle'), 'border var(--bd-subtle)').toBe(true)
     expect(usesTok(css(card, 'border-radius'), 'radius-lg'), 'radius var(--radius-lg)').toBe(true)

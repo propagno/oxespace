@@ -1,36 +1,58 @@
-/* OxeChat conversation (AG-10 §2.1, OXE-167):
-   - The prompt is a card on the same left axis as the answer, the column's width: no bubble pushed right.
-   - Its actions (Copy prompt, Edit prompt) wait for the pointer or the focus.
+/* OxeChat conversation (OXE-167, OXE-441):
+   - User messages sit as right-aligned chat bubbles inside the reading column, clearly separated from left-aligned assistant answers (explicit user decision superseding AG-10 §2.1 left-axis prompt card).
+   - Their actions (Copy prompt, Edit prompt) sit just below the bubble's right edge so short messages ("ok", "sim") are never covered, and wait for the pointer or focus.
    - Assistant answers display the provider avatar mark on the left and clean prose typography. */
 .thread-view .thread-message-user {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: 100%;
-  max-width: none;
-  margin-left: 0;
+  width: fit-content;
+  max-width: min(78%, 640px);
+  margin-left: auto;
   margin-right: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
+.thread-view .thread-message-user:has(.thread-prompt-editor) {
+  width: 100%;
+  max-width: min(85%, 680px);
+}
 .thread-view .thread-prompt-actions {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--layer-raised);
   display: flex;
   justify-content: flex-end;
   gap: var(--space-1);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  background: var(--surface-canvas);
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--duration-fast) var(--ease-standard);
 }
+.thread-view .thread-prompt-actions::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--space-1);
+}
 .thread-view .thread-message-user:hover .thread-prompt-actions,
-.thread-view .thread-message-user:focus-within .thread-prompt-actions { opacity: 1; }
-@media (hover: none) { .thread-view .thread-prompt-actions { opacity: 1; } }
+.thread-view .thread-message-user:focus-within .thread-prompt-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .thread-view .thread-prompt-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
 .thread-view .thread-prompt-edited { margin: 0; color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-view .thread-prompt-editor { display: flex; flex-direction: column; gap: var(--space-2); }
 .thread-view .thread-prompt-editor-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }

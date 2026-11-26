@@ -175,7 +175,7 @@ async function openConversation(page: Page, id: string): Promise<void> {
 }
 test.skip(process.platform === 'win32', 'the stand-in agent is a script; on Windows the app launches only a native .exe')
 
-test('AG-10 in the app: the prompt card on the one 1080 px axis (OXE-401), a quiet header, and Edit prompt sends the edited text as a new turn', async () => {
+test('OxeChat in the app: right-aligned prompt bubble in the 1080 px column (OXE-401, OXE-441), a quiet header, and Edit prompt sends the edited text as a new turn', async () => {
   test.setTimeout(300_000)
   const agent = standIn('f5-prompt')
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'dark', realClock: true, env: agent.env })
@@ -199,8 +199,10 @@ test('AG-10 in the app: the prompt card on the one 1080 px axis (OXE-401), a qui
     // OXE-401: --measure-chat widened from 800px to 1080px
     expect(Math.abs(columnBox.width - 1080), `the column is 1080 px wide (${columnBox.width})`).toBeLessThanOrEqual(1)
     const promptBox = (await prompt.boundingBox())!
-    expect(Math.abs(promptBox.x - columnBox.x), 'the prompt card starts on the column\'s left edge: no bubble on the right').toBeLessThanOrEqual(1)
-    expect(Math.abs(promptBox.width - columnBox.width), 'the prompt card is the column\'s width').toBeLessThanOrEqual(1)
+    // OXE-441: explicit user decision aligns the user prompt bubble to the right edge of the reading column.
+    expect(Math.abs((promptBox.x + promptBox.width) - (columnBox.x + columnBox.width)), 'the prompt bubble aligns flush with the column\'s right edge').toBeLessThanOrEqual(1)
+    expect(promptBox.x, 'the prompt bubble sits to the right of the column\'s left edge').toBeGreaterThan(columnBox.x)
+    expect(promptBox.width, 'the prompt bubble is narrower than the full 1080 px column').toBeLessThan(columnBox.width)
     const header = page.locator('[data-ui="chat-header"]')
     await expect(header.locator('[data-ui="chat-title"]')).toHaveText('Refund idempotency')
     await expect(header, 'no agent · project · access line').not.toContainText(/Claude|Can edit/)

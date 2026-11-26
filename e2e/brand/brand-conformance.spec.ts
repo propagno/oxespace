@@ -190,10 +190,14 @@ async function measureScene(page: Page, scene: string, density: Density, theme: 
           const value = parseFloat(measure.prop === 'margin-block-start' ? style.marginBlockStart : style.borderLeftWidth) || 0
           measured = `${value}px`
           ok = wanted.some(target => Math.abs(parseFloat(target) - value) <= measure.tolerance)
-        } else if (measure.prop === 'inline-start-offset') {
-          // The element's left edge minus the left edge of `of` (its nearest such ancestor, else the first in the scene).
+        } else if (measure.prop === 'inline-start-offset' || measure.prop === 'inline-end-offset') {
+          // The element's inline-start (left) or inline-end (right) offset inside `of` (its nearest such ancestor, else the first in the scene).
           const from = measure.of ? (element.parentElement?.closest(measure.of) ?? root.querySelector(measure.of)) : null
-          const value = from ? element.getBoundingClientRect().left - from.getBoundingClientRect().left : NaN
+          const value = from
+            ? (measure.prop === 'inline-end-offset'
+              ? from.getBoundingClientRect().right - element.getBoundingClientRect().right
+              : element.getBoundingClientRect().left - from.getBoundingClientRect().left)
+            : NaN
           measured = from ? `${Math.round(value * 10) / 10}px` : `no ${measure.of ?? 'of'} element`
           ok = from !== null && wanted.some(target => Math.abs(parseFloat(target) - value) <= measure.tolerance)
         } else if (measure.prop === 'border-left-color' || measure.prop === 'background-color') {
