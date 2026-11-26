@@ -38,6 +38,8 @@ const OUTLINE_NONE_ALLOWED: Record<string, number> = {
   'src/components/Navigation/NavigationChrome.css': 1,
   'src/components/OxeQuery/OxeQuery.css': 2,
   'src/components/Settings/SettingsCenter.css': 2,
+  // The new-conversation composer textarea: .composer:focus-within draws the focus ring (plus @media (forced-colors: active)).
+  'src/components/Threads/NewConversationScreen.module.css': 1,
   'src/components/Threads/ThreadView.css': 1,
   'src/components/Threads/ThreadWorkbench.css': 1,
   'src/styles/components.css': 1,

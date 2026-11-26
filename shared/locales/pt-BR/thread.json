@@ -1074,6 +1074,10 @@
     "title": "No que o {{agent}} deve trabalhar em {{folder}}?",
     "context": "Onde o agente trabalha",
     "starters": "Sugestões para começar",
+    "keyEnter": "Enter",
+    "keyShiftEnter": "Shift+Enter",
+    "hintSend": "para enviar",
+    "hintNewLine": "para nova linha",
     "accessUnreadable": "Não foi possível ler o acesso",
     "noAgent": "Nenhum agente instalado",
     "access": {

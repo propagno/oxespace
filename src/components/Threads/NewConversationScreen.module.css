@@ -2,13 +2,13 @@
    pickers that says where the agent works, the composer and the four starters, on one centred column. The title and
    the picker height are shared with the opening of an empty conversation (ThreadEmptyState), which the scene measures. */
 .screen { display: flex; flex: 1; justify-content: center; min-width: 0; min-height: 0; overflow-y: auto; padding: var(--space-5) var(--space-3); }
-.column { display: flex; flex-direction: column; gap: var(--space-3); width: min(100%, 72ch); margin-block: auto; }
+.column { display: flex; flex-direction: column; gap: var(--space-4); width: min(100%, 72ch); margin-block: auto; }
 .hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
 .mark { flex: none; color: var(--tx-accent); }
 .title[data-ui='new-conversation-title'] { color: var(--tx-primary); font-family: var(--font-display); font-size: var(--fs-xl); font-weight: var(--weight-semibold); }
 .column .title { margin: 0; }
 
-/* Where the agent works: pickers with dropdown chevrons, a clear toggle chip for worktree isolation, and quiet status tags. */
+/* Where the agent works: cohesive control bar with solid select pills, a high-contrast worktree toggle pill, and a quiet status pill. */
 .pickers { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .picker[data-ui='context-picker'] { display: inline-flex; align-items: center; box-sizing: border-box; height: var(--control-md); min-height: var(--control-md); }
 .pickers .picker { gap: var(--space-1-5); padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--fs-xs); }
@@ -16,15 +16,17 @@
 .pickers .selectPicker:hover:not(:disabled) { border-color: var(--bd-strong); background: var(--fill-hover); }
 .chevron { flex: none; color: var(--tx-muted); transition: transform var(--duration-fast) var(--ease-standard); }
 .selectPicker[data-state='open'] .chevron { transform: rotate(180deg); }
-.pickers .togglePicker { padding-inline-start: var(--space-2); padding-inline-end: var(--space-2); border: 1px dashed var(--bd-control); background: transparent; color: var(--tx-muted); }
+.pickers .togglePicker { padding-inline-start: var(--space-3); padding-inline-end: var(--space-2); border: 1px solid var(--bd-control); background: var(--surface-raised); color: var(--tx-secondary); }
 .pickers .togglePicker:hover:not(:disabled) { border-color: var(--bd-strong); background: var(--fill-hover); color: var(--tx-primary); }
-.pickers .togglePicker[aria-checked='true'] { border-style: solid; border-color: var(--accent-border); background: var(--accent-soft); color: var(--tx-accent); }
+.pickers .togglePicker[aria-checked='true'] { border-color: var(--accent-border); background: var(--accent-soft); color: var(--tx-accent); }
 .pickers .togglePicker[aria-checked='true']:hover:not(:disabled) { background: var(--accent-soft-hover); }
-.toggleTrack { display: inline-flex; align-items: center; flex: none; width: var(--space-5); height: var(--space-3); padding: var(--space-0-5); box-sizing: border-box; border-radius: var(--radius-full); background: var(--bd-default); transition: background var(--duration-fast) var(--ease-standard); }
-.toggleThumb { display: block; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); background: var(--surface-raised); transition: transform var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
-.togglePicker[aria-checked='true'] .toggleTrack { background: var(--accent); }
+.toggleTrack { display: inline-flex; align-items: center; flex: none; width: var(--space-5); height: var(--space-3); padding: var(--space-0-5); box-sizing: border-box; border-radius: var(--radius-full); background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--bd-strong); transition: background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard); }
+.toggleThumb { display: block; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); background: var(--tx-secondary); transition: transform var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+.togglePicker:hover:not(:disabled):not([aria-checked='true']) .toggleThumb { background: var(--tx-primary); }
+.togglePicker[aria-checked='true'] .toggleTrack { background: var(--accent); box-shadow: none; }
 .togglePicker[aria-checked='true'] .toggleThumb { transform: translateX(var(--space-2)); background: var(--tx-on-accent); }
-.pickers .statusTag { padding-inline: var(--space-1-5); border: 1px solid transparent; background: transparent; color: var(--tx-muted); cursor: default; user-select: none; }
+.pickers .statusTag { padding-inline: var(--space-3); border: 1px solid var(--bd-subtle); background: var(--surface-sunken); color: var(--tx-secondary); cursor: default; user-select: none; }
+
 /* The project picker, and the way out for a folder that is no project. */
 .projects { display: grid; gap: var(--space-2); width: 40ch; max-width: 100%; }
 .options { display: flex; flex-direction: column; max-height: 40vh; overflow-y: auto; }
@@ -46,15 +48,31 @@
 .collisionNotice > div > div:last-child { margin-top: 0; }
 
 /* The composer of the opening: the first message creates the conversation. */
-.composer { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
-.composer:focus-within { border-color: var(--accent-border); }
-.message { width: 100%; resize: vertical; border: 0; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-sm); }
-.actions { display: flex; justify-content: flex-end; }
+.composer { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--tx-primary); transition: box-shadow var(--duration-fast) var(--ease-standard); }
+.composer:focus-within { border-color: var(--accent-border); box-shadow: 0 0 0 1px var(--accent-border), var(--elevation-1); }
+.message { display: block; width: 100%; min-height: calc(var(--control-md) * 2 + var(--space-5)); max-height: 36vh; padding: var(--space-1) var(--space-1) 0; overflow-y: auto; resize: none; field-sizing: content; border: 0; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-sm); line-height: var(--leading-normal); }
+.message::placeholder { color: var(--tx-muted); }
+.message:focus, .message:focus-visible { outline: none; box-shadow: none; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-1); }
+.composerHint { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); color: var(--tx-muted); font-size: var(--fs-xs); }
+.hintItem { display: inline-flex; align-items: center; gap: var(--space-1); }
+.hintSeparator { color: var(--bd-strong); user-select: none; }
+.composer .actions .sendButton { flex: none; border-radius: var(--radius-full); }
+.composer .actions .sendButton:disabled { background: var(--fill-pressed); color: var(--tx-muted); opacity: 1; }
 
 /* Starters fill the composer; nothing is sent on click. */
-.starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-.starters .starter { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: start; white-space: normal; }
-.starters .starter:hover { border-color: var(--accent-border); background: var(--fill-hover); }
-.starter strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
-.starter span { color: var(--tx-muted); font-size: var(--fs-xs); }
+.starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.starters .starter { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: start; white-space: normal; transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard), scale var(--duration-fast) var(--ease-out); }
+.starters .starter:hover:not(:disabled) { border-color: var(--accent-border); background: var(--fill-hover); box-shadow: var(--elevation-1); }
+.starter strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); line-height: var(--leading-snug); }
+.starter span { color: var(--tx-muted); font-size: var(--fs-xs); line-height: var(--leading-snug); }
+
+@media (forced-colors: active) {
+  .composer:focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
+  .toggleTrack { forced-color-adjust: none; border: 1px solid CanvasText; background: Canvas; box-shadow: none; }
+  .toggleThumb { background: CanvasText; }
+  .togglePicker[aria-checked='true'] .toggleTrack { border-color: Highlight; background: Highlight; }
+  .togglePicker[aria-checked='true'] .toggleThumb { background: HighlightText; }
+}
+
 @media (max-width: 560px) { .fields, .starters { grid-template-columns: minmax(0, 1fr); } }
