@@ -11,6 +11,7 @@
     "busy": "Entrando",
     "failed": "Não foi possível concluir esta ação. Tente de novo.",
     "code": "Código de login",
+    "pasteCodeToggle": "Colar código",
     "continue": "Continuar",
     "cancel": "Cancelar login",
     "openBrowser": "Abrir o navegador",

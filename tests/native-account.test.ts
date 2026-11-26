@@ -23,12 +23,12 @@ class FakeTransport implements AccountTransport {
   endInput() {}
   close = vi.fn(async () => {})
 }
-function fixture(provider = 'codex' as 'codex' | 'claude') {
+function fixture(provider = 'codex' as 'codex' | 'claude' | 'antigravity') {
   const login = new FakeTransport(method => method === 'account/login/start' ? { loginId: 'native-login', authUrl: 'https://auth.openai.com/authorize?state=private-value' } : {})
   const probe = new FakeTransport(method => method === 'account/read' ? { account: { type: 'chatgpt', email: 'user@example.com', planType: 'pro' } } : {})
   const changed = vi.fn(), openExternal = vi.fn(async () => {}), connected = vi.fn(async () => {})
   const service = new NativeAccountService({ resolve: async () => ({ ...scope, provider }), openExternal, changed, connected,
-    transport: (_command, args) => args.includes('status') ? probe : args.includes('login') ? login : connected.mock.calls.length ? probe : login })
+    transport: (_command, args) => args.includes('status') ? probe : args.includes('login') || args.includes('--login') ? login : connected.mock.calls.length ? probe : login })
   return { service, login, probe, changed, openExternal, connected }
 }
 describe('Native subscription accounts', () => {
@@ -128,6 +128,55 @@ describe('Native subscription accounts', () => {
     await f.service.cancel(status.attemptId!)
     await expect(f.service.submitCode(status.attemptId!, 'stale')).rejects.toThrow()
     await f.service.stop()
+  })
+  it('detects ANSI-wrapped Antigravity verification code prompts and submits the code without leaking output', async () => {
+    const f = fixture('antigravity')
+    const status = await f.service.login({ provider: 'antigravity', workspaceId: 'ws' })
+    f.login.data(Buffer.from('\u001b[36mhttps://accounts.google.com/o/oauth2/v2/auth?response_type=code&state=secret-state\u001b[0m\n\u001b[1mEnter \u001b[32mverification code\u001b[0m: '))
+    expect(f.changed.mock.calls.at(-1)?.[0]).toMatchObject({ state: 'awaiting-code', canOpenBrowser: true })
+    await f.service.submitCode(status.attemptId!, '4/0A-google-code')
+    expect(f.login.writes.at(-1)).toBe('4/0A-google-code\n')
+    expect(JSON.stringify(f.changed.mock.calls)).not.toContain('4/0A-google-code')
+    expect(JSON.stringify(f.changed.mock.calls)).not.toContain('secret-state')
+    await f.service.openBrowser(status.attemptId!)
+    expect(f.openExternal).toHaveBeenCalledWith('https://accounts.google.com/o/oauth2/v2/auth?response_type=code&state=secret-state')
+    await f.service.stop()
+  })
+  it('recognizes broadened CLI code prompts without false-positiving on OAuth URLs or exit codes', async () => {
+    for (const prompt of ['Auth code:', 'Paste the authorization code:', 'Enter sign-in code:', 'Paste callback URL/code:', 'One-time code: ']) {
+      const f = fixture('antigravity')
+      await f.service.login({ provider: 'antigravity', workspaceId: 'ws' })
+      f.login.data(Buffer.from(prompt))
+      expect(f.changed.mock.calls.at(-1)?.[0].state, prompt).toBe('awaiting-code')
+      await f.service.stop()
+    }
+    const f = fixture('antigravity')
+    await f.service.login({ provider: 'antigravity', workspaceId: 'ws' })
+    f.login.data(Buffer.from('Opening https://accounts.google.com/o/oauth2/v2/auth?response_type=code\nexit code: 0\n'))
+    expect(f.changed.mock.calls.at(-1)?.[0]).toMatchObject({ state: 'awaiting-browser', canOpenBrowser: true })
+    await f.service.stop()
+  })
+  it('accepts a pasted code during awaiting-browser for Antigravity while enforcing security guards', async () => {
+    const f = fixture('antigravity')
+    const status = await f.service.login({ provider: 'antigravity', workspaceId: 'ws' })
+    expect(status.state).toBe('awaiting-browser')
+    await f.service.submitCode(status.attemptId!, '  4/0A-manual-code  ')
+    expect(f.login.writes.at(-1)).toBe('4/0A-manual-code\n')
+    await expect(f.service.submitCode(status.attemptId!, '')).rejects.toThrow('Invalid login code')
+    await expect(f.service.submitCode(status.attemptId!, '   ')).rejects.toThrow('Invalid login code')
+    await expect(f.service.submitCode(status.attemptId!, 'a'.repeat(4097))).rejects.toThrow('Invalid login code')
+    await expect(f.service.submitCode(status.attemptId!, 'bad\ncode')).rejects.toThrow('Invalid login code')
+    await expect(f.service.submitCode(status.attemptId!, 'bad\rcode')).rejects.toThrow('Invalid login code')
+    await expect(f.service.submitCode(status.attemptId!, 'bad\0code')).rejects.toThrow('Invalid login code')
+    await f.service.cancel(status.attemptId!)
+    await expect(f.service.submitCode(status.attemptId!, 'after-cancel')).rejects.toThrow('Invalid login code')
+    await f.service.stop()
+
+    const codex = fixture('codex')
+    const codexStatus = await codex.service.login({ provider: 'codex', workspaceId: 'ws' })
+    expect(codexStatus.state).toBe('awaiting-browser')
+    await expect(codex.service.submitCode(codexStatus.attemptId!, 'nope')).rejects.toThrow('Invalid login code')
+    await codex.service.stop()
   })
   it('checks a Codex account through the native RPC and blocks non-subscription preflight', async () => {
     const transport = new FakeTransport(method => method === 'account/read' ? { account: { type: 'apiKey' } } : {})
