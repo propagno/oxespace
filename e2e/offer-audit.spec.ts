@@ -40,7 +40,7 @@ const SELF_RESTORING = new Set(['toggle-sidebar', 'toggle-split-layout', 'maximi
 const SETTINGS_LABELS: Record<string, string> = {
   general: 'General', providers: 'Agents', appearance: 'Appearance', terminal: 'Terminal', keyboard: 'Keyboard',
   notifications: 'Notifications', about: 'About', policy: 'Approvals and safety', 'agent-permissions': 'What agents can do', devices: 'Phone and devices',
-  privacy: 'Data and privacy', mcp: 'MCP servers and skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
+  privacy: 'Data and privacy', mcp: 'MCP and Skills', activity: 'Agent activity', diagnostics: 'Diagnostics'
 }
 
 /** What each palette command visibly does. Exact ids first, then id prefixes. */

@@ -16,8 +16,8 @@ test('PU-03·8 in the app: disconnected GitHub panel and Integrations page copy 
     await openDemoWorkspace(page, workspaceRoot)
 
     await page.getByRole('button', { name: /Open settings/i }).first().click()
-    await page.getByRole('button', { name: /^Integrations/i }).click()
-    await page.getByRole('radio', { name: 'GitHub' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Settings', exact: true })
+    await dialog.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Git\b/i }).click()
 
     const ghPage = page.getByTestId('settings-github-page')
     await expect(ghPage).toBeVisible()

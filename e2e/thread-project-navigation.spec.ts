@@ -71,6 +71,8 @@ test('Thread projects and conversations survive restart without creating Code wo
     await expect(page.locator('.thread-project-group')).toHaveCount(1)
     await expect(page.locator('.thread-session-title')).toContainText([savedTitle])
     const removed = page.getByRole('region', { name: 'Removed projects' })
+    const removedToggle = removed.getByRole('button', { name: /^Removed projects\b/ })
+    if (await removedToggle.getAttribute('aria-expanded') === 'false') await removedToggle.click()
     await removed.getByRole('button', { name: 'second-project Restore' }).click()
     await expect(page.locator('.thread-project-group')).toHaveCount(2)
     const relocated = join(root, 'second-relocated')
