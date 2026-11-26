@@ -228,6 +228,29 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
     expect(vitestConfig).toMatch(/retry:\s*process\.env\.CI\s*\?\s*1\s*:\s*0/)
   })
 
+  it('keeps ci.yml slimmed on composite actions with workflow_call, fast-gate, single build/OS, e2e-impacted, and 5W/4L shards', () => {
+    const ci = loadWorkflow('ci.yml')
+    expect(ci.on?.workflow_call, 'ci.yml must expose workflow_call for release.yml and nightly.yml').toBeDefined()
+
+    const usesSet = new Set(
+      Object.values(ci.jobs ?? {}).flatMap(job => (job.steps ?? []).map(step => step.uses).filter(Boolean))
+    )
+    expect(usesSet.has('./.github/actions/setup-oxespace')).toBe(true)
+    expect(usesSet.has('./.github/actions/build-oxespace')).toBe(true)
+    expect(usesSet.has('./.github/actions/package-electron')).toBe(true)
+
+    expect(ci.jobs?.build, 'ci.yml must have a dedicated build job (once per OS)').toBeDefined()
+    expect(ci.jobs?.['brand-conformance'], 'ci.yml must have a dedicated brand-conformance job').toBeDefined()
+    expect(ci.jobs?.['e2e-impacted'], 'ci.yml must have a PR e2e-impacted job').toBeDefined()
+
+    const unitMatrix = (ci.jobs?.['unit-shard'] as { strategy?: { matrix?: { include?: Array<{ label: string; total: number }> } } })?.strategy?.matrix?.include ?? []
+    expect(unitMatrix.filter(entry => entry.label === 'windows-x64')).toHaveLength(5)
+    expect(unitMatrix.filter(entry => entry.label === 'linux-x64')).toHaveLength(4)
+
+    const e2eShards = (ci.jobs?.e2e as { strategy?: { matrix?: { shard?: number[] } } })?.strategy?.matrix?.shard ?? []
+    expect(e2eShards).toEqual([1, 2, 3, 4])
+  })
+
   it('keeps workflow filenames referenced by repo scripts in sync with .github/workflows/', () => {
     const referenced = new Set<string>([
       ...(DISPATCHABLE_WORKFLOWS as string[]),

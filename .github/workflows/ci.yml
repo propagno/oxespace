@@ -8,19 +8,16 @@ run-name: >-
   || inputs.packaged_smoke_only && format('Packaged smoke · {0}', inputs.branch || github.ref_name)
   || format('Full check · {0}', inputs.branch || github.ref_name) }}
 
-# Unified pipeline, fastest signal first (see docs/RELEASE_PIPELINE.md#jobs):
-#   1) changes — what a PR touched, and the one commit every job checks out
-#   2) quick (Linux) — plan, audits, typecheck, lint, migration numbering, build and bundle budgets
-#      unit (Windows, Linux) — the unit and integration suite with coverage, in parallel with quick
-#   3) e2e (Windows, Linux, 3 shards each) — after quick on a PR (always on main, tags, dispatches)
-#   4) package (Windows, Linux) — only when the plan packages (tag, publish or packaged-smoke dispatch)
-#   5) release — only after all of the above succeed; draft → verify → publish → confirm live
-#   6) ci-result — one check for the whole run; merges the E2E shard reports
-#
-# Triggers:
-#   - push/PR to main → checks only
-#   - push tag v*.*.* → checks + package + release
-#   - workflow_dispatch → choose branch; optional publish_release
+# Unified pipeline, fastest signal first (OXE-434):
+#   1) changes — classifies PR paths and pins the single commit SHA every job checks out
+#   2) quick (fast-gate, <2m) — plan, typecheck, lint, fast guardrail tests, notices, audits; gates PR fan-out
+#   3) build (Windows, Linux) — compiles out/ ONCE per OS (bundle budgets + import check + sourcemaps)
+#      unit-shard (5 Windows / 4 Linux) → unit (coverage merge + floors)
+#   4) brand-conformance (Windows, Linux, enforced — never masked)
+#      e2e-impacted (Linux, PRs only — targeted smoke + acceptance via scripts/related-e2e.mjs)
+#      e2e (Windows, Linux, 4 shards each — main, tags, dispatches, workflow_call) + perf-plan/perf-recheck
+#      a11y (Windows, Linux), oxequery-live (Docker/Podman + DB versions), acceptance-release (releases)
+#   5) package (Windows, Linux) → release (environment: release) → ci-result ("CI result") → wake-merge-train
 
 on:
   push:
@@ -31,8 +28,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
-      # Prefer GitHub's native "Use workflow from" branch. Only set this when you
-      # need to build a *different* ref than the one selected in the UI.
       branch:
         description: Optional override — leave empty to use "Use workflow from"
         required: false
@@ -51,37 +46,52 @@ on:
         required: false
         default: false
         type: boolean
+  workflow_call:
+    inputs:
+      branch:
+        description: Optional ref (commit SHA, tag, or branch) to verify
+        required: false
+        default: ""
+        type: string
+      publish_release:
+        description: Run the built-in release publish job (false when caller orchestrates release)
+        required: false
+        default: false
+        type: boolean
+      tag:
+        description: Optional release tag (vX.Y.Z)
+        required: false
+        default: ""
+        type: string
+      packaged_smoke_only:
+        description: Build installers and run packaged-app E2E on both platforms without publishing
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      sha:
+        description: Verified commit SHA
+        value: ${{ jobs.changes.outputs.sha }}
+      version:
+        description: package.json version on the verified commit
+        value: ${{ jobs.quick.outputs.version }}
 
 concurrency:
-  # Only a pull request's run gives way to its next push. A run on main (or a tag) that started always finishes:
-  # with a long runner queue, cancelling it on every merge meant main went untested for hours. Runs still waiting
-  # in the group coalesce, so a burst of merges queues one run, not one per merge.
-  # A push to a draft runs nothing, so it gets a group of its own: arriving after a "ready for review" (a push
-  # followed at once by marking the PR ready), it must not cancel the run that tests the PR.
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
+  # Only PR runs cancel superseded pushes; main, tags, and dispatches always run to completion.
+  # Draft PR pushes use a separate group so a draft skip never cancels a ready_for_review run (#429).
+  group: >-
+    ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call')
+    && format('dispatch-{0}', inputs.branch || github.ref_name) || github.ref }}${{ github.event.pull_request.draft && '-draft' || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 env:
-  # The performance gate's failures this workflow accepts outside a release, and only these (OXE-389, decision of
-  # 23/11, option c): each is one exact test on one OS, its error matched whole, with the open card that fixes it.
-  # They still show in the record, the warnings and the summary; they just do not fail the run. Nothing else does
-  # pass: another error, a timeout or another budget fails as before (scripts/perf-gate-outcome.mjs). An entry
-  # leaves in the pull request that fixes its measure; no entry is ever added without its card and the user's OK.
+  # Performance gate failures accepted outside a release (OXE-389; scripts/perf-gate-outcome.mjs).
   PERF_GATE_KNOWN_FAILURES: '[]'
 
 jobs:
-  # What a pull request touched, so the expensive jobs only run when they can tell something.
-  # A docs-only PR (docs/**, *.md, .claude/**) runs nothing but this job, which still gives it
-  # a passing check. The OxeQuery live matrices (5 runners) only run on a PR that touches
-  # OxeQuery's own code: its main-process service and worker, the OxePod container runtime the
-  # live tests drive, its shared types and query-text parsers, its tests and scripts, and this
-  # file. Shared code it merely imports (C3 messages, locales, policy, approvals, migrations,
-  # dependencies) changes too often to start 5 database jobs each time; its contract and unit
-  # tests run on every code PR, and main, tags and dispatches always run everything, so a
-  # regression there is still caught on main, never in a release.
   changes:
     name: Changed paths
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
@@ -99,8 +109,6 @@ jobs:
       base: ${{ steps.classify.outputs.base }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
-      # Resolved once, so every later job tests the same commit: checking out a branch name in each job
-      # would take whatever the branch pointed at when that job started.
       - name: Resolve the commit every job checks out
         id: commit
         env:
@@ -112,12 +120,11 @@ jobs:
           EVENT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            # Manual runs: GitHub "Use workflow from" is github.ref_name; a non-empty branch input overrides it.
+          if [ "$EVENT" = "workflow_dispatch" ] || [ "$EVENT" = "workflow_call" ]; then
             ref="$(printf '%s' "$INPUT_BRANCH" | tr -d '[:space:]')"
             [ -n "$ref" ] || ref="$REF_NAME"
             if [ -z "$ref" ]; then
-              echo "workflow_dispatch could not resolve a branch (set Use workflow from, or branch input)." >&2; exit 1
+              echo "Could not resolve a ref (set Use workflow from, or branch input)." >&2; exit 1
             fi
             sha=$(gh api "repos/$REPO/commits/$ref" --jq .sha)
           else
@@ -137,10 +144,6 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          # Dependency review (job dependency-review) for a change to a manifest or lockfile. It runs inside this
-          # workflow, not on its own, so its result is part of CI result: one required check that reports on every
-          # pull request (docs-only too) and on the merge train's dispatched runs, where a pull_request-only
-          # workflow never starts. The base is where the head left main.
           manifests='^(package\.json|package-lock\.json|mobile/.*\.gradle(\.kts)?|mobile/.*libs\.versions\.toml|\.github/(workflows|actions)/.*)$'
           if [ "$EVENT" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"; echo "oxequery=true" >> "$GITHUB_OUTPUT"; echo "a11y=true" >> "$GITHUB_OUTPUT"
@@ -148,7 +151,6 @@ jobs:
             compare=$(gh api "repos/$REPO/compare/$DEFAULT_BRANCH...$SHA" --jq '{base: .merge_base_commit.sha, ahead: .ahead_by, files: [.files[]?.filename]}')
             if [ "$(echo "$compare" | jq .ahead)" != "0" ]; then
               base=$(echo "$compare" | jq -r .base)
-              # The compare API lists at most 300 files: past that, review rather than guess.
               if [ "$(echo "$compare" | jq '.files | length')" -ge 300 ] || grep -Eq "$manifests" <<<"$(echo "$compare" | jq -r '.files[]')"; then deps=true; fi
             fi
             echo "deps=$deps" >> "$GITHUB_OUTPUT"; echo "base=$base" >> "$GITHUB_OUTPUT"
@@ -156,16 +158,11 @@ jobs:
           fi
           files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
           echo "$files" | sed 's/^/  /'
-          # Every grep reads a here-string, never `echo "$files" | grep -q`: grep -q exits on its first match, echo then
-          # dies of SIGPIPE on a long list, and pipefail turned the match into false (#747: code=false on a code PR,
-          # every test skipped, CI result green).
+          # Here-strings avoid SIGPIPE under pipefail (#747).
           code=false; oxequery=false; a11y=false
           if grep -Eqv '^(docs/|\.claude/|.*\.md$)' <<<"$files"; then code=true; fi
-          # Counted apart from the test above, so CI result can refuse a skip that the file list contradicts.
           nondoc=$(grep -Evc '^(docs/|\.claude/|.*\.md$)' <<<"$files" || true)
           echo "nondoc=$nondoc" >> "$GITHUB_OUTPUT"
-          # What can change what the axe scan sees: not docs, tests, the Android app, the phone protocol or the other
-          # workflows (the a11y-axe.yml paths-ignore it replaces).
           if grep -Eqv '^(docs/|\.claude/|.*\.md$|electron/main/.*\.test\.ts$|tests/|mobile/|scripts/android/|shared/remote/|\.github/workflows/(android|provider-contract|visual-baselines|visual-regression)\.yml$)' <<<"$files"; then a11y=true; fi
           if grep -Eq '^(electron/main/services/(oxequery|oxepod)/|electron/main/workers/[^/]*oxequery|shared/[^/]*oxequery|shared/types/[^/]*oxequery|shared/(sqlText|mongoQueryText)\.ts$|tests/live/|tests/([^/]+/)?[^/]*oxequery|scripts/[^/]*oxequery|\.github/workflows/ci\.yml$)' <<<"$files"; then oxequery=true; fi
           echo "code=$code" >> "$GITHUB_OUTPUT"; echo "oxequery=$oxequery" >> "$GITHUB_OUTPUT"; echo "a11y=$a11y" >> "$GITHUB_OUTPUT"
@@ -173,10 +170,6 @@ jobs:
           echo "deps=$deps" >> "$GITHUB_OUTPUT"
           echo "code=$code oxequery=$oxequery a11y=$a11y deps=$deps (files: $(wc -l <<<"$files"), not docs: $nondoc)"
 
-  # Supply chain gate (SRE-08, docs/ci-cd.md): a change that adds or changes a dependency is checked against the
-  # GitHub Advisory Database before it merges. It looks only at what the change brings, so an advisory already on
-  # main doesn't block unrelated work; Dependabot covers those. A high or critical advisory fails it, and with it
-  # CI result (decisions.md #13; the Dependency graph is on).
   dependency-review:
     name: Dependency review
     needs: changes
@@ -188,16 +181,10 @@ jobs:
     steps:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
-          # On a pull request the action takes its base and head from the event; on a dispatched run (the merge
-          # train's), from where the tested commit left main.
           base-ref: ${{ github.event_name != 'pull_request' && needs.changes.outputs.base || '' }}
           head-ref: ${{ github.event_name != 'pull_request' && needs.changes.outputs.sha || '' }}
-          # High and critical advisories block; lower ones are listed in the job summary.
           fail-on-severity: high
 
-  # Origin gate (OXE-140, oxe.config.json): every pull request commit since origin.since must carry a traceable
-  # origin trailer (OXE-Task+OXE-Run or OXE-Quick+OXE-Card) or match origin.exempt in oxe.config.json.
-  # Runs oxe-cc 1.22.0 from propagno/oxe-build (pinned SHA) until oxe-cc@1.22.0 is published on npm.
   check-origin:
     name: Check commit origin
     needs: changes
@@ -237,9 +224,6 @@ jobs:
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/check-origin.json"
-          # Run against an empty non-git --dir with the checked-out oxe.config.json: oxe-cc 1.22.0's mirrorDirOf()
-          # eagerly creates <git-common-dir>/oxe/quick on a git checkout, causing check-origin to treat the empty
-          # mirror as a local quick store and reject valid OXE-Quick trailers instead of running in CI mode (verified: null).
           ctx="$RUNNER_TEMP/origin-ctx"
           mkdir -p "$ctx"
           set +e
@@ -258,9 +242,7 @@ jobs:
             console.log(`::error title=Check commit origin failed::oxe-cc exited ${status} without JSON output`)
             process.exit(status || 1)
           }
-          for (const p of report.config_problems || []) {
-            console.log(`::error title=Invalid origin config::${p}`)
-          }
+          for (const p of report.config_problems || []) console.log(`::error title=Invalid origin config::${p}`)
           for (const v of report.violations || []) {
             const sha = String(v.sha || '').slice(0, 12)
             console.log(`::error title=Commit missing origin (${sha})::${sha} ${v.subject || ''} — ${v.reason || 'missing OXE-Task+OXE-Run or OXE-Quick+OXE-Card'}`)
@@ -269,17 +251,15 @@ jobs:
           console.log(`Origin verified for ${report.commits} commit(s) in PR #${report.pr}`)
           EOF
 
-  # Stage 1, the fast signal (Linux only, about 6 minutes): plan, audits, typecheck, lint with the file-size
-  # guard, the migration-numbering guard, and the build with its bundle budgets. These checks do not depend on
-  # the OS (the bundle budgets run again on both platforms in e2e, where the build is repeated). When this job
-  # fails on a pull request, the e2e legs and the OxeQuery live matrices never take a runner.
+  # Stage 1 (fast-gate, <2 min): cheap deterministic checks gate PR fan-out so lint, typecheck, file-size,
+  # CSS, design-lint, i18n, migration, or governance regressions fail before any Windows runner boots.
+  # Keeps the exact job display name "Quick checks (linux-x64)" read by scripts/pr-ready.mjs.
   quick:
     name: Quick checks (linux-x64)
     needs: [changes]
-    # A draft PR runs nothing; marking it ready for review starts the run. A docs-only PR skips it.
     if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -292,17 +272,15 @@ jobs:
       manifest: ${{ steps.plan.outputs.manifest }}
       manifest_linux: ${{ steps.plan.outputs.manifest_linux }}
       sha: ${{ steps.plan.outputs.sha }}
-
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
 
       - name: Plan build vs release
         id: plan
         shell: pwsh
-        # Branch names and inputs reach the script only as variables, never pasted into it (#326).
         env:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PUBLISH_RELEASE: ${{ inputs.publish_release }}
@@ -322,7 +300,7 @@ jobs:
           if ($event -eq 'push' -and $env:GITHUB_REF.StartsWith('refs/tags/v')) {
             $shouldRelease = $true
             $tag = $env:GITHUB_REF_NAME
-          } elseif ($event -eq 'workflow_dispatch' -and $publishInput -eq 'true') {
+          } elseif (($event -eq 'workflow_dispatch' -or $event -eq 'workflow_call') -and $publishInput -eq 'true') {
             $shouldRelease = $true
             if ($tagInput -and $tagInput -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
               throw "Release tag '$tagInput' is not vMAJOR.MINOR.PATCH[-prerelease]."
@@ -334,12 +312,6 @@ jobs:
             if ($tag -ne "v$version") {
               throw "Release tag $tag does not match package.json version $version."
             }
-            # Tag may be created later by the release job when dispatching from a branch.
-            # `show-ref --quiet` reports "absent" with exit 1. That is a normal
-            # answer here, not a failure — but it leaves $LASTEXITCODE at 1, and
-            # every statement after this point is a PowerShell cmdlet that does
-            # not reset it, so pwsh exits 1 and fails the step even though the
-            # plan succeeded. Capture the answer, then clear the code.
             git show-ref --verify --quiet "refs/tags/$tag"
             $tagExists = $LASTEXITCODE -eq 0
             $global:LASTEXITCODE = 0
@@ -348,7 +320,7 @@ jobs:
               if ($sha -ne $tagCommit) {
                 throw "Checked-out commit $sha does not match tag $tag ($tagCommit)."
               }
-            } elseif ($event -ne 'workflow_dispatch') {
+            } elseif ($event -ne 'workflow_dispatch' -and $event -ne 'workflow_call') {
               throw "$tag is not an existing Git tag."
             }
           }
@@ -356,8 +328,6 @@ jobs:
           $channel = if ($version -match '-([a-z]+)(?:[.-]|$)') { $Matches[1].ToLowerInvariant() } else { 'latest' }
           $isPrerelease = $channel -ne 'latest'
 
-          # A stable release is a commit on main: release branches reach main through their PR first,
-          # so main always holds what was last published. Prereleases may come from any branch.
           if ($shouldRelease -and -not $isPrerelease) {
             git merge-base --is-ancestor $sha origin/main
             $onMain = $LASTEXITCODE -eq 0
@@ -367,40 +337,38 @@ jobs:
             }
           }
 
+          $packagedSmoke = ($event -eq 'workflow_dispatch' -or $event -eq 'workflow_call') -and $env:INPUT_PACKAGED_SMOKE_ONLY -eq 'true' -and -not $shouldRelease
           "should_release=$($shouldRelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          # Package and run the packaged-app E2E without any publishing step (the release job only reads should_release).
-          $packagedSmoke = $event -eq 'workflow_dispatch' -and $env:INPUT_PACKAGED_SMOKE_ONLY -eq 'true' -and -not $shouldRelease
           "packaged_smoke=$($packagedSmoke.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "prerelease=$($isPrerelease.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "channel=$channel" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "manifest=$channel.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          # electron-updater writes a per-OS manifest on Linux.
           "manifest_linux=$channel-linux.yml" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-          Write-Host "version=$version tag=$tag should_release=$shouldRelease sha=$sha"
+          Write-Host "version=$version tag=$tag should_release=$shouldRelease packaged_smoke=$packagedSmoke sha=$sha"
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-          cache: npm
+      - name: Setup OXESpace
+        uses: ./.github/actions/setup-oxespace
 
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
+      - name: Type check
+        run: npm run typecheck
 
-      - name: Audit production dependencies
-        run: npm run security:audit
+      - name: Lint (file sizes & eslint)
+        run: npm run lint
 
-      - name: Audit build tools for high and critical advisories
-        run: npm run security:audit:tools
-
-      # The OxeQuery worker compiles its database drivers in; they are
-      # devDependencies, so the production audit and SBOM above never see them.
-      - name: Audit bundled runtime packages
-        run: npm run security:audit:bundled
+      - name: Fast guardrail tests
+        run: >-
+          npx vitest run
+          tests/unit/workflow-governance.test.ts
+          tests/unit/css-classes-guard.test.ts
+          tests/design-lint.test.ts
+          tests/design-lint-target-size.test.ts
+          tests/i18n-catalog.test.ts
+          tests/unit/migration-numbering.test.ts
+          --maxWorkers=1 --testTimeout=15000
 
       - name: Check third-party notices and bundled licenses
         run: npm run notices:check
@@ -408,109 +376,90 @@ jobs:
       - name: Verify Electron support window
         run: node scripts/check-runtime-support.mjs
 
-      - name: Type check
-        run: npm run typecheck
-
-      # The file-size guard runs first, inside the lint script.
-      - name: Lint
-        run: npm run lint
-
-      # Also part of the full suite in the unit job; here it fails within the first minutes.
-      - name: Migration numbering guard
-        run: npx vitest run tests/unit/migration-numbering.test.ts
-
-      - name: Build renderer and main process (bundle budgets)
+      - name: Audit production, build-tool, and bundled dependencies
         run: |
           set -euo pipefail
-          npm run rebuild:native:node
-          npm run build
-          # Installed apps have no node_modules above them; tests inside the checkout do. 1.0.0 shipped an
-          # OxeQuery worker that imported a devDependency and could not load on any installed build.
-          node scripts/check-bundle-imports.mjs
+          npm run security:audit
+          npm run security:audit:tools
+          npm run security:audit:bundled
 
-  # Stage 1, in parallel with quick: the unit and integration suite on both platforms (serial inside each shard, with
-  # coverage). In one job it took 27-28 minutes and was the run's critical path (OXE-142, 14/11), so it runs in 3
-  # shards per platform; `unit` then merges the shards' blob reports, applies the coverage floor of vitest.config.ts
-  # and keeps the job names "Unit and integration tests (<platform>)" that pr:ready, the merge train and ci-result
-  # read. e2e does not wait for it.
-  unit-shard:
-    name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
-    needs: [changes]
-    if: ${{ github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true') }}
+  # Stage 2a (OXE-434): compile out/ ONCE per OS (preserving OS-specific bundles) and share via short-lived
+  # artifacts to brand-conformance, e2e-impacted, e2e, a11y, oxequery-live, acceptance-release, perf-recheck, and package.
+  build:
+    name: Build (${{ matrix.label }})
+    needs: [changes, quick]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 25
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        label: [windows-x64, linux-x64]
-        shard: [1, 2, 3]
         include:
-          - label: windows-x64
-            os: windows-2022
           - label: linux-x64
             os: ubuntu-22.04
+          - label: windows-x64
+            os: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Setup OXESpace
+        uses: ./.github/actions/setup-oxespace
+
+      - name: Build and upload same-OS bundle
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: build
+          platform-label: ${{ matrix.label }}
+          check-windows-notices: "true"
+          upload-build: "true"
+          upload-sourcemaps: "true"
+
+  # Stage 2b: Vitest unit & integration suite, balanced 5 shards on Windows / 4 shards on Linux.
+  # Runs under system Node 22 with rebuild:native:node only (no Electron download or Xvfb needed).
+  unit-shard:
+    name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/${{ matrix.total }})
+    needs: [changes, quick]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: windows-x64, os: windows-2022, shard: 1, total: 5 }
+          - { label: windows-x64, os: windows-2022, shard: 2, total: 5 }
+          - { label: windows-x64, os: windows-2022, shard: 3, total: 5 }
+          - { label: windows-x64, os: windows-2022, shard: 4, total: 5 }
+          - { label: windows-x64, os: windows-2022, shard: 5, total: 5 }
+          - { label: linux-x64, os: ubuntu-22.04, shard: 1, total: 4 }
+          - { label: linux-x64, os: ubuntu-22.04, shard: 2, total: 4 }
+          - { label: linux-x64, os: ubuntu-22.04, shard: 3, total: 4 }
+          - { label: linux-x64, os: ubuntu-22.04, shard: 4, total: 4 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
           fetch-depth: 0
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup OXESpace (Node native only)
+        uses: ./.github/actions/setup-oxespace
         with:
-          node-version: "22"
-          cache: npm
+          native: node
 
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
-          alsa=libasound2
-          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
-          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
-          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
-          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
-              :
-            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
-              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
-            else
-              exit 1
-            fi
-          fi
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # @electron/get keeps the downloaded Electron zip here; npm rebuild electron and electron-builder read it.
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
-      - name: Unit and integration tests (shard ${{ matrix.shard }}/3)
+      - name: Unit and integration tests (shard ${{ matrix.shard }}/${{ matrix.total }})
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          npm run rebuild:native:node
-          # Git/worktree integration tests contend for process and filesystem
-          # resources on Windows when Vitest runs files concurrently.
-          # A shard covers part of the code: VITEST_COVERAGE_SHARD turns the floors of vitest.config.ts off here (a CLI 0
-          # does not reach the per-glob floors); `unit` applies them to the merged report.
           $env:VITEST_COVERAGE_SHARD = '1'
-          npx vitest run --coverage --maxWorkers=1 --shard=${{ matrix.shard }}/3 --reporter=default --reporter=blob
+          npx vitest run --coverage --maxWorkers=1 --shard=${{ matrix.shard }}/${{ matrix.total }} --reporter=default --reporter=blob
 
       - name: Upload the shard's blob report
         if: success() || failure()
@@ -524,43 +473,34 @@ jobs:
 
   unit:
     name: Unit and integration tests (${{ matrix.label }})
-    needs: [changes, unit-shard]
-    # Always, under the same condition as the shards: a failed shard fails this job instead of skipping it.
-    if: ${{ always() && (github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.changes.outputs.code == 'true')) }}
+    needs: [changes, quick, unit-shard]
+    if: ${{ always() && !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 15
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-2022
-            label: windows-x64
-          - os: ubuntu-22.04
-            label: linux-x64
+          - { os: windows-2022, label: windows-x64 }
+          - { os: ubuntu-22.04, label: linux-x64 }
     steps:
       - name: Every shard passed
         shell: bash
         run: |
           if [ "${{ needs.unit-shard.result }}" != "success" ]; then
-            echo "::error::a unit shard did not pass (result: ${{ needs.unit-shard.result }}); see the 'Unit and integration tests (<platform>, n/3)' jobs"
+            echo "::error::a unit shard did not pass (result: ${{ needs.unit-shard.result }}); see the 'Unit and integration tests (<platform>, n/total)' jobs"
             exit 1
           fi
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
+      - name: Setup OXESpace
+        uses: ./.github/actions/setup-oxespace
 
       - name: Download the shards' blob reports
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -576,8 +516,6 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npx vitest --merge-reports .vitest/blob --coverage --reporter=default
 
-      # The summary of this run: the source of the renderer's coverage floor and of what each PR moves it by.
-      # It is kept when the tests fail too.
       - name: Upload coverage summary
         if: success() || failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -587,23 +525,157 @@ jobs:
           retention-days: 30
           path: coverage/coverage-summary.json
 
-  # Stage 2: what needs a built app and the Electron runtime, on both platforms, in 3 shards each. On a pull
-  # request it waits for quick to pass. On main, tags and dispatches it always runs, even when quick failed, so
-  # main keeps every signal.
-  #
-  # Each shard builds the app itself (about 1 minute) instead of downloading one build from quick: quick builds
-  # on Linux, and the Windows bundle differs from it, so a shared artifact would change what Windows tests.
-  # Playwright splits the specs in file order by test count. The weights below (PWTEST_SHARD_WEIGHTS, read by
-  # Playwright 1.64) were fitted on this workflow's first sharded run (41260525143, 136 tests), in the order
-  # Playwright split them, together with the fixed work each shard carries: shard 1 also runs the upgrade
-  # rehearsal and the OxeQuery coverage gate (about 2 minutes), shard 3 the performance gate and the bench
-  # (5 to 6). The heavy specs (offer-audit, oxequery, perceived-perf, redesign-audit-2/3) sit in the middle of
-  # the file order, so 6:6:5 left 12 minutes of E2E on Windows shard 2 against 4 on the others; 15:7:6 is
-  # about 9, 9 and 9 on Windows. Check the balance again when specs move.
+  # Stage 3a (OXE-149 / OXE-434): dedicated visible brand conformance gate on both platforms.
+  # Fails visibly on any enforced divergence (pending measures stay reported, non-failing).
+  brand-conformance:
+    name: Brand conformance (${{ matrix.label }})
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: linux-x64, os: ubuntu-22.04 }
+          - { label: windows-x64, os: windows-2022 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          scrub-live-env: "true"
+
+      - name: Restore same-OS build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: ${{ matrix.label }}
+
+      - name: Brand conformance (OXE-149)
+        shell: bash
+        env:
+          BRAND_OUT: brand-out/brand-conformance-${{ matrix.label }}.json
+        run: |
+          mkdir -p brand-out
+          if [ "$RUNNER_OS" = Linux ]; then
+            bash scripts/run-with-xvfb.sh npx playwright test --config playwright.brand.config.ts --reporter=list
+          else
+            npx playwright test --config playwright.brand.config.ts --reporter=list
+          fi
+
+      - name: Upload brand conformance
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: brand-conformance-${{ matrix.label }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: brand-out
+
+  # Stage 3b (OXE-434): targeted PR E2E on Linux via scripts/related-e2e.mjs.
+  # Runs in parallel with unit-shard so it adds 0 min to PR wall-clock while catching UI/selector/acceptance
+  # regressions before merge. Skips setup in ~10s when a PR only changes tests or CI files.
+  e2e-impacted:
+    name: E2E impacted (linux-x64)
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' && needs.quick.result == 'success' && needs.build.result == 'success' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Select impacted E2E specs
+        id: select
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          plan=$(printf '%s\n' "$files" | node scripts/related-e2e.mjs --stdin --json)
+          echo "$plan"
+          smoke=$(jq -r '.smoke | join(" ")' <<<"$plan")
+          acceptance=$(jq -r '.acceptance | join(" ")' <<<"$plan")
+          has_specs=false
+          if [ -n "$smoke" ] || [ -n "$acceptance" ]; then has_specs=true; fi
+          {
+            echo "smoke=$smoke"
+            echo "acceptance=$acceptance"
+            echo "has_specs=$has_specs"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$has_specs" = "false" ]; then
+            echo "No impacted E2E specs for this PR; skipping Electron setup."
+          fi
+
+      - name: Setup OXESpace (Electron + native)
+        if: steps.select.outputs.has_specs == 'true'
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          scrub-live-env: "true"
+
+      - name: Restore Linux build
+        if: steps.select.outputs.has_specs == 'true'
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: linux-x64
+
+      - name: Run impacted smoke specs (Linux)
+        if: steps.select.outputs.smoke != ''
+        shell: bash
+        env:
+          SMOKE_SPECS: ${{ steps.select.outputs.smoke }}
+        run: |
+          set -euo pipefail
+          read -r -a specs <<< "$SMOKE_SPECS"
+          bash scripts/run-with-xvfb.sh npm run test:e2e -- "${specs[@]}" --reporter=list --trace retain-on-failure
+
+      - name: Run impacted acceptance specs (Linux)
+        if: steps.select.outputs.acceptance != ''
+        shell: bash
+        env:
+          ACCEPTANCE_SPECS: ${{ steps.select.outputs.acceptance }}
+        run: |
+          set -euo pipefail
+          read -r -a specs <<< "$ACCEPTANCE_SPECS"
+          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts "${specs[@]}" --reporter=list --trace retain-on-failure
+
+      - name: Upload impacted E2E traces (failures)
+        if: failure() && steps.select.outputs.has_specs == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-impacted-traces-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/**/trace.zip
+
+  # Stage 3c: full 2-OS E2E suite in 4 evenly balanced shards per OS (main, tags, dispatches, workflow_call).
+  # Shard 1 carries native upgrade/process-tree/OxeQuery coverage; shard 4 carries the performance gate.
   e2e:
-    name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/3)
-    needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/4)
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.changes.result == 'success' && needs.build.result == 'success' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -612,113 +684,31 @@ jobs:
       fail-fast: false
       matrix:
         label: [windows-x64, linux-x64]
-        # CI LEVE NO PR (the user, 23/11): a pull request runs only shard 2, and in it only the build and the brand
-        # conformance (marca/conformidade on the PR head). The full suite, the native and upgrade steps and the
-        # performance gate run on main, tags and every workflow_dispatch, which is how the merge train tests each
-        # batch and each car before it reaches main (merge-train.yml).
-        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[2]' || '[1, 2, 3]') }}
+        shard: [1, 2, 3, 4]
         include:
-          - label: windows-x64
-            os: windows-2022
-            os_name: windows
-          - label: linux-x64
-            os: ubuntu-22.04
-            os_name: linux
+          - { label: windows-x64, os: windows-2022, os_name: windows }
+          - { label: linux-x64, os: ubuntu-22.04, os_name: linux }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          # The upgrade rehearsal reads the previous stable release's migrations from its tag.
-          fetch-depth: 0
+          # Only shard 1 runs upgrade-rehearsal.native.test.ts, which reads the previous stable release tag.
+          fetch-depth: ${{ matrix.shard == 1 && 0 || 1 }}
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
         with:
-          node-version: "22"
-          cache: npm
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          scrub-live-env: "true"
 
-      # Electron links against the GTK/NSS desktop stack, and Chromium cannot
-      # start headless without a display server — xvfb provides one for the E2E
-      # smoke. The Windows runner needs none of this.
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
-          alsa=libasound2
-          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
-          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
-          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
-          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
-              :
-            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
-              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
-            else
-              exit 1
-            fi
-          fi
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      # quick checks the notices on Linux; npm installs some optional packages per platform, so Windows checks
-      # its own tree too (seconds).
-      - name: Check third-party notices and bundled licenses (Windows)
-        if: runner.os == 'Windows' && matrix.shard == 2
-        run: npm run notices:check
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore same-OS build
+        uses: ./.github/actions/build-oxespace
         with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
+          mode: download
+          platform-label: ${{ matrix.label }}
 
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
-      # The bundle budgets run here again: the main entry differs by platform by a few hundred bytes.
-      - name: Build renderer and main process
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run rebuild:native:node
-          npm run build
-          node scripts/check-bundle-imports.mjs
-
-      # The main process ships minified; its source maps never ship. Keep them with the run, so a stack from a
-      # problem report of this build can be read: node scripts/symbolicate-stack.mjs --maps <artifact folder>.
-      # One shard per platform uploads them. When this run packages, the package job uploads them instead,
-      # from the build that is shipped.
-      - name: Upload main-process source maps
-        if: matrix.shard == 2 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: main-sourcemaps-${{ matrix.label }}
-          if-no-files-found: error
-          retention-days: 90
-          path: out/main/**/*.map
-
-      # E2E launches Electron, so it must run only after the Electron-native
-      # binary has been installed and verified. node-pty supplies a
-      # N-API-compatible prebuild; rebuilding it would unnecessarily require
-      # a C++ toolchain on every runner.
-      - name: Prepare and verify native modules for Electron
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run fix:native
-          npm run verify:native
-
-      # A database written by the last stable release (its own migration code, read from its git tag) is filled
-      # with data, upgraded by this build under the Electron runtime, and taken back: the old release must refuse
-      # the upgraded file untouched and open the verified backup. OXESPACE_UPGRADE_FROM picks another release.
       - name: Upgrade rehearsal (previous stable database, forward and back)
         if: matrix.shard == 1
         shell: pwsh
@@ -729,8 +719,6 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:electron -- tests/integration/upgrade-rehearsal.native.test.ts
 
-      # BE-M-08 under the Electron runtime, on both OSes: closing a terminal (pane close, quit, restart) or an agent
-      # conversation ends its whole process tree, including a detached grandchild that ignores SIGTERM.
       - name: Process tree cleanup (native)
         if: matrix.shard == 1
         shell: pwsh
@@ -739,22 +727,17 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:electron -- tests/integration/process-tree.native.test.ts
 
-      # OxeQuery carries its own floor: unit, component and integration tests together cover at least 60%.
       - name: OxeQuery coverage gate
         if: matrix.shard == 1
         shell: bash
         run: npm run test:coverage:oxequery
 
-      # A packaged_smoke_only dispatch proves the packaged binary; the renderer perf budgets are proven by every PR and
-      # main run and must not stand between a dispatch and packaging. Only the plan's output is read, in if: and env.
       - name: E2E smoke (Windows)
-        if: runner.os == 'Windows' && github.event_name != 'pull_request'
+        if: runner.os == 'Windows'
         shell: pwsh
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
-          E2E_SHARD: ${{ matrix.shard }}/3
-          PWTEST_SHARD_WEIGHTS: "15:7:6"
-          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          E2E_SHARD: ${{ matrix.shard }}/4
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: |
@@ -762,41 +745,14 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           npm run test:e2e -- "--shard=$env:E2E_SHARD" --reporter=list,blob --trace retain-on-failure
 
-      # Electron needs a display; the wrapper owns a private Xvfb lifecycle so
-      # repeated Playwright launches cannot leave the CI job waiting on Xvfb.
       - name: E2E smoke (Linux)
-        if: runner.os == 'Linux' && github.event_name != 'pull_request'
+        if: runner.os == 'Linux'
         env:
           OXESPACE_PACKAGED_SMOKE: ${{ needs.quick.outputs.packaged_smoke }}
-          E2E_SHARD: ${{ matrix.shard }}/3
-          PWTEST_SHARD_WEIGHTS: "15:7:6"
-          # Every shard keeps a blob report; the CI result job merges them into one HTML report per platform.
+          E2E_SHARD: ${{ matrix.shard }}/4
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
           PLAYWRIGHT_BLOB_OUTPUT_NAME: e2e-${{ matrix.label }}-${{ matrix.shard }}.zip
         run: bash scripts/run-with-xvfb.sh npm run test:e2e -- "--shard=$E2E_SHARD" --reporter=list,blob --trace retain-on-failure
-
-      # OXE-149 / OXE-434: the built app against the approved brand target (src/design/targets), once per platform.
-      # It reports every measure and fails the job on an enforced divergence (pending measures stay informational).
-      # test.afterAll always writes BRAND_OUT and the upload step below runs under !cancelled(), so ci-result still
-      # posts both platforms' results as the marca/conformidade status on the PR head.
-      - name: Brand conformance (OXE-149)
-        if: ${{ !cancelled() && matrix.shard == 2 }}
-        shell: bash
-        env:
-          BRAND_OUT: brand-out/brand-conformance-${{ matrix.label }}.json
-        run: |
-          mkdir -p brand-out
-          if [ "$RUNNER_OS" = Linux ]; then bash scripts/run-with-xvfb.sh npx playwright test --config playwright.brand.config.ts --reporter=list
-          else npx playwright test --config playwright.brand.config.ts --reporter=list; fi
-
-      - name: Upload brand conformance
-        if: ${{ !cancelled() && matrix.shard == 2 }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: brand-conformance-${{ matrix.label }}
-          if-no-files-found: ignore
-          retention-days: 7
-          path: brand-out
 
       - name: Upload E2E traces (failures)
         if: failure()
@@ -808,7 +764,7 @@ jobs:
           path: test-results/**/trace.zip
 
       - name: Upload E2E blob report
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: e2e-blob-${{ matrix.label }}-${{ matrix.shard }}
@@ -816,12 +772,9 @@ jobs:
           retention-days: 7
           path: blob-report
 
-      # A budget miss on one runner can be that runner's slow minute (flakes.md FL-04, FL-24): outside a publishing
-      # run the gate does not fail this job. Its outcome is recorded below, and perf-recheck runs the same gate once
-      # on a fresh runner; ci-result fails when that second run fails too. A publishing run keeps the hard gate.
       - name: E2E performance gate (Linux)
         id: perf_linux
-        if: runner.os == 'Linux' && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true'
+        if: runner.os == 'Linux' && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true'
         continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
         env:
           OXESPACE_PERF_GATE: "1"
@@ -829,14 +782,9 @@ jobs:
           set -o pipefail
           bash scripts/run-with-xvfb.sh npm run bench:ui 2>&1 | tee perf-gate.log
 
-      # Same budgets on the platform that actually ships today. Baselined on an
-      # idle host at 15/15 with the tightest headroom on boot
-      # (firstWindow→interactive 525ms against 2000ms); Linux clears the same
-      # budgets from the container. Both legs are hard gates, so a budget miss
-      # is a finding on one platform even when the other still fits.
       - name: E2E performance gate (Windows)
         id: perf_windows
-        if: runner.os == 'Windows' && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true'
+        if: runner.os == 'Windows' && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true'
         continue-on-error: ${{ needs.quick.outputs.should_release != 'true' }}
         shell: bash
         env:
@@ -845,11 +793,8 @@ jobs:
           set -o pipefail
           npm run bench:ui 2>&1 | tee perf-gate.log
 
-      # What the gate measured and whether it passed, for perf-plan and perf-recheck. The outcome is the step of this
-      # job's own OS: the other OS's step is "skipped", which is truthy, so ordering the two with || hid Windows (OXE-389).
-      # A failure made only of the known failures above is recorded "known" (scripts/perf-gate-outcome.mjs).
       - name: Record the performance gate
-        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
         shell: bash
         env:
           OUTCOME: ${{ (runner.os == 'Windows' && steps.perf_windows.outcome) || (runner.os == 'Linux' && steps.perf_linux.outcome) || 'skipped' }}
@@ -859,27 +804,21 @@ jobs:
           grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log > perf-gate/results.txt 2>/dev/null || true
 
       - name: Upload the performance gate record
-        if: ${{ !cancelled() && matrix.shard == 3 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
+        if: ${{ !cancelled() && matrix.shard == 4 && needs.quick.outputs.packaged_smoke != 'true' && needs.quick.outputs.should_release != 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-gate-${{ matrix.label }}
           retention-days: 7
           path: perf-gate
 
-      # Performance regression visibility. Informational for now (the CPU
-      # micro-benchmarks are deterministic); promote to a hard gate once we
-      # baseline thresholds. The full runtime-fluidity harness lives in
-      # e2e/perf-benchmark.spec.ts for local/manual runs.
       - name: Performance benchmark (informational)
-        if: matrix.shard == 3 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
+        if: matrix.shard == 4 && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true'
         continue-on-error: true
         run: npx vitest bench --run tests/bench/hotpaths.bench.ts
 
-  # Which platforms' performance gate failed in e2e: those run it once more on a fresh runner.
   perf-plan:
     name: Performance gate recheck plan
     needs: [quick, e2e]
-    # A pull request's e2e runs no performance gate (CI LEVE NO PR), so there is nothing to plan.
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.e2e.result == 'success' && needs.quick.outputs.should_release != 'true' && needs.quick.outputs.packaged_smoke != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -900,13 +839,11 @@ jobs:
           const { readdirSync, readFileSync, appendFileSync, existsSync } = require('node:fs')
           const records = existsSync('perf-gate') ? readdirSync('perf-gate').map(dir => JSON.parse(readFileSync(`perf-gate/${dir}/outcome.json`, 'utf8'))) : []
           for (const record of records) console.log(`${record.label}: ${record.outcome}`)
-          // Both platforms must have recorded the gate; a missing record is a failure, never a pass.
           for (const label of ['linux-x64', 'windows-x64']) if (!records.some(record => record.label === label)) {
             console.log(`::error::no performance gate record for ${label}`)
             process.exit(1)
           }
           const recheck = records.filter(record => record.outcome === 'failure').map(({ label, os }) => ({ label, os }))
-          // "known": every failure was one ci.yml names with its card (PERF_GATE_KNOWN_FAILURES, OXE-389). Shown, not rechecked.
           const known = records.filter(record => record.outcome === 'known').flatMap(record => (record.known ?? []).map(k => ({ label: record.label, ...k })))
           for (const k of known) {
             console.log(`::warning title=Known performance failure (${k.card})::${k.label}: ${k.test} — ${k.error}`)
@@ -917,11 +854,9 @@ jobs:
           console.log(recheck.length ? `recheck on a fresh runner: ${recheck.map(r => r.label).join(', ')}` : known.length ? `no gate to recheck; ${known.length} known failure(s), each with its card` : 'every performance gate passed')
           EOF
 
-  # The performance gate once more, on a fresh runner, for a platform whose gate failed in e2e. The first run's
-  # numbers are printed before the second's, so the run log holds both.
   perf-recheck:
     name: Performance gate recheck (${{ matrix.label }})
-    needs: [changes, quick, perf-plan]
+    needs: [changes, quick, build, perf-plan]
     if: ${{ !cancelled() && needs.perf-plan.result == 'success' && needs.perf-plan.outputs.recheck != '[]' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -935,63 +870,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
         with:
-          node-version: "22"
-          cache: npm
+          linux-deps: "true"
+          electron: "true"
+          native: electron
 
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
-          alsa=libasound2
-          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
-          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
-          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
-          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
-              :
-            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
-              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
-            else
-              exit 1
-            fi
-          fi
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore same-OS build
+        uses: ./.github/actions/build-oxespace
         with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
-      - name: Build renderer and main process
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run rebuild:native:node
-          npm run build
-
-      - name: Prepare and verify native modules for Electron
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run fix:native
-          npm run verify:native
+          mode: download
+          platform-label: ${{ matrix.label }}
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1017,7 +909,6 @@ jobs:
             echo "### Performance gate, second run (${{ matrix.label }}, fresh runner): $([ "$status" = 0 ] && echo passed || echo FAILED)"
             grep -aE '\[(RESULT|CONFIRM)\]|exceeded' perf-gate.log | sed 's/^/    /' || true
           } >> "$GITHUB_STEP_SUMMARY"
-          # A second run whose every failure is a known one (PERF_GATE_KNOWN_FAILURES, each with its card) passes; any other fails.
           if [ "$status" != 0 ] && node scripts/perf-gate-outcome.mjs recheck "$RUNNER_OS" "$status" perf-gate.log; then
             echo "::notice title=Performance gate::the second run failed only on the known failures ci.yml names with their cards (${{ matrix.label }})"
             exit 0
@@ -1025,25 +916,20 @@ jobs:
           if [ "$status" != 0 ]; then echo "::error title=Performance gate::failed on two runners (${{ matrix.label }}): a real regression until the per-OS trend says otherwise (flakes.md FL-21)"; exit 1; fi
           echo "::notice title=Performance gate::the first run failed on one runner and the second passed on a fresh one (${{ matrix.label }}): runner noise, see FL-04"
 
-  # The axe scan of the screens (docs/validation/a11y-axe-2026-10-14.md), on Linux and Windows. It was a workflow of
-  # its own until 09/11; inside this one its result is part of CI result, and a change that cannot affect what the
-  # scan sees (docs, tests, the Android app, the phone protocol, other workflows) skips it, as its paths-ignore did.
   a11y:
     name: axe scan (${{ matrix.label }})
-    needs: [changes]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.a11y == 'true') }}
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.a11y == 'true' && needs.quick.result == 'success')) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            label: ubuntu
-          - os: windows-2022
-            label: windows
+          - { os: ubuntu-22.04, label: ubuntu, platform_label: linux-x64 }
+          - { os: windows-2022, label: windows, platform_label: windows-x64 }
     env:
       OXE_A11Y_REPORT: ${{ github.workspace }}/a11y-report.jsonl
       OXE_A11Y_STRICT: "1"
@@ -1051,55 +937,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
         with:
-          node-version: "22"
-          cache: npm
+          linux-deps: "true"
+          electron: "true"
+          native: electron
 
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
-          alsa=libasound2
-          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
-          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
-          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
-          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
-              :
-            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
-              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
-            else
-              exit 1
-            fi
-          fi
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # @electron/get keeps the downloaded Electron zip here; npm rebuild electron and fix:native read it, so a
-      # GitHub release-download outage (a 504 on the zip) no longer fails the job once the version is cached.
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore same-OS build
+        uses: ./.github/actions/build-oxespace
         with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Build
-        run: npm run build
-
-      - name: Prepare and verify native modules for Electron
-        run: |
-          npm run fix:native
-          npm run verify:native
+          mode: download
+          platform-label: ${{ matrix.platform_label }}
 
       - name: Scan
         shell: bash
@@ -1110,7 +961,6 @@ jobs:
         if: always()
         shell: bash
         run: |
-          # The spec only writes the report when it finds something (the first run proved the path works).
           test -f "$OXE_A11Y_REPORT" || { echo "no report written: the scan found no violations at all"; exit 0; }
           echo "entries: $(wc -l < "$OXE_A11Y_REPORT")"
           echo "scan-not-reached: $(grep -c '"rule":"scan-not-reached"' "$OXE_A11Y_REPORT" || true)"
@@ -1127,222 +977,214 @@ jobs:
           retention-days: 14
           path: a11y-report.jsonl
 
-  # Stage 3: only when the plan step says this run packages (a v*.*.* tag, a dispatch with publish_release, or a
-  # dispatch with packaged_smoke_only), and only after every check above passed on this commit. It builds the
-  # commit quick planned, from scratch, and packages it; the release job publishes what it uploads.
-  package:
-    name: Package (${{ matrix.label }})
-    needs: [changes, quick, unit, e2e, acceptance-release]
-    # On a release run, require acceptance-release to pass before burning packaging runners; on packaged_smoke_only,
-    # acceptance-release is intentionally skipped, so check each prerequisite explicitly instead of implicit success().
-    if: >-
-      ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success'
-      && needs.unit.result == 'success' && needs.e2e.result == 'success'
-      && ((needs.quick.outputs.should_release == 'true' && needs.acceptance-release.result == 'success')
-      || needs.quick.outputs.packaged_smoke == 'true') }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions:
-      contents: read
+  oxequery-live:
+    name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     strategy:
-      # Never let a Linux failure cancel the Windows leg mid-release (or vice
-      # versa) — a half-cancelled matrix leaves the release job with one payload.
+      fail-fast: false
+      matrix:
+        engine: [docker, podman]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Setup OXESpace (Node native + Electron cache)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          electron-cache-only: "true"
+          native: node
+
+      - name: Restore Linux build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: linux-x64
+
+      - name: Pull the images the tests use
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
+          "$ENGINE" --version
+          pull docker.io/library/postgres:16-alpine
+          pull docker.io/library/mongo:7
+          pull docker.io/library/alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
+  oxequery-live-versions:
+    name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-2022
-            label: windows-x64
-            builder_flag: "--win"
-            slim_platform: win32
-          - os: ubuntu-22.04
-            label: linux-x64
-            builder_flag: "--linux"
-            slim_platform: linux
+          - { pg: "12-alpine", mongo: "5.0" }
+          - { pg: "14-alpine", mongo: "6.0" }
+          - { pg: "17-alpine", mongo: "8.0" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.changes.outputs.sha }}
+          fetch-depth: 1
+
+      - name: Setup OXESpace (Node native + Electron cache)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          electron-cache-only: "true"
+          native: node
+
+      - name: Restore Linux build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: linux-x64
+
+      - name: Choose the MongoDB image for this runner's kernel
+        id: mongo
+        run: |
+          mongo="${{ matrix.mongo }}"
+          kernel="$(uname -r | cut -d- -f1)"
+          if [ "${mongo%%.*}" -ge 8 ] && [ "$(printf '6.19\n%s\n' "$kernel" | sort -V | head -1)" = "6.19" ]; then
+            echo "::notice title=MongoDB ${mongo} skipped::Linux ${kernel} cannot run MongoDB 8.x (SERVER-121912); this leg uses MongoDB 7.0."
+            mongo="7.0"
+          fi
+          echo "image=docker.io/library/mongo:${mongo}" >> "$GITHUB_OUTPUT"
+
+      - name: Pull the images the tests use
+        run: |
+          ENGINE=docker
+          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
+          pull docker.io/library/postgres:${{ matrix.pg }}
+          pull ${{ steps.mongo.outputs.image }}
+          pull docker.io/library/postgres:16-alpine
+          pull docker.io/library/alpine:3.20
+
+      - name: Live tests
+        env:
+          OXE_LIVE: "1"
+          OXE_CONTAINER_ENGINE: docker
+          OXE_LIVE_PG_IMAGE: docker.io/library/postgres:${{ matrix.pg }}
+          OXE_LIVE_MONGO_IMAGE: ${{ steps.mongo.outputs.image }}
+        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+
+  acceptance-release:
+    name: Acceptance e2e (release gate)
+    needs: [changes, quick, build]
+    if: ${{ !cancelled() && needs.quick.outputs.should_release == 'true' && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.quick.outputs.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+          persist-credentials: false
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
         with:
-          node-version: "22"
-          cache: npm
+          linux-deps: "true"
+          electron: "true"
+          native: electron
+          verify-native: "false"
+          scrub-live-env: "true"
 
-      - name: Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          # Ubuntu 24.04 renamed libasound2 (64-bit time_t); 22.04 has only the old name.
-          alsa=libasound2
-          if dpkg -s libasound2t64 >/dev/null 2>&1; then alsa=libasound2t64; fi
-          req=(xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1)
-          apt_opts=(-o APT::Sandbox::User=root -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10 -o Acquire::Retries=1)
-          if ! dpkg -s "${req[@]}" libnotify4 >/dev/null 2>&1; then
-            if getent ahostsv4 archive.ubuntu.com >/dev/null 2>&1 && timeout 180 sudo apt-get "${apt_opts[@]}" update && timeout 300 sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" libxshmfence1 libnotify4; then
-              :
-            elif dpkg -s "${req[@]}" >/dev/null 2>&1; then
-              echo "::warning::apt mirror unreachable; required Electron/Xvfb packages (${req[*]}) are already preinstalled"
-            else
-              exit 1
-            fi
-          fi
+      - name: Restore Linux build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: linux-x64
 
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
+      - name: Run acceptance suite (Linux)
         shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
-      - name: Build renderer and main process
-        shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run rebuild:native:node
-          npm run build
-          node scripts/check-bundle-imports.mjs
+          set -euo pipefail
+          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts --trace retain-on-failure
 
-      # The maps of the build that is packaged here, so a stack from this installer can be read.
-      - name: Upload main-process source maps
+      - name: Upload test results
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: main-sourcemaps-${{ matrix.label }}
-          if-no-files-found: error
-          retention-days: 90
-          path: out/main/**/*.map
+          name: acceptance-release-${{ github.run_id }}-linux
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
 
-      - name: Prepare and verify native modules for Electron
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          npm run fix:native
-          npm run verify:native
+  package:
+    name: Package (${{ matrix.label }})
+    needs: [changes, quick, build, unit, brand-conformance, e2e, acceptance-release]
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success'
+      && needs.build.result == 'success' && needs.unit.result == 'success'
+      && needs.brand-conformance.result == 'success' && needs.e2e.result == 'success'
+      && ((needs.quick.outputs.should_release == 'true' && needs.acceptance-release.result == 'success')
+      || needs.quick.outputs.packaged_smoke == 'true') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, label: windows-x64, builder_flag: "--win" }
+          - { os: ubuntu-22.04, label: linux-x64, builder_flag: "--linux" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.quick.outputs.sha }}
+          fetch-depth: 1
 
-      - name: Package installer (${{ matrix.label }})
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          # GitHub publish configuration does not infer the update channel from
-          # prerelease versions. Set it explicitly so beta builds emit beta.yml
-          # (and beta-linux.yml) instead of overwriting the stable latest feed.
-          npx electron-builder ${{ matrix.builder_flag }} --config.npmRebuild=false --config.publish.channel=${{ needs.quick.outputs.channel }} --publish never
-          # Installer size in every run log, so a dependency that bloats the package shows up in review.
-          Get-ChildItem dist -File | Where-Object { $_.Extension -in '.exe', '.deb', '.AppImage' } |
-            ForEach-Object { '[installer-size] {0} {1:N1} MB' -f $_.Name, ($_.Length / 1MB) }
-          # The source maps are private: none may reach the packaged app.
-          node -e "const asar = require('@electron/asar'); const fs = require('node:fs'); const dirs = fs.readdirSync('dist').filter(name => name.endsWith('-unpacked')); if (!dirs.length) throw new Error('no unpacked app in dist'); for (const dir of dirs) { const maps = asar.listPackage('dist/' + dir + '/resources/app.asar', {}).filter(file => /^[\\/]out[\\/].*\.map$/.test(file)); if (maps.length) throw new Error(dir + ' ships source maps: ' + maps.slice(0, 5).join(', ')); console.log('[sourcemaps] ' + dir + ': none in app.asar') }"
+      - name: Setup OXESpace (Electron + native)
+        uses: ./.github/actions/setup-oxespace
+        with:
+          linux-deps: "true"
+          electron: "true"
+          native: electron
 
-      # B13 (BE-M-02): the fuses electron-builder flipped, read back from the binary that ships. Fails when any differs
-      # from electronFuses in electron-builder.yml (RunAsNode, NODE_OPTIONS and --inspect off, asar integrity and
-      # asar-only on), and on Windows when the embedded asar integrity hash does not match resources/app.asar.
-      - name: Read packaged fuses (${{ matrix.label }})
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          if ($IsWindows) {
-            $executable = Get-ChildItem dist/win-unpacked -Filter 'OXESpace*.exe' -File | Select-Object -First 1
-          } else {
-            $executable = Get-ChildItem dist/linux-unpacked -File | Where-Object {
-              $_.Name -like 'oxespace*' -and ($_.UnixFileMode -band [System.IO.UnixFileMode]::UserExecute)
-            } | Select-Object -First 1
-          }
-          if (-not $executable) { throw 'No packaged OXESpace executable found to read the fuses of.' }
-          npx --no-install @electron/fuses read --app $executable.FullName
-          node scripts/check-fuses.mjs --app $executable.FullName
+      - name: Restore same-OS build
+        uses: ./.github/actions/build-oxespace
+        with:
+          mode: download
+          platform-label: ${{ matrix.label }}
+
+      - name: Package installer and verify fuses (${{ matrix.label }})
+        id: pkg
+        uses: ./.github/actions/package-electron
+        with:
+          platform-flag: ${{ matrix.builder_flag }}
+          channel: ${{ needs.quick.outputs.channel }}
+          prepare-inspect-copy: "true"
+          verify-deb-sandbox: ${{ needs.quick.outputs.should_release == 'true' }}
 
       - name: E2E packaged Linux build
         if: runner.os == 'Linux'
         shell: bash
-        run: |
-          # Run a copy outside the checkout, like /opt/OXESpace: inside it, Node resolves missing packages from
-          # the repository's node_modules and hides packaging bugs.
-          rm -rf "$RUNNER_TEMP/oxespace-installed"
-          cp -a "$GITHUB_WORKSPACE/dist/linux-unpacked" "$RUNNER_TEMP/oxespace-installed"
-          executable="$(find "$RUNNER_TEMP/oxespace-installed" -maxdepth 1 -type f -perm -u+x -iname 'oxespace*' -print -quit)"
-          if [[ -z "$executable" ]]; then
-            echo "No packaged OXESpace executable found in dist/linux-unpacked." >&2
-            exit 1
-          fi
-          # B13: dist/ ships with the --inspect fuse off. Playwright's _electron.launch needs --inspect, so only this
-          # throwaway copy turns it back on, and the check proves that is the one byte that differs from dist/.
-          npx --no-install @electron/fuses write --app "$executable" EnableNodeCliInspectArguments=on
-          shipped="$GITHUB_WORKSPACE/dist/linux-unpacked/$(basename "$executable")"
-          node scripts/check-fuses.mjs --app "$executable" --test-copy-of "$shipped"
-          OXESPACE_PACKAGED_EXECUTABLE="$executable" \
-            bash scripts/run-with-xvfb.sh \
-            npx playwright test --config playwright.tools.config.ts packaged-linux.spec.ts
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
+        run: bash scripts/run-with-xvfb.sh npx playwright test --config playwright.tools.config.ts packaged-linux.spec.ts
 
-
-      # Guards a bug that shipped in v0.7.0. electron-builder's stock postinst
-      # decides chrome-sandbox's mode by probing `unshare --user true` — but
-      # postinst runs as root, which is exempt from the unprivileged-userns
-      # restriction Ubuntu 24.04 enables. The probe therefore reported
-      # "namespaces work", chose 0755, and every 24.04 user got an app that
-      # aborted at launch. A runtime test cannot catch this here: the runner is
-      # 22.04, where the probe happens to be right. So assert on the package
-      # instead, which is deterministic on any host.
-      - name: Verify the .deb secures the chrome-sandbox helper
-        if: needs.quick.outputs.should_release == 'true' && runner.os == 'Linux'
-        run: |
-          set -euo pipefail
-          deb=$(ls dist/*.deb)
-          # Assert on what the script RUNS, so strip comments first: our own
-          # postinst quotes the stock probe while explaining why it is wrong,
-          # and matching that text would fail on the very fix it documents.
-          code=$(dpkg-deb --info "$deb" postinst | sed -e 's/#.*$//')
-          if ! grep -qF "chmod 4755 '/opt/OXESpace/chrome-sandbox'" <<<"$code"; then
-            echo "postinst does not unconditionally setuid chrome-sandbox:" >&2
-            dpkg-deb --info "$deb" postinst >&2
-            exit 1
-          fi
-          if grep -qF 'unshare --user' <<<"$code"; then
-            echo "postinst still probes user namespaces — the stock template is back." >&2
-            dpkg-deb --info "$deb" postinst >&2
-            exit 1
-          fi
-          echo "OK: chrome-sandbox is setuid root unconditionally."
-
-      # The NSIS build is what ships today, yet it was the one packaged output
-      # CI never launched. Runs against win-unpacked (the same tree the
-      # installer writes) so a broken asarUnpack or extraResource fails here
-      # rather than on a user's machine.
       - name: E2E packaged Windows build
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $PSNativeCommandUseErrorActionPreference = $true
-          # Run a copy outside the checkout, like Program Files: inside it, Node resolves missing packages
-          # from the repository's node_modules and hides packaging bugs.
-          $installed = Join-Path $env:RUNNER_TEMP 'oxespace-installed'
-          if (Test-Path $installed) { Remove-Item -Recurse -Force $installed }
-          Copy-Item -Recurse "$env:GITHUB_WORKSPACE/dist/win-unpacked" $installed
-          $executable = Get-ChildItem $installed -Filter 'OXESpace*.exe' -File |
-            Select-Object -First 1
-          if (-not $executable) {
-            throw 'No packaged OXESpace executable found in dist/win-unpacked.'
-          }
-          # B13: dist/ ships with the --inspect fuse off. Playwright's _electron.launch needs --inspect, so only this
-          # throwaway copy turns it back on, and the check proves that is the one byte that differs from dist/.
-          npx --no-install @electron/fuses write --app $executable.FullName EnableNodeCliInspectArguments=on
-          node scripts/check-fuses.mjs --app $executable.FullName --test-copy-of (Join-Path "$env:GITHUB_WORKSPACE/dist/win-unpacked" $executable.Name)
-          $env:OXESPACE_PACKAGED_EXECUTABLE = $executable.FullName
-          npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
+        shell: bash
+        env:
+          OXESPACE_PACKAGED_EXECUTABLE: ${{ steps.pkg.outputs.executable-path }}
+        run: npx playwright test --config playwright.tools.config.ts packaged-win.spec.ts
 
       - name: Generate production dependency SBOM
         if: needs.quick.outputs.should_release == 'true'
@@ -1363,9 +1205,6 @@ jobs:
             --tag "$env:RELEASE_TAG" `
             --platform ${{ runner.os == 'Windows' && 'win' || 'linux' }}
 
-      # Each leg uploads only its own payload; the release job merges them. The
-      # per-leg SHA256SUMS/sbom are namespaced so the two downloads cannot
-      # silently overwrite each other.
       - name: Namespace the per-platform aux files
         if: needs.quick.outputs.should_release == 'true'
         shell: pwsh
@@ -1395,8 +1234,6 @@ jobs:
           name: release-${{ needs.quick.outputs.version }}-${{ matrix.label }}
           if-no-files-found: error
           retention-days: 30
-          # The .deb filename is glob-matched: electron-builder renders ${arch}
-          # as the Debian arch (amd64), not the electron arch (x64).
           path: |
             dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
             dist/*.deb
@@ -1404,170 +1241,226 @@ jobs:
             dist/sbom-${{ matrix.label }}.spdx.json
             dist/SHA256SUMS-${{ matrix.label }}.txt
 
-  # OxeQuery against real PostgreSQL, MongoDB, an SSH server and TLS. Ubuntu runners
-  # ship Docker; the tests start and remove their own containers. This is a release
-  # gate: a database client that was only ever tested against mocks must not ship.
-  oxequery-live:
-    name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
-    needs: [changes, quick]
-    # A draft PR runs nothing; a PR that did not touch OxeQuery's own paths (see the changes job)
-    # skips the live matrix, and so does a PR whose quick checks failed. Main, tags and
-    # dispatches always run it, whatever quick says.
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        # The same suite against each container engine a person may have.
-        engine: [docker, podman]
+  release:
+    name: Publish GitHub Release
+    needs: [quick, unit, brand-conformance, e2e, acceptance-release, package, oxequery-live, oxequery-live-versions]
+    if: needs.quick.outputs.should_release == 'true'
+    environment:
+      name: release
+      url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.quick.outputs.tag) }}
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.changes.outputs.sha }}
+          ref: ${{ needs.quick.outputs.sha }}
+          fetch-depth: 0
 
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # The live tests fetch the Electron zip through @electron/get; a release-download 504 failed both jobs on main
-      # 81a6bbac (run 42466635314). Same cache as unit, e2e and package.
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Build native modules for Node
-        run: npm run rebuild:native:node
-
-      # tests/live/oxequery-live.test.ts drives the real worker bundle.
-      - name: Build the main process and worker
-        run: npx electron-vite build
-
-      - name: Pull the images the tests use
+      - name: Ensure release tag points at the verified build
+        shell: pwsh
         env:
-          ENGINE: ${{ matrix.engine }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+          BUILD_SHA: ${{ needs.quick.outputs.sha }}
         run: |
-          # A registry 5xx on one blob is a passing outage (FL-01): each image gets 4 tries, 15, 30 then 45 s apart.
-          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
-          "$ENGINE" --version
-          pull docker.io/library/postgres:16-alpine
-          pull docker.io/library/mongo:7
-          pull docker.io/library/alpine:3.20
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --tags --force origin
+          git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
+          $tagExists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($tagExists) {
+            $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
+            if ($tagCommit -ne $env:BUILD_SHA) {
+              throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
+            }
+            Write-Host "Tag $env:RELEASE_TAG already points at verified build $env:BUILD_SHA."
+          } else {
+            Write-Host "Creating tag $env:RELEASE_TAG at $env:BUILD_SHA"
+            git tag -a $env:RELEASE_TAG $env:BUILD_SHA -m "OXESpace $env:RELEASE_TAG"
+            git push origin "refs/tags/$env:RELEASE_TAG"
+          }
 
-      - name: Live tests
+      - name: Download verified Windows build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ needs.quick.outputs.version }}-windows-x64
+          path: dist
+
+      - name: Download verified Linux build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ needs.quick.outputs.version }}-linux-x64
+          path: dist
+
+      - name: Generate combined checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item dist/SHA256SUMS-*.txt -Force
+          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
+            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
+            dist/*.deb
+            dist/SHA256SUMS.txt
+
+      - name: Create or refresh draft GitHub release
+        shell: pwsh
         env:
-          OXE_LIVE: "1"
-          OXE_CONTAINER_ENGINE: ${{ matrix.engine }}
-        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
-
-  # The same suite against the server versions people actually run: the oldest and the newest
-  # supported PostgreSQL (12, 17) and MongoDB (5, 8), plus the middle ones. Docker only; the
-  # engine matrix above already covers Podman against the default versions.
-  oxequery-live-versions:
-    name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
-    needs: [changes, quick]
-    # Same gate as oxequery-live.
-    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { pg: "12-alpine", mongo: "5.0" }
-          - { pg: "14-alpine", mongo: "6.0" }
-          - { pg: "17-alpine", mongo: "8.0" }
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.changes.outputs.sha }}
-
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      # The live tests fetch the Electron zip through @electron/get; a release-download 504 failed both jobs on main
-      # 81a6bbac (run 42466635314). Same cache as unit, e2e and package.
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.os == 'Windows' && '~/AppData/Local/electron/Cache' || '~/.cache/electron' }}
-          key: electron-${{ runner.os }}-${{ steps.electron.outputs.version }}
-
-      - name: Build native modules for Node
-        run: npm run rebuild:native:node
-
-      - name: Build the main process and worker
-        run: npx electron-vite build
-
-      # MongoDB 8.x refuses to start on Linux 6.19+ (TCMalloc vs the kernel's rseq,
-      # SERVER-121912, no fixed release yet), and runners now come with either kernel.
-      # On a 6.19+ runner the 8.x leg runs on 7.0 and says so; older kernels keep 8.x.
-      - name: Choose the MongoDB image for this runner's kernel
-        id: mongo
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
         run: |
-          mongo="${{ matrix.mongo }}"
-          kernel="$(uname -r | cut -d- -f1)"
-          if [ "${mongo%%.*}" -ge 8 ] && [ "$(printf '6.19\n%s\n' "$kernel" | sort -V | head -1)" = "6.19" ]; then
-            echo "::notice title=MongoDB ${mongo} skipped::Linux ${kernel} cannot run MongoDB 8.x (SERVER-121912); this leg uses MongoDB 7.0."
-            mongo="7.0"
-          fi
-          echo "image=docker.io/library/mongo:${mongo}" >> "$GITHUB_OUTPUT"
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.quick.outputs.version }}'
+          $manifest = '${{ needs.quick.outputs.manifest }}'
+          $manifestLinux = '${{ needs.quick.outputs.manifest_linux }}'
+          $deb = Get-ChildItem dist/*.deb | Select-Object -First 1
+          if (-not $deb) { throw 'No .deb produced by the Linux build.' }
+          $assets = @(
+            "dist/OXESpace-$version-x64.exe",
+            "dist/OXESpace-$version-x64.exe.blockmap",
+            "dist/$manifest",
+            "dist/OXESpace-$version-x64.AppImage",
+            $deb.FullName,
+            "dist/$manifestLinux",
+            'dist/sbom-windows-x64.spdx.json',
+            'dist/sbom-linux-x64.spdx.json',
+            'dist/SHA256SUMS.txt'
+          )
+          foreach ($path in $assets) {
+            if (-not (Test-Path -LiteralPath $path)) { throw "Missing release asset after download: $path" }
+          }
+          gh release view $env:RELEASE_TAG 2>$null
+          $notesPath = "docs/releases/$version.md"
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG --clobber @assets
+            gh release edit $env:RELEASE_TAG --draft=true
+            if (Test-Path -LiteralPath $notesPath) { gh release edit $env:RELEASE_TAG --notes-file $notesPath }
+          } else {
+            $createArgs = @(
+              'release', 'create', $env:RELEASE_TAG,
+              '--draft',
+              '--title', "OXESpace $env:RELEASE_TAG",
+              '--target', '${{ needs.quick.outputs.sha }}'
+            )
+            if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
+            else { $createArgs += '--generate-notes' }
+            if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
+            $createArgs += $assets
+            gh @createArgs
+          }
 
-      - name: Pull the images the tests use
-        run: |
-          ENGINE=docker
-          # A registry 5xx on one blob is a passing outage (FL-01): each image gets 4 tries, 15, 30 then 45 s apart.
-          pull() { for try in 1 2 3 4; do "$ENGINE" pull "$1" && return 0; [ "$try" -lt 4 ] && { echo "::warning::$ENGINE pull $1 failed (try $try/4), retrying in $((15 * try)) s"; sleep $((15 * try)); }; done; echo "::error::$ENGINE pull $1 failed 4 times"; return 1; }
-          pull docker.io/library/postgres:${{ matrix.pg }}
-          pull ${{ steps.mongo.outputs.image }}
-          pull docker.io/library/postgres:16-alpine
-          pull docker.io/library/alpine:3.20
-
-      - name: Live tests
+      - name: Download draft and verify the published payload
+        shell: pwsh
         env:
-          OXE_LIVE: "1"
-          OXE_CONTAINER_ENGINE: docker
-          OXE_LIVE_PG_IMAGE: docker.io/library/postgres:${{ matrix.pg }}
-          OXE_LIVE_MONGO_IMAGE: ${{ steps.mongo.outputs.image }}
-        run: npx vitest run tests/live/oxequery-live.test.ts tests/live/oxequery-connectivity-live.test.ts tests/live/oxequery-writes-live.test.ts
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
+          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
+          gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
+          foreach ($platform in @('win', 'linux')) {
+            node scripts/verify-release-artifacts.mjs `
+              --dir $downloadDir `
+              --version '${{ needs.quick.outputs.version }}' `
+              --tag $env:RELEASE_TAG `
+              --platform $platform
+            if ($LASTEXITCODE -ne 0) { throw "Release payload verification failed for $platform." }
+          }
 
-  # One check that says whether the whole run passed, for the merge train and for any future required check.
-  # A job that failed or was cancelled fails it. So does a job that should have run and was skipped: on main,
-  # tags and dispatches every check job must succeed; on a code PR quick, unit and e2e must, and the OxeQuery
-  # live jobs too when the PR touched OxeQuery. A docs-only PR passes with only `changes`. It also merges the
-  # E2E shards' blob reports into one HTML report per platform (best effort; the shards' blobs are kept anyway).
+      - name: Publish verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh release edit $env:RELEASE_TAG --draft=false
+          if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') {
+            gh release edit $env:RELEASE_TAG --prerelease
+          }
+
+      - name: Confirm release is live
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $json = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,tagName,url,assets
+          if ($LASTEXITCODE -ne 0) { throw "Failed to query release $env:RELEASE_TAG" }
+          $release = $json | ConvertFrom-Json
+          if ($release.isDraft) { throw "Release $env:RELEASE_TAG is still draft after publish." }
+          $expectedPrerelease = '${{ needs.quick.outputs.prerelease }}' -eq 'true'
+          if ([bool]$release.isPrerelease -ne $expectedPrerelease) {
+            throw "Release prerelease flag mismatch for $env:RELEASE_TAG (got $($release.isPrerelease), expected $expectedPrerelease)."
+          }
+          if ($release.tagName -ne $env:RELEASE_TAG) {
+            throw "Release tagName $($release.tagName) does not match $env:RELEASE_TAG."
+          }
+          $assetNames = @($release.assets | ForEach-Object { $_.name })
+          $required = @(
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe",
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap",
+            '${{ needs.quick.outputs.manifest }}',
+            "OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage",
+            '${{ needs.quick.outputs.manifest_linux }}',
+            'sbom-windows-x64.spdx.json',
+            'sbom-linux-x64.spdx.json',
+            'SHA256SUMS.txt'
+          )
+          $missing = $required | Where-Object { $_ -notin $assetNames }
+          if ($missing.Count -gt 0) { throw "Published release is missing asset(s): $($missing -join ', ')" }
+          $debAssets = @($assetNames | Where-Object { $_ -match '\.deb$' })
+          if ($debAssets.Count -ne 1) {
+            throw "Published release must contain exactly one .deb; found $($debAssets.Count): $($debAssets -join ', ')"
+          }
+          Write-Host "Release is live: $($release.url)"
+          Write-Host "Assets: $($assetNames -join ', ')"
+
+      - name: Start the Android release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Host "Android release: $env:RELEASE_TAG is not vX.Y.Z, not started."
+            exit 0
+          }
+          $runs = gh run list --workflow android-release.yml --branch $env:RELEASE_TAG --json databaseId,status,conclusion --limit 20 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Failed to list Android release runs for $env:RELEASE_TAG" }
+          $live = @($runs | Where-Object { $_.status -ne 'completed' -or $_.conclusion -eq 'success' })
+          if ($live.Count -gt 0) {
+            Write-Host "Android release for $env:RELEASE_TAG already started (run $($live[0].databaseId)), not started again."
+            exit 0
+          }
+          gh workflow run android-release.yml --ref $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw "Failed to start android-release.yml on $env:RELEASE_TAG" }
+          Write-Host "Android release started on $env:RELEASE_TAG; it waits for approval in the android-release environment."
+
   ci-result:
     name: CI result
-    needs: [changes, dependency-review, check-origin, quick, unit, e2e, a11y, perf-plan, perf-recheck, acceptance-release, package, oxequery-live, oxequery-live-versions, release]
+    needs: [changes, dependency-review, check-origin, quick, build, unit, brand-conformance, e2e-impacted, e2e, a11y, perf-plan, perf-recheck, acceptance-release, package, oxequery-live, oxequery-live-versions, release]
     if: ${{ always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
-      # The commit status below (a dispatched run only).
       statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1630,25 +1523,19 @@ jobs:
             console.log(`${job}: ${result}`)
             if (result === 'failure' || result === 'cancelled') problems.push(`${job} ${result}`)
           }
-          // A pull request classified as docs-only skips every test: refuse that when the classifier also counted
-          // files outside docs/, .claude/ and *.md (#747, a SIGPIPE turned code=true into false).
           const nondoc = Number(needs.changes.outputs?.nondoc ?? '0')
           if (pr && !code && nondoc > 0) problems.push(`changes said docs-only (code=false) but counted ${nondoc} file(s) outside docs/, .claude/ and *.md`)
           const required = ['changes', ...(deps ? ['dependency-review'] : []), ...(pr ? ['check-origin'] : [])]
-          if (!pr) required.push('quick', 'unit', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
-          else if (code) required.push('quick', 'unit', 'e2e', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
+          if (!pr) required.push('quick', 'build', 'unit', 'brand-conformance', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions')
+          else if (code) required.push('quick', 'build', 'unit', 'brand-conformance', 'e2e-impacted', ...(oxequery ? ['oxequery-live', 'oxequery-live-versions'] : []))
           if (pr && a11y) required.push('a11y')
           if (needs.quick.outputs?.should_release === 'true') required.push('acceptance-release', 'package', 'release')
           else if (needs.quick.outputs?.packaged_smoke === 'true') required.push('package')
           for (const job of required) if (needs[job].result !== 'success') problems.push(`${job} should have passed and is ${needs[job].result}`)
-          // The performance gate is soft in e2e outside a publishing run: perf-plan must have read it, and a recheck
-          // it planned must have passed on its fresh runner.
           const publishing = needs.quick.outputs?.should_release === 'true' || needs.quick.outputs?.packaged_smoke === 'true'
-          // A pull request runs no performance gate (CI LEVE NO PR): its e2e is the build and the brand run only.
           if (needs.e2e.result === 'success' && !publishing && !pr) {
             if (needs['perf-plan'].result !== 'success') problems.push(`perf-plan should have passed and is ${needs['perf-plan'].result}`)
             else if ((needs['perf-plan'].outputs?.recheck ?? '[]') !== '[]' && needs['perf-recheck'].result !== 'success') problems.push(`perf-recheck should have passed and is ${needs['perf-recheck'].result}`)
-            // Accepted only because ci.yml names them, each with its open card (PERF_GATE_KNOWN_FAILURES, OXE-389).
             for (const k of JSON.parse(needs['perf-plan'].outputs?.known || '[]')) console.log(`::warning title=Known performance failure (${k.card})::accepted while ${k.card} is open: ${k.label} ${k.test} — ${k.error}`)
           }
           if (problems.length) {
@@ -1658,11 +1545,6 @@ jobs:
           console.log('every job that had to run passed')
           EOF
 
-      # Branch protection requires "CI result", but GitHub does not count a check run from a workflow_dispatch run for
-      # a pull request (docs: troubleshooting required status checks), and the merge train's runs are dispatches: its
-      # merges were refused with 405 "Required status check "CI result" is expected" on a green head (#542, #544).
-      # A commit status is tied to the commit alone, so the dispatched run also posts its result as the status
-      # "CI result" on the commit it tested. A pull_request run needs none: its check run counts. Not on main.
       - name: Post the result as a commit status for the tested commit
         if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.changes.outputs.sha != '' && github.ref_name != github.event.repository.default_branch }}
         env:
@@ -1677,11 +1559,8 @@ jobs:
           gh api "repos/$REPO/statuses/$SHA" -f state="$state" -f context="CI result" -f description="$text" -f target_url="$RUN_URL" >/dev/null
           echo "status CI result=$state on $SHA"
 
-      # OXE-149: both platforms' brand conformance results (E2E shard 2) as the marca/conformidade status on the commit
-      # the PR shows (its head, not the merge commit a pull_request run tests). Failure on an enforced divergence or a
-      # missing platform; pending divergences are counted, not failed. pr:ready requires it on interface paths (OXE-148).
       - name: Download the brand conformance results
-        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
+        if: ${{ !cancelled() && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') }}
         continue-on-error: true
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -1690,8 +1569,7 @@ jobs:
           merge-multiple: true
 
       - name: Post the brand conformance status (OXE-149)
-        if: ${{ !cancelled() && needs.e2e.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
-        # The gate is the marca/conformidade status itself; a hiccup posting it never turns "CI result" red.
+        if: ${{ !cancelled() && needs.brand-conformance.result != 'skipped' && (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref_name != github.event.repository.default_branch)) }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1717,7 +1595,6 @@ jobs:
           const state = files.length < 2 || enforced ? 'failure' : 'success'
           const text = files.length < 2 ? `results from ${files.length} of 2 platforms` : `${enforced} enforced divergence(s), ${pending} pending reported, ${checks} checks`
           const nl = String.fromCharCode(10)
-          // Read back below in this same step (GITHUB_ENV only reaches the next step).
           fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'brand-status'), [state, text, ''].join(nl))
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, ['### Brand conformance (OXE-149)', '', text, '', ...lines.slice(0, 40), ''].join(nl))
           EOF
@@ -1725,13 +1602,6 @@ jobs:
           gh api "repos/$REPO/statuses/$SHA" -f state="$BRAND_STATE" -f context="marca/conformidade" -f description="$BRAND_TEXT" -f target_url="$RUN_URL" >/dev/null
           echo "status marca/conformidade=$BRAND_STATE on $SHA: $BRAND_TEXT"
 
-  # The merge train's wake-up. A run the train dispatched (with GITHUB_TOKEN) fires no workflow_run when it
-  # finishes, so without this the train only learns of the result at its next cron, 10 minutes or more later.
-  # GitHub does let GITHUB_TOKEN start a workflow_dispatch, so the run's last job dispatches the train itself,
-  # green or red (a red car must leave the queue too). Only for the train's own dispatches: the bot as the
-  # triggering actor and a run titled exactly "Full check · <its branch>" (no branch override, no publish, no
-  # packaged smoke), the rule scripts/merge-train.mjs `testsItsOwnHead` uses. The train waits for this run to
-  # complete before it reads the results (wait_for_run), since this job is still part of it. The cron stays.
   wake-merge-train:
     name: Wake the merge train
     needs: [ci-result]
@@ -1748,330 +1618,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        # Never fails the run: if the dispatch is refused, the train's cron still picks the result up.
         run: |
           gh workflow run merge-train.yml --ref "${{ github.event.repository.default_branch }}" -f wait_for_run="$RUN_ID" \
             || echo "::warning title=Merge train not woken::the dispatch failed; the train's cron will pick this run up"
-
-  # OXE-296: acceptance E2E gate before creating/publishing a release tag. Never runs on PRs or merge-train.
-  acceptance-release:
-    name: Acceptance e2e (release gate)
-    needs: [quick]
-    if: needs.quick.outputs.should_release == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.quick.outputs.sha }}
-          persist-credentials: false
-
-      - name: Node.js 22
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-          package-manager-cache: false
-
-      - name: Linux system dependencies
-        run: |
-          sudo apt-get update
-          alsa=libasound2t64; apt-cache show "$alsa" >/dev/null 2>&1 || alsa=libasound2
-          sudo apt-get install -y --no-install-recommends \
-            xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 "$alsa" \
-            libxshmfence1 libnotify4
-
-      - name: Install dependencies without lifecycle scripts
-        run: npm ci --ignore-scripts
-
-      - name: Electron version
-        id: electron
-        shell: bash
-        run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the Electron download
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/electron
-          key: electron-Linux-${{ steps.electron.outputs.version }}
-
-      - name: Install the pinned Electron runtime
-        run: npm rebuild electron
-
-      - name: Build the app
-        run: npm run build
-
-      - name: Prepare native modules for Electron
-        run: npm run fix:native
-
-      - name: No live OXESpace env reaches the run
-        shell: bash
-        run: |
-          set -euo pipefail
-          if env | cut -d= -f1 | grep -Ei '^(OXESPACE_(MCP_|EXECUTION_|AGENT_HOOK_|WORKSPACE_ID$|MEMORY_RUN(_ID)?$|PANE_BRIDGE$)|AI_MEMORY_)'; then
-            echo "::error::live OXESpace variables are set on the runner"; exit 1
-          fi
-
-      - name: Run acceptance suite (Linux)
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash scripts/run-with-xvfb.sh npx playwright test -c playwright.acceptance.config.ts --trace retain-on-failure
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: acceptance-release-${{ github.run_id }}-linux
-          if-no-files-found: ignore
-          retention-days: 7
-          path: test-results/
-
-  release:
-    name: Publish GitHub Release
-    needs: [quick, unit, e2e, acceptance-release, package, oxequery-live, oxequery-live-versions]
-    if: needs.quick.outputs.should_release == 'true'
-    # Publishing waits for a person: the `release` environment has the release owner as required reviewer, so a
-    # dispatch with publish_release=true (by anyone, or by an agent session using their token) builds and verifies
-    # everything, then stops here until it is approved on the run page (SRE-04, docs/ci-cd.md).
-    environment:
-      name: release
-      url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.quick.outputs.tag) }}
-    runs-on: windows-2022
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      # Starts android-release.yml after publishing (the last step): a release published with GITHUB_TOKEN fires no
-      # `release` event, so that workflow would never start on its own.
-      actions: write
-      # Build provenance: GitHub signs a statement that these files came from this workflow run.
-      id-token: write
-      attestations: write
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Need a writable checkout so we can create the release tag when
-          # publishing from a branch that does not yet have vX.Y.Z.
-          ref: ${{ needs.quick.outputs.sha }}
-          fetch-depth: 0
-
-      - name: Ensure release tag points at the verified build
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-          BUILD_SHA: ${{ needs.quick.outputs.sha }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          # An annotated tag records a tagger, and a fresh runner has no git
-          # identity — `git tag -a` aborts with "unable to auto-detect email".
-          # Attribute it to the Actions bot rather than impersonating whoever
-          # authored the commit being released.
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git fetch --tags --force origin
-          # An absent tag is the normal answer when publishing from a branch, so
-          # probe before native failures become terminal below.
-          git show-ref --verify --quiet "refs/tags/$env:RELEASE_TAG"
-          $tagExists = $LASTEXITCODE -eq 0
-          $global:LASTEXITCODE = 0
-          # From here every git call must stop the step at the point it fails.
-          # Without this, a failed `git tag` fell through to `git push`, which
-          # then reported the misleading "src refspec does not match any".
-          $PSNativeCommandUseErrorActionPreference = $true
-          if ($tagExists) {
-            $tagCommit = git rev-list -n 1 $env:RELEASE_TAG
-            if ($tagCommit -ne $env:BUILD_SHA) {
-              throw "Tag $env:RELEASE_TAG points at $tagCommit but build verified $env:BUILD_SHA."
-            }
-            Write-Host "Tag $env:RELEASE_TAG already points at verified build $env:BUILD_SHA."
-          } else {
-            Write-Host "Creating tag $env:RELEASE_TAG at $env:BUILD_SHA"
-            git tag -a $env:RELEASE_TAG $env:BUILD_SHA -m "OXESpace $env:RELEASE_TAG"
-            git push origin "refs/tags/$env:RELEASE_TAG"
-          }
-
-      # Both legs land in the same dist/ — their filenames are disjoint (the aux
-      # files were namespaced by the package job), so nothing is overwritten.
-      - name: Download verified Windows build artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-windows-x64
-          path: dist
-
-      - name: Download verified Linux build artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.quick.outputs.version }}-linux-x64
-          path: dist
-
-      # One checksum file covering the whole release rather than one per OS, so
-      # a user verifying any download reads a single canonical list.
-      - name: Generate combined checksums
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Remove-Item dist/SHA256SUMS-*.txt -Force
-          node scripts/release-checksums.mjs --output dist/SHA256SUMS.txt
-
-      # Anyone can check where a download came from with
-      # `gh attestation verify <file> --repo propagno/oxespace` (docs/RELEASE_PIPELINE.md).
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.exe
-            dist/OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage
-            dist/*.deb
-            dist/SHA256SUMS.txt
-
-      - name: Create or refresh draft GitHub release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $version = '${{ needs.quick.outputs.version }}'
-          $manifest = '${{ needs.quick.outputs.manifest }}'
-          $manifestLinux = '${{ needs.quick.outputs.manifest_linux }}'
-          $deb = Get-ChildItem dist/*.deb | Select-Object -First 1
-          if (-not $deb) { throw 'No .deb produced by the Linux build.' }
-          $assets = @(
-            "dist/OXESpace-$version-x64.exe",
-            "dist/OXESpace-$version-x64.exe.blockmap",
-            "dist/$manifest",
-            "dist/OXESpace-$version-x64.AppImage",
-            $deb.FullName,
-            "dist/$manifestLinux",
-            'dist/sbom-windows-x64.spdx.json',
-            'dist/sbom-linux-x64.spdx.json',
-            'dist/SHA256SUMS.txt'
-          )
-          foreach ($path in $assets) {
-            if (-not (Test-Path -LiteralPath $path)) {
-              throw "Missing release asset after download: $path"
-            }
-          }
-
-          gh release view $env:RELEASE_TAG 2>$null
-          $notesPath = "docs/releases/$version.md"
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG --clobber @assets
-            gh release edit $env:RELEASE_TAG --draft=true
-            if (Test-Path -LiteralPath $notesPath) { gh release edit $env:RELEASE_TAG --notes-file $notesPath }
-          } else {
-            $createArgs = @(
-              'release', 'create', $env:RELEASE_TAG,
-              '--draft',
-              '--title', "OXESpace $env:RELEASE_TAG",
-              '--target', '${{ needs.quick.outputs.sha }}'
-            )
-            if (Test-Path -LiteralPath $notesPath) { $createArgs += @('--notes-file', $notesPath) }
-            else { $createArgs += '--generate-notes' }
-            if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') { $createArgs += '--prerelease' }
-            $createArgs += $assets
-            gh @createArgs
-          }
-
-      - name: Download draft and verify the published payload
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $downloadDir = Join-Path $env:RUNNER_TEMP 'release-download'
-          New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
-          gh release download $env:RELEASE_TAG --dir $downloadDir --clobber
-          foreach ($platform in @('win', 'linux')) {
-            node scripts/verify-release-artifacts.mjs `
-              --dir $downloadDir `
-              --version '${{ needs.quick.outputs.version }}' `
-              --tag $env:RELEASE_TAG `
-              --platform $platform
-            if ($LASTEXITCODE -ne 0) { throw "Release payload verification failed for $platform." }
-          }
-
-      - name: Publish verified release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          gh release edit $env:RELEASE_TAG --draft=false
-          if ('${{ needs.quick.outputs.prerelease }}' -eq 'true') {
-            gh release edit $env:RELEASE_TAG --prerelease
-          }
-
-      - name: Confirm release is live
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $json = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease,tagName,url,assets
-          if ($LASTEXITCODE -ne 0) { throw "Failed to query release $env:RELEASE_TAG" }
-          $release = $json | ConvertFrom-Json
-          if ($release.isDraft) {
-            throw "Release $env:RELEASE_TAG is still draft after publish."
-          }
-          $expectedPrerelease = '${{ needs.quick.outputs.prerelease }}' -eq 'true'
-          if ([bool]$release.isPrerelease -ne $expectedPrerelease) {
-            throw "Release prerelease flag mismatch for $env:RELEASE_TAG (got $($release.isPrerelease), expected $expectedPrerelease)."
-          }
-          if ($release.tagName -ne $env:RELEASE_TAG) {
-            throw "Release tagName $($release.tagName) does not match $env:RELEASE_TAG."
-          }
-          $assetNames = @($release.assets | ForEach-Object { $_.name })
-          $required = @(
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe",
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.exe.blockmap",
-            '${{ needs.quick.outputs.manifest }}',
-            "OXESpace-${{ needs.quick.outputs.version }}-x64.AppImage",
-            '${{ needs.quick.outputs.manifest_linux }}',
-            'sbom-windows-x64.spdx.json',
-            'sbom-linux-x64.spdx.json',
-            'SHA256SUMS.txt'
-          )
-          $missing = $required | Where-Object { $_ -notin $assetNames }
-          if ($missing.Count -gt 0) {
-            throw "Published release is missing asset(s): $($missing -join ', ')"
-          }
-          $debAssets = @($assetNames | Where-Object { $_ -match '\.deb$' })
-          if ($debAssets.Count -ne 1) {
-            throw "Published release must contain exactly one .deb; found $($debAssets.Count): $($debAssets -join ', ')"
-          }
-          Write-Host "Release is live: $($release.url)"
-          Write-Host "Assets: $($assetNames -join ', ')"
-
-      # GitHub starts no workflow for an event caused by GITHUB_TOKEN, so publishing above fires no `release` event and
-      # android-release.yml (signed APK) would not run; v1.4.0's was started by hand. A workflow_dispatch is the one
-      # event GITHUB_TOKEN may cause, so start it here, on the tag (its environment allows only v* tags and still waits
-      # for its reviewer). Only a vX.Y.Z tag: that workflow refuses any other. Skipped when a run for this tag already
-      # exists (someone started it by hand), since attaching the APK twice is refused anyway.
-      - name: Start the Android release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.quick.outputs.tag }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') {
-            Write-Host "Android release: $env:RELEASE_TAG is not vX.Y.Z, not started."
-            exit 0
-          }
-          $runs = gh run list --workflow android-release.yml --branch $env:RELEASE_TAG --json databaseId,status,conclusion --limit 20 | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw "Failed to list Android release runs for $env:RELEASE_TAG" }
-          $live = @($runs | Where-Object { $_.status -ne 'completed' -or $_.conclusion -eq 'success' })
-          if ($live.Count -gt 0) {
-            Write-Host "Android release for $env:RELEASE_TAG already started (run $($live[0].databaseId)), not started again."
-            exit 0
-          }
-          gh workflow run android-release.yml --ref $env:RELEASE_TAG
-          if ($LASTEXITCODE -ne 0) { throw "Failed to start android-release.yml on $env:RELEASE_TAG" }
-          Write-Host "Android release started on $env:RELEASE_TAG; it waits for approval in the android-release environment."
