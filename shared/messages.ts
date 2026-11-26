@@ -9,9 +9,9 @@
  */
 
 import { PLACE_MESSAGE_CODES, type PlaceMessageParams } from './messages-places'
-
+import { WORKTREE_TEMPLATE_MESSAGE_CODES, type WorktreeTemplateMessageParams } from './messages-worktree'
 /** Every code the main process may send, with the parameters each one carries. Add codes; never repurpose one. */
-export interface MessageParams extends PlaceMessageParams {
+export interface MessageParams extends PlaceMessageParams, WorktreeTemplateMessageParams {
   /** MCP quarantine: tools whose description or inputs changed after the person trusted the server. */
   'mcp.quarantine.changed': { tools: string[] }
   /** MCP quarantine: tools the server added after it was trusted. */
@@ -577,7 +577,7 @@ export interface MessageParams extends PlaceMessageParams {
 export type MessageCode = keyof MessageParams
 
 export const MESSAGE_CODES = [
-  ...PLACE_MESSAGE_CODES,
+  ...PLACE_MESSAGE_CODES, ...WORKTREE_TEMPLATE_MESSAGE_CODES,
   'mcp.quarantine.changed',
   'mcp.quarantine.added',
   'mcp.quarantine.removed',

@@ -417,6 +417,8 @@ export interface OwnedThreadWorktree {
    * worktree.copyFiles.*, worktree.setup.*). Kept with the conversation, since the dialog closes as it opens.
    */
   notices?: import('../messages').MainMessage[]
+  /** OXE-444: structured provisioning report returned when creating the conversation worktree. */
+  report?: import('./repo-config').WorktreeProvisionReport
 }
 
 /** What the new-conversation dialog may ask for when the conversation gets its own worktree. */

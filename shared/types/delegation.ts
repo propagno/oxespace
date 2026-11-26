@@ -103,6 +103,9 @@ export interface DelegationTask extends DelegationInput {
   /** Bounded public-message snapshot captured at creation, stable across retry/restart. */
   sessionContext?: DelegationSessionContext[]
   dependencies?: Array<{ id: string; objective: string; state: DelegationState }>
+  /** OXE-444: structured worktree provisioning report and C3 notices captured during git-checkout. */
+  provisionReport?: import('./repo-config').WorktreeProvisionReport
+  provisionNotices?: import('../messages').MainMessage[]
 }
 export interface DelegationEvent { cursor: number; taskId: string; kind: string; text: string; createdAt: number }
 export interface DelegationTarget { workspaceId: string; name: string; rootPath: string; expiresAt: number; allowEvidence: boolean }

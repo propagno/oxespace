@@ -318,6 +318,8 @@ export interface GitHubMessageResult {
    * itself first (`worktree.created` / `createdFrom`, FINDING L), then B19's `worktree.copyFiles.*` and `worktree.setup.*`.
    */
   notices?: import('../messages').MainMessage[]
+  /** OXE-444: structured provisioning report returned by createWorktree. */
+  report?: import('./repo-config').WorktreeProvisionReport
 }
 
 export interface GitHubCommitInput extends GitHubWorkspaceInput {
