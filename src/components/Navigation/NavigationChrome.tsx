@@ -68,9 +68,9 @@ export function SidebarFooter({ context, onToggle, children }: { context: RailAc
 }
 
 /** One sidebar action as a src/ui IconButton (BRD-01): the same names, titles and test ids as ActionButton. */
-function ActionIconButton({ action, returnFocus }: { action: RailAction; returnFocus?: boolean }) {
+function ActionIconButton({ action, returnFocus, size = 'sm', iconSize = 14 }: { action: RailAction; returnFocus?: boolean; size?: 'sm' | 'md'; iconSize?: number }) {
   const Icon = action.icon
-  const button = <IconButton size="sm" label={action.ariaLabel ?? action.label} title={action.label} icon={<Icon size={14} aria-hidden="true" />}
+  const button = <IconButton size={size} label={action.ariaLabel ?? action.label} title={action.label} icon={<Icon size={iconSize} aria-hidden="true" />}
     data-testid={action.testId} data-dialog-return={returnFocus ? '' : undefined} disabled={action.disabled} onClick={action.menu ? undefined : action.onClick} />
   return action.menu ? <Menu label={action.label} items={action.menu} trigger={button} /> : button
 }
@@ -83,8 +83,8 @@ export function SidebarHeaderActions({ actions }: { actions: RailAction[] }) {
 }
 
 /**
- * The bottom of an expanded sidebar on the src/ui anatomy (BRD-01): a SidebarFooter of IconButtons, with the mode's
- * context action (panels), light or dark, settings, and collapse.
+ * The bottom of an expanded sidebar on the src/ui anatomy (BRD-01, OXE-433): a SidebarFooter of md IconButtons
+ * with 17px icons (context action, light or dark, settings, and collapse when provided).
  */
 export function SidebarFooterBar({ context, onToggle, className }: { context?: RailAction; onToggle?: () => void; className?: string }) {
   const { t } = useTranslation()
@@ -93,12 +93,13 @@ export function SidebarFooterBar({ context, onToggle, className }: { context?: R
   const setAppearance = useSettingsStore(state => state.setAppearance)
   const next = mode === 'dark' ? 'light' : 'dark'
   const themeLabel = next === 'light' ? t('nav.switchToLight') : t('nav.switchToDark')
-  return <UiSidebarFooter className={className}>
-    {context ? <ActionIconButton action={context} /> : null}
+  const footerClass = className?.split(/\s+/).includes('nav-rail-footer') ? className : cx('nav-rail-footer', className)
+  return <UiSidebarFooter className={footerClass}>
+    {context ? <ActionIconButton action={context} size="md" iconSize={17} /> : null}
     <span className={styles.spacer} />
-    <IconButton size="sm" label={themeLabel} title={themeLabel} icon={mode === 'dark' ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />} onClick={() => setAppearance(next)} />
-    <IconButton size="sm" label={t('nav.openSettings')} title={t('nav.settings')} icon={<Settings2 size={14} aria-hidden="true" />} onClick={openSettings} />
-    {onToggle ? <IconButton size="sm" label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} icon={<ChevronsLeft size={14} aria-hidden="true" />} onClick={onToggle} /> : null}
+    <IconButton size="md" label={themeLabel} title={themeLabel} icon={mode === 'dark' ? <Sun size={17} aria-hidden="true" /> : <Moon size={17} aria-hidden="true" />} onClick={() => setAppearance(next)} />
+    <IconButton size="md" label={t('nav.openSettings')} title={t('nav.settings')} icon={<Settings2 size={17} aria-hidden="true" />} onClick={openSettings} />
+    {onToggle ? <IconButton size="md" label={t('nav.collapseSidebar')} title={t('nav.collapseSidebar')} icon={<ChevronsLeft size={17} aria-hidden="true" />} onClick={onToggle} /> : null}
   </UiSidebarFooter>
 }
 

@@ -1,4 +1,4 @@
-import { Bot, Orbit, Sparkles } from 'lucide-react'
+import { Bot, Gauge, Orbit, Sparkles } from 'lucide-react'
 import { Suspense, useEffect, useState, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
@@ -7,7 +7,7 @@ import { Popover, cx } from '../../ui'
 import styles from './AppStatusBar.module.css'
 import { i18n } from '../../i18n'
 import { chunk, lazyFrom } from '../../lib/chunk'
-import type { UsageProvider } from './usageProviders'
+import { USAGE_PROVIDERS, type UsageProvider } from './usageProviders'
 
 const tc = i18n.getFixedT(null, 'code')
 
@@ -23,14 +23,25 @@ export { USAGE_PROVIDERS, isUsageProvider, type UsageProvider } from './usagePro
 export const providerName = (provider: AgentProvider) => provider === 'codex' ? 'Codex' : provider === 'antigravity' ? 'Antigravity' : 'Claude'
 export const PROVIDER_ICONS = { claude: Sparkles, codex: Bot, antigravity: Orbit } as const satisfies Record<UsageProvider, unknown>
 
-/** "1h 20m", "35m", "2d 4h": the time left until a window resets. */
+/** "1h 20m", "35m", "2d 4h": the time left until a window resets. Returns null once the reset time has passed. */
 export function formatResetIn(resetsAtMs: number | null, now: number): string | null {
   if (resetsAtMs === null || !Number.isFinite(resetsAtMs)) return null
-  const minutes = Math.max(0, Math.round((resetsAtMs - now) / 60_000))
+  const diffMs = resetsAtMs - now
+  if (diffMs <= 0) return null
+  const minutes = Math.max(1, Math.round(diffMs / 60_000))
   if (minutes < 60) return tc('workspace.usage.minutes', { minutes })
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return tc('workspace.usage.hours', { hours, minutes: minutes % 60 })
   return tc('workspace.usage.days', { days: Math.floor(hours / 24), hours: hours % 24 })
+}
+
+/** Compact human age for a past reading: "12m", "5h", "13d" (pt-BR: "12 min", "5 h", "13 d"). */
+export function formatUsageAge(elapsedMs: number): string {
+  const minutes = Math.max(1, Math.round(elapsedMs / 60_000))
+  if (minutes < 60) return tc('workspace.usage.ageMinutes', { minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return tc('workspace.usage.ageHours', { hours })
+  return tc('workspace.usage.ageDays', { days: Math.floor(hours / 24) })
 }
 
 /** The groups of a reading, in order of first appearance. */
@@ -82,49 +93,115 @@ export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short:
     const name = windowName(window, groups)
     return reset ? tc('workspace.usage.lineReset', { name, pct: window.usedPct, reset }) : tc('workspace.usage.line', { name, pct: window.usedPct })
   })
-  const age = Math.max(0, Math.round((now - (snapshot.observedAtMs ?? now)) / 1000))
+  const elapsedMs = Math.max(0, now - (snapshot.observedAtMs ?? now))
+  const ageSeconds = Math.round(elapsedMs / 1000)
+  const ageLine = ageSeconds < 60
+    ? (snapshot.stale ? tc('workspace.usage.staleSeconds', { age: ageSeconds }) : tc('workspace.usage.readSeconds', { age: ageSeconds }))
+    : (snapshot.stale ? tc('workspace.usage.staleAge', { age: formatUsageAge(elapsedMs) }) : tc('workspace.usage.readAge', { age: formatUsageAge(elapsedMs) }))
   const group = groupName(barGroup, groups)
   const short = bar.map(window => `${label(window)} ${window.usedPct}%`).join(' · ')
   return {
     short: group ? `${group}: ${short}` : short,
-    detail: [name, ...detail, snapshot.stale ? tc('workspace.usage.staleSeconds', { age }) : tc('workspace.usage.readSeconds', { age })].join('\n'),
+    detail: [name, ...detail, ageLine].join('\n'),
     peak: Math.max(0, ...bar.map(window => window.usedPct))
   }
 }
 
+export type UsageStatusProps =
+  | { provider: UsageProvider; activeProvider?: never; providers?: never }
+  | { provider?: undefined; activeProvider?: UsageProvider | null; providers?: readonly UsageProvider[] }
+
+const clampPct = (value: number): number => Math.min(100, Math.max(0, Math.round(value)))
+
 /**
- * The provider's subscription usage, read every minute while the app is visible
- * and on focus. Shown for the agent in use: the selected conversation in Thread,
- * the active terminal's agent in Code. Clicking opens the detail.
+ * Subscription usage in the status bar, polled every minute while visible and on focus.
+ * - With `provider`, renders the single-provider chip (direct unit callers).
+ * - Without `provider` (OXE-423, AppStatusBar), polls all connected providers and renders one unified Usage control
+ *   summarizing the peak reading across providers; clicking opens UsagePopover with every available provider.
  */
-export function UsageStatus({ provider }: { provider: UsageProvider }): ReactElement | null {
-  const snapshot = useAgentCreditsStore(state => state.byProvider[provider])
-  const loading = useAgentCreditsStore(state => Boolean(state.loading[provider]))
+export function UsageStatus({ provider, activeProvider, providers }: UsageStatusProps): ReactElement | null {
+  const byProvider = useAgentCreditsStore(state => state.byProvider)
+  const loadingMap = useAgentCreditsStore(state => state.loading)
   const refresh = useAgentCreditsStore(state => state.refresh)
+  const polled: readonly UsageProvider[] = provider ? [provider] : (providers ?? USAGE_PROVIDERS)
+  const pollKey = polled.join(',')
   // The moment the "resets in" text counts from: set when the chip mounts and at each later reading (OXE-310: never
   // Date.now() while rendering, which made the render impure).
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!window.oxe?.agentCredits) return
-    const read = () => { if (document.visibilityState !== 'hidden') void refresh(provider) }
+    const targets = pollKey.split(',').filter(Boolean) as UsageProvider[]
+    const read = () => {
+      if (document.visibilityState === 'hidden') return
+      for (const each of targets) void refresh(each)
+    }
     const tick = () => { setNow(Date.now()); read() }
     read()
     const timer = window.setInterval(tick, USAGE_POLL_MS)
     window.addEventListener('focus', tick)
     document.addEventListener('visibilitychange', tick)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); document.removeEventListener('visibilitychange', tick) }
-  }, [provider, refresh])
-  // Snapshots come over IPC from an undocumented endpoint: a reading without windows shows nothing, never throws.
-  if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
-  const { short, detail, peak } = usageText(snapshot, now)
-  const Icon = PROVIDER_ICONS[provider]
-  const clampedPeak = Math.min(100, Math.max(0, Math.round(peak)))
+  }, [pollKey, refresh])
+
   const warmPopover = (): void => { void USAGE_POPOVER_CHUNK.load().catch(() => undefined) }
-  return <Popover label={tc('workspace.usage.label')} side="top" align="end" trigger={<button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || snapshot.stale ? styles.usageWarning : undefined)}
-    title={`${detail}\n${tc('workspace.usage.click')}`} aria-label={`${providerName(provider)} ${clampedPeak}%, ${tc('workspace.usage.aria', { name: providerName(provider), value: short })}`} aria-busy={loading || undefined} data-testid="usage-status"
+
+  let icon: ReactElement
+  let chipText: string
+  let peak: number
+  let stale: boolean
+  let title: string
+  let ariaLabel: string
+  let loading: boolean
+  let popoverActive: UsageProvider | null
+  let providerCount = 1
+
+  if (provider) {
+    const snapshot = byProvider[provider]
+    // Snapshots come over IPC from an undocumented endpoint: a reading without windows shows nothing, never throws.
+    if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
+    const { short, detail, peak: providerPeak } = usageText(snapshot, now)
+    const Icon = PROVIDER_ICONS[provider]
+    const clamped = clampPct(providerPeak)
+    icon = <Icon size={11} aria-hidden="true" />
+    chipText = `${providerName(provider)} ${clamped}%`
+    peak = providerPeak
+    stale = Boolean(snapshot.stale)
+    title = `${detail}\n${tc('workspace.usage.click')}`
+    ariaLabel = `${providerName(provider)} ${clamped}%, ${tc('workspace.usage.aria', { name: providerName(provider), value: short })}`
+    loading = Boolean(loadingMap[provider])
+    popoverActive = provider
+  } else {
+    // Unified mode (OXE-423): order active provider first, then remaining providers with available readings.
+    const ordered: UsageProvider[] = activeProvider && polled.includes(activeProvider)
+      ? [activeProvider, ...polled.filter(each => each !== activeProvider)]
+      : [...polled]
+    const readings = ordered
+      .map(each => byProvider[each])
+      .filter((snapshot): snapshot is AgentCreditsSnapshot => Boolean(snapshot?.available && Array.isArray(snapshot.windows) && snapshot.windows.length > 0))
+      .map(snapshot => ({ snapshot, text: usageText(snapshot, now) }))
+    if (!readings.length) return null
+    peak = Math.max(0, ...readings.map(item => item.text.peak))
+    const clamped = clampPct(peak)
+    stale = readings.some(item => Boolean(item.snapshot.stale))
+    const summary = readings.map(item => `${providerName(item.snapshot.provider)} ${clampPct(item.text.peak)}%`).join(', ')
+    const detail = readings.map(item => item.text.detail).join('\n\n')
+    const labelText = tc('workspace.usage.label')
+    icon = <Gauge size={11} aria-hidden="true" />
+    chipText = `${labelText} ${clamped}%`
+    title = `${detail}\n\n${tc('workspace.usage.click')}`
+    ariaLabel = tc('workspace.usage.unifiedAria', { pct: clamped, summary })
+    loading = polled.some(each => Boolean(loadingMap[each]))
+    popoverActive = activeProvider ?? null
+    providerCount = readings.length
+  }
+
+  const clampedPeak = clampPct(peak)
+  return <Popover label={tc('workspace.usage.label')} side="top" align="end" trigger={<button type="button" className={cx(styles.item, styles.usage, peak >= 100 ? styles.usageCritical : peak >= 80 || stale ? styles.usageWarning : undefined)}
+    title={title} aria-label={ariaLabel} aria-busy={loading || undefined} data-testid="usage-status"
     onMouseEnter={warmPopover} onFocus={warmPopover}>
-    <Icon size={11} aria-hidden="true" />
-    <span>{providerName(provider)} {clampedPeak}%</span>
+    {icon}
+    <span>{chipText}</span>
     <span className={styles.usageBar} aria-hidden="true"><i style={{ width: `${clampedPeak}%` }} /></span>
-  </button>}><Suspense fallback={null}><UsagePopover active={provider} /></Suspense></Popover>
+    {providerCount > 1 ? <span className={styles.usageCount} aria-hidden="true">{providerCount}</span> : null}
+  </button>}><Suspense fallback={null}><UsagePopover active={popoverActive} /></Suspense></Popover>
 }

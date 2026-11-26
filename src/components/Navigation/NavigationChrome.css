@@ -80,8 +80,8 @@
 .pane-row-time.recent { color: var(--tx-secondary); }
 .pane-intent-button, .panel-scope-badge { min-height: var(--control-md); display: inline-flex; align-items: center; }
 
-/* The footer of an expanded sidebar sits at its bottom, however short the list above. */
-.nav-panel > .nav-rail-footer, .oq-sidebar-content > .nav-rail-footer { margin-top: auto; }
+/* The footer of an expanded sidebar sits at its bottom, however short the list above (OXE-433: comfortable gap for md footer icons). */
+.nav-panel > .nav-rail-footer, .oq-sidebar-content > .nav-rail-footer { margin-top: auto; gap: var(--space-1-5); }
 .nav-panel-title .sidebar-actions { margin-right: 0; }
 /* OxeQuery's sidebar column scrolls as a grid; as a column its footer can sit at the bottom. */
 .oq-sidebar .oq-sidebar-content { display: flex; flex-direction: column; }

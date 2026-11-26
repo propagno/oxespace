@@ -103,3 +103,16 @@
   border-radius: var(--radius-full);
   background: currentColor;
 }
+.usageCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--fill-hover);
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.25;
+  flex-shrink: 0;
+}

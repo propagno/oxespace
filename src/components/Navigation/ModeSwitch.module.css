@@ -1,19 +1,27 @@
-/* Mode tabs in the title bar (BRD-09): the src/ui Tabs list; each tab is the primitive's .tab (--bar-md, 12/500). */
+/* Mode tabs in the title bar (BRD-09, OXE-426): the src/ui Tabs list grouped in a distinct switcher pill so it reads
+   apart from the quiet File · Edit · View · Tools · Help menu bar; each tab keeps .tab (--bar-md, 12/500). */
 .switch {
   display: inline-flex;
   align-items: center;
   justify-self: start;
   gap: var(--space-0-5);
-  margin-left: var(--space-1);
+  padding: 0 var(--space-0-5);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-canvas);
   -webkit-app-region: no-drag;
 }
 
 /* The icon, the name and the count sit in one line, spaced by --space-1. */
 .option {
   gap: var(--space-1);
+  border-radius: var(--radius-sm);
   -webkit-app-region: no-drag;
-  transition: color var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
+.option:hover:not([data-state='active']) { background: var(--fill-hover); color: var(--tx-primary); }
+.option[data-state='active'] { background: var(--fill-selected); color: var(--tx-primary); box-shadow: var(--elevation-1); }
+.option[data-state='active']::after { left: var(--space-2); right: var(--space-2); bottom: 0; }
 
 .modeIcon { flex-shrink: 0; color: currentColor; opacity: 0.82; transition: color var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); }
 .option[data-state='active'] .modeIcon { color: var(--accent); opacity: 1; }
