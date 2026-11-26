@@ -345,11 +345,11 @@ export function NewConversationScreen({ projectId, rootPath, parentThreadId, onC
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void start(inWorktree) } }} />
         <div className={styles.actions}>
           <span className={styles.composerHint} data-ui="composer-hint">
-            <span className={styles.hintItem}><Kbd>Enter</Kbd><span>{t('opening.hintSend')}</span></span>
+            <span className={styles.hintItem}><Kbd>{t('opening.keyEnter')}</Kbd><span>{t('opening.hintSend')}</span></span>
             <span className={styles.hintSeparator} aria-hidden="true">·</span>
-            <span className={styles.hintItem}><Kbd>Shift+Enter</Kbd><span>{t('opening.hintNewLine')}</span></span>
+            <span className={styles.hintItem}><Kbd>{t('opening.keyShiftEnter')}</Kbd><span>{t('opening.hintNewLine')}</span></span>
           </span>
-          <IconButton type="submit" variant="primary" className={styles.sendButton} label={t('composer.send')} title={t('composer.sendTitle', { key: 'Enter' })} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider || (parallel && !api.createChat)} />
+          <IconButton type="submit" variant="primary" className={styles.sendButton} label={t('composer.send')} title={t('composer.sendTitle', { key: t('opening.keyEnter') })} icon={<ArrowUp size={16} aria-hidden="true" />} disabled={pending || !draft.trim() || !context || !api || !provider || (parallel && !api.createChat)} />
         </div>
       </form>
       <div className={styles.starters} role="group" aria-label={t('opening.starters')}>
