@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentCreditsSnapshot } from '../shared/types/agentCredits'
-import { formatResetIn, formatUsageAge, USAGE_POLL_MS, UsageStatus, usageText } from '../src/components/Workspace/UsageStatus'
+import { formatResetIn, formatUsageAge, USAGE_BACKGROUND_POLL_MS, USAGE_POLL_MS, UsageStatus, usageText } from '../src/components/Workspace/UsageStatus'
 import { useAgentCreditsStore } from '../src/store/agentCredits.store'
 import { changeLanguage } from '../src/i18n'
 
@@ -74,7 +74,8 @@ describe('usage in the status bar', () => {
       vi.useFakeTimers({ now })
       useAgentCreditsStore.setState({ byProvider: {}, loading: {} })
       Object.assign(window, { oxe: { agentCredits: { get } } })
-      get.mockClear()
+      get.mockReset()
+      get.mockImplementation(async () => snapshot())
     })
     afterEach(() => { cleanup(); vi.useRealTimers() })
 
@@ -171,9 +172,94 @@ describe('usage in the status bar', () => {
         expect(detail.textContent).not.toMatch(/renews in 0m/)
         expect(within(detail).getByRole('button', { name: 'Read now' })).toHaveAttribute('data-variant', 'secondary')
         expect(within(detail).getByRole('button', { name: 'Usage details' })).toHaveAttribute('data-variant', 'secondary')
+        expect(detail.querySelector('[data-provider="codex"]')).toBeTruthy()
+        expect(detail.querySelector('[data-provider="claude"]')).toBeTruthy()
       } finally {
         clock.mockRestore()
       }
+    })
+
+    it('smart polling (OXE-439): polls active provider every minute and throttles inactive providers to 5 minutes', async () => {
+      render(<UsageStatus activeProvider="codex" />)
+      await act(async () => { await Promise.resolve() })
+      expect(get.mock.calls.map(([arg]) => (arg as { provider: string }).provider)).toEqual(['claude', 'codex', 'antigravity'])
+      get.mockClear()
+
+      // +60s: only active provider (codex) polls; inactive OAuth providers stay quiet.
+      await act(async () => { vi.advanceTimersByTime(USAGE_POLL_MS); await Promise.resolve() })
+      expect(get.mock.calls.map(([arg]) => (arg as { provider: string }).provider)).toEqual(['codex'])
+      get.mockClear()
+
+      // Focus 20s later: neither active nor inactive is hammered unnecessarily.
+      await act(async () => {
+        vi.advanceTimersByTime(20_000)
+        window.dispatchEvent(new Event('focus'))
+        await Promise.resolve()
+      })
+      expect(get).not.toHaveBeenCalled()
+
+      // Advance until 5 minutes since mount: inactive providers poll again.
+      await act(async () => { vi.advanceTimersByTime(USAGE_BACKGROUND_POLL_MS - USAGE_POLL_MS - 20_000); await Promise.resolve() })
+      const providersPolled = get.mock.calls.map(([arg]) => (arg as { provider: string }).provider)
+      expect(providersPolled).toContain('claude')
+      expect(providersPolled).toContain('antigravity')
+      expect(providersPolled).toContain('codex')
+    })
+
+    it('unified mode (OXE-439): inactive stale provider does not turn the bar orange while fresh readings exist, and local-session copy is honest', async () => {
+      get.mockImplementation(async ({ provider }: { provider: string }) => {
+        if (provider === 'antigravity') {
+          return snapshot({
+            provider: 'antigravity',
+            planLabel: 'Google AI Ultra',
+            stale: false,
+            observedAtMs: now - 10_000,
+            geminiWeeklyUnavailable: true,
+            display: { kind: 'session', usedPct: 3, resetsAtMs: now + 2 * 3_600_000, group: 'gemini' },
+            windows: [
+              { kind: 'session', usedPct: 3, resetsAtMs: now + 2 * 3_600_000, group: 'gemini' },
+              { kind: 'session', usedPct: 0, resetsAtMs: now + 4 * 3_600_000, group: 'claude-gpt' }
+            ]
+          })
+        }
+        if (provider === 'codex') {
+          return snapshot({
+            provider: 'codex',
+            source: 'local-session',
+            planLabel: 'free',
+            stale: true,
+            observedAtMs: now - 2 * 3_600_000,
+            windows: [{ kind: 'weekly', usedPct: 5, resetsAtMs: now + 5 * 86_400_000 }]
+          })
+        }
+        return snapshot({ provider: 'claude', available: false, installed: true, windows: [], display: null })
+      })
+
+      render(<UsageStatus activeProvider="antigravity" />)
+      await act(async () => { await Promise.resolve() })
+
+      const trigger = screen.getByTestId('usage-status')
+      expect(trigger.className).not.toMatch(/usageWarning|usageCritical/)
+      expect(trigger.getAttribute('title')).toContain('From last local session, 2h ago')
+      expect(trigger.getAttribute('title')).not.toContain('not answering now')
+
+      vi.useRealTimers()
+      const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
+      try {
+        fireEvent.click(trigger)
+        const detail = await screen.findByTestId('usage-popover')
+        expect(detail).toHaveTextContent('From last local session, 2h ago')
+        expect(detail).not.toHaveTextContent('not answering now')
+        expect(detail).toHaveTextContent('Gemini weekly limit is currently only reported in agy /usage.')
+      } finally {
+        clock.mockRestore()
+      }
+    })
+
+    it('renders official AgentProviderIcon in single-provider mode', async () => {
+      render(<UsageStatus provider="claude" />)
+      await act(async () => { await Promise.resolve() })
+      expect(screen.getByTestId('usage-status').querySelector('[data-provider="claude"]')).toBeTruthy()
     })
   })
 })

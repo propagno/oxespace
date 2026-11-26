@@ -4,7 +4,8 @@ import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, Meter, cx } from '../../ui'
-import { PROVIDER_ICONS, USAGE_PROVIDERS as PROVIDERS, formatResetIn, formatUsageAge, isUsageProvider, orderWindows, providerName, windowGroups, windowName, type UsageProvider } from './UsageStatus'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
+import { USAGE_PROVIDERS as PROVIDERS, formatResetIn, formatUsageAge, hasMissingAntigravityGeminiWeekly, orderWindows, providerName, windowGroups, windowName, type UsageProvider } from './UsageStatus'
 import popover from './UsagePopover.module.css'
 import { i18n } from '../../i18n'
 
@@ -25,19 +26,23 @@ export function UsagePopover({ active }: { active?: UsageProvider | null }): Rea
     .map(provider => byProvider[provider]).filter((snapshot): snapshot is AgentCreditsSnapshot => Boolean(snapshot?.available && snapshot.windows?.length))
   return <div className={popover.root} data-testid="usage-popover">
     {shown.map(snapshot => {
-      const Icon = PROVIDER_ICONS[isUsageProvider(snapshot.provider) ? snapshot.provider : 'claude']
       const windows = orderWindows(snapshot.windows)
       const groups = windowGroups(windows)
       const elapsedMs = Math.max(0, now - (snapshot.observedAtMs ?? now))
       const ageLabel = formatUsageAge(elapsedMs)
+      const isLocal = snapshot.source === 'local-session'
+      const ageText = snapshot.stale
+        ? tc(isLocal ? 'workspace.usage.localStaleAge' : 'workspace.usage.staleAge', { age: ageLabel })
+        : elapsedMs < 60_000 ? tc('workspace.usage.readNow') : tc('workspace.usage.readAge', { age: ageLabel })
       return <section key={snapshot.provider} className={popover.provider} aria-label={tc('workspace.usage.provider', { name: providerName(snapshot.provider) })}>
-        <header><Icon size={14} aria-hidden="true" /><strong>{providerName(snapshot.provider)}</strong>{snapshot.planLabel && <span className={popover.plan}>{snapshot.planLabel}</span>}{snapshot.provider === active && <span className={popover.current}>{tc('workspace.usage.inUse')}</span>}</header>
+        <header><AgentProviderIcon provider={snapshot.provider} size={16} /><strong>{providerName(snapshot.provider)}</strong>{snapshot.planLabel && <span className={popover.plan}>{snapshot.planLabel}</span>}{snapshot.provider === active && <span className={popover.current}>{tc('workspace.usage.inUse')}</span>}</header>
         {windows.map(window => {
           const reset = formatResetIn(window.resetsAtMs, now)
           return <Meter key={`${window.group ?? ''}-${window.kind}`} label={windowName(window, groups)} value={window.usedPct}
             detail={reset ? tc('workspace.usage.usedReset', { pct: window.usedPct, reset }) : tc('workspace.usage.used', { pct: window.usedPct })} />
         })}
-        <p className={cx(popover.age, snapshot.stale && popover.stale)}>{snapshot.stale ? tc('workspace.usage.staleAge', { age: ageLabel }) : elapsedMs < 60_000 ? tc('workspace.usage.readNow') : tc('workspace.usage.readAge', { age: ageLabel })}</p>
+        {hasMissingAntigravityGeminiWeekly(snapshot) && <p className={popover.hint}>{tc('workspace.usage.antigravityGeminiWeeklyHint')}</p>}
+        <p className={cx(popover.age, snapshot.stale && !isLocal && popover.stale)}>{ageText}</p>
       </section>
     })}
     <footer>

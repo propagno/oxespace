@@ -31,11 +31,20 @@ export class AgentCreditsService {
     if (pending) return pending
     const read = impl.getCredits(force).then(value => {
       if (value.available) { this.lastGood.set(provider, value); return value }
+      if (value.windowsExpired || (value.error && /\b(?:401|403)\b|oauth_expired/.test(value.error))) {
+        this.lastGood.delete(provider)
+        return value
+      }
       const previous = this.lastGood.get(provider)
       const age = Date.now() - (previous?.observedAtMs ?? 0)
       // Never present a former account's quota after authentication is rejected.
-      if (previous && value.installed && value.error && !/\b(?:401|403)\b/.test(value.error) && age < 30 * 60_000) {
-        return { ...previous, stale: true, error: value.error }
+      if (previous && value.installed && value.error && age < 30 * 60_000) {
+        return {
+          ...previous,
+          stale: true,
+          error: value.error,
+          ...(value.retryAtMs !== undefined ? { retryAtMs: value.retryAtMs } : {})
+        }
       }
       return value
     }).finally(() => { if (this.inFlight.get(provider) === read) this.inFlight.delete(provider) })

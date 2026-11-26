@@ -48,14 +48,18 @@ export class CodexCreditsService implements AgentCreditsProvider {
   readonly provider = 'codex' as const
   private cache: { value: AgentCreditsSnapshot; at: number } | null = null
 
-  constructor(private readonly sessionsRoot: string = join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')) {}
+  constructor(
+    private readonly sessionsRoot: string = join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions'),
+    private readonly now: () => number = Date.now
+  ) {}
 
   async getCredits(force = false): Promise<AgentCreditsSnapshot> {
-    if (!force && this.cache && Date.now() - this.cache.at < TTL_MS) {
+    const currentNow = this.now()
+    if (!force && this.cache && currentNow - this.cache.at < TTL_MS) {
       return this.cache.value
     }
     const value = this.readLatest()
-    this.cache = { value, at: Date.now() }
+    this.cache = { value, at: this.now() }
     return value
   }
 
@@ -64,21 +68,22 @@ export class CodexCreditsService implements AgentCreditsProvider {
     if (!existsSync(this.sessionsRoot)) return base
     base.installed = true
 
-    const files = this.recentRolloutsNewestFirst()
+    const currentNow = this.now()
+    const files = this.recentRolloutsNewestFirst(currentNow)
     for (const file of files) {
       const limits = readLatestRateLimits(file)
       if (limits) {
-        let observedAtMs = Date.now()
+        let observedAtMs = currentNow
         try { observedAtMs = statSync(file).mtimeMs } catch { /* File may have disappeared during the scan. */ }
-        return buildSnapshot(limits, observedAtMs)
+        return buildSnapshot(limits, observedAtMs, currentNow)
       }
     }
     return base
   }
 
   /** All rollout-*.jsonl from the last ~14 days, newest mtime first. */
-  private recentRolloutsNewestFirst(): string[] {
-    const cutoff = Date.now() - SCAN_WINDOW_MS
+  private recentRolloutsNewestFirst(currentNow: number): string[] {
+    const cutoff = currentNow - SCAN_WINDOW_MS
     const out: { path: string; mtimeMs: number }[] = []
     for (const year of safeReaddir(this.sessionsRoot)) {
       const yearDir = join(this.sessionsRoot, year)
@@ -140,43 +145,72 @@ function readTail(filePath: string): string {
   }
 }
 
-function buildSnapshot(limits: RawRateLimits, observedAtMs: number): AgentCreditsSnapshot {
-  const windows: CreditsWindow[] = []
+/**
+ * True when a window recorded at `observedAtMs` had a future reset time (`observedAtMs < resetsAtMs`)
+ * that has already passed (`resetsAtMs <= now`). Requiring `observedAtMs < resetsAtMs` preserves
+ * static historical fixtures written in tests while catching every real past session whose quota reset.
+ */
+export function isWindowExpiredSinceObservation(window: CreditsWindow, observedAtMs: number, now: number = Date.now()): boolean {
+  return window.resetsAtMs !== null
+    && Number.isFinite(window.resetsAtMs)
+    && observedAtMs < window.resetsAtMs
+    && window.resetsAtMs <= now
+}
+
+function buildSnapshot(limits: RawRateLimits, observedAtMs: number, now: number = Date.now()): AgentCreditsSnapshot {
+  const parsed: CreditsWindow[] = []
   for (const raw of [limits.primary, limits.secondary]) {
-    const win = toWindow(raw)
-    if (win) windows.push(win)
+    const win = toWindow(raw, now)
+    if (win) parsed.push(win)
+  }
+  const windows = parsed.filter((win) => !isWindowExpiredSinceObservation(win, observedAtMs, now))
+  const planLabel = typeof limits.plan_type === 'string' ? limits.plan_type : null
+  if (parsed.length > 0 && windows.length === 0) {
+    return {
+      provider: 'codex',
+      available: false,
+      installed: true,
+      planLabel,
+      display: null,
+      windows: [],
+      source: 'local-session',
+      observedAtMs,
+      stale: false,
+      error: null,
+      windowsExpired: true
+    }
   }
   const display = windows.find((w) => w.kind === 'weekly') ?? windows[0] ?? null
   return {
     provider: 'codex',
     available: display !== null,
     installed: true,
-    planLabel: typeof limits.plan_type === 'string' ? limits.plan_type : null,
+    planLabel,
     display,
     windows,
     source: 'local-session',
     observedAtMs,
-    stale: Date.now() - observedAtMs > 30 * 60_000,
+    stale: now - observedAtMs > 30 * 60_000,
     error: null
   }
 }
 
-function toWindow(raw: RawRateWindow | undefined): CreditsWindow | null {
+function toWindow(raw: RawRateWindow | undefined, now: number): CreditsWindow | null {
   if (!raw || typeof raw.used_percent !== 'number') return null
   const minutes = typeof raw.window_minutes === 'number' ? raw.window_minutes : 0
   return {
     kind: minutes > SESSION_WINDOW_MAX_MIN ? 'weekly' : 'session',
     usedPct: clampPct(raw.used_percent),
-    resetsAtMs: resolveReset(raw)
+    resetsAtMs: resolveReset(raw, now)
   }
 }
 
-function resolveReset(raw: RawRateWindow): number | null {
+function resolveReset(raw: RawRateWindow, now: number): number | null {
   if (typeof raw.resets_at === 'number' && Number.isFinite(raw.resets_at)) {
     return raw.resets_at * 1000
   }
   if (typeof raw.resets_in_seconds === 'number' && Number.isFinite(raw.resets_in_seconds)) {
-    return Date.now() + raw.resets_in_seconds * 1000
+    return now + raw.resets_in_seconds * 1000
   }
   return null
 }

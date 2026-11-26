@@ -445,8 +445,10 @@
     }
   },
   "usage": {
+    "quotaAvailable": "Quota available",
     "resetUnknown": "Reset time unknown",
     "resetting": "Resetting",
+    "windowEnded": "Window ended",
     "resetsIn": "Resets in {{time}}",
     "session": "Current session",
     "week": "Current week",
@@ -457,9 +459,18 @@
       "account": "Account-wide quota"
     },
     "checked": "checked {{time}}",
+    "checkedPast": "checked {{time}} ({{age}} ago)",
     "lastKnown": "Last known reading",
     "subscription": "Subscription",
     "stale": "Could not refresh. Showing the last known reading.",
+    "staleLocal": "Showing usage from your last local Codex session.",
+    "windowsExpired": "Quota reset since your last local session.",
+    "antigravityGeminiWeeklyHint": "Gemini weekly limit is currently only reported in agy /usage.",
+    "error": {
+      "rateLimitedRetry": "Rate limit reached — retrying in ~{{minutes}}m.",
+      "rateLimited": "Rate limit reached — please try again shortly.",
+      "oauthExpired": "Session expired — run claude to sign in again."
+    },
     "notDetected": "Not detected on this machine.",
     "noQuota": "No quota reported.",
     "ghMissing": "gh CLI not detected.",

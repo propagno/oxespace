@@ -54,6 +54,12 @@ export interface AgentCreditsSnapshot {
   observedAtMs?: number
   /** Last known good data retained after a transient failure or old observation. */
   stale?: boolean
+  /** True when all windows in a local-session reading have already passed their reset time. */
+  windowsExpired?: boolean
+  /** Epoch ms when a rate-limited (429) provider will next be queried. */
+  retryAtMs?: number | null
+  /** True when Antigravity supplemented Gemini quota via per-model fallback without a Gemini weekly window. */
+  geminiWeeklyUnavailable?: boolean
 }
 
 export function emptyAgentCredits(provider: AgentProvider): AgentCreditsSnapshot {
