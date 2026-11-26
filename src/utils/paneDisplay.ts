@@ -106,6 +106,36 @@ const USELESS_PATTERNS = [
 
 const CONTROL_CHAR_PATTERN = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g
 
+const TEMP_PASTE_FILE_RE = /oxe-paste-/i
+const TEMP_PASTE_FILENAME = String.raw`oxe-paste-[A-Za-z0-9_-]+\.(?:png|jpe?g|webp|gif)`
+
+// Matches temporary OXESpace clipboard-image paths (Windows/UNC/POSIX, quoted or unquoted)
+// so pasted image paths never leak into auto-derived pane titles or previews (OXE-440).
+const TEMP_PASTE_PATH_RE = new RegExp(
+  [
+    // Double-quoted path (allows spaces inside quotes)
+    String.raw`"(?:[A-Za-z]:[\\/]|\/|~\/|\\\\)(?:[^"\r\n]*[\\/])?${TEMP_PASTE_FILENAME}"`,
+    // Single-quoted path (allows spaces inside quotes)
+    String.raw`'(?:[A-Za-z]:[\\/]|\/|~\/|\\\\)(?:[^'\r\n]*[\\/])?${TEMP_PASTE_FILENAME}'`,
+    // Unquoted Windows user Temp path (allows spaces in Windows profile directory names)
+    String.raw`(?:^|(?<=[\s([{=,;]))[A-Za-z]:[\\/]Users[\\/][^\\/:*?"<>|\r\n]+[\\/]AppData[\\/]Local[\\/]Temp[\\/](?:[^\s"'<>|\\/]+[\\/]+)*${TEMP_PASTE_FILENAME}(?![A-Za-z0-9_\\/])`,
+    // Unquoted Windows, UNC, or POSIX path (including POSIX backslash-escaped spaces)
+    String.raw`(?:^|(?<=[\s([{=,;]))(?:[A-Za-z]:[\\/]+|\/+|~\/+|\\\\)(?:(?:\\ |[^\s"'<>|\\/])+[\\/]+)*${TEMP_PASTE_FILENAME}(?![A-Za-z0-9_\\/])`
+  ].join('|'),
+  'gi'
+)
+
+export function stripTempPastePaths(value: string): string {
+  if (!TEMP_PASTE_FILE_RE.test(value)) return value
+  return value.replace(TEMP_PASTE_PATH_RE, ' ')
+}
+
+export function sanitizeTerminalIntent(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const cleaned = stripTempPastePaths(stripTerminalControl(raw)).replace(/\s+/g, ' ').trim()
+  return cleaned || null
+}
+
 export function stripTerminalControl(input: string): string {
   return input
     .replace(/\x1B\[[\x3C-\x3F]*[\d;]*[\x20-\x2F]*[\x40-\x7E]/g, '')
@@ -124,8 +154,8 @@ export function sanitizeTerminalPreview(raw: string): string | null {
 
   const candidates = stripped
     .split('\n')
-    .map((line) => line.replace(/[│┃┆┇┊┋║]/g, '|').trim())
-    .map((line) => line.replace(/\s+/g, ' '))
+    .map((line) => stripTempPastePaths(line.replace(/[│┃┆┇┊┋║]/g, '|')))
+    .map((line) => line.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
     .filter((line) => !isDecorativeLine(line))
     .filter((line) => !isWindowsPathOnly(line))
@@ -163,7 +193,8 @@ export function derivePaneDisplayState(input: {
   const statusLabel = !agentPane && statusTone === 'thinking' ? tc('pane.status.running') : formatPaneStatus(statusTone)
   const branchLabel = extractBranchLabel(pane.rootPath ?? workspace.rootPath)
   const explicitTitle = pane.displayName?.trim() || null
-  const intentTitle = terminal.lastIntent?.trim() ? compactPreview(terminal.lastIntent) : null
+  const sanitizedIntent = sanitizeTerminalIntent(terminal.lastIntent)
+  const intentTitle = sanitizedIntent ? compactPreview(sanitizedIntent) : null
   const outputTitle = terminal.lastOutput?.trim() ? sanitizeTerminalPreview(terminal.lastOutput) : null
   const fallbackTitle = fallbackForStatus(agentPane ? statusTone : 'idle', pane, paneIndex)
   const title = explicitTitle ?? (agentPane ? intentTitle ?? outputTitle : null) ?? fallbackTitle

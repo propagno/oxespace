@@ -247,6 +247,55 @@ describe('OXE-294 · TerminalPane agent identity', () => {
     expect(fromIntent.providerLabel).toBe('Claude')
     expect(fromIntent.title).toBe('Antigravity handoff')
   })
+
+  it('sanitizes pasted oxe-paste-* image paths from TerminalPane input and preserves prior intent on paste-only Enter (OXE-440)', () => {
+    const pane = makePane({ agentProfileId: 'builtin-agent-claude', shellProfileId: 'builtin-powershell' })
+    useTerminalStore.setState({
+      panes: {
+        'pane-1': {
+          status: 'running',
+          lastActivityAt: Date.now(),
+          lastOutput: null,
+          lastIntent: null,
+          lastIntentAt: null,
+          isWorking: false,
+          hasUnread: false,
+          error: null,
+          hookState: null,
+          hookAt: null,
+          agentState: null,
+          agentSource: null,
+          agentName: 'claude',
+          location: null,
+          shellCommand: null,
+          detached: false
+        }
+      },
+      pendingCommands: {},
+      activePaneId: 'pane-1'
+    })
+
+    render(
+      createElement(TerminalPane, {
+        pane,
+        workspaceId: 'workspace-1',
+        workspaceRootPath: 'C:/repo/oxespace',
+        autoStart: false
+      })
+    )
+    expect(capturedOnInput).not.toBeNull()
+
+    act(() => {
+      capturedOnInput!('\x1b[200~C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png \x1b[201~/usage\r')
+    })
+    expect(useTerminalStore.getState().getStatus('pane-1').lastIntent).toBe('/usage')
+
+    // Pasting ONLY an image and hitting Enter must not clobber the existing lastIntent.
+    act(() => {
+      capturedOnInput!('\x1b[200~C:\\Users\\dudu-\\AppData\\Local\\Temp\\oxe-paste-99999999-aaaa-bbbb-cccc-dddddddddddd.png \x1b[201~\r')
+    })
+    expect(useTerminalStore.getState().getStatus('pane-1').lastIntent).toBe('/usage')
+  })
 })
 
 // Frozen acceptance test for 1.5.2 Multiprovedor (Jira OXE-318, A1–A2). Written by the planner; the executor must not

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { sanitizeTerminalPreview, stripTerminalControl } from '../utils/paneDisplay'
+import { sanitizeTerminalIntent, sanitizeTerminalPreview, stripTerminalControl } from '../utils/paneDisplay'
 import type { SessionLocation } from '../../shared/types/agent-hooks'
 import type { ShellCommandState } from '../../shared/types/ipc/terminal'
 
@@ -217,7 +217,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   },
 
   setLastIntent: (paneId, intent) => {
-    const trimmed = intent.trim()
+    const trimmed = sanitizeTerminalIntent(intent)
     if (!trimmed) return
     set(state => ({
       panes: {

@@ -99,9 +99,20 @@ describe('sanitizeTerminalPreview — drops agent CLI boilerplate', () => {
     ['PS C:\\Users\\dev\\demo>', 'PowerShell prompt line'],
     ['yes', 'bare confirmation'],
     ['continue?', 'continue prompt'],
-    ['cd C:\\Users\\dev\\demo', 'shell cd echo']
+    ['cd C:\\Users\\dev\\demo', 'shell cd echo'],
+    ['C:\\Users\\dev\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png', 'bare Windows temp paste path'],
+    ['"/tmp/oxe-paste-abcd1234.png"', 'bare quoted POSIX temp paste path']
   ])('drops "%s" (%s)', (line) => {
     expect(sanitizeTerminalPreview(line)).toBeNull()
+  })
+
+  test('strips inline oxe-paste-* temp paths and keeps the user command', () => {
+    expect(sanitizeTerminalPreview('C:\\Users\\dev\\AppData\\Local\\Temp\\oxe-paste-2dd648b2-7d4b-41d7-a7ad-9fa28dec330a.png /usage'))
+      .toBe('/usage')
+    expect(sanitizeTerminalPreview('"C:\\Users\\dev\\AppData\\Local\\Temp\\oxe-paste-2dd648b2.png" analise este erro'))
+      .toBe('analise este erro')
+    expect(sanitizeTerminalPreview('/tmp/oxe-paste-abcd1234.png explain'))
+      .toBe('explain')
   })
 
   test('keeps a real user intent', () => {

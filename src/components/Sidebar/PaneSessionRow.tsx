@@ -7,7 +7,7 @@ import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { formatActivityTime } from '../../utils/formatTime'
-import { compactPreview, derivePaneDisplayState, sanitizeTerminalPreview } from '../../utils/paneDisplay'
+import { compactPreview, derivePaneDisplayState, sanitizeTerminalIntent, sanitizeTerminalPreview } from '../../utils/paneDisplay'
 import { AgentProviderIcon } from './AgentProviderIcon'
 
 interface PaneSessionRowProps {
@@ -60,16 +60,18 @@ export function PaneSessionRow({ pane, paneIndex, workspace, isActive, agentProf
   const hasBoundOrRuntimeAgent = Boolean(
     agentProfile || pane.agentName?.trim() || terminalState.agentName?.trim()
   )
+  const sanitizedIntent = sanitizeTerminalIntent(terminalState.lastIntent)
+  const sanitizedOutput = terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null
   const hasActiveLauncherAgent =
     display.providerKey !== 'shell' &&
     (Boolean(terminalState.agentState) ||
       Boolean(terminalState.hookState) ||
       terminalState.isWorking ||
-      Boolean(terminalState.lastIntent?.trim()) ||
+      Boolean(sanitizedIntent) ||
       Boolean(terminalState.lastOutput?.trim()))
   const hasAgent = hasBoundOrRuntimeAgent || hasActiveLauncherAgent
   const taskSummary = hasAgent
-    ? (terminalState.lastIntent?.trim() ? compactPreview(terminalState.lastIntent) : terminalState.lastOutput?.trim() ? sanitizeTerminalPreview(terminalState.lastOutput) : null)
+    ? (sanitizedIntent ? compactPreview(sanitizedIntent) : sanitizedOutput)
     : null
   const fallbackTypeLabel = pane.type === 'terminal' ? t('panels.terminal') : pane.type
   const baseLabel = hasAgent
