@@ -499,8 +499,7 @@ describe('TerminalManager attach/detach', () => {
       // Post-attach same-size resize bounces cols (119 -> 120) so ConPTY + inline TUI repaints Row 0.
       manager.resize({ paneId, cols: 120, rows: 32 })
       expect(pty.instances[0].resize).toHaveBeenCalledWith(119, 32)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-      expect(pty.instances[0].resize).toHaveBeenCalledWith(120, 32)
+      await vi.waitFor(() => expect(pty.instances[0].resize).toHaveBeenCalledWith(120, 32))
 
       // Subsequent untruncated same-size resize does NOT bounce again.
       pty.instances[0].resize.mockClear()
