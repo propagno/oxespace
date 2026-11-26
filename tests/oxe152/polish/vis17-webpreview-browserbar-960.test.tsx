@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { WebPreviewPanel } from '../../../src/components/WebPreview/WebPreviewPanel'
+import { resetKeptPreviewSettings, WebPreviewPanel } from '../../../src/components/WebPreview/WebPreviewPanel'
 import { changeLanguage, i18n } from '../../../src/i18n'
 import type { BrowserPreviewSessionState } from '../../../shared/types/browser-preview'
 import type { Workspace } from '../../../shared/types/workspace'
@@ -152,6 +152,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   cleanup()
+  resetKeptPreviewSettings()
   document.documentElement.removeAttribute('data-theme')
   document.documentElement.removeAttribute('data-density')
   vi.restoreAllMocks()
@@ -184,6 +185,7 @@ describe('OXE-36 · VIS-17 Browser panel browserbar at 960px', () => {
     try {
       for (const theme of ['light', 'dark'] as const) {
         for (const density of ['compact', 'comfortable'] as const) {
+          resetKeptPreviewSettings()
           document.documentElement.setAttribute('data-theme', theme)
           document.documentElement.setAttribute('data-density', density)
 
@@ -294,6 +296,7 @@ describe('OXE-36 · VIS-17 Browser panel browserbar at 960px', () => {
     try {
       for (const theme of ['light', 'dark'] as const) {
         for (const density of ['compact', 'comfortable'] as const) {
+          resetKeptPreviewSettings()
           document.documentElement.setAttribute('data-theme', theme)
           document.documentElement.setAttribute('data-density', density)
 
