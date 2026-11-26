@@ -197,7 +197,6 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
 
           <TextArea
             label={<RequiredLabel>{t('delegate.objective')}</RequiredLabel>}
-            className="delegation-objective"
             value={objective}
             maxLength={2000}
             rows={2}
@@ -209,7 +208,6 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
 
           <TextArea
             label={<RequiredLabel>{t('delegate.handoff')}</RequiredLabel>}
-            className="delegation-handoff"
             value={handoff}
             maxLength={16000}
             rows={4}
@@ -221,7 +219,6 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
 
           <TextArea
             label={<RequiredLabel>{t('delegate.acceptance')}</RequiredLabel>}
-            className="delegation-acceptance"
             value={acceptance}
             maxLength={2000}
             rows={3}
@@ -266,7 +263,7 @@ export function DelegationCreateDialog({ thread, workspaceId: suppliedWorkspaceI
             </div>
           </details>
 
-          <details className="delegation-disclosure delegation-evidence" open={evidenceExpanded} onToggle={event => setEvidenceExpanded(event.currentTarget.open)}>
+          <details className="delegation-disclosure" open={evidenceExpanded} onToggle={event => setEvidenceExpanded(event.currentTarget.open)}>
             <summary className="delegation-disclosure-summary">
               {evidenceExpanded
                 ? <ChevronDown size={14} className="delegation-disclosure-chevron" aria-hidden="true" />

@@ -87,11 +87,10 @@ export function DelegatedWorkDialog({ workspaces, workspaceId, focusTaskId, orig
 
   return <><Dialog size="lg" title={t('delegated.title')} description={t('delegated.description')} onClose={onClose}>
     <div className="delegated-work-toolbar">
-      <Select className="delegated-work-project" aria-label={t('delegated.project')} value={selectedWorkspace} onChange={event => setSelectedWorkspace(event.target.value)}>
+      <Select aria-label={t('delegated.project')} value={selectedWorkspace} onChange={event => setSelectedWorkspace(event.target.value)}>
         {workspaces.map(workspace => <option value={workspace.id} key={workspace.id}>{workspace.name}</option>)}
       </Select>
       <SearchInput
-        className="delegated-work-search"
         aria-label={t('delegated.search')}
         clearLabel={t('nav.clearSearch', { ns: 'common' })}
         placeholder={t('delegated.searchPlaceholder')}
