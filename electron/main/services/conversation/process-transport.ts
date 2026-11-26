@@ -9,15 +9,23 @@ import { killProcessTree } from '../../utils/process-tree'
 
 /** Thread subscription processes share a native account, never an API env key. */
 export function subscriptionEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(source).filter(([key]) =>
-    !key.toUpperCase().startsWith('OXESPACE_') && !key.toUpperCase().startsWith('AI_MEMORY_') && ![
+  return Object.fromEntries(Object.entries(source).filter(([key]) => {
+    const upper = key.toUpperCase()
+    return !upper.startsWith('OXESPACE_') && !upper.startsWith('AI_MEMORY_') && !upper.startsWith('ANTIGRAVITY_') && ![
       'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN',
       'CLAUDE_CODE_OAUTH_REFRESH_TOKEN', 'CLAUDE_CODE_OAUTH_SCOPES',
       'OPENAI_API_KEY', 'OPENAI_ACCESS_TOKEN', 'CODEX_ACCESS_TOKEN',
+      'GEMINI_API_KEY', 'GOOGLE_API_KEY',
       'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY',
       'ANTHROPIC_PROFILE', 'ANTHROPIC_FEDERATION_RULE_ID', 'ANTHROPIC_ORGANIZATION_ID',
       'ANTHROPIC_BASE_URL', 'OPENAI_BASE_URL'
-    ].includes(key.toUpperCase())))
+    ].includes(upper)
+  }))
+}
+
+function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  const upper = name.toUpperCase()
+  return Object.entries(env).find(([key]) => key.toUpperCase() === upper)?.[1]
 }
 
 /**
@@ -30,8 +38,20 @@ export function conversationCommand(command: string, args: string[], env: NodeJS
   appExecutable: string | undefined = process.versions.electron ? process.execPath : undefined): { executable: string; args: string[]; env: NodeJS.ProcessEnv } {
   if (!command || /[\r\n\0]/.test(command)) throw new Error('Invalid agent executable')
   command = command.replace(/^"(.*)"$/, '$1')
+  const searchDirs = (envValue(env, 'PATH') ?? '').split(delimiter).filter(Boolean)
+  if (platform === 'win32') {
+    const localAppData = envValue(env, 'LOCALAPPDATA')
+    const appData = envValue(env, 'APPDATA')
+    for (const extra of [
+      localAppData ? join(localAppData, 'agy', 'bin') : null,
+      appData ? join(appData, 'npm') : null,
+      localAppData ? join(localAppData, 'Programs') : null
+    ]) {
+      if (extra && !searchDirs.some(dir => dir.toLowerCase() === extra.toLowerCase())) searchDirs.push(extra)
+    }
+  }
   const paths = command.includes('/') || command.includes('\\') ? [command] :
-    (env.PATH ?? env.Path ?? '').split(delimiter).flatMap(path =>
+    searchDirs.flatMap(path =>
       platform === 'win32' && !extname(command) ? [join(path, command + '.exe'), join(path, command + '.cmd'), join(path, command)] : [join(path, command)])
   const found = paths.find(path => existsSync(path))
   if (!found) throw new Error('Agent executable was not found')

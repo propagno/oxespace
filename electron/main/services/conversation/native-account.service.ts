@@ -34,6 +34,8 @@ function authRefusal(error: unknown): boolean {
   const words = [error instanceof Error ? error.message : '', error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
   return /auth|log ?in|sign(?:ed)? ?(?:in|out)|credential/i.test(words)
 }
+/** Matches AntigravityConversationAdapter: `agy acp` `session/list` returns sessions across workspaces and can exceed 1 MiB. */
+const MAX_ACP_FRAME_BYTES = 32 * 1024 * 1024
 /** Recognizes CLI prompts asking for an OAuth/verification/callback code without leaking raw process output. */
 const CODE_PROMPT = /(?:paste|enter|input|provide|type)\s+(?:the\s+|your\s+)?(?:(?:verification|auth|authentication|authorization|login|sign[- ]?in|callback)\s+)?(?:code|callback\s+url(?:\s*(?:\/|or)\s*code)?)\b|\b(?:verification|auth|authentication|authorization|login|sign[- ]?in)\s+code\b(?!\s+(?:flow|grant)\b)|\bcallback\s+url\s*(?:\/|or)\s*code\b|(?<!\b(?:exit|error|status)\s+)\bcode:[ \t]*(?:\r?\n|$)/i
 /** The start arguments of each provider's account process: status, sign-in and sign-out. */
@@ -103,14 +105,16 @@ export class NativeAccountService {
   private async acp(transport: AccountTransport): Promise<{ rpc: AgentRpcPeer; capabilities: Record<string, unknown> }> {
     const rpc = new AgentRpcPeer(line => transport.write(line), () => {}, message => {
       if (message.id !== undefined) rpc.rejectRequest(message.id)
-    }, this.deps.probeTimeoutMs ?? 30000)
+    }, this.deps.probeTimeoutMs ?? 30000, MAX_ACP_FRAME_BYTES)
     transport.onData(chunk => { try { rpc.push(chunk) } catch { void transport.close() } })
     transport.onClose(() => rpc.close())
     const handshake = object(await rpc.request('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false } }))
     return { rpc, capabilities: object(handshake.agentCapabilities) }
   }
   async read(context: AgentAccountContext): Promise<AgentAccountSnapshot> {
-    const scope = await this.deps.resolve(context)
+    let scope: NativeAuthScope
+    try { scope = await this.deps.resolve(context) }
+    catch { return this.failure({ id: authScopeId(context.provider, '', context.workspaceId), provider: context.provider, command: '', cwd: '' }, 'configuration') }
     const active = [...this.attempts.values()].find(attempt => attempt.scope.id === scope.id)
     if (active) return this.snapshots.get(scope.id)!
     if (this.stopped) return this.failure(scope, 'connection')
@@ -192,6 +196,7 @@ export class NativeAccountService {
       } else {
         const decoder = new StringDecoder('utf8')
         let pending = ''
+        let openedUrl: string | undefined
         const receive = (data: Uint8Array) => {
           if (!this.attempts.has(id)) return
           pending = (pending + decoder.write(Buffer.from(data))).slice(-16384)
@@ -200,6 +205,13 @@ export class NativeAccountService {
           const urls = clean.match(/https:\/\/[^\s<>"\u001b]+/g) ?? []
           const url = urls.map(value => loginUrl(value, scope.provider)).find(Boolean)
           if (url) attempt.url = url
+          // `agy acp --login` prints the OAuth URL when piped instead of launching a browser itself;
+          // auto-open each complete URL once without aborting the attempt if the OS opener fails.
+          const completeUrl = clean.match(/https:\/\/[^\s<>"\u001b]+(?=[\s<>"])/g)?.map(value => loginUrl(value, scope.provider)).find(Boolean)
+          if (scope.provider === 'antigravity' && completeUrl && openedUrl !== completeUrl) {
+            openedUrl = completeUrl
+            try { void Promise.resolve(this.deps.openExternal(completeUrl)).catch(() => {}) } catch { /* manual Open browser remains available */ }
+          }
           const codePrompt = CODE_PROMPT.test(clean)
           this.publish({ provider: scope.provider, scopeId: scope.id, state: codePrompt ? 'awaiting-code' : 'awaiting-browser', method: 'unknown', checkedAt: Date.now(), attemptId: id, canOpenBrowser: Boolean(attempt.url) })
         }

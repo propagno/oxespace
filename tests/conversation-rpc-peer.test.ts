@@ -8,6 +8,8 @@ describe('conversation RPC connection', () => {
     const peer = new AgentRpcPeer(write, vi.fn(), vi.fn())
     const first = peer.request('thread/start', {})
     const second = peer.request('thread/read', {})
+    expect(JSON.parse(write.mock.calls[0][0])).toEqual({ jsonrpc: '2.0', id: 1, method: 'thread/start', params: {} })
+    expect(JSON.parse(write.mock.calls[1][0])).toEqual({ jsonrpc: '2.0', id: 2, method: 'thread/read', params: {} })
     peer.push(Buffer.from('{"id":2,"result":{"id":"B"}}\n{"id":1,"result":{"id":"A"}}\n'))
     expect(await first).toEqual({ id: 'A' })
     expect(await second).toEqual({ id: 'B' })

@@ -28,7 +28,7 @@ import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react'
-import { useAppThread, useCommandSnapshot, useThreadDraft } from './app/useAppThread'
+import { resolveAccountWorkspaceId, useAppThread, useCommandSnapshot, useThreadDraft } from './app/useAppThread'
 import { useShallow } from 'zustand/react/shallow'
 import type { AgentProfile } from '../shared/types/agent'
 import type { DelegationTask } from '../shared/types/delegation'
@@ -589,6 +589,7 @@ export function App(): ReactElement {
   const threadProjects = useThreadStore(state => state.projects)
   const threadProjectsState = useThreadStore(state => state.projectsState)
   const threadProject = threadProjects.find(project => project.projectId === appThread?.projectId)
+  const accountWorkspaceId = resolveAccountWorkspaceId(threadProjects, appThread)
   // First run starts on a profile with nothing in it. Picking the folder (step 1) adds a project, so once it has
   // started it stays until the person leaves it (a mode, the first conversation): step 1's project or workspace does not end it.
   const firstRunStarted = useRef(false)
@@ -689,7 +690,7 @@ export function App(): ReactElement {
   useThreadShortcuts(applicationView === 'thread', newThread)
 
   // Accounts are checked inside a project; without one there is nothing to show yet.
-  const openThreadAccounts = () => { if (threadProject ?? threadProjects[0]) setAccountsOpen(true); else sayAddProjectFirst() }
+  const openThreadAccounts = () => { if (accountWorkspaceId) setAccountsOpen(true); else sayAddProjectFirst() }
   const threadCommandContext: ThreadCommandContext = { snapshot: commandSnapshot, projects: threadProjects, showThread: () => selectMode('thread'),
     leaveDraft: threadDraft.leave, newThread, newThreadIn: threadDraft.setProjectId,
     addProject: () => setThreadProjectOpen(true), openAccounts: openThreadAccounts }
@@ -840,7 +841,7 @@ export function App(): ReactElement {
           <AppStatusBar docked appVersion={appVersion} workspace={activeWorkspace ?? null} activePaneId={null} />
         )}
         <Suspense fallback={null}>
-          {accountsOpen && (threadProject ?? threadProjects[0]) && <ProviderAccountsPanel workspaceId={appThread?.workspaceId ?? `thread:${(threadProject ?? threadProjects[0]).projectId}`} onClose={() => setAccountsOpen(false)} />}
+          {accountsOpen && accountWorkspaceId && <ProviderAccountsPanel workspaceId={accountWorkspaceId} onClose={() => setAccountsOpen(false)} />}
           {isThreadProjectOpen && <AddThreadProjectDialog onPickFolder={() => window.oxe.workspace.pickFolder()} onClose={() => setThreadProjectOpen(false)} onAdd={async rootPath => {
             await window.oxe.thread!.addProject(rootPath)
             await useThreadStore.getState().loadProjects()

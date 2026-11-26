@@ -16,6 +16,16 @@ export interface AppThread {
   mcpServers: ShownThread['mcpServers']
 }
 
+/** Workspace scope for ProviderAccountsPanel: prefers a visible OxeChat project over a hidden project or stale Code workspace UUID. */
+export function resolveAccountWorkspaceId(
+  projects: ReadonlyArray<{ projectId: string; hidden?: boolean }>,
+  thread?: Pick<AppThread, 'projectId' | 'workspaceId'> | null
+): string | undefined {
+  const threadProject = thread?.projectId ? projects.find(project => project.projectId === thread.projectId) : undefined
+  const accountProject = (threadProject && !threadProject.hidden ? threadProject : null) ?? projects.find(item => !item.hidden)
+  return accountProject ? `thread:${accountProject.projectId}` : thread?.workspaceId
+}
+
 /**
  * The shown conversation for App, read field by field (OXE-348 A8): a streaming chunk changes only the snapshot's events
  * and updatedAt, so the component that calls this does not re-render on it. Null without a conversation.
