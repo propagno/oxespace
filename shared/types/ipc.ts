@@ -774,6 +774,8 @@ export interface OxeApi {
     version: string
     /** Host OS, so renderer code can build platform-correct shell commands. */
     platform: NodeJS.Platform
+    /** Windows OS build number (e.g. 26200 on Win 11 24H2) for xterm ConPTY compatibility; undefined off Windows. */
+    windowsBuildNumber?: number
     /** The operating system's locale (Electron's app.getLocale()), which picks the default interface language. */
     locale: string
     /** OXE-411 · OXESPACE_TERM_LEVERS when set, a comma list (shared/terminal-levers.ts); absent, the default levers. */

@@ -41,6 +41,7 @@ import {
 import type { GitDiff } from '../../shared/types/git'
 import { createAgentsApi } from './agents'
 import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
+import { readWindowsBuildFromArgv } from '../../shared/windows-pty'
 
 export interface PreloadIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
@@ -183,6 +184,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       // renderer can branch on the host OS (script commands, path separators)
       // without an IPC round-trip.
       platform: process.platform,
+      // OXE-436 · Windows OS build number forwarded by main for xterm ConPTY compatibility.
+      windowsBuildNumber: readWindowsBuildFromArgv(
+        process.argv,
+        process.platform,
+        typeof (process as { getSystemVersion?: () => string }).getSystemVersion === 'function'
+          ? (process as { getSystemVersion: () => string }).getSystemVersion()
+          : undefined
+      ),
       // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
       locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
       // OXE-411 · OXESPACE_TERM_LEVERS when it is set (shared/terminal-levers.ts); absent, the renderer uses the default.

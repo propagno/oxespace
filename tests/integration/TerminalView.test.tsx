@@ -15,6 +15,7 @@ const terminalState = {
   input: vi.fn(),
   refresh: vi.fn(),
   clear: vi.fn(),
+  reset: vi.fn(),
   scrollLines: vi.fn(),
   scrollToBottom: vi.fn(),
   scrollToLine: vi.fn(),
@@ -48,6 +49,7 @@ vi.mock('@xterm/xterm', () => ({
     modes: { bracketedPasteMode: true, mouseTrackingMode: 'none' },
     refresh: terminalState.refresh,
     clear: terminalState.clear,
+    reset: terminalState.reset,
     scrollLines: terminalState.scrollLines,
     unicode: { activeVersion: '6' },
     scrollToBottom: terminalState.scrollToBottom,
@@ -130,6 +132,7 @@ describe('TerminalView', () => {
     terminalState.clearSelection.mockClear()
     terminalState.onSelectionChange.mockClear()
     terminalState.clear.mockClear()
+    terminalState.reset.mockClear()
     searchState.findNext.mockClear()
     searchState.findPrevious.mockClear()
     searchState.clearDecorations.mockClear()
@@ -719,6 +722,94 @@ describe('TerminalView', () => {
     host.classList.remove('workspace-host-hidden')
     await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('still live', expect.any(Function)))
     expect(window.oxe.terminal.attach).toHaveBeenCalledTimes(1)
+    host.remove()
+  })
+
+  test('OXE-436: configures windowsPty on win32 and aligns cursorInactiveStyle with cursorStyle', () => {
+    vi.mocked(Terminal).mockClear()
+    window.oxe.app = { ...window.oxe.app, platform: 'win32', windowsBuildNumber: 26200 }
+    const { rerender, unmount } = render(
+      <TerminalView
+        paneId="pane-win"
+        isRunning
+        themeId="dracula"
+        prefs={{ ...TERMINAL_PREFS_DEFAULTS, cursorStyle: 'bar' }}
+        onInput={vi.fn()}
+        onResize={vi.fn()}
+      />
+    )
+    expect(Terminal).toHaveBeenCalledWith(expect.objectContaining({
+      cursorStyle: 'bar',
+      cursorInactiveStyle: 'bar',
+      windowsPty: { backend: 'conpty', buildNumber: 26200 }
+    }))
+
+    // Live cursorStyle update keeps cursorInactiveStyle aligned without recreating Terminal.
+    const termInstance = vi.mocked(Terminal).mock.results[0].value as { options: Record<string, unknown> }
+    rerender(
+      <TerminalView
+        paneId="pane-win"
+        isRunning
+        themeId="dracula"
+        prefs={{ ...TERMINAL_PREFS_DEFAULTS, cursorStyle: 'block' }}
+        onInput={vi.fn()}
+        onResize={vi.fn()}
+      />
+    )
+    expect(termInstance.options.cursorStyle).toBe('block')
+    expect(termInstance.options.cursorInactiveStyle).toBe('outline')
+    unmount()
+
+    // Fallback buildNumber 22621 when windowsBuildNumber is absent on win32.
+    vi.mocked(Terminal).mockClear()
+    window.oxe.app = { version: '0.1.0', platform: 'win32', locale: 'en-US' } as typeof window.oxe.app
+    render(
+      <TerminalView
+        paneId="pane-win-fallback"
+        isRunning
+        themeId="dracula"
+        prefs={{ ...TERMINAL_PREFS_DEFAULTS, cursorStyle: 'underline' }}
+        onInput={vi.fn()}
+        onResize={vi.fn()}
+      />
+    )
+    expect(Terminal).toHaveBeenCalledWith(expect.objectContaining({
+      cursorStyle: 'underline',
+      cursorInactiveStyle: 'underline',
+      windowsPty: { backend: 'conpty', buildNumber: 22621 }
+    }))
+  })
+
+  test('OXE-436: closes DEC 2026 and requests redraw nudge after truncated normal-buffer reattach', async () => {
+    const onResize = vi.fn()
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => done?.())
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValueOnce({
+      running: true, seq: 10, prologue: '', replay: 'initial', truncated: false, altScreen: false
+    })
+    vi.mocked(window.oxe.terminal.detach).mockResolvedValue({ seq: 10 } as never)
+    const host = document.body.appendChild(document.createElement('div'))
+    host.className = 'workspace-host'
+    render(<TerminalView paneId="pane-trunc" isRunning themeId="dracula" prefs={TERMINAL_PREFS_DEFAULTS} onInput={vi.fn()} onResize={onResize} />, { container: host })
+    await waitFor(() => expect(terminalState.write).toHaveBeenCalledWith('initial'))
+    await waitFor(() => expect(onResize).toHaveBeenCalledWith(120, 32))
+    onResize.mockClear()
+    terminalState.write.mockClear()
+
+    host.classList.add('workspace-host-hidden')
+    await waitFor(() => expect(window.oxe.terminal.detach).toHaveBeenCalledWith({ paneId: 'pane-trunc', parked: true }))
+    await act(async () => { await Promise.resolve() })
+
+    // Reattach returns a truncated normal-buffer replay (inline TUI like Antigravity / Claude Code).
+    vi.mocked(window.oxe.terminal.attach).mockResolvedValueOnce({
+      running: true, seq: 999999, prologue: '\x1b[?2026l', replay: 'tail frame', truncated: true, altScreen: false
+    })
+    host.classList.remove('workspace-host-hidden')
+
+    await waitFor(() => expect(onResize).toHaveBeenCalledWith(120, 32))
+    expect(terminalState.reset).toHaveBeenCalledTimes(1)
+    const writes = terminalState.write.mock.calls.map(call => call[0])
+    expect(writes).toContain('\x1b[2J\x1b[H\x1b[?2026l')
+    expect(writes).toContain('tail frame')
     host.remove()
   })
 })

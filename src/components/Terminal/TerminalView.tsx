@@ -26,7 +26,8 @@ import { personActedElsewhereSince, runWithTerminalAutoFocus, terminalKeyRoute, 
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
 import { isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
-import { buildTerminalTheme, decodeOsc52ClipboardWrite, searchDecorations } from './terminalViewHelpers'
+import { buildTerminalTheme, decodeOsc52ClipboardWrite, resolveInactiveCursorStyle, searchDecorations } from './terminalViewHelpers'
+import { resolveWindowsPty } from '../../../shared/windows-pty'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
@@ -124,11 +125,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
 
     const initial = prefsRef.current
     const initialTranslucent = initial.backgroundOpacity < 1
+    const windowsPty = resolveWindowsPty(window.oxe?.app)
     const terminal = new Terminal({
       allowProposedApi: true,
       allowTransparency: initialTranslucent,
       cursorBlink: initial.cursorBlink,
       cursorStyle: initial.cursorStyle,
+      cursorInactiveStyle: resolveInactiveCursorStyle(initial.cursorStyle),
       fontFamily: initial.fontFamily,
       fontSize: initial.fontSize,
       lineHeight: initial.lineHeight,
@@ -137,7 +140,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       rescaleOverlappingGlyphs: true,
       scrollback: initial.scrollback,
       scrollOnUserInput: false,
-      theme: buildTerminalTheme(initialTranslucent)
+      theme: buildTerminalTheme(initialTranslucent),
+      ...(windowsPty ? { windowsPty } : {})
     })
     const fitAddon = new FitAddon()
     const unicodeAddon = new Unicode11Addon()
@@ -625,7 +629,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         const wasAtBottom =
           isAltScreen ||
           (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
-        const payload = meta.truncated ? `\x1b[2J\x1b[H${chunk}` : chunk
+        const payload = meta.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${chunk}` : chunk
         terminal.write(payload, () => {
           if (!disposed && !wasAtBottom && terminal.buffer.active.type === 'normal') {
             const postBuf = terminal.buffer.active
@@ -660,14 +664,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       const delta = reattach && attached?.running === true && !attached.truncated && !attached.altScreen
       if (delta) {
         const prePark = writeScheduler.takePending()
-        if (prePark.truncated) terminal.write('\x1b[2J\x1b[H')
+        if (prePark.truncated) terminal.write('\x1b[2J\x1b[H\x1b[?2026l')
         if (prePark.data) terminal.write(prePark.data)
         if (attached?.replay) terminal.write(attached.replay)
       } else if (reattach && !attached?.running && !attached?.exit) {
         // Main could not answer the reattach: keep what the view shows and go on live.
       } else if (attached?.running || attached?.exit) {
         if (reattach) { writeScheduler.takePending(); terminal.reset() }
-        if (attached.truncated) terminal.write('\x1b[2J\x1b[H')
+        if (attached.truncated) terminal.write('\x1b[2J\x1b[H\x1b[?2026l')
         if (attached.prologue) terminal.write(attached.prologue)
         if (attached.replay) terminal.write(attached.replay)
         if (attached.exit) terminal.write(`\r\n[process exited ${attached.exit.exitCode ?? ''}]\r\n`)
@@ -684,8 +688,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       attachPending = false
       if (isHidden()) { writeScheduler.setPaused(true); void park() }
       else writeScheduler.setPaused(false)
-      if (attached?.running && attached.altScreen) {
+      if (attached?.running && (attached.altScreen || attached.truncated)) {
         terminal.write('', () => {
+          if (!disposed && attached.replay && !delta) terminal.scrollToBottom()
           window.requestAnimationFrame(() => { if (!disposed) onResizeRef.current(terminal.cols, terminal.rows) })
         })
       } else if (attached?.replay && !delta) {
@@ -819,6 +824,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     term.options.lineHeight = prefs.lineHeight
     term.options.letterSpacing = prefs.letterSpacing
     term.options.cursorStyle = prefs.cursorStyle
+    term.options.cursorInactiveStyle = resolveInactiveCursorStyle(prefs.cursorStyle)
     term.options.cursorBlink = prefs.cursorBlink
     term.options.scrollback = prefs.scrollback
 

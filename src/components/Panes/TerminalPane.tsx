@@ -10,6 +10,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { estimateTerminalGrid } from '../Terminal/terminalViewHelpers'
 // The pane's usage chips read quotas and context after the terminal is up; they load on their own.
 // OXE-308: lazyFrom, so a chip whose chunk has arrived renders at once instead of holding the fallback.
 const CopilotCreditsStatus = lazyFrom(chunk(() => import('../Terminal/CopilotCreditsStatus')), module => module.CopilotCreditsStatus)
@@ -77,6 +78,16 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
     return null
   }, [allProfiles, pane.agentProfileId])
   const typedCommandRef = useRef('')
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const measuredSizeRef = useRef<{ cols: number; rows: number } | null>(null)
+  const resolveStartGeometry = useCallback((): { cols: number; rows: number } | undefined => {
+    const measured = measuredSizeRef.current
+    if (measured && measured.cols >= 2 && measured.rows >= 1) return measured
+    const body = paneRef.current?.querySelector<HTMLElement>('.terminal-content, .terminal-idle') ?? null
+    const prefsState = useTerminalPrefsStore.getState()
+    const resolvedPrefs = { ...prefsState.global, ...(prefsState.overrides[workspaceId] ?? {}) }
+    return estimateTerminalGrid(body, resolvedPrefs) ?? undefined
+  }, [workspaceId])
   const effectiveRootPath = pane.rootPath ?? workspaceRootPath
 
   const resolveAgentInfo = useCallback((): { command: string | undefined; initialPrompt: string | undefined } => {
@@ -174,12 +185,12 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         p = p ? `${CAVEMAN_PROMPT}\n\n${p}` : CAVEMAN_PROMPT
       }
 
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, resumeAgent: !explicitRetry && terminalPrefs.resumeAgentSessions !== false })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt: p, resumeAgent: !explicitRetry && terminalPrefs.resumeAgentSessions !== false, ...resolveStartGeometry() })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, terminalPrefs.cavemanModeEnabled, terminalPrefs.resumeAgentSessions, workspaceId])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveStartGeometry, resolveWithIntegrationContext, setPaneAgent, setStatus, terminalPrefs.cavemanModeEnabled, terminalPrefs.resumeAgentSessions, workspaceId])
 
   useEffect(() => {
     if (!pane.originPaneId) return
@@ -262,12 +273,12 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
         if (!/^(thread|oxequery)-shell:/.test(pane.id)) void setPaneAgent(pane.id, profile.agentProfileId, { preserveSession: true })
       }
       await window.oxe.terminal.stop({ paneId: pane.id })
-      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt })
+      await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand, initialPrompt, ...resolveStartGeometry() })
       setStatus(pane.id, 'running')
     } catch (error) {
       setStatus(pane.id, 'error', toMessage(error))
     }
-  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId, start])
+  }, [allProfiles, pane.agentProfileId, pane.id, pane.originPaneId, resolveStartGeometry, resolveWithIntegrationContext, setPaneAgent, setStatus, workspaceId, start])
 
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -311,6 +322,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   useEffect(() => {
     let live = true
     const paneId = pane.id
+    measuredSizeRef.current = null
     void window.oxe?.terminal?.sizeLease?.(paneId).then(lease => { if (live) setLeased({ paneId, lease }) }).catch(() => undefined)
     const off = window.oxe?.terminal?.onSizeLeaseChanged?.(paneId, event => setLeased({ paneId, lease: event.lease }))
     return () => { live = false; off?.() }
@@ -336,11 +348,12 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
       const command = allProfiles.find(profile => profile.agentProfileId === pane.agentProfileId)?.command || agentCreditsProvider
       await window.oxe.terminal.stop({ paneId: pane.id })
       await window.oxe.terminal.start({ paneId: pane.id, workspaceId, agentCommand: command,
-        agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'] })
+        agentArgs: agentCreditsProvider === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen'],
+        ...resolveStartGeometry() })
       setStatus(pane.id, 'running'); setRestoreOpen(false)
     } catch (cause) { setStatus(pane.id, 'error', humanizeError(cause, tc('terminalPane.resumeFailed'))); setRestoreError(humanizeError(cause, tc('terminalPane.resumeFailed'))) }
     finally { setRestoreBusy(false) }
-  }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, setStatus, workspaceId])
+  }, [agentCreditsProvider, allProfiles, pane.agentProfileId, pane.id, resolveStartGeometry, setStatus, workspaceId])
   const moreRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -360,7 +373,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
   }, [moreOpen])
 
   return (
-    <div className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
+    <div ref={paneRef} className="terminal-pane" data-testid="terminal-pane" data-pane-id={pane.id}>
       {exitedWithFailure ? (
         <div className="terminal-error-bar terminal-exit-bar" role="status">
           <span>{state.error}</span>
@@ -395,6 +408,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
               void window.oxe.terminal.write({ paneId: pane.id, data })
             }}
             onResize={(cols, rows) => {
+              measuredSizeRef.current = { cols, rows }
               if (isRunning) void window.oxe.terminal.resize({ paneId: pane.id, cols, rows })
             }}
             onExit={(exitCode) => {

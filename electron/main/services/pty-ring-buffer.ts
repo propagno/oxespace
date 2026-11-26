@@ -13,22 +13,27 @@
  * holds the last few screens plus recent context; full scrollback survives by
  * keeping the pane mounted.
  */
+import { endsWithHighSurrogate, scanVtState, skipPartialVtSequence, type VtTailState } from '../../../shared/vt-trim'
+
 export interface PtyRingSlice {
   data: string
   /** True when the requested `seq` had already been evicted from the head. */
   truncated: boolean
 }
 
-export const DEFAULT_RING_CAPACITY_BYTES = 256 * 1024
+export const DEFAULT_RING_CAPACITY_BYTES = 1024 * 1024
 
 export class PtyRingBuffer {
-  /** Retained chunks, oldest first. Never sliced — see `push`. */
+  /** Retained chunks, oldest first. Head chunk may be trimmed past a partial VT sequence after eviction. */
   private chunks: string[] = []
   private bytes = 0
   /** Total characters ever pushed. Monotonic; survives eviction. */
   private pushed = 0
   /** Total characters evicted from the head. `pushed - dropped` = retained. */
   private dropped = 0
+  /** VT parser state at the eviction boundary so survivors never start mid-escape-sequence. */
+  private evictedState: VtTailState = 'ground'
+  private evictedHighSurrogate = false
 
   constructor(private readonly capacity = DEFAULT_RING_CAPACITY_BYTES) {}
 
@@ -37,21 +42,50 @@ export class PtyRingBuffer {
     return this.pushed
   }
 
+  /** True once at least one character has been evicted from the head of the ring. */
+  get evicted(): boolean {
+    return this.dropped > 0
+  }
+
   push(data: string): void {
     if (!data) return
     this.chunks.push(data)
     this.bytes += data.length
     this.pushed += data.length
 
-    // Evict WHOLE chunks only. Slicing a chunk could cut a UTF-16 surrogate
-    // pair in half, and the replay would then write a lone surrogate into
-    // xterm. Overshooting the capacity by at most one chunk is the cheaper
-    // trade — chunks are already bounded by the output batcher (32 KB).
+    // Evict WHOLE chunks only while over capacity. After eviction, advance past
+    // any partial VT sequence or split surrogate pair left at the head so a
+    // reattached terminal never renders orphaned escape parameters as text.
     while (this.bytes > this.capacity && this.chunks.length > 1) {
       const evicted = this.chunks.shift()
       if (evicted === undefined) break
       this.bytes -= evicted.length
       this.dropped += evicted.length
+      this.evictedState = scanVtState(evicted, this.evictedState)
+      this.evictedHighSurrogate = endsWithHighSurrogate(evicted)
+    }
+
+    while (this.chunks.length > 0 && (this.evictedState !== 'ground' || this.evictedHighSurrogate)) {
+      const headChunk = this.chunks[0]
+      let start = 0
+      if (this.evictedHighSurrogate && this.evictedState === 'ground') {
+        const code = headChunk.charCodeAt(0)
+        if (code >= 0xdc00 && code <= 0xdfff) start = 1
+      }
+      this.evictedHighSurrogate = false
+      const { offset, state } = skipPartialVtSequence(headChunk, this.evictedState, start)
+      this.evictedState = state
+      if (offset === 0) break
+      if (offset >= headChunk.length) {
+        this.chunks.shift()
+        this.bytes -= headChunk.length
+        this.dropped += headChunk.length
+      } else {
+        this.chunks[0] = headChunk.slice(offset)
+        this.bytes -= offset
+        this.dropped += offset
+        break
+      }
     }
   }
 
@@ -89,5 +123,7 @@ export class PtyRingBuffer {
     this.dropped = this.pushed
     this.chunks = []
     this.bytes = 0
+    this.evictedState = 'ground'
+    this.evictedHighSurrogate = false
   }
 }

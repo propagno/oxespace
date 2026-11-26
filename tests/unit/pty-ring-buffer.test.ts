@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { PtyRingBuffer } from '../../electron/main/services/pty-ring-buffer'
+import { DEFAULT_RING_CAPACITY_BYTES, PtyRingBuffer } from '../../electron/main/services/pty-ring-buffer'
 
 describe('PtyRingBuffer', () => {
   test('retains output and reports a monotonic cursor', () => {
@@ -112,5 +112,48 @@ describe('PtyRingBuffer', () => {
     expect(ring.seq).toBe(beforeSeq)
     ring.push('after')
     expect(ring.since(beforeSeq)).toEqual({ data: 'after', truncated: false })
+  })
+
+  test('defaults to 1 MiB capacity for verbose inline TUIs', () => {
+    expect(DEFAULT_RING_CAPACITY_BYTES).toBe(1024 * 1024)
+  })
+
+  test('eviction advances cleanly past partial CSI, OSC, DCS, and ESC sequences', () => {
+    // Split CSI across evicted and surviving chunks.
+    const csiRing = new PtyRingBuffer(20)
+    csiRing.push('0123456789\x1b[38;2;')
+    csiRing.push('255;128;0mVISIBLE')
+    expect(csiRing.evicted).toBe(true)
+    expect(csiRing.snapshot()).toBe('VISIBLE')
+
+    // Split OSC terminated by BEL.
+    const oscBelRing = new PtyRingBuffer(20)
+    oscBelRing.push('0123456789\x1b]0;Win')
+    oscBelRing.push('dow Title\x07PROMPT>')
+    expect(oscBelRing.snapshot()).toBe('PROMPT>')
+
+    // Split OSC terminated by ST (\x1b\\).
+    const oscStRing = new PtyRingBuffer(20)
+    oscStRing.push('0123456789\x1b]8;;ht')
+    oscStRing.push('tps://x\x1b\\LINK')
+    expect(oscStRing.snapshot()).toBe('LINK')
+
+    // Split DCS terminated by ST (\x1b\\).
+    const dcsRing = new PtyRingBuffer(20)
+    dcsRing.push('0123456789\x1bP1$r')
+    dcsRing.push('0m\x1b\\READY')
+    expect(dcsRing.snapshot()).toBe('READY')
+
+    // Evicted chunk ending right on ESC preserves clean text after surviving CSI.
+    const escRing = new PtyRingBuffer(12)
+    escRing.push('0123456789\x1b')
+    escRing.push('[?2026hFRAME')
+    expect(escRing.snapshot()).toBe('FRAME')
+
+    // Aborted CSI interrupted by a new ESC preserves the new sequence intact.
+    const abortRing = new PtyRingBuffer(20)
+    abortRing.push('0123456789\x1b[38;2')
+    abortRing.push(';100\x1b[0mCLEAN')
+    expect(abortRing.snapshot()).toBe('\x1b[0mCLEAN')
   })
 })

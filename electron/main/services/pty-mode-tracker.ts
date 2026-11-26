@@ -18,13 +18,18 @@
 const TRACKED_MODES = new Set([
   1, // DECCKM — application cursor keys
   25, // DECTCEM — cursor visibility
+  47, // alternate screen buffer (xterm legacy)
   1000, // X11 mouse: button press/release
   1002, // …with drag tracking
   1003, // …any-motion tracking
   1006, // SGR extended mouse coordinates
+  1047, // alternate screen buffer (clear on leave)
   1049, // alternate screen buffer + saved cursor
-  2004 // bracketed paste
+  2004, // bracketed paste
+  2026 // synchronized output (BSU/ESU) — tracked so replay never leaves it stuck open
 ])
+
+type AltScreenMode = 47 | 1047 | 1049
 
 /**
  * Cursor visibility is the one tracked mode whose default is ON, so a plain
@@ -38,6 +43,7 @@ const MAX_PARTIAL = 32
 
 export class PtyModeTracker {
   private readonly enabled = new Set<number>()
+  private altScreenMode: AltScreenMode | null = null
   private cursor: CursorState = 'default'
   /** Trailing bytes of the previous chunk that could be an unfinished CSI. */
   private carry = ''
@@ -61,6 +67,10 @@ export class PtyModeTracker {
           this.cursor = set ? 'shown' : 'hidden'
           continue
         }
+        if (mode === 47 || mode === 1047 || mode === 1049) {
+          this.altScreenMode = set ? mode : null
+          continue
+        }
         if (set) this.enabled.add(mode)
         else this.enabled.delete(mode)
       }
@@ -78,21 +88,29 @@ export class PtyModeTracker {
     return this.enabled.has(2004)
   }
 
-  /** True while the app is on the alternate screen (a full-screen TUI). */
+  /** True while the app is on the alternate screen (modes 47, 1047, or 1049). */
   get altScreen(): boolean {
-    return this.enabled.has(1049)
+    return this.altScreenMode !== null
+  }
+
+  /** True while DEC 2026 synchronized output is currently open (unpaired `?2026h`). */
+  get synchronizedOutput(): boolean {
+    return this.enabled.has(2026)
   }
 
   /**
    * Sequences that put a fresh terminal back into the tracked modes.
    *
-   * `1049` is emitted FIRST so the modes that follow apply to the buffer the
-   * app is actually drawing on. Cursor visibility is only asserted when the
-   * app moved it away from the terminal default.
+   * Any unpaired DEC 2026 synchronized-output block is explicitly closed first
+   * (and `?2026h` is NEVER emitted) so a reattached view cannot freeze waiting
+   * for a dropped `?2026l`. The alt-screen switch is emitted before the modes
+   * that depend on it so they land on the buffer the app is drawing on. Cursor
+   * visibility is only asserted when the app moved it away from default.
    */
   prologue(): string {
     let out = ''
-    if (this.enabled.has(1049)) out += '\x1b[?1049h'
+    if (this.enabled.has(2026)) out += '\x1b[?2026l'
+    if (this.altScreenMode !== null) out += `\x1b[?${this.altScreenMode}h`
     for (const mode of [1, 1000, 1002, 1003, 1006, 2004]) {
       if (this.enabled.has(mode)) out += `\x1b[?${mode}h`
     }
@@ -102,6 +120,7 @@ export class PtyModeTracker {
 
   reset(): void {
     this.enabled.clear()
+    this.altScreenMode = null
     this.cursor = 'default'
     this.carry = ''
   }

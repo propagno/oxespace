@@ -1,4 +1,57 @@
 import type { ITheme } from '@xterm/xterm'
+import type { TerminalCursorStyle, TerminalPrefs } from '../../store/terminal-prefs.store'
+
+/**
+ * Matches unfocused cursor shape to the user's `cursorStyle` so a bar caret
+ * does not unexpectedly become a hollow block (`outline`) on blur (OXE-436).
+ */
+export function resolveInactiveCursorStyle(
+  cursorStyle: TerminalCursorStyle
+): 'outline' | 'bar' | 'underline' {
+  if (cursorStyle === 'bar') return 'bar'
+  if (cursorStyle === 'underline') return 'underline'
+  return 'outline'
+}
+
+// Matches `.terminal-view .xterm { padding: 12px 14px 10px; }` + xterm scrollbar width.
+const XTERM_PAD_X = 28
+const XTERM_PAD_Y = 22
+const XTERM_SCROLLBAR_W = 14
+
+/**
+ * Estimates initial terminal grid dimensions from a laid-out pane container
+ * before xterm mounts, so ConPTY spawns at the real pane geometry instead of
+ * 80x24 followed by an immediate reflow (OXE-436). Returns null when the host
+ * is unmeasured (e.g. hidden or jsdom 0x0).
+ */
+export function estimateTerminalGrid(
+  container: HTMLElement | null,
+  prefs: Pick<TerminalPrefs, 'fontFamily' | 'fontSize' | 'lineHeight' | 'letterSpacing'>
+): { cols: number; rows: number } | null {
+  if (!container) return null
+  const rect = container.getBoundingClientRect()
+  const innerWidth = rect.width - XTERM_PAD_X - XTERM_SCROLLBAR_W
+  const innerHeight = rect.height - XTERM_PAD_Y
+  if (!Number.isFinite(innerWidth) || !Number.isFinite(innerHeight) || innerWidth <= 0 || innerHeight <= 0) {
+    return null
+  }
+  let charWidth = prefs.fontSize * 0.6
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (ctx) {
+      ctx.font = `${prefs.fontSize}px ${prefs.fontFamily}`
+      const measured = ctx.measureText('W').width
+      if (Number.isFinite(measured) && measured > 0) charWidth = measured
+    }
+  } catch { /* fallback to heuristic character width */ }
+  const cellWidth = Math.max(1, charWidth + prefs.letterSpacing)
+  const cellHeight = Math.max(1, Math.ceil(prefs.fontSize * prefs.lineHeight))
+  const cols = Math.floor(innerWidth / cellWidth)
+  const rows = Math.floor(innerHeight / cellHeight)
+  if (cols < 2 || rows < 1) return null
+  return { cols, rows }
+}
 
 // OSC 52 lets a terminal application request a clipboard write. Full-screen
 // TUIs use it when they own mouse selection, so the browser's native `copy`
