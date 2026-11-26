@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, AntigravityCreditsService, antigravityGroup, antigravityPlan, antigravityUserAgent, antigravityWindows, parseAntigravitySignIn } from '../../electron/main/services/agentCredits/antigravityCredits.service'
+import { ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_USER_QUOTA_URL, AntigravityCreditsService, antigravityGroup, antigravityPlan, antigravityProject, antigravityUserAgent, antigravityUserQuotaWindows, antigravityWindows, parseAntigravitySignIn } from '../../electron/main/services/agentCredits/antigravityCredits.service'
 
 const NOW = Date.parse('2026-11-12T20:00:00Z')
 const stored = (expiry: string, accessToken = 'live-token') => JSON.stringify({ token: { access_token: accessToken, token_type: 'Bearer', refresh_token: 'refresh', expiry }, auth_method: 'consumer', id_token_email: 'someone@example.invalid' })
@@ -15,11 +15,16 @@ const summary = {
 const plan = { currentTier: { id: 'free-tier', name: 'Antigravity' }, paidTier: { id: 'g1-ultra-lite-tier', name: 'Google AI Ultra' } }
 const answer = (body: unknown, status = 200, headers: Record<string, string> = {}): Response => new Response(JSON.stringify(body), { status, headers })
 
-function service(options: { store: Array<string | null>; quota?: () => Response; renew?: () => Promise<void>; now?: () => number }) {
+function service(options: { store: Array<string | null>; quota?: () => Response; plan?: () => Response; userQuota?: () => Response; renew?: () => Promise<void>; now?: () => number }) {
   const reads = [...options.store]
   const readStored = vi.fn(async () => reads.length > 1 ? reads.shift() ?? null : reads[0] ?? null)
   const renew = vi.fn(options.renew ?? (async () => undefined))
-  const request = vi.fn(async (url: string | URL | Request) => String(url) === ANTIGRAVITY_QUOTA_URL ? (options.quota?.() ?? answer(summary)) : answer(plan))
+  const request = vi.fn(async (url: string | URL | Request) => {
+    const target = String(url)
+    if (target === ANTIGRAVITY_QUOTA_URL) return options.quota?.() ?? answer(summary)
+    if (target === ANTIGRAVITY_USER_QUOTA_URL) return options.userQuota?.() ?? answer({ buckets: [] })
+    return options.plan?.() ?? answer(plan)
+  })
   const credits = new AntigravityCreditsService({ readStored, renew, cliVersion: async () => '1.5.7\n', fetch: request as unknown as typeof fetch, now: options.now ?? (() => NOW) })
   return { credits, readStored, renew, request }
 }
@@ -113,12 +118,12 @@ describe('Antigravity quota in the usage reading', () => {
     const snapshot = await credits.getCredits()
     expect(snapshot).toMatchObject({ provider: 'antigravity', available: true, installed: true, planLabel: 'Google AI Ultra', source: 'oauth', error: null, display: { kind: 'weekly', usedPct: 57, group: 'claude-gpt' } })
     expect(snapshot.windows).toHaveLength(2)
-    const [url, init] = request.mock.calls[0] as unknown as [string, RequestInit]
+    const [url, init] = request.mock.calls[1] as unknown as [string, RequestInit]
     expect(url).toBe(ANTIGRAVITY_QUOTA_URL)
     expect(init.method).toBe('POST')
     expect(init.body).toBe('{}')
     expect(init.headers).toMatchObject({ Authorization: 'Bearer live-token', 'User-Agent': antigravityUserAgent('1.5.7') })
-    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_PLAN_URL])
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL])
     expect(JSON.stringify(snapshot)).not.toContain('live-token')
   })
 
@@ -130,7 +135,7 @@ describe('Antigravity quota in the usage reading', () => {
     expect(request).toHaveBeenCalledTimes(2)
     now += 61_000
     await credits.getCredits()
-    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL])
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_QUOTA_URL])
     expect(readStored).toHaveBeenCalledTimes(1)
   })
 
@@ -182,5 +187,188 @@ describe('Antigravity quota in the usage reading', () => {
   test('a failure on the way is a reading with its reason, never a throw', async () => {
     const down = new AntigravityCreditsService({ readStored: async () => stored('2026-11-12T21:00:00Z'), renew: async () => undefined, cliVersion: async () => '1.5.7', fetch: (async () => { throw new Error('getaddrinfo ENOTFOUND') }) as unknown as typeof fetch, now: () => NOW })
     expect(await down.getCredits()).toMatchObject({ available: false, error: 'getaddrinfo ENOTFOUND' })
+  })
+
+  // OXE-420: loadCodeAssist returns cloudaicompanionProject (string or { id }), forwarded to quota endpoints.
+  test('extracts cloudaicompanionProject in string and object shapes, and forwards { project } to retrieveUserQuotaSummary', async () => {
+    expect(antigravityProject({ cloudaicompanionProject: '  my-cloud-proj  ' })).toBe('my-cloud-proj')
+    expect(antigravityProject({ cloudaicompanionProject: { id: 'nested-proj-42' } })).toBe('nested-proj-42')
+    expect(antigravityProject({ cloudaicompanionProject: '' })).toBeNull()
+    expect(antigravityProject({})).toBeNull()
+
+    const geminiSummary = {
+      groups: [
+        ...summary.groups,
+        { displayName: 'Gemini models', buckets: [{ bucketId: '1p-5h', window: '5h', remainingFraction: 0.75, resetTime: '2026-11-12T23:00:00Z' }] }
+      ]
+    }
+    let now = NOW
+    const { credits, request } = service({
+      store: [stored('2026-11-12T22:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: { id: 'proj-ultra-1' } }),
+      quota: () => answer(geminiSummary),
+      now: () => now
+    })
+    const snapshot = await credits.getCredits()
+    expect(snapshot.display).toMatchObject({ kind: 'session', usedPct: 25, group: 'gemini' })
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL])
+    expect((request.mock.calls[1] as unknown as [string, RequestInit])[1].body).toBe(JSON.stringify({ project: 'proj-ultra-1' }))
+    expect(JSON.stringify(snapshot)).not.toContain('proj-ultra-1')
+
+    // Cached per token: next poll reuses the bound project without re-calling loadCodeAssist.
+    now += 61_000
+    await credits.getCredits()
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_QUOTA_URL])
+    expect((request.mock.calls[2] as unknown as [string, RequestInit])[1].body).toBe(JSON.stringify({ project: 'proj-ultra-1' }))
+  })
+
+  // OXE-420: live screenshot bug — retrieveUserQuotaSummary only returned Claude & GPT 0%, hiding active Gemini 4 Neon usage.
+  test('supplements missing Gemini windows via retrieveUserQuota when summary only returns Claude and GPT', async () => {
+    const claudeOnlyZero = {
+      groups: [{
+        displayName: 'Claude and GPT models',
+        buckets: [
+          { bucketId: '3p-5h', window: '5h', resetTime: '2026-11-13T01:00:00Z', remainingFraction: 1 },
+          { bucketId: '3p-weekly', window: 'weekly', resetTime: '2026-11-18T01:00:00Z', remainingFraction: 1 }
+        ]
+      }]
+    }
+    const perModelQuota = {
+      buckets: [
+        { modelId: 'gemini-4-neon', tokenType: 'REQUESTS', remainingFraction: 0.62, resetTime: '2026-11-12T23:30:00Z' },
+        { modelId: 'gemini-3.8-flash', tokenType: 'REQUESTS', remainingFraction: 0.95, resetTime: '2026-11-12T23:30:00Z' },
+        { modelId: 'gemini-4-carbon', tokenType: 'REQUESTS', remainingFraction: 0.84, resetTime: '2026-11-17T20:00:00Z' },
+        { modelId: 'claude-opus-5-5', tokenType: 'REQUESTS', remainingFraction: 0.5, resetTime: '2026-11-12T23:30:00Z' }
+      ]
+    }
+    const { credits, request } = service({
+      store: [stored('2026-11-12T22:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: 'proj-ultra-live' }),
+      quota: () => answer(claudeOnlyZero),
+      userQuota: () => answer(perModelQuota)
+    })
+    const snapshot = await credits.getCredits()
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_USER_QUOTA_URL])
+    expect((request.mock.calls[2] as unknown as [string, RequestInit])[1].body).toBe(JSON.stringify({ project: 'proj-ultra-live' }))
+    expect(snapshot.available).toBe(true)
+    expect(snapshot.planLabel).toBe('Google AI Ultra')
+    expect(snapshot.display).toEqual({ kind: 'weekly', usedPct: 16, resetsAtMs: Date.parse('2026-11-17T20:00:00Z'), group: 'gemini' })
+    expect(snapshot.windows).toEqual([
+      { kind: 'session', usedPct: 38, resetsAtMs: Date.parse('2026-11-12T23:30:00Z'), group: 'gemini' },
+      { kind: 'weekly', usedPct: 16, resetsAtMs: Date.parse('2026-11-17T20:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: Date.parse('2026-11-13T01:00:00Z'), group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 0, resetsAtMs: Date.parse('2026-11-18T01:00:00Z'), group: 'claude-gpt' }
+    ])
+    expect(JSON.stringify(snapshot)).not.toMatch(/live-token|someone@example\.invalid|proj-ultra-live/)
+  })
+
+  test('falls back to retrieveUserQuota when retrieveUserQuotaSummary returns no windows at all', async () => {
+    const { credits } = service({
+      store: [stored('2026-11-12T22:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: 'proj-empty-summary' }),
+      quota: () => answer({}),
+      userQuota: () => answer({
+        buckets: [
+          { modelId: 'hydrogen-high', tokenType: 'REQUESTS', remainingFraction: 0.4, resetTime: '2026-11-13T16:00:00Z' }
+        ]
+      })
+    })
+    const snapshot = await credits.getCredits()
+    expect(snapshot.available).toBe(true)
+    expect(snapshot.display).toEqual({ kind: 'weekly', usedPct: 60, resetsAtMs: Date.parse('2026-11-13T16:00:00Z'), group: 'gemini' })
+  })
+
+  // OXE-420: proto3 omits float 0.0 (remainingFraction === 0 = 100% exhausted).
+  test('treats proto3-omitted remainingFraction with a valid resetTime as 100% used, while skipping bare and amount-only buckets', () => {
+    const unknown = new Set<string>()
+    const summaryExhausted = {
+      groups: [{
+        displayName: 'Gemini models',
+        buckets: [
+          { bucketId: '1p-5h', window: '5h', resetTime: '2026-11-13T01:00:00Z' },
+          { bucketId: '1p-weekly', window: 'weekly' },
+          { bucketId: '1p-images', window: 'weekly', remainingAmount: '40', resetTime: '2026-11-18T01:00:00Z' },
+          { bucketId: '1p-disabled', window: 'weekly', resetTime: '2026-11-18T01:00:00Z', disabled: true }
+        ]
+      }]
+    }
+    expect(antigravityWindows(summaryExhausted, unknown)).toEqual([
+      { kind: 'session', usedPct: 100, resetsAtMs: Date.parse('2026-11-13T01:00:00Z'), group: 'gemini' }
+    ])
+    expect([...unknown]).toEqual(['amount-only 1p-images'])
+
+    expect(antigravityUserQuotaWindows({
+      buckets: [
+        { modelId: 'neon-xhigh', tokenType: 'REQUESTS', resetTime: '2026-11-12T23:00:00Z' },
+        { modelId: 'gemini-2.5-pro', tokenType: 'REQUESTS' },
+        { modelId: 'gemini-2.5-flash', tokenType: 'REQUESTS', remainingAmount: '12', resetTime: '2026-11-12T23:00:00Z' }
+      ]
+    }, NOW)).toEqual([
+      { kind: 'session', usedPct: 100, resetsAtMs: Date.parse('2026-11-12T23:00:00Z'), group: 'gemini' }
+    ])
+  })
+
+  // OXE-420: expanded windowKind strings, bucketId fallback on empty/numeric enum window, and Gemini model ID families.
+  test('reads short/rolling/daily/24h/1d windows, falls back to bucketId when window is empty or numeric, and recognizes Gemini model IDs', () => {
+    const response = {
+      buckets: [
+        { bucketId: '1p-weekly', displayName: 'Gemini models', window: 2, remainingFraction: 0.7, resetTime: '2026-11-18T00:00:00Z' },
+        { bucketId: '1p-5h', displayName: 'Gemini models', window: '', remainingFraction: 0.6, resetTime: '2026-11-13T00:00:00Z' },
+        { bucketId: '3p-short', displayName: 'Claude and GPT models', window: 'rolling', remainingFraction: 0.85 },
+        { bucketId: '3p-7d', displayName: 'Claude and GPT models', window: '7d', remainingFraction: 0.9 }
+      ]
+    }
+    expect(antigravityWindows(response)).toEqual([
+      { kind: 'session', usedPct: 40, resetsAtMs: Date.parse('2026-11-13T00:00:00Z'), group: 'gemini' },
+      { kind: 'weekly', usedPct: 30, resetsAtMs: Date.parse('2026-11-18T00:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 15, resetsAtMs: null, group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 10, resetsAtMs: null, group: 'claude-gpt' }
+    ])
+
+    for (const win of ['short', 'rolling', 'daily', '24h', '1d']) {
+      expect(antigravityWindows({ groups: [{ displayName: 'Gemini models', buckets: [{ window: win, remainingFraction: 0.5 }] }] }))
+        .toEqual([{ kind: 'session', usedPct: 50, resetsAtMs: null, group: 'gemini' }])
+    }
+
+    for (const id of ['gemini-4-neon', '1p-5h', 'pro-2.5', 'flash-lite', 'carbon-high', 'neon', 'hydrogen', 'argon']) {
+      expect(antigravityGroup(id)).toBe('gemini')
+    }
+    for (const id of ['claude-opus-5-5', 'gpt-5-pro', '3p-weekly']) {
+      expect(antigravityGroup(id)).toBe('claude-gpt')
+    }
+  })
+
+  test('respects 429 backoff on loadCodeAssist and supplemental retrieveUserQuota', async () => {
+    let now = NOW
+    let limited = true
+    const planBusy = service({
+      store: [stored('2026-11-12T23:00:00Z')],
+      plan: () => limited ? answer({}, 429, { 'retry-after': '120' }) : answer(plan),
+      now: () => now
+    })
+    expect(await planBusy.credits.getCredits()).toMatchObject({ available: false, error: 'quota endpoint 429' })
+    expect(planBusy.request).toHaveBeenCalledTimes(1)
+    limited = false
+    now += 60_000
+    expect((await planBusy.credits.getCredits(true)).available).toBe(false)
+    expect(planBusy.request).toHaveBeenCalledTimes(1)
+    now += 61_000
+    expect((await planBusy.credits.getCredits(true)).available).toBe(true)
+
+    let now2 = NOW
+    const fallbackBusy = service({
+      store: [stored('2026-11-12T23:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: 'proj-429' }),
+      quota: () => answer(summary),
+      userQuota: () => answer({}, 429, { 'retry-after': '120' }),
+      now: () => now2
+    })
+    const firstSnap = await fallbackBusy.credits.getCredits()
+    expect(firstSnap.available).toBe(true)
+    expect(firstSnap.display).toMatchObject({ group: 'claude-gpt', usedPct: 57 })
+    now2 += 60_000
+    await fallbackBusy.credits.getCredits(true)
+    // Blocked by 429 backoff from supplemental retrieveUserQuota: no extra network requests during wait.
+    expect(fallbackBusy.request).toHaveBeenCalledTimes(3)
   })
 })
