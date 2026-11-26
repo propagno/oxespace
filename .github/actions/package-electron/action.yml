@@ -161,4 +161,4 @@ runs:
           shipped=$(cygpath -w "$shipped")
         fi
         node scripts/check-fuses.mjs --app "$exe_win" --test-copy-of "$shipped"
-        echo "exe=$exe_win" >> "$GITHUB_OUTPUT"
+        printf 'exe=%s\n' "$exe_win" >> "$GITHUB_OUTPUT"
