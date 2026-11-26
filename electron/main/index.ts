@@ -3,7 +3,7 @@ import log from 'electron-log/main.js'
 import { randomUUID } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { homedir, release, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { bootstrapCoreServices, type DelegationHandleRef } from './bootstrap/core-services'
@@ -34,6 +34,7 @@ import { guardMainWindowLinks, isLoopbackHttpUrl } from './utils/external-open'
 import { installCloseGuard } from './window-close-guard'
 import { messageKey, messageValues } from '../../shared/messages'
 import { IPC_CHANNELS } from '../../shared/types/ipc'
+import { parseWindowsBuildNumber, WINDOWS_BUILD_ARG } from '../../shared/windows-pty'
 
 installIpcSenderGuard() // B12: before any channel exists (markAppReady registers one ahead of registerIpcHandlers)
 log.initialize()
@@ -340,6 +341,7 @@ function createMainWindow(): BrowserWindow {
     ? { titleBarStyle: 'hiddenInset' }
     : { titleBarStyle: 'hidden', titleBarOverlay: { color: '#00000000', symbolColor: initialWindowColors().symbols, height: 36 } }
 
+  const winBuild = process.platform === 'win32' ? parseWindowsBuildNumber(release()) : undefined
   const mainWindow = trustAppWindow(new BrowserWindow({
     width: 1280,
     height: 820,
@@ -361,8 +363,12 @@ function createMainWindow(): BrowserWindow {
       // No <webview> (B12): the Browser preview and Design Mode run in a main-process WebContentsView.
       webviewTag: false, // the will-attach-webview handler below stays as a backstop
       zoomFactor: savedUiScale(),
-      // A sandboxed preload cannot ask app.getLocale(), so the default interface language travels as an argument.
-      additionalArguments: [`--oxe-locale=${systemLocale()}`, ...(process.env.OXESPACE_TERM_LEVERS ? [`--oxe-term-levers=${process.env.OXESPACE_TERM_LEVERS}`] : [])] // OXE-411 levers (H,Q default unless set)
+      // A sandboxed preload cannot ask app.getLocale() or os.release(), so the default interface language and Windows build travel as arguments.
+      additionalArguments: [
+        `--oxe-locale=${systemLocale()}`,
+        ...(process.env.OXESPACE_TERM_LEVERS ? [`--oxe-term-levers=${process.env.OXESPACE_TERM_LEVERS}`] : []),
+        ...(winBuild ? [`${WINDOWS_BUILD_ARG}${winBuild}`] : [])
+      ] // OXE-411 levers (H,Q default unless set) + OXE-436 ConPTY buildNumber
     }
   }))
 

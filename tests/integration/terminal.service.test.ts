@@ -468,6 +468,47 @@ describe('TerminalManager attach/detach', () => {
 
     db.close()
   })
+
+  test('OXE-436: nudges normal-buffer inline TUI redraw via cols bounce after truncated reattach', async () => {
+    const db = openInMemoryDatabase()
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const pty = createFakePtyModule()
+    const manager = new TerminalManager(db, { pty, platform: 'win32', ringCapacityBytes: 32 })
+    const paneId = workspace.panes[0].id
+    try {
+      await manager.start({ workspaceId: workspace.id, paneId, cols: 120, rows: 32 })
+      pty.instances[0].emitData('initial')
+      await settle()
+
+      const parked = manager.detach({ paneId, parked: true })
+      expect(parked?.seq).toBeGreaterThan(0)
+
+      // Overflow the 32-byte ring in normal buffer with an unpaired DEC 2026 start.
+      pty.instances[0].emitData('\x1b[?2026h' + 'A'.repeat(40))
+      await settle()
+      pty.instances[0].emitData('B'.repeat(40))
+      await settle()
+      pty.instances[0].resize.mockClear()
+
+      const attached = manager.attach({ paneId, sinceSeq: parked!.seq })
+      expect(attached.altScreen).toBe(false)
+      expect(attached.truncated).toBe(true)
+      expect(attached.prologue).toContain('\x1b[?2026l')
+      expect(attached.prologue).not.toContain('\x1b[?2026h')
+
+      // Post-attach same-size resize bounces cols (119 -> 120) so ConPTY + inline TUI repaints Row 0.
+      manager.resize({ paneId, cols: 120, rows: 32 })
+      expect(pty.instances[0].resize).toHaveBeenCalledWith(119, 32)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(pty.instances[0].resize).toHaveBeenCalledWith(120, 32)
+
+      // Subsequent untruncated same-size resize does NOT bounce again.
+      pty.instances[0].resize.mockClear()
+      manager.resize({ paneId, cols: 120, rows: 32 })
+      expect(pty.instances[0].resize).toHaveBeenCalledTimes(1)
+      expect(pty.instances[0].resize).toHaveBeenCalledWith(120, 32)
+    } finally { manager.stopAll(); db.close() }
+  })
 })
 
 function createFakePtyModule() {

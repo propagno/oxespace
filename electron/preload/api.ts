@@ -54,6 +54,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
   const terminalBranch = createPaneSubscriber<TerminalBranchChangedEvent>(ipc, IPC_CHANNELS.terminal.branchChanged)
   const terminalSizeLease = createPaneSubscriber<TerminalSizeLeaseEvent>(ipc, IPC_CHANNELS.terminal.sizeLeaseChanged)
+  const argvValue = (prefix: string): string | undefined =>
+    process.argv.find(arg => arg.startsWith(prefix))?.slice(prefix.length)
 
   return {
     agentAccount: {
@@ -183,10 +185,11 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       // renderer can branch on the host OS (script commands, path separators)
       // without an IPC round-trip.
       platform: process.platform,
+      windowsBuildNumber: process.platform === 'win32' ? Number(argvValue('--oxe-win-build=')) || undefined : undefined,
       // The main process passes app.getLocale() as an argument: a sandboxed preload cannot call app APIs.
-      locale: process.argv.find(arg => arg.startsWith('--oxe-locale='))?.slice('--oxe-locale='.length) ?? '',
+      locale: argvValue('--oxe-locale=') ?? '',
       // OXE-411 · OXESPACE_TERM_LEVERS when it is set (shared/terminal-levers.ts); absent, the renderer uses the default.
-      termLevers: process.argv.find(arg => arg.startsWith('--oxe-term-levers='))?.slice('--oxe-term-levers='.length),
+      termLevers: argvValue('--oxe-term-levers='),
       startupFailure: () => ipc.invoke(IPC_CHANNELS.app.startupFailure) as Promise<import('../../shared/types/app').StartupFailure | null>,
       openBackupsFolder: () => ipc.invoke(IPC_CHANNELS.app.openBackupsFolder) as Promise<void>,
       quitAfterStartupFailure: () => ipc.invoke(IPC_CHANNELS.app.quitAfterStartupFailure) as Promise<void>,

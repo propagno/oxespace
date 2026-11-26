@@ -43,6 +43,11 @@ export interface TerminalSession {
    * without a view (the status bar count) and never reclaimed as idle.
    */
   parked?: boolean
+  /**
+   * OXE-436 · Set when `attach()` returned a truncated normal-buffer replay (e.g. inline TUIs like Antigravity /
+   * Claude Code on ConPTY) so the post-attach same-size resize handshake nudges a clean full-viewport redraw.
+   */
+  pendingRedrawNudge?: boolean
   da1: Da1Filter
   da1Timer: ReturnType<typeof setTimeout> | null
   lastActivityAt: number
@@ -171,12 +176,14 @@ export class SessionOutput {
     // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
     // the normal buffer. Ask the app for a correct frame instead.
     const altScreen = session.modes.altScreen
+    const truncated = slice.truncated || (input.sinceSeq === undefined && session.ring.evicted)
+    session.pendingRedrawNudge = truncated && !altScreen
     return {
       running: true,
       seq: session.ring.seq,
       prologue: session.modes.prologue(),
       replay: altScreen ? '' : slice.data,
-      truncated: slice.truncated,
+      truncated,
       altScreen
     }
   }
@@ -209,6 +216,7 @@ export class SessionOutput {
     session.attached = false
     session.viewAttached = false
     session.parked = input.parked === true
+    session.pendingRedrawNudge = false
     return { seq: session.ring.seq }
   }
 

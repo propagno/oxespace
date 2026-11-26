@@ -280,11 +280,15 @@ export class TerminalManager {
 
   private applySize(session: TerminalSession, cols: number, rows: number): void {
     const unchanged = session.cols === cols && session.rows === rows
+    const needsTruncatedNudge = session.pendingRedrawNudge === true
+    session.pendingRedrawNudge = false
     session.cols = cols
     session.rows = rows
     this.observer?.resize(session.paneId, cols, rows)
-    // A restored full-screen TUI needs a fresh frame after the renderer has installed its alternate buffer; a same-size resize is that handshake.
-    if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session)
+    // A restored full-screen TUI or truncated inline TUI needs a fresh frame after the renderer has installed its
+    // buffer; a same-size resize is that handshake.
+    if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session, 'rows')
+    else if (unchanged && session.attached && needsTruncatedNudge) this.nudgeRedraw(session, 'cols')
     else session.pty.resize(cols, rows)
   }
 
@@ -397,15 +401,20 @@ export class TerminalManager {
   }
 
   /**
-   * Make a full-screen app repaint by bouncing the terminal size. Every TUI
-   * redraws its whole viewport on SIGWINCH/ConPTY resize, which yields a
-   * correct frame rather than one reconstructed from bytes.
+   * Make a full-screen or truncated inline TUI repaint by bouncing the terminal
+   * size. Every TUI redraws its viewport on SIGWINCH/ConPTY resize, yielding a
+   * clean frame rather than one reconstructed from truncated bytes. Normal-buffer
+   * inline TUIs prefer bouncing `cols` so ConPTY does not push row 0 into
+   * scrollback while repainting.
    */
-  private nudgeRedraw(session: TerminalSession): void {
+  private nudgeRedraw(session: TerminalSession, axis: 'rows' | 'cols' = 'rows'): void {
     const { cols, rows } = session
-    if (rows <= 1) return
+    const bounceCols = axis === 'cols' ? cols > 2 : rows <= 1 && cols > 2
+    const targetCols = bounceCols ? cols - 1 : cols
+    const targetRows = bounceCols ? rows : rows - 1
+    if (targetCols < 1 || targetRows < 1) return
     try {
-      session.pty.resize(cols, rows - 1)
+      session.pty.resize(targetCols, targetRows)
       setTimeout(() => {
         if (this.sessions.get(session.paneId) !== session) return
         try {

@@ -80,10 +80,45 @@ describe('PtyModeTracker', () => {
 
   test('reset() clears tracked state', () => {
     const tracker = new PtyModeTracker()
-    tracker.consume('\x1b[?1049h\x1b[?25l')
+    tracker.consume('\x1b[?1049h\x1b[?25l\x1b[?2026h')
     tracker.reset()
 
     expect(tracker.altScreen).toBe(false)
+    expect(tracker.synchronizedOutput).toBe(false)
     expect(tracker.prologue()).toBe('')
+  })
+
+  test('tracks legacy alternate screen modes 47 and 1047 and resets on any alt-screen leave', () => {
+    const tracker = new PtyModeTracker()
+    tracker.consume('\x1b[?47h\x1b[?2004h')
+    expect(tracker.altScreen).toBe(true)
+    expect(tracker.prologue()).toBe('\x1b[?47h\x1b[?2004h')
+
+    tracker.consume('\x1b[?47l')
+    expect(tracker.altScreen).toBe(false)
+
+    tracker.consume('\x1b[?1047h')
+    expect(tracker.altScreen).toBe(true)
+    expect(tracker.prologue()).toContain('\x1b[?1047h')
+
+    // Leaving with 1049l also clears 1047 alt-screen state.
+    tracker.consume('\x1b[?1049l')
+    expect(tracker.altScreen).toBe(false)
+  })
+
+  test('tracks DEC 2026 synchronized output and never leaves it stuck open in prologue', () => {
+    const tracker = new PtyModeTracker()
+    tracker.consume('\x1b[?20')
+    tracker.consume('26h\x1b[?2004h')
+
+    expect(tracker.synchronizedOutput).toBe(true)
+    const prologue = tracker.prologue()
+    expect(prologue).toContain('\x1b[?2026l')
+    expect(prologue).not.toContain('\x1b[?2026h')
+    expect(prologue).toContain('\x1b[?2004h')
+
+    tracker.consume('\x1b[?2026l')
+    expect(tracker.synchronizedOutput).toBe(false)
+    expect(tracker.prologue()).toBe('\x1b[?2004h')
   })
 })

@@ -252,6 +252,27 @@ describe('preload api', () => {
     unsubscribeSecond()
     expect(ipc.removeListener).toHaveBeenCalledTimes(1)
   })
+
+  test('OXE-436: exposes windowsBuildNumber from --oxe-win-build arg on win32', () => {
+    const origArgv = process.argv
+    try {
+      process.argv = [...origArgv, '--oxe-win-build=26200']
+      const api = createOxeApi(createFakeIpc())
+      if (process.platform === 'win32') {
+        expect(api.app.windowsBuildNumber).toBe(26200)
+      } else {
+        expect(api.app.windowsBuildNumber).toBeUndefined()
+      }
+
+      process.argv = [...origArgv.filter((arg) => !arg.startsWith('--oxe-win-build=')), '--oxe-win-build=invalid']
+      expect(createOxeApi(createFakeIpc()).app.windowsBuildNumber).toBeUndefined()
+
+      process.argv = origArgv.filter((arg) => !arg.startsWith('--oxe-win-build='))
+      expect(createOxeApi(createFakeIpc()).app.windowsBuildNumber).toBeUndefined()
+    } finally {
+      process.argv = origArgv
+    }
+  })
 })
 
 function createFakeIpc(): PreloadIpc {

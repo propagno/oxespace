@@ -55,18 +55,11 @@ export interface TerminalWriteScheduler {
   wasTruncated: () => boolean
 }
 
+import { scanVtState, skipPartialVtSequence, trimStringToSafeVtTail, type VtTailState } from '../../../shared/vt-trim'
+
 export const IMMEDIATE_CHUNK_BYTES = 512
 export const MAX_BYTES_PER_FRAME = 64 * 1024
 export const MAX_BUFFERED_BYTES = 256 * 1024
-
-function safeTail(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text
-  let start = text.length - maxChars
-  const code = text.charCodeAt(start)
-  // Avoid starting on a lone low surrogate.
-  if (code >= 0xdc00 && code <= 0xdfff && start + 1 < text.length) start += 1
-  return text.slice(start)
-}
 
 export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOptions): TerminalWriteScheduler {
   const immediateBytes = options.immediateBytes ?? IMMEDIATE_CHUNK_BYTES
@@ -89,6 +82,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   let pending = ''
   let pendingBytes = 0
   let truncated = false
+  let evictedState: VtTailState = 'ground'
   let paused = options.paused ?? false
   let inFlight = false
   let frameId: number | null = null
@@ -151,27 +145,29 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   }
 
   const trimToCap = (): void => {
-    if (pendingBytes <= maxBufferedBytes) return
-    truncated = true
+    const overCap = pendingBytes > maxBufferedBytes
+    if (!overCap && evictedState === 'ground') return
+    if (overCap) truncated = true
     if (!useQueue) {
-      pending = safeTail(pending, maxBufferedBytes)
-      pendingBytes = pending.length
+      if (overCap) {
+        pending = trimStringToSafeVtTail(pending, maxBufferedBytes)
+        pendingBytes = pending.length
+      }
       return
     }
     while (pendingBytes > maxBufferedBytes && first < parts.length) {
       const avail = parts[first].length - head
       if (pendingBytes - avail >= maxBufferedBytes && first + 1 < parts.length) {
+        evictedState = scanVtState(parts[first], evictedState, head, parts[first].length)
         parts[first] = ''
         first++
         head = 0
         pendingBytes -= avail
       } else {
         const drop = pendingBytes - maxBufferedBytes
-        let nextHead = head + drop
-        const code = parts[first].charCodeAt(nextHead)
-        // Avoid starting on a lone low surrogate.
-        if (code >= 0xdc00 && code <= 0xdfff && nextHead + 1 < parts[first].length) nextHead += 1
-        pendingBytes -= nextHead - head
+        const nextHead = head + drop
+        evictedState = scanVtState(parts[first], evictedState, head, nextHead)
+        pendingBytes -= drop
         head = nextHead
         if (head >= parts[first].length) {
           parts[first] = ''
@@ -180,6 +176,26 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
         }
         break
       }
+    }
+    // Advance cleanly past any partial ESC/CSI/OSC/DCS sequence or lone low surrogate
+    // left at the head after dropping leading bytes.
+    while (first < parts.length) {
+      const part = parts[first]
+      const { offset, state } = skipPartialVtSequence(part, evictedState, head)
+      evictedState = state
+      const skipped = offset - head
+      if (skipped > 0) {
+        pendingBytes -= skipped
+        head = offset
+      }
+      if (head >= part.length) {
+        parts[first] = ''
+        first++
+        head = 0
+      } else {
+        break
+      }
+      if (evictedState === 'ground') break
     }
     compact()
   }
@@ -242,6 +258,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
     }
     const wasTrunc = truncated
     truncated = false
+    evictedState = 'ground'
     if (pendingBytes === 0) return { data: '', truncated: wasTrunc }
     let data: string
     if (useQueue) {
@@ -271,6 +288,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
     pending = ''
     pendingBytes = 0
     truncated = false
+    evictedState = 'ground'
     if (frameId !== null) {
       cancelFrame(frameId)
       frameId = null

@@ -300,6 +300,29 @@ describe('TerminalPane', () => {
       useTerminalPrefsStore.getState().clearOverrides('workspace-1')
     }
   })
+
+  test('OXE-436: passes estimated initial cols/rows on start and measured FitAddon cols/rows on restart', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<TerminalPane pane={createPane()} workspaceId="workspace-1" workspaceRootPath="C:/repo" autoStart={false} />)
+    const idleBox = container.querySelector<HTMLElement>('.terminal-idle')!
+    idleBox.getBoundingClientRect = () => ({ width: 1000, height: 600 } as DOMRect)
+
+    await user.click(screen.getByLabelText('Start terminal'))
+    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1', cols: expect.any(Number), rows: expect.any(Number) })
+    ))
+    const firstCall = vi.mocked(window.oxe.terminal.start).mock.calls[0][0]
+    expect(firstCall.cols).toBeGreaterThan(80)
+    expect(firstCall.rows).toBeGreaterThan(20)
+
+    // Once TerminalView reports exact FitAddon dimensions via onResize, restart uses those exact cols/rows.
+    await user.click(screen.getByText('resize'))
+    vi.mocked(window.oxe.terminal.start).mockClear()
+    window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: 'pane-1' } }))
+    await waitFor(() => expect(window.oxe.terminal.start).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: 'pane-1', workspaceId: 'workspace-1', cols: 120, rows: 32 })
+    ))
+  })
 })
 
 function createPane(): WorkspacePane {

@@ -246,11 +246,10 @@
 }
 .terminal-view .xterm-viewport {
   background-color: transparent !important;
-  overflow-y: auto !important;
-  /* Keep wheel/trackpad targets on the viewport (not lost on host padding). */
+  /* Keep wheel/trackpad targets on the viewport (not lost on host padding).
+     xterm 6 draws its own scrollbar slider (scrollbarSlider*), so forcing a
+     legacy native overflow-y: auto scrollbar would conflict with it. */
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--tx-primary) 22%, transparent) transparent;
 }
 .terminal-view .xterm-screen {
   max-width: 100%;
