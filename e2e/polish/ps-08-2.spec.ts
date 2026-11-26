@@ -15,7 +15,7 @@ test('PS-08·2 in the app: MCP servers and skills in pt-BR cite the menu path an
     const dialog = page.getByRole('dialog', { name: 'Configurações' })
     await expect(dialog).toBeVisible()
     const nav = dialog.getByRole('navigation', { name: 'Categorias das configurações' })
-    await nav.getByRole('button', { name: /^Integrações\b/ }).first().click()
+    await nav.getByRole('button', { name: /^MCP e Skills\b/ }).first().click()
     const whereToAdd = dialog.getByTestId('tools-where-to-add')
     await expect(whereToAdd).toBeVisible()
     await expect(whereToAdd).toContainText('Ferramentas › Gerenciar servidores MCP')

@@ -882,11 +882,11 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await page.locator('.thread-timeline').evaluate(el => { el.scrollTop = 260 })
     await expect(sticky).toContainText('Show the files updated in this conversation')
     // The conversation's provider usage, live in the bottom bar, which sits below the composer instead of over it.
-    // One chip per provider in the status bar (OXE-72): this conversation's is Claude's.
-    const usage = page.getByTestId('usage-status').and(page.getByRole('button', { name: /^Claude / }))
-    // The chip shows the agent and its highest window; the windows themselves are in its accessible name.
+    // Unified Usage control in the status bar (OXE-423) consolidating all connected providers.
+    const usage = page.getByTestId('usage-status')
+    // The chip shows the peak reading; the accessible name summarizes each provider and the popover shows every window.
     await expect(usage).toContainText('40%')
-    await expect(usage).toHaveAccessibleName(/5h 40% · wk 30%/)
+    await expect(usage).toHaveAccessibleName(/Usage 40%:.*Claude 40%/)
     // Clicking the reading opens its detail above the bar, inside the window.
     await usage.click()
     const usageDetail = page.getByTestId('usage-popover')

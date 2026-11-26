@@ -1,14 +1,15 @@
 // Frozen end-to-end acceptance test for 1.5.2 OxeCode/Shell F6 (Jira OXE-100, BRD-23), in the built app
-// (OXESPACE_E2E_MOCK_NATIVE=0). Written by the planner; the executor must not edit it. Red until T36 lands.
-// Contract: Settings opens on the app scope with the 9 sections of the target in order in "Settings categories"; the
+// (OXESPACE_E2E_MOCK_NATIVE=0). Written by the planner; user-approved update (26/11, OXE-431): Integrations promoted
+// to top-level MCP and Skills, Phone and devices, and Git (11 sections in order).
+// Contract: Settings opens on the app scope with the 11 sections of the target in order in "Settings categories"; the
 // [data-ui=settings-scope] selector switches to the workspace, whose sections are General, Projects and Policy.
 import { expect, test } from '@playwright/test'
 import { launchApp, layoutAtWidth, openDemoWorkspace } from '../../helpers/launch'
 import { openSettings } from '../../helpers/settings'
 
-const SECTIONS = ['General', 'Appearance', 'Agents & permissions', 'Notifications', 'Keyboard', 'Terminal', 'Integrations', 'Data & diagnostics', 'About']
+const SECTIONS = ['General', 'Appearance', 'Agents & permissions', 'Notifications', 'Keyboard', 'Terminal', 'MCP and Skills', 'Phone and devices', 'Git', 'Data & diagnostics', 'About']
 
-test('BRD-23 in the app: nine sections and the App / workspace selector', async () => {
+test('BRD-23 in the app: 11 sections and the App / workspace selector', async () => {
   test.setTimeout(180_000)
   const { app, page, workspaceRoot } = await launchApp({ appearance: 'light', env: { OXESPACE_E2E_MOCK_NATIVE: '0' } })
   try {
@@ -19,7 +20,7 @@ test('BRD-23 in the app: nine sections and the App / workspace selector', async 
     await dialog.waitFor()
     const nav = dialog.getByRole('navigation', { name: 'Settings categories' })
     const names = async (): Promise<string[]> => (await nav.getByRole('button').all()).length ? Promise.all((await nav.getByRole('button').all()).map(async button => ((await button.getAttribute('aria-label')) ?? (await button.textContent()) ?? '').trim())) : []
-    await expect.poll(async () => (await names()).length).toBe(9)
+    await expect.poll(async () => (await names()).length).toBe(SECTIONS.length)
     ;(await names()).forEach((name, index) => expect(name.startsWith(SECTIONS[index]), `${index + 1}: ${name}`).toBe(true))
     const scope = dialog.locator('[data-ui="settings-scope"]')
     await expect(scope).toHaveCount(1)

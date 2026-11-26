@@ -303,6 +303,18 @@ test.describe.serial('brand conformance (OXE-149)', () => {
             if (await explore.count()) await explore.click()
             await page.locator('[data-ui=step], [data-ui=reasoning]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the fold showed no step'))
             await page.locator('[data-ui=working-set]').first().waitFor({ timeout: 5_000 }).catch(() => console.log('[BRAND] the working-set bar did not show'))
+            // Move the pointer away from fold/explore and let finite CSS transitions settle so BRD-25.fold.height
+            // reads final token colors instead of mid-transition hover/active alpha interpolations.
+            await page.mouse.move(0, 0)
+            await page.evaluate(async () => {
+              await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+              const finite = document.getAnimations().filter(a => a.effect?.getComputedTiming().iterations !== Infinity)
+              await Promise.race([
+                Promise.all(finite.map(a => a.finished.catch(() => undefined))),
+                new Promise<void>(resolve => setTimeout(resolve, 500))
+              ])
+              await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+            })
           } catch (error) {
             console.log(`[BRAND] could not set the anatomy state: ${(error as Error).message.split('\n')[0]}`)
           }

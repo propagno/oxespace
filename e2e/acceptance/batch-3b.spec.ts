@@ -49,10 +49,10 @@ test('#210 Settings › Tools on the real app: what the page sets reaches the ag
     for (let i = 0; i < 2 && await page.getByRole('dialog', { name: 'Settings', exact: true }).isVisible().catch(() => false); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(300) }
     await palette(page, 'Workspace settings')
     const modal = page.getByRole('dialog', { name: 'Settings', exact: true })
-    // CR OXE-296 (17/11): BRD-23 moved Tools (MCP servers and skills) to App › Integrations.
+    // CR OXE-296 (17/11) + OXE-431 (26/11, user-approved): Tools (MCP servers and skills) lives in top-level App › MCP and Skills.
     const appScope = modal.getByRole('radiogroup', { name: 'Settings scope' }).getByRole('radio', { name: 'App' })
     if (await appScope.count()) await appScope.click()
-    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^Integrations/ }).click()
+    await modal.getByRole('navigation', { name: 'Settings categories' }).getByRole('button', { name: /^MCP and Skills/ }).click()
     const tools = modal.getByTestId('tools-settings')
     await expect(tools).toBeVisible({ timeout: 10_000 })
     return tools
@@ -192,9 +192,9 @@ test('#176 Settings states, #414 the cold switch to OxeChat, and the 1.4.0 notes
       out.agentsEmpty = await settings.getByRole('button', { name: /Run health check|Health check|Check again/i }).count()
       out.agentsText = (await settings.innerText()).replace(/\s+/g, ' ').slice(0, 300)
     }
-    // CR OXE-296 (17/11): BRD-23 grouped Devices under Integrations › Phone and devices and Updates under About.
+    // CR OXE-296 (17/11) + OXE-431 (26/11, user-approved): Phone and devices is top-level; Updates lives under About.
     for (const [section, subpage, key] of [
-      ['Integrations', 'Phone and devices', 'devices'],
+      ['Phone and devices', null, 'devices'],
       ['About', null, 'updates'],
       ['Appearance', null, 'appearance'],
       ['Keyboard', null, 'keyboard']
