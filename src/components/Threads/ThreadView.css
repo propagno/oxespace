@@ -605,10 +605,10 @@
 .thread-config-switch strong, .thread-config-switch small { display: block; }
 .thread-config-switch strong { font-weight: 500; }
 .thread-config-switch small { margin-top: 3px; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-config-switch > i { position: relative; flex: none; width: 28px; height: 16px; border-radius: var(--radius-full); background: var(--bd-default); transition: background var(--duration-fast) var(--ease-standard); }
-.thread-config-switch > i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--surface-raised); box-shadow: var(--elevation-1); transition: transform var(--duration-fast) var(--ease-standard); }
-.thread-config-switch[aria-checked='true'] > i { background: var(--accent); }
-.thread-config-switch[aria-checked='true'] > i::after { transform: translateX(12px); }
+.thread-config-switch > i { position: relative; flex: none; box-sizing: border-box; width: 28px; height: 16px; border: 1px solid var(--bd-control); border-radius: var(--radius-full); background: var(--surface-sunken); transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
+.thread-config-switch > i::after { content: ''; position: absolute; top: 1px; left: 1px; width: 12px; height: 12px; border-radius: 50%; background: var(--tx-secondary); box-shadow: var(--elevation-1); transition: transform var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+.thread-config-switch[aria-checked='true'] > i { background: var(--accent); border-color: var(--accent); }
+.thread-config-switch[aria-checked='true'] > i::after { transform: translateX(12px); background: var(--tx-on-accent); }
 
 /* Quieter timeline: step groups and the turn footer read as muted metadata. */
 .thread-activity-group, .thread-activity-single { margin: 2px 0 8px; font-size: var(--fs-xs); }
