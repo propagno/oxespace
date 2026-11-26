@@ -103,7 +103,7 @@ export function createRevealScheduler(onReveal: () => void): { schedule: () => v
 export interface WorkspaceSurfaceVisibilityInput {
   workspaceId: string
   activeWorkspaceId: string | null
-  applicationView: 'code' | 'thread' | 'query'
+  applicationView: string
   paneIds: readonly string[]
   maximizedPaneId: string | null
   activePaneId: string | null
