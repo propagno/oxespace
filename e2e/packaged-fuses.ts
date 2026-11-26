@@ -43,9 +43,12 @@ const { spawn } = require('node:child_process')
 const { writeFileSync } = require('node:fs')
 const out = process.env.B13_FAKE_CLAUDE_OUT
 const argv = process.argv.slice(2)
-// The app also asks the CLI for its version (agent detection, the status-hook installer), and that call can come
-// before the launch. Answer it like Claude Code and leave the result alone: only the launch is under test.
-if (argv[0] === '--version' || argv[0] === '-v') { process.stdout.write('2.1.0 (Claude Code)\n'); process.exit(0) }
+// The app also probes the CLI (--version, auth status, mcp, doctor …) during boot/detection, and those calls can
+// arrive before the pane launch. Answer them like Claude Code and leave the result alone: only the launch is under test.
+if (['--version', '-v', '--help', '-h', 'mcp', 'doctor', 'login', 'logout', 'auth'].includes(argv[0])) {
+  process.stdout.write(argv[0] === 'auth' && argv[1] === 'status' ? JSON.stringify({ loggedIn: false }) + '\n' : '2.1.0 (Claude Code)\n')
+  process.exit(0)
+}
 const result = { argv, env: { ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE ?? null }, answers: {} }
 const save = () => writeFileSync(out, JSON.stringify(result))
 const at = argv.indexOf('--mcp-config')
