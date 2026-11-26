@@ -247,7 +247,11 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
   async getCredits(force = false): Promise<AgentCreditsSnapshot> {
     if (!force && this.cache && this.now() - this.cache.at < TTL_MS) return this.cache.value
     // Rate limited: answer from the last reading (the dispatcher marks it stale) until the window passes.
-    if (this.now() < this.blockedUntil && this.cache) return this.cache.value
+    if (this.now() < this.blockedUntil && this.cache) {
+      return this.cache.value.retryAtMs === this.blockedUntil
+        ? this.cache.value
+        : { ...this.cache.value, retryAtMs: this.blockedUntil }
+    }
     const value = await this.read().catch((error: unknown) => ({ ...emptyAgentCredits(this.provider), error: error instanceof Error ? error.message : String(error) }))
     this.cache = { value, at: this.now() }
     return value
@@ -286,7 +290,7 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
       const plan = await this.post(ANTIGRAVITY_PLAN_URL, { metadata: { ideType: 'ANTIGRAVITY', platform: 'PLATFORM_UNSPECIFIED', pluginType: 'GEMINI' } }, headers).catch(() => null)
       if (plan?.status === 429) {
         this.applyBackoff(plan.retryAfter)
-        return { ...base, error: 'quota endpoint 429' }
+        return { ...base, error: 'quota endpoint 429', retryAtMs: this.blockedUntil }
       }
       if (plan?.ok) {
         this.account = { label: antigravityPlan(plan.data), project: antigravityProject(plan.data), token: signIn.accessToken }
@@ -298,9 +302,10 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
     const quota = await this.post(ANTIGRAVITY_QUOTA_URL, project ? { project } : {}, headers)
     if (quota.status === 429) {
       this.applyBackoff(quota.retryAfter)
-      return { ...base, error: 'quota endpoint 429' }
+      return { ...base, error: 'quota endpoint 429', retryAtMs: this.blockedUntil }
     }
     this.backoffMs = 0
+    this.blockedUntil = 0
     if (quota.status === 401 || quota.status === 403) this.signIn = null
     if (!quota.ok) return { ...base, error: `quota endpoint ${quota.status}` }
 
@@ -314,27 +319,46 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
     }
 
     let windows = summaryWindows
+    let supplementedGeminiFromUserQuota = false
     // When the summary omits Gemini buckets (e.g. only Claude and GPT returned) and we have the bound project,
     // supplement/fallback via v1internal:retrieveUserQuota so Gemini usage is still measured (OXE-420).
     if (!summaryWindows.some(window => window.group === 'gemini') && project) {
       const detail = await this.post(ANTIGRAVITY_USER_QUOTA_URL, { project }, headers).catch(() => null)
       if (detail?.status === 429) {
         this.applyBackoff(detail.retryAfter)
-        if (!summaryWindows.length) return { ...base, error: 'quota endpoint 429' }
+        if (!summaryWindows.length) return { ...base, error: 'quota endpoint 429', retryAtMs: this.blockedUntil }
       } else {
         if (detail?.status === 401) this.signIn = null
         if (detail?.ok) {
           const fallback = antigravityUserQuotaWindows(detail.data, this.now())
           const supplement = summaryWindows.length ? fallback.filter(window => window.group === 'gemini') : fallback
-          if (supplement.length) windows = mergeOrderedWindows([...supplement, ...summaryWindows])
+          if (supplement.length) {
+            windows = mergeOrderedWindows([...supplement, ...summaryWindows])
+            supplementedGeminiFromUserQuota = supplement.some(window => window.group === 'gemini')
+          }
         }
       }
     }
 
+    const geminiWeeklyUnavailable = supplementedGeminiFromUserQuota
+      && windows.some(window => window.group === 'gemini' && window.kind === 'session')
+      && !windows.some(window => window.group === 'gemini' && window.kind === 'weekly')
+
     // The bar shows the first group (Gemini when the plan has it): the weekly window, else the five-hour one.
     const first = windows[0]?.group
     const display = windows.find(window => window.group === first && window.kind === 'weekly') ?? windows[0] ?? null
-    return { provider: this.provider, available: display !== null, installed: true, planLabel: account?.label ?? null, display, windows, error: null, source: 'oauth', observedAtMs: this.now() }
+    return {
+      provider: this.provider,
+      available: display !== null,
+      installed: true,
+      planLabel: account?.label ?? null,
+      display,
+      windows,
+      error: null,
+      source: 'oauth',
+      observedAtMs: this.now(),
+      ...(geminiWeeklyUnavailable ? { geminiWeeklyUnavailable: true } : {})
+    }
   }
 
   private applyBackoff(retryAfterHeader: string | null): void {

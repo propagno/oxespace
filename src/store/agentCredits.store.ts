@@ -13,11 +13,16 @@ interface AgentCreditsState {
   byProvider: Partial<Record<AgentProvider, AgentCreditsSnapshot>>
   loading: Partial<Record<AgentProvider, boolean>>
   refresh: (provider: AgentProvider, force?: boolean) => Promise<void>
+  setSnapshots: (updates: Partial<Record<AgentProvider, AgentCreditsSnapshot>>) => void
 }
 
 export const useAgentCreditsStore = create<AgentCreditsState>((set, get) => ({
   byProvider: {},
   loading: {},
+
+  setSnapshots: (updates) => {
+    set((s) => ({ byProvider: { ...s.byProvider, ...updates } }))
+  },
 
   refresh: async (provider, force = false) => {
     if (get().loading[provider]) return

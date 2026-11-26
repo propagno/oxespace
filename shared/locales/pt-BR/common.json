@@ -452,8 +452,10 @@
     }
   },
   "usage": {
+    "quotaAvailable": "Cota disponível",
     "resetUnknown": "Horário de renovação desconhecido",
     "resetting": "Renovando",
+    "windowEnded": "Janela encerrada",
     "resetsIn": "Renova em {{time}}",
     "session": "Sessão atual",
     "week": "Semana atual",
@@ -464,9 +466,18 @@
       "account": "Cota da conta inteira"
     },
     "checked": "verificado às {{time}}",
+    "checkedPast": "verificado em {{time}} (há {{age}})",
     "lastKnown": "Última leitura conhecida",
     "subscription": "Assinatura",
     "stale": "Não foi possível atualizar. Mostrando a última leitura conhecida.",
+    "staleLocal": "Mostrando o uso da última sessão local do Codex.",
+    "windowsExpired": "Cota renovada desde a última sessão local.",
+    "antigravityGeminiWeeklyHint": "O limite semanal do Gemini atualmente só aparece no /usage do agy.",
+    "error": {
+      "rateLimitedRetry": "Limite de consultas atingido — nova tentativa em ~{{minutes}} min.",
+      "rateLimited": "Limite de consultas atingido — tente novamente em breve.",
+      "oauthExpired": "Sessão expirada — execute claude para renovar o login."
+    },
     "notDetected": "Não detectado nesta máquina.",
     "noQuota": "Nenhuma cota informada.",
     "ghMissing": "gh CLI não detectado.",

@@ -1,9 +1,10 @@
-import { Bot, Gauge, Orbit, Sparkles } from 'lucide-react'
-import { Suspense, useEffect, useState, type ReactElement } from 'react'
+import { Gauge } from 'lucide-react'
+import { Suspense, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { AgentProvider } from '../../../shared/types/agent'
 import type { AgentCreditsSnapshot, CreditsWindow } from '../../../shared/types/agentCredits'
 import { useAgentCreditsStore } from '../../store/agentCredits.store'
 import { Popover, cx } from '../../ui'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import styles from './AppStatusBar.module.css'
 import { i18n } from '../../i18n'
 import { chunk, lazyFrom } from '../../lib/chunk'
@@ -15,13 +16,23 @@ const tc = i18n.getFixedT(null, 'code')
 export const USAGE_POPOVER_CHUNK = chunk(() => import('./UsagePopover'))
 const UsagePopover = lazyFrom(USAGE_POPOVER_CHUNK, module => module.UsagePopover)
 
-/** How often the status bar reads the provider's usage while the window is visible. */
+/** How often the status bar reads the active provider's usage while the window is visible. */
 export const USAGE_POLL_MS = 60_000
+/** How often inactive providers are polled in the background (reduces idle OAuth 429s). */
+export const USAGE_BACKGROUND_POLL_MS = 5 * 60_000
 
 export { USAGE_PROVIDERS, isUsageProvider, type UsageProvider } from './usageProviders'
 
 export const providerName = (provider: AgentProvider) => provider === 'codex' ? 'Codex' : provider === 'antigravity' ? 'Antigravity' : 'Claude'
-export const PROVIDER_ICONS = { claude: Sparkles, codex: Bot, antigravity: Orbit } as const satisfies Record<UsageProvider, unknown>
+
+/** True when Antigravity only has a Gemini session window (no Gemini weekly bucket reported by the API). */
+export function hasMissingAntigravityGeminiWeekly(snapshot: AgentCreditsSnapshot | null | undefined): boolean {
+  if (!snapshot || snapshot.provider !== 'antigravity') return false
+  if (snapshot.geminiWeeklyUnavailable) return true
+  const windows = snapshot.windows ?? []
+  return windows.some(window => window.group === 'gemini' && window.kind === 'session')
+    && !windows.some(window => window.group === 'gemini' && window.kind === 'weekly')
+}
 
 /** "1h 20m", "35m", "2d 4h": the time left until a window resets. Returns null once the reset time has passed. */
 export function formatResetIn(resetsAtMs: number | null, now: number): string | null {
@@ -95,9 +106,14 @@ export function usageText(snapshot: AgentCreditsSnapshot, now: number): { short:
   })
   const elapsedMs = Math.max(0, now - (snapshot.observedAtMs ?? now))
   const ageSeconds = Math.round(elapsedMs / 1000)
+  const isLocal = snapshot.source === 'local-session'
   const ageLine = ageSeconds < 60
-    ? (snapshot.stale ? tc('workspace.usage.staleSeconds', { age: ageSeconds }) : tc('workspace.usage.readSeconds', { age: ageSeconds }))
-    : (snapshot.stale ? tc('workspace.usage.staleAge', { age: formatUsageAge(elapsedMs) }) : tc('workspace.usage.readAge', { age: formatUsageAge(elapsedMs) }))
+    ? (snapshot.stale
+      ? tc(isLocal ? 'workspace.usage.localStaleSeconds' : 'workspace.usage.staleSeconds', { age: ageSeconds })
+      : tc('workspace.usage.readSeconds', { age: ageSeconds }))
+    : (snapshot.stale
+      ? tc(isLocal ? 'workspace.usage.localStaleAge' : 'workspace.usage.staleAge', { age: formatUsageAge(elapsedMs) })
+      : tc('workspace.usage.readAge', { age: formatUsageAge(elapsedMs) }))
   const group = groupName(barGroup, groups)
   const short = bar.map(window => `${label(window)} ${window.usedPct}%`).join(' · ')
   return {
@@ -125,23 +141,35 @@ export function UsageStatus({ provider, activeProvider, providers }: UsageStatus
   const refresh = useAgentCreditsStore(state => state.refresh)
   const polled: readonly UsageProvider[] = provider ? [provider] : (providers ?? USAGE_PROVIDERS)
   const pollKey = polled.join(',')
+  const primaryProvider: UsageProvider | null = provider ?? activeProvider ?? null
+  const lastPolledRef = useRef<Partial<Record<UsageProvider, number>>>({})
   // The moment the "resets in" text counts from: set when the chip mounts and at each later reading (OXE-310: never
   // Date.now() while rendering, which made the render impure).
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!window.oxe?.agentCredits) return
     const targets = pollKey.split(',').filter(Boolean) as UsageProvider[]
-    const read = () => {
+    const read = (currentNow: number) => {
       if (document.visibilityState === 'hidden') return
-      for (const each of targets) void refresh(each)
+      for (const each of targets) {
+        const last = lastPolledRef.current[each]
+        const cadence = each === primaryProvider ? USAGE_POLL_MS : USAGE_BACKGROUND_POLL_MS
+        if (last !== undefined && currentNow - last < cadence) continue
+        lastPolledRef.current[each] = currentNow
+        void refresh(each)
+      }
     }
-    const tick = () => { setNow(Date.now()); read() }
-    read()
+    const tick = () => {
+      const currentNow = Date.now()
+      setNow(currentNow)
+      read(currentNow)
+    }
+    read(Date.now())
     const timer = window.setInterval(tick, USAGE_POLL_MS)
     window.addEventListener('focus', tick)
     document.addEventListener('visibilitychange', tick)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', tick); document.removeEventListener('visibilitychange', tick) }
-  }, [pollKey, refresh])
+  }, [pollKey, primaryProvider, refresh])
 
   const warmPopover = (): void => { void USAGE_POPOVER_CHUNK.load().catch(() => undefined) }
 
@@ -160,9 +188,8 @@ export function UsageStatus({ provider, activeProvider, providers }: UsageStatus
     // Snapshots come over IPC from an undocumented endpoint: a reading without windows shows nothing, never throws.
     if (!snapshot?.available || !Array.isArray(snapshot.windows) || !snapshot.windows.length) return null
     const { short, detail, peak: providerPeak } = usageText(snapshot, now)
-    const Icon = PROVIDER_ICONS[provider]
     const clamped = clampPct(providerPeak)
-    icon = <Icon size={11} aria-hidden="true" />
+    icon = <AgentProviderIcon provider={provider} size={14} />
     chipText = `${providerName(provider)} ${clamped}%`
     peak = providerPeak
     stale = Boolean(snapshot.stale)
@@ -182,7 +209,10 @@ export function UsageStatus({ provider, activeProvider, providers }: UsageStatus
     if (!readings.length) return null
     peak = Math.max(0, ...readings.map(item => item.text.peak))
     const clamped = clampPct(peak)
-    stale = readings.some(item => Boolean(item.snapshot.stale))
+    // Do not let an inactive stale provider turn the unified bar orange while fresh readings exist (OXE-439).
+    const hasFresh = readings.some(item => !item.snapshot.stale)
+    const activeReading = activeProvider ? readings.find(item => item.snapshot.provider === activeProvider) : undefined
+    stale = hasFresh ? Boolean(activeReading?.snapshot.stale) : readings.every(item => Boolean(item.snapshot.stale))
     const summary = readings.map(item => `${providerName(item.snapshot.provider)} ${clampPct(item.text.peak)}%`).join(', ')
     const detail = readings.map(item => item.text.detail).join('\n\n')
     const labelText = tc('workspace.usage.label')

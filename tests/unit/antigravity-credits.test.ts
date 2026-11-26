@@ -176,10 +176,10 @@ describe('Antigravity quota in the usage reading', () => {
     let now = NOW
     let limited = true
     const busy = service({ store: [stored('2026-11-12T23:00:00Z')], quota: () => limited ? answer({}, 429, { 'retry-after': '120' }) : answer(summary), now: () => now })
-    expect(await busy.credits.getCredits()).toMatchObject({ available: false, error: 'quota endpoint 429' })
+    expect(await busy.credits.getCredits()).toMatchObject({ available: false, error: 'quota endpoint 429', retryAtMs: NOW + 120_000 })
     limited = false
     now += 60_000
-    expect((await busy.credits.getCredits(true)).available).toBe(false)
+    expect(await busy.credits.getCredits(true)).toMatchObject({ available: false, retryAtMs: NOW + 120_000 })
     now += 61_000
     expect((await busy.credits.getCredits(true)).available).toBe(true)
   })
@@ -346,7 +346,7 @@ describe('Antigravity quota in the usage reading', () => {
       plan: () => limited ? answer({}, 429, { 'retry-after': '120' }) : answer(plan),
       now: () => now
     })
-    expect(await planBusy.credits.getCredits()).toMatchObject({ available: false, error: 'quota endpoint 429' })
+    expect(await planBusy.credits.getCredits()).toMatchObject({ available: false, error: 'quota endpoint 429', retryAtMs: NOW + 120_000 })
     expect(planBusy.request).toHaveBeenCalledTimes(1)
     limited = false
     now += 60_000
@@ -370,5 +370,22 @@ describe('Antigravity quota in the usage reading', () => {
     await fallbackBusy.credits.getCredits(true)
     // Blocked by 429 backoff from supplemental retrieveUserQuota: no extra network requests during wait.
     expect(fallbackBusy.request).toHaveBeenCalledTimes(3)
+  })
+
+  // OXE-439: retrieveUserQuota only reports Gemini 5h session windows on current builds; surface honest hint metadata.
+  test('marks geminiWeeklyUnavailable when retrieveUserQuota supplements Gemini session without weekly window', async () => {
+    const { credits } = service({
+      store: [stored('2026-11-12T22:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: 'proj-session-only' }),
+      quota: () => answer(summary),
+      userQuota: () => answer({
+        buckets: [
+          { modelId: 'gemini-4-neon', tokenType: 'REQUESTS', remainingFraction: 0.97, resetTime: '2026-11-12T23:30:00Z' }
+        ]
+      })
+    })
+    const snap = await credits.getCredits()
+    expect(snap.geminiWeeklyUnavailable).toBe(true)
+    expect(snap.windows.map(w => `${w.group}:${w.kind}`)).toEqual(['gemini:session', 'claude-gpt:session', 'claude-gpt:weekly'])
   })
 })

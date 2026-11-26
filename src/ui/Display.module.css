@@ -149,6 +149,7 @@
 /* Meter */
 .meter { display: grid; gap: var(--space-1); min-width: 0; }
 .meterHead { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--fs-xs); color: var(--tx-secondary); font-variant-numeric: tabular-nums; }
+.meterHead > span:last-child { white-space: nowrap; flex-shrink: 0; }
 .meterTrack { height: 6px; border-radius: var(--radius-full); background: var(--fill-pressed); overflow: hidden; }
 .meterFill { width: 100%; height: 100%; border-radius: inherit; background: var(--accent); transform-origin: left center; transform: scaleX(var(--meter-scale)); transition: transform var(--duration-base) var(--ease-standard); }
 .meterFill.warning { background: var(--intent-warning-solid); }
