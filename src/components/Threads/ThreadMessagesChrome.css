@@ -8,7 +8,7 @@
   flex-direction: column;
   gap: var(--space-2);
   width: fit-content;
-  max-width: min(76%, 600px);
+  max-width: min(78%, 640px);
   margin-left: auto;
   margin-right: 0;
   padding: var(--space-3) var(--space-4);

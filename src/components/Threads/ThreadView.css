@@ -104,14 +104,14 @@
 .thread-turn { margin-bottom: 20px; }
 .thread-turn:last-child { margin-bottom: 0; }
 .thread-message { font-size: var(--fs-md); font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; margin: 0 0 20px; }
-.thread-message-actions { display: flex; justify-content: flex-start; gap: var(--space-1); margin-top: var(--space-2); }
+.thread-message-actions { display: flex; justify-content: flex-end; gap: var(--space-1); margin-top: var(--space-2); }
 .thread-view .thread-message-actions button { display: inline-flex; justify-content: center; width: var(--control-sm); height: var(--control-sm); padding: 0; color: var(--tx-muted); border: 0; border-radius: var(--radius-sm); }
 .thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--fill-hover); }
-.thread-message-assistant { position: relative; padding-right: 0; }
-.thread-message-assistant .thread-message-actions { position: static; margin-top: var(--space-2); opacity: 0.6; transition: opacity var(--duration-fast) var(--ease-standard); }
+.thread-message-assistant { position: relative; padding-right: 36px; }
+.thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 /* The closing answer of a turn reads as clean prose on the canvas, with compact actions. */
-.thread-message-assistant.is-final-response { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.thread-message-assistant.is-final-response .thread-message-actions { opacity: 0.72; }
+.thread-message-assistant.is-final-response { padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; }
 .thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: var(--control-sm); min-width: var(--control-sm); padding: 0; }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
 .thread-message-assistant:hover .thread-message-actions, .thread-message-assistant:focus-within .thread-message-actions { opacity: 1; }
