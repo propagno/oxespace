@@ -18,10 +18,9 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 import { useChangedFilesCount } from '../../hooks/useChangedFilesCount'
-import { lazyFrom } from '../../lib/chunk'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import {
   CHANGES_PANEL_CHUNK,
-  CODE_SIDE_CHAT_CHUNK,
   INTEGRATIONS_STATUS_CHIPS_CHUNK,
   preloadPanels,
   WORKSPACE_ANDROID_PANEL_CHUNK,
@@ -76,8 +75,8 @@ function prefetchPanelChunks(): void {
 }
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
 const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
-// Side Chat only opens on Ctrl+. so keeping it (and sideChatStore) in its own chunk preserves the renderer boot bundle budget (OXE-466).
-const CodeSideChatDrawer = lazyFrom(CODE_SIDE_CHAT_CHUNK, (module) => module.CodeSideChatDrawer)
+// Side Chat only opens on Ctrl+. so keeping it (and sideChatStore) in its own chunk preserves the boot & workspace bundle budgets (OXE-466).
+const CodeSideChatDrawer = lazyFrom(chunk(() => import('../Threads/side/CodeSideChatDrawer')), (module) => module.CodeSideChatDrawer)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { useWorkspaceRootAvailable, WorkspaceMissingRoot } from './WorkspaceMissingRoot'
 import './CodeChrome.css'
