@@ -294,7 +294,6 @@ export function schemeColorRoles(scheme: ColorScheme, mode: Mode, surface: Surfa
   roles['border-focus'] = accentScale[8]
   roles['text-accent'] = accentScale[10]
   roles['text-on-accent'] = light ? '#ffffff' : accentScale[0]
-  roles['brand-mark'] = light ? accentScale[8] : accentScale[9]
 
   // 2. Apply scheme surface, fill, border, text & terminal tones (if distinct from Minimal default).
   const tone = resolveTone(def, mode, surface)
@@ -318,6 +317,7 @@ export function schemeColorRoles(scheme: ColorScheme, mode: Mode, surface: Surfa
     roles['text-secondary'] = tone.textSecondary
     roles['text-muted'] = tone.textMuted
     roles['text-disabled'] = tone.textDisabled
+    roles['brand-mark'] = tone.textPrimary
     roles['syn-cm'] = tone.textMuted
     roles['syn-pun'] = tone.textSecondary
   }

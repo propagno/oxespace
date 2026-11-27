@@ -100,8 +100,8 @@ export function surfaceColorRoles(mode: Mode, surface: SurfaceStyle): ColorRoles
     'accent-soft-hover': s(accent, 4),
     'accent-border': s(accent, 7),
     'focus-ring': s(accent, 9),
-    // Brand semantic roles aligned to Minimal accent & amber (retained for cross-platform contracts).
-    'brand-mark': light ? s(accent, 9) : s(accent, 10),
+    // Brand semantic roles: monochrome Minimal ink for the logo/loader; amber for attention (retained for cross-platform contracts).
+    'brand-mark': textPrimary,
     'brand-sun': s(p.amber, 9),
     ...intent('success'),
     ...intent('warning'),

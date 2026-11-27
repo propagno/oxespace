@@ -101,7 +101,7 @@
   color: inherit;
 }
 
-/* Variants: neutral stays calm and achromatic; Mandacaru caatinga and sertão sun stay semantic. */
+/* Variants: neutral stays calm and achromatic; accent and attention amber stay semantic. */
 .chip:where([data-variant='neutral'])[data-pressed='true'] {
   background: var(--fill-selected);
   border-color: var(--bd-strong);

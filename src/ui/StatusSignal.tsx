@@ -3,14 +3,14 @@ import { cx } from './cx'
 import styles from './StatusSignal.module.css'
 
 /**
- * The seven state signals of Mandacaru Noite (docs/design/brand.md › Icons and signals): the same shape for the same
+ * The seven state signals (docs/design/brand.md › Icons and signals): the same shape for the same
  * state everywhere (sidebar, pane header, phone, notifications). Shape carries the meaning, so it reads without color
  * (forced colors, color blindness); color only confirms it.
  *
- * needs-you    full sun with a ring (--attn): the only place the sun appears
- * working      a caatinga arc that turns (slower, not frozen, with reduced motion)
+ * needs-you    amber disc with a ring (--attn)
+ * working      an accent arc that turns (slower, not frozen, with reduced motion)
  * failed       a disc with an exclamation mark
- * done         a caatinga disc with a check
+ * done         an accent disc with a check
  * waiting      a neutral ring: stopped, waiting for input
  * interrupted  a ring with a square: stopped by someone
  * unconfirmed  a dashed ring: state not known yet (reconnecting, not reported)

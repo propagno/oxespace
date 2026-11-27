@@ -172,7 +172,7 @@ val LightOxeColors = OxeColors(
     accentSoftHover = Color(0xFFD9ECF7),
     accentBorder = Color(0xFFA4CBE2),
     focusRing = Color(0xFF1F6284),
-    brandMark = Color(0xFF1F6284),
+    brandMark = Color(0xFF222222),
     brandSun = Color(0xFFBA9140),
     intentSuccessBg = Color(0xFFEBF3E5),
     intentSuccessBgHover = Color(0xFFE1EDD8),
@@ -298,7 +298,7 @@ val DarkOxeColors = OxeColors(
     accentSoftHover = Color(0xFF152833),
     accentBorder = Color(0xFF254A5F),
     focusRing = Color(0xFF6DADD2),
-    brandMark = Color(0xFF80BDE1),
+    brandMark = Color(0xFFD1D1D1),
     brandSun = Color(0xFFDEB464),
     intentSuccessBg = Color(0xFF192112),
     intentSuccessBgHover = Color(0xFF1E2A15),
@@ -402,8 +402,8 @@ object OxeIdentity {
     val providerGrok = Color(0xFF6B6B6B)
     val providerCustom = Color(0xFF64748B)
     val avatars = listOf(Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFFD97706), Color(0xFF059669), Color(0xFF0891B2))
-    val logoTile = Color(0xFF181818)
-    val logoMark = Color(0xFF3FBF82)
+    val logoTile = Color(0xFF212121)
+    val logoMark = Color(0xFFD8D8D8)
 }
 
 /** Spacing in 4 dp steps, plus the half steps 2 and 6 (space0_5, space1_5). */

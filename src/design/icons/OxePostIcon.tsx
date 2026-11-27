@@ -1,7 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85, CR-02): OxePost mode, a request leaving a source as an arrow.
-// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
+// Obsidian Minimal mode icon (OXE-469): OxePost, a clean API request arrow leaving an endpoint circle.
+// 24 px grid, 2 px stroke, round caps and joins.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function OxePostIcon({ size = 24, title, ...rest }: Props): ReactElement {

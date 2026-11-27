@@ -1,4 +1,4 @@
-/* A quiet hairline 1px divider with a 24px grab area; nearly invisible at rest, illuminating in Mandacaru accent on hover/focus. */
+/* A quiet hairline 1px divider with a 24px grab area; nearly invisible at rest, illuminating in accent on hover/focus. */
 .splitter { position: relative; flex: none; z-index: calc(var(--layer-sticky) + 1); background: var(--bd-subtle); touch-action: none; transition: background var(--duration-fast) var(--ease-standard); }
 .splitter::after { content: ''; position: absolute; }
 .splitter[data-orientation='vertical'] { width: 1px; cursor: col-resize; }

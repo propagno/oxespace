@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Launcher background, the night tile of resources/icon.svg (LOGO.tile). In-app colors come from the generated theme. -->
-    <color name="brand_night">#181818</color>
+    <!-- Launcher background, the monochrome Minimal tile of resources/icon.svg (LOGO.tile). In-app colors come from the generated theme. -->
+    <color name="brand_night">#212121</color>
 </resources>

@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  /* BRD-09: the status bar is the small bar, 24 px in both densities. */
+  /* BRD-09 + kepano/obsidian-minimal status-bar.scss: 24 px bar, hairline divider, quiet muted ink brightening on hover. */
   height: var(--bar-sm);
   padding: 0 var(--space-3);
   border-top: 1px solid var(--bd-subtle);
@@ -16,13 +16,18 @@
   color: var(--tx-muted);
   font-family: var(--font-ui);
   font-size: var(--fs-2xs);
+  transition: color var(--duration-base) var(--ease-linear);
 }
+.bar:hover,
+.bar:focus-within { color: var(--tx-secondary); }
 
 .group { display: flex; align-items: center; gap: var(--space-3); min-width: 0; overflow: hidden; }
 
-.item { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.strong { min-width: 0; color: var(--tx-primary); }
-.branchName { font-family: var(--font-mono); font-weight: var(--weight-semibold); color: var(--tx-primary); }
+.item { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color var(--duration-base) var(--ease-linear); }
+.strong { min-width: 0; color: var(--tx-muted); }
+.bar:hover .strong,
+.bar:focus-within .strong { color: var(--tx-primary); }
+.branchName { font-family: var(--font-mono); font-weight: var(--weight-semibold); color: inherit; }
 .workspaceName { overflow: hidden; max-width: 24ch; font-weight: var(--weight-medium); text-overflow: ellipsis; white-space: nowrap; }
 .path { overflow: hidden; max-width: 36ch; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .connected { color: var(--intent-success-fg); }

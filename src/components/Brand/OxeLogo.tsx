@@ -9,11 +9,11 @@ interface OxeLogoProps {
 }
 
 /**
- * The OXESpace mark, Ramo: a mandacaru in five solid columns (a task that
- * splits into agents).
+ * The OXESpace mark, Mandacaru Ramo: five solid columns in monochrome Obsidian Minimal style
+ * (the preserved brand symbol, representing a task that splits into agents).
  *
- * variant="full"     — caatinga cactus on the night tile (app icon, title bar)
- * variant="compact"  — cactus in the current text color, no tile
+ * variant="full"     — monochrome Ramo mark on the dark Minimal tile (app icon, title bar)
+ * variant="compact"  — monochrome Ramo mark in the current text color, no tile
  * variant="wordmark" — compact mark + "oxespace"
  * variant="hero"     — tile + wordmark + tagline, for empty states
  */

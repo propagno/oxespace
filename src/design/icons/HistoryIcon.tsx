@@ -1,7 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85, CR-02): History (time travel) as a scrubber, a track with ticks and a filled handle. Not a clock.
-// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
+// Obsidian Minimal mode icon (OXE-469): History (time travel) as a clean horizontal scrubber with ticks and handle. Not a clock.
+// 24 px grid, 2 px stroke, round caps and joins.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function HistoryIcon({ size = 24, title, ...rest }: Props): ReactElement {

@@ -1,7 +1,7 @@
 import type { ReactElement, SVGProps } from 'react'
 
-// Mandacaru own icon (T85, CR-02): OxeChat mode, a speech bubble with a cactus inside.
-// Approved drawing from playground icons.ts @718ddfcf, 24 px grid, 2 px stroke.
+// Obsidian Minimal mode icon (OXE-469): OxeChat, a clean rounded speech bubble with two subtle text lines.
+// 24 px grid, 2 px stroke, round caps and joins.
 type Props = SVGProps<SVGSVGElement> & { size?: number; title?: string }
 
 export function OxeChatIcon({ size = 24, title, ...rest }: Props): ReactElement {
@@ -21,8 +21,8 @@ export function OxeChatIcon({ size = 24, title, ...rest }: Props): ReactElement 
       {...rest}
     >
       {title ? <title>{title}</title> : null}
-      <path d="M4 5h16v11H11l-5 4v-4H4z" />
-      <path d="M12 9v4M12 11h-2.5V9.5M12 10.5h2.5V9" />
+      <path d="M21 14a2 2 0 0 1-2 2H7l-4 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 8.5h8M8 12h5" />
     </svg>
   )
 }

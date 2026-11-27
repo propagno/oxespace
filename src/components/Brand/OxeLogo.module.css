@@ -28,7 +28,7 @@
 }
 
 .mark { flex: none; display: block; }
-/* The app icon's colors come from the --logo-* tokens (src/design/tokens/palette.ts › LOGO); inline, the cactus takes the text color. */
+/* Monochrome Minimal logo colors come from the --logo-* tokens (src/design/tokens/palette.ts › LOGO); inline, the mark takes currentColor. */
 .tile { fill: var(--logo-tile); }
 /* Dark theme only (OXE-208): a 1-unit inner outline so the tile reads on the dark canvas. The stroke is 2 wide and clipped
    to the tile's own shape (rx = TILE_RADIUS, src/design/brand.ts), so only its inner half shows. */

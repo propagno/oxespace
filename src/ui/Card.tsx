@@ -18,7 +18,7 @@ export interface CardProps extends Omit<HTMLAttributes<HTMLElement>, 'onClick'> 
 }
 
 /**
- * A surface container built exclusively from Mandacaru surface, border, radius, and spacing tokens.
+ * A surface container built exclusively from Obsidian Minimal surface, border, radius, and spacing tokens.
  */
 export function Card({
   surface = 'raised',

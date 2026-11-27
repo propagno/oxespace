@@ -209,7 +209,7 @@ export function Spinner({ label = i18n.t('ui.loading'), size = 'md', decorative 
 
 /**
  * A spinner with a short line of text, for a panel or list whose content is on its way. `brand` is for a whole view
- * that takes a while: the mandacaru loader, centered, above the text.
+ * that takes a while: the quiet Minimal circular loader, centered, above the text.
  */
 export function LoadingState({ label = i18n.t('ui.loadingEllipsis'), brand = false }: { label?: string; brand?: boolean }): ReactElement {
   return brand

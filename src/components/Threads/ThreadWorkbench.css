@@ -81,7 +81,7 @@
   border-bottom: 1px solid var(--bd-subtle);
   background: var(--surface-chrome);
 }
-/* Consolidated hairline tab strip for Auxiliary Pane (OXE-464): muted inactive tabs, 2px Mandacaru active underline. */
+/* Consolidated hairline tab strip for Auxiliary Pane (OXE-464): muted inactive tabs, 2px accent active underline. */
 .thread-aux-tabs {
   display: flex;
   align-items: stretch;
