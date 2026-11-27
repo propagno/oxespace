@@ -15,6 +15,7 @@ import { useNavigationSearch } from '../Navigation/useNavigationSearch'
 import { SidebarIntegrationRow } from './SidebarIntegrationRow'
 import { WorkspaceGroup } from './WorkspaceGroup'
 import { PaneSessionRow } from './PaneSessionRow'
+import { RemoteHostsSection } from './RemoteHostsSection'
 import { useAgentStore } from '../../store/agent.store'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -325,6 +326,7 @@ export function Sidebar({
             )
           })
         )}
+        <RemoteHostsSection activeWorkspaceId={activeWorkspaceId} onActivatePane={activatePane} />
       </nav>
       <SidebarFooterBar className="nav-rail-footer" context={panelMenu ? railContext : undefined} />
       </div>

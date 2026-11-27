@@ -2923,5 +2923,62 @@
     },
     "unreadableTitle": "Não foi possível ler os contêineres",
     "unreadableBody": "O serviço de contêineres não respondeu. Confira se o Docker ou o Podman está instalado e rodando e tente de novo."
+  },
+  "remoteHosts": {
+    "title": "Hosts SSH remotos",
+    "addHost": "Adicionar host SSH remoto",
+    "importConfig": "Importar de ~/.ssh/config",
+    "emptyHint": "Adicione um host remoto ou importe de ~/.ssh/config para abrir terminais SSH aqui.",
+    "selectWorkspaceFirst": "Selecione um workspace antes de abrir um terminal SSH remoto.",
+    "importNone": "Nenhum novo host SSH encontrado em ~/.ssh/config.",
+    "importedCount_one": "{{count}} host SSH importado de ~/.ssh/config.",
+    "importedCount_many": "{{count}} hosts SSH importados de ~/.ssh/config.",
+    "importedCount_other": "{{count}} hosts SSH importados de ~/.ssh/config.",
+    "openTerminal": "Abrir terminal remoto em {{name}}",
+    "reconnect": "Reconectar terminal SSH remoto",
+    "removeHost": "Remover {{name}}",
+    "status": {
+      "idle": "Ocioso",
+      "connecting": "Conectando",
+      "connected": "Conectado",
+      "disconnected": "Desconectado",
+      "error": "Erro",
+      "unpinned": "Não verificado"
+    },
+    "dialog": {
+      "title": "Adicionar host SSH remoto",
+      "description": "Conecte-se a um host Linux ou macOS remoto com verificação SHA-256 da chave do host.",
+      "nameLabel": "Nome de exibição",
+      "namePlaceholder": "prod-api",
+      "hostLabel": "Host",
+      "hostPlaceholder": "10.0.0.20",
+      "portLabel": "Porta",
+      "portPlaceholder": "22",
+      "usernameLabel": "Usuário",
+      "usernamePlaceholder": "deploy",
+      "authLabel": "Autenticação",
+      "authAgent": "SSH agent",
+      "authKey": "Arquivo de chave privada",
+      "authPassword": "Senha",
+      "keyPathLabel": "Caminho da chave privada",
+      "keyPathPlaceholder": "~/.ssh/id_ed25519",
+      "passwordLabel": "Senha",
+      "passphraseLabel": "Frase secreta da chave (opcional)",
+      "secretPlaceholder": "Salvo criptografado no cofre do sistema",
+      "secretHint": "Criptografado com o armazenamento seguro do sistema; nunca salvo em texto plano.",
+      "remoteDirLabel": "Diretório remoto padrão (opcional)",
+      "remoteDirPlaceholder": "/srv/app",
+      "probeKey": "Verificar chave do host",
+      "fingerprintLabel": "Impressão digital SHA-256 da chave do host",
+      "save": "Salvar host",
+      "cancel": "Cancelar"
+    },
+    "pin": {
+      "unknownTitle": "Confiar na chave do host SSH?",
+      "changedTitle": "A chave do host SSH mudou",
+      "description": "Compare esta impressão digital SHA-256 de {{host}} antes de conectar.",
+      "changedWarning": "A impressão digital confiável anterior era {{previous}}. Confirme que o host foi recriado intencionalmente antes de continuar.",
+      "trustAndConnect": "Confiar e conectar"
+    }
   }
 }
