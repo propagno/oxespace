@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import log from 'electron-log/main.js'
 import { join } from 'node:path'
 import { registerAppInfoIpc } from '../ipc/app-info.ipc'
@@ -37,6 +37,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
     paneAgentSessions,
     paneAgentCwd,
     oxeQueryShells,
+    remoteSshPanes,
     hostsProxy,
     terminalManager
   } = core
@@ -220,6 +221,36 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
   // bridge script lives under <userData>/bin/ and is spawned by each
   // agent CLI separately (Claude Code, Copilot, …). See plan section 3.
   const internalMcpWorkspaceServ = new WorkspaceService(db, { isPaneRunning: (paneId) => terminalManager.hasSession(paneId) || terminalManager.isStarting(paneId) })
+  // OXE-447 · Remote SSH Hosts loads lazily on first IPC call so ssh2 never enters the main entry bundle.
+  let remoteHostsLoader: Promise<import('../ipc/remote-hosts.ipc').RemoteHostsIpcController> | null = null
+  const loadRemoteHosts = async () => {
+    if (!remoteHostsLoader) {
+      remoteHostsLoader = Promise.all([
+        import('../ipc/remote-hosts.ipc'),
+        import('../services/oxequery/secret-cipher')
+      ]).then(([{ createRemoteHostsController, broadcastRemoteHostsChanged }, { createSecretCipher }]) => {
+        const controller = createRemoteHostsController({
+          db,
+          cipher: createSecretCipher(safeStorage),
+          createWorkspacePane: ({ workspaceId, displayName }) => {
+            const created = internalMcpWorkspaceServ.createPane(workspaceId)
+            internalMcpWorkspaceServ.updatePaneName({ paneId: created.paneId, displayName })
+            return { paneId: created.paneId }
+          },
+          onChanged: broadcastRemoteHostsChanged
+        })
+        remoteSshPanes.resolve = (paneId, geometry) => controller.resolvePanePty(paneId, geometry)
+        return controller
+      })
+    }
+    return remoteHostsLoader
+  }
+  ipcMain.handle(IPC_CHANNELS.remoteHosts.call, async (_event, request: unknown) => {
+    const body = request && typeof request === 'object' ? request as { op?: unknown; input?: unknown } : {}
+    if (typeof body.op !== 'string') return { ok: false, error: { code: 'invalid_op', message: 'Unknown remote hosts operation' } }
+    const controller = await loadRemoteHosts()
+    return controller.call(body.op as import('../../../shared/types/remote-hosts').RemoteHostCallOp, body.input)
+  })
   const internalMcpGithub = new GitHubService(db)
   internalMcpGithub.configureWorktreeLifecycle({ stopTerminalsWithin: (dir) => terminalManager.stopWithin(dir) })
   const internalMcpGit = new GitService()

@@ -147,6 +147,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
   void agentHookServer.start().catch((error) => log.warn('Agent hook server unavailable', error))
   app.once('before-quit', () => agentHookServer.stop())
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
+  const remoteSshPanes: { resolve?: import('../services/terminal/session-start').SessionStartOptions['remoteSshPane'] } = {}
   registerFeatureUsageIpc(db)
   const hostsProxy = registerHostsProxyIpc(db, log)
   const ptyOption = await (await import('../services/terminal/utility-pty')).appPtyOption(
@@ -168,6 +169,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     ...ptyOption, // OXE-400/OXE-447: utility process (default), main, or detached PTY daemon
     rootExists, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
+    remoteSshPane: (paneId, geometry) => remoteSshPanes.resolve?.(paneId, geometry),
     grantProxy: origin => hostsProxy.grant(origin),
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again),
@@ -249,6 +251,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     paneAgentSessions,
     paneAgentCwd,
     oxeQueryShells,
+    remoteSshPanes,
     hostsProxy,
     ptyDaemon,
     terminalManager,

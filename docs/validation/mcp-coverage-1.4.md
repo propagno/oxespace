@@ -24,7 +24,7 @@ policy (`tool.use` rules of the policy store) applies by tool name to every tool
 
 | Covered | Excluded | Planned | Forbidden | Total |
 |---|---|---|---|---|
-| 37 | 33 | 2 | 26 | 98 |
+| 37 | 33 | 2 | 27 | 99 |
 
 The registry has 75 tools: 52 single-purpose tools and 23 domain tools with 86 actions, so the
 manifest declares 138 tool-or-action entries.
@@ -63,6 +63,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `containers.panel` | `oxePod.containers.panel` (F9 A34: the Containers panel's window-only read model; rows carry other conversations' titles, so agents never reach it) |
 | `settings.feature_usage` | `featureUsage.*` (F11 A65: local-only feature usage switch, export, clear and counts) |
 | `settings.hosts_proxy` | `hostsProxy.*` (F11 A68: loopback outgoing-hosts proxy switch, clear and retry) |
+| `remote_hosts.admin` | `remoteHosts.call` (OXE-447: remote SSH hosts CRUD, `~/.ssh/config` import, SHA-256 TOFU host key pinning, and remote SSH panes) |
 
 ### Per-tool rules (B7.3): where each one holds
 
@@ -214,5 +215,6 @@ The window's own captures go through `browserPreview.captureClipboard`, `browser
 | `accounts.sign_in` | Sign in or out of Claude, Codex and other accounts | **Forbidden**: Sign-in and tokens. |
 | `settings.feature_usage` | Local-only feature usage counter: switch, export, clear and feature counts (A65) | **Forbidden**: Person-only local usage preferences and counts; agents neither read nor change them. |
 | `settings.hosts_proxy` | Loopback outgoing-hosts proxy: switch, clear and retry (A68) | **Forbidden**: Person-only network inspection control; agents must not turn off or clear their own host log. |
+| `remote_hosts.admin` | Remote SSH hosts CRUD, `~/.ssh/config` import, SHA-256 host key pinning, and remote SSH pane management (OXE-447) | **Forbidden**: SSH credentials, host key trust decisions and remote host administration stay with the person; agents never manage SSH hosts or trust host keys. |
 | `app.events` | Change notifications sent to the window | Excluded: Events, not actions: agents read the state they describe with the tools above. |
 | `oxepost.all` | OxePost: collections, environments, sending | Planned (H8): OxePost (H1-H4) is the person's API client: collections, environments and sending have no tool yet; H8 adds list, read and create, and send with GET and HEAD to localhost free and the rest confirmed. Environment secrets stay in the system's secure storage and are never a tool, an argument or a result. |

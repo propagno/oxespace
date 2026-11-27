@@ -485,12 +485,10 @@ export const IPC_CHANNELS = {
     changed: 'feature-usage:changed'
   },
   hostsProxy: {
-    state: 'hosts-proxy:state',
-    setEnabled: 'hosts-proxy:set-enabled',
-    clear: 'hosts-proxy:clear',
-    retry: 'hosts-proxy:retry',
-    changed: 'hosts-proxy:changed'
+    state: 'hosts-proxy:state', setEnabled: 'hosts-proxy:set-enabled',
+    clear: 'hosts-proxy:clear', retry: 'hosts-proxy:retry', changed: 'hosts-proxy:changed'
   },
+  remoteHosts: { call: 'remote-hosts:call', changed: 'remote-hosts:changed' },
 } as const
 
 export interface WorkspaceApi {
@@ -831,6 +829,7 @@ export interface OxeApi {
   featureUsage: FeatureUsageApi
   hostsProxy: HostsProxyApi
   repository?: import('./repo-config').RepositoryWorktreeTemplateApi
+  remoteHosts?: import('./remote-hosts').RemoteHostsApi
 }
 
 export type PaneConversationPageResult =

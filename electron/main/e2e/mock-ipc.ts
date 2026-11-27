@@ -342,6 +342,10 @@ export function registerE2eMockIpcHandlers(): void {
     mockQuitBehavior = mode === 'detach' ? 'detach' : 'kill'
     return mockQuitBehavior
   })
+  ipcMain.handle(IPC_CHANNELS.remoteHosts.call, (_event: IpcMainInvokeEvent, req: { op?: string }) => {
+    if (req?.op === 'hosts.list' || req?.op === 'hosts.panes') return { ok: true, data: [] }
+    return { ok: true, data: null }
+  })
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   // Offline is opted into per run, so a spec can check the offline state without unplugging the runner.
   ipcMain.handle(IPC_CHANNELS.app.connectivity, (): AppConnectivity => process.env.OXESPACE_E2E_OFFLINE === '1'

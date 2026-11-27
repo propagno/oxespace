@@ -497,14 +497,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       record: feature => ipc.invoke(IPC_CHANNELS.featureUsage.record, feature) as Promise<void>,
       onChanged: listener => subscribe<import('../../shared/feature-usage').FeatureUsageStatus>(ipc, IPC_CHANNELS.featureUsage.changed, listener)
     },
-    hostsProxy: {
-      state: () => ipc.invoke(IPC_CHANNELS.hostsProxy.state) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
-      setEnabled: enabled => ipc.invoke(IPC_CHANNELS.hostsProxy.setEnabled, enabled) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
-      clear: () => ipc.invoke(IPC_CHANNELS.hostsProxy.clear) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
-      retry: () => ipc.invoke(IPC_CHANNELS.hostsProxy.retry) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
-      onChanged: listener => subscribe<import('../../shared/types/ipc').HostsProxyStatus>(ipc, IPC_CHANNELS.hostsProxy.changed, listener)
-    },
-    repository: bind<OxeApi['repository']>(IPC_CHANNELS.repository)
+    hostsProxy: bind<OxeApi['hostsProxy']>(IPC_CHANNELS.hostsProxy, {
+      onChanged: sub(IPC_CHANNELS.hostsProxy.changed)
+    }),
+    repository: bind<OxeApi['repository']>(IPC_CHANNELS.repository),
+    remoteHosts: {
+      call: (op, input) => ipc.invoke(IPC_CHANNELS.remoteHosts.call, { op, input }) as never,
+      onChanged: listener => subscribe<void>(ipc, IPC_CHANNELS.remoteHosts.changed, () => listener())
+    }
   }
 }
 

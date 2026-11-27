@@ -62,7 +62,7 @@ interface TerminalManagerOptions extends SessionStartOptions {
 }
 
 export interface TerminalObserver {
-  start(paneId: string, workspaceId: string, cols: number, rows: number, command: string | null): void
+  start(paneId: string, workspaceId: string, cols: number, rows: number, command: string | null, options?: { remote?: boolean }): void
   output(paneId: string, data: string): void
   resize(paneId: string, cols: number, rows: number): void
   exit(paneId: string): void
@@ -146,6 +146,7 @@ export class TerminalManager {
       agentMcpArgs: options.agentMcpArgs,
       isManagedPane: options.isManagedPane,
       oxeQueryShell: options.oxeQueryShell,
+      remoteSshPane: options.remoteSshPane,
       resumeSession: options.resumeSession,
       assignSession: options.assignSession,
       clearSession: options.clearSession,
@@ -183,7 +184,7 @@ export class TerminalManager {
   }
 
   /** The spawned process becomes the pane's session: its state, its output and its exit. */
-  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command }: StartedProcess): void {
+  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command, remote }: StartedProcess): void {
     // A pane that is starting fresh must not inherit a dead session's output.
     this.exits.forget(input.paneId)
     this.reclaimIdleSession()
@@ -222,15 +223,15 @@ export class TerminalManager {
     // The bundled ConPTY (useConptyDll) never clears the screen on start, unlike the system one (ESC[2J ESC[m ESC[H),
     // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
-    if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    if (this.platform === 'win32' && !remote) this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.exitDrain.track(ptyProcess)
-    this.trackBranch(input.paneId, cwd)
-    this.observer?.start(input.paneId, input.workspaceId, cols, rows, command)
+    if (!remote) this.trackBranch(input.paneId, cwd)
+    this.observer?.start(input.paneId, input.workspaceId, cols, rows, command, remote ? { remote: true } : undefined)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
       if (session) this.output.receive(session, data)
-      // OXE-411 lever M: the headless screen mirror only for panes started as an agent.
-      if (!this.levers.has('M') || input.agentCommand) this.observer?.output(input.paneId, data)
+      // OXE-411 lever M: the headless screen mirror runs for agent panes and remote SSH panes (OXE-447).
+      if (!this.levers.has('M') || input.agentCommand || remote) this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       this.exitDrain.settle(ptyProcess)
