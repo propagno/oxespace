@@ -1,7 +1,7 @@
 /* Agent workflow, status pills and the shared feature basics. Split out of the former features.css; imported in order from styles.css. */
 
 .workspace-github-panel {
-  border-left-color: var(--bd-default);
+  border-left-color: var(--bd-subtle);
 }
 
 .github-panel {
@@ -14,8 +14,8 @@
   color: var(--tx-primary);
   background: var(--surface-canvas);
   --gh-card-bg: var(--surface-raised);
-  --gh-card-border: var(--bd-default);
-  --gh-card-hover: var(--fill-selected);
+  --gh-card-border: var(--bd-subtle);
+  --gh-card-hover: var(--fill-hover);
   --gh-row-bg: var(--surface-raised);
   --gh-muted: var(--tx-muted);
   --gh-text: var(--tx-primary);
@@ -37,14 +37,14 @@
 .github-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  min-height: 42px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--bd-default);
+  gap: var(--space-1);
+  min-height: var(--bar-lg);
+  padding: var(--space-1-5) var(--space-2);
+  border-bottom: 1px solid var(--bd-subtle);
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--bd-default) transparent;
-  background: var(--surface-raised);
+  background: var(--surface-chrome);
 }
 
 .github-tab {

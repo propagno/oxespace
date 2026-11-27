@@ -334,9 +334,10 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--accent-border);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--accent-soft);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .integration-handoff-composer-header strong {
@@ -398,8 +399,9 @@
 }
 
 .integration-handoff-row.status-sent {
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .integration-handoff-row.status-saved {

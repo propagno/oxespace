@@ -1,4 +1,5 @@
 import type { ITheme } from '@xterm/xterm'
+import { currentMode, currentSurfaceStyle } from '../../design/mode'
 import type { TerminalCursorStyle, TerminalPrefs } from '../../store/terminal-prefs.store'
 
 /**
@@ -91,7 +92,7 @@ export function searchDecorations(): {
   activeMatchColorOverviewRuler: string
 } {
   const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
-  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#1f6b4a'
+  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#44b77e'
   return {
     matchBackground: `${accent}33`,
     matchOverviewRuler: `${accent}66`,
@@ -102,39 +103,45 @@ export function searchDecorations(): {
 
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
- * construction AND re-read whenever the workspace theme changes (so switching
- * Midnight → Dracula re-colors open terminals instead of only new ones).
+ * construction AND re-read whenever the mode, surface preset, or workspace theme
+ * changes so open terminals stay seamlessly aligned across Dark Default (#191919),
+ * True Black OLED (#000000), and Light modes.
  * With `translucent`, the cell background goes fully transparent so the
  * host's CSS background (color-mix + backdrop blur) shows through.
  *
  * Keep xterm aligned with the terminal content surface. The surrounding
- * PaneContainer owns elevation and focus chrome; xterm remains a flat,
- * uninterrupted canvas inside that card.
+ * PaneContainer owns hairline framing and focus chrome; xterm remains a flat,
+ * uninterrupted canvas inside that pane.
  */
 export function buildTerminalTheme(translucent: boolean): ITheme {
-  // Terminal colors come from the design tokens of the active light or dark mode.
   const tok = (name: string, fallback: string): string => {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
     return v || fallback
   }
-  const darkMode = document.documentElement.dataset.appearance === 'dark'
+  const darkMode = currentMode() === 'dark'
+  const pureSurface = currentSurfaceStyle() === 'pure'
+  const defaultBg = darkMode && pureSurface ? '#000000' : '#191919'
+  const defaultSelection = darkMode && pureSurface ? '#2a2a2a' : '#383838'
+  const defaultSelectionInactive = darkMode && pureSurface ? '#1f1f1f' : '#2c2c2c'
   const darkAnsi: Record<string, string> = {
-    black: '#2f3431', white: '#d3d9d5', 'bright-black': '#828883', 'bright-white': '#f0f7f2',
+    black: '#333333', white: '#d7d7d7', 'bright-black': '#868686', 'bright-white': '#f5f5f5',
     red: '#fb8276', 'bright-red': '#ffb5ac', green: '#60c473', 'bright-green': '#8de29a',
     yellow: '#dc9e12', 'bright-yellow': '#f7c15f', blue: '#60b0ff', 'bright-blue': '#a2cfff',
     magenta: '#df86d7', 'bright-magenta': '#faabf3', cyan: '#00c2ca', 'bright-cyan': '#3fe4ec'
   }
   const ansi = (name: string): string => darkMode ? tok(`--ansi-${name}`, darkAnsi[name] ?? '#808080') : (darkAnsi[name] ?? '#808080')
+  const bg = tok('--term-bg', defaultBg)
   return {
-    background:          translucent ? '#00000000' : tok('--term-bg', '#131714'),
-    foreground:          tok('--term-fg', '#e7efe9'),
-    cursor:              tok('--accent', '#f5a939'),
-    cursorAccent:        tok('--term-bg', '#131714'),
-    selectionBackground: darkMode ? tok('--fill-selected-strong', '#1e422c') : '#1e422c',
-    // xterm 6 draws its own scrollbar: a quiet slider, like the app's thin scrollbars.
-    scrollbarSliderBackground: 'rgba(160, 170, 165, 0.22)',
-    scrollbarSliderHoverBackground: 'rgba(160, 170, 165, 0.38)',
-    scrollbarSliderActiveBackground: 'rgba(160, 170, 165, 0.5)',
+    background:          translucent ? '#00000000' : bg,
+    foreground:          tok('--term-fg', '#ededed'),
+    cursor:              darkMode ? tok('--accent', '#44b77e') : '#44b77e',
+    cursorAccent:        bg,
+    selectionBackground: darkMode ? tok('--fill-selected-strong', defaultSelection) : defaultSelection,
+    selectionInactiveBackground: darkMode ? tok('--fill-selected', defaultSelectionInactive) : defaultSelectionInactive,
+    // xterm 6 draws its own scrollbar: a quiet achromatic slider, like the app's thin scrollbars.
+    scrollbarSliderBackground: 'rgba(160, 160, 160, 0.22)',
+    scrollbarSliderHoverBackground: 'rgba(160, 160, 160, 0.36)',
+    scrollbarSliderActiveBackground: 'rgba(160, 160, 160, 0.50)',
     black:               ansi('black'),
     red:                 ansi('red'),
     green:               ansi('green'),

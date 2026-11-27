@@ -15,8 +15,8 @@
   /* Keep the title bar draggable and clear of the native caption buttons. */
   padding-right: max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
   border-bottom: 1px solid var(--bd-subtle);
-  background: var(--surface-sunken);
-  color: var(--tx-secondary);
+  background: var(--surface-chrome);
+  color: var(--tx-muted);
   font-size: var(--fs-xs);
   -webkit-app-region: drag;
 }

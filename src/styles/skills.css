@@ -6,10 +6,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: var(--elevation-4);
+  background: var(--surface-overlay);
+  box-shadow: var(--elevation-3);
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 
@@ -17,8 +17,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--bd-default);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .skills-browser-title {
@@ -43,14 +43,14 @@
 .skills-browser-actions { display: inline-flex; align-items: center; gap: 4px; }
 
 .skills-browser-search {
-  padding: 10px 16px 6px;
-  border-bottom: 1px solid var(--bd-default);
+  padding: var(--space-2) var(--space-4) var(--space-1-5);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .skills-browser-search input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--bd-default);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-base);
   color: var(--tx-primary);
@@ -59,14 +59,14 @@
   transition: border-color var(--duration-fast);
 }
 
-.skills-browser-search input:focus { border-color: var(--accent); }
+.skills-browser-search input:focus { border-color: var(--bd-focus); }
 
 .skills-browser-notice {
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--tx-primary);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-sunken);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
-  border-bottom: 1px solid var(--bd-default);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .skills-create-form {
@@ -209,19 +209,20 @@
 .skill-row {
   display: flex;
   align-items: stretch;
-  margin-bottom: 5px;
-  padding: 10px 12px;
-  border: 1px solid var(--ov-1);
+  margin-bottom: var(--space-1-5);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--ov-1);
+  background: var(--surface-raised);
   transition: border-color var(--duration-fast), background var(--duration-fast);
 }
 
 .skill-row:hover { background: var(--fill-hover); border-color: var(--bd-default); }
 
 .skill-row.source-workspace {
-  border-color: var(--intent-warning-border);
-  background: var(--intent-warning-bg);
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--attn);
 }
 
 .skill-row-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
@@ -396,11 +397,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--intent-warning-border);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-sunken) 97%, transparent) 0%, var(--scrim) 100%);
-  box-shadow:
-    var(--elevation-4), 0 0 0 1px color-mix(in srgb, var(--intent-warning-solid) 8%, transparent), 0 0 28px color-mix(in srgb, var(--intent-warning-solid) 10%, transparent) inset;
+  background: var(--surface-overlay);
+  box-shadow: var(--elevation-3);
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 
@@ -523,15 +523,15 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px 13px;
-  border: 1px solid var(--ov-1);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--ov-1);
+  background: var(--surface-raised);
 }
 
-.bg-jobs-panel-card.status-running { border-color: var(--intent-warning-border); background: var(--intent-warning-bg); }
-.bg-jobs-panel-card.status-exited { border-color: var(--accent-border); }
+.bg-jobs-panel-card.status-running { border-color: var(--bd-subtle); box-shadow: inset 2px 0 0 var(--attn); }
+.bg-jobs-panel-card.status-exited { border-color: var(--bd-subtle); box-shadow: inset 2px 0 0 var(--accent); }
 .bg-jobs-panel-card.status-failed { border-color: var(--intent-danger-border); background: var(--intent-danger-bg); }
 
 .bg-jobs-panel-card-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

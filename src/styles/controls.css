@@ -4,16 +4,16 @@
    Contextual rules with two or more classes keep winning, as before. New
    buttons use `Button` and `IconButton` from src/ui instead of these. */
 
-/* Text buttons: 28 px, secondary look. */
+/* Text buttons: 28 px, Minimal hairline secondary look aligned with src/ui Button[data-variant='secondary']. */
 .ghost-btn,
 .secondary-action,
 .settings-btn {
   min-height: var(--control-md);
   height: auto;
   padding: 0 var(--space-3);
-  border: 1px solid var(--bd-strong);
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  background: transparent;
   color: var(--tx-primary);
   font-size: var(--fs-sm);
   font-weight: var(--weight-medium);
@@ -22,7 +22,7 @@
 .ghost-btn:hover:not(:disabled),
 .secondary-action:hover:not(:disabled),
 .settings-btn:hover:not(:disabled) {
-  border-color: var(--bd-strong);
+  border-color: var(--tx-muted);
   background: var(--fill-hover);
   color: var(--tx-primary);
 }
@@ -58,7 +58,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
 }
 .gh-icon-btn,
 .tile-btn { width: var(--control-sm); height: var(--control-sm); }

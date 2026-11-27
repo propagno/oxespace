@@ -11,7 +11,7 @@
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-base);
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   font-size: var(--fs-xs);
   font-weight: var(--weight-regular);
   overflow: hidden;
@@ -20,7 +20,7 @@
 }
 
 .trigger:hover {
-  background: var(--surface-raised);
+  background: var(--fill-hover);
   border-color: var(--bd-default);
   color: var(--tx-primary);
 }

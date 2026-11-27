@@ -38,11 +38,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--accent-border);
-  border-radius: var(--radius-sm);
-  background: var(--accent-soft);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
 }
 
 .worktree-panel-active-row {
@@ -186,20 +186,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--ov-1);
+  border-radius: var(--radius-md);
+  background: transparent;
   text-align: left;
   cursor: pointer;
   transition: background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
-.worktree-menu-item:hover { background: var(--fill-hover); border-color: var(--bd-default); }
-.worktree-menu-item.active { background: var(--fill-selected); border-color: var(--accent-border); }
-.worktree-menu-item.is-active-pane { box-shadow: inset 3px 0 0 var(--accent); }
+.worktree-menu-item:hover { background: var(--fill-hover); border-color: var(--bd-subtle); }
+.worktree-menu-item.active { background: var(--fill-selected); border-color: var(--bd-subtle); }
+.worktree-menu-item.is-active-pane { box-shadow: inset 2px 0 0 var(--accent); }
 .worktree-menu-item.prunable { opacity: 0.55; }
 .worktree-menu-item-select {
   display: flex;
@@ -285,9 +285,9 @@
 }
 
 .worktree-menu-create-trigger:hover {
-  border-color: var(--accent-border);
-  color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--bd-default);
+  color: var(--tx-primary);
+  background: var(--fill-hover);
 }
 
 .worktree-menu-create {
@@ -388,11 +388,11 @@
 .worktree-menu-create-preview {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--accent-soft);
+  background: var(--surface-sunken);
   min-width: 0;
 }
 

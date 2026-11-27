@@ -90,9 +90,9 @@
 .github-stat-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--bd-default);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   min-width: 0;
@@ -137,24 +137,25 @@
 .github-sync-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 0 0 4px;
-  padding: 14px;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-1);
+  padding: var(--space-3);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   background: var(--surface-raised);
 }
 
 .github-sync-card.state-no-remote {
-  border-color: var(--intent-warning-border);
-  background: color-mix(in srgb, var(--surface-raised) 94%, var(--intent-warning-solid));
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--intent-warning-solid);
 }
 
 .github-sync-callout {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--intent-warning-border);
   background: var(--intent-warning-bg);
@@ -168,28 +169,32 @@
   font-size: var(--fs-2xs);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--surface-sunken) 28%, transparent);
+  background: var(--surface-sunken);
 }
 
 .github-sync-card.state-behind,
 .github-sync-card.state-dirty-behind {
-  border-color: var(--intent-warning-border);
-  background: color-mix(in srgb, var(--surface-raised) 92%, var(--intent-warning-solid));
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--intent-warning-solid);
 }
 
 .github-sync-card.state-ahead {
-  border-color: var(--intent-info-border);
-  background: color-mix(in srgb, var(--surface-raised) 92%, var(--intent-info-solid));
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--intent-info-solid);
 }
 
 .github-sync-card.state-diverged {
-  border-color: var(--intent-danger-border);
-  background: color-mix(in srgb, var(--surface-raised) 92%, var(--intent-danger-solid));
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--intent-danger-solid);
 }
 
 .github-sync-card.state-ok {
-  border-color: var(--intent-success-border);
-  background: color-mix(in srgb, var(--surface-raised) 94%, var(--intent-success-solid));
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
+  box-shadow: inset 2px 0 0 var(--intent-success-solid);
 }
 
 .github-sync-card-main {
@@ -280,10 +285,10 @@
 .github-changes-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-2);
+  padding: var(--space-3);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   background: var(--surface-raised);
 }
 
@@ -649,22 +654,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--bd-default);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   transition: background var(--duration-fast), border-color var(--duration-fast);
 }
 
 .github-branch-row:hover {
-  background: var(--fill-selected);
-  border-color: color-mix(in srgb, var(--tx-primary) 9%, transparent);
+  background: var(--fill-hover);
+  border-color: var(--bd-default);
 }
 
 .github-branch-row.current {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: var(--bd-subtle);
+  background: var(--fill-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .github-branch-left {
@@ -760,10 +766,10 @@
 .github-pr-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--space-2);
   width: 100%;
-  padding: 11px 12px;
-  border: 1px solid var(--bd-default);
+  padding: var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   text-align: left;
@@ -771,8 +777,8 @@
 }
 
 .github-pr-row:hover {
-  border-color: var(--bd-strong);
-  background: var(--fill-selected);
+  border-color: var(--bd-default);
+  background: var(--fill-hover);
 }
 
 .github-pr-icon { color: var(--intent-info-fg); flex-shrink: 0; margin-top: 1px; }

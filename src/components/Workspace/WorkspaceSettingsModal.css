@@ -5,7 +5,7 @@
   max-height: 88dvh;
   padding: 0;
   overflow: hidden;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-overlay);
 }
@@ -21,8 +21,8 @@
 .ws-settings-nav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; margin-bottom: 6px; text-align: left; color: var(--tx-muted); border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; cursor: pointer; }
 .ws-settings-nav button strong { display: block; color: var(--tx-secondary); font-size: var(--fs-xs); font-weight: 600; }
 .ws-settings-nav button small { display: block; margin-top: 3px; font-size: var(--fs-2xs); }
-.ws-settings-nav button:hover { background: var(--surface-raised); }
-.ws-settings-nav button[aria-pressed="true"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+.ws-settings-nav button:hover { background: var(--fill-hover); color: var(--tx-primary); }
+.ws-settings-nav button[aria-pressed="true"] { color: var(--tx-primary); background: var(--fill-selected); border-color: var(--bd-subtle); }
 .ws-settings-nav button[aria-pressed="true"] strong { color: var(--tx-primary); }
 .ws-settings-nav > p { margin: 24px 12px 0; padding-top: 18px; border-top: 1px solid var(--bd-subtle); color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.7; overflow-wrap: anywhere; }
 .ws-settings-nav > p strong { color: var(--tx-secondary); font-weight: 500; }
