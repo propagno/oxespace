@@ -619,8 +619,8 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     const option = (...kinds: string[]): string | undefined => kinds.map(kind => pending.options.find(entry => entry.kind === kind)?.id).find(Boolean)
 
     if (pending.kind === 'question') {
-      const declineOrCancel = response.decision === 'decline' || response.decision === 'cancel'
-      if (declineOrCancel) {
+      const isRejected = response.decision === 'decline' || response.decision === 'cancel'
+      if (isRejected) {
         if (pending.method === 'session/request_permission') {
           const rejectId = response.decision === 'decline' ? option('reject_once', 'reject_always') : undefined
           rpc.respond(pending.rpcId, { outcome: rejectId ? { outcome: 'selected', optionId: rejectId } : { outcome: 'cancelled' } })

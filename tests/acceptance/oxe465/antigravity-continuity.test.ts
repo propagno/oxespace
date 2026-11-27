@@ -2,7 +2,7 @@
 // Acceptance tests for OXE-465: Antigravity ACP Continuity Engine
 // Covers: real autonomy mode mapping, persistent ThreadPermissionStore always-allow,
 // reactive wakeups after schedule/subagents + idle reaper protection, and queue/steering/questions through ThreadManager.
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -39,7 +39,7 @@ afterEach(async () => {
 })
 
 function createOrchestratedHarness(availableModes = [{ id: 'default' }, { id: 'accept-edits' }, { id: 'auto' }, { id: 'yolo' }, { id: 'plan' }]) {
-  const root = mkdtempSync(join(tmpdir(), 'oxe-465-ac-'))
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-465-ac-')))
   dirs.push(root)
   const db = openInMemoryDatabase()
   databases.push(db)

@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -37,7 +37,7 @@ afterEach(() => {
 })
 
 function makeWorkspace(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'oxe-465-unit-'))
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'oxe-465-unit-')))
   tempDirs.push(dir)
   return dir
 }
