@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Appearance } from '../design/mode'
+import { surfaceStylePreference, type Appearance, type SurfaceStyle } from '../design/mode'
 import { isLanguagePreference, type LanguagePreference } from '../../shared/i18n'
 import { motionPreference, type MotionPreference } from '../design/motion'
 import type { UiDensity } from '../../shared/types/workspace'
@@ -48,6 +48,9 @@ interface SettingsState {
   /** Light or dark mode, or follow the operating system. */
   appearance: Appearance
   setAppearance: (appearance: Appearance) => void
+  /** Minimal surface preset: default graphite/soft-chrome or pure True Black OLED / Pure White. */
+  surfaceStyle: SurfaceStyle
+  setSurfaceStyle: (surfaceStyle: SurfaceStyle) => void
   /** Interface language, or follow the operating system (src/i18n applies it). */
   language: LanguagePreference
   setLanguage: (language: LanguagePreference) => void
@@ -78,6 +81,8 @@ export const useSettingsStore = create<SettingsState>()(
       setVisitedWorkspacesCap: (cap) => set({ visitedWorkspacesCap: clampVisitedCap(cap) }),
       appearance: 'system',
       setAppearance: (appearance) => set({ appearance }),
+      surfaceStyle: 'default',
+      setSurfaceStyle: (surfaceStyle) => set({ surfaceStyle: surfaceStylePreference(surfaceStyle) }),
       language: 'system',
       setLanguage: (language) => set({ language }),
       uiScale: UI_SCALE_DEFAULT,
@@ -97,7 +102,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 8,
+      version: 9,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
@@ -105,6 +110,7 @@ export const useSettingsStore = create<SettingsState>()(
           finishSound: s.finishSound === true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
+          surfaceStyle: surfaceStylePreference(s.surfaceStyle),
           language: isLanguagePreference(s.language) ? s.language : 'system',
           uiScale: clampUiScale(s.uiScale ?? UI_SCALE_DEFAULT),
           density: s.density === 'comfortable' ? 'comfortable' : 'compact',
@@ -117,6 +123,7 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...currentState,
           ...s,
+          surfaceStyle: surfaceStylePreference(s.surfaceStyle),
           keybindingOverrides: cleanOverrides(s.keybindingOverrides)
         }
       }

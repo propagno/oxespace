@@ -57,9 +57,10 @@ describe('PB-01·2 · --bd-control, the generated edge of controls', () => {
     }
   })
 
-  test('--bd-strong is not changed in the app: the same values as before the new token', () => {
+  // OXE-459: updated from violet-neutral (#c3c3d5 / #413e71) to achromatic Obsidian Minimal neutral (#cccccc / #444444).
+  test('--bd-strong keeps the calibrated neutral strong border values in both modes', () => {
     const css = tokensCss()
-    expect(block(css, LIGHT)['--bd-strong']).toBe('#c3c3d5')
-    expect(block(css, DARK)['--bd-strong']).toBe('#413e71')
+    expect(block(css, LIGHT)['--bd-strong']).toBe('#cccccc')
+    expect(block(css, DARK)['--bd-strong']).toBe('#444444')
   })
 })

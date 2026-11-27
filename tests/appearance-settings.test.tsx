@@ -10,15 +10,25 @@ afterEach(() => {
   cleanup()
   useWorkspaceStore.setState({ workspaces: [] })
   delete (window as { oxe?: unknown }).oxe
-  act(() => { useSettingsStore.getState().setUiScale(1); useSettingsStore.getState().setDensity('compact'); useNavigationPrefs.getState().setThreadDensity('comfortable') })
+  act(() => { useSettingsStore.getState().setSurfaceStyle('default'); useSettingsStore.getState().setUiScale(1); useSettingsStore.getState().setDensity('compact'); useNavigationPrefs.getState().setThreadDensity('comfortable') })
 })
 
 describe('AppearanceSettings', () => {
   it('shows only the mode inside workspace settings', () => {
     render(<AppearanceSettings />)
     expect(screen.getByRole('radiogroup', { name: 'Appearance' })).toBeVisible()
+    expect(screen.queryByRole('radiogroup', { name: 'Surface' })).toBeNull()
     expect(screen.queryByRole('radiogroup', { name: 'Interface scale' })).toBeNull()
     expect(screen.queryByRole('radiogroup', { name: 'Density' })).toBeNull()
+  })
+
+  it('toggles between Default and True Black / Pure White surface styles', () => {
+    render(<AppearanceSettings global />)
+    expect(screen.getByRole('radio', { name: 'Default' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('radio', { name: 'True Black / Pure White' }))
+    expect(useSettingsStore.getState().surfaceStyle).toBe('pure')
+    expect(screen.getByText(/True black surfaces in dark mode/)).toBeVisible()
+    expect(document.querySelector('[data-surface="pure"]')).not.toBeNull()
   })
 
   it('sets the interface scale and the app-wide density', () => {

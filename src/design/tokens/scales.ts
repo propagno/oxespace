@@ -29,7 +29,7 @@ export const TEXT = { '2xs': 11, xs: 12, sm: 13, md: 14, lg: 16, xl: 20, display
 export const WEIGHT = { regular: 400, medium: 500, semibold: 600, bold: 700 } as const
 export const LEADING = { tight: 1.25, snug: 1.4, normal: 1.55 } as const
 
-export const RADIUS = { sm: '6px', md: '8px', lg: '12px', xl: '16px', full: '999px' } as const
+export const RADIUS = { sm: '4px', md: '6px', lg: '8px', xl: '12px', full: '999px' } as const
 
 /** Control heights per density. */
 export const CONTROL = { compact: { sm: 24, md: 28, lg: 32 }, comfortable: { sm: 28, md: 32, lg: 36 } } as const
@@ -42,7 +42,7 @@ export const TARGET_MIN = 24
 
 /** Named layers; nothing else sets a z-index. */
 /** Fixed chrome sizes other surfaces keep clear of: the toast stack sits above the status bar. */
-export const CHROME = { 'statusbar-height': '24px', 'measure-chat': '1080px' } as const
+export const CHROME = { 'statusbar-height': '24px', 'measure-chat': '1080px', 'measure-prose': '44rem' } as const
 
 export const LAYER = { base: 0, raised: 1, sticky: 10, dropdown: 100, overlay: 200, modal: 300, toast: 400, tooltip: 500 } as const
 

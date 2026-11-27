@@ -4,7 +4,7 @@
  * this source, so edit the tokens here and rebuild.
  */
 import { IDENTITY, LOGO, type Mode } from './palette'
-import { colorRoles, elevations } from './semantic'
+import { colorRoles, elevations, surfaceColorRoles, type SurfaceStyle } from './semantic'
 import { BAR, CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, ROW, SPACE, STRETCH, TARGET_MIN, TEXT, WEIGHT } from './scales'
 
 /**
@@ -22,8 +22,8 @@ const cssName = (name: string): string => CSS_NAME.get(name) ?? name
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
   `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${cssName(name)}: ${value};`),...extra.map(line => `  ${line}`)].join('\n')}\n}`
 
-function modeTokens(mode: Mode): Record<string, string> {
-  return { ...colorRoles(mode), ...elevations(mode) }
+function modeTokens(mode: Mode, surface: SurfaceStyle = 'default'): Record<string, string> {
+  return { ...surfaceColorRoles(mode, surface), ...elevations(mode, surface) }
 }
 
 /**
@@ -31,8 +31,8 @@ function modeTokens(mode: Mode): Record<string, string> {
  * step and muted text reads as secondary, so edges and quiet labels stand out. Forced colors (Windows high contrast)
  * is a separate stylesheet, src/styles/forced-colors.css.
  */
-export function moreContrastTokens(mode: Mode): Record<string, string> {
-  const roles = colorRoles(mode)
+export function moreContrastTokens(mode: Mode, surface: SurfaceStyle = 'default'): Record<string, string> {
+  const roles = colorRoles(mode, surface)
   return {
     'border-subtle': roles['border-strong'], 'border-default': roles['border-strong'],
     'text-muted': roles['text-secondary'], 'text-disabled': roles['text-muted']
@@ -76,8 +76,16 @@ export function tokensCss(): string {
     block(":root[data-mode='dark'], [data-mode='dark']", modeTokens('dark'), ['color-scheme: dark;']),
     // Before the first script sets data-mode (the boot splash), the operating system's choice decides, as System would.
     `@media (prefers-color-scheme: dark) {\n${block(':root:not([data-mode])', modeTokens('dark'), ['color-scheme: dark;']).replace(/^/gm, '  ')}\n}`,
+    // Obsidian Minimal pure surface presets: Light White and True Black (OLED).
+    block(":root[data-mode='light'][data-surface='pure'], [data-mode='light'][data-surface='pure']", modeTokens('light', 'pure'), ['color-scheme: light;']),
+    block(":root[data-mode='dark'][data-surface='pure'], [data-mode='dark'][data-surface='pure']", modeTokens('dark', 'pure'), ['color-scheme: dark;']),
     block(":root[data-density='comfortable']", comfortable),
-    `@media (prefers-contrast: more) {\n${[block(":root, [data-mode='light']", moreContrastTokens('light')), block(":root[data-mode='dark'], [data-mode='dark']", moreContrastTokens('dark'))].join('\n').replace(/^/gm, '  ')}\n}`,
+    `@media (prefers-contrast: more) {\n${[
+      block(":root, [data-mode='light']", moreContrastTokens('light')),
+      block(":root[data-mode='dark'], [data-mode='dark']", moreContrastTokens('dark')),
+      block(":root[data-mode='light'][data-surface='pure'], [data-mode='light'][data-surface='pure']", moreContrastTokens('light', 'pure')),
+      block(":root[data-mode='dark'][data-surface='pure'], [data-mode='dark'][data-surface='pure']", moreContrastTokens('dark', 'pure'))
+    ].join('\n').replace(/^/gm, '  ')}\n}`,
     // Motion collapses for people who ask for less of it: Settings › Appearance sets data-motion on the
     // root (System resolves the operating system's choice); before that attribute exists, the media query decides.
     block(":root[data-motion='reduce']", REDUCED_MOTION),

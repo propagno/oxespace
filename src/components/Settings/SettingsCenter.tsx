@@ -58,7 +58,7 @@ function appPage(id: AppPage, icon: LucideIcon, defaultLabel: string, defaultHin
 /** Every application page, in order. The navigation groups them in the nine sections below (BRD-23). */
 export const APPLICATION_SETTINGS_PAGES = [
   appPage('general', Settings2, 'General', 'Navigation, workspace caches and default external editor.', ['editor', 'vscode', 'cursor', 'sites', 'cache']),
-  appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.', ['theme', 'dark', 'light', 'font', 'density', 'language', 'locale']),
+  appPage('appearance', Palette, 'Appearance', 'Theme, font sizing and layout density.', ['theme', 'dark', 'light', 'surface', 'oled', 'black', 'white', 'font', 'density', 'language', 'locale']),
   appPage('providers', Bot, 'Agents', 'Default model, fallback chain and provider API keys.', ['claude', 'codex', 'model', 'agent', 'cli', 'idle']),
   appPage('policy', ShieldCheck, 'Approvals and safety', 'Safety boundaries, read-only paths and write permissions.', ['approvals', 'safety', 'sandbox', 'rules', 'yaml']),
   appPage('agent-permissions', KeyRound, 'What agents can do', 'Always allowed commands, databases, HTTP hosts and policy rules.', ['permissions', 'commands', 'databases', 'hosts', 'http', 'allowed', 'revoke']),
