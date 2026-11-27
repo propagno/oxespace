@@ -88,7 +88,7 @@ export function RemoteHostsSection({ activeWorkspaceId, onActivatePane }: Remote
         }
         return
       }
-      await useWorkspaceStore.getState().loadWorkspaces()
+      await useWorkspaceStore.getState().bootstrap()
       await onActivatePane(res.data.workspaceId, res.data.paneId)
       await refresh()
     } finally {

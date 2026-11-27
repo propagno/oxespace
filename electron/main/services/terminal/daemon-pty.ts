@@ -122,6 +122,8 @@ export interface DaemonAttachedSession extends PtyDaemonAttachResult {
   pty: IPty
 }
 
+type PtyDaemonPayload = PtyDaemonRequest extends infer T ? (T extends PtyDaemonRequest ? Omit<T, 'id'> : never) : never
+
 interface PendingRpc {
   resolve: (value: unknown) => void
   reject: (error: Error) => void
@@ -265,7 +267,7 @@ export class DaemonPtyClient {
     return result
   }
 
-  private request<T>(payload: Omit<PtyDaemonRequest, 'id'>): Promise<T> {
+  private request<T>(payload: PtyDaemonPayload): Promise<T> {
     const socket = this.socket
     if (!socket || socket.destroyed) {
       return Promise.reject(new Error('PTY daemon client is not connected'))

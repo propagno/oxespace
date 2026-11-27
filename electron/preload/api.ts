@@ -9,10 +9,7 @@ import {
   type TerminalBranchChangedEvent,
   type TerminalSizeLease,
   type TerminalSizeLeaseEvent,
-  type TerminalPaneBranch,
-  type TerminalAttachResult,
   type TerminalDataEvent,
-  type TerminalStatusResult,
   type TerminalExitEvent
 } from '../../shared/types/ipc'
 import { createAgentsApi } from './agents'

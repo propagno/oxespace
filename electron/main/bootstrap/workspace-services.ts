@@ -234,7 +234,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
           cipher: createSecretCipher(safeStorage),
           createWorkspacePane: ({ workspaceId, displayName }) => {
             const created = internalMcpWorkspaceServ.createPane(workspaceId)
-            internalMcpWorkspaceServ.updatePaneName({ paneId: created.paneId, displayName })
+            internalMcpWorkspaceServ.updatePaneName(created.paneId, displayName)
             return { paneId: created.paneId }
           },
           onChanged: broadcastRemoteHostsChanged

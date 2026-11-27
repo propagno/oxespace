@@ -159,21 +159,18 @@ export default defineConfig({
         // ssh2 tries optional native add-ons (cpu-features, its crypto binding) and falls back to pure JS.
         external: ['better-sqlite3', 'node-pty', 'pg-native', '@aws-sdk/credential-providers', '@mongodb-js/zstd', 'gcp-metadata', 'kerberos', 'mongodb-client-encryption', 'snappy', 'socks', 'cpu-features', /\.node(\?.*)?$/],
         output: {
-          // Workers and lazy SSH chunks bundle CommonJS libraries (ssh2, mongodb) that use
+          // The OxeQuery worker bundles CommonJS libraries (ssh2, mongodb) that use
           // `require` and `__dirname`, which do not exist in an ES module chunk.
-          banner: (chunk: { name: string; moduleIds?: string[] }) =>
-            chunk.name === 'oxequery-worker' ||
-            chunk.name === 'pty-daemon' ||
-            (chunk.moduleIds?.some(id => id.replace(/\\/g, '/').includes('/node_modules/ssh2/')) ?? false)
-              ? [
-                "import { createRequire as __oxeCreateRequire } from 'node:module';",
-                "import { fileURLToPath as __oxeFileURLToPath } from 'node:url';",
-                "import { dirname as __oxeDirname } from 'node:path';",
-                'const require = __oxeCreateRequire(import.meta.url);',
-                'const __filename = __oxeFileURLToPath(import.meta.url);',
-                'const __dirname = __oxeDirname(__filename);'
-              ].join('\n')
-              : ''
+          banner: (chunk: { name: string }) => chunk.name === 'oxequery-worker'
+            ? [
+              "import { createRequire as __oxeCreateRequire } from 'node:module';",
+              "import { fileURLToPath as __oxeFileURLToPath } from 'node:url';",
+              "import { dirname as __oxeDirname } from 'node:path';",
+              'const require = __oxeCreateRequire(import.meta.url);',
+              'const __filename = __oxeFileURLToPath(import.meta.url);',
+              'const __dirname = __oxeDirname(__filename);'
+            ].join('\n')
+            : ''
         },
         input: {
           index: resolve(__dirname, 'electron/main/index.ts'),
