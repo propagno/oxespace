@@ -4,29 +4,7 @@ import {
   IPC_CHANNELS,
   type AgentProfile,
   type AgentReadiness,
-  type FileSystemFileChangedEvent,
-  type FileSystemReadFileResult,
-  type FileSystemWatchFileResult,
-  type FileSystemWriteFileResult,
-  type FileTreeNode,
-  type GitHubBranch,
-  type GitHubCheckpoint,
-  type GitHubCliStatus,
-  type GitHubCommit,
-  type GitHubCommitDetails,
-  type GitHubConnectedRepository,
-  type GitHubMessageResult,
-  type GitHubPullRequest,
-  type GitHubRelease,
-  type GitHubWorkflow,
-  type GitHubWorkflowRun,
-  type GitHubWorkflowRunDetails,
-  type GitHubWorkspaceStatus,
   type OxeApi,
-  type ShellProfile,
-  type Task,
-  type TaskExecution,
-  type TaskVerifyOutputEvent,
   type TerminalActivityEvent,
   type TerminalBranchChangedEvent,
   type TerminalSizeLease,
@@ -35,10 +13,8 @@ import {
   type TerminalAttachResult,
   type TerminalDataEvent,
   type TerminalStatusResult,
-  type TerminalExitEvent,
-  type Workspace
+  type TerminalExitEvent
 } from '../../shared/types/ipc'
-import type { GitDiff } from '../../shared/types/git'
 import { createAgentsApi } from './agents'
 import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
 
@@ -56,6 +32,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
   const terminalSizeLease = createPaneSubscriber<TerminalSizeLeaseEvent>(ipc, IPC_CHANNELS.terminal.sizeLeaseChanged)
   const argvValue = (prefix: string): string | undefined =>
     process.argv.find(arg => arg.startsWith(prefix))?.slice(prefix.length)
+  const inv = <T>(channel: string): T =>
+    ((...args: unknown[]) => ipc.invoke(channel, ...args)) as unknown as T
+  const sub = <T>(channel: string) =>
+    (listener: (payload: T) => void): (() => void) => subscribe(ipc, channel, listener)
+  const bind = <T>(channels: Record<string, string>, overrides?: Record<string, unknown>): T => {
+    const out: Record<string, unknown> = {}
+    for (const [key, ch] of Object.entries(channels)) out[key] = inv(ch)
+    return Object.assign(out, overrides) as T
+  }
 
   return {
     agentAccount: {
@@ -213,33 +198,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       openInTargets: () => ipc.invoke(IPC_CHANNELS.app.openInTargets) as Promise<import('../../shared/types/open-in').OpenInTargets>,
       setOpenInPreference: (preference) => ipc.invoke(IPC_CHANNELS.app.setOpenInPreference, preference) as Promise<import('../../shared/types/open-in').OpenInTargets>
     },
-    workspace: {
-      list: () => ipc.invoke(IPC_CHANNELS.workspace.list) as Promise<Workspace[]>,
-      onChanged: (listener) => subscribe<Workspace>(ipc, IPC_CHANNELS.workspace.onChanged, listener),
-      create: (input) => ipc.invoke(IPC_CHANNELS.workspace.create, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
-      setActive: (id) => ipc.invoke(IPC_CHANNELS.workspace.setActive, id) as Promise<Workspace>,
-      delete: (id) => ipc.invoke(IPC_CHANNELS.workspace.delete, id) as Promise<void>,
-      closePane: (id) => ipc.invoke(IPC_CHANNELS.workspace.closePane, id) as Promise<Workspace | null>,
-      splitPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.splitPane, input) as Promise<Workspace>,
-      createPane: (input) => ipc.invoke(IPC_CHANNELS.workspace.createPane, input) as Promise<{ workspace: Workspace; paneId: string }>,
-      updatePaneType: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneType, input) as Promise<Workspace>,
-      updatePaneName: (input) => ipc.invoke(IPC_CHANNELS.workspace.updatePaneName, input) as Promise<Workspace>,
-      setPaneAgent: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneAgent, input) as Promise<Workspace>,
-      setPaneRootPath: (input) => ipc.invoke(IPC_CHANNELS.workspace.setPaneRootPath, input) as Promise<Workspace>,
-      updateEditorState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateEditorState, input) as Promise<Workspace>,
-      updateReviewState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateReviewState, input) as Promise<Workspace>,
-      updateGitHubState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateGitHubState, input) as Promise<Workspace>,
-      updateBackgroundState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateBackgroundState, input) as Promise<Workspace>,
-      updateWorktreeState: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateWorktreeState, input) as Promise<Workspace>,
-      reorder: (orderedIds) => ipc.invoke(IPC_CHANNELS.workspace.reorder, orderedIds) as Promise<Workspace[]>,
-      updateSettings: (input) => ipc.invoke(IPC_CHANNELS.workspace.updateSettings, input) as Promise<Workspace>,
-      pickFolder: () => ipc.invoke(IPC_CHANNELS.workspace.pickFolder) as Promise<string | null>,
-      rootStatus: (id) => ipc.invoke(IPC_CHANNELS.workspace.rootStatus, id) as Promise<{ available: boolean }>,
-      relink: (input) => ipc.invoke(IPC_CHANNELS.workspace.relink, input) as Promise<Workspace | import('../../shared/types/workspace').WorkspaceCreateRefusal>,
-      shellProfiles: () => ipc.invoke(IPC_CHANNELS.workspace.shellProfiles) as Promise<ShellProfile[]>,
-      createGitHubTerminalPane: (workspaceId) =>
-        ipc.invoke(IPC_CHANNELS.workspace.createGitHubTerminalPane, workspaceId) as Promise<{ id: string }>
-    },
+    workspace: bind<OxeApi['workspace']>(IPC_CHANNELS.workspace, {
+      onChanged: sub(IPC_CHANNELS.workspace.onChanged)
+    }),
     terminal: {
       start: (input) => ipc.invoke(IPC_CHANNELS.terminal.start, input) as Promise<void>,
       write: (input) => ipc.invoke(IPC_CHANNELS.terminal.write, input) as Promise<void>,
@@ -270,38 +231,15 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       getReadiness: () => ipc.invoke(IPC_CHANNELS.agent.getReadiness) as Promise<AgentReadiness[]>,
       compatibility: () => ipc.invoke(IPC_CHANNELS.agent.compatibility) as Promise<import('../../shared/providerCompatibility').ProviderCompatibility | null>
     },
-    tasks: {
-      list: (workspaceId) => ipc.invoke(IPC_CHANNELS.tasks.list, workspaceId) as Promise<Task[]>,
-      create: (input) => ipc.invoke(IPC_CHANNELS.tasks.create, input) as Promise<Task>,
-      update: (id, input) => ipc.invoke(IPC_CHANNELS.tasks.update, id, input) as Promise<Task>,
-      delete: (id) => ipc.invoke(IPC_CHANNELS.tasks.delete, id) as Promise<void>,
-      reorder: (input) => ipc.invoke(IPC_CHANNELS.tasks.reorder, input) as Promise<Task[]>,
-      run: (input) => ipc.invoke(IPC_CHANNELS.tasks.run, input) as Promise<Task>,
-      verify: (input) => ipc.invoke(IPC_CHANNELS.tasks.verify, input) as Promise<Task>,
-      executions: (taskId) => ipc.invoke(IPC_CHANNELS.tasks.executions, taskId) as Promise<TaskExecution[]>,
-      onVerifyOutput: (listener) => subscribe<TaskVerifyOutputEvent>(ipc, IPC_CHANNELS.tasks.onVerifyOutput, listener),
-      addDependency: (input) => ipc.invoke(IPC_CHANNELS.tasks.addDependency, input) as Promise<Task>,
-      removeDependency: (input) => ipc.invoke(IPC_CHANNELS.tasks.removeDependency, input) as Promise<Task>,
-      getReady: (workspaceId) => ipc.invoke(IPC_CHANNELS.tasks.getReady, workspaceId) as Promise<string[]>
-    },
-    fs: {
-      listTree: (input) => ipc.invoke(IPC_CHANNELS.fs.listTree, input) as Promise<FileTreeNode[]>,
-      readFile: (input) => ipc.invoke(IPC_CHANNELS.fs.readFile, input) as Promise<FileSystemReadFileResult>,
-      readBinary: (input) => ipc.invoke(IPC_CHANNELS.fs.readBinary, input) as Promise<import('../../shared/types/filesystem').FileSystemReadBinaryResult>,
-      watchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.watchFile, input) as Promise<FileSystemWatchFileResult>,
-      unwatchFile: (input) => ipc.invoke(IPC_CHANNELS.fs.unwatchFile, input) as Promise<void>,
-      onFileChanged: (listener) => subscribe<FileSystemFileChangedEvent>(ipc, IPC_CHANNELS.fs.onFileChanged, listener)
-    },
-    git: {
-      getBranch: (input) => ipc.invoke(IPC_CHANNELS.git.getBranch, input) as Promise<import('../../shared/types/git').GitBranchStatus>,
-      getStatus: (input) => ipc.invoke(IPC_CHANNELS.git.getStatus, input) as Promise<import('../../shared/types/git').GitControlStatus>,
-      getDiff: (input) => ipc.invoke(IPC_CHANNELS.git.getDiff, input) as Promise<GitDiff>,
-      getDiffSummary: (input) => ipc.invoke(IPC_CHANNELS.git.getDiffSummary, input) as Promise<import('../../shared/types/git').GitDiffSummary>,
-      getFileOriginal: (input) => ipc.invoke(IPC_CHANNELS.git.getFileOriginal, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
-      getFileAtRef: (input) => ipc.invoke(IPC_CHANNELS.git.getFileAtRef, input) as Promise<import('../../shared/types/git').GitFileOriginal>,
-      changedCount: (input) => ipc.invoke(IPC_CHANNELS.git.changedCount, input) as Promise<number | null>,
-      onDiffUpdate: (listener) => subscribe<GitDiff>(ipc, IPC_CHANNELS.git.onDiffUpdate, listener)
-    },
+    tasks: bind<OxeApi['tasks']>(IPC_CHANNELS.tasks, {
+      onVerifyOutput: sub(IPC_CHANNELS.tasks.onVerifyOutput)
+    }),
+    fs: bind<OxeApi['fs']>(IPC_CHANNELS.fs, {
+      onFileChanged: sub(IPC_CHANNELS.fs.onFileChanged)
+    }),
+    git: bind<OxeApi['git']>(IPC_CHANNELS.git, {
+      onDiffUpdate: sub(IPC_CHANNELS.git.onDiffUpdate)
+    }),
     search: {
       run: (input) => ipc.invoke(IPC_CHANNELS.search.run, input) as Promise<import('../../shared/types/search').SearchResult>,
       cancel: () => ipc.invoke(IPC_CHANNELS.search.cancel) as Promise<void>,
@@ -401,61 +339,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     contextUsage: {
       get: (input) => ipc.invoke(IPC_CHANNELS.contextUsage.get, input) as Promise<import('../../shared/types/contextUsage').ContextUsageChip>
     },
-    github: {
-      getCliStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getCliStatus, input) as Promise<GitHubCliStatus>,
-      getWorkspaceStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkspaceStatus, input) as Promise<GitHubWorkspaceStatus>,
-      fetch: (input) => ipc.invoke(IPC_CHANNELS.github.fetch, input) as Promise<GitHubMessageResult>,
-      pullFfOnly: (input) => ipc.invoke(IPC_CHANNELS.github.pullFfOnly, input) as Promise<GitHubMessageResult>,
-      stageAll: (input) => ipc.invoke(IPC_CHANNELS.github.stageAll, input) as Promise<GitHubMessageResult>,
-      stageFile: (input) => ipc.invoke(IPC_CHANNELS.github.stageFile, input) as Promise<GitHubMessageResult>,
-      unstageFile: (input) => ipc.invoke(IPC_CHANNELS.github.unstageFile, input) as Promise<GitHubMessageResult>,
-      commit: (input) => ipc.invoke(IPC_CHANNELS.github.commit, input) as Promise<GitHubMessageResult>,
-      generateCommitMessage: (input) => ipc.invoke(IPC_CHANNELS.github.generateCommitMessage, input) as Promise<GitHubMessageResult>,
-      push: (input) => ipc.invoke(IPC_CHANNELS.github.push, input) as Promise<GitHubMessageResult>,
-      commitAndPush: (input) => ipc.invoke(IPC_CHANNELS.github.commitAndPush, input) as Promise<GitHubMessageResult>,
-      listBranches: (input) => ipc.invoke(IPC_CHANNELS.github.listBranches, input) as Promise<GitHubBranch[]>,
-      createBranch: (input) => ipc.invoke(IPC_CHANNELS.github.createBranch, input) as Promise<GitHubMessageResult>,
-      checkoutBranch: (input) => ipc.invoke(IPC_CHANNELS.github.checkoutBranch, input) as Promise<GitHubMessageResult>,
-      listWorktrees: (input) => ipc.invoke(IPC_CHANNELS.github.listWorktrees, input) as Promise<import('../../shared/types/github').GitHubWorktree[]>,
-      createWorktree: (input) => ipc.invoke(IPC_CHANNELS.github.createWorktree, input) as Promise<GitHubMessageResult>,
-      removeWorktree: (input) => ipc.invoke(IPC_CHANNELS.github.removeWorktree, input) as Promise<GitHubMessageResult>,
-      resolveWorktreeBase: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.resolveWorktreeBase, input) as Promise<import('../../shared/types/github').GitHubWorktreeBase>,
-      getWorktreeStatus: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.getWorktreeStatus, input) as Promise<import('../../shared/types/github').GitHubWorktreeStatus>,
-      scanWorktreeCleanup: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.scanWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupCandidate[]>,
-      removeWorktreeCleanup: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.removeWorktreeCleanup, input) as Promise<import('../../shared/types/worktree-cleanup').WorktreeCleanupRemoveResult[]>,
-      listWorktreesPanel: (input) =>
-        ipc.invoke(IPC_CHANNELS.worktreesPanel.list, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRow[]>,
-      removeWorktreePanel: (input) =>
-        ipc.invoke(IPC_CHANNELS.worktreesPanel.remove, input) as Promise<import('../main/services/github/worktrees-panel').WorktreesPanelRemoveResult>,
-      getRepoConfig: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.getRepoConfig, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
-      approveRepoHook: (input) =>
-        ipc.invoke(IPC_CHANNELS.github.approveRepoHook, input) as Promise<import('../../shared/types/repo-config').RepoConfigSnapshot>,
-      listPullRequests: (input) => ipc.invoke(IPC_CHANNELS.github.listPullRequests, input) as Promise<GitHubPullRequest[]>,
-      createPullRequest: (input) => ipc.invoke(IPC_CHANNELS.github.createPullRequest, input) as Promise<GitHubMessageResult>,
-      getPullRequestStatus: (input) => ipc.invoke(IPC_CHANNELS.github.getPullRequestStatus, input) as Promise<import('../../shared/types/github').GitHubPrStatus | null>,
-      setPullRequestAutoMerge: (input) => ipc.invoke(IPC_CHANNELS.github.setPullRequestAutoMerge, input) as Promise<GitHubMessageResult>,
-      listCommits: (input) => ipc.invoke(IPC_CHANNELS.github.listCommits, input) as Promise<GitHubCommit[]>,
-      getCommitDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getCommitDetails, input) as Promise<GitHubCommitDetails>,
-      listReleases: (input) => ipc.invoke(IPC_CHANNELS.github.listReleases, input) as Promise<GitHubRelease[]>,
-      createRelease: (input) => ipc.invoke(IPC_CHANNELS.github.createRelease, input) as Promise<GitHubMessageResult>,
-      listWorkflows: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflows, input) as Promise<GitHubWorkflow[]>,
-      listWorkflowRuns: (input) => ipc.invoke(IPC_CHANNELS.github.listWorkflowRuns, input) as Promise<GitHubWorkflowRun[]>,
-      getWorkflowRunDetails: (input) => ipc.invoke(IPC_CHANNELS.github.getWorkflowRunDetails, input) as Promise<GitHubWorkflowRunDetails>,
-      runWorkflow: (input) => ipc.invoke(IPC_CHANNELS.github.runWorkflow, input) as Promise<GitHubMessageResult>,
-      rerunRun: (input) => ipc.invoke(IPC_CHANNELS.github.rerunRun, input) as Promise<GitHubMessageResult>,
-      getRunLogs: (input) => ipc.invoke(IPC_CHANNELS.github.getRunLogs, input) as Promise<{ logs: string; truncated: boolean; bytes: number }>,
-      listCheckpoints: (input) => ipc.invoke(IPC_CHANNELS.github.listCheckpoints, input) as Promise<GitHubCheckpoint[]>,
-      createCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.createCheckpoint, input) as Promise<GitHubCheckpoint>,
-      restoreCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.restoreCheckpoint, input) as Promise<GitHubMessageResult>,
-      deleteCheckpoint: (input) => ipc.invoke(IPC_CHANNELS.github.deleteCheckpoint, input) as Promise<GitHubMessageResult>,
-      listConnectedRepositories: (input) => ipc.invoke(IPC_CHANNELS.github.listConnectedRepositories, input) as Promise<GitHubConnectedRepository[]>,
-      connectRepository: (input) => ipc.invoke(IPC_CHANNELS.github.connectRepository, input) as Promise<GitHubConnectedRepository>
-    },
+    github: bind<OxeApi['github']>(IPC_CHANNELS.github, {
+      listWorktreesPanel: inv(IPC_CHANNELS.worktreesPanel.list),
+      removeWorktreePanel: inv(IPC_CHANNELS.worktreesPanel.remove)
+    }),
     pullRequest: {
       state: (input) => ipc.invoke(IPC_CHANNELS.pullRequest.state, input) as Promise<import('../../shared/types/pull-request').PullRequestState>
     },
@@ -538,32 +425,10 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       exportAudit: () => ipc.invoke(IPC_CHANNELS.mcpInternal.exportAudit) as Promise<string | null>
     },
     // R0b: no argument crosses: main picks the newest export file itself.
-    dataExport: {
-      state: () => ipc.invoke(IPC_CHANNELS.dataExport.state) as Promise<import('../../shared/types/ipc').DataExportState>,
-      markNoticeShown: () => ipc.invoke(IPC_CHANNELS.dataExport.markNoticeShown) as Promise<void>,
-      exportAgain: () => ipc.invoke(IPC_CHANNELS.dataExport.exportAgain) as Promise<{ file: string | null }>,
-      open: () => ipc.invoke(IPC_CHANNELS.dataExport.open) as Promise<void>,
-      reveal: () => ipc.invoke(IPC_CHANNELS.dataExport.reveal) as Promise<void>
-    },
-    browserPreview: {
-      session: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.session, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionState>,
-      mount: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.mount, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewMountResult>,
-      bounds: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.bounds, input) as Promise<void>,
-      setAccess: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setAccess, input) as Promise<{ agentAccess: boolean }>,
-      designMode: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.designMode, input) as Promise<void>,
-      setZoom: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setZoom, input) as Promise<void>,
-      reload: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.reload, input) as Promise<void>,
-      back: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.back, input) as Promise<void>,
-      forward: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.forward, input) as Promise<void>,
-      captureElement: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElement, input) as Promise<string | null>,
-      captureElementFile: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureElementFile, input) as Promise<{dataUrl:string;path:string|null} | null>,
-      captureClipboard: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureClipboard, input) as Promise<void>,
-      captureSessionArtifact: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.captureSessionArtifact, input) as Promise<import('../../shared/types/browser-preview').BrowserPreviewSessionArtifact>,
-      close: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.close, input) as Promise<void>,
-      revokeGrant: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.revokeGrant, input) as Promise<void>,
-      setDevice: (input) => ipc.invoke(IPC_CHANNELS.browserPreview.setDevice, input) as Promise<void>,
-      onEvent: (listener) => subscribe<import('../../shared/types/browser-preview').BrowserPreviewEvent>(ipc, IPC_CHANNELS.browserPreview.onEvent, listener)
-    },
+    dataExport: bind<OxeApi['dataExport']>(IPC_CHANNELS.dataExport),
+    browserPreview: bind<OxeApi['browserPreview']>(IPC_CHANNELS.browserPreview, {
+      onEvent: sub(IPC_CHANNELS.browserPreview.onEvent)
+    }),
     oxeContext: {
       buildPaneManifest: (input) => ipc.invoke(IPC_CHANNELS.oxeContext.buildPaneManifest, input) as Promise<string>
     },
@@ -652,12 +517,7 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       retry: () => ipc.invoke(IPC_CHANNELS.hostsProxy.retry) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
       onChanged: listener => subscribe<import('../../shared/types/ipc').HostsProxyStatus>(ipc, IPC_CHANNELS.hostsProxy.changed, listener)
     },
-    repository: {
-      getWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.getWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>,
-      saveWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.saveWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>,
-      previewWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.previewWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateDryRun>,
-      trustWorktreeSensitiveCopy: input => ipc.invoke(IPC_CHANNELS.repository.trustWorktreeSensitiveCopy, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>
-    }
+    repository: bind<OxeApi['repository']>(IPC_CHANNELS.repository)
   }
 }
 

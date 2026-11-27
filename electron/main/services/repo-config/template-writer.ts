@@ -10,7 +10,7 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { dump, load } from 'js-yaml'
+import { load } from 'js-yaml'
 import type { WorktreeTemplateConfig, WorktreeTemplateSaveInput } from '../../../../shared/types/repo-config'
 import { loadWorktreeTemplate } from './loader'
 import {
@@ -23,6 +23,79 @@ import {
 } from './parser'
 import { hashHookScript, hashSensitivePatterns, type RepoHookTrust } from './trust'
 import { extractSensitivePatterns } from './worktree-include'
+
+const SAFE_PLAIN_SCALAR = /^[A-Za-z0-9._/][A-Za-z0-9._/@ -]*$/
+const YAML_RESERVED = /^(?:true|false|yes|no|on|off|null|~|\.inf|-\.inf|\+\.inf|\.nan|[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?|0x[0-9a-fA-F]+|0o[0-7]+)$/i
+
+function formatYamlScalar(value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value === 'boolean' || typeof value === 'number') return String(value)
+  const str = String(value)
+  if (
+    str.length > 0 &&
+    str === str.trim() &&
+    SAFE_PLAIN_SCALAR.test(str) &&
+    !YAML_RESERVED.test(str) &&
+    !str.includes(': ') &&
+    !str.includes(' #') &&
+    !str.endsWith(':')
+  ) {
+    return str
+  }
+  return JSON.stringify(str)
+}
+
+function formatYamlKey(key: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_-]*$/.test(key) ? key : JSON.stringify(key)
+}
+
+function formatYamlEntry(key: string, value: unknown, indent: number): string {
+  const k = formatYamlKey(key)
+  if (Array.isArray(value)) {
+    return value.length === 0 ? `${k}: []` : `${k}:\n${serializeYamlValue(value, indent + 2)}`
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined)
+    return entries.length === 0 ? `${k}: {}` : `${k}:\n${serializeYamlValue(value, indent + 2)}`
+  }
+  return `${k}: ${formatYamlScalar(value)}`
+}
+
+function serializeYamlValue(value: unknown, indent: number): string {
+  const pad = ' '.repeat(indent)
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]'
+    return value
+      .map((item) => {
+        if (item !== null && typeof item === 'object') {
+          if (Array.isArray(item)) {
+            return item.length === 0 ? `${pad}- []` : `${pad}-\n${serializeYamlValue(item, indent + 2)}`
+          }
+          const entries = Object.entries(item as Record<string, unknown>).filter(([, v]) => v !== undefined)
+          if (entries.length === 0) return `${pad}- {}`
+          const [firstKey, firstVal] = entries[0]
+          const firstLine = formatYamlEntry(firstKey, firstVal, indent + 2)
+          const restLines = entries
+            .slice(1)
+            .map(([k, v]) => `${' '.repeat(indent + 2)}${formatYamlEntry(k, v, indent + 2)}`)
+          return [`${pad}- ${firstLine}`, ...restLines].join('\n')
+        }
+        return `${pad}- ${formatYamlScalar(item)}`
+      })
+      .join('\n')
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v !== undefined)
+    if (entries.length === 0) return '{}'
+    return entries.map(([k, v]) => `${pad}${formatYamlEntry(k, v, indent)}`).join('\n')
+  }
+  return `${pad}${formatYamlScalar(value)}`
+}
+
+function dumpYamlDocument(doc: Record<string, unknown>): string {
+  const body = serializeYamlValue(doc, 0)
+  return body && body !== '{}' ? `${body}\n` : ''
+}
 
 async function tryLstat(path: string) {
   try { return await lstat(path) } catch { return null }
@@ -151,9 +224,7 @@ export async function saveWorktreeTemplate(
 
   const shouldWriteOxe = existingInfo !== null || Object.keys(existingDoc).length > 0
   if (shouldWriteOxe) {
-    const serialized = Object.keys(existingDoc).length > 0
-      ? dump(existingDoc, { lineWidth: 120, noRefs: true, sortKeys: false })
-      : ''
+    const serialized = Object.keys(existingDoc).length > 0 ? dumpYamlDocument(existingDoc) : ''
     await writeAtomic(oxePath, serialized)
   }
 
