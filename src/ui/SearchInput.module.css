@@ -10,7 +10,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-base);
   color: var(--tx-primary);
-  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 .root:where([data-size='sm']) {
@@ -24,7 +24,7 @@
 .root:focus-within {
   border-color: var(--bd-focus);
   outline: 2px solid transparent;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent);
 }
 
 .root[data-disabled='true'] {
@@ -35,6 +35,11 @@
 .icon {
   flex: none;
   color: var(--tx-muted);
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.root:focus-within .icon {
+  color: var(--tx-secondary);
 }
 
 .input {

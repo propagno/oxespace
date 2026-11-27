@@ -15,14 +15,14 @@
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 @starting-style { .content { opacity: 0; translate: 0 var(--motion-shift); } }
-.scrim { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--scrim); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.scrim { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--scrim); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 
 .command { display: flex; flex-direction: column; width: 100%; }
 
-.inputWrap { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); border-bottom: 1px solid var(--bd-subtle); color: var(--tx-muted); }
+.inputWrap { display: flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-4); border-bottom: 1px solid var(--bd-subtle); color: var(--tx-muted); transition: border-color var(--duration-fast) var(--ease-standard); }
 /* The field draws no ring of its own: the row under it takes the focus color instead. */
 .inputWrap:focus-within { border-bottom-color: var(--bd-focus); }
-.input { flex: 1; min-width: 0; height: 48px; border: 0; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); outline: none; }
+.input { flex: 1; min-width: 0; height: var(--row-2); border: 0; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); outline: none; }
 .input::placeholder { color: var(--tx-muted); }
 
 .list { max-height: min(420px, 60vh); overflow-x: hidden; overflow-y: auto; padding: var(--space-1); scroll-padding: var(--space-4) 0; scrollbar-width: thin; }
@@ -30,28 +30,29 @@
 .empty { padding: var(--space-6) 0; text-align: center; font-size: var(--fs-sm); color: var(--tx-muted); }
 
 .group { overflow: hidden; }
-.group [cmdk-group-heading] { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--fs-xs); font-weight: var(--weight-semibold); color: var(--tx-secondary); }
+.group [cmdk-group-heading] { padding: var(--space-2) var(--space-2) var(--space-1); font-size: var(--fs-xs); font-weight: var(--weight-medium); color: var(--tx-muted); }
 
 .item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: var(--bar-md);
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   font-size: var(--fs-sm);
-  color: var(--tx-primary);
+  color: var(--tx-secondary);
   cursor: default;
   user-select: none;
   outline: none;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
-.item[data-selected='true'] { background: var(--fill-selected); }
+.item[data-selected='true'] { background: var(--fill-selected); color: var(--tx-primary); }
 .item[data-disabled='true'] { pointer-events: none; opacity: 0.5; }
-.item svg { flex: none; width: 16px; height: 16px; color: var(--tx-secondary); pointer-events: none; }
+.item svg { flex: none; width: 16px; height: 16px; color: var(--tx-muted); pointer-events: none; transition: color var(--duration-fast) var(--ease-standard); }
+.item[data-selected='true'] svg { color: var(--tx-primary); }
 
 /* Parts of an item: the name, then a muted detail that truncates, then an optional trailing hint. */
 .label { flex: none; }
 .detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--tx-muted); }
 .trailing { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--tx-muted); font-variant-numeric: tabular-nums; }
 .truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-

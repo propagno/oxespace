@@ -5,9 +5,9 @@
   gap: var(--space-1-5);
   min-block-size: max(var(--target-min), var(--chip-h));
   padding-inline: var(--space-3);
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
-  background: var(--surface-raised);
+  background: var(--surface-base);
   color: var(--tx-secondary);
   font: inherit;
   font-size: var(--fs-xs);
@@ -30,6 +30,7 @@
 
 .interactive:hover:not(:disabled) {
   background: var(--fill-hover);
+  border-color: var(--bd-default);
   color: var(--tx-primary);
 }
 
@@ -100,15 +101,21 @@
   color: inherit;
 }
 
-/* Variants */
+/* Variants: neutral stays calm and achromatic; Mandacaru caatinga and sertão sun stay semantic. */
 .chip:where([data-variant='neutral'])[data-pressed='true'] {
   background: var(--fill-selected);
-  border-color: var(--accent-border);
+  border-color: var(--bd-strong);
   color: var(--tx-primary);
 }
 
 .chip:where([data-variant='accent']) {
   background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--tx-accent);
+}
+
+.chip:where([data-variant='accent']).interactive:hover:not(:disabled):not([data-pressed='true']) {
+  background: var(--accent-soft-hover);
   border-color: var(--accent-border);
   color: var(--tx-accent);
 }
@@ -133,6 +140,12 @@
 
 .chip:where([data-variant='danger']) {
   background: var(--intent-danger-bg);
+  border-color: var(--intent-danger-border);
+  color: var(--intent-danger-fg);
+}
+
+.chip:where([data-variant='danger']).interactive:hover:not(:disabled):not([data-pressed='true']) {
+  background: var(--intent-danger-bg-hover);
   border-color: var(--intent-danger-border);
   color: var(--intent-danger-fg);
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { Bell, Copy, Filter, FolderGit2, GitBranch, MoreHorizontal, Plus, Search, Trash2, X } from 'lucide-react'
 import { OxeLogo } from '../Brand/OxeLogo'
+import { currentSurfaceStyle, type SurfaceStyle } from '../../design/mode'
 import { colorRoles } from '../../design/tokens/semantic'
 import { palette, SCALE_SPECS, type ScaleName } from '../../design/tokens/palette'
 import { MOTION, RADIUS, REDUCED_MOTION, SPACE, TEXT } from '../../design/tokens/scales'
-import { Badge, BrandLoader, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, DockPanel, EmptyState, Notice, OfflineState, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SearchInput, SegmentedControl, Select, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Slider, Spinner, StatusDot, StatusSignal, SIGNAL_STATES, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
+import { Badge, BrandLoader, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, DockPanel, EmptyState, Notice, OfflineState, PaneHeader, SuccessState, ErrorState, IconButton, Kbd, LoadingState, Menu, Meter, Panel, SearchInput, SegmentedControl, Select, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Slider, Spinner, StatusDot, StatusSignal, SIGNAL_STATES, Switch, Tabs, TextArea, TextField, Toolbar, ToolbarSpacer, Tooltip, toast, useModalSurface } from '../../ui'
 import styles from './DesignSystemPage.module.css'
 
 type Section = 'brand' | 'color' | 'type' | 'shape' | 'motion' | 'components' | 'primitives' | 'states'
@@ -14,6 +15,13 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: 'primitives', label: '1.5.2 Primitives' }, { id: 'states', label: 'States' }
 ]
 
+const SURFACE_PRESETS: Array<{ mode: 'light' | 'dark'; surface: SurfaceStyle; title: string; subtitle: string }> = [
+  { mode: 'light', surface: 'default', title: 'Light · Default', subtitle: 'neutral chrome' },
+  { mode: 'light', surface: 'pure', title: 'Light · Pure', subtitle: 'pure white' },
+  { mode: 'dark', surface: 'default', title: 'Dark · Default', subtitle: 'obsidian graphite' },
+  { mode: 'dark', surface: 'pure', title: 'Dark · Pure', subtitle: 'true black OLED' }
+]
+
 /** Maps semantic role keys from semantic.ts to canonical CSS custom property names in tokens.generated.css. */
 function toCssVarName(role: string): string {
   if (role.startsWith('text-')) return role.replace(/^text-/, 'tx-')
@@ -21,19 +29,24 @@ function toCssVarName(role: string): string {
   return role
 }
 
-/** Renders `children` twice, once per mode, using data-mode subtrees. */
-function BothModes({ children }: { children: () => ReactNode }): ReactElement {
+/** Renders `children` twice, once per mode, using data-mode and data-surface subtrees. */
+function BothModes({ surface = 'default', children }: { surface?: SurfaceStyle; children: () => ReactNode }): ReactElement {
   return <div className={styles.modes}>
-    {(['light', 'dark'] as const).map(mode => <div key={mode} className={styles.mode} data-mode={mode}><span className={styles.modeLabel}>{mode === 'light' ? 'Light' : 'Dark'}</span>{children()}</div>)}
+    {(['light', 'dark'] as const).map(mode => (
+      <div key={mode} className={styles.mode} data-mode={mode} data-surface={surface}>
+        <span className={styles.modeLabel}>{mode === 'light' ? 'Light' : 'Dark'}</span>
+        {children()}
+      </div>
+    ))}
   </div>
 }
 
-function BrandSection(): ReactElement {
+function BrandSection({ surface }: { surface: SurfaceStyle }): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Mark and wordmark</h2>
-    <BothModes>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={20} variant="wordmark" /></div></div>}</BothModes>
+    <BothModes surface={surface}>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={20} variant="wordmark" /></div></div>}</BothModes>
     <h2 className={styles.sectionTitle}>Brand scales</h2>
-    <BothModes>{() => <ScaleList names={['caatinga', 'sun']} />}</BothModes>
+    <BothModes surface={surface}>{() => <ScaleList names={['caatinga', 'sun']} />}</BothModes>
   </>
 }
 
@@ -52,8 +65,8 @@ function ScaleVariables(): ReactElement {
   return <style>{css}</style>
 }
 
-function ColorSection(): ReactElement {
-  const roles = Object.keys(colorRoles('light')).filter(name => !name.startsWith('ansi-'))
+function ColorSection({ surface }: { surface: SurfaceStyle }): ReactElement {
+  const roles = Object.keys(colorRoles('light', surface)).filter(name => !name.startsWith('ansi-'))
   const groups: Array<[string, (name: string) => boolean]> = [
     ['Surfaces and fills', name => name.startsWith('surface-') || name.startsWith('fill-') || name === 'scrim'],
     ['Text', name => name.startsWith('text-')],
@@ -63,15 +76,30 @@ function ColorSection(): ReactElement {
     ['Code review', name => name.startsWith('diff-')]
   ]
   return <>
+    <h2 className={styles.sectionTitle}>Surface presets (Default vs Pure)</h2>
+    <div className={styles.presetGrid}>
+      {SURFACE_PRESETS.map(preset => (
+        <div key={`${preset.mode}-${preset.surface}`} className={styles.presetCard} data-mode={preset.mode} data-surface={preset.surface}>
+          <div className={styles.presetHead}><strong>{preset.title}</strong><code>{preset.subtitle}</code></div>
+          <div className={styles.presetSwatches}>
+            <span style={{ background: 'var(--surface-canvas)' }} title="--surface-canvas" />
+            <span style={{ background: 'var(--surface-chrome)' }} title="--surface-chrome" />
+            <span style={{ background: 'var(--surface-raised)' }} title="--surface-raised" />
+            <span style={{ background: 'var(--fill-selected)' }} title="--fill-selected" />
+            <span style={{ background: 'var(--accent)' }} title="--accent" />
+          </div>
+        </div>
+      ))}
+    </div>
     {groups.map(([title, match]) => <div key={title}>
       <h2 className={styles.sectionTitle}>{title}</h2>
-      <BothModes>{() => <div className={styles.swatches}>{roles.filter(match).map(name => {
+      <BothModes surface={surface}>{() => <div className={styles.swatches}>{roles.filter(match).map(name => {
         const cssVar = toCssVarName(name)
         return <div key={name} className={styles.swatch}><span className={styles.chip} style={{ background: `var(--${cssVar})` }} /><code>--{cssVar}</code></div>
       })}</div>}</BothModes>
     </div>)}
     <h2 className={styles.sectionTitle}>Scales</h2>
-    <BothModes>{() => <ScaleList names={Object.keys(SCALE_SPECS) as ScaleName[]} />}</BothModes>
+    <BothModes surface={surface}>{() => <ScaleList names={Object.keys(SCALE_SPECS) as ScaleName[]} />}</BothModes>
   </>
 }
 
@@ -89,19 +117,19 @@ function TypeSection(): ReactElement {
   </>
 }
 
-function ShapeSection(): ReactElement {
+function ShapeSection({ surface }: { surface: SurfaceStyle }): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Spacing</h2>
     <div className={styles.stack}>{Object.entries(SPACE).filter(([key]) => key !== '0').map(([key, value]) => <div key={key} className={styles.measure}><code>--space-{key} · {value}</code><span className={styles.bar} style={{ width: value }} /></div>)}</div>
     <h2 className={styles.sectionTitle}>Radius</h2>
     <div className={styles.row}>{Object.entries(RADIUS).map(([key, value]) => <div key={key} className={styles.stack}><span className={styles.box} style={{ borderRadius: value }} /><code>--radius-{key}</code></div>)}</div>
     <h2 className={styles.sectionTitle}>Elevation</h2>
-    <BothModes>{() => <div className={styles.row}>{[1, 2, 3, 4].map(level => <div key={level} className={styles.stack}><span className={styles.box} style={{ boxShadow: `var(--elevation-${level})`, borderRadius: 'var(--radius-md)' }} /><code>--elevation-{level}</code></div>)}</div>}</BothModes>
+    <BothModes surface={surface}>{() => <div className={styles.row}>{[1, 2, 3, 4].map(level => <div key={level} className={styles.stack}><span className={styles.box} style={{ boxShadow: `var(--elevation-${level})`, borderRadius: 'var(--radius-md)' }} /><code>--elevation-{level}</code></div>)}</div>}</BothModes>
   </>
 }
 
 /** The motion tokens with what reduced motion turns them into, the loops, and a live entrance (docs/design/motion.md). */
-function MotionSection(): ReactElement {
+function MotionSection({ surface }: { surface: SurfaceStyle }): ReactElement {
   const [dialog, setDialog] = useState(false)
   // Under reduced motion a loop other than the spin runs once in 0ms, and an easing has nothing left to shape.
   const reduced = (name: string): string => (REDUCED_MOTION as Record<string, string>)[name] ?? (name.startsWith('ease-') ? '—' : 'stops')
@@ -112,7 +140,7 @@ function MotionSection(): ReactElement {
       <tbody>{Object.entries(MOTION).map(([name, value]) => <tr key={name}><td><code>--{name}</code></td><td><code>{value}</code></td><td><code>{reduced(name)}</code></td></tr>)}</tbody>
     </table>
     <h2 className={styles.sectionTitle}>Loops</h2>
-    <BothModes>{() => <div className={styles.row}><BrandLoader label="Loading the view" /><Spinner /><StatusDot status="running" label="Running" /><div className={styles.loopSkeleton}><Skeleton lines={2} /></div></div>}</BothModes>
+    <BothModes surface={surface}>{() => <div className={styles.row}><BrandLoader label="Loading the view" /><Spinner /><StatusDot status="running" label="Running" /><div className={styles.loopSkeleton}><Skeleton lines={2} /></div></div>}</BothModes>
     <h2 className={styles.sectionTitle}>Entrance and press</h2>
     <div className={styles.row}><Button variant="primary" onClick={() => setDialog(true)}>Open a dialog</Button><Button onClick={() => toast({ title: 'Copied the branch name', intent: 'success' })}>Show a toast</Button></div>
     {dialog && <Dialog size="md" title="A dialog enters" description="It rises by --motion-shift while it fades in; reduced motion shows it at once." onClose={() => setDialog(false)} footer={<Button variant="primary" onClick={() => setDialog(false)}>Done</Button>}><p>Exits are instant: what the person dismissed should not linger.</p></Dialog>}
@@ -185,7 +213,7 @@ function Gallery(): ReactElement {
   </div>
 }
 
-/** 1.5.2 primitives and new Mandacaru building blocks: StatusSignal, Chip, SearchInput, Card, DockPanel and Sidebar. */
+/** 1.5.2 primitives and Obsidian Minimal + Mandacaru building blocks: StatusSignal, Chip, SearchInput, Card, PaneHeader, DockPanel and Sidebar. */
 function Primitives152Gallery(): ReactElement {
   const [activeFilter, setActiveFilter] = useState(true)
   const [tags, setTags] = useState(['mandacaru', 'wcag-2.5.8'])
@@ -220,12 +248,18 @@ function Primitives152Gallery(): ReactElement {
 
     <h3 className={styles.sectionTitle}>Card</h3>
     <div className={styles.previewGrid}>
-      <Card surface="raised" padding="sm"><strong>Raised</strong><p className={styles.cardCopy}>Default elevated container.</p></Card>
+      <Card surface="raised" padding="sm"><strong>Raised</strong><p className={styles.cardCopy}>Restrained hairline card.</p></Card>
       <Card surface="sunken" padding="md"><strong>Sunken</strong><p className={styles.cardCopy}>Recessed grouping surface.</p></Card>
       <Card surface="base" padding="md" interactive onClick={() => setSelectedCard(prev => prev === 'base' ? 'raised' : 'base')}>
         <strong>Interactive ({selectedCard})</strong>
         <p className={styles.cardCopy}>Keyboard-focusable card button.</p>
       </Card>
+    </div>
+
+    <h3 className={styles.sectionTitle}>PaneHeader</h3>
+    <div className={styles.panePreview}>
+      <PaneHeader status={<StatusSignal state="working" label="Working" size={14} />} title="api-server" branch="feat/oxe-460" focused actions={<IconButton label="Pane actions" icon={<MoreHorizontal size={14} />} size="sm" />} />
+      <PaneHeader status={<StatusSignal state="waiting" label="Idle" size={14} />} title="test-runner" actions={<IconButton label="Secondary pane actions" icon={<MoreHorizontal size={14} />} size="sm" />} />
     </div>
 
     <h3 className={styles.sectionTitle}>DockPanel &amp; Sidebar</h3>
@@ -240,19 +274,20 @@ function Primitives152Gallery(): ReactElement {
         <SidebarFilter aria-label="Filter preview sidebar" placeholder="Filter…" value={sidebarQuery} onChange={event => setSidebarQuery(event.target.value)} onClear={() => setSidebarQuery('')} clearLabel="Clear filter" />
         <SidebarSection label="Active" />
         <SidebarGroup title="oxespace" meta="2" />
-        <SidebarRow lead={<StatusSignal state="working" label="Working" size={14} />} title="feat/oxe-373" meta="2m" selected />
+        <SidebarRow lead={<StatusSignal state="working" label="Working" size={14} />} title="feat/oxe-460" meta="2m" selected />
         <SidebarRow lead={<StatusSignal state="needs-you" label="Needs you" size={14} />} title="review-pr" detail="Waiting for approval" meta="5m" />
       </DockPanel>
     </div>
   </div>
 }
 
-/** The design system, rendered from its own source: tokens, scales and every primitive in both modes. */
+/** The design system, rendered from its own source: tokens, scales and every primitive in both modes and surface styles. */
 export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactElement {
   const [section, setSection] = useState<Section>('components')
   const [density, setDensity] = useState<'compact' | 'comfortable'>(() =>
     document.documentElement.dataset.density === 'comfortable' ? 'comfortable' : 'compact'
   )
+  const [surfaceStyle, setSurfaceStyle] = useState<SurfaceStyle>(() => currentSurfaceStyle())
   const current = SECTIONS.find(item => item.id === section)!
   const surface = useModalSurface<HTMLDivElement>(onClose)
 
@@ -268,7 +303,7 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
     document.documentElement.dataset.density = density
   }, [density])
 
-  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" data-density={density} {...surface}>
+  return <div className={styles.page} role="dialog" aria-modal="true" aria-label="Design system" data-density={density} data-surface={surfaceStyle} {...surface}>
     <ScaleVariables />
     <nav className={styles.nav} aria-label="Design system sections">
       <h1 className={styles.navTitle}><OxeLogo size={20} variant="compact" />Design system</h1>
@@ -277,8 +312,14 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
     </nav>
     <main className={styles.main}>
       <header className={styles.header}>
-        <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Mandacaru, the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode.</p></div>
+        <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Obsidian Minimal + Mandacaru — the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode across Default and Pure surface styles.</p></div>
         <div className={styles.headerControls}>
+          <SegmentedControl
+            label="Surface style"
+            value={surfaceStyle}
+            onChange={setSurfaceStyle}
+            options={[{ value: 'default', label: 'Default' }, { value: 'pure', label: 'Pure' }]}
+          />
           <SegmentedControl
             label="Density"
             value={density}
@@ -288,7 +329,7 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
           <IconButton label="Close design system" icon={<X size={16} />} onClick={onClose} />
         </div>
       </header>
-      {section === 'brand' ? <BrandSection /> : section === 'color' ? <ColorSection /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection /> : section === 'motion' ? <MotionSection /> : section === 'primitives' ? <BothModes>{() => <Primitives152Gallery />}</BothModes> : section === 'states' ? <BothModes>{() => <StatesGallery />}</BothModes> : <BothModes>{() => <Gallery />}</BothModes>}
+      {section === 'brand' ? <BrandSection surface={surfaceStyle} /> : section === 'color' ? <ColorSection surface={surfaceStyle} /> : section === 'type' ? <TypeSection /> : section === 'shape' ? <ShapeSection surface={surfaceStyle} /> : section === 'motion' ? <MotionSection surface={surfaceStyle} /> : section === 'primitives' ? <BothModes surface={surfaceStyle}>{() => <Primitives152Gallery />}</BothModes> : section === 'states' ? <BothModes surface={surfaceStyle}>{() => <StatesGallery />}</BothModes> : <BothModes surface={surfaceStyle}>{() => <Gallery />}</BothModes>}
     </main>
   </div>
 }

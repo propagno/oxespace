@@ -20,15 +20,16 @@
 :where(.input, .select) { height: var(--control-md); padding: 0 var(--space-2); }
 :where(.textarea) { padding: var(--space-2); line-height: var(--leading-normal); resize: vertical; min-height: calc(var(--control-md) * 2); }
 :where(.input, .textarea)::placeholder { color: var(--tx-muted); }
-:where(.input, .textarea, .select):hover { border-color: var(--tx-muted); }
-:where(.input, .textarea, .select):focus-visible { outline: 2px solid transparent; border-color: var(--bd-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 30%, transparent); }
+:where(.input, .textarea, .select):hover:not(:disabled) { border-color: var(--tx-muted); }
+:where(.input, .textarea, .select):focus-visible { outline: 2px solid transparent; border-color: var(--bd-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus-ring) 22%, transparent); }
 :where(.input, .textarea, .select)[aria-invalid='true'] { border-color: var(--intent-danger-solid); }
 :where(.input, .textarea, .select):disabled { opacity: 0.55; cursor: not-allowed; }
 .mono { font-family: var(--font-mono); }
 
 .selectWrap { position: relative; display: inline-flex; align-items: center; width: 100%; min-width: 0; }
 .select { appearance: none; padding-right: var(--space-6); cursor: pointer; }
-.selectChevron { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--tx-secondary); }
+.selectChevron { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--tx-muted); transition: color var(--duration-fast) var(--ease-standard); }
+.selectWrap:hover .selectChevron { color: var(--tx-primary); }
 }
 
 /* The box stays 16 px; the label around it is the target, so it is never shorter than --target-min (WCAG 2.5.8). */
@@ -64,7 +65,9 @@
 }
 .check input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .check:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
-.check:hover:not(:has(input:disabled)) input { filter: brightness(0.94); }
+.check:hover:not(:has(input:disabled)) input { border-color: var(--tx-muted); background: var(--fill-hover); }
+.check:hover:not(:has(input:disabled)) input:checked { border-color: var(--accent-hover); }
+.check:hover:not(:has(input:disabled)) input:checked::before { background: var(--accent-hover); }
 
 .switch {
   position: relative;
@@ -93,7 +96,7 @@
 .switch:hover:not(:disabled) { border-color: var(--tx-muted); }
 .switch:hover:not(:disabled):not([aria-checked='true'])::after { background: var(--tx-primary); }
 .switch[aria-checked='true'] { background: var(--accent); border-color: var(--accent); }
-.switch[aria-checked='true']:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--tx-primary)); }
+.switch[aria-checked='true']:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
 .switch[aria-checked='true']::after { transform: translateX(16px); background: var(--tx-on-accent); }
 .switch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .switch:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -113,7 +116,7 @@
 .sliderInput::-moz-range-thumb { width: 16px; height: 16px; border: 2px solid var(--accent); border-radius: var(--radius-full); background: var(--surface-raised); box-shadow: var(--elevation-1); }
 .sliderInput:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
 .sliderInput:disabled { opacity: 0.5; cursor: not-allowed; }
-.sliderValue { min-inline-size: 48px; text-align: end; font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--tx-secondary); white-space: nowrap; }
+.sliderValue { min-inline-size: 48px; text-align: end; font-family: var(--font-mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--tx-muted); white-space: nowrap; }
 
 /* Padding is --space-0-5 so the segment radius (--radius-sm) plus it equals the track radius (--radius-md). The option fills that inset and stays at least --target-min; the 2px is the track's own border. */
 .segmented { display: inline-flex; padding: var(--space-0-5); gap: 2px; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--bd-subtle); }
@@ -124,7 +127,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   font: inherit;
   font-size: var(--fs-xs);
   font-weight: var(--weight-medium);
@@ -134,10 +137,11 @@
   gap: var(--space-1);
   transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
-.segment:hover { color: var(--tx-primary); }
+.segment:hover:not(:disabled) { color: var(--tx-primary); }
 .segment[aria-checked='true'] { background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-1); outline: 1px solid var(--bd-subtle); outline-offset: -1px; }
 .segment[aria-checked='true'][data-tone='danger'] { background: var(--intent-danger-solid); color: var(--tx-on-solid); }
 .segment:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.segment:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* SwatchPicker: an 18 px dot drawn inside a 24×24 button, so the dots keep their size and the target meets 2.5.8. */
 .swatches { display: inline-flex; align-items: center; }
@@ -208,16 +212,16 @@
   .sliderInput:focus-visible { outline-color: CanvasText; }
 }
 
+/* Minimal keycap: quiet sunken surface with hairline 1px border, zero chunky 3D bevel. */
 .kbd {
   display: inline-flex;
   align-items: center;
   min-height: calc(var(--fs-2xs) + var(--space-2));
-  padding: 0 var(--space-1);
-  border: 1px solid var(--bd-default);
-  border-bottom-width: 2px;
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  color: var(--tx-secondary);
+  background: var(--surface-sunken);
+  color: var(--tx-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: 1;

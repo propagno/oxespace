@@ -34,22 +34,29 @@
 .button:where([data-size='sm']) { --button-h: var(--control-sm); padding: 0 var(--space-2); font-size: var(--fs-xs); gap: var(--space-1); }
 .button:where([data-size='lg']) { --button-h: var(--control-lg); padding: 0 var(--space-4); font-size: var(--fs-sm); }
 
+/* Primary: reserved for primary CTAs in Mandacaru caatinga green. */
 .button:where([data-variant='primary']) { background: var(--accent); color: var(--tx-on-accent); }
 .button:where([data-variant='primary']):hover:not(:disabled) { background: var(--accent-hover); }
+.button:where([data-variant='primary']):active:not(:disabled) { background: color-mix(in srgb, var(--accent-hover) 88%, var(--tx-on-accent)); }
 
-.button:where([data-variant='secondary']) { background: var(--surface-raised); color: var(--tx-primary); border-color: var(--bd-control); }
-.button:where([data-variant='secondary']):hover:not(:disabled) { background: var(--fill-hover); }
-.button:where([data-variant='secondary']):active:not(:disabled) { background: var(--fill-pressed); }
+/* Secondary: clean Minimal hairline outline on transparent surface (no heavy raised slab), keeping --bd-control for 3:1 contrast. */
+.button:where([data-variant='secondary']) { background: transparent; color: var(--tx-primary); border-color: var(--bd-control); }
+.button:where([data-variant='secondary']):hover:not(:disabled) { background: var(--fill-hover); border-color: var(--tx-muted); }
+.button:where([data-variant='secondary']):active:not(:disabled) { background: var(--fill-pressed); border-color: var(--tx-muted); }
 
+/* Ghost: truly weightless at rest; icon-only ghost buttons rest in muted ink and illuminate on hover/active. */
 .button:where([data-variant='ghost']) { background: transparent; color: var(--tx-secondary); }
+.button:where([data-variant='ghost'][data-ui='icon-button']) { color: var(--tx-muted); }
 .button:where([data-variant='ghost']):hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
-.button:where([data-variant='ghost']):active:not(:disabled) { background: var(--fill-pressed); }
+.button:where([data-variant='ghost']):active:not(:disabled) { background: var(--fill-pressed); color: var(--tx-primary); }
 .button:where([data-variant='ghost'])[aria-pressed='true'], .button:where([data-variant='ghost'])[data-state='open'] { background: var(--fill-selected); color: var(--tx-primary); }
 
 .button:where([data-variant='danger']) { background: var(--intent-danger-solid); color: var(--tx-on-solid); }
 .button:where([data-variant='danger']):hover:not(:disabled) { background: var(--intent-danger-solid-hover); }
+.button:where([data-variant='danger']):active:not(:disabled) { background: var(--intent-danger-solid-hover); }
 
-.button:where([data-variant='link']) { height: auto; min-width: 0; padding: 0; background: none; color: var(--tx-link); text-decoration: underline; text-underline-offset: 2px; }
+.button:where([data-variant='link']) { height: auto; min-width: 0; padding: 0; background: none; color: var(--tx-link); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); text-underline-offset: 3px; }
+.button:where([data-variant='link']):hover:not(:disabled) { text-decoration-color: currentColor; }
 
 .button:where([data-ui='icon-button']) { padding: 0; width: var(--button-h); }
 
