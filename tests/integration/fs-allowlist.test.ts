@@ -316,7 +316,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/handoff/handoff-watcher.ts',
   // OXE-447: detached local PTY daemon manages only its own POSIX Unix Domain Socket file (unlink stale socket +
   // chmod 0600 on listen); never touches workspace files.
-  'electron/main/workers/pty-daemon.ts'
+  'electron/main/workers/pty-daemon.ts',
+  // OXE-447: persists only <userData>/execution-bindings.json (atomic temp+rename, mode 0600, safeStorage-encrypted)
+  // for PTY daemon restart reconciliation; never touches workspace files.
+  'electron/main/services/execution-binding-store.ts'
 ])
 
 describe('workspace fs allowlist', () => {

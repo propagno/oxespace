@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, safeStorage } from 'electron'
 import log from 'electron-log/main.js'
 import { delimiter, join } from 'node:path'
 import type { openDatabase } from '../db/index'
@@ -13,7 +13,9 @@ import { codeAgentMcpLaunch, providerForExecutable } from '../services/agent-lau
 import { AgentHookServer } from '../services/agent-hooks/server'
 import { hookServerOptionsFor } from '../services/agent-hooks/hook-pipeline'
 import { setPreviewGrantAudit } from '../services/browser-preview/preview-grants'
+import { ExecutionBindingStore } from '../services/execution-binding-store'
 import { ExecutionRegistry } from '../services/execution-registry'
+import { createSecretCipher } from '../services/oxequery/secret-cipher'
 import { resolveSessionLocation } from '../services/git-common-dir'
 import { TerminalManager } from '../services/terminal.service'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
@@ -38,7 +40,11 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     import('../services/delegation.service'), import('../ipc/delegation.ipc'),
     import('../services/android/android-devices'), import('../ipc/android.ipc')
   ])
-  const executions = new ExecutionRegistry()
+  const executionStore = new ExecutionBindingStore({
+    filePath: join(app.getPath('userData'), 'execution-bindings.json'),
+    cipher: createSecretCipher(safeStorage)
+  })
+  const executions = new ExecutionRegistry({ store: executionStore })
   const personAuditStmt = db.prepare("INSERT INTO person_action_audit (ts, actor, action, target, outcome, code) VALUES (?, 'person', ?, ?, ?, ?)")
   setPreviewGrantAudit(entry => {
     try { personAuditStmt.run(Date.now(), entry.action, entry.target, entry.outcome, null) } catch { /* best-effort audit */ }
@@ -150,6 +156,14 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     { daemonEntry: join(app.getAppPath(), 'out', 'main', 'pty-daemon.js'), userDataPath: app.getPath('userData') }
   )
   const ptyDaemon = ptyOption.daemon ?? null
+  // OXE-447 · Reconcile persisted execution credentials ONLY against live daemon sessions (purging dead entries).
+  if (ptyDaemon) {
+    void ptyDaemon.listSessions()
+      .then(sessions => executions.reconcileWithLiveSessions(sessions.filter(s => s.alive).map(s => s.sessionId)))
+      .catch(() => executions.reconcileWithLiveSessions([]))
+  } else {
+    void executions.reconcileWithLiveSessions([])
+  }
   const terminalManager: TerminalManager = new TerminalManager(db, {
     ...ptyOption, // OXE-400/OXE-447: utility process (default), main, or detached PTY daemon
     rootExists, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned

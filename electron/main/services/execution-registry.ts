@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { resolve } from 'node:path'
 import type { WorkspaceAccessLevel } from '../../../shared/access-ceiling'
+import type { ExecutionBindingStore, PersistedExecutionBinding } from './execution-binding-store'
 
 export type ExecutionOwner = { kind: 'pane' | 'thread'; id: string }
 export interface AgentExecution {
@@ -41,10 +42,20 @@ export function executionSignal(owner: ExecutionOwner | undefined): AbortSignal 
   return owner ? executionSignals.get(owner)?.signal : undefined
 }
 
-/** Process-lifetime credentials; unrelated to provider conversation IDs or memory availability. */
+export interface ExecutionRegistryOptions {
+  store?: ExecutionBindingStore
+}
+
+/** Process-lifetime credentials (plus daemon-reconciled pane credentials); unrelated to provider conversation IDs. */
 export class ExecutionRegistry {
   private executions = new Map<string, AgentExecution>()
   private generations = new Map<string, number>()
+  private readonly store?: ExecutionBindingStore
+
+  constructor(options: ExecutionRegistryOptions = {}) {
+    this.store = options.store
+  }
+
   register(input: ({ paneId: string; workspaceId: string; cwd: string } | { owner: ExecutionOwner; workspaceId: string; cwd: string }) & { access?: WorkspaceAccessLevel }): Record<string, string> {
     // A fresh object per launch, even when the caller reuses one: it is this execution's key to its own signal.
     const owner: ExecutionOwner = 'owner' in input ? { kind: input.owner.kind, id: input.owner.id } : { kind: 'pane', id: input.paneId }
@@ -57,8 +68,64 @@ export class ExecutionRegistry {
       id: randomUUID(), token: randomBytes(32).toString('hex') }
     this.executions.set(execution.id, execution)
     executionSignals.set(owner, new AbortController())
+    if (owner.kind === 'pane') this.persistPaneBindings()
     return { OXESPACE_EXECUTION_ID: execution.id, OXESPACE_EXECUTION_TOKEN: execution.token,
       OXESPACE_EXECUTION_GENERATION: String(generation), OXESPACE_WORKSPACE_ID: input.workspaceId }
+  }
+
+  /**
+   * OXE-447 · Re-hydrates ONLY persisted pane bindings whose `paneId` is confirmed live by the PTY daemon,
+   * purging stale/dead entries immediately from memory and disk. Idempotent across repeated reconciliations.
+   */
+  async reconcileWithLiveSessions(liveSessionIds: Iterable<string>): Promise<{ restored: string[]; purged: string[] }> {
+    const live = new Set(liveSessionIds)
+    const stored = this.store?.load() ?? []
+    const restored: string[] = []
+    const purged: string[] = []
+    const kept: PersistedExecutionBinding[] = []
+
+    for (const binding of stored) {
+      if (binding.owner.kind !== 'pane' || !live.has(binding.paneId)) {
+        purged.push(binding.paneId)
+        continue
+      }
+      kept.push(binding)
+      const existing = this.executions.get(binding.id)
+      if (existing && existing.paneId === binding.paneId) {
+        restored.push(binding.paneId)
+        continue
+      }
+      const owner: ExecutionOwner = { kind: 'pane', id: binding.paneId }
+      const ownerKey = this.key(owner)
+      const prevGen = this.generations.get(ownerKey) ?? 0
+      this.generations.set(ownerKey, Math.max(prevGen, binding.generation))
+      const execution: AgentExecution = {
+        id: binding.id,
+        paneId: binding.paneId,
+        owner,
+        workspaceId: binding.workspaceId,
+        cwd: binding.cwd,
+        canonicalRoot: resolve(binding.canonicalRoot || binding.cwd),
+        generation: binding.generation,
+        token: binding.token,
+        ...(binding.access ? { access: binding.access } : {})
+      }
+      this.executions.set(execution.id, execution)
+      executionSignals.set(owner, new AbortController())
+      restored.push(binding.paneId)
+    }
+
+    // Purge any in-memory pane execution whose daemon session is no longer live.
+    for (const [id, execution] of [...this.executions.entries()]) {
+      if (execution.owner.kind === 'pane' && !live.has(execution.paneId)) {
+        this.executions.delete(id)
+        executionSignals.get(execution.owner)?.abort()
+        if (!purged.includes(execution.paneId)) purged.push(execution.paneId)
+      }
+    }
+
+    this.store?.save(this.currentPaneBindings(kept))
+    return { restored, purged }
   }
   authenticate(id?: string, token?: string, workspaceId?: string | null): AgentExecution {
     const execution = id ? this.executions.get(id) : undefined
@@ -88,6 +155,30 @@ export class ExecutionRegistry {
     for (const execution of ended) for (const listener of endedListeners) {
       try { listener(execution) } catch { /* one listener's failure never keeps another's asks alive */ }
     }
+    if (ended.some(execution => execution.owner.kind === 'pane')) this.persistPaneBindings()
+  }
+  private persistPaneBindings(): void {
+    if (!this.store) return
+    try { this.store.save(this.currentPaneBindings()) } catch { /* persistence must never block terminal lifecycle */ }
+  }
+  private currentPaneBindings(seed: readonly PersistedExecutionBinding[] = []): PersistedExecutionBinding[] {
+    const byPane = new Map<string, PersistedExecutionBinding>()
+    for (const item of seed) byPane.set(item.paneId, item)
+    for (const execution of this.executions.values()) {
+      if (execution.owner.kind !== 'pane') continue
+      byPane.set(execution.paneId, {
+        id: execution.id,
+        paneId: execution.paneId,
+        owner: { kind: 'pane', id: execution.owner.id },
+        workspaceId: execution.workspaceId,
+        cwd: execution.cwd,
+        canonicalRoot: execution.canonicalRoot,
+        generation: execution.generation,
+        token: execution.token,
+        ...(execution.access ? { access: execution.access } : {})
+      })
+    }
+    return [...byPane.values()]
   }
   private key(owner: ExecutionOwner): string { return `${owner.kind}:${owner.id}` }
 }
