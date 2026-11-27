@@ -255,7 +255,7 @@
       },
       "policy": {
         "autoEcoLabel": "Prioridade Eco para agentes em segundo plano",
-        "autoEcoHint": "Executa automaticamente árvores de delegações e automações em prioridade Abaixo do Normal para não travar o trabalho interativo.",
+        "autoEcoHint": "Executa automaticamente árvores de delegações e execuções agendadas em prioridade Abaixo do Normal para não travar o trabalho interativo.",
         "idleTtlLabel": "Encerramento de processos ociosos",
         "idleTtlHint": "Encerra graciosamente processos gerenciados ociosos após inatividade, mantendo a sessão nativa para retomada transparente.",
         "disabled": "Desativado",
@@ -277,7 +277,7 @@
         "chat": "OxeChat",
         "terminal": "OxeCode",
         "delegation": "Delegação",
-        "automation": "Automação"
+        "automation": "Agendado"
       },
       "priorities": {
         "normal": "Normal",

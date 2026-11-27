@@ -269,7 +269,7 @@
         "chat": "OxeChat",
         "terminal": "OxeCode",
         "delegation": "Delegation",
-        "automation": "Automation"
+        "automation": "Scheduled"
       },
       "priorities": {
         "normal": "Normal",
