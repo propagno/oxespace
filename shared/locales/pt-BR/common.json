@@ -174,7 +174,8 @@
         "designMode": "Selecionar um elemento no Navegador",
         "files": "Arquivos",
         "search": "Buscar nos arquivos",
-        "splitLayout": "Alternar o layout dividido"
+        "splitLayout": "Alternar o layout dividido",
+        "sideChat": "Chat lateral"
       },
       "pane": {
         "splitRight": "Dividir painel à direita",

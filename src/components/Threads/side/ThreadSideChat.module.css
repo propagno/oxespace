@@ -1,16 +1,177 @@
-/* The side chat drawer: beside the conversation, never over it, so both stay readable. */
-.drawer { display: flex; flex-direction: column; gap: var(--space-2); width: min(380px, 40vw); min-width: 280px; min-height: 0; padding: var(--space-3); border-left: 1px solid var(--bd-default); background: var(--surface-raised); }
-.header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
-.title { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.title h2 { margin: 0; font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--tx-primary); }
-.note { margin: 0; color: var(--tx-secondary); font-size: var(--fs-xs); line-height: 1.45; }
-/* The cost is always in view: the copy runs on the person's account like the conversation. */
-.cost { margin: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--fill-hover); color: var(--tx-primary); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
-.cost span { color: var(--tx-secondary); }
-.log { flex: 1; min-height: 120px; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-2); list-style: none; }
-.question, .answer { padding: var(--space-2); border-radius: var(--radius-md); font-size: var(--fs-sm); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.question { align-self: flex-end; max-width: 90%; background: var(--accent-soft); color: var(--tx-primary); }
-.answer { background: var(--surface-sunken); color: var(--tx-primary); }
-.status { margin: 0; color: var(--tx-secondary); font-size: var(--fs-xs); }
-.composer { display: flex; flex-direction: column; gap: var(--space-1); align-items: flex-end; }
-.input { width: 100%; resize: vertical; }
+/* Obsidian Minimal + Mandacaru side chat drawer (OXE-466): quiet chrome, hairline rules, editorial answers. */
+.drawer {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: min(390px, 40vw);
+  min-width: 290px;
+  height: 100%;
+  min-height: 0;
+  border-left: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
+  color: var(--tx-primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title h2 {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--tx-primary);
+  white-space: nowrap;
+}
+
+.headerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.providerTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+}
+
+.providerDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: var(--radius-full);
+  flex: none;
+  background: var(--tx-muted);
+}
+
+.providerDot[data-provider='claude'] { background: var(--provider-claude); }
+.providerDot[data-provider='codex'] { background: var(--provider-codex); }
+.providerDot[data-provider='antigravity'] { background: var(--provider-antigravity); }
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--surface-base);
+}
+
+.note {
+  margin: 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1.45;
+}
+
+/* Cost & token usage stay visible without heavy box chrome. */
+.cost {
+  margin: 0;
+  color: var(--tx-secondary);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.cost span {
+  color: var(--tx-muted);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-base);
+  overflow: hidden;
+}
+
+.log {
+  flex: 1;
+  min-height: 7.5rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.question {
+  align-self: flex-end;
+  max-width: 88%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Borderless editorial prose for assistant answers (Obsidian Minimal). */
+.answer {
+  padding: var(--space-1) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Whisper-quiet inline code inside side chat answers. */
+.inlineCode {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--tx-primary) 7%, transparent);
+  color: var(--tx-primary);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+}
+
+.status {
+  margin: 0;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-end;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-top: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
+}
+
+.input {
+  width: 100%;
+  resize: vertical;
+  background: var(--surface-base);
+}

@@ -1,14 +1,15 @@
 import type { MainMessage } from '../../../../shared/messages'
-import type { ThreadEvent } from '../../../../shared/types/thread'
+import type { ThreadEvent, ThreadProvider, ThreadSideMode } from '../../../../shared/types/thread'
 
 /**
- * The side chat (B1.2) as the drawer shows it: a read-only copy of the conversation's session, so a question asked
- * here never reaches the conversation. Its own messages, what it is doing, and what it has cost so far.
+ * The side chat (B1.2, OXE-466) as the drawer shows it: a read-only copy or ephemeral context-briefed session
+ * across Antigravity, Claude and Codex, for either an OxeChat conversation or an active OxeCode terminal pane.
+ * Nothing asked here ever reaches the main conversation, PTY or database.
  */
 export interface SideChatEntry { id: string; role: 'user' | 'assistant'; text: string }
 
 export interface SideChatCost {
-  /** Turns whose provider reported a price; Codex reports tokens only. */
+  /** Turns whose provider reported a price; Codex and Antigravity report tokens only. */
   usd: number
   pricedTurns: number
   inputTokens: number
@@ -20,7 +21,13 @@ export type SideChatPhase = 'opening' | 'open' | 'refused' | 'failed'
 export interface SideChatState {
   phase: SideChatPhase
   sideId: string | null
-  /** Why it could not open (no native session yet, the provider cannot copy its session). */
+  /** Active provider answering this side chat (may differ from the main conversation's provider). */
+  provider: ThreadProvider | null
+  /** How the side chat connects to context (native session fork, conversation context brief, or terminal screen). */
+  mode: ThreadSideMode | null
+  /** Whether the side chat is reading a conversation thread or an OxeCode terminal pane. */
+  source: 'thread' | 'terminal'
+  /** Why it could not open (no native session yet, the provider cannot open a side chat). */
   refusal: MainMessage | null
   entries: SideChatEntry[]
   /** A question was sent and the turn has not completed. */
@@ -36,7 +43,19 @@ export interface SideChatState {
 export const SIDE_SEND_FAILED = '\u0000send'
 
 export const EMPTY_COST: SideChatCost = { usd: 0, pricedTurns: 0, inputTokens: 0, outputTokens: 0 }
-export const initialSideChat = (): SideChatState => ({ phase: 'opening', sideId: null, refusal: null, entries: [], busy: false, activity: null, cost: EMPTY_COST, error: null })
+export const initialSideChat = (init?: Partial<Pick<SideChatState, 'provider' | 'source'>>): SideChatState => ({
+  phase: 'opening',
+  sideId: null,
+  provider: init?.provider ?? null,
+  mode: null,
+  source: init?.source ?? 'thread',
+  refusal: null,
+  entries: [],
+  busy: false,
+  activity: null,
+  cost: EMPTY_COST,
+  error: null
+})
 
 function upsert(entries: SideChatEntry[], entry: SideChatEntry): SideChatEntry[] {
   const index = entries.findIndex(item => item.id === entry.id)

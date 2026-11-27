@@ -9,9 +9,14 @@ import { useTranslation } from 'react-i18next'
 import { useThreadStore } from '../../store/thread.store'
 import { i18n } from '../../i18n'
 
-const LOCAL_NAMES = ['new', 'stop', 'accounts', 'help'] as const
+const LOCAL_NAMES = ['new', 'stop', 'accounts', 'help', 'btw'] as const
 const localNames = new Set<string>(LOCAL_NAMES)
-const localCommands = (): ThreadCommand[] => LOCAL_NAMES.map(name => ({ name, description: i18n.t(`thread:commands.local.${name}`), source: 'oxe' }))
+const localCommands = (): ThreadCommand[] => LOCAL_NAMES.map(name => ({
+  name,
+  description: i18n.t(`thread:commands.local.${name}`),
+  ...(name === 'btw' ? { argumentHint: i18n.t('thread:commands.local.btwHint') } : {}),
+  source: 'oxe'
+}))
 
 /**
  * A command's description in the interface language when the app knows it (the built-in lists of
@@ -29,12 +34,14 @@ export function describeThreadCommand(command: ThreadCommand, provider: ThreadPr
   return builtIn?.description === command.description && i18n.exists(key) ? i18n.t(key as 'thread:commands.codex.model') : command.description
 }
 
-export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onRunCommand, onError }: {
+export function useThreadCommands({ snapshot, draft, textarea, pending, run, onNewThread, onAccounts, onRunCommand, onSideChat, onError }: {
   snapshot: ThreadSnapshot | null; draft: string; textarea: RefObject<HTMLTextAreaElement | null>; pending: boolean
   run: (action: () => Promise<unknown>) => Promise<void>
   onNewThread?: () => void; onAccounts?: () => void
   /** Runs a desktop command now, the way sending it would (ThreadView's runCommand). */
   onRunCommand?: (text: string) => void
+  /** Opens the read-only Side Chat drawer and optionally asks `question` right away (`/btw`). */
+  onSideChat?: (question?: string) => void
   onError: (message: string) => void
 }) {
   const { t } = useTranslation('thread')
@@ -90,19 +97,22 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     return () => { active = false }
   }, [threadId, provider, rootPath, catalogRevision])
   const commands = useMemo(() => {
-    const local = localCommands().filter(command => command.name !== 'new' || onNewThread).filter(command => command.name !== 'accounts' || onAccounts)
+    const local = localCommands()
+      .filter(command => command.name !== 'new' || onNewThread)
+      .filter(command => command.name !== 'accounts' || onAccounts)
+      .filter(command => command.name !== 'btw' || onSideChat)
     const provider = snapshot?.thread.provider
     // The built-in lists name every native command; only those Thread can run are offered. A command that would only
     // answer "not integrated" is left out of the list (typing it still explains why).
     const baseline = provider ? [...new Map([...NATIVE_CLI_COMMANDS[provider], ...(provider === 'codex' ? CODEX_THREAD_COMMANDS : [])].map(command => [command.name, command])).values()]
       .filter(command => hasDesktopCommand(provider, command.name)) : []
-    const native = [...catalog.commands.filter(command => command.execution !== 'unavailable'), ...baseline.filter(command => !catalog.commands.some(item => item.name === command.name)).map(command => ({ ...command, execution: 'desktop' as const }))]
+    const native = [...catalog.commands.filter(command => command.execution !== 'unavailable' && (!onSideChat || command.name !== 'btw')), ...baseline.filter(command => !catalog.commands.some(item => item.name === command.name)).map(command => ({ ...command, execution: 'desktop' as const }))]
       .map(command => provider ? { ...command, description: describeThreadCommand(command, provider) } : command)
     const all = [...native, ...local.filter(command => !native.some(item => item.name === command.name))]
     if (!query) return all
     return all.filter(command => command.name.toLowerCase().includes(query) || command.description.toLowerCase().includes(query)).sort((a, b) => Number(b.name.toLowerCase().startsWith(query)) - Number(a.name.toLowerCase().startsWith(query)))
     // t: the descriptions follow a language switch.
-  }, [catalog, query, onNewThread, onAccounts, snapshot, t]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [catalog, query, onNewThread, onAccounts, onSideChat, snapshot, t]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setSelected(0) }, [query, threadId])
   const activeIndex = Math.min(selected, Math.max(0, commands.length - 1))
   useLayoutEffect(() => { if (open) menu.current?.querySelector('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest' }) }, [open, activeIndex])
@@ -113,6 +123,15 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
     dismiss()
   }
   const executeLocal = (text: string): boolean => {
+    const btw = text.trim().match(/^\/btw(?:\s+([\s\S]*))?$/i)
+    if (btw && onSideChat) {
+      if (pending || !snapshot) return true
+      const question = btw[1]?.trim() ?? ''
+      if (threadId && useThreadStore.getState().drafts[threadId] === draft) setDraft('')
+      dismiss()
+      onSideChat(question || undefined)
+      return true
+    }
     const match = text.trim().match(/^\/(new|stop|accounts|help)(?:\s+([\s\S]*))?$/)
     if (!match) return false
     if (match[1] === 'new' || snapshot?.thread.provider === 'codex' && match[1] === 'stop') return false
@@ -141,7 +160,7 @@ export function useThreadCommands({ snapshot, draft, textarea, pending, run, onN
       if (command.execution === 'desktop' && onRunCommand) { clearCommand(); onRunCommand('/new'); return }
       if (command.source === 'oxe') { if (onNewThread) { clearCommand(); onNewThread() } else onError(t('commands.newUnavailable')); return }
     }
-    if (localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name)) { executeLocal(`/${command.name}`); return }
+    if (command.name !== 'btw' && localNames.has(command.name) && command.source === 'oxe' && !catalog.commands.some(native => native.name === command.name)) { executeLocal(`/${command.name}`); return }
     const suffix = token ? draft.slice(token[0].length).trimStart() : draft
     const text = `/${command.name} ${suffix}`
     caretAfterChoose.current = text.length

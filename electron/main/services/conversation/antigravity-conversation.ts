@@ -53,6 +53,8 @@ export interface AntigravityAdapterOptions {
   mcpServers?: (access: AntigravityAccess) => AntigravityMcpServer[]
   readImage?: (path: string) => Promise<Buffer>
   permissions?: AntigravityPermissionStore
+  /** Strict read-only ephemeral side chat: disables permissions/persistence and auto-declines all host requests. */
+  sideChat?: boolean
   reactiveIdleMs?: number
   steerCancelGraceMs?: number
 }
@@ -131,17 +133,17 @@ export const ANTIGRAVITY_FALLBACK_MODELS: ThreadModel[] = antigravityModels([
 
 /** Antigravity's Agent Client Protocol (v1, JSON-RPC 2.0 over stdio) through `agy acp`. */
 export class AntigravityConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = {
-    resume: true,
-    approvals: true,
-    attachments: true,
-    modelSelection: true,
-    questions: true,
-    permissions: true,
-    elicitation: false,
-    queue: true,
-    steering: true,
-    nativeSessions: true
+  readonly capabilities: {
+    resume: boolean
+    approvals: boolean
+    attachments: boolean
+    modelSelection: boolean
+    questions: boolean
+    permissions: boolean
+    elicitation: boolean
+    queue: boolean
+    steering: boolean
+    nativeSessions: boolean
   }
   readonly evidence: ConversationProtocolEvidence = { transport: 'antigravity-acp-jsonrpc', verified: 'fixture' }
   private connection: { transport: ConversationTransport; rpc: AgentRpcPeer; args: string } | null = null
@@ -190,19 +192,23 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
   constructor(
     private readonly createTransport: (args: string[], cwd: string) => ConversationTransport,
     private readonly options: AntigravityAdapterOptions = {}
-  ) {}
+  ) {
+    this.capabilities = options.sideChat
+      ? { resume: false, approvals: false, attachments: false, modelSelection: true, questions: false, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: false }
+      : { resume: true, approvals: true, attachments: true, modelSelection: true, questions: true, permissions: true, elicitation: false, queue: true, steering: true, nativeSessions: true }
+  }
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.connection || this.disposed) throw new Error('Conversation adapter cannot be started twice')
     this.emit = emit
     this.rootPath = context.rootPath
-    this.access = context.access ?? 'read-only'
-    this.approvalPolicy = context.approvalPolicy ?? 'on-request'
-    this.mode = context.mode ?? 'default'
+    this.access = this.options.sideChat ? 'read-only' : (context.access ?? 'read-only')
+    this.approvalPolicy = this.options.sideChat ? 'on-request' : (context.approvalPolicy ?? 'on-request')
+    this.mode = this.options.sideChat ? 'default' : (context.mode ?? 'default')
     this.model = context.model ?? ''
     this.effort = context.reasoningEffort ?? ''
     try {
-      await this.connect(context.nativeSessionId)
+      await this.connect(this.options.sideChat ? null : context.nativeSessionId)
       emit({ type: 'session', nativeSessionId: this.sessionId })
       this.emitConfiguration()
     } catch (error) {
@@ -590,9 +596,9 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
   async configure(configuration: ThreadConfiguration): Promise<void> {
     const current = this.connection
     if (!current || this.busy || this.disposed) throw Error('Finish the active turn before applying configuration')
-    this.access = configuration.access ?? this.access
-    this.approvalPolicy = configuration.approvalPolicy ?? this.approvalPolicy
-    this.mode = configuration.mode ?? this.mode
+    this.access = this.options.sideChat ? 'read-only' : (configuration.access ?? this.access)
+    this.approvalPolicy = this.options.sideChat ? 'on-request' : (configuration.approvalPolicy ?? this.approvalPolicy)
+    this.mode = this.options.sideChat ? 'default' : (configuration.mode ?? this.mode)
     if (configuration.model) this.model = configuration.model
     this.effort = configuration.reasoningEffort ?? ''
     if (antigravityLaunchArgs({ access: this.access, approvalPolicy: this.approvalPolicy }).join(' ') !== current.args) {
@@ -671,7 +677,7 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
   }
 
   private persistAlwaysAllow(pending: PendingRequest): void {
-    if (pending.guarded) return
+    if (this.options.sideChat || pending.guarded) return
     const derived = deriveAntigravityPersistRules(this.rootPath, pending.request)
     for (const rule of derived) {
       let stored: ThreadPermissionRule | undefined
@@ -843,6 +849,18 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
       .map(value => ({ id: text(record(value).optionId), kind: text(record(value).kind), ...(text(record(value).name) ? { name: text(record(value).name) } : {}) }))
       .filter(option => option.id && option.kind)
       .slice(0, 20)
+
+    // Strict read-only side chat (OXE-466): auto-decline every approval or question immediately, with zero persistence.
+    if (this.options.sideChat) {
+      if (method === 'session/request_permission') {
+        const rejectId = options.find(entry => entry.kind === 'reject_once')?.id ?? options.find(entry => entry.kind === 'reject_always')?.id
+        rpc.respond(message.id, { outcome: rejectId ? { outcome: 'selected', optionId: rejectId } : { outcome: 'cancelled' } })
+      } else {
+        rpc.respond(message.id, { cancelled: true, answers: {} })
+      }
+      if (this.reactiveTurn) this.armReactiveSettleTimer()
+      return
+    }
 
     const questions = extractAntigravityQuestions(method, call, params)
     if (questions.length) {

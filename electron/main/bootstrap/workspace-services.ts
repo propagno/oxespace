@@ -124,6 +124,14 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
       const state = await pullRequestProvider.state({ rootPath, branch }).catch(() => null)
       return state?.pr ? { number: state.pr.number } : null
     }
+  }, {
+    // OXE-466: read-only ScreenMirror & terminal snapshot host for OxeCode side chats (Ctrl+.).
+    peek: paneId => terminalManager.peek(paneId),
+    shellCwd: paneId => terminalManager.shellCwd(paneId),
+    status: paneId => terminalManager.status(paneId),
+    readScreen: paneId => agentState.readScreen(paneId),
+    agentOf: paneId => agentState.agentOf(paneId),
+    agentState: paneId => agentState.get(paneId)
   })
 
   // A18 (P7) · the task's Terminal tab reads every running pane: its launch folder, its agent's reported cwd and its

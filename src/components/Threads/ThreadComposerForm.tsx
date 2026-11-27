@@ -48,7 +48,7 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onNewThread, onAccounts }: {
+export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onNewThread, onAccounts }: {
   snapshot: ThreadSnapshot | null
   pending: boolean
   running: boolean
@@ -69,6 +69,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   onInterrupt: () => void
   onRunAction: (run: () => Promise<unknown>) => Promise<void>
   onRunCommand: (text: string) => void
+  onSideChat?: (question?: string) => void
   onNewThread?: () => void
   onAccounts?: () => void
 }) {
@@ -81,7 +82,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   const attachments = useThreadStore(state => threadId ? state.attachments[threadId] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const previewElements = useThreadStore(state => threadId ? state.previewElements[threadId] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
   const [caret, setCaret] = useState(0)
-  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: onRunAction, onNewThread, onAccounts, onRunCommand, onError })
+  const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: onRunAction, onNewThread, onAccounts, onRunCommand, onSideChat, onError })
   useImperativeHandle(commandsRef, () => ({
     isOpen: () => commands.open,
     show: commands.show,

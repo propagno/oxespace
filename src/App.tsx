@@ -24,7 +24,7 @@ import { layoutPaneSize, paneSize, splitGridSize, splitHalf, splitHasRoom } from
 import titleBar from './components/Navigation/TitleBar.module.css'
 import { ModeSwitch } from './components/Navigation/ModeSwitch'
 import { NeedsYouPill } from './components/Navigation/NeedsYouPill'
-import { RemovedFeaturesBand } from './components/Updates/RemovedFeaturesBand'
+const RemovedFeaturesBand = lazyFrom(chunk(() => import('./components/Updates/RemovedFeaturesBand')), m => m.RemovedFeaturesBand)
 import { ActivityCenter } from './components/Activity/ActivityCenter'
 import { CommandBarTrigger } from './components/CommandBar/CommandBarTrigger'
 
@@ -739,7 +739,7 @@ export function App(): ReactElement {
         <ModeSwitch mode={showFirstRun ? 'thread' : applicationView} allowReselect={showFirstRun} onSelect={selectMode} />
         <div className={titleBar.trailing}><CommandBarTrigger onOpen={() => setCommandBarOpen(true)} /><NeedsYouPill /><ActivityCenter onSelectView={selectMode} />{/* No Settings button in the title bar (1.5.2, user): it is in every sidebar's footer, in the menu bar and on Ctrl+,. */}<UpdateChips /></div>
       </header>
-      <RemovedFeaturesBand />
+      <Suspense fallback={null}><RemovedFeaturesBand /></Suspense>
       {delegationNotice && <Suspense fallback={null}><DelegationNotice onView={() => { setDelegatedWorkOpen(true); setDelegationNotice(null) }} onDismiss={() => setDelegationNotice(null)} /></Suspense>}
       {delegatedWorkOpen && <Suspense fallback={null}><DelegatedWorkDialog workspaces={workspaces} workspaceId={delegationTarget?.workspaceId ?? (applicationView === 'thread' ? appThread?.workspaceId ?? activeWorkspaceId ?? '' : activeWorkspaceId ?? '')} focusTaskId={delegationTarget?.taskId}
         origin={applicationView === 'thread' ? threadSelection ? { kind: 'thread', id: threadSelection } : undefined : activePane ? { kind: 'pane', id: activePane.id } : undefined}

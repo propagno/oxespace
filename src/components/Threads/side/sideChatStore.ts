@@ -1,23 +1,29 @@
 import { create } from 'zustand'
 import { mainMessage } from '../../../../shared/messages'
+import type { ThreadProvider, ThreadSideOpenOptions } from '../../../../shared/types/thread'
 import { useThreadStore } from '../../../store/thread.store'
 import { applySideEvent, initialSideChat, SIDE_SEND_FAILED, withQuestion, type SideChatState } from './sideChatModel'
 
 /**
- * Side chats (B1.2) per conversation, outside any component (T60). Switching conversation tabs, closing the drawer with
- * ✕ or Mod+. only hides it: the copy, its answers and its cost stay, and events that arrive meanwhile land here. The
- * copy goes only on "Discard and close…", when its conversation is archived or deleted (main closes it too), or with
- * the window (main closes it). At most one per conversation.
+ * Side chats (B1.2, OXE-466) per conversation or OxeCode terminal pane, outside any component (T60).
+ * Switching tabs or closing the drawer with ✕ / Mod+. only hides it: the copy, its answers and its cost stay, and
+ * events that arrive meanwhile land here. Switching provider cleanly discards the previous ephemeral copy and opens
+ * a fresh read-only side session on the chosen provider without touching the main conversation.
  */
 interface SideChatStore {
-  /** The conversations whose drawer is showing. */
+  /** The conversations or terminal panes whose drawer is showing. */
   shown: Record<string, true>
   chats: Record<string, SideChatState>
 }
 
 export const useSideChatStore = create<SideChatStore>(() => ({ shown: {}, chats: {} }))
 
+const TERMINAL_PREFIX = 'terminal:'
+/** Stable side-chat store key for an OxeCode terminal pane so it never collides with conversation ids. */
+export const terminalSideKey = (paneId: string): string => `${TERMINAL_PREFIX}${paneId}`
+
 const api = () => window.oxe?.thread
+const pendingOpens = new Map<string, Promise<string | null>>()
 
 function patch(threadId: string, change: (state: SideChatState) => SideChatState): void {
   useSideChatStore.setState(store => {
@@ -26,31 +32,34 @@ function patch(threadId: string, change: (state: SideChatState) => SideChatState
   })
 }
 
-function drop(threadId: string): SideChatState | undefined {
+function drop(threadId: string, keepShown = false): SideChatState | undefined {
   const current = useSideChatStore.getState().chats[threadId]
+  pendingOpens.delete(threadId)
   useSideChatStore.setState(store => {
     const chats = { ...store.chats }, shown = { ...store.shown }
-    delete chats[threadId]; delete shown[threadId]
+    delete chats[threadId]
+    if (!keepShown) delete shown[threadId]
     return { chats, shown }
   })
   return current
 }
 
 let unsubscribe: (() => void) | null = null
-/** One listener for every copy: an event goes to the conversation whose copy it came from. */
+/** One listener for every copy: an event goes to the conversation or terminal whose copy it came from. */
 function listen(): void {
   if (unsubscribe) return
   const fromMain = api()?.onSideEvent?.(({ sideId, event }) => {
     const entry = Object.entries(useSideChatStore.getState().chats).find(([, state]) => state.sideId === sideId)
     if (entry) patch(entry[0], state => applySideEvent(state, event))
   })
-  // Archived or deleted: main has already thrown its copy away, so this one goes as well.
+  // Archived or deleted conversations: main has already thrown its copy away, so this one goes as well.
   const fromThreads = useThreadStore.subscribe(store => {
     const { chats } = useSideChatStore.getState()
     if (!store.threads.length) return
-    for (const threadId of Object.keys(chats)) {
-      const thread = store.threads.find(item => item.id === threadId)
-      if (!thread || thread.archived) drop(threadId)
+    for (const key of Object.keys(chats)) {
+      if (key.startsWith(TERMINAL_PREFIX)) continue
+      const thread = store.threads.find(item => item.id === key)
+      if (!thread || thread.archived) drop(key)
     }
   })
   unsubscribe = () => { fromMain?.(); fromThreads() }
@@ -60,6 +69,7 @@ function listen(): void {
 export function resetSideChats(): void {
   unsubscribe?.()
   unsubscribe = null
+  pendingOpens.clear()
   useSideChatStore.setState({ shown: {}, chats: {} })
 }
 
@@ -72,25 +82,66 @@ export function showSideChat(threadId: string, shown: boolean): void {
   })
 }
 
-/** Opens this conversation's copy unless it already has one (opening or open); a refused or failed one tries again. */
-export function ensureSideChat(threadId: string): void {
+/** Toggles visibility of a conversation or terminal side chat drawer and returns the new open state. */
+export function toggleSideChat(threadId: string): boolean {
+  const next = !useSideChatStore.getState().shown[threadId]
+  showSideChat(threadId, next)
+  return next
+}
+
+/** Opens this target's copy unless it already has one (opening or open); a refused or failed one tries again. */
+export function ensureSideChat(threadId: string, options?: ThreadSideOpenOptions): Promise<string | null> {
   const existing = useSideChatStore.getState().chats[threadId]
-  if (existing && (existing.phase === 'opening' || existing.phase === 'open')) return
+  const providerMatches = !options?.provider || existing?.provider === options.provider
+  if (existing && providerMatches) {
+    if (existing.phase === 'open' && existing.sideId) return Promise.resolve(existing.sideId)
+    if (existing.phase === 'opening') return pendingOpens.get(threadId) ?? Promise.resolve(null)
+  }
   listen()
-  const opening = initialSideChat()
+  const opening = initialSideChat({
+    provider: options?.provider ?? null,
+    source: options?.source ?? (threadId.startsWith(TERMINAL_PREFIX) ? 'terminal' : 'thread')
+  })
   useSideChatStore.setState(store => ({ chats: { ...store.chats, [threadId]: opening } }))
   const thread = api()
   if (!thread?.sideOpen) {
     patch(threadId, state => ({ ...state, phase: 'refused', refusal: mainMessage('thread.side.unavailable', {}) }))
-    return
+    return Promise.resolve(null)
   }
   const still = () => useSideChatStore.getState().chats[threadId] === opening
-  void thread.sideOpen(threadId).then(result => {
-    // Discarded while it was opening: let main throw the copy away at once.
-    if (!still()) { if (result.ok) void thread.sideClose?.(result.side.sideId).catch(() => undefined); return }
-    if (!result.ok) { patch(threadId, state => ({ ...state, phase: 'refused', refusal: result.message })); return }
-    patch(threadId, state => ({ ...state, phase: 'open', sideId: result.side.sideId }))
-  }, () => { if (still()) patch(threadId, state => ({ ...state, phase: 'failed' })) })
+  const call = options !== undefined ? thread.sideOpen(threadId, options) : thread.sideOpen(threadId)
+  const pending = call.then(result => {
+    if (pendingOpens.get(threadId) === pending) pendingOpens.delete(threadId)
+    // Discarded or switched while opening: let main throw the stale copy away at once.
+    if (!still()) { if (result.ok) void thread.sideClose?.(result.side.sideId).catch(() => undefined); return null }
+    if (!result.ok) { patch(threadId, state => ({ ...state, phase: 'refused', refusal: result.message })); return null }
+    patch(threadId, state => ({
+      ...state,
+      phase: 'open',
+      sideId: result.side.sideId,
+      provider: result.side.provider,
+      mode: result.side.mode ?? null,
+      source: result.side.source ?? state.source
+    }))
+    return result.side.sideId
+  }, () => {
+    if (pendingOpens.get(threadId) === pending) pendingOpens.delete(threadId)
+    if (still()) patch(threadId, state => ({ ...state, phase: 'failed' }))
+    return null
+  })
+  pendingOpens.set(threadId, pending)
+  return pending
+}
+
+/** Discards the current ephemeral side session and opens a fresh read-only one on `provider`, keeping the drawer open. */
+export async function switchSideChatProvider(
+  threadId: string,
+  provider: ThreadProvider,
+  options?: Omit<ThreadSideOpenOptions, 'provider'>
+): Promise<string | null> {
+  const previous = drop(threadId, true)
+  if (previous?.sideId) await api()?.sideClose?.(previous.sideId).catch(() => undefined)
+  return ensureSideChat(threadId, { ...options, provider })
 }
 
 export async function sendSideChat(threadId: string, text: string): Promise<void> {
@@ -106,6 +157,13 @@ export async function sendSideChat(threadId: string, text: string): Promise<void
   } catch {
     patch(threadId, state => ({ ...state, busy: false, activity: null, error: SIDE_SEND_FAILED }))
   }
+}
+
+/** Shows the drawer, ensures the read-only side chat is open, and asks `question` right away (used by `/btw`). */
+export async function askSideChat(threadId: string, question: string, options?: ThreadSideOpenOptions): Promise<void> {
+  showSideChat(threadId, true)
+  const sideId = await ensureSideChat(threadId, options)
+  if (sideId && question.trim()) await sendSideChat(threadId, question)
 }
 
 /** "Discard and close…": main deletes the copy, and the drawer closes. */

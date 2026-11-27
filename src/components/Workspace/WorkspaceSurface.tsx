@@ -7,6 +7,7 @@ import { CODE_BAR_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/pane
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
+import { useKeybindings } from '../../keyboard/keybindings'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
@@ -17,7 +18,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { resolveWorkspaceScope } from '../../utils/workspaceScope'
 import { useChangedFilesCount } from '../../hooks/useChangedFilesCount'
-import { lazyFrom } from '../../lib/chunk'
+import { chunk, lazyFrom } from '../../lib/chunk'
 import {
   CHANGES_PANEL_CHUNK,
   INTEGRATIONS_STATUS_CHIPS_CHUNK,
@@ -74,6 +75,8 @@ function prefetchPanelChunks(): void {
 }
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
 const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
+// Side Chat only opens on Ctrl+. so keeping it (and sideChatStore) in its own chunk preserves the boot & workspace bundle budgets (OXE-466).
+const CodeSideChatDrawer = lazyFrom(chunk(() => import('../Threads/side/CodeSideChatDrawer')), (module) => module.CodeSideChatDrawer)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { useWorkspaceRootAvailable, WorkspaceMissingRoot } from './WorkspaceMissingRoot'
 import './CodeChrome.css'
@@ -206,6 +209,22 @@ function WorkspaceSurfaceComponent({
   // OXE-185 (AG-04d): the Changes button counts the files git reports changed in the panel scope's folder, from main's
   // one counter (the same N the panel reads), without opening the panel. OxeChat's count is its own (OXC-4).
   const changedFiles = useChangedFilesCount(panelScope.rootPath)
+  const sideChatPane = workspace.panes.find(pane => pane.id === activePaneId) ?? workspace.panes[0] ?? null
+  const [openSideChats, setOpenSideChats] = useState<Record<string, true>>({})
+  const codeSideChatOpen = Boolean(sideChatPane && openSideChats[sideChatPane.id])
+  useKeybindings({
+    'code.sideChat': () => {
+      if (!sideChatPane) return false
+      setOpenSideChats(current => {
+        if (current[sideChatPane.id]) {
+          const next = { ...current }
+          delete next[sideChatPane.id]
+          return next
+        }
+        return { ...current, [sideChatPane.id]: true }
+      })
+    }
+  }, isActive)
 
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
@@ -716,6 +735,24 @@ function WorkspaceSurfaceComponent({
             </>
           ) : null}
         </PanelGroup>
+        {codeSideChatOpen && sideChatPane ? (
+          <Suspense fallback={null}>
+            <CodeSideChatDrawer
+              paneId={sideChatPane.id}
+              agentProfileId={sideChatPane.agentProfileId}
+              workspaceId={workspace.id}
+              rootPath={panelScope.rootPath}
+              agentProfiles={agentProfiles}
+              onClose={() => setOpenSideChats(current => {
+                if (!current[sideChatPane.id]) return current
+                const next = { ...current }
+                delete next[sideChatPane.id]
+                return next
+              })}
+              onLeave={() => { window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: sideChatPane.id } })) }}
+            />
+          </Suspense>
+        ) : null}
       </div>
     </div>
   )

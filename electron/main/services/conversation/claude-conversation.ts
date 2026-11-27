@@ -107,7 +107,7 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       } finally { this.busy = false; await discovery.close() }
       return
     }
-    const sessionId = this.context.nativeSessionId ?? randomUUID()
+    const sessionId = this.context.nativeSessionId ?? this.fork?.sessionId ?? randomUUID()
     const localPlanId = randomUUID()
     const writable = this.context.access === 'workspace-write' || this.context.access === 'full-access'
     const permissionMode = this.context.mode === 'plan' ? 'plan' : this.context.access === 'full-access' ? 'bypassPermissions'

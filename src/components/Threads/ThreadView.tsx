@@ -2,7 +2,7 @@ import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
 import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
 import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
-import { threadProductName } from '../../../shared/threadProviders'
+import { threadProductName, THREAD_PROVIDERS } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -14,6 +14,7 @@ import { useGitBranch } from '../../hooks/useGitBranch'
 import { ThreadEmptyState, threadStarters } from './ThreadEmptyState'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useThreadStore } from '../../store/thread.store'
+import { useAgentStore } from '../../store/agent.store'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useAccountStore, selectAccount } from '../../store/account.store'
 import { accountContext, accountMessage } from './accountMessages'
@@ -50,6 +51,8 @@ import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm, type ThreadComposerCommandsHandle } from './ThreadComposerForm'
+import { ThreadSideChat } from './side/ThreadSideChat'
+import { askSideChat, showSideChat, toggleSideChat, useSideChatStore } from './side/sideChatStore'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
 import { ThreadDockChanges } from './ThreadDockChanges'
@@ -146,7 +149,19 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const [finding, setFinding] = useState(false)
   const scrollToRow = useRef<((index: number) => void) | null>(null)
   const scrollTo = useCallback((index: number) => scrollToRow.current?.(index), [])
-  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), runCommand: text => action(() => runCommand(text)) })
+  const sideChatOpen = useSideChatStore(store => Boolean(shownId && store.shown[shownId]))
+  const agentProfiles = useAgentStore(state => state.allProfiles)
+  const availableSideProviders = useMemo(() => {
+    const configured = THREAD_PROVIDERS.filter(provider => agentProfiles.some(profile => !profile.parentProvider && profile.provider === provider))
+    return configured.length ? configured : [...THREAD_PROVIDERS]
+  }, [agentProfiles])
+  const handleToggleSideChat = (): void => { if (snapshot) toggleSideChat(snapshot.thread.id) }
+  const handleSlashSideChat = (question?: string): void => {
+    if (!snapshot) return
+    if (question) void askSideChat(snapshot.thread.id, question)
+    else showSideChat(snapshot.thread.id, true)
+  }
+  useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: handleToggleSideChat, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
   // `extra.elements`: Web Preview element references rendered as structured removable chips in the composer (OXE-10).
@@ -446,13 +461,24 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput} commandsRef={commandsRef}
         workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={path => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', ...(path ? { selection: path } : {}) })} /> : undefined}
-        openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onNewThread={onNewThread} onAccounts={onAccounts}
+        openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onSideChat={handleSlashSideChat} onNewThread={onNewThread} onAccounts={onAccounts}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInterrupt={stopTurn} />
     </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}
   </section>
+    {snapshot && sideChatOpen && (
+      <ThreadSideChat
+        key={snapshot.thread.id}
+        threadId={snapshot.thread.id}
+        defaultProvider={snapshot.thread.provider}
+        availableProviders={availableSideProviders}
+        shortcutId="thread.sideChat"
+        onClose={() => showSideChat(snapshot.thread.id, false)}
+        onLeave={() => { requestAnimationFrame(() => textarea.current?.focus()) }}
+      />
+    )}
     {snapshot && review?.panel && <Suspense fallback={null}><ThreadReviewHost snapshot={snapshot} workspace={workspace} panel={review.panel} drawer={drawer} availableWidth={availableWidth} workbench={workbench}
       onClose={() => { closeReview(); if (!drawer) returnFocusFromPanel() }} onReturnFocus={returnFocusFromPanel} onSendToConversation={appendToConversation} onCompact={api?.command ? () => void action(() => runCommand('/compact')) : undefined} /></Suspense>}
   </div>

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadEvent, ThreadConfiguration, ThreadCommandResult, ThreadFailure, ThreadUsage, ThreadAttachment, ThreadQueuedInput, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { parseThreadUsage, threadFailure, ThreadAgentError } from './thread-failure'
-import { codexSupportsSideFork, sideForkApprovalOverrides, sideForkPolicyHonoured, uncoveredMcpServers } from './codex-side-fork'
+import { codexSupportsSideFork, sideForkApprovalOverrides, sideForkApprovalPolicy, sideForkPolicyHonoured, uncoveredMcpServers } from './codex-side-fork'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import { normalizeCodexTokenUsage } from './thread-context'
@@ -106,15 +106,18 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   }
   private readonly approvals = new Map<string, { rpcId: string | number; method: string; params: Record<string, unknown> }>()
   private readonly pendingOauth = new Set<string>()
+  /** Set when an ephemeral side chat fell back to a non-ephemeral `thread/start` and must call `thread/delete` on dispose. */
+  private ephemeralUnconfirmed = false
 
   get closed(): boolean { return this.disposed }
 
   /**
-   * `fork` (side chat, B1.2): start as an ephemeral copy of the session instead of resuming it. `lookups` are the
+   * `fork` (side chat, B1.2 / OXE-466): start as an ephemeral copy of the session (`mode: 'fork'`) or a fresh
+   * ephemeral read-only session (`mode: 'ephemeral'`, for cross-provider / terminal side chats). `lookups` are the
    * OXESpace read-only tools that may run there without asking; every other MCP tool asks (see codex-side-fork.ts).
    * `platform` decides the approval policy of the copy (every shell command asks on Windows); it defaults to this one.
    */
-  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; lookups?: readonly string[]; platform?: NodeJS.Platform }) {}
+  constructor(private readonly transport: ConversationTransport, private readonly fork?: { ephemeral: true; mode?: 'fork' | 'ephemeral'; lookups?: readonly string[]; platform?: NodeJS.Platform }) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.rpc || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -153,7 +156,11 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
       if (protocolVersion) this.evidence.protocolVersion = protocolVersion.slice(0, 80)
       this.evidence.verified = 'native'
       rpc.notify('initialized')
-      if (this.fork) { await this.startFork(rpc, context, emit, handshake); return }
+      if (this.fork) {
+        if (this.fork.mode === 'ephemeral') await this.startEphemeral(rpc, context, emit, handshake)
+        else await this.startFork(rpc, context, emit, handshake)
+        return
+      }
       const response = record(await rpc.request(context.nativeSessionId ? 'thread/resume' : 'thread/start', {
         ...(context.nativeSessionId ? { threadId: context.nativeSessionId } : {}),
         // Thread renders its bounded local history separately. Hydrating all
@@ -222,6 +229,60 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
     this.model = context.model || text(response.model)
     emit({ type: 'session', nativeSessionId: this.threadId })
     emit({ type: 'configuration', model: this.model || undefined, access: this.access, networkAccess: false, approvalPolicy: this.approvalPolicy, confirmed: true })
+  }
+
+  /**
+   * Fresh read-only ephemeral Codex side chat (OXE-466) for cross-provider or OxeCode terminal questions without a
+   * native Codex session to fork. Applies the same MCP prompt overrides and Windows `untrusted` policy as `startFork`.
+   */
+  private async startEphemeral(rpc: AgentRpcPeer, context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void, handshake: unknown): Promise<void> {
+    const platform = this.fork?.platform ?? process.platform
+    const requiredPolicy = sideForkApprovalPolicy(platform)
+    const configRead = await rpc.request('config/read', { cwd: context.rootPath, includeLayers: false }).catch(() => null)
+    const approvals = sideForkApprovalOverrides(configRead, this.fork?.lookups, platform)
+    if (codexSupportsSideFork(handshake) && !approvals) throw new CodexForkUnsupportedError('An MCP server could not be set to ask before every tool call')
+    if (approvals?.approvalPolicy) this.approvalPolicy = approvals.approvalPolicy
+    else if (requiredPolicy) this.approvalPolicy = requiredPolicy
+    const baseParams = {
+      cwd: context.rootPath, modelProvider: 'openai', approvalPolicy: this.approvalPolicy, sandbox: this.nativeSandbox,
+      ...(approvals ? { config: approvals.config } : {}), ...(context.model ? { model: context.model } : {}),
+      ...(context.reasoningEffort ? { effort: context.reasoningEffort } : {})
+    }
+    let response: Record<string, unknown>
+    try {
+      response = record(await rpc.request('thread/start', { ...baseParams, ephemeral: true }))
+    } catch (error) {
+      const message = [error instanceof Error ? error.message : String(error), error instanceof ThreadAgentError ? error.failure.detail ?? '' : ''].join(' ')
+      if (!/unknown field|unknown variant|unexpected field/i.test(message)) throw error
+      this.ephemeralUnconfirmed = true
+      response = record(await rpc.request('thread/start', baseParams))
+    }
+    const thread = record(response.thread)
+    this.threadId = text(thread.id)
+    if (!this.threadId) throw new Error('Agent did not return a conversation identifier')
+    if (thread.ephemeral !== true) this.ephemeralUnconfirmed = true
+    if (!sideForkPolicyHonoured(response, requiredPolicy)) {
+      if (this.ephemeralUnconfirmed) await rpc.request('thread/delete', { threadId: this.threadId }).catch(() => {})
+      throw new CodexForkUnsupportedError('The app-server did not apply the approval policy the copy needs on this platform')
+    }
+    if (approvals && codexSupportsSideFork(handshake)) {
+      const statuses: unknown[] = []
+      for (let cursor: string | null = null, page = 0; page < 20; page++) {
+        const result = record(await rpc.request('mcpServerStatus/list', { threadId: this.threadId, limit: 100, ...(cursor ? { cursor } : {}) }).catch(() => null))
+        if (!Array.isArray(result.data)) throw new CodexForkUnsupportedError('The MCP servers of the copy could not be listed')
+        statuses.push(...result.data)
+        cursor = typeof result.nextCursor === 'string' && result.nextCursor ? result.nextCursor : null
+        if (!cursor) break
+      }
+      if (uncoveredMcpServers(statuses, approvals.servers).length) {
+        if (this.ephemeralUnconfirmed) await rpc.request('thread/delete', { threadId: this.threadId }).catch(() => {})
+        throw new CodexForkUnsupportedError('An MCP server of the copy would run tools without asking')
+      }
+    }
+    this.model = context.model || text(response.model)
+    this.effort = context.reasoningEffort || text(response.reasoningEffort)
+    emit({ type: 'session', nativeSessionId: this.threadId })
+    emit({ type: 'configuration', model: this.model || undefined, reasoningEffort: this.effort || undefined, access: this.access, networkAccess: false, approvalPolicy: this.approvalPolicy, confirmed: true })
   }
 
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
@@ -553,6 +614,9 @@ export class CodexConversationAdapter implements AgentConversationAdapter {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    if (this.ephemeralUnconfirmed && this.threadId && this.rpc) {
+      await this.rpc.request('thread/delete', { threadId: this.threadId }, 2_000).catch(() => {})
+    }
     this.emit({ type: 'connection-closed', at: Date.now() })
     this.approvals.clear()
     this.pendingOauth.clear()

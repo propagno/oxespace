@@ -678,16 +678,33 @@ export type ThreadPendingResponseResult =
   | { ok: true; threadId: string; requestId: string; resolution: ThreadRequestResolution }
   | { ok: false; refusal: ThreadPendingRefusal; message: import('../messages').MainMessage }
 
+/** How a side chat attaches to context: native session fork/copy, ephemeral conversation brief, or OxeCode terminal screen. */
+export type ThreadSideMode = 'native-fork' | 'ephemeral-context' | 'terminal-context'
+
+/** Optional parameters when opening a side chat (OXE-466): cross-provider override or OxeCode terminal ScreenMirror source. */
+export interface ThreadSideOpenOptions {
+  provider?: ThreadProvider
+  model?: string
+  source?: 'thread' | 'terminal'
+  paneId?: string
+  workspaceId?: string
+  rootPath?: string
+}
+
 /**
- * A side chat (B1.2): an ephemeral read-only copy of a conversation's native session, to ask about it without changing it.
- * It never writes to the main conversation, is not saved, and is thrown away when closed, when the main conversation
- * closes, and when the app quits.
+ * A side chat (B1.2, OXE-466): an ephemeral read-only copy or context-briefed session to ask about a conversation or
+ * active terminal without changing it. It never writes to the main conversation, PTY or database, and is thrown away
+ * when closed, when the main conversation closes, and when the app quits.
  */
 export interface ThreadSideChat {
   sideId: string
   threadId: string
   provider: ThreadProvider
   readOnly: true
+  mode?: ThreadSideMode
+  source?: 'thread' | 'terminal'
+  sourceProvider?: ThreadProvider
+  paneId?: string
 }
 
 /** What a side chat sends to the window: the same events a conversation shows, usage included so its cost is visible. */
@@ -714,8 +731,8 @@ export interface ThreadApi {
   list(): Promise<ConversationThread[]>
   /** Requests still pending in every conversation that waits for approval. Read-only. */
   pendingRequestsAll?(): Promise<ThreadPendingRequestSummary[]>
-  /** Side chat (B1.2): open a read-only copy, send to it, close it. Nothing reaches the main conversation. */
-  sideOpen?(id: string): Promise<ThreadSideOpenResult>
+  /** Side chat (B1.2, OXE-466): open a read-only copy or ephemeral session, send to it, close it. Nothing reaches the main conversation. */
+  sideOpen?(id: string, options?: ThreadSideOpenOptions): Promise<ThreadSideOpenResult>
   sideSend?(sideId: string, text: string): Promise<void>
   sideClose?(sideId: string): Promise<void>
   onSideEvent?(listener: (event: ThreadSideEvent) => void): () => void

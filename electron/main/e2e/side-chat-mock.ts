@@ -26,16 +26,26 @@ export function registerE2eSideChat(ipcMain: IpcMain): void {
       if (!thread) throw Error('Thread not found')
       return thread
     },
+    readTerminalContext: ({ paneId, workspaceId, rootPath }) => ({
+      paneId,
+      workspaceId,
+      rootPath: rootPath || '/e2e',
+      screenText: 'E2E terminal output',
+      altScreen: false
+    }),
     subscribe: () => () => {},
     connect: async () => adapter(log),
     unavailable: () => false,
     discard: async () => {}
   })
-  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event: IpcMainInvokeEvent, id: unknown): Promise<ThreadSideOpenResult> => {
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event: IpcMainInvokeEvent, id: unknown, rawOptions?: unknown): Promise<ThreadSideOpenResult> => {
     if (typeof id !== 'string' || !id) throw new Error('thread.invalidInput')
     if (process.env.OXESPACE_E2E_SIDE_UNAVAILABLE === '1') return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-    threads.set(id, { id, provider: 'claude', rootPath: '', workspaceId: 'thread:e2e', nativeSessionId: randomUUID(), status: 'idle', generation: 1, title: 'E2E', createdAt: 1, updatedAt: 1 } as ConversationThread)
-    const result = await chats.open(id, sideEvent => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.thread.onSideEvent, sideEvent) })
+    const options = rawOptions && typeof rawOptions === 'object' ? rawOptions as import('../../../shared/types/thread').ThreadSideOpenOptions : undefined
+    if (options?.source !== 'terminal') {
+      threads.set(id, { id, provider: options?.provider ?? 'claude', rootPath: '', workspaceId: 'thread:e2e', nativeSessionId: randomUUID(), status: 'idle', generation: 1, title: 'E2E', createdAt: 1, updatedAt: 1 } as ConversationThread)
+    }
+    const result = await chats.open(id, sideEvent => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.thread.onSideEvent, sideEvent) }, options)
     if (result.ok) sides.set(result.side.sideId, id)
     return result
   })
