@@ -39,7 +39,7 @@ export function ThreadSubagentActivity({
     : undefined
   const metrics = [event.model, event.reasoningEffort].filter((value): value is string => Boolean(value))
 
-  return <article className={`thread-subagent${compact ? ' is-compact' : ''}`}>
+  return <article className={`thread-subagent${compact ? ' is-compact' : ''}`} data-ui="subagent-activity">
     <header><Bot size={14} aria-hidden="true" /><strong>{label}</strong><span className={`thread-subagent-state is-${event.state}`}>{t(`subagent.state.${event.state}`)}</span>{onStop && event.state === 'running' && <Button variant="secondary" size="sm" className="thread-subagent-stop" aria-label={t('subagent.stopLabel', { label })} title={t('subagent.stopTitle')} disabled={stopping} icon={<Square size={12} aria-hidden="true" />} onClick={onStop}>{t('subagent.stop')}</Button>}</header>
     {(event.model || event.reasoningEffort) && <p className="thread-subagent-config">{[event.model, event.reasoningEffort].filter(Boolean).join(' · ')}</p>}
     {(event.agents.length > 0 || event.receiverThreadIds.length > 0) && <svg data-ui="subagent-connector" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 2 C12 14 20 10 20 22" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>}

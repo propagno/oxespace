@@ -1,4 +1,4 @@
-import { ChevronRight, ListChecks } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent, ThreadTurn } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
@@ -47,12 +47,11 @@ export function turnFoldLabel(steps: number): string {
  * The intermediate work of a finished turn, folded under one line so the conversation reads as questions and
  * answers. It is a real button: the expanded state is announced, and the rows reappear right below it.
  */
-export function ThreadTurnFoldRow({ fold, turn, events, onToggle }: { fold: ThreadTurnFold; turn?: ThreadTurn; events?: readonly ThreadEvent[]; onToggle: () => void }) {
+export function ThreadTurnFoldRow({ fold, onToggle }: { fold: ThreadTurnFold; turn?: ThreadTurn; events?: readonly ThreadEvent[]; onToggle: () => void }) {
   const { t } = useTranslation('thread')
   return <Button variant="ghost" size="sm" className="thread-turn-fold" aria-expanded={fold.expanded} onClick={onToggle}
     title={fold.expanded ? t('fold.hide') : t('fold.show')} data-testid="thread-turn-fold" data-ui="turn-line">
     <ChevronRight size={14} aria-hidden="true" className="thread-turn-fold-chevron" />
-    <ListChecks size={14} aria-hidden="true" />
     <span>{t('turnTiming.actions', { count: fold.steps })}</span>
   </Button>
 }

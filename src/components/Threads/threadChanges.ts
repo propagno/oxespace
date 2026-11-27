@@ -9,8 +9,20 @@ export function threadWorkingRoot(thread: Pick<ConversationThread, 'rootPath' | 
   return observed?.sameRepository && observed.checkoutRoot ? observed.checkoutRoot : thread.rootPath
 }
 
+function normalizePath(path: string): string {
+  let value = path
+  if (/^file:\/\//i.test(value)) {
+    value = value.replace(/^file:\/\/(?:localhost)?/i, '')
+    try { value = decodeURIComponent(value) } catch { /* keep raw URI text */ }
+  }
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\/\/\?\/(?=[A-Za-z]:(?:\/|$))/, '')
+    .replace(/^\/+(?=[A-Za-z]:(?:\/|$))/, '')
+}
+
 function pathKey(path: string): string {
-  const normalized = path.replace(/\\/g, '/')
+  const normalized = normalizePath(path)
   return /^[a-z]:\//i.test(normalized) || normalized.startsWith('//') ? normalized.toLowerCase() : normalized
 }
 
@@ -41,7 +53,7 @@ export function turnChanges(events: ThreadEvent[]): ThreadChangeEntry[] {
   })
 }
 export function threadFileLabel(path: string, root: string): string {
-  const normalized = path.replace(/\\/g, '/'), prefix = root.replace(/\\/g, '/').replace(/\/$/, '') + '/'
+  const normalized = normalizePath(path), prefix = normalizePath(root).replace(/\/$/, '') + '/'
   return pathKey(normalized).startsWith(pathKey(prefix)) ? normalized.slice(prefix.length) : normalized
 }
 /** Totals are exact only when each path has one successful, complete native patch. */

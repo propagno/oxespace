@@ -10,7 +10,18 @@ export interface TurnPathLabel {
 
 const TAIL_SEGMENTS = 3
 
-const normalize = (path: string): string => path.replace(/\\/g, '/').replace(/\/+$/, '')
+const normalize = (path: string): string => {
+  let value = path
+  if (/^file:\/\//i.test(value)) {
+    value = value.replace(/^file:\/\/(?:localhost)?/i, '')
+    try { value = decodeURIComponent(value) } catch { /* keep raw URI text */ }
+  }
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\/\/\?\/(?=[A-Za-z]:(?:\/|$))/, '')
+    .replace(/^\/+(?=[A-Za-z]:(?:\/|$))/, '')
+    .replace(/\/+$/, '')
+}
 // Windows drive and UNC paths compare without case; POSIX paths with it.
 const key = (path: string): string => /^[a-z]:\//i.test(path) || path.startsWith('//') ? path.toLowerCase() : path
 const absolute = (path: string): boolean => /^(?:[a-z]:)?\//i.test(path)

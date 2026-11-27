@@ -2,21 +2,35 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1-5);
+  min-width: 0;
+  max-width: 100%;
 }
 
-.row {
+.wrap .row {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: var(--row-1);
+  min-height: var(--row-1);
   justify-content: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
+  padding-inline: var(--space-1-5);
+  overflow: hidden;
   text-align: left;
   font-size: var(--fs-xs);
+  font-weight: var(--weight-regular);
+  color: var(--tx-muted);
+}
+
+.wrap .row:hover {
+  color: var(--tx-primary);
 }
 
 .bar {
-  width: 3px;
-  height: 14px;
-  border-radius: 2px;
+  width: var(--space-0-5);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
   flex-shrink: 0;
   background: var(--bd-strong);
 }
@@ -50,31 +64,38 @@
 }
 
 .kind {
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   flex-shrink: 0;
 }
 
 .target {
-  color: var(--tx-primary);
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--tx-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
 }
 
+.wrap .row:hover .target {
+  color: var(--tx-primary);
+}
+
 .meta {
   margin-left: auto;
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 
 .tooltip {
   position: absolute;
-  right: 8px;
-  top: -24px;
+  right: var(--space-2);
+  bottom: calc(100% + var(--space-1));
   z-index: var(--layer-dropdown);
-  padding: 2px 6px;
+  padding: var(--space-0-5) var(--space-1-5);
   border-radius: var(--radius-sm);
   background: var(--surface-overlay, var(--surface-raised));
   border: 1px solid var(--bd-subtle);

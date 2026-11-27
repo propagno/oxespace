@@ -128,24 +128,35 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
   const activity = deriveThreadLiveActivity(snapshot, now, viewMode === 'verbose')
   const check = useThreadStateCheck(snapshot, activity?.awaitingInput ?? false)
   const terminalObserved = check.observation && ['completed', 'failed', 'interrupted'].includes(check.observation.state)
+  const isVerbose = viewMode === 'verbose'
   // Waiting on a request whose card is on screen: that card is the status, a banner above it would repeat it.
   if (!activity || activity.awaitingInput && activity.actionableRequest && !activity.stale) return null
-  // Diagnostics (how long the turn has run, when the provider last signalled) are for a turn that went quiet, or for
-  // the verbose view. While the agent is only thinking, the status line above already says so: nothing is repeated here.
-  const diagnostics = activity.stale || viewMode === 'verbose'
-  if (activity.thinkingOnly && !diagnostics) return null
-  return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} aria-label={t('live.label')}>
+  // Raw provider telemetry (turn timer and last provider signal) stays hidden in normal mode and appears only in
+  // verbose/diagnostic mode. While the agent is only thinking in normal mode, the reasoning row already says so.
+  if (activity.thinkingOnly && !isVerbose && !activity.stale) return null
+  const primaryLabel = activity.stale && !activity.awaitingInput
+    ? terminalObserved
+      ? t('live.resultAvailable')
+      : check.observation?.state === 'running'
+        ? t('live.confirmsActive')
+        : check.observation?.state === 'awaiting-input'
+          ? t('live.waitingProviderInput')
+          : t('live.waitingConfirmed')
+    : !isVerbose && activity.turnRunning && !activity.awaitingInput && !activity.reconnecting
+      ? `${t('status.running')} · ${activity.label}`
+      : activity.label
+  return <section className={`thread-live-activity${activity.stale ? ' is-stale' : ''}${activity.awaitingInput ? ' is-awaiting-input' : ''}${activity.reconnecting ? ' is-reconnecting' : ''}`} data-ui="live-activity" data-mode={viewMode} aria-label={t('live.label')}>
     <div className="thread-live-activity-main">
       {activity.stale || activity.awaitingInput ? <AlertCircle size={14} aria-hidden="true" /> : <Spinner size="sm" decorative />}
-      <span role="status"><strong title={activity.label}>{activity.stale && !activity.awaitingInput ? terminalObserved ? t('live.resultAvailable') : check.observation?.state === 'running' ? t('live.confirmsActive') : check.observation?.state === 'awaiting-input' ? t('live.waitingProviderInput') : t('live.waitingConfirmed') : activity.label}</strong>
+      <span role="status"><strong title={primaryLabel}>{primaryLabel}</strong>
         {activity.toolElapsed && !activity.stale && <span className="thread-live-activity-tool"> · {activity.toolElapsed}</span>}
-        {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title={t('live.slowTitle')}>{t('live.slow')}</span>}</span>{diagnostics && <time title={t('live.turnTitle')} aria-label={t('live.turnElapsed', { time: activity.elapsed })}>{t('live.turn', { time: activity.elapsed })}</time>}
+        {activity.slowTool && !activity.stale && <span className="thread-live-activity-slow" title={t('live.slowTitle')}>{t('live.slow')}</span>}</span>{isVerbose && <time title={t('live.turnTitle')} aria-label={t('live.turnElapsed', { time: activity.elapsed })}>{t('live.turn', { time: activity.elapsed })}</time>}
     </div>
     {!activity.turnRunning && activity.taskIds.length > 0 && <Button variant="secondary" size="sm" className="thread-live-activity-stop" disabled={stopping} onClick={() => {
       setStopping(true)
       void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
     }}>{stopping ? t('live.stopping') : t('live.stopWaiting')}</Button>}
-    {diagnostics && <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>{t('live.mayBeActive')}</span>}</>}</div>}
+    {(isVerbose || (activity.stale && !terminalObserved)) && <div className="thread-live-activity-meta">{isVerbose && <span>{activity.signalAge}</span>}{activity.stale && !terminalObserved && <span>{t('live.mayBeActive')}</span>}</div>}
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>{t('live.checking')}</span> : check.observation && <span>{check.observation.state === 'running' ? t('live.confirmsActiveFull') : check.observation.state === 'awaiting-input' ? t('live.waitingInputFull') : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? t('live.reportsState', { state: t(`live.state.${check.observation.state}`) }) : t('live.notConfirmed')}</span>}
     </div>}
