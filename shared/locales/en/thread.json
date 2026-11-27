@@ -1090,6 +1090,8 @@
     "session": "Conversation details",
     "terminal": "Terminal",
     "changes": "Changes",
+    "plan": "Plan",
+    "requests": "Requests",
     "browser": "Browser",
     "git": "Commit & pull request",
     "files": "Files",
@@ -1845,7 +1847,17 @@
     "unavailable": "The project is unavailable.",
     "nativeActivity": "Native background activity",
     "providerActivity": "Provider activity · {{count}} running",
-    "noNativeTasks": "No native tasks have been reported in this conversation."
+    "noNativeTasks": "No native tasks have been reported in this conversation.",
+    "tabs": {
+      "label": "Auxiliary pane views",
+      "changes": "Changes",
+      "plan": "Plan",
+      "preview": "Preview",
+      "terminal": "Terminal",
+      "requests": "Requests",
+      "noPlan": "No plan steps recorded in this conversation yet.",
+      "noRequests": "No pending or recent requests in this conversation."
+    }
   },
   "notify": {
     "untitled": "Conversation",

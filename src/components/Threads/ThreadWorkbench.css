@@ -70,9 +70,78 @@
 .thread-review-panel button:not([class*="_button_"]):hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); color: var(--tx-primary); }
 .thread-review-panel button:focus-visible, .thread-change-summary button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .thread-review-panel button:disabled { opacity: .45; cursor: default; }
-.thread-review-heading { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--bd-default); background: var(--surface-chrome); }
-.thread-review-menu { position: relative; margin-right: auto; min-width: 0; }
-.thread-review-menu > button { color: var(--tx-primary); font-weight: 500; }
+.thread-review-heading {
+  height: var(--bar-lg);
+  min-height: var(--bar-lg);
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
+}
+/* Consolidated hairline tab strip for Auxiliary Pane (OXE-464): muted inactive tabs, 2px Mandacaru active underline. */
+.thread-aux-tabs {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-0-5);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.thread-aux-tabs::-webkit-scrollbar { display: none; }
+.thread-review-heading .thread-aux-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  height: 100%;
+  min-height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+.thread-review-heading .thread-aux-tab:hover {
+  background: transparent;
+  color: var(--tx-primary);
+}
+.thread-review-heading .thread-aux-tab[aria-selected='true'] {
+  background: transparent;
+  color: var(--tx-primary);
+  border-bottom-color: var(--accent);
+}
+.thread-aux-tab-count {
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+.thread-review-heading .thread-aux-tab[aria-selected='true'] .thread-aux-tab-count {
+  color: var(--tx-accent);
+}
+.thread-aux-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-0-5);
+  margin-left: auto;
+}
+.thread-review-menu { position: relative; min-width: 0; }
+.thread-review-menu > button { color: var(--tx-secondary); font-weight: var(--weight-medium); }
+.thread-review-menu > button:hover { color: var(--tx-primary); }
+.thread-aux-body { padding: var(--space-3); }
+.thread-aux-body .thread-plan { margin: 0; border-color: var(--bd-subtle); background: var(--surface-raised); }
+.thread-aux-requests { display: grid; align-content: start; gap: var(--space-2); }
 .thread-review-menu-items { z-index: var(--layer-dropdown); width: 220px; padding: 5px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-3); font: var(--fs-xs) var(--font-ui); }
 .thread-review-menu-item { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
 .thread-review-menu-item[data-highlighted] { background: color-mix(in srgb, var(--tx-primary) 7%, transparent); }

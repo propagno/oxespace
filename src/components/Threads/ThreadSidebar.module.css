@@ -13,7 +13,8 @@
 
 /* ── Project group ── */
 .group { margin: 0; }
-.groupRow { color: var(--tx-primary); }
+.groupRow { color: var(--tx-secondary); }
+.groupRow:hover { color: var(--tx-primary); }
 .chevron { flex: none; color: var(--tx-muted); transition: transform var(--duration-fast) var(--ease-standard); }
 .groupRow[aria-expanded='false'] .chevron { transform: rotate(-90deg); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -23,13 +24,13 @@
 .children { display: grid; }
 .rows { display: grid; gap: var(--space-0-5); }
 
-/* ── Conversation row: a SidebarRow of two lines, then its mini card and its hover actions ── */
+/* ── Conversation row: whisper-quiet Obsidian Minimal row on --surface-chrome, calm --fill-selected + Mandacaru cue ── */
 .row { position: relative; min-width: 0; }
 .row > .item { border-radius: var(--radius-md); }
 /* OXC-5 (OXE-170): a parallel chat is a one-line row under its parent, its text at 40 px (padding, lead and gap), on a
-   --bd-strong guide that turns toward the row with a --radius-sm elbow. */
+   --bd-default guide that turns toward the row with a --radius-sm elbow. */
 .child > .item { padding-inline-start: var(--space-5); }
-.child::before { content: ''; position: absolute; inset-inline-start: var(--space-3); inset-block-start: 0; width: var(--space-2); height: 50%; border-inline-start: 1px solid var(--bd-strong); border-block-end: 1px solid var(--bd-strong); border-end-start-radius: var(--radius-sm); pointer-events: none; }
+.child::before { content: ''; position: absolute; inset-inline-start: var(--space-3); inset-block-start: 0; width: var(--space-2); height: 50%; border-inline-start: 1px solid var(--bd-default); border-block-end: 1px solid var(--bd-default); border-end-start-radius: var(--radius-sm); pointer-events: none; }
 .indicator { display: inline-flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); color: var(--tx-muted); }
 .indicator svg { display: block; flex-shrink: 0; color: currentColor; }
 .indicator[data-status='running'] { color: var(--intent-success-solid); }
@@ -40,7 +41,8 @@
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
 :global([data-motion='full']) .indicator[data-status='running']::before { --pulse-opacity: 0.4; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }
 
-.title { color: var(--tx-primary); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
+.title { color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: var(--weight-medium); transition: color var(--duration-fast) var(--ease-standard); }
+.row:hover .title, .row:focus-within .title, .item[aria-current='page'] .title, .item[aria-current='true'] .title, .unread .title { color: var(--tx-primary); }
 .unread .title { font-weight: var(--weight-bold); }
 .unreadMark { position: absolute; inset-inline-start: 0; inset-block: var(--space-2); width: 3px; border-radius: var(--radius-sm); background: var(--accent); }
 .meta { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-muted); font-size: var(--fs-xs); }
@@ -49,9 +51,9 @@
 .added { color: var(--intent-success-fg); }
 .deleted { color: var(--intent-danger-fg); }
 .state[data-status='running'] { color: var(--intent-success-fg); }
-.state[data-status='attention'] { color: var(--intent-warning-fg); font-weight: var(--weight-medium); }
+.state[data-status='attention'] { color: var(--attn-fg); font-weight: var(--weight-medium); }
 .state[data-status='failed'] { color: var(--intent-danger-fg); }
-.time { color: var(--tx-muted); font-size: var(--fs-2xs); }
+.time { color: var(--tx-muted); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; }
 
 /* Row actions sit over the row's right edge, on hover and focus; on touch they are always there. The age gives way. */
 .actions { position: absolute; z-index: calc(var(--layer-raised) + 2); inset-block-start: var(--space-1); inset-inline-end: var(--space-1-5); display: flex; align-items: center; gap: var(--space-0-5); opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
@@ -60,8 +62,8 @@
 .branch, .childGroup { display: grid; gap: var(--space-0-5); }
 @media (hover: none) { .actions { opacity: 1; } }
 
-/* ── Needs you: the mini card under the waiting conversation ── */
-.attention { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-0-5) 0 var(--space-1) var(--space-5); padding: var(--space-1-5) var(--space-2); border: 1px solid var(--intent-warning-border, var(--bd-subtle)); border-radius: var(--radius-md); background: var(--intent-warning-bg); color: var(--tx-secondary); font-size: var(--fs-xs); }
+/* ── Needs you: calm Obsidian Minimal mini card with subtle Sertão sun accent edge ── */
+.attention { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-0-5) 0 var(--space-1) var(--space-5); padding: var(--space-1-5) var(--space-2); border: 1px solid var(--bd-subtle); border-inline-start: 2px solid var(--attn); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .attentionText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attentionCommand { font-family: var(--font-mono); color: var(--tx-primary); }
 .attentionRisk { color: var(--intent-danger-fg); font-weight: var(--weight-medium); }

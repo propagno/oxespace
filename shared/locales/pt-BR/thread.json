@@ -1121,6 +1121,8 @@
     "session": "Detalhes da conversa",
     "terminal": "Terminal",
     "changes": "Alterações",
+    "plan": "Plano",
+    "requests": "Pedidos",
     "browser": "Navegador",
     "git": "Commit e pull request",
     "files": "Arquivos",
@@ -1902,7 +1904,17 @@
     "unavailable": "O projeto não está disponível.",
     "nativeActivity": "Atividade nativa em segundo plano",
     "providerActivity": "Atividade do provedor · {{count}} em execução",
-    "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa."
+    "noNativeTasks": "Nenhuma tarefa nativa foi informada nesta conversa.",
+    "tabs": {
+      "label": "Visões do painel auxiliar",
+      "changes": "Alterações",
+      "plan": "Plano",
+      "preview": "Prévia",
+      "terminal": "Terminal",
+      "requests": "Pedidos",
+      "noPlan": "Nenhum passo de plano registrado nesta conversa ainda.",
+      "noRequests": "Nenhum pedido pendente ou recente nesta conversa."
+    }
   },
   "notify": {
     "untitled": "Conversa",

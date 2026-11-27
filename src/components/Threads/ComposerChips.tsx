@@ -25,10 +25,17 @@ export function ComposerChips(props: {
   const displayedModel = nextModel ?? model
   const isPlan = mode === 'plan'
 
-  const accessLabel =
+  const accessKey =
     access === 'full' || access === 'full-access'
-      ? t('subline.accessFull')
+      ? 'full-access'
       : access === 'read' || access === 'read-only'
+        ? 'read-only'
+        : 'workspace-write'
+
+  const accessLabel =
+    accessKey === 'full-access'
+      ? t('subline.accessFull')
+      : accessKey === 'read-only'
         ? t('subline.accessRead')
         : t('subline.accessEdit')
 
@@ -42,10 +49,12 @@ export function ComposerChips(props: {
 
   return (
     <div className="thread-configuration" aria-label={t('config.label')}>
-      <div className="thread-mode-toggle" role="group" aria-label={t('config.mode')}>
+      <div className="thread-mode-toggle" data-ui="mode-switch" role="group" aria-label={t('config.mode')}>
         <Button
           size="sm"
           variant="ghost"
+          data-ui="segment"
+          data-mode="plan"
           aria-pressed={isPlan}
           onClick={() => onChange({ mode: 'plan' })}
         >
@@ -54,6 +63,7 @@ export function ComposerChips(props: {
         <Button
           size="sm"
           variant="ghost"
+          data-ui="segment"
           aria-pressed={!isPlan}
           onClick={() => onChange({ mode: 'agent' })}
         >
@@ -81,10 +91,10 @@ export function ComposerChips(props: {
             ref={modelRef}
             size="sm"
             variant="ghost"
-            className="thread-chip is-model"
+            className="thread-config-trigger thread-chip is-model"
             data-pending={modelState.pending ? 'true' : undefined}
           >
-            <span>{displayedModel}</span>
+            <span className="thread-chip-text">{displayedModel}</span>
             <ChevronDown size={12} aria-hidden="true" />
           </Button>
         }
@@ -107,8 +117,8 @@ export function ComposerChips(props: {
             }
           ]}
           trigger={
-            <Button ref={effortRef} size="sm" variant="ghost" className="thread-chip is-effort">
-              <span>{effort ? effortLabel(t, effort) : t('config.automatic')}</span>
+            <Button ref={effortRef} size="sm" variant="ghost" className="thread-config-trigger thread-chip is-effort">
+              <span className="thread-chip-text">{effort ? effortLabel(t, effort) : t('config.automatic')}</span>
               <ChevronDown size={12} aria-hidden="true" />
             </Button>
           }
@@ -135,8 +145,8 @@ export function ComposerChips(props: {
           }
         ]}
         trigger={
-          <Button ref={accessRef} size="sm" variant="ghost" className="thread-chip is-permissions">
-            <span>{accessLabel}</span>
+          <Button ref={accessRef} size="sm" variant="ghost" className="thread-config-trigger thread-chip is-permissions" data-access={accessKey}>
+            <span className="thread-chip-text">{accessLabel}</span>
             <ChevronDown size={12} aria-hidden="true" />
           </Button>
         }

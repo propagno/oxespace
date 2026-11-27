@@ -92,6 +92,7 @@
   padding: 0 var(--space-2);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-full);
+  background: transparent;
   color: var(--tx-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
@@ -103,17 +104,18 @@
 .thread-heading-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   flex-shrink: 0;
   margin-left: auto;
 }
 
 .thread-heading .thread-panel-toggle span { display: none; }
-/* OXC-4: the four panel toggles of the chat header carry the Changes badge in their corner. */
-.thread-heading .thread-header-panel { position: relative; flex-shrink: 0; }
-.thread-heading .thread-header-panel[aria-pressed='true'] { background: var(--fill-hover); color: var(--tx-primary); }
+/* OXC-4 + OXE-464: quiet resting panel toggles in --tx-muted illuminating on hover/active with subtle Mandacaru cue. */
+.thread-heading .thread-header-panel { position: relative; flex-shrink: 0; color: var(--tx-muted); }
+.thread-heading .thread-header-panel:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-heading .thread-header-panel[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); box-shadow: inset 0 -2px 0 var(--accent); }
 .thread-heading-separator { flex-shrink: 0; width: 1px; height: var(--control-sm); background: var(--bd-subtle); }
-.thread-heading .thread-heading-actions .thread-panel-toggle { width: 28px; height: 28px; padding: 0; justify-content: center; }
+.thread-heading .thread-heading-actions .thread-panel-toggle { width: var(--control-md); height: var(--control-md); padding: 0; justify-content: center; }
 .thread-heading .thread-heading-actions .thread-panel-toggle:not([aria-pressed='true']) { border-color: transparent; background: transparent; }
 
 /* ── ThreadSubline (A19) ── */
@@ -187,13 +189,6 @@
   color: var(--tx-primary);
   font-family: inherit;
   font-size: inherit;
-}
-
-.thread-heading-worktree {
-  padding-left: 4px;
-  border-left: 1px solid var(--bd-subtle);
-  color: var(--tx-muted);
-  font-family: var(--font-ui);
 }
 
 .thread-subline-moved {
@@ -306,17 +301,17 @@
   color: var(--tx-secondary);
 }
 
-/* ── Underlined Tool Tabs + Trailing + Tool (U4.8 / Playground Task.tsx) ── */
+/* ── Underlined Tool Tabs + Trailing + Tool (U4.8 / OXE-464 Obsidian Minimal hairline) ── */
 .thread-tabs-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: var(--bar-lg);
   padding: 0 var(--chrome-inset);
-  border-bottom: 1px solid var(--bd-default);
-  background: var(--surface-canvas);
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
 }
 
 .thread-tabs-bar .thread-tabs {
@@ -324,8 +319,8 @@
   align-items: stretch;
   flex: 1;
   min-width: 0;
-  min-height: 36px;
-  gap: 2px;
+  min-height: var(--bar-lg);
+  gap: var(--space-0-5);
   padding: 0;
   border-bottom: 0;
   overflow-x: auto;
@@ -336,17 +331,18 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 10px;
+  gap: var(--space-1-5);
+  min-height: var(--bar-lg);
+  padding: 0 var(--space-2);
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   font-size: var(--fs-xs);
   font-weight: var(--weight-medium);
   white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 
 .thread-tabs-bar .thread-tabs [role='tab']:hover {
@@ -358,26 +354,24 @@
   background: transparent;
   border-bottom-color: var(--accent);
   color: var(--tx-primary);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
 }
 
 .thread-tab-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 5px;
+  padding: 0;
   border-radius: var(--radius-full);
-  background: var(--fill-hover);
-  color: var(--tx-secondary);
+  background: transparent;
+  color: var(--tx-muted);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
 .thread-tabs-bar .thread-tabs [role='tab'][aria-selected='true'] .thread-tab-count {
-  background: var(--fill-selected);
+  background: transparent;
   color: var(--tx-accent);
 }
 

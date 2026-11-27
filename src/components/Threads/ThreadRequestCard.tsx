@@ -30,6 +30,18 @@ function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
+const NON_TEXT_INPUT_TYPES = new Set(['radio', 'checkbox', 'button', 'submit', 'reset', 'range', 'color', 'file'])
+
+/** True when a keyboard event originates in a text-entry control (never fire 1–9 shortcuts while typing). */
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!target || typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false
+  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
+  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUT_TYPES.has(target.type.toLowerCase())
+  if (target.isContentEditable) return true
+  const editable = target.closest('[contenteditable]')
+  return editable !== null && editable.getAttribute('contenteditable') !== 'false'
+}
+
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
 
@@ -41,7 +53,7 @@ export function requestOutcomeText(request: ThreadRequest): string {
   return i18n.t(request.state === 'expired' ? 'thread:outcome.expired' : request.state === 'cancelled' ? 'thread:outcome.cancelled' : 'thread:outcome.closed')
 }
 
-export function ThreadRequestCard({ request, agent, disabled, turnResult, onRespond, onRemember, onSeeImpact, conversationId = '', place }: {
+export function ThreadRequestCard({ request, agent, disabled: disabledProp, turnResult, onRespond, onRemember, onSeeImpact, conversationId = '', place }: {
   request: ThreadRequest
   agent?: string
   conversationId?: string
@@ -71,9 +83,9 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     const frame = requestAnimationFrame(() => (card.current?.querySelector('footer') ?? card.current)?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' }))
     return () => cancelAnimationFrame(frame)
   }, [step])
-  const [sending, setSending] = useState(false)
-  const inFlight = useRef(false)
-  disabled = disabled || sending
+  const [sendingId, setSendingId] = useState<string | null>(null)
+  const inFlight = useRef<string | null>(null)
+  const disabled = disabledProp || sendingId === request.id
   useEffect(() => {
     if (request.state !== 'pending') { drafts.delete(draftKey); return }
     const safe = Object.fromEntries(Object.entries(answers).filter(([id]) => !request.questions?.find(question => question.id === id)?.secret))
@@ -102,18 +114,34 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? t('request.mcpApproval') : request.title
   const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
-    if (inFlight.current) return
-    inFlight.current = true
-    setSending(true)
+    const reqId = request.id
+    if (inFlight.current === reqId) return
+    inFlight.current = reqId
+    setSendingId(reqId)
     setError('')
     try { await onRespond(response); drafts.delete(draftKey) } catch (cause) { setError(humanizeError(cause, t('request.answerFailed'))) }
-    finally { inFlight.current = false; setSending(false) }
+    finally {
+      if (inFlight.current === reqId) inFlight.current = null
+      setSendingId(current => current === reqId ? null : current)
+    }
   }
   // OXE-131: the free-text answer answers on the send key the person chose in Settings › Agents.
   const answerOnKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!isSendKey(sendKeyEvent(event), sendKey)) return
     event.preventDefault()
     if (!disabled && questionsAnswered) void submit({ answers })
+  }
+  const toggleQuestionOption = (questionId: string, value: string, multiple?: boolean): void => {
+    setAnswers(current => {
+      const existing = current[questionId] ?? []
+      const selected = existing.includes(value)
+      return {
+        ...current,
+        [questionId]: multiple
+          ? (selected ? existing.filter(item => item !== value) : [...existing, value])
+          : [value]
+      }
+    })
   }
   const policy = request.policy
   // B10 risk rules on the card too (P1-8): Approve is quiet above low risk; at critical risk it waits 2 s, Enter never
@@ -130,7 +158,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   const guardEnter = critical ? (event: KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter') event.preventDefault() } : undefined
   const remember = !critical && !guarded && policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
   const rememberAndApprove = async (suggestions: ThreadPermissionSuggestion[]) => {
-    if (inFlight.current) return
+    if (inFlight.current === request.id) return
     setError('')
     try { await onRemember!(suggestions) } catch (cause) { setError(humanizeError(cause, t('request.ruleFailed'))); return }
     await submit({ decision: 'accept' })
@@ -172,7 +200,7 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     // The label promises no more than the rule gives: a Codex rule lasts for its session, never the whole project.
     const alwaysAllowLabel = offeredRule?.scope === 'session' ? t('f7.card.alwaysAllowEllipsis') : t('request.alwaysAllowProject')
     const confirmAlwaysAllow = async (): Promise<void> => {
-      if (savingRule || inFlight.current) return
+      if (savingRule || inFlight.current === request.id) return
       setSavingRule(true)
       try {
         const res = await window.oxe?.approvals?.alwaysAllow?.(request.id)
@@ -206,7 +234,19 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     }
     const copyButton = <IconButton className={styles.copy} label={t('f7.card.copyExact')} title={t('f7.card.copyExact')} icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={copyCommand} />
-    return <section ref={card} className={cx('thread-request thread-request-approval', styles.root, styles.impact)} data-ui="request-card" data-risk={level} aria-label={kindLabel}>
+    const onImpactKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+      if (disabled || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
+      if (isTextEntryTarget(event.target)) return
+      if (event.key === '1') {
+        event.preventDefault()
+        void submit({ decision: 'decline' })
+      } else if (event.key === '2') {
+        event.preventDefault()
+        if (oneStep) void submit({ decision: 'accept' })
+        else openImpact()
+      }
+    }
+    return <section ref={card} tabIndex={-1} onKeyDown={onImpactKeyDown} className={cx('thread-request thread-request-approval', styles.root, styles.impact)} data-ui="request-card" data-risk={level} aria-label={kindLabel}>
       <header><Sun size={14} aria-hidden="true" /><div><strong>{kindLabel}</strong></div><span data-ui="risk-label" data-risk={level}>{tCommon('approvals.risk.label', { level: tCommon(`approvals.risk.${level}`) })}</span></header>
       {origin ? <p data-ui="request-origin" className={styles.origin}>{origin}</p> : null}
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
@@ -218,14 +258,14 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>
-        <Button ref={denyButtonRef} variant="secondary" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}>{t('request.deny')}</Button>
+        <Button ref={denyButtonRef} variant="secondary" aria-label={t('request.deny')} aria-keyshortcuts="1" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">1</kbd>{t('request.deny')}</Button>
         {oneStep ? <>
-          <Button variant="primary" className={styles.allowPrimary} disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{t('f7.card.allowOnce')}</Button>
+          <Button variant="primary" aria-label={t('f7.card.allowOnce')} aria-keyshortcuts="2" className={styles.allowPrimary} disabled={disabled} onClick={() => void submit({ decision: 'accept' })}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" aria-hidden="true">2</kbd>{t('f7.card.allowOnce')}</Button>
           <Menu label={t('request.allowMenu')} trigger={<IconButton data-ui="allow-menu" label={t('request.allowMenu')} title={t('request.allowMenu')} icon={<ChevronDown size={14} aria-hidden="true" />} />} items={[
             ...(offeredRule ? [{ label: alwaysAllowLabel, onSelect: () => setAlwaysAllowOpen(true) }] : []),
             { label: t('f7.card.seeImpact'), onSelect: openImpact }
           ]} />
-        </> : <Button variant="secondary" className={styles.quiet} disabled={disabled} title={t('f7.card.seeImpactHint')} onClick={openImpact}>{t('f7.card.seeImpact')}</Button>}
+        </> : <Button variant="secondary" aria-label={t('f7.card.seeImpact')} aria-keyshortcuts="2" className={styles.quiet} disabled={disabled} title={t('f7.card.seeImpactHint')} onClick={openImpact}><kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">2</kbd>{t('f7.card.seeImpact')}</Button>}
       </footer>
       {previewOpen ? <ImpactPreview request={request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(response) }} onClose={() => setPreviewOpen(false)} /> : null}
       {alwaysAllowOpen && offer?.offered ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}
@@ -235,8 +275,55 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
   // OXE-336: a yes or no lists Deny first, on screen and for Tab; a form or a question keeps its answer first. The main
   // allow sits in a span so it stays a first child, which is what draws it as the main action; allows share order 2.
   const denyFirst = request.kind === 'approval' || request.kind === 'permissions' || (request.kind === 'elicitation' && !elicitation.length)
-  const declineButton = <Button variant="secondary" className={cx('thread-request-decline', styles.decline)} disabled={disabled} icon={<X size={14} aria-hidden="true" />} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}>{request.availableDecisions?.includes('cancel') ? t('request.cancel') : denyFirst ? t('request.deny') : t('request.decline')}</Button>
-  return <section ref={card} className={cx(`thread-request thread-request-${request.kind}`, styles.root, warmAmber && styles.amber, request.kind === 'question' && styles.question)} data-ui={request.kind === 'question' ? 'request-card' : undefined} aria-label={requestLabel}>
+  const declineLabel = request.availableDecisions?.includes('cancel') ? t('request.cancel') : denyFirst ? t('request.deny') : t('request.decline')
+  const approvalDecisions = request.kind === 'approval' && !preview
+    ? (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded))
+    : []
+  const rememberGroups = request.kind === 'approval' && !preview && remember
+    ? (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember])
+    : []
+  const numberedApproval = request.kind === 'approval'
+  const declineButton = <Button variant="secondary" aria-label={declineLabel} aria-keyshortcuts={numberedApproval ? '1' : undefined} className={cx('thread-request-decline', styles.decline)} disabled={disabled} icon={numberedApproval ? undefined : <X size={14} aria-hidden="true" />} onClick={() => void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })}>{numberedApproval && <kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">1</kbd>}{declineLabel}</Button>
+  const onCardKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+    if (disabled || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
+    if (isTextEntryTarget(event.target)) return
+    if (!/^[1-9]$/.test(event.key)) return
+    const index = Number(event.key) - 1
+    if (request.kind === 'question') {
+      const activeQuestion = request.questions?.[step]
+      const option = activeQuestion?.options?.[index]
+      if (!activeQuestion || !option) return
+      event.preventDefault()
+      toggleQuestionOption(activeQuestion.id, option.value ?? option.label, activeQuestion.multiple)
+      return
+    }
+    if (request.kind === 'approval') {
+      if (preview) {
+        if (index === 0) { event.preventDefault(); void submit({ decision: 'decline' }) }
+        else if (index === 1) { event.preventDefault(); void submit({ decision: 'accept' }) }
+        return
+      }
+      if (index === 0) {
+        event.preventDefault()
+        void submit({ decision: request.availableDecisions?.includes('cancel') ? 'cancel' : 'decline' })
+        return
+      }
+      // Critical approvals keep the 2 s wait and never allow one-keystroke approval (safety invariant).
+      if (critical || holdLeft > 0) return
+      const choiceIndex = index - 1
+      if (choiceIndex < approvalDecisions.length) {
+        event.preventDefault()
+        void submit({ decision: approvalDecisions[choiceIndex] })
+        return
+      }
+      const rememberIndex = choiceIndex - approvalDecisions.length
+      if (rememberIndex >= 0 && rememberIndex < rememberGroups.length) {
+        event.preventDefault()
+        void rememberAndApprove(rememberGroups[rememberIndex])
+      }
+    }
+  }
+  return <section ref={card} tabIndex={-1} onKeyDown={onCardKeyDown} className={cx(`thread-request thread-request-${request.kind}`, styles.root, warmAmber && styles.amber, request.kind === 'question' && styles.question)} data-ui={request.kind === 'question' ? 'request-card' : undefined} aria-label={requestLabel}>
     <header>{request.kind === 'permissions' ? <Shield size={14} aria-hidden="true" /> : warmAmber ? <Sun size={14} aria-hidden="true" /> : <AlertCircle size={14} aria-hidden="true" />}<div><strong>{requestLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}{request.kind !== 'approval' && request.detail && <p>{request.detail}</p>}</div></header>
     {guarded && <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p>}
     {request.kind === 'elicitation' && <p className={styles.context}>{t('request.elicitation')}</p>}
@@ -258,9 +345,9 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
     {(request.questions?.length ?? 0) > 1 && <nav className={cx('thread-question-steps', styles.steps)} aria-label={t('request.questions')}><Button variant="ghost" size="sm" disabled={step === 0 || disabled} onClick={() => setStep(value => value - 1)}>{t('request.previous')}</Button><span role="status" className={cx('thread-question-progress', styles.progress)}>{request.questions!.map((question, index) => <i key={question.id} aria-hidden="true" className={index === step ? cx('is-current', styles.current) : (answers[question.id]?.some(value => value.trim()) ? cx('is-answered', styles.answered) : undefined)} />)}<span>{t('request.progress', { current: step + 1, total: request.questions!.length })}</span></span><Button variant="ghost" size="sm" disabled={step === request.questions!.length - 1 || disabled} onClick={() => setStep(value => value + 1)}>{t('request.next')}</Button></nav>}
     {request.questions?.length ? <div className={cx('thread-question-body', styles.body)}>{request.questions.map((question, index) => <fieldset key={question.id} disabled={disabled} hidden={index !== step}>
       <legend>{question.header && <small>{question.header}</small>}{question.question}</legend>
-      {question.options?.length ? question.options.map(option => {
+      {question.options?.length ? question.options.map((option, optionIndex) => {
         const value = option.value ?? option.label, selected = answers[question.id]?.includes(value) ?? false
-        return <label key={value} className={cx('thread-request-option', styles.option)}><input type={question.multiple ? 'checkbox' : 'radio'} name={question.id} checked={selected} onChange={() => setAnswers(current => ({ ...current, [question.id]: question.multiple ? selected ? (current[question.id] ?? []).filter(item => item !== value) : [...(current[question.id] ?? []), value] : [value] }))} /><span><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</span></label>
+        return <label key={value} className={cx('thread-request-option', styles.option)}><input type={question.multiple ? 'checkbox' : 'radio'} name={question.id} checked={selected} onChange={() => toggleQuestionOption(question.id, value, question.multiple)} />{optionIndex < 9 && <kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">{optionIndex + 1}</kbd>}<span><strong>{option.label}</strong>{option.description && <small>{option.description}</small>}</span></label>
       }) : <input type={question.secret ? 'password' : 'text'} aria-label={question.question} onKeyDown={answerOnKey} value={answers[question.id]?.[0] ?? ''} onChange={event => setAnswers(current => ({ ...current, [question.id]: [event.target.value] }))} />}
       {!!question.options?.length && <label className={cx('thread-request-field', styles.field)}><input type={question.secret ? 'password' : 'text'} aria-label={t('request.otherLabel', { question: question.question })} placeholder={t('request.otherOption')} onKeyDown={answerOnKey} value={(answers[question.id] ?? []).filter(value => !question.options!.some(option => (option.value ?? option.label) === value)).join(', ')} onChange={event => setAnswers(current => ({ ...current, [question.id]: [...(question.multiple ? (current[question.id] ?? []).filter(value => question.options!.some(option => (option.value ?? option.label) === value)) : []), ...(event.target.value ? [event.target.value] : [])] }))} /></label>}
     </fieldset>)}</div> : null}
@@ -295,17 +382,23 @@ export function ThreadRequestCard({ request, agent, disabled, turnResult, onResp
       }}>{t(elicitation.length ? 'request.continue' : 'request.approve')}</Button></span>}
       {request.kind === 'permissions' && <><span className={styles.quiet}><Button variant="primary" disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'turn' })}>{t('request.allowTurn')}</Button></span><Button variant="secondary" className={styles.quiet} disabled={disabled} onClick={() => void submit({ decision: 'accept', permissions: request.requestedPermissions ?? {}, scope: 'session' })}>{t('request.allowSession')}</Button></>}
       {preview ? <>
-        <Button variant="secondary" autoFocus={!typingAtMount} className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><X size={14} />{t('request.deny')}</Button>
-        <Button variant="primary" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}>{preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')}</Button>
+        <Button variant="secondary" autoFocus={!typingAtMount} aria-label={t('request.deny')} aria-keyshortcuts="1" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">1</kbd>{t('request.deny')}</Button>
+        <Button variant="primary" aria-label={preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')} aria-keyshortcuts="2" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" aria-hidden="true">2</kbd>{preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')}</Button>
       </> : <>
       {request.kind === 'approval' && critical && <small role="status" data-testid="approval-hold">{holdLeft > 0 ? t('request.holdWaiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('request.holdReady')}</small>}
-      {request.kind === 'approval' && (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded)).map(decision => {
+      {approvalDecisions.map((decision, idx) => {
         const quiet = decision === 'acceptForSession' || risk !== 'low' || guarded
-        const allow = <Button key={decision} variant={quiet ? 'secondary' : 'primary'} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={quiet ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')}</Button>
+        const decisionLabel = decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')
+        const shortcutNumber = !critical && idx + 2 <= 9 ? idx + 2 : null
+        const allow = <Button key={decision} variant={quiet ? 'secondary' : 'primary'} aria-label={decisionLabel} aria-keyshortcuts={shortcutNumber ? String(shortcutNumber) : undefined} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={quiet ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{shortcutNumber !== null && <kbd className={cx(styles.keycap, !quiet && styles.keycapOnAccent)} data-ui="option-key" aria-hidden="true">{shortcutNumber}</kbd>}{decisionLabel}</Button>
         return decision === 'accept' ? <span key={decision} className={styles.quiet}>{allow}</span> : allow
       })}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
-      {request.kind === 'approval' && remember && (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember]).map(group => <Button key={group.map(item => item.pattern).join(',')} variant="secondary" className={cx('thread-request-remember', styles.quiet)} disabled={disabled} title={t('request.rememberTitle', { patterns: group.map(item => item.pattern).join(', ') })} onClick={() => void rememberAndApprove(group)}>{t('request.always', { labels: group.map(item => item.label).join(', ') })}</Button>)}
+      {rememberGroups.map((group, idx) => {
+        const groupLabel = t('request.always', { labels: group.map(item => item.label).join(', ') })
+        const shortcutNumber = !critical && approvalDecisions.length + idx + 2 <= 9 ? approvalDecisions.length + idx + 2 : null
+        return <Button key={group.map(item => item.pattern).join(',')} variant="secondary" aria-label={groupLabel} aria-keyshortcuts={shortcutNumber ? String(shortcutNumber) : undefined} className={cx('thread-request-remember', styles.quiet)} disabled={disabled} title={t('request.rememberTitle', { patterns: group.map(item => item.pattern).join(', ') })} onClick={() => void rememberAndApprove(group)}>{shortcutNumber !== null && <kbd className={styles.keycap} data-ui="option-key" aria-hidden="true">{shortcutNumber}</kbd>}{groupLabel}</Button>
+      })}
       {!denyFirst && declineButton}
       </>}
     </footer>

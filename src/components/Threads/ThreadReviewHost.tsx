@@ -34,7 +34,7 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   // A drawer inside the workbench, not a U1 dialog: it keeps the column's width.
   if (drawer) return <RadixDialog.Root open onOpenChange={open => { if (!open) onClose() }}><RadixDialog.Portal container={workbench.current}>
     <RadixDialog.Overlay className="thread-review-scrim" />
-    <RadixDialog.Content className="thread-review-host" aria-describedby={undefined} style={{ width: Math.min(reviewWidth, Math.max(280, availableWidth - 16)) }} onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus() }}>
+    <RadixDialog.Content className="thread-review-host" data-ui="aux-pane" data-panel={panel} aria-describedby={undefined} style={{ width: Math.min(reviewWidth, Math.max(280, availableWidth - 16)) }} onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus() }}>
       <RadixDialog.Title className="thread-review-accessible-title">{t('reviewHost.title')}</RadixDialog.Title>
       {content}
     </RadixDialog.Content>
@@ -46,7 +46,7 @@ export default function ThreadReviewHost({ snapshot, workspace, panel, drawer, a
   return <>
     {!maximized && <ToolPanelSplitter width={width} available={availableWidth}
       onChange={value => useThreadWorkbenchStore.getState().setWidth(value)} />}
-    <div className={maximized ? 'thread-review-host is-maximized' : 'thread-review-host'} style={maximized ? undefined : { width }}>
+    <div className={maximized ? 'thread-review-host is-maximized' : 'thread-review-host'} data-ui="aux-pane" data-panel={panel} style={maximized ? undefined : { width }}>
       {content}
     </div>
   </>
