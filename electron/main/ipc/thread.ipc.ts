@@ -77,12 +77,38 @@ function requestResponse(value: unknown): ThreadRequestResponse {
   return result
 }
 
+function parseSideOpenOptions(value: unknown): import('../../../shared/types/thread').ThreadSideOpenOptions | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'object' || Array.isArray(value)) throw new MainRefusal('thread.side.invalidInput', {})
+  const input = value as Record<string, unknown>
+  const allowed = new Set(['provider', 'model', 'source', 'paneId', 'workspaceId', 'rootPath'])
+  if (Object.keys(input).some(key => !allowed.has(key))) throw new MainRefusal('thread.side.invalidInput', {})
+  const out: import('../../../shared/types/thread').ThreadSideOpenOptions = {}
+  if (input.provider !== undefined) {
+    if (input.provider !== 'claude' && input.provider !== 'codex' && input.provider !== 'antigravity') throw new MainRefusal('thread.side.invalidInput', {})
+    out.provider = input.provider
+  }
+  if (input.model !== undefined) {
+    if (typeof input.model !== 'string' || !/^[a-z0-9][a-z0-9._:/\[\]-]{0,199}$/i.test(input.model)) throw new MainRefusal('thread.side.invalidInput', {})
+    out.model = input.model
+  }
+  if (input.source !== undefined) {
+    if (input.source !== 'thread' && input.source !== 'terminal') throw new MainRefusal('thread.side.invalidInput', {})
+    out.source = input.source
+  }
+  if (input.paneId !== undefined) out.paneId = string(input.paneId)
+  if (input.workspaceId !== undefined) out.workspaceId = string(input.workspaceId)
+  if (input.rootPath !== undefined) out.rootPath = string(input.rootPath)
+  return Object.keys(out).length ? out : undefined
+}
+
 export function registerThreadIpc(
   db: AppDatabase,
   mcp: ThreadMcpBindings,
   worktrees?: ThreadWorktreeHost,
   activity?: () => import('../services/agent-activity/read-model').AgentActivity | undefined,
-  background?: ThreadBackgroundHost
+  background?: ThreadBackgroundHost,
+  sideTerminal?: import('../services/conversation/side-chat-context').ThreadSideTerminalHost
 ): { stop(): Promise<void>; manager: Promise<ThreadManager>; projects: ThreadProjectService } {
   // The folder an account scope runs in: the pane's own root when it has one, else the workspace's.
   const workspaceCwd = (workspaceId: string, paneId?: string | null): string => {
@@ -169,12 +195,12 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.list, event => manager.then(service => service.list()))
   // Read-only summary for the window (activity center, the sidebar's mini card): with the command and the policy verdict.
   ipcMain.handle(IPC_CHANNELS.thread.pendingRequestsAll, event => manager.then(() => import('../services/conversation/thread-history')).then(module => new module.ThreadHistory(db).pendingRequestsForWindow()))
-  // Side chats (B1.2) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
+  // Side chats (B1.2, OXE-466) load on the first open. Their events go only to the window that opened them, which takes them along when it closes.
   let sideChats: Promise<import('../services/conversation/thread-side-chat').ThreadSideChats> | null = null
-  const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service))
-  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event, id: unknown) => {
-    const threadId = string(id), contents = event.sender, chats = await sides()
-    const result = await chats.open(threadId, side => { if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.thread.onSideEvent, side) })
+  const sides = () => sideChats ??= manager.then(async service => (await import('../services/conversation/thread-side-runtime')).createThreadSideChats(db, mcp.bridge, service, process.platform, sideTerminal))
+  ipcMain.handle(IPC_CHANNELS.thread.sideOpen, async (event, id: unknown, rawOptions?: unknown) => {
+    const threadId = string(id), options = parseSideOpenOptions(rawOptions), contents = event.sender, chats = await sides()
+    const result = await chats.open(threadId, side => { if (!contents.isDestroyed()) contents.send(IPC_CHANNELS.thread.onSideEvent, side) }, options)
     if (result.ok) contents.once('destroyed', () => { void chats.close(result.side.sideId) })
     return result
   })

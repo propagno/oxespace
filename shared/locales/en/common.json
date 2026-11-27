@@ -170,7 +170,8 @@
         "designMode": "Select an element in the Browser",
         "files": "Files",
         "search": "Find in files",
-        "splitLayout": "Toggle split layout"
+        "splitLayout": "Toggle split layout",
+        "sideChat": "Side chat"
       },
       "pane": {
         "splitRight": "Split pane right",

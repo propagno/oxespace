@@ -71,6 +71,7 @@ export const KEYBINDINGS = [
   { id: 'code.files', chords: ['Mod+E'], scope: 'code' },
   { id: 'code.search', chords: ['Mod+Shift+F'], scope: 'code' },
   { id: 'code.splitLayout', chords: ['F2'], scope: 'code', when: context => !inTextField(context.target) },
+  { id: 'code.sideChat', chords: ['Mod+.'], scope: 'code', reservedInTerminal: true },
   { id: 'pane.splitRight', chords: ['Mod+Shift+\\'], scope: 'code' },
   { id: 'pane.splitDown', chords: ['Mod+Shift+-'], scope: 'code' },
   { id: 'pane.maximize', chords: ['Mod+Shift+Enter'], scope: 'code' },
@@ -95,6 +96,7 @@ export const KEYBINDINGS = [
   { id: 'thread.permissions', chords: ['Mod+Shift+M'], scope: 'thread' },
   { id: 'thread.model', chords: ['Mod+Shift+I'], scope: 'thread' },
   { id: 'thread.effort', chords: ['Mod+Shift+E'], scope: 'thread' },
+  { id: 'thread.sideChat', chords: ['Mod+.'], scope: 'thread', reservedInTerminal: true },
 
   // Last, so Ctrl+/ reaches terminal commands first while a terminal pane is active.
   { id: 'help.shortcuts', chords: ['?', 'Mod+/'], scope: 'global', when: context => !inTextField(context.target) }

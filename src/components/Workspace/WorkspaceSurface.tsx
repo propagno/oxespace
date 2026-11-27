@@ -6,7 +6,12 @@ import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } fro
 import { CODE_BAR_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
 import { clampDockWidth, MAX_DOCK_WIDTH_PX, MIN_DOCK_WIDTH_PX } from '../Workbench/dockWidth'
 import type { AgentProfile } from '../../../shared/types/agent'
+import type { ThreadProvider } from '../../../shared/types/thread'
+import { THREAD_PROVIDERS } from '../../../shared/threadProviders'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
+import { useKeybindings } from '../../keyboard/keybindings'
+import { ThreadSideChat } from '../Threads/side/ThreadSideChat'
+import { showSideChat, terminalSideKey, toggleSideChat, useSideChatStore } from '../Threads/side/sideChatStore'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
@@ -206,6 +211,32 @@ function WorkspaceSurfaceComponent({
   // OXE-185 (AG-04d): the Changes button counts the files git reports changed in the panel scope's folder, from main's
   // one counter (the same N the panel reads), without opening the panel. OxeChat's count is its own (OXC-4).
   const changedFiles = useChangedFilesCount(panelScope.rootPath)
+  const sideChatPane = workspace.panes.find(pane => pane.id === activePaneId) ?? workspace.panes[0] ?? null
+  const sideChatKey = sideChatPane ? terminalSideKey(sideChatPane.id) : null
+  const codeSideChatOpen = useSideChatStore(store => Boolean(sideChatKey && store.shown[sideChatKey]))
+  const codeSideProviders = useMemo<ThreadProvider[]>(() => {
+    const configured = THREAD_PROVIDERS.filter(provider => agentProfiles.some(profile => !profile.parentProvider && profile.provider === provider))
+    return configured.length ? configured : [...THREAD_PROVIDERS]
+  }, [agentProfiles])
+  const codeSideProvider = useMemo<ThreadProvider>(() => {
+    const bound = sideChatPane?.agentProfileId ? agentProfiles.find(profile => profile.agentProfileId === sideChatPane.agentProfileId) : undefined
+    const resolved = bound?.parentProvider ?? bound?.provider
+    if (resolved === 'claude' || resolved === 'codex' || resolved === 'antigravity') return resolved
+    return codeSideProviders[0] ?? 'claude'
+  }, [sideChatPane, agentProfiles, codeSideProviders])
+  const codeSideOpenOptions = useMemo(() => (sideChatPane ? {
+    source: 'terminal' as const,
+    paneId: sideChatPane.id,
+    workspaceId: workspace.id,
+    rootPath: panelScope.rootPath,
+    provider: codeSideProvider
+  } : undefined), [sideChatPane, workspace.id, panelScope.rootPath, codeSideProvider])
+  useKeybindings({
+    'code.sideChat': () => {
+      if (!sideChatKey) return false
+      toggleSideChat(sideChatKey)
+    }
+  }, isActive)
 
   const worktreeVisible = workspace.worktreePanelVisible === true
   const worktreeExpanded = workspace.worktreePanelExpanded === true
@@ -716,6 +747,18 @@ function WorkspaceSurfaceComponent({
             </>
           ) : null}
         </PanelGroup>
+        {codeSideChatOpen && sideChatKey && sideChatPane && codeSideOpenOptions ? (
+          <ThreadSideChat
+            key={sideChatKey}
+            threadId={sideChatKey}
+            defaultProvider={codeSideProvider}
+            availableProviders={codeSideProviders}
+            openOptions={codeSideOpenOptions}
+            shortcutId="code.sideChat"
+            onClose={() => showSideChat(sideChatKey, false)}
+            onLeave={() => { window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: sideChatPane.id } })) }}
+          />
+        ) : null}
       </div>
     </div>
   )

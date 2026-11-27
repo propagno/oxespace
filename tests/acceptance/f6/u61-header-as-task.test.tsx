@@ -141,12 +141,13 @@ describe('U6.1 · the header as a task', () => {
     expect(actions()).toEqual([])
   })
 
-  test('there is no side chat: no menu action for it, and Ctrl . is bound to nothing', async () => {
+  // Changed for OXE-466 (Epic OXE-458): agnostic multi-provider Side Chat returned on Mod+. (thread.sideChat &
+  // code.sideChat) and /btw; THREAD_MORE_ACTIONS keeps no side-chat entry so the quiet header menu stays clean.
+  test('the header menu stays free of side chat while Mod+. toggles agnostic Side Chat (OXE-466)', async () => {
     const { THREAD_MORE_ACTIONS } = await load<{ THREAD_MORE_ACTIONS: ReadonlyArray<{ id: string; label: string }> }>('src/components/Threads/threadMoreActions')
     expect(THREAD_MORE_ACTIONS.map(action => `${action.id} ${action.label}`).join(' ')).not.toMatch(/side ?chat|conversa lateral/i)
     const { KEYBINDINGS } = await import('../../../src/keyboard/keybindings')
-    expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+.')).map(binding => binding.id)).toEqual([])
-    expect(KEYBINDINGS.map(binding => binding.id as string).filter(id => /sidechat|side[-_.]chat|thread\.side/i.test(id))).toEqual([])
+    expect(KEYBINDINGS.filter(binding => (binding.chords as readonly string[]).includes('Mod+.')).map(binding => binding.id)).toEqual(['code.sideChat', 'thread.sideChat'])
   })
 
 })
