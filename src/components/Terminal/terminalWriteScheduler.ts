@@ -26,6 +26,8 @@ export interface TerminalWriteSchedulerOptions {
   maxBytesPerFrame?: number
   /** Hard cap on buffered characters waiting to be written (evicts oldest head chunks). */
   maxBufferedBytes?: number
+  /** Optional higher cap while visible (not paused); hidden/paused panes still enforce `maxBufferedBytes`. */
+  activeMaxBufferedBytes?: number
   /** Initial paused state (e.g. when TerminalView mounts inside a hidden workspace/pane). */
   paused?: boolean
   /**
@@ -65,6 +67,8 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   const immediateBytes = options.immediateBytes ?? IMMEDIATE_CHUNK_BYTES
   const maxBytesPerFrame = options.maxBytesPerFrame ?? MAX_BYTES_PER_FRAME
   const maxBufferedBytes = Math.max(1, options.maxBufferedBytes ?? MAX_BUFFERED_BYTES)
+  const activeMaxBufferedBytes = Math.max(maxBufferedBytes, options.activeMaxBufferedBytes ?? maxBufferedBytes)
+  const currentMaxBufferedBytes = (): number => (paused ? maxBufferedBytes : activeMaxBufferedBytes)
   const useQueue = options.queue !== false
   const scheduleFrame = options.scheduleFrame
     ?? (typeof requestAnimationFrame === 'function'
@@ -145,26 +149,27 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
   }
 
   const trimToCap = (): void => {
-    const overCap = pendingBytes > maxBufferedBytes
+    const cap = currentMaxBufferedBytes()
+    const overCap = pendingBytes > cap
     if (!overCap && evictedState === 'ground') return
     if (overCap) truncated = true
     if (!useQueue) {
       if (overCap) {
-        pending = trimStringToSafeVtTail(pending, maxBufferedBytes)
+        pending = trimStringToSafeVtTail(pending, cap)
         pendingBytes = pending.length
       }
       return
     }
-    while (pendingBytes > maxBufferedBytes && first < parts.length) {
+    while (pendingBytes > cap && first < parts.length) {
       const avail = parts[first].length - head
-      if (pendingBytes - avail >= maxBufferedBytes && first + 1 < parts.length) {
+      if (pendingBytes - avail >= cap && first + 1 < parts.length) {
         evictedState = scanVtState(parts[first], evictedState, head, parts[first].length)
         parts[first] = ''
         first++
         head = 0
         pendingBytes -= avail
       } else {
-        const drop = pendingBytes - maxBufferedBytes
+        const drop = pendingBytes - cap
         const nextHead = head + drop
         evictedState = scanVtState(parts[first], evictedState, head, nextHead)
         pendingBytes -= drop
@@ -246,6 +251,7 @@ export function createTerminalWriteScheduler(options: TerminalWriteSchedulerOpti
         cancelFrame(frameId)
         frameId = null
       }
+      trimToCap()
       return
     }
     if (pendingBytes > 0) scheduleFlush()
