@@ -57,6 +57,7 @@ export type WorkspacePanelChunkId = keyof typeof WORKSPACE_PANEL_CHUNKS
 export const WORKSPACE_HTTP_CALLS_PANEL_CHUNK = warming(() => import('../components/Workspace/WorkspaceHttpCallsPanel'), 'httpCalls')
 export const WORKSPACE_ANDROID_PANEL_CHUNK = warming(() => import('../components/Workspace/WorkspaceAndroidPanel'), 'android')
 export const INTEGRATIONS_STATUS_CHIPS_CHUNK = chunk(() => import('../components/Workspace/IntegrationsStatusChips'))
+export const THREAD_SIDE_CHAT_CHUNK = chunk(() => import('../components/Threads/side/ThreadSideChat'))
 
 /** Loads the given panels' chunks; a chunk that fails is retried on the next open. */
 export async function preloadPanels(ids: readonly WorkspacePanelChunkId[]): Promise<void> {

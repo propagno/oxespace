@@ -10,7 +10,6 @@ import type { ThreadProvider } from '../../../shared/types/thread'
 import { THREAD_PROVIDERS } from '../../../shared/threadProviders'
 import type { UpdateWorkspaceBackgroundStateInput, UpdateWorkspaceGitHubStateInput, UpdateWorkspaceReviewStateInput, UpdateWorkspaceWorktreeStateInput, Workspace } from '../../../shared/types/workspace'
 import { useKeybindings } from '../../keyboard/keybindings'
-import { ThreadSideChat } from '../Threads/side/ThreadSideChat'
 import { showSideChat, terminalSideKey, toggleSideChat, useSideChatStore } from '../Threads/side/sideChatStore'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
@@ -27,6 +26,7 @@ import {
   CHANGES_PANEL_CHUNK,
   INTEGRATIONS_STATUS_CHIPS_CHUNK,
   preloadPanels,
+  THREAD_SIDE_CHAT_CHUNK,
   WORKSPACE_ANDROID_PANEL_CHUNK,
   WORKSPACE_HTTP_CALLS_PANEL_CHUNK,
   WORKSPACE_PANEL_CHUNKS
@@ -79,6 +79,8 @@ function prefetchPanelChunks(): void {
 }
 // The status chips poll GitHub and the MCP state after first paint; they are not part of it.
 const IntegrationsStatusChips = lazyFrom(INTEGRATIONS_STATUS_CHIPS_CHUNK, (module) => module.IntegrationsStatusChips)
+// Side Chat only opens on Ctrl+. so keeping it in its own chunk preserves the renderer boot bundle budget (OXE-466).
+const ThreadSideChat = lazyFrom(THREAD_SIDE_CHAT_CHUNK, (module) => module.ThreadSideChat)
 import { ErrorBoundary } from '../common/ErrorBoundary'
 import { useWorkspaceRootAvailable, WorkspaceMissingRoot } from './WorkspaceMissingRoot'
 import './CodeChrome.css'
@@ -748,16 +750,18 @@ function WorkspaceSurfaceComponent({
           ) : null}
         </PanelGroup>
         {codeSideChatOpen && sideChatKey && sideChatPane && codeSideOpenOptions ? (
-          <ThreadSideChat
-            key={sideChatKey}
-            threadId={sideChatKey}
-            defaultProvider={codeSideProvider}
-            availableProviders={codeSideProviders}
-            openOptions={codeSideOpenOptions}
-            shortcutId="code.sideChat"
-            onClose={() => showSideChat(sideChatKey, false)}
-            onLeave={() => { window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: sideChatPane.id } })) }}
-          />
+          <Suspense fallback={null}>
+            <ThreadSideChat
+              key={sideChatKey}
+              threadId={sideChatKey}
+              defaultProvider={codeSideProvider}
+              availableProviders={codeSideProviders}
+              openOptions={codeSideOpenOptions}
+              shortcutId="code.sideChat"
+              onClose={() => showSideChat(sideChatKey, false)}
+              onLeave={() => { window.dispatchEvent(new CustomEvent('oxe:focus-pane', { detail: { paneId: sideChatPane.id } })) }}
+            />
+          </Suspense>
         ) : null}
       </div>
     </div>
