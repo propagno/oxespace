@@ -9,10 +9,10 @@ import { CursorUsageProvider } from './usage/cursorProvider'
 import type { SessionMetadata, UsageProvider } from './usage/types'
 
 /**
- * Dispatches usage queries across registered providers. Claude and Codex have real
- * JSONL backends; Antigravity and Cursor are stubs that return EMPTY snapshots so the UI
- * chip hides automatically but provider='antigravity'|'cursor' is still acknowledged as
- * supported. Wire a real backend when those vendors expose session logs.
+ * Dispatches usage and session-discovery queries across registered providers. Claude and Codex
+ * have real JSONL/SQLite backends; Antigravity discovers local brain/<uuid> sessions scoped to
+ * the workspace while keeping usage snapshots empty (live usage arrives over ACP); Cursor is a
+ * stub returning EMPTY snapshots.
  */
 export class UsageService {
   private readonly providers: Map<AgentProvider, UsageProvider>
