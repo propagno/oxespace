@@ -66,6 +66,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/conversation/thread-attachments.ts',
   // Antigravity's ACP takes an image as base64: the adapter reads only the attachment paths the store above issued.
   'electron/main/services/conversation/antigravity-conversation.ts',
+  // OXE-467: bounded read-only local discovery of Claude/Codex/Antigravity provider session metadata under fixed user
+  // home roots (~/.claude, ~/.codex, ~/.gemini/antigravity-cli) for automatic Terminal details session ID correlation.
+  'electron/main/services/agent-state/pane-session-resolver.ts',
   // Transactional Thread checkpoints are a dedicated filesystem boundary:
   // they canonicalize the Thread root, reject traversal/symlinks, hash every
   // postimage and restore through temp+rename without destructive Git calls.
