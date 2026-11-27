@@ -208,8 +208,8 @@ describe('PB-01·2 · the five controls draw their edge with --bd-control', () =
   test('[css] other readers of --bd-strong do not change: the spinner ring and the token itself', () => {
     render(<Spinner label="Loading" />)
     expect(usesTok(css(screen.getByRole('status', { name: 'Loading' }), 'border'), 'bd-strong'), 'the spinner ring keeps --bd-strong').toBe(true)
-    // OXE-459: updated from violet-neutral (#c3c3d5 / #413e71) to achromatic Obsidian Minimal neutral (#cccccc / #444444).
-    expect(pbRead('src/styles/tokens.generated.css')).toMatch(/--bd-strong:\s*#cccccc;/)
-    expect(pbRead('src/styles/tokens.generated.css')).toMatch(/--bd-strong:\s*#444444;/)
+    // OXE-468: updated to authentic kepano/obsidian-minimal --ui3 strong border values (#c2c2c2 light / #595959 dark).
+    expect(pbRead('src/styles/tokens.generated.css')).toMatch(/--bd-strong:\s*#c2c2c2;/)
+    expect(pbRead('src/styles/tokens.generated.css')).toMatch(/--bd-strong:\s*#595959;/)
   })
 })
