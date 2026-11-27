@@ -8,6 +8,7 @@ import type { ConversationTransport } from './codex-conversation'
 import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
 import { encodeClaudeProjectPath } from '../usage/claude-project-path'
+import { verifyAndReadAntigravitySession } from '../usage/antigravity-sessions'
 import { readNativeHistoryPage, type NativeHistoryCursor } from './native-history-page'
 
 export interface NativeSessionHistory { events: ThreadEvent[]; title?: string; truncated?: boolean; cursor?: NativeHistoryCursor }
@@ -56,6 +57,7 @@ export class NativeSessionReader {
   constructor(private readonly executable: (thread: ConversationThread) => string, private readonly options: {
     claudeHome?: string
     codexHome?: string
+    antigravityHome?: string
     transport?: (command: string, cwd: string) => ConversationTransport
   } = {}) {}
 
@@ -66,8 +68,12 @@ export class NativeSessionReader {
       const path = join(home, 'projects', encodeClaudeProjectPath(thread.rootPath), `${id}.jsonl`)
       return this.readClaudePage(thread, id, path, cursor)
     }
-    // Antigravity keeps its history behind ACP, and replaying it would open the session: it is resumed, never imported.
-    if (thread.provider === 'antigravity') throw Error('Antigravity session history cannot be imported. Resume the session to continue it.')
+    if (thread.provider === 'antigravity') {
+      return verifyAndReadAntigravitySession(thread.rootPath, id, {
+        antigravityHome: this.options.antigravityHome,
+        cursor
+      })
+    }
     const rollout = await findCodexRollout(this.options.codexHome ?? process.env.CODEX_HOME ?? join(homedir(), '.codex'), id)
     if (rollout) return this.readCodexRollout(thread, id, rollout, cursor)
     if (cursor) throw Error('Native history file is unavailable. Restore its location and retry.')

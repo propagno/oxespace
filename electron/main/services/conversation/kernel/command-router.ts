@@ -5,6 +5,7 @@
  * Moved out of ThreadOrchestrator unchanged. It reaches the orchestrator only
  * through `CommandHost`, which names exactly what a command may touch.
  */
+import { resolve } from 'node:path'
 import { threadConfirmation } from '../../../../../shared/threadConfirmations'
 import type { AppDatabase } from '../../../db'
 import type { AgentConversationAdapter, ConversationCapabilities, ConversationThread, ThreadCommandResult, ThreadConfiguration, ThreadSnapshot } from '../../../../../shared/types/thread'
@@ -78,10 +79,14 @@ export async function runThreadCommand(host: CommandHost, id: string, text: stri
         return { kind: 'navigate', threadId: target.thread.id }
       }
       if (!/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(argument)) throw Error('Use a saved OXESpace conversation ID or an exact native session UUID.')
+      const sameRoot = (a: string, b: string): boolean => {
+        const norm = (p: string) => resolve(p.replace(/^\\\\\?\\/, '')).replace(/[\\/]+$/, '')
+        return process.platform === 'win32' ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b)
+      }
       for (const row of host.db.prepare('SELECT data_json FROM conversation_threads').all() as { data_json: string }[]) {
         const existing = JSON.parse(row.data_json) as ConversationThread
-        if (existing.nativeSessionId !== argument) continue
-        if (existing.provider !== thread.provider || existing.rootPath !== thread.rootPath) throw Error('Native session is linked to a different provider or project')
+        if (!existing.nativeSessionId || existing.nativeSessionId.toLowerCase() !== argument.toLowerCase()) continue
+        if (existing.provider !== thread.provider || !sameRoot(existing.rootPath, thread.rootPath)) throw Error('Native session is linked to a different provider or project')
         if (existing.archived) { const restored = host.read(existing.id); restored.thread.archived = false; host.save(restored, { eventsFrom: restored.events.length }) }
         return { kind: 'navigate', threadId: existing.id }
       }
