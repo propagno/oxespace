@@ -6,7 +6,7 @@
 .reasons { margin: 0; padding-left: var(--space-4); color: var(--tx-primary); font-size: var(--fs-sm); }
 .code {
   display: block; max-height: 12rem; overflow: auto; margin: 0; padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-sunken);
+  border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: var(--surface-sunken);
   color: var(--tx-primary); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: var(--leading-normal);
   white-space: pre; user-select: text; tab-size: 2;
 }

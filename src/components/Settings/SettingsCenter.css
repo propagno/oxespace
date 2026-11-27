@@ -2,10 +2,10 @@
 /* Settings is a desktop surface with independent navigation and content scroll. */
 .settings-center-overlay { position: fixed; inset: 0; z-index: calc(var(--layer-overlay) - 1); background: var(--scrim); }
 .settings-center { position: fixed; inset: 0; z-index: var(--layer-overlay); display: grid; grid-template-columns: var(--settings-navigation-width, 248px) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
-.settings-center-nav { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; padding: 0 12px 12px; border-right: 1px solid var(--bd-default); background: var(--surface-chrome); }
-.settings-center-title { display: flex; align-items: center; gap: 9px; height: var(--chrome-h); min-height: var(--chrome-h); margin: 0 -12px; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-default); font-size: var(--fs-sm); font-weight: 600; letter-spacing: -.15px; }
+.settings-center-nav { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; min-height: 0; padding: 0 var(--space-3) var(--space-3); border-right: 1px solid var(--bd-subtle); background: var(--surface-chrome); }
+.settings-center-title { display: flex; align-items: center; gap: var(--space-2); height: var(--chrome-h); min-height: var(--chrome-h); margin: 0 -12px; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-subtle); font-size: var(--fs-sm); font-weight: var(--weight-semibold); letter-spacing: -.15px; }
 .settings-center-title svg { color: var(--tx-muted); }
-.settings-search { display: flex; align-items: center; gap: 8px; min-height: var(--control-lg); padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-canvas); }
+.settings-search { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-lg); padding: 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-base); }
 .settings-search input { width: 100%; min-width: 0; padding: 0; border: 0; outline: none; color: var(--tx-primary); background: transparent; font-size: var(--fs-xs); }
 .settings-search input::placeholder { color: var(--tx-muted); }
 .settings-search:focus-within { border-color: var(--accent); }
@@ -31,7 +31,7 @@
 .settings-center-nav > nav button[aria-current="page"] svg { color: var(--tx-primary); }
 .settings-nav-badge::before { content: attr(data-count); }
 .settings-nav-badge { margin-left: auto; padding: 1px 6px; border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-variant-numeric: tabular-nums; line-height: 1.4; }
-.settings-nav-footer { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--bd-default); }
+.settings-nav-footer { display: grid; gap: var(--space-2); margin-top: auto; padding-top: var(--space-3); border-top: 1px solid var(--bd-subtle); }
 .settings-back { display: flex; align-items: center; gap: 8px; min-height: var(--control-lg); padding: 6px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font-size: var(--fs-sm); cursor: pointer; }
 .settings-back:hover { background: color-mix(in srgb, var(--tx-primary) 4%, transparent); color: var(--tx-primary); }
 .settings-compact-category { display: none; }
@@ -41,7 +41,7 @@
 .settings-section-pages { width: min(100%, 720px); margin: 0 auto var(--space-4); }
 .settings-center-main { display: grid; grid-template-rows: var(--chrome-h) minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; }
 /* OXE-312: the close control is a src/ui IconButton (its size, focus and hover are the primitive's), kept at the right. */
-.settings-center-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-default); }
+.settings-center-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); min-width: 0; padding: 0 var(--chrome-inset); border-bottom: 1px solid var(--bd-subtle); }
 .settings-center-content { min-width: 0; min-height: 0; overflow-y: auto; padding: 28px 36px 48px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--bd-default) transparent; }
 /* BRD-06 (OXE-67): a page reads at most 720 px wide, centred in the content pane, with a 14 px body; the note below it too. */
 .settings-center-content > section { width: 100%; max-width: 720px; margin: 0 auto; font-size: var(--fs-sm); }
@@ -55,7 +55,7 @@
 .settings-center .settings-content-body { flex: none; min-height: 0; overflow: visible; padding: 0; gap: 16px; }
 .settings-center :is(.settings-btn, .settings-header-action) { min-height: var(--control-lg); padding: 0 12px; border-radius: var(--radius-sm); border-color: var(--bd-default); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .settings-center .settings-btn.primary { color: var(--tx-on-accent); background: var(--accent); }
-.settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card) { padding: 16px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
+.settings-center :is(.settings-form-group, .settings-toggle-row, .settings-callout, .settings-providers-hero, .settings-provider-card) { padding: var(--space-4); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-raised); }
 .settings-center .settings-form-group { gap: 14px; }
 .settings-center .settings-form-group-title { color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 500; letter-spacing: 0; text-transform: none; }
 /* A group is one card of rows: switches, fields and notes inside it are rows split by a line, not cards of their own. */
@@ -86,34 +86,34 @@
 .settings-general { display: grid; gap: 14px; }
 .settings-general h3:not([class]) { margin: 20px 0 2px; font-size: var(--fs-sm); font-weight: 600; }
 .settings-general-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.settings-general-destination { display: grid; align-content: start; gap: 12px; min-height: 104px; padding: 13px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: left; cursor: pointer; }
-.settings-general-destination:hover { background: var(--fill-selected); }
+.settings-general-destination { display: grid; align-content: start; gap: var(--space-3); min-height: 104px; padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: left; cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard); }
+.settings-general-destination:hover { background: var(--fill-hover); border-color: var(--bd-default); }
 .settings-general-destination:focus-visible { outline: 2px solid var(--bd-focus); outline-offset: 2px; }
 .settings-general-destination > span { display: flex; align-items: center; gap: 8px; }
 .settings-general-destination strong { font-size: var(--fs-xs); font-weight: 600; }
 .settings-general-destination small { color: var(--tx-secondary); font-size: var(--fs-2xs); line-height: 1.5; }
 @media (max-width: 1180px) { .settings-general-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.settings-general-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-top: 2px; padding: 16px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
+.settings-general-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); margin-top: var(--space-0-5); padding: var(--space-4); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-raised); }
 .settings-general-card label { color: var(--tx-primary); font-size: var(--fs-xs); font-weight: 500; }
 .settings-general-card p { margin: 5px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); line-height: 1.6; }
 .settings-general .settings-general-cap { width: 72px; min-width: 72px; }
 .settings-general-card input { width: 70px; min-width: 70px; padding: 7px 9px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-canvas); color: var(--tx-primary); font-size: var(--fs-xs); }
-.settings-center .settings-provider-card[class], .settings-center :is(.settings-onboarding, .diagnostics-hero) { border-color: var(--bd-default); background: var(--surface-raised); }
+.settings-center .settings-provider-card[class], .settings-center :is(.settings-onboarding, .diagnostics-hero) { border-color: var(--bd-subtle); background: var(--surface-raised); }
 .settings-center .settings-new-agent-btn { align-self: flex-start; }
-.settings-center .settings-term-preview { border-color: var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); }
-.settings-center .settings-term-preview-body { background: var(--surface-canvas); color: var(--tx-primary); }
-.settings-center .diagnostics-hero { padding: 16px; border-radius: var(--radius-md); flex-wrap: wrap; }
+.settings-center .settings-term-preview { border-color: var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-raised); }
+.settings-center .settings-term-preview-body { background: var(--term-bg); color: var(--term-fg); }
+.settings-center .diagnostics-hero { padding: var(--space-4); border-radius: var(--radius-md); flex-wrap: wrap; }
 .settings-center .diagnostics-hero-text strong { font-size: var(--fs-sm); font-weight: 500; }
-.settings-center .diagnostics-checks { gap: 0; margin-top: 0; overflow: hidden; border: 1px solid var(--bd-default); border-radius: var(--radius-md); }
+.settings-center .diagnostics-checks { gap: 0; margin-top: 0; overflow: hidden; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); }
 .settings-center .diagnostics-check { border: 0; border-radius: 0; background: var(--surface-raised); }
-.settings-center .diagnostics-check + .diagnostics-check { border-top: 1px solid var(--bd-default); }
+.settings-center .diagnostics-check + .diagnostics-check { border-top: 1px solid var(--bd-subtle); }
 .settings-center .diagnostics-check-label { font-weight: 500; }
 /* Updates use rows with a single action area instead of oversized status cards. */
-.settings-center .settings-updates-form { gap: 12px; }
+.settings-center .settings-updates-form { gap: var(--space-3); }
 .settings-update-group-label { margin: 0; color: var(--tx-secondary); font-size: var(--fs-2xs); font-weight: 500; }
-.settings-update-group { overflow: hidden; border: 1px solid var(--bd-default); border-radius: var(--radius-md); }
-.settings-center .settings-update-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; row-gap: 6px; padding: 20px; border: 0; border-radius: 0; background: var(--surface-raised); }
-.settings-center .settings-update-group > article + article { border-top: 1px solid var(--bd-default); }
+.settings-update-group { overflow: hidden; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); }
+.settings-center .settings-update-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-4); row-gap: var(--space-1-5); padding: var(--space-5); border: 0; border-radius: 0; background: var(--surface-raised); }
+.settings-center .settings-update-group > article + article { border-top: 1px solid var(--bd-subtle); }
 .settings-center .settings-update-card-head { grid-column: 1; grid-row: 1; align-items: center; }
 .settings-center .settings-update-card-head strong { font-size: var(--fs-xs); font-weight: 500; }
 .settings-center .settings-update-card-head > div { gap: 4px; }
@@ -158,9 +158,9 @@
 .agent-activity-page { display: grid; gap: 14px; }
 .agent-activity-sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; }
 .settings-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--intent-warning-border); border-radius: var(--radius-md); background: var(--intent-warning-bg); color: var(--tx-primary); font-size: var(--fs-xs); }
-.agent-activity-table { width: 100%; border-collapse: collapse; border: 1px solid var(--bd-default); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-raised); font-size: var(--fs-xs); }
-.agent-activity-table th { padding: 8px 12px; border-bottom: 1px solid var(--bd-default); background: var(--surface-sunken); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: 600; text-align: left; white-space: nowrap; }
-.agent-activity-table td { padding: 9px 12px; border-bottom: 1px solid var(--bd-subtle); color: var(--tx-secondary); vertical-align: middle; }
+.agent-activity-table { width: 100%; border-collapse: collapse; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-base); font-size: var(--fs-xs); }
+.agent-activity-table th { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--bd-subtle); border-right: 0; background: var(--surface-chrome); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: var(--weight-medium); text-align: left; white-space: nowrap; }
+.agent-activity-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--bd-subtle); border-right: 0; color: var(--tx-secondary); vertical-align: middle; }
 .agent-activity-table tbody tr:last-child td { border-bottom: 0; }
 .agent-activity-table tbody tr { cursor: pointer; }
 .agent-activity-table tbody tr:hover { background: var(--fill-hover); }
@@ -249,11 +249,10 @@
 .settings-center .settings-update-card .settings-update-preferences > [role="radiogroup"] { justify-self: start; }
 .settings-center .settings-update-mode-hint { margin: 0; font-size: var(--fs-2xs); line-height: 1.5; color: var(--tx-muted); }
 
-/* Settings inside the window frame (cycle V): the title bar stays in view, and navigation and content sit on the
-   window as two panels, like the sidebars and the work surface. Still a modal: focus is kept inside and Escape closes. */
-.settings-center { top: var(--bar-lg); padding: 0 var(--frame-gap) var(--frame-gap); column-gap: var(--frame-gap); background: var(--surface-sunken); }
+/* Settings inside the window frame (cycle V): the title bar stays in view, and navigation and content sit on calm Minimal chrome. */
+.settings-center { top: var(--bar-lg); padding: 0 var(--frame-gap) var(--frame-gap); column-gap: var(--frame-gap); background: var(--surface-chrome); }
 .settings-center > .settings-center-nav, .settings-center > .settings-center-main { border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); background: var(--surface-base); }
-.settings-center > .settings-center-nav { border-right: 1px solid var(--bd-subtle); }
+.settings-center > .settings-center-nav { border-right: 1px solid var(--bd-subtle); background: var(--surface-chrome); }
 /* The scrim still takes clicks outside the dialog, but no longer dims the title bar that stays in view. */
 .settings-center-overlay { background: transparent; }
 }

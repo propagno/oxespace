@@ -549,7 +549,7 @@ function TerminalPreview({ prefs }: { prefs: TerminalPrefs }): ReactElement {
         <em>{t('terminal.preview')}</em>
       </div>
       <div
-        className="settings-term-preview-body"
+        className="settings-term-preview-body" data-mode="dark"
         style={{
           fontFamily: prefs.fontFamily,
           fontSize: sampleSize,

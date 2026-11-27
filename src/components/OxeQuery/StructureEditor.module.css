@@ -1,7 +1,7 @@
 .section { display: grid; gap: var(--space-3); padding-top: var(--space-3); }
 .scroll { overflow: auto; max-height: 46vh; border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); }
 .grid { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.grid th { position: sticky; top: 0; padding: var(--space-2); text-align: left; color: var(--tx-muted); background: var(--surface-raised); font-weight: var(--weight-medium); }
+.grid th { position: sticky; top: 0; padding: var(--space-2); text-align: left; color: var(--tx-muted); background: var(--surface-chrome); border-bottom: 1px solid var(--bd-subtle); font-weight: var(--weight-medium); }
 .grid td { padding: var(--space-1) var(--space-2); border-top: 1px solid var(--bd-subtle); vertical-align: middle; }
 .grid tr[data-removed] td { opacity: 0.5; text-decoration: line-through; }
 .grid tr[data-new] td:first-child { box-shadow: inset 3px 0 0 var(--intent-success-solid); }
@@ -19,7 +19,7 @@
 .facts dd { margin: 0; font-size: var(--fs-sm); }
 .heading { margin: var(--space-2) 0 0; color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: var(--weight-medium); }
 .actions, .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.plan { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-sunken); }
+.plan { display: grid; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .sql { margin: 0; max-height: 28vh; overflow: auto; white-space: pre-wrap; color: var(--tx-primary); }
 .warnings { margin: 0; padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }
 .problems { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-4); border: 1px solid var(--intent-warning-border); border-radius: var(--radius-sm); color: var(--intent-warning-fg); background: var(--intent-warning-bg); font-size: var(--fs-sm); }

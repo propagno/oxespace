@@ -109,7 +109,7 @@
   gap: var(--space-1);
   min-height: 0;
   padding: 0 var(--space-2);
-  background: var(--surface-sunken);
+  background: var(--surface-chrome);
   border-bottom: 1px solid var(--bd-subtle);
 }
 
@@ -154,9 +154,9 @@
 }
 
 .pane-conversation-switch button[aria-pressed='true'] {
-  background: var(--surface-raised);
+  background: var(--fill-selected);
   color: var(--tx-primary);
-  box-shadow: var(--elevation-1);
+  box-shadow: none;
 }
 
 /* Overflow note when fixed grid hides extra panes (G8 / G14). */

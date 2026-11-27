@@ -175,12 +175,12 @@
   color: var(--tx-secondary);
 }
 .ws-preview-window {
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   background: var(--surface-canvas);
   color: var(--tx-primary);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--elevation-3);
+  box-shadow: var(--elevation-2);
 }
 .ws-preview-titlebar {
   background: var(--surface-chrome);
@@ -279,8 +279,8 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, var(--bd-default) 0%, transparent 100%);
-  margin-left: 12px;
+  background: var(--bd-subtle);
+  margin-left: var(--space-3);
 }
 
 /* Shell profiles cards */
@@ -317,45 +317,43 @@
   cursor: pointer;
   transition: border-color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
 }
-.density-option:hover { border-color: var(--bd-default); color: var(--tx-primary); transform: translateY(-2px); box-shadow: var(--elevation-2); }
+.density-option:hover { border-color: var(--bd-default); background: var(--fill-hover); color: var(--tx-primary); box-shadow: none; }
 .density-option.selected {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--accent-border);
   background: var(--fill-selected);
-  box-shadow: inset 0 3px 0 0 var(--accent), var(--elevation-2);
-  color: var(--accent);
+  box-shadow: inset 0 2px 0 0 var(--accent);
+  color: var(--tx-primary);
 }
 .density-option.selected:hover {
-  transform: translateY(-2px);
-  box-shadow: inset 0 3px 0 0 var(--accent), var(--elevation-2);
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 
 /* Layout preset cards with mini grid preview */
 .layout-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
 }
 .layout-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 8px;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
   background: var(--surface-base);
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+  transition: border-color var(--transition-base), background var(--transition-base);
 }
-.layout-card:hover { border-color: var(--bd-default); transform: translateY(-2px); box-shadow: var(--elevation-2); }
+.layout-card:hover { border-color: var(--bd-default); background: var(--fill-hover); box-shadow: none; }
 .layout-card.selected {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--accent-border);
   background: var(--fill-selected);
-  box-shadow: inset 0 3px 0 0 var(--accent), var(--elevation-2);
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 .layout-card.selected:hover {
-  transform: translateY(-2px);
-  box-shadow: inset 0 3px 0 0 var(--accent), var(--elevation-2);
+  box-shadow: inset 0 2px 0 0 var(--accent);
 }
 .layout-card-preview {
   display: grid;
@@ -404,7 +402,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, var(--ov-2) 0%, transparent 100%);
+  background: var(--bd-subtle);
   min-width: 16px;
 }
 .new-workspace-existing p {
@@ -479,9 +477,9 @@
 }
 .new-workspace-folder-zone.has-path {
   border-style: solid;
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: var(--accent-border);
+  background: var(--surface-raised);
+  box-shadow: none;
 }
 .new-workspace-folder-zone-icon {
   display: inline-flex;
@@ -559,8 +557,8 @@
 }
 .new-workspace-layout-card:hover {
   border-color: var(--bd-default);
-  transform: translateY(-2px);
-  box-shadow: var(--elevation-2);
+  background: var(--fill-hover);
+  box-shadow: none;
 }
 .new-workspace-layout-card.selected {
   border-color: var(--accent-border);
@@ -568,7 +566,6 @@
   box-shadow: none;
 }
 .new-workspace-layout-card.selected:hover {
-  transform: translateY(-2px);
   box-shadow: none;
 }
 .new-workspace-layout-preview {
@@ -612,18 +609,16 @@
   transition: border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
 }
 .new-workspace-agent-chip:hover {
-  border-color: color-mix(in srgb, var(--tx-primary) 14%, transparent);
-  background: var(--ov-1);
-  transform: translateY(-1px);
+  border-color: var(--bd-default);
+  background: var(--fill-hover);
 }
 .new-workspace-agent-chip.selected {
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent-border);
+  background: var(--fill-selected);
   box-shadow: inset 2px 0 0 0 var(--accent);
 }
 .new-workspace-agent-chip.selected:hover {
-  transform: translateY(-1px);
-  box-shadow: inset 2px 0 0 0 var(--accent), var(--elevation-2);
+  box-shadow: inset 2px 0 0 0 var(--accent);
 }
 .new-workspace-agent-chip-body {
   display: inline-flex;

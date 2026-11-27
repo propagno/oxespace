@@ -1,7 +1,7 @@
 @layer oxe-legacy {
 /* CI status bar for the branch's pull request, docked above the composer. */
 .pr-status-anchor { display: contents; }
-.pr-status-bar { margin: 0 0 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.pr-status-bar { margin: 0 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .pr-status-main { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 6px 4px 4px; }
 .pr-status-toggle { display: inline-flex; align-items: center; flex: 1; gap: 8px; min-width: 0; height: var(--control-md); padding: 0 8px; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .pr-status-toggle:hover { background: var(--fill-hover); color: var(--tx-primary); }
@@ -20,7 +20,7 @@
 .pr-status-actions button[aria-pressed='true'] { border-color: color-mix(in srgb, var(--intent-success-solid) 50%, var(--bd-default)); color: var(--intent-success-solid); }
 .pr-status-actions button.is-primary { border-color: transparent; background: var(--accent); color: var(--tx-on-accent); font-weight: 600; }
 .pr-status-notice { margin: 0; padding: 4px 12px 8px; color: var(--intent-danger-solid); }
-.pr-status-checks { display: grid; gap: 1px; margin: 0; padding: 4px 6px 6px; list-style: none; border-top: 1px solid var(--bd-default); max-height: 220px; overflow: auto; }
+.pr-status-checks { display: grid; gap: 1px; margin: 0; padding: var(--space-1) var(--space-1-5) var(--space-1-5); list-style: none; border-top: 1px solid var(--bd-subtle); max-height: 220px; overflow: auto; }
 .pr-status-checks li { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; border-radius: var(--radius-sm); }
 .pr-status-checks li:hover { background: var(--fill-hover); }
 .pr-status-checks .pr-check-name { min-width: 0; overflow: hidden; color: var(--tx-primary); text-overflow: ellipsis; white-space: nowrap; }

@@ -11,9 +11,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--bd-subtle);
-  background: var(--surface-raised);
+  background: var(--surface-chrome);
 }
 .github-actions-v2-title {
   display: inline-flex;
@@ -38,9 +38,9 @@
 }
 .github-actions-v2-filter:hover { color: var(--tx-primary); }
 .github-actions-v2-filter.active {
-  color: var(--accent);
-  border-color: var(--bd-default);
-  background: var(--bg-pane-active-header);
+  color: var(--tx-primary);
+  border-color: var(--bd-subtle);
+  background: var(--fill-selected);
 }
 
 .github-actions-v2-runform {
@@ -81,8 +81,8 @@
 .github-actions-v2-tree {
   overflow-y: auto;
   border-right: 1px solid var(--bd-subtle);
-  background: var(--surface-raised);
-  padding: 6px 0;
+  background: var(--surface-chrome);
+  padding: var(--space-1-5) 0;
 }
 .github-actions-v2-detail {
   overflow-y: auto;
@@ -179,7 +179,7 @@
 .github-actions-runtime {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface-raised);
@@ -266,19 +266,19 @@
   flex-direction: column;
   min-height: 0;
   flex: 1 1 0;
-  border: 1px solid var(--bd-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-base);
   overflow: hidden;
 }
 .github-actions-v2-logs-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--bd-default);
-  background: var(--surface-raised);
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+  border-bottom: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
   font-size: var(--fs-xs);
   color: var(--tx-muted);
   text-transform: uppercase;

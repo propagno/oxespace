@@ -24,7 +24,7 @@
 .mcp-catalog-added { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--intent-success-solid); font-size: var(--fs-xs); }
 .mcp-catalog-count { margin: 18px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); text-align: center; }
 
-.mcp-brand-tile { display: grid; place-items: center; flex: none; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-chrome); overflow: hidden; }
+.mcp-brand-tile { display: grid; place-items: center; flex: none; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-chrome); overflow: hidden; }
 .mcp-brand-letter { display: grid; place-items: center; width: 100%; height: 100%; color: var(--tx-on-identity); font-weight: 700; }
 .mcp-brand-letter[data-contrast='light'] { color: var(--tx-on-identity); }
 .mcp-brand-letter[data-contrast='dark'] { color: var(--logo-tile); }

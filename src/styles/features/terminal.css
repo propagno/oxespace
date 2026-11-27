@@ -28,26 +28,24 @@
 
 .terminal-search {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--space-2);
+  right: var(--space-2);
   z-index: calc(var(--layer-raised) + 19);
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--surface-sunken) 95%, transparent);
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
   border: 1px solid var(--bd-subtle);
   box-shadow: var(--elevation-2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .terminal-search-input {
   width: 160px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--ov-1);
+  background: var(--surface-base);
   border: 1px solid var(--bd-subtle);
   color: var(--tx-primary);
   font-family: var(--font-mono);
@@ -165,38 +163,38 @@
 .statusbar-more-menu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 4px);
+  bottom: calc(100% + var(--space-1));
   z-index: var(--layer-dropdown);
   min-width: 232px;
-  padding: 4px;
+  padding: var(--space-1);
   border-radius: var(--radius-md);
-  border: 1px solid var(--ov-3);
-  background: var(--surface-sunken);
+  border: 1px solid var(--bd-subtle);
+  background: var(--surface-overlay);
   box-shadow: var(--elevation-3);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .statusbar-more-menu button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   margin: 0;
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-2);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--tx-secondary);
   font-size: var(--fs-xs);
-  font-weight: 550;
+  font-weight: var(--weight-medium);
   text-align: left;
   cursor: pointer;
 }
 
 .statusbar-more-menu button:hover:not(:disabled) {
-  background: var(--ov-2);
+  background: var(--fill-hover);
   color: var(--tx-primary);
 }
 
@@ -226,7 +224,7 @@
 
 .statusbar-more-menu button[aria-checked='true'] {
   color: var(--tx-primary);
-  background: var(--ov-1);
+  background: var(--fill-selected);
 }
 
 .editor-tree-resize {
@@ -262,7 +260,7 @@
   flex-shrink: 0;
   background: var(--tx-disabled);
 }
-.statusbar-dot.green  { background: var(--intent-success-solid); box-shadow: 0 0 4px color-mix(in srgb, var(--intent-success-solid) 70%, transparent); }
+.statusbar-dot.green  { background: var(--intent-success-solid); }
 .statusbar-dot.orange { background: var(--intent-warning-solid); }
 .statusbar-dot.yellow { background: var(--intent-warning-solid); }
 .statusbar-dot.red    { background: var(--intent-danger-solid); }
@@ -386,19 +384,19 @@
 .btn-start-terminal {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 20px;
-  background: var(--intent-success-bg);
-  border: 1px solid var(--intent-success-border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  background: var(--surface-raised);
+  border: 1px solid var(--bd-control);
   border-radius: var(--radius-md);
-  color: var(--accent);
+  color: var(--tx-primary);
   font-size: var(--fs-sm);
-  font-weight: 500;
-  transition: all var(--duration-fast);
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
 }
 .btn-start-terminal:hover {
-  background: var(--intent-success-bg);
-  border-color: var(--intent-success-border);
+  background: var(--fill-hover);
+  border-color: var(--accent);
 }
 .btn-start-terminal:disabled { opacity: 0.5; cursor: default; }
 

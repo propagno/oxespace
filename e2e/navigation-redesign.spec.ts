@@ -45,12 +45,12 @@ test('sidebar sessions and full-page settings preserve terminal DOM', async () =
         canvas: getComputedStyle(document.querySelector('.workspace-surface')!).backgroundColor,
         sidebar: getComputedStyle(document.querySelector('.sidebar')!).backgroundColor,
         titlebar: getComputedStyle(document.querySelector('.workbench-titlebar')!).backgroundColor,
-        expected: { panel: token('--surface-base'), window: token('--surface-sunken') }
+        expected: { panel: token('--surface-base'), chrome: token('--surface-chrome') }
       }
     })
     expect(palette.canvas).toBe(palette.expected.panel)
-    expect(palette.sidebar).toBe(palette.expected.panel)
-    expect(palette.titlebar).toBe(palette.expected.window)
+    expect(palette.sidebar).toBe(palette.expected.chrome)
+    expect(palette.titlebar).toBe(palette.expected.chrome)
     await expect(page.getByTestId('pane-session-row')).toHaveCount(2)
     await page.getByTestId('pane-session-row').last().click()
     await page.getByTestId('terminal-pane').first().evaluate(el => el.setAttribute('data-preserved', 'yes'))

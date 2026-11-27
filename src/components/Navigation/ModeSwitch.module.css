@@ -17,14 +17,16 @@
 .option {
   gap: var(--space-1);
   border-radius: var(--radius-sm);
+  color: var(--tx-muted);
   -webkit-app-region: no-drag;
-  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 .option:hover:not([data-state='active']) { background: var(--fill-hover); color: var(--tx-primary); }
-.option[data-state='active'] { background: var(--fill-selected); color: var(--tx-primary); box-shadow: var(--elevation-1); }
+.option[data-state='active'] { background: var(--fill-selected); color: var(--tx-primary); box-shadow: none; }
 .option[data-state='active']::after { left: var(--space-2); right: var(--space-2); bottom: 0; }
 
-.modeIcon { flex-shrink: 0; color: currentColor; opacity: 0.82; transition: color var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); }
+.modeIcon { flex-shrink: 0; color: currentColor; opacity: 0.78; transition: color var(--duration-fast) var(--ease-standard), opacity var(--duration-fast) var(--ease-standard); }
+.option:hover .modeIcon { opacity: 0.95; }
 .option[data-state='active'] .modeIcon { color: var(--accent); opacity: 1; }
 
 @media (max-width: 1080px) {

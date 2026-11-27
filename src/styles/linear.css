@@ -9,8 +9,8 @@
   border-radius: var(--radius-lg);
   width: min(880px, 92vw);
   height: min(680px, 86vh);
-  background: var(--surface-raised);
-  box-shadow: var(--elevation-4);
+  background: var(--surface-overlay);
+  box-shadow: var(--elevation-3);
   overflow: hidden;
 }
 

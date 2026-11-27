@@ -14,7 +14,7 @@
 }
 
 .group { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); margin: 0; padding: 0; border: 0; }
-.separator { width: 20px; height: 1px; margin: var(--space-1) 0; background: var(--bd-default); }
+.separator { width: 20px; height: 1px; margin: var(--space-1) 0; background: var(--bd-subtle); }
 .spacer { flex: 1; min-height: var(--space-2); }
 
 .button {
@@ -27,7 +27,7 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--tx-secondary);
+  color: var(--tx-muted);
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }

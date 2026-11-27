@@ -12,7 +12,7 @@
 .split-pane-slot {
   position: absolute;
   overflow: visible;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
   border: none;
   box-sizing: border-box;
@@ -59,7 +59,7 @@
 .split-resize-handle::before {
   content: "";
   position: absolute;
-  background: var(--bd-default);
+  background: var(--bd-subtle);
   transition: background var(--duration-fast) var(--ease-standard);
 }
 
@@ -146,8 +146,8 @@
   position: absolute;
   z-index: calc(var(--layer-raised) + 6);
   pointer-events: none;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--elevation-3);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
 }

@@ -1,12 +1,13 @@
 /* Shared desktop chrome. Mode-specific content stays in each feature. */
 .sidebar.sidebar-redesign, .thread-navigation { box-shadow: none; background: var(--surface-chrome); background-image: none; border-right: 0; }
-/* Sidebars float on the window as panels, like the work surface. Here, unlayered, so feature CSS does not repaint them. */
-.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--bd-subtle); border-radius: 0; overflow: visible; background: var(--surface-base); }
+/* Sidebars sit on calm Minimal chrome separated from the work canvas by a 1px hairline divider. */
+.app-shell > :is(.sidebar.sidebar-redesign, .thread-navigation) { border: 0; border-right: 1px solid var(--bd-subtle); border-radius: 0; overflow: visible; background: var(--surface-chrome); }
 .app-shell.first-run-shell { grid-template-columns: minmax(0, 1fr); } .app-shell.first-run-shell > aside { display: none; }
 .app-shell.first-run-shell > .workspace-surface { grid-column: 1 / -1; }
 .desktop-search svg { flex-shrink: 0; }
 
-.sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: 8px; position: relative; height: var(--control-lg); min-height: var(--control-lg); padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-chrome); box-shadow: none; }
+.sidebar .desktop-search, .thread-navigation .desktop-search, .settings-center .desktop-search { display: flex; align-items: center; gap: var(--space-2); position: relative; height: var(--control-lg); min-height: var(--control-lg); padding: 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); color: var(--tx-muted); background: var(--surface-base); box-shadow: none; transition: border-color var(--duration-fast) var(--ease-standard); }
+.sidebar .desktop-search:hover, .thread-navigation .desktop-search:hover, .settings-center .desktop-search:hover { border-color: var(--bd-default); }
 .desktop-search input, .sidebar .desktop-search input, .thread-navigation .desktop-search input, .settings-center .desktop-search input { flex: 1; width: 0; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--tx-primary); font-family: inherit; font-size: var(--fs-xs); font-weight: 400; outline: none; box-shadow: none; }
 .desktop-search input::placeholder { color: var(--tx-muted); }
 .desktop-search input::-webkit-search-cancel-button { display: none; }
@@ -62,14 +63,14 @@
 
 /* Collapsed rails & rail buttons (G10) */
 .nav-rail { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; height: 100%; min-height: 0; padding: var(--space-2) 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
-.nav-rail-btn { position: relative; display: inline-grid; place-items: center; min-width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--tx-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.nav-rail-btn { position: relative; display: inline-grid; place-items: center; min-width: var(--control-md); min-height: var(--control-md); padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--tx-muted); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
 .nav-rail-btn:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .nav-rail-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .sidebar-rail-list { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; margin: var(--space-1) 0; padding: var(--space-1) 0; border-top: 1px solid var(--bd-subtle); border-bottom: 1px solid var(--bd-subtle); overflow-y: auto; scrollbar-width: none; }
 .sidebar-rail-workspace-btn > span { font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: var(--weight-bold); }
 /* The rail's workspace buttons are src/ui IconButtons (BRD-03): size, padding, radius and type are the primitive's. */
-.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; border: 1px solid var(--bd-subtle); background: var(--surface-raised); color: var(--tx-secondary); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
-.sidebar-rail-workspace-btn:hover { background: var(--fill-hover); color: var(--tx-primary); }
+.sidebar-rail-workspace-btn { position: relative; display: inline-grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--tx-muted); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.sidebar-rail-workspace-btn:hover { background: var(--fill-hover); border-color: var(--bd-subtle); color: var(--tx-primary); }
 .sidebar-rail-workspace-btn[data-ws] { background: color-mix(in srgb, var(--ws) 10%, transparent); color: var(--ws-fg); border-color: color-mix(in srgb, var(--ws) 28%, transparent); }
 .sidebar-rail-workspace-btn[data-ws].active { background: color-mix(in srgb, var(--ws) 18%, transparent); border-color: var(--ws); color: var(--ws-fg); }
 .sidebar-rail-attention { position: absolute; top: -3px; right: -3px; border-radius: var(--radius-full); background: var(--attn-bg); color: var(--attn-fg); padding: 1px; }

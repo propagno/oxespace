@@ -5,10 +5,10 @@
 .modal {
   width: min(480px, calc(100vw - 40px));
   background: var(--surface-overlay);
-  border: 1px solid var(--bd-default);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--elevation-4);
+  box-shadow: var(--elevation-3);
 }
 
 /* Radix <Dialog> renders its content as a direct child of the portal, so a
@@ -45,18 +45,17 @@
   white-space: pre-wrap;
   width: max-content;
   max-width: 320px;
-  background: color-mix(in srgb, var(--surface-sunken) 85%, transparent);
-  border: 1px solid var(--ov-3);
+  background: var(--surface-overlay);
+  border: 1px solid var(--bd-subtle);
   color: var(--tx-primary);
   font-size: var(--fs-2xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.5;
   letter-spacing: 0.01em;
-  padding: 8px 14px;
+  padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-md);
-  box-shadow: var(--elevation-3), inset 0 1px 0 var(--ov-2);
+  box-shadow: var(--elevation-2);
   text-align: center;
-  backdrop-filter: blur(12px) saturate(140%);
   z-index: var(--layer-tooltip);
 }
 
@@ -66,11 +65,10 @@
   left: 50%;
   width: 10px;
   height: 10px;
-  background: color-mix(in srgb, var(--surface-sunken) 85%, transparent);
-  border-right: 1px solid var(--ov-3);
-  border-bottom: 1px solid var(--ov-3);
+  background: var(--surface-overlay);
+  border-right: 1px solid var(--bd-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
   transform: translateX(-50%) translateY(4px) rotate(45deg) scale(0.96);
-  backdrop-filter: blur(12px) saturate(140%);
   z-index: var(--layer-tooltip);
 }
 
@@ -115,15 +113,15 @@
   box-sizing: border-box;
   width: max-content;
   max-width: min(360px, calc(100vw - 16px));
-  padding: 8px 14px;
-  border: 1px solid var(--ov-3);
+  padding: var(--space-1-5) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-sunken) 96%, transparent);
+  background: var(--surface-overlay);
   color: var(--tx-primary);
-  box-shadow: var(--elevation-3), inset 0 1px 0 var(--ov-2);
+  box-shadow: var(--elevation-2);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   line-height: 1.5;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
@@ -137,20 +135,20 @@
   left: var(--viewport-tooltip-arrow-x);
   width: 10px;
   height: 10px;
-  background: color-mix(in srgb, var(--surface-sunken) 96%, transparent);
+  background: var(--surface-overlay);
   transform: translateX(-50%) rotate(45deg);
 }
 
 .viewport-tooltip[data-side='top']::before {
   bottom: -6px;
-  border-right: 1px solid var(--ov-3);
-  border-bottom: 1px solid var(--ov-3);
+  border-right: 1px solid var(--bd-subtle);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .viewport-tooltip[data-side='bottom']::before {
   top: -6px;
-  border-top: 1px solid var(--ov-3);
-  border-left: 1px solid var(--ov-3);
+  border-top: 1px solid var(--bd-subtle);
+  border-left: 1px solid var(--bd-subtle);
 }
 
 .modal-header {
@@ -158,7 +156,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--bd-default);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .modal-header h2 {
@@ -182,7 +180,7 @@
   justify-content: flex-end;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-6) var(--space-4);
-  border-top: 1px solid var(--bd-default);
+  border-top: 1px solid var(--bd-subtle);
 }
 
 .field {
@@ -394,18 +392,18 @@
   height: min(680px, calc(100vh - 28px));
   grid-template-columns: 240px minmax(0, 1fr);
   overflow: hidden;
-  border: 1px solid var(--ov-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
-  background: var(--surface-sunken);
-  box-shadow: var(--elevation-4);
+  background: var(--surface-canvas);
+  box-shadow: var(--elevation-3);
 }
 
 .settings-modal-nav {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border-right: 1px solid var(--ov-2);
-  background: var(--surface-sunken);
+  border-right: 1px solid var(--bd-subtle);
+  background: var(--surface-chrome);
   padding: var(--space-6) var(--space-3) var(--space-4);
 }
 
@@ -415,7 +413,7 @@
   gap: var(--space-3);
   margin-bottom: var(--space-4);
   padding: var(--space-1) var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--ov-2);
+  border-bottom: 1px solid var(--bd-subtle);
 }
 
 .settings-modal-brand-icon {
@@ -427,8 +425,8 @@
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   color: var(--tx-primary);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--tx-primary) 22%, transparent);
+  background: var(--surface-raised);
+  border: 1px solid var(--bd-subtle);
 }
 
 .settings-modal-brand > div {
@@ -629,8 +627,8 @@
   gap: var(--space-3) var(--space-4);
   padding: var(--space-4);
   border-radius: var(--radius-md);
-  border: 1px solid var(--ov-3);
-  background: var(--surface-canvas);
+  border: 1px solid var(--bd-subtle);
+  background: var(--surface-raised);
 }
 
 .settings-providers-hero-text {
@@ -758,14 +756,14 @@
   gap: var(--space-3);
   padding: var(--space-4);
   border-radius: var(--radius-md);
-  border: 1px solid var(--ov-3);
-  background: var(--surface-canvas);
+  border: 1px solid var(--bd-subtle);
+  background: var(--surface-raised);
   transition: border-color var(--transition-fast), background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .settings-provider-card:hover {
-  border-color: color-mix(in srgb, var(--tx-primary) 16%, transparent);
-  background: var(--surface-canvas);
+  border-color: var(--bd-default);
+  background: var(--surface-raised);
 }
 
 .settings-provider-card.status-ready {
@@ -1590,10 +1588,7 @@
   align-items: flex-start;
   justify-content: center;
   padding-top: 120px;
-  /* Plain dimmer instead of the previous teal radial-gradient — matches the
-     other modal backdrops and lets the dialog stand on its own. */
   background: var(--scrim);
-  backdrop-filter: blur(8px);
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
@@ -1605,11 +1600,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Was teal-gradient with inner glow — now a clean Claude-flavor dialog. */
-  border: 1px solid var(--bd-default);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-lg);
   background: var(--surface-overlay);
-  box-shadow: var(--elevation-4);
+  box-shadow: var(--elevation-3);
   transition: opacity var(--duration-base) var(--ease-out), translate var(--duration-base) var(--ease-out);
 }
 
@@ -1822,9 +1816,9 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4);
-  border: 1px solid var(--ov-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-canvas);
+  background: var(--surface-raised);
 }
 
 .diagnostics-hero-text {
