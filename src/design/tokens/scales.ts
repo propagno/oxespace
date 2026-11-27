@@ -1,13 +1,13 @@
 /** Non-color scales: one source for spacing, type, shape, layers and motion. */
 
 export const FONT = {
-  display: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif",
-  ui: "'Instrument Sans Variable', 'Instrument Sans', 'Segoe UI Variable', 'Segoe UI', 'Ubuntu', 'Cantarell', system-ui, -apple-system, sans-serif",
+  display: "'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Ubuntu', 'Cantarell', system-ui, sans-serif",
+  ui: "'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Ubuntu', 'Cantarell', system-ui, sans-serif",
   mono: "'IBM Plex Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'DejaVu Sans Mono', ui-monospace, monospace"
 } as const
 
-/** Instrument Sans width for brand type: condensed for the 28px display step and the wordmark, a little less for page titles; 100% elsewhere. */
-export const STRETCH = { display: '78%', title: '80%' } as const
+/** Neutral 100% width for Inter typography (retires condensed Instrument Sans stretch while preserving token contracts). */
+export const STRETCH = { display: '100%', title: '100%' } as const
 
 /**
  * Spacing in 4px steps, plus the two half steps dense controls need (2 and 6). The 1.5.2 scale uses 2, 4, 6, 8, 12,
@@ -40,10 +40,10 @@ export const CONTROL = { compact: { sm: 24, md: 28, lg: 32 }, comfortable: { sm:
  */
 export const TARGET_MIN = 24
 
-/** Named layers; nothing else sets a z-index. */
 /** Fixed chrome sizes other surfaces keep clear of: the toast stack sits above the status bar. */
 export const CHROME = { 'statusbar-height': '24px', 'measure-chat': '1080px', 'measure-prose': '44rem' } as const
 
+/** Named layers; nothing else sets a z-index. */
 export const LAYER = { base: 0, raised: 1, sticky: 10, dropdown: 100, overlay: 200, modal: 300, toast: 400, tooltip: 500 } as const
 
 /**

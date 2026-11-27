@@ -37,12 +37,93 @@
 .preview[data-preview='system'] { grid-template-columns: 1fr 1fr; }
 .half { display: grid; grid-template-columns: 30% 1fr; background: var(--surface-canvas); }
 .side { background: var(--surface-chrome); border-right: 1px solid var(--bd-subtle); }
-.body { display: grid; align-content: end; gap: 4px; padding: 8px; }
-.line { height: 4px; border-radius: 2px; background: var(--bd-strong); }
+.body { display: grid; align-content: end; gap: var(--space-1); padding: var(--space-2); }
+.line { height: var(--space-1); border-radius: var(--radius-full); background: var(--bd-strong); }
 .line:first-child { background: var(--accent); }
 .line:last-child { width: 60%; }
 
-/* Settings › Appearance: mode, interface scale and density, one group under the other. */
+/* Official kepano/obsidian-minimal color scheme cards with live swatch previews. */
+.schemes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: var(--space-2);
+  justify-self: stretch;
+}
+
+.schemeCard {
+  display: grid;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+}
+
+.schemeCard[aria-checked='true'] {
+  border-color: var(--accent-border);
+  background: var(--fill-selected);
+}
+
+.schemePreview {
+  height: var(--bar-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--bd-subtle);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 28% 1fr;
+}
+
+.schemeSide {
+  display: block;
+  background: var(--surface-chrome);
+  border-right: 1px solid var(--bd-subtle);
+}
+
+.schemeCanvas {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0 var(--space-2);
+  background: var(--surface-canvas);
+}
+
+.schemeDot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.schemeLines {
+  display: grid;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.schemeLine {
+  display: block;
+  height: var(--space-0-5);
+  border-radius: var(--radius-full);
+  background: var(--tx-primary);
+}
+
+.schemeLineMuted {
+  display: block;
+  height: var(--space-0-5);
+  width: 65%;
+  border-radius: var(--radius-full);
+  background: var(--tx-muted);
+}
+
+.schemeLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  color: var(--tx-primary);
+}
+
+/* Settings › Appearance: mode, color scheme, surface, interface scale and density, one group under the other. */
 .stack { display: grid; gap: var(--space-6); }
 .group { display: grid; gap: var(--space-2); justify-items: start; }
 .group > .options { justify-self: stretch; }

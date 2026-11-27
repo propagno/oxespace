@@ -60,6 +60,7 @@ const TOUCHED_STYLESHEETS = [
 afterEach(() => {
   delete document.documentElement.dataset.mode
   delete document.documentElement.dataset.surface
+  delete document.documentElement.dataset.scheme
   for (const prop of ['--term-bg', '--term-fg', '--accent', '--fill-selected-strong', '--fill-selected']) {
     document.documentElement.style.removeProperty(prop)
   }
@@ -85,20 +86,21 @@ describe('OXE-461 · Global app-wide propagation of Obsidian Minimal + Mandacaru
   })
 
   it('aligns xterm.js theme with Dark Default, True Black OLED (pure), Light, and translucent surfaces', () => {
-    // Dark Default (#191919 surface, achromatic ANSI neutrals, Mandacaru cursor)
+    // Dark Default (Minimal #212121 chrome surface, achromatic ANSI neutrals, Slate Blue cursor)
     document.documentElement.dataset.mode = 'dark'
     document.documentElement.dataset.surface = 'default'
+    document.documentElement.dataset.scheme = 'default'
     const darkDefault = buildTerminalTheme(false)
-    expect(darkDefault.background).toBe('#191919')
-    expect(darkDefault.foreground).toBe('#ededed')
-    expect(darkDefault.cursor).toBe('#44b77e')
-    expect(darkDefault.cursorAccent).toBe('#191919')
-    expect(darkDefault.selectionBackground).toBe('#383838')
-    expect(darkDefault.selectionInactiveBackground).toBe('#2c2c2c')
+    expect(darkDefault.background).toBe('#212121')
+    expect(darkDefault.foreground).toBe('#d1d1d1')
+    expect(darkDefault.cursor).toBe('#6dadd2')
+    expect(darkDefault.cursorAccent).toBe('#212121')
+    expect(darkDefault.selectionBackground).toBe('#3e3e3e')
+    expect(darkDefault.selectionInactiveBackground).toBe('#333333')
     expect(darkDefault.black).toBe('#333333')
-    expect(darkDefault.white).toBe('#d7d7d7')
-    expect(darkDefault.brightBlack).toBe('#868686')
-    expect(darkDefault.brightWhite).toBe('#f5f5f5')
+    expect(darkDefault.white).toBe('#d1d1d1')
+    expect(darkDefault.brightBlack).toBe('#a1a1a1')
+    expect(darkDefault.brightWhite).toBe('#eeeeee')
     expect(darkDefault.scrollbarSliderBackground).toBe('rgba(160, 160, 160, 0.22)')
 
     // True Black OLED (data-mode=dark, data-surface=pure)
@@ -109,14 +111,14 @@ describe('OXE-461 · Global app-wide propagation of Obsidian Minimal + Mandacaru
     expect(darkPure.selectionBackground).toBe('#2a2a2a')
     expect(darkPure.selectionInactiveBackground).toBe('#1f1f1f')
 
-    // Light Default / Pure (terminal keeps achromatic dark canvas + legible Mandacaru cursor & neutral selection)
+    // Light Default / Pure (terminal keeps achromatic Minimal dark canvas + Slate Blue cursor & neutral selection)
     document.documentElement.dataset.mode = 'light'
     document.documentElement.dataset.surface = 'default'
     const lightDefault = buildTerminalTheme(false)
-    expect(lightDefault.background).toBe('#191919')
-    expect(lightDefault.foreground).toBe('#ededed')
-    expect(lightDefault.cursor).toBe('#44b77e')
-    expect(lightDefault.selectionBackground).toBe('#383838')
+    expect(lightDefault.background).toBe('#212121')
+    expect(lightDefault.foreground).toBe('#d1d1d1')
+    expect(lightDefault.cursor).toBe('#6dadd2')
+    expect(lightDefault.selectionBackground).toBe('#3e3e3e')
 
     // Translucent mode leaves xterm cells transparent so host tint shows through
     expect(buildTerminalTheme(true).background).toBe('#00000000')
@@ -125,8 +127,8 @@ describe('OXE-461 · Global app-wide propagation of Obsidian Minimal + Mandacaru
     document.documentElement.dataset.mode = 'dark'
     document.documentElement.dataset.surface = 'pure'
     document.documentElement.style.setProperty('--term-bg', '#000000')
-    document.documentElement.style.setProperty('--term-fg', '#ededed')
-    document.documentElement.style.setProperty('--accent', '#44b77e')
+    document.documentElement.style.setProperty('--term-fg', '#d1d1d1')
+    document.documentElement.style.setProperty('--accent', '#6dadd2')
     document.documentElement.style.setProperty('--fill-selected-strong', '#2a2a2a')
     const fromTokens = buildTerminalTheme(false)
     expect(fromTokens.background).toBe('#000000')

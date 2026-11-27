@@ -1,5 +1,5 @@
 import type { ITheme } from '@xterm/xterm'
-import { currentMode, currentSurfaceStyle } from '../../design/mode'
+import { currentColorScheme, currentMode, currentSurfaceStyle, type ColorScheme } from '../../design/mode'
 import type { TerminalCursorStyle, TerminalPrefs } from '../../store/terminal-prefs.store'
 
 /**
@@ -92,7 +92,7 @@ export function searchDecorations(): {
   activeMatchColorOverviewRuler: string
 } {
   const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()
-  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#44b77e'
+  const accent = /^#[0-9a-f]{6}$/i.test(value) ? value : '#6dadd2'
   return {
     matchBackground: `${accent}33`,
     matchOverviewRuler: `${accent}66`,
@@ -101,11 +101,34 @@ export function searchDecorations(): {
   }
 }
 
+interface TerminalSchemeFallback {
+  bg: string
+  fg: string
+  accent: string
+  selection: string
+  selectionInactive: string
+  pureSelection: string
+  pureSelectionInactive: string
+}
+
+/** Lightweight fallback palette per Minimal color scheme when computed CSS tokens are unavailable (e.g. jsdom). */
+const TERMINAL_SCHEME_FALLBACKS: Record<ColorScheme, TerminalSchemeFallback> = {
+  default: { bg: '#212121', fg: '#d1d1d1', accent: '#6dadd2', selection: '#3e3e3e', selectionInactive: '#333333', pureSelection: '#2a2a2a', pureSelectionInactive: '#1f1f1f' },
+  obsidian: { bg: '#212121', fg: '#d1d1d1', accent: '#b196ff', selection: '#3e3e3e', selectionInactive: '#333333', pureSelection: '#2a2a2a', pureSelectionInactive: '#1f1f1f' },
+  flexoki: { bg: '#100f0f', fg: '#cecdc3', accent: '#55b8ab', selection: '#32312f', selectionInactive: '#262524', pureSelection: '#2a2927', pureSelectionInactive: '#1e1d1c' },
+  nord: { bg: '#272c36', fg: '#eceff4', accent: '#79b1e0', selection: '#434c5e', selectionInactive: '#394150', pureSelection: '#2a303e', pureSelectionInactive: '#1e232e' },
+  catppuccin: { bg: '#292c3c', fg: '#e4ebff', accent: '#c59cf0', selection: '#464b62', selectionInactive: '#3b4054', pureSelection: '#2c3144', pureSelectionInactive: '#1f2331' },
+  dracula: { bg: '#21222c', fg: '#f8f8f2', accent: '#b998fd', selection: '#404358', selectionInactive: '#343748', pureSelection: '#2a2d3d', pureSelectionInactive: '#1e202c' },
+  gruvbox: { bg: '#1e2021', fg: '#f2e5bc', accent: '#f08e5e', selection: '#423e3b', selectionInactive: '#353230', pureSelection: '#2c2926', pureSelectionInactive: '#1f1d1b' },
+  solarized: { bg: '#002b36', fg: '#f2ecd9', accent: '#5bb4f3', selection: '#134e5e', selectionInactive: '#0b404e', pureSelection: '#123844', pureSelectionInactive: '#0a2730' }
+}
+
 /**
  * Build the xterm color theme from the live CSS design tokens. Read at
- * construction AND re-read whenever the mode, surface preset, or workspace theme
- * changes so open terminals stay seamlessly aligned across Dark Default (#191919),
- * True Black OLED (#000000), and Light modes.
+ * construction AND re-read whenever the mode, surface preset, or Minimal color
+ * scheme changes so open terminals stay seamlessly aligned across all 8
+ * official Minimal schemes, Dark Default (#212121), True Black OLED (#000000),
+ * and Light modes.
  * With `translucent`, the cell background goes fully transparent so the
  * host's CSS background (color-mix + backdrop blur) shows through.
  *
@@ -120,21 +143,22 @@ export function buildTerminalTheme(translucent: boolean): ITheme {
   }
   const darkMode = currentMode() === 'dark'
   const pureSurface = currentSurfaceStyle() === 'pure'
-  const defaultBg = darkMode && pureSurface ? '#000000' : '#191919'
-  const defaultSelection = darkMode && pureSurface ? '#2a2a2a' : '#383838'
-  const defaultSelectionInactive = darkMode && pureSurface ? '#1f1f1f' : '#2c2c2c'
+  const schemeFallback = TERMINAL_SCHEME_FALLBACKS[currentColorScheme()]
+  const defaultBg = darkMode && pureSurface ? '#000000' : schemeFallback.bg
+  const defaultSelection = darkMode && pureSurface ? schemeFallback.pureSelection : schemeFallback.selection
+  const defaultSelectionInactive = darkMode && pureSurface ? schemeFallback.pureSelectionInactive : schemeFallback.selectionInactive
   const darkAnsi: Record<string, string> = {
-    black: '#333333', white: '#d7d7d7', 'bright-black': '#868686', 'bright-white': '#f5f5f5',
-    red: '#fb8276', 'bright-red': '#ffb5ac', green: '#60c473', 'bright-green': '#8de29a',
-    yellow: '#dc9e12', 'bright-yellow': '#f7c15f', blue: '#60b0ff', 'bright-blue': '#a2cfff',
-    magenta: '#df86d7', 'bright-magenta': '#faabf3', cyan: '#00c2ca', 'bright-cyan': '#3fe4ec'
+    black: '#333333', white: '#d1d1d1', 'bright-black': '#a1a1a1', 'bright-white': '#eeeeee',
+    red: '#f2979c', 'bright-red': '#ffb8bb', green: '#9ac379', 'bright-green': '#b6dc97',
+    yellow: '#d7ad5d', 'bright-yellow': '#efc880', blue: '#71bdf4', 'bright-blue': '#9ed5ff',
+    magenta: '#b5a7f5', 'bright-magenta': '#cec5ff', cyan: '#52cbbc', 'bright-cyan': '#7be3d5'
   }
   const ansi = (name: string): string => darkMode ? tok(`--ansi-${name}`, darkAnsi[name] ?? '#808080') : (darkAnsi[name] ?? '#808080')
   const bg = tok('--term-bg', defaultBg)
   return {
     background:          translucent ? '#00000000' : bg,
-    foreground:          tok('--term-fg', '#ededed'),
-    cursor:              darkMode ? tok('--accent', '#44b77e') : '#44b77e',
+    foreground:          tok('--term-fg', schemeFallback.fg),
+    cursor:              darkMode ? tok('--accent', schemeFallback.accent) : schemeFallback.accent,
     cursorAccent:        bg,
     selectionBackground: darkMode ? tok('--fill-selected-strong', defaultSelection) : defaultSelection,
     selectionInactiveBackground: darkMode ? tok('--fill-selected', defaultSelectionInactive) : defaultSelectionInactive,

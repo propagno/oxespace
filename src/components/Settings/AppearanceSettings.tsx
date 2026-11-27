@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { LANGUAGES, isLanguagePreference, resolveLanguage } from '../../../shared/i18n'
 import type { UiDensity } from '../../../shared/types/workspace'
 import { UI_SCALE_STEPS, UI_SCALE_DEFAULT } from '../../../shared/uiScale'
-import type { Appearance, SurfaceStyle } from '../../design/mode'
+import { COLOR_SCHEMES, type Appearance, type ColorScheme, type SurfaceStyle } from '../../design/mode'
+import { useColorMode } from '../../design/useColorMode'
 import type { MotionPreference } from '../../design/motion'
 import { systemLocale } from '../../i18n'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
 import { useSettingsStore } from '../../store/settings.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
-import { Button, SegmentedControl, Select } from '../../ui'
+import { Button, Card, SegmentedControl, Select } from '../../ui'
 import styles from './AppearanceSettings.module.css'
 
 const MODES: Array<{ id: Appearance; icon: typeof Sun }> = [
@@ -29,8 +30,8 @@ const DENSITY_ICONS: Record<UiDensity, ReactElement> = {
   comfortable: <Maximize2 size={14} aria-hidden="true" />
 }
 
-function Preview({ mode, surface }: { mode: Appearance; surface: SurfaceStyle }): ReactElement {
-  const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone} data-surface={surface}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
+function Preview({ mode, surface, scheme }: { mode: Appearance; surface: SurfaceStyle; scheme: ColorScheme }): ReactElement {
+  const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone} data-surface={surface} data-scheme={scheme}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
   return <div className={styles.preview} data-preview={mode} aria-hidden="true">{mode === 'system' ? <>{half('light')}{half('dark')}</> : half(mode)}</div>
 }
 
@@ -40,13 +41,55 @@ function ModeOptions({ labelledBy }: { labelledBy?: string }): ReactElement {
   const appearance = useSettingsStore(state => state.appearance)
   const setAppearance = useSettingsStore(state => state.setAppearance)
   const surfaceStyle = useSettingsStore(state => state.surfaceStyle)
+  const colorScheme = useSettingsStore(state => state.colorScheme)
   return <div className={styles.options} role="radiogroup" aria-labelledby={labelledBy} aria-label={labelledBy ? undefined : t('appearance.title')}>
     {MODES.map(({ id, icon: Icon }) => <button key={id} type="button" role="radio" aria-checked={appearance === id} className={styles.option} onClick={() => setAppearance(id)}>
-      <Preview mode={id} surface={surfaceStyle} />
+      <Preview mode={id} surface={surfaceStyle} scheme={colorScheme} />
       <span className={styles.label}><Icon size={14} aria-hidden="true" />{t(`appearance.mode.${id}.label`)}{appearance === id && <Check size={14} aria-hidden="true" />}</span>
       <span className={styles.hint}>{t(`appearance.mode.${id}.hint`)}</span>
     </button>)}
   </div>
+}
+
+/** Official kepano/obsidian-minimal color scheme picker with live swatch previews. */
+function ColorSchemeOptions(): ReactElement {
+  const { t } = useTranslation('settings')
+  const colorScheme = useSettingsStore(state => state.colorScheme)
+  const setColorScheme = useSettingsStore(state => state.setColorScheme)
+  const surfaceStyle = useSettingsStore(state => state.surfaceStyle)
+  const activeMode = useColorMode()
+  return <section className={styles.group} aria-labelledby="appearance-scheme-title">
+    <h3 id="appearance-scheme-title" className={styles.groupTitle}>{t('appearance.scheme.title')}</h3>
+    <p className={styles.hint}>{t('appearance.scheme.hint')}</p>
+    <div className={styles.schemes} role="radiogroup" aria-labelledby="appearance-scheme-title">
+      {COLOR_SCHEMES.map(id => (
+        <Card
+          key={id}
+          interactive
+          padding="sm"
+          role="radio"
+          aria-checked={colorScheme === id}
+          className={styles.schemeCard}
+          onClick={() => setColorScheme(id)}
+        >
+          <div className={styles.schemePreview} data-mode={activeMode} data-surface={surfaceStyle} data-scheme={id} aria-hidden="true">
+            <span className={styles.schemeSide} />
+            <span className={styles.schemeCanvas}>
+              <span className={styles.schemeDot} />
+              <span className={styles.schemeLines}>
+                <span className={styles.schemeLine} />
+                <span className={styles.schemeLineMuted} />
+              </span>
+            </span>
+          </div>
+          <span className={styles.schemeLabel}>
+            <span>{t(`appearance.scheme.options.${id}`)}</span>
+            {colorScheme === id && <Check size={14} aria-hidden="true" />}
+          </span>
+        </Card>
+      ))}
+    </div>
+  </section>
 }
 
 /** Minimal surface contrast preset: Default graphite/chrome vs True Black OLED / Pure White. */
@@ -123,8 +166,8 @@ function LanguagePicker(): ReactElement {
 
 /**
  * Light, dark or system mode for the whole app. With `global`, also the
- * interface scale, the app-wide density, motion and the language (Settings › Appearance);
- * workspace settings show the mode only.
+ * Minimal color scheme, surface preset, interface scale, app-wide density,
+ * motion and language (Settings › Appearance); workspace settings show the mode only.
  */
 export function AppearanceSettings({ global = false }: { global?: boolean }): ReactElement {
   const { t } = useTranslation('settings')
@@ -134,6 +177,7 @@ export function AppearanceSettings({ global = false }: { global?: boolean }): Re
       <h3 id="appearance-mode-title" className={styles.groupTitle}>{t('appearance.mode.title')}</h3>
       <ModeOptions labelledBy="appearance-mode-title" />
     </section>
+    <ColorSchemeOptions />
     <SurfaceStyleOptions />
     <ScaleAndDensity />
     <LanguagePicker />

@@ -176,12 +176,12 @@ const open = async (section: string): Promise<HTMLElement> => {
   return screen.getByRole('dialog', { name: 'Design system' })
 }
 
-describe('PB-01·10 · the design-system viewer in Instrument Sans, without all caps', () => {
-  test('the body sample of the Type section names Instrument Sans, and no text says IBM Plex Sans', async () => {
+describe('PB-01·10 · the design-system viewer in Inter, without all caps', () => {
+  test('the body sample of the Type section names Inter, and no text says IBM Plex Sans', async () => {
     const viewer = await open('Type')
     const sample = [...viewer.querySelectorAll('code')].find(code => code.textContent === '--font-ui')
     expect(sample, 'the --font-ui row').toBeDefined()
-    expect(sample!.parentElement!.textContent).toMatch(/Instrument Sans/)
+    expect(sample!.parentElement!.textContent).toMatch(/Inter/)
     expect(viewer.textContent).not.toMatch(/IBM Plex Sans/)
   })
 

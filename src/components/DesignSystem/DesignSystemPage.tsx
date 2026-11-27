@@ -46,7 +46,7 @@ function BrandSection({ surface }: { surface: SurfaceStyle }): ReactElement {
     <h2 className={styles.sectionTitle}>Mark and wordmark</h2>
     <BothModes surface={surface}>{() => <div className={styles.brandTile}><OxeLogo size={64} variant="hero" /><div className={styles.row}><OxeLogo size={32} /><OxeLogo size={24} variant="compact" /><OxeLogo size={20} variant="wordmark" /></div></div>}</BothModes>
     <h2 className={styles.sectionTitle}>Brand scales</h2>
-    <BothModes surface={surface}>{() => <ScaleList names={['caatinga', 'sun']} />}</BothModes>
+    <BothModes surface={surface}>{() => <ScaleList names={['slate', 'amber']} />}</BothModes>
   </>
 }
 
@@ -108,8 +108,8 @@ function TypeSection(): ReactElement {
   return <>
     <h2 className={styles.sectionTitle}>Families</h2>
     <div className={styles.stack}>
-      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-display)', fontWeight: 700 }}>Instrument Sans</span></div>
-      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--fs-lg)' }}>Instrument Sans · The agent finished and changed 3 files.</span></div>
+      <div className={styles.typeRow}><code>--font-display</code><span style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-display)', fontWeight: 700 }}>Inter</span></div>
+      <div className={styles.typeRow}><code>--font-ui</code><span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--fs-lg)' }}>Inter · The agent finished and changed 3 files.</span></div>
       <div className={styles.typeRow}><code>--font-mono</code><span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>IBM Plex Mono · git commit -m "fix: redirect"</span></div>
     </div>
     <h2 className={styles.sectionTitle}>Scale</h2>
@@ -312,7 +312,7 @@ export function DesignSystemPage({ onClose }: { onClose: () => void }): ReactEle
     </nav>
     <main className={styles.main}>
       <header className={styles.header}>
-        <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Obsidian Minimal + Mandacaru — the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode across Default and Pure surface styles.</p></div>
+        <div><h2 className={styles.title}>{current.label}</h2><p className={styles.lead}>Obsidian Minimal — the OXESpace design system. Everything here is rendered from the tokens and primitives the app uses, in light and dark mode across Default and Pure surface styles.</p></div>
         <div className={styles.headerControls}>
           <SegmentedControl
             label="Surface style"
