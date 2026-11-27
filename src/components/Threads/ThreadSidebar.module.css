@@ -31,11 +31,11 @@
 .child > .item { padding-inline-start: var(--space-5); }
 .child::before { content: ''; position: absolute; inset-inline-start: var(--space-3); inset-block-start: 0; width: var(--space-2); height: 50%; border-inline-start: 1px solid var(--bd-strong); border-block-end: 1px solid var(--bd-strong); border-end-start-radius: var(--radius-sm); pointer-events: none; }
 .indicator { display: inline-flex; align-items: center; justify-content: center; width: var(--space-3); height: var(--space-3); color: var(--tx-muted); }
-.indicator svg { flex-shrink: 0; color: currentColor; }
+.indicator svg { display: block; flex-shrink: 0; color: currentColor; }
 .indicator[data-status='running'] { color: var(--intent-success-solid); }
 .indicator[data-status='running']::before { content: ''; display: block; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--intent-success-solid); }
 .indicator[data-status='ready'] { color: var(--intent-info-solid); }
-.indicator[data-status='completed'] { color: var(--intent-success-solid); }
+.indicator[data-status='completed'] { color: color-mix(in srgb, var(--intent-success-fg) 65%, var(--tx-muted)); }
 .indicator[data-status='attention'] { color: var(--intent-warning-solid); }
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
 :global([data-motion='full']) .indicator[data-status='running']::before { --pulse-opacity: 0.4; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }

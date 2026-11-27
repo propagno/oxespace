@@ -526,9 +526,9 @@ test('Thread UI preserves Code terminals and renders a structured conversation',
     await expect(page.getByText('Verified fixture response', { exact: true })).toBeVisible()
     await expect(page.locator('.thread-navigation-row').filter({ has: page.locator('.thread-session-title', { hasText: 'Authentication flow' }) }).locator('.thread-session-state')).toHaveText('Finished')
     const completedIcon = await page.locator('.thread-session-indicator[data-status="completed"]').first().evaluate(el => ({ icon: el.querySelector('svg')?.getAttribute('class'), color: getComputedStyle(el).color }))
-    expect(completedIcon.icon).toContain('circle-check')
-    // Since the 1.5 sidebar a finished conversation is a green check; the blue dot is one that has not started.
-    expect(completedIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'var(--intent-success-solid)'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
+    expect(completedIcon.icon).toContain('lucide-check')
+    // Since OXE-448 a finished conversation uses a minimal 12px check in muted semantic green; the blue dot is one that has not started.
+    expect(completedIcon.color).toBe(await page.evaluate(() => { const el = document.createElement('span'); el.style.color = 'color-mix(in srgb, var(--intent-success-fg) 65%, var(--tx-muted))'; document.body.append(el); const color = getComputedStyle(el).color; el.remove(); return color }))
     expect(completedIcon.color).not.toBe(readyIcon.color)
     expect(completedIcon.color).not.toBe(failedColor)
     await expect(page.locator('.thread-activity-single')).toHaveCount(1)
