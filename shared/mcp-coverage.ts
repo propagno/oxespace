@@ -112,6 +112,11 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     excluded: 'Deletes many worktrees at once. Agents remove one at a time, approved by a person.',
     ipc: ['github.scanWorktreeCleanup', 'github.removeWorktreeCleanup']
   },
+  'code.worktree_template': {
+    label: 'Read, edit and dry-run preview declarative worktree templates (oxe.yaml / .worktreeinclude)',
+    excluded: 'The person\'s repository worktree template editor and dry-run preview; editing oxe.yaml or .worktreeinclude stays with the person.',
+    ipc: ['repository.getWorktreeTemplate', 'repository.saveWorktreeTemplate', 'repository.previewWorktreeTemplate']
+  },
   'code.tasks': {
     label: 'Task board',
     tools: {
@@ -202,7 +207,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
       'github.createBranch', 'github.checkoutBranch', 'github.createCheckpoint', 'github.restoreCheckpoint', 'github.deleteCheckpoint']
   },
   'git.commit_message': { label: 'Generate a commit message', excluded: 'Asks an AI provider on the person\'s behalf; an agent writes its own message.', ipc: ['github.generateCommitMessage'] },
-  'git.repo_hook_approval': { label: 'Approve a repository hook', forbidden: 'An approval: it lets the repository\'s commands run.', ipc: ['github.getRepoConfig', 'github.approveRepoHook'] },
+  'git.repo_hook_approval': { label: 'Approve a repository hook or sensitive worktree copy', forbidden: 'An approval: it lets the repository\'s commands run or copies sensitive files.', ipc: ['github.getRepoConfig', 'github.approveRepoHook', 'repository.trustWorktreeSensitiveCopy'] },
 
   // ---- GitHub ---------------------------------------------------------------------
   'github.read': {

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import type { DelegationTask } from '../../../../shared/types/delegation'
-import type { GitHubWorktreeApi } from '../../../../shared/types/github'
+import type { GitHubMessageResult, GitHubWorktreeApi } from '../../../../shared/types/github'
+import type { WorktreeProvisionReport } from '../../../../shared/types/repo-config'
 import { projectIdentity } from '../project-identity'
 import type { DelegationRepository } from './delegation.repository'
 
@@ -13,15 +14,16 @@ export class DelegationGitProvisioner {
     private readonly fetchRemote: (task: DelegationTask, remote: string) => Promise<void> = async () => { throw new Error('FETCH_NEEDS_PERSON: OXESpace fetches only when a person asks') }
   ) {}
 
-  async apply(task: DelegationTask, assertActive: () => void = () => {}): Promise<void> {
+  async apply(task: DelegationTask, assertActive: () => void = () => {}): Promise<WorktreeProvisionReport | undefined> {
     const checkout = task.checkout
     if (!checkout) throw new Error('Delegation checkout plan is missing')
     const generation = 1
     if (this.repository.operationSucceeded(task.id, 'git-checkout', generation)) {
       await this.verify(task)
-      return
+      return task.provisionReport
     }
     this.repository.journal(task.id, 'git-checkout', generation, 'running')
+    let createdResult: GitHubMessageResult | undefined
     try {
       // The plan is advisory until this point. Revalidate under the service's
       // project+branch lock immediately before any Git side effect.
@@ -53,7 +55,7 @@ export class DelegationGitProvisioner {
         const existingSha = checkout.createBranch ? await this.git(task.cwd, ['rev-parse', '--verify', '--quiet', `refs/heads/${checkout.branch}^{commit}`]).catch(() => '') : ''
         if (existingSha && existingSha !== checkout.baseSha) throw new Error('BRANCH_MOVED: preserved branch differs from the checkout plan')
         assertActive()
-        await this.gitApi.createWorktree({
+        createdResult = await this.gitApi.createWorktree({
           rootPath: task.cwd,
           path: checkout.path,
           branch: checkout.branch,
@@ -61,6 +63,9 @@ export class DelegationGitProvisioner {
           baseRef: checkout.createBranch ? checkout.baseSha : undefined,
           fetchBase: false
         })
+        if (createdResult?.report) task.provisionReport = createdResult.report
+        if (createdResult?.notices?.length) task.provisionNotices = createdResult.notices
+        if (createdResult?.report || createdResult?.notices?.length) this.repository.save(task)
         if (checkout.remoteRef && checkout.createBranch) {
           await this.git(checkout.path, ['branch', '--set-upstream-to', checkout.remoteRef, checkout.branch])
         }
@@ -72,8 +77,11 @@ export class DelegationGitProvisioner {
       this.repository.journal(task.id, 'git-checkout', generation, 'succeeded', {
         branch: checkout.branch,
         path: checkout.path,
-        baseSha: checkout.baseSha
+        baseSha: checkout.baseSha,
+        ...(createdResult?.report ? { provisionReport: createdResult.report } : {}),
+        ...(createdResult?.notices?.length ? { notices: createdResult.notices } : {})
       })
+      return createdResult?.report ?? task.provisionReport
     } catch (error) {
       this.repository.journal(task.id, 'git-checkout', generation, 'failed', undefined, error instanceof Error ? error.message : String(error))
       throw error

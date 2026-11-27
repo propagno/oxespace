@@ -890,6 +890,33 @@ export function parseApproveRepoHookInput(value: unknown): {
   }
 }
 
+function expectBoundedStringArray(value: unknown, field: string, maxItems = 100): string[] {
+  if (!Array.isArray(value) || value.length > maxItems) throw new Error(`${field} must be an array of at most ${maxItems} strings`)
+  return value.map((item) => expectString(item, field))
+}
+
+export function parseSaveWorktreeTemplateInput(value: unknown): { rootPath: string } & import('../../../shared/types/repo-config').WorktreeTemplateSaveInput {
+  const input = expectRecord(value, 'repository:saveWorktreeTemplate input')
+  return {
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    sharedDirectories: expectBoundedStringArray(input.sharedDirectories ?? [], 'sharedDirectories'),
+    copyFiles: expectBoundedStringArray(input.copyFiles ?? [], 'copyFiles'),
+    worktreeInclude: expectBoundedStringArray(input.worktreeInclude ?? [], 'worktreeInclude'),
+    ...(input.setupScript === undefined ? {} : { setupScript: expectString(input.setupScript, 'setupScript') }),
+    ...(input.archiveScript === undefined ? {} : { archiveScript: expectString(input.archiveScript, 'archiveScript') })
+  }
+}
+
+export function parseTrustWorktreeSensitiveCopyInput(value: unknown): { rootPath: string; contentHash: string; trusted: boolean } {
+  const input = expectRecord(value, 'repository:trustWorktreeSensitiveCopy input')
+  if (typeof input.trusted !== 'boolean') throw new Error('trusted must be a boolean')
+  return {
+    rootPath: expectNonEmptyString(input.rootPath, 'rootPath'),
+    contentHash: expectString(input.contentHash ?? '', 'contentHash'),
+    trusted: input.trusted
+  }
+}
+
 export function parseGitHubRemoveWorktreeInput(value: unknown): import('../../../shared/types/github').GitHubRemoveWorktreeInput {
   const input = expectRecord(value, 'github:remove-worktree input')
   return {

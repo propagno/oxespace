@@ -4,11 +4,27 @@
  * reported as a pass, so a timeout always settles as "no exit code".
  */
 import { spawn, type ChildProcess } from 'node:child_process'
+import { redactSecrets } from '../../../../shared/secrets'
 import { inheritedEnvironment } from '../policy'
 
 export const HOOK_TIMEOUT_MS = 120_000
+export const HOOK_OUTPUT_TAIL_MAX_CHARS = 4096
 const KILL_GRACE_MS = 2_000
 const MAX_OUTPUT_BYTES = 10 * 1024 * 1024
+
+/**
+ * Sanitizes secrets and truncates hook stdout/stderr to the last `maxChars` characters
+ * (default 4 KiB) so hook failure diagnostics can travel across IPC, UI, Delegation and MCP safely.
+ */
+export function formatHookOutputTail(output: string, maxChars = HOOK_OUTPUT_TAIL_MAX_CHARS): string {
+  const trimmed = output.trim()
+  if (!trimmed || maxChars <= 0) return ''
+  const redacted = redactSecrets(trimmed)
+  if (redacted.length <= maxChars) return redacted
+  const prefix = '…\n'
+  if (maxChars <= prefix.length) return redacted.slice(-maxChars)
+  return prefix + redacted.slice(-(maxChars - prefix.length))
+}
 
 export type HookOutcome =
   | { status: 'passed'; output: string }

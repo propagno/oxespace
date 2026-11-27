@@ -245,7 +245,13 @@
         "searchTooLarge": "worktree.copyFiles looked through more than {{limit}} entries without finishing. Nothing was copied; the worktree was created. Use narrower patterns.",
         "notOverwritten": "Already in the new worktree, kept as they are: {{paths}}.",
         "notFollowed": "Not copied, because they are links or lead outside the repository or the worktree: {{paths}}.",
-        "failed": "Could not be copied: {{paths}}."
+        "failed": "Could not be copied: {{paths}}.",
+        "sensitiveOptInRequired": "Sensitive files require explicit repository opt-in before copying: {{paths}}."
+      },
+      "sharedDirs": {
+        "linked": "Linked {{count}} shared directories into the new worktree.",
+        "trackedInGit": "Shared directories refused because Git tracks them instead of ignoring them: {{paths}}.",
+        "ignoreCheckFailed": "Git could not verify which shared directories are ignored, so no shared links were created."
       },
       "remove": {
         "notFound": "This is not a removable worktree of this repository.",

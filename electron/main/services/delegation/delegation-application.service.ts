@@ -306,8 +306,17 @@ export class DelegationApplicationService {
           baseSha: t.baseSha, path: t.path, createBranch: true, reuseExistingWorktree: false, fetchBase: false, resolvedAt: t.createdAt }
         this.save(t)
       }
-      await this.gitProvisioner.apply(t, () => { this.active(id) })
+      const provisionReport = await this.gitProvisioner.apply(t, () => { this.active(id) })
       t = this.active(id)
+      if (provisionReport && (provisionReport.skipped.length > 0 || provisionReport.hookStatus === 'failed' || provisionReport.hookStatus === 'unverifiable' || provisionReport.hookStatus === 'skipped-untrusted')) {
+        const parts: string[] = []
+        if (provisionReport.linked.length) parts.push(`linked=${provisionReport.linked.length}`)
+        if (provisionReport.copied.length) parts.push(`copied=${provisionReport.copied.length}`)
+        if (provisionReport.skipped.length) parts.push(`skipped=${provisionReport.skipped.length}`)
+        if (provisionReport.hookStatus !== 'none') parts.push(`hook=${provisionReport.hookStatus}`)
+        if (provisionReport.hookOutputTail) parts.push(`output=${provisionReport.hookOutputTail.slice(-300)}`)
+        this.event(t, 'worktree-provision', parts.join('; '))
+      }
       this.coordinator.receipt(id, 'worktree-verified')
       t = this.active(id)
       const workspace = this.surfaceProject(t.workspaceId)

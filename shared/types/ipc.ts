@@ -361,6 +361,7 @@ export const IPC_CHANNELS = {
   pullRequest: { state: 'pull-request:state' },
   /** A63 / N9: the Worktrees panel (list with owner, merged, changed, disk, activity; a guarded Remove). */
   worktreesPanel: { list: 'worktrees-panel:list', remove: 'worktrees-panel:remove' },
+  repository: { getWorktreeTemplate: 'repository:getWorktreeTemplate', saveWorktreeTemplate: 'repository:saveWorktreeTemplate', previewWorktreeTemplate: 'repository:previewWorktreeTemplate', trustWorktreeSensitiveCopy: 'repository:trustWorktreeSensitiveCopy' },
   integration: {
     listGroups: 'integration:list-groups',
     createGroup: 'integration:create-group',
@@ -827,6 +828,7 @@ export interface OxeApi {
   paneConversation?: PaneConversationApi
   featureUsage: FeatureUsageApi
   hostsProxy: HostsProxyApi
+  repository?: import('./repo-config').RepositoryWorktreeTemplateApi
 }
 
 export type PaneConversationPageResult =

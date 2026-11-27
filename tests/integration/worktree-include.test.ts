@@ -58,7 +58,7 @@ describe('worktree.copyFiles (B19)', () => {
     put(root, 'apps/web/.env.local')
     put(root, 'certs/dev/key.pem')
     put(root, 'certs/dev/sub/ca.pem')
-    const report = await copyIncludedFiles(root, tree, ['.env', 'config/*.local.json', '**/.env.local', 'certs/dev'])
+    const report = await copyIncludedFiles(root, tree, ['.env', 'config/*.local.json', '**/.env.local', 'certs/dev'], undefined, { sensitiveApproved: true })
     expect(report.copied.sort()).toEqual(['.env', 'apps/web/.env.local', 'certs/dev/key.pem', 'certs/dev/sub/ca.pem', 'config/app.local.json'])
     expect(readFileSync(join(tree, '.env'), 'utf8')).toBe('SECRET=1')
     expect(existsSync(join(tree, 'config', 'app.json'))).toBe(false)
@@ -116,19 +116,22 @@ describe('worktree.copyFiles (B19)', () => {
     put(root, '.env', 'secret')
     put(root, 'notes.txt', 'plain')
     const asked: string[][] = []
-    const report = await copyIncludedFiles(root, tree, ['.env', 'notes.txt'], async paths => { asked.push(paths); return new Set(['.env']) })
+    const report = await copyIncludedFiles(root, tree, ['.env', 'notes.txt'], async paths => { asked.push(paths); return new Set(['.env']) }, { sensitiveApproved: true })
     expect(asked).toEqual([['.env', 'notes.txt']])
     expect(report.copied).toEqual(['.env'])
     expect(existsSync(join(tree, 'notes.txt'))).toBe(false)
     expect(report.notices).toContainEqual({ code: 'worktree.copyFiles.notIgnored', params: { paths: ['notes.txt'] } })
   })
 
-  it('keeps a leading ! for excluding later: such a pattern copies nothing, even a file named that way', async () => {
+  it('applies leading ! rules as exclusions rather than matching literal ! filenames (OXE-444)', async () => {
     put(root, '!literal.txt')
     put(root, '.env')
-    const report = await copyIncludedFiles(root, tree, ['!literal.txt', ' !*.env', '.env'])
+    put(root, 'prod.env')
+    const report = await copyIncludedFiles(root, tree, ['*.env', '.env', '!prod.env', '!literal.txt'], undefined, { sensitiveApproved: true })
     expect(report.copied).toEqual(['.env'])
-    expect(report.notices[0]).toEqual({ code: 'worktree.copyFiles.excludeReserved', params: { patterns: ['!literal.txt', ' !*.env'] } })
+    expect(existsSync(join(tree, '!literal.txt'))).toBe(false)
+    expect(existsSync(join(tree, 'prod.env'))).toBe(false)
+    expect(report.skipped).toContainEqual({ path: 'prod.env', kind: 'copy-file', reason: 'excluded-by-negation' })
   })
 
   it('a refusal list stays capped, however many patterns there are', async () => {
@@ -158,7 +161,7 @@ describe('worktree.copyFiles (B19)', () => {
     put(root, '.env', 'from main')
     put(root, 'b.env', 'new')
     put(tree, '.env', 'committed')
-    const report = await copyIncludedFiles(root, tree, ['*.env', '.env'])
+    const report = await copyIncludedFiles(root, tree, ['*.env', '.env'], undefined, { sensitiveApproved: true })
     expect(readFileSync(join(tree, '.env'), 'utf8')).toBe('committed')
     expect(report.copied).toEqual(['b.env'])
     expect(report.notices).toContainEqual({ code: 'worktree.copyFiles.notOverwritten', params: { paths: ['.env'] } })
@@ -188,7 +191,7 @@ describe('worktree.copyFiles (B19)', () => {
     put(root, 'nested/.git', 'gitdir: elsewhere')
     put(root, 'nested/.env')
     put(root, '.env')
-    const report = await copyIncludedFiles(root, tree, ['**/.env'])
+    const report = await copyIncludedFiles(root, tree, ['**/.env'], undefined, { sensitiveApproved: true })
     expect(report.copied).toEqual(['.env'])
   })
 
@@ -224,6 +227,7 @@ describe('createWorktree with oxe.yaml (real git)', () => {
   }
 
   let service: GitHubRepositoryService
+  let trust: RepoHookTrust
   let close: () => void
 
   beforeEach(() => {
@@ -238,8 +242,10 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     writeFileSync(join(root, '.env'), 'TOKEN=dev')
     const db = openInMemoryDatabase()
     close = () => db.close()
+    trust = new RepoHookTrust(db)
+    trust.approveSensitiveCopy(root, ['.env'])
     service = new GitHubRepositoryService(new GhExec({}))
-    service.configureWorktreeLifecycle({ trust: new RepoHookTrust(db), stopTerminalsWithin: () => [] })
+    service.configureWorktreeLifecycle({ trust, stopTerminalsWithin: () => [] })
   })
 
   afterEach(() => close())
@@ -359,6 +365,7 @@ describe('createWorktree with oxe.yaml (real git)', () => {
     git(separate, 'add', '.')
     git(separate, 'commit', '-qm', 'init')
     writeFileSync(join(separate, '.env'), 'TOKEN=separate')
+    trust.approveSensitiveCopy(separate, ['.env'])
     const path = join(sandbox, 'wt-separate')
     await service.createWorktree({ rootPath: separate, branch: 'sep', path, createBranch: true, baseRef: 'main' })
     expect(readFileSync(join(path, '.env'), 'utf8')).toBe('TOKEN=separate')

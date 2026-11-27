@@ -54,7 +54,13 @@ import { WorktreeCleanup } from './worktree-cleanup'
 import type { WorktreeCleanupCandidate, WorktreeCleanupRemoveInput, WorktreeCleanupRemoveResult, WorktreeCleanupScanInput } from '../../../../shared/types/worktree-cleanup'
 import { snapshotRepoConfig } from '../repo-config/loader'
 import { RepoHookTrust } from '../repo-config/trust'
-import type { RepoConfigSnapshot, RepoHookKind } from '../../../../shared/types/repo-config'
+import type {
+  RepoConfigSnapshot,
+  RepoHookKind,
+  WorktreeTemplateConfig,
+  WorktreeTemplateDryRun,
+  WorktreeTemplateSaveInput
+} from '../../../../shared/types/repo-config'
 import { GitHubReviewService } from './review.service'
 import { GitHubActionsService } from './actions.service'
 import { GitHubCheckpointService } from './checkpoints.service'
@@ -100,17 +106,18 @@ export class GitHubService {
   }
 
   /**
-   * Approves the script currently on disk, but only if its hash is the one the
-   * user was shown — an oxe.yaml edited between display and click is refused.
+   * Approves the script currently on disk, keyed on the canonical primary repository root,
+   * only if its hash matches what the user was shown — an edited file is refused.
    */
   async approveRepoHook(rootPath: string, kind: RepoHookKind, contentHash: string): Promise<RepoConfigSnapshot> {
-    const current = await snapshotRepoConfig(rootPath, this.hookTrust)
+    const primaryRoot = await this.repository.resolvePrimaryRoot(rootPath)
+    const current = await snapshotRepoConfig(rootPath, this.hookTrust, primaryRoot)
     const script = current.config?.scripts[kind]
     if (!script || current.hashes[kind] !== contentHash) {
       throw new Error('The hook changed since it was shown. Review oxe.yaml and approve again.')
     }
-    this.hookTrust.approve(rootPath, kind, script)
-    return snapshotRepoConfig(rootPath, this.hookTrust)
+    this.hookTrust.approve(primaryRoot, kind, script)
+    return snapshotRepoConfig(rootPath, this.hookTrust, primaryRoot)
   }
 
   scanWorktreeCleanup(input: WorktreeCleanupScanInput): Promise<WorktreeCleanupCandidate[]> {
@@ -121,8 +128,25 @@ export class GitHubService {
     return this.cleanup.remove(input)
   }
 
-  repoConfigSnapshot(rootPath: string): Promise<RepoConfigSnapshot> {
-    return snapshotRepoConfig(rootPath, this.hookTrust)
+  async repoConfigSnapshot(rootPath: string): Promise<RepoConfigSnapshot> {
+    const primaryRoot = await this.repository.resolvePrimaryRoot(rootPath)
+    return snapshotRepoConfig(rootPath, this.hookTrust, primaryRoot)
+  }
+
+  getWorktreeTemplate(rootPath: string): Promise<WorktreeTemplateConfig> {
+    return this.repository.getWorktreeTemplate(rootPath)
+  }
+
+  saveWorktreeTemplate(rootPath: string, input: WorktreeTemplateSaveInput): Promise<WorktreeTemplateConfig> {
+    return this.repository.saveWorktreeTemplate(rootPath, input)
+  }
+
+  previewWorktreeTemplate(rootPath: string): Promise<WorktreeTemplateDryRun> {
+    return this.repository.previewWorktreeTemplate(rootPath)
+  }
+
+  trustWorktreeSensitiveCopy(rootPath: string, contentHash: string, trusted: boolean): Promise<WorktreeTemplateConfig> {
+    return this.repository.trustWorktreeSensitiveCopy(rootPath, contentHash, trusted)
   }
 
   invalidateCaches(cwd: string): void {
