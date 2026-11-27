@@ -39,7 +39,7 @@ describe('OXE-460 · Obsidian Minimal + Mandacaru primitives', () => {
 
   it('applies Obsidian Minimal hairline borders, quiet chrome, and Mandacaru cues across src/ui CSS modules', () => {
     const button = readCss('src/ui/Button.module.css')
-    expect(button).toMatch(/\[data-variant='secondary'\][^{]*\{[^}]*background:\s*transparent/)
+    expect(button).toMatch(/\[data-variant='secondary'\][^{]*\{[^}]*background:\s*var\(--surface-base\)/)
     expect(button).toMatch(/\[data-variant='secondary'\][^{]*\{[^}]*border-color:\s*var\(--bd-control\)/)
 
     const card = readCss('src/ui/Card.module.css')

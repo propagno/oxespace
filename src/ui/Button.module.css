@@ -39,8 +39,8 @@
 .button:where([data-variant='primary']):hover:not(:disabled) { background: var(--accent-hover); }
 .button:where([data-variant='primary']):active:not(:disabled) { background: color-mix(in srgb, var(--accent-hover) 88%, var(--tx-on-accent)); }
 
-/* Secondary: clean Minimal hairline outline on transparent surface (no heavy raised slab), keeping --bd-control for 3:1 contrast. */
-.button:where([data-variant='secondary']) { background: transparent; color: var(--tx-primary); border-color: var(--bd-control); }
+/* Secondary: clean Minimal hairline outline on quiet base surface (no heavy raised slab), keeping --bd-control for 3:1 contrast and non-transparent affordance fill. */
+.button:where([data-variant='secondary']) { background: var(--surface-base); color: var(--tx-primary); border-color: var(--bd-control); }
 .button:where([data-variant='secondary']):hover:not(:disabled) { background: var(--fill-hover); border-color: var(--tx-muted); }
 .button:where([data-variant='secondary']):active:not(:disabled) { background: var(--fill-pressed); border-color: var(--tx-muted); }
 
