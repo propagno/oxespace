@@ -18,7 +18,7 @@ import { APP_VERSION } from '../../lib/appVersion'
 import { applyWithUndo, Button, EmptyState, Meter, SegmentedControl, SettingRow, Slider, Switch, Select } from '../../ui'
 import { UpdatePreferences } from './UpdatePreferences'; import { SettingsPageTitle, SettingsSection as SettingsCard } from '../../ui/Settings'
 import { humanizeError } from '../../utils/humanizeError'
-import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'
+import { ToolsSettings } from './ToolsSettings'; import { DataSettings } from './DataSettings'; import { AgentProcessesSection } from './AgentProcessesSection'
 export interface SettingsModalProps {
   agentProfiles: AgentProfile[]
   agentReadiness: AgentReadiness[]
@@ -179,6 +179,8 @@ function DiagnosticsSettingsSection(): ReactElement {
             <Download size={14} aria-hidden="true" /> {t('diagnostics.export')}
           </Button>
         </div>
+
+        <AgentProcessesSection />
       </div>
     </section>
   )
