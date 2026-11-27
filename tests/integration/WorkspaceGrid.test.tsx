@@ -29,8 +29,8 @@ describe('WorkspaceGrid', () => {
       expect(screen.getByRole('dialog')).toHaveTextContent('C:/repo/worktree')
       expect(screen.getByRole('dialog')).toHaveTextContent('pane-0-0')
       expect(screen.getByRole('dialog')).toHaveTextContent('1234')
-      await user.click(screen.getByRole('button', { name: 'Copy provider session ID native-codex-id' }))
-      expect(writeText).toHaveBeenCalledWith('native-codex-id')
+      await user.click(screen.getByTestId('terminal-provider-session-copy'))
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith('native-codex-id'))
       await user.keyboard('{Escape}')
     } finally { Object.defineProperty(window, 'oxe', { configurable: true, value: previousApi }) }
   })
