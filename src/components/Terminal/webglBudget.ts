@@ -14,8 +14,13 @@
  */
 export const MAX_WEBGL_CONTEXTS = 14
 
-/** Two contexts held back for panes being split or dragged mid-interaction. */
-export const MAX_MOUNTED_TERMINAL_PANES = 12
+/**
+ * OXE-443 · Mounted terminal pane budget decoupled from active WebGL contexts:
+ * hidden panes immediately dispose their WebGL addon (`OXE-349` / `OXE-411`), so
+ * keeping up to 32 panes mounted (e.g. 8 four-pane workspaces) preserves live
+ * xterm buffers without exhausting Chromium's active WebGL context limit.
+ */
+export const MAX_MOUNTED_TERMINAL_PANES = 32
 
 /**
  * Trim `orderedWorkspaceIds` (least-recently-visited first) until the mounted

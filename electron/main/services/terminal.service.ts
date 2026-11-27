@@ -32,6 +32,13 @@ export { __resetExecutableCacheForTests } from './terminal/executable'
 export { CONPTY_START_SCREEN }
 export type { ManagedTerminalStart }
 
+/**
+ * OXE-443 · Delay (ms) before restoring `(cols, rows)` in `nudgeRedraw` so ConPTY and
+ * interactive TUIs (Antigravity, Claude Code, Codex) actually observe the size delta
+ * instead of coalescing an immediate 0ms bounce.
+ */
+export const NUDGE_REDRAW_DELAY_MS = 65
+
 interface TerminalManagerOptions extends SessionStartOptions {
   pty?: PtyModule
   env?: NodeJS.ProcessEnv
@@ -278,18 +285,27 @@ export class TerminalManager {
     if (!this.sizes.rememberDesktop(input.paneId, input.cols, input.rows)) this.applySize(session, input.cols, input.rows)
   }
 
+  private clearNudgeTimer(session: TerminalSession): void {
+    if (!session.nudgeTimer) return
+    clearTimeout(session.nudgeTimer)
+    session.nudgeTimer = null
+  }
+
   private applySize(session: TerminalSession, cols: number, rows: number): void {
+    this.clearNudgeTimer(session)
     const unchanged = session.cols === cols && session.rows === rows
-    const needsTruncatedNudge = session.pendingRedrawNudge === true
+    const needsPendingNudge = session.pendingRedrawNudge === true
     session.pendingRedrawNudge = false
     session.cols = cols
     session.rows = rows
     this.observer?.resize(session.paneId, cols, rows)
     // A restored full-screen TUI or truncated inline TUI needs a fresh frame after the renderer has installed its
-    // buffer; a same-size resize is that handshake.
-    if (unchanged && session.attached && session.modes.altScreen) this.nudgeRedraw(session, 'rows')
-    else if (unchanged && session.attached && needsTruncatedNudge) this.nudgeRedraw(session, 'cols')
-    else session.pty.resize(cols, rows)
+    // buffer; a same-size resize is that handshake. Contiguous Lever H delta reattaches clear pendingRedrawNudge.
+    if (unchanged && session.attached && needsPendingNudge) {
+      this.nudgeRedraw(session, session.modes.altScreen ? 'rows' : 'cols')
+    } else {
+      session.pty.resize(cols, rows)
+    }
   }
 
   /** Binds a view and hands back what to render. Subscribe to `onData` before calling it. */
@@ -408,6 +424,7 @@ export class TerminalManager {
    * scrollback while repainting.
    */
   private nudgeRedraw(session: TerminalSession, axis: 'rows' | 'cols' = 'rows'): void {
+    this.clearNudgeTimer(session)
     const { cols, rows } = session
     const bounceCols = axis === 'cols' ? cols > 2 : rows <= 1 && cols > 2
     const targetCols = bounceCols ? cols - 1 : cols
@@ -415,12 +432,13 @@ export class TerminalManager {
     if (targetCols < 1 || targetRows < 1) return
     try {
       session.pty.resize(targetCols, targetRows)
-      setTimeout(() => {
-        if (this.sessions.get(session.paneId) !== session) return
+      session.nudgeTimer = setTimeout(() => {
+        session.nudgeTimer = null
+        if (this.sessions.get(session.paneId) !== session || !session.attached) return
         try {
           session.pty.resize(cols, rows)
         } catch { /* process exited between ticks */ }
-      }, 0)
+      }, NUDGE_REDRAW_DELAY_MS)
     } catch { /* process exited; attach still returns cleanly */ }
   }
 
@@ -437,6 +455,7 @@ export class TerminalManager {
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
+    this.clearNudgeTimer(session)
     this.output.releaseDa1(session)
     session.outputBatcher.flush()
     session.inputQueue.dispose()

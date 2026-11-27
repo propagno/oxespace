@@ -35,9 +35,6 @@ export function ThreadProjectTerminal({ thread }: { thread: ConversationThread }
   const [error, setError] = useState('')
   const update = (next: number[]): void => { slots.set(thread.id, next); setList(next) }
   const id = paneId(thread.id, selected)
-  const pane: WorkspacePane = { id, workspaceId: thread.workspaceId, type: 'terminal', rowIndex: 0, columnIndex: 0, shellProfileId: null, status: 'idle', agentProfileId: null, agentName: null, displayName: t('terminal.tab', { number: selected }), createdAt: null, rootPath: thread.rootPath }
-  const first = !autoStarted.has(id)
-  autoStarted.add(id)
   const act = (promise: Promise<unknown>): void => { void promise.catch(cause => setError(String(cause))) }
   return <section className="thread-project-terminal" aria-label={t('terminal.label')}>
     <header className="thread-terminal-bar">
@@ -60,6 +57,17 @@ export function ThreadProjectTerminal({ thread }: { thread: ConversationThread }
       </div>
     </header>
     {error && <ErrorState compact title={error} />}
-    <div className="thread-project-terminal-content"><TerminalPane key={pane.id} pane={pane} workspaceId={thread.workspaceId} workspaceRootPath={thread.rootPath} autoStart={first} /></div>
+    <div className="thread-project-terminal-content">
+      {list.map(slot => {
+        const slotPaneId = paneId(thread.id, slot)
+        const isSelected = selected === slot
+        const first = !autoStarted.has(slotPaneId)
+        if (isSelected) autoStarted.add(slotPaneId)
+        const slotPane: WorkspacePane = { id: slotPaneId, workspaceId: thread.workspaceId, type: 'terminal', rowIndex: 0, columnIndex: 0, shellProfileId: null, status: 'idle', agentProfileId: null, agentName: null, displayName: t('terminal.tab', { number: slot }), createdAt: null, rootPath: thread.rootPath }
+        return <div key={slotPaneId} className="thread-terminal-slot" style={{ display: isSelected ? 'flex' : 'none', flex: 1, minHeight: 0 }} aria-hidden={!isSelected}>
+          <TerminalPane pane={slotPane} workspaceId={thread.workspaceId} workspaceRootPath={thread.rootPath} autoStart={isSelected && first} />
+        </div>
+      })}
+    </div>
   </section>
 }

@@ -44,10 +44,12 @@ export interface TerminalSession {
    */
   parked?: boolean
   /**
-   * OXE-436 · Set when `attach()` returned a truncated normal-buffer replay (e.g. inline TUIs like Antigravity /
-   * Claude Code on ConPTY) so the post-attach same-size resize handshake nudges a clean full-viewport redraw.
+   * OXE-436 / OXE-443 · Set when `attach()` needs the post-attach same-size resize handshake to nudge
+   * a clean full-viewport redraw (fresh/truncated `altScreen` or truncated normal-buffer inline TUI).
    */
   pendingRedrawNudge?: boolean
+  /** OXE-443 · Active bounce-restore timer from `nudgeRedraw`, cancelled on new resize, detach, or stop. */
+  nudgeTimer?: ReturnType<typeof setTimeout> | null
   da1: Da1Filter
   da1Timer: ReturnType<typeof setTimeout> | null
   lastActivityAt: number
@@ -172,17 +174,18 @@ export class SessionOutput {
     session.viewAttached = true
     session.parked = false
 
-    // On the alternate screen the retained bytes cannot be trusted: if the
-    // `\x1b[?1049h` fell off the ring head, replaying paints TUI content onto
-    // the normal buffer. Ask the app for a correct frame instead.
+    // On a fresh or overflowed alt-screen attach, retained bytes cannot be trusted because `\x1b[?1049h`
+    // may have been evicted; ask the app for a clean repaint instead. On a contiguous Lever H delta reattach
+    // (`sinceSeq` without overflow), the view is already mounted in the right screen and receives the exact delta.
     const altScreen = session.modes.altScreen
+    const hasContiguousDelta = input.sinceSeq !== undefined && !slice.truncated
     const truncated = slice.truncated || (input.sinceSeq === undefined && session.ring.evicted)
-    session.pendingRedrawNudge = truncated && !altScreen
+    session.pendingRedrawNudge = truncated || (altScreen && !hasContiguousDelta)
     return {
       running: true,
       seq: session.ring.seq,
       prologue: session.modes.prologue(),
-      replay: altScreen ? '' : slice.data,
+      replay: altScreen && !hasContiguousDelta ? '' : slice.data,
       truncated,
       altScreen
     }
@@ -217,6 +220,10 @@ export class SessionOutput {
     session.viewAttached = false
     session.parked = input.parked === true
     session.pendingRedrawNudge = false
+    if (session.nudgeTimer) {
+      clearTimeout(session.nudgeTimer)
+      session.nudgeTimer = null
+    }
     return { seq: session.ring.seq }
   }
 

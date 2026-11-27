@@ -594,7 +594,8 @@
 /* Underlined cockpit tool tabs are styled in ThreadHeaderChrome.css. */
 /* The collision chips (U4.5) sit in the header, in warning tone. */
 .collision-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; color: var(--intent-warning-fg); }
-.thread-project-terminal-content { flex: 1; min-height: 0; position: relative; }
+.thread-project-terminal-content { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.thread-terminal-slot { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 /* Permissions popover: sections, switch row and compact trigger badge. */
 .thread-config-badge { padding: 1px 6px; border-radius: var(--radius-full); background: color-mix(in srgb, var(--intent-warning-solid) 16%, transparent); color: var(--intent-warning-fg); font-style: normal; font-size: var(--fs-2xs); white-space: nowrap; }
