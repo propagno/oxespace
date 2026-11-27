@@ -3,14 +3,13 @@ import { TERMINAL_SELECT_ALL_EVENT } from '../Navigation/editTarget'
 import { useColorMode } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import type { WebglAddon } from '@xterm/addon-webgl'
-import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
 import { attachTerminalContextMenu } from './terminalContextMenu'
 import { sendTerminalSelectionToChat } from './terminalToChat'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { createPtyResizeDebouncer, isValidPtyGrid, syncNotifiedGrid } from './resizeDebounce'
+import { createTerminalWebglController, type WarmWebglPool } from './webglPool'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -18,7 +17,6 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import { useTranslation } from 'react-i18next'
 import type { WorkspaceThemeId } from '../../../shared/types/workspace'
 import type { TerminalAttachResult, TerminalApi } from '../../../shared/types/ipc'
-import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 import { terminalLevers } from '../../../shared/terminal-levers'
 import type { TerminalPrefs } from '../../store/terminal-prefs.store'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -33,11 +31,6 @@ import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 
 // Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
 const AGENT_MARKERS = ['⏺', '●']
-
-// Browsers cap WebGL contexts per tab (Chrome: 16). When exceeded, the oldest
-// context is lost, unexpectedly breaking older terminals. Shared with the MRU
-// trim in App.tsx, which budgets mounted panes against the same limit.
-let activeWebglContexts = 0
 
 // readAgentPreview only needs the most recent agent line. Cap how far back it
 // scans so it stays O(1) regardless of scrollback depth — without this it walks
@@ -90,9 +83,11 @@ interface TerminalViewProps {
   themeId: WorkspaceThemeId
   /** Resolved terminal prefs (global ← per-workspace override). */
   prefs: TerminalPrefs
+  /** OXE-451 · Optional warm WebGL2 LRU pool; keeps hidden panes warm until LRU/idle eviction. */
+  warmPool?: WarmWebglPool
 }
 
-export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize = null, paneId, workspaceId, themeId, prefs, transport }: TerminalViewProps): ReactElement {
+export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize = null, paneId, workspaceId, themeId, prefs, transport, warmPool }: TerminalViewProps): ReactElement {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const pasteRef = useRef<((text: string) => void) | null>(null)
@@ -161,87 +156,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     searchAddonRef.current = searchAddon
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
     terminal.open(hostRef.current)
-
-    // GPU-accelerated renderer. The default DOM renderer repaints every visible
-    // row each frame and degrades badly with large scrollback (and several open
-    // panes), which is what makes the terminal — and selection/copy — feel
-    // sluggish "after a while of use". WebGL offloads that to the GPU.
-    //
-    // In GPU-less environments (corporate VMs, RDP, some VPN/remote desktops)
-    // WebGL is unavailable or unstable. The @xterm/addon-webgl failure surfaces
-    // ASYNCHRONOUSLY (render tick / context loss), so a synchronous try/catch
-    // around loadAddon can't contain it — the classic "Cannot read properties
-    // of undefined (reading '_isDisposed')" then escapes and (without a boundary)
-    // blanks the whole app. So we PREFLIGHT a real WebGL2 context first and only
-    // load the addon when it actually works; otherwise we stay on the DOM
-    // renderer. Disposal is also guarded so teardown can never throw.
-    let webglAddon: WebglAddon | null = null
-    let webglContextCounted = false
-    // A pane in a hidden workspace (or while Thread/OxeQuery is showing) paints nothing, yet each WebGL
-    // renderer holds a glyph atlas and framebuffers in the GPU process. Hidden panes give theirs back and
-    // rebuild it when revealed; the scrollback lives in xterm's buffer, not the renderer.
     const isHidden = (): boolean => isTerminalHostHidden(hostRef.current)
-    const releaseWebgl = (): void => {
-      const addon = webglAddon
-      webglAddon = null
-      try { addon?.dispose() } catch { /* already torn down */ }
-      if (webglContextCounted) { activeWebglContexts--; webglContextCounted = false }
-    }
-    const loadWebgl = (): void => {
-    if (webglAddon) return
-    if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
-      console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
-    } else if (supportsWebgl2() && !loadedWebglAddon()) {
-      // The pane may be gone or hidden by the time the addon arrives; loadWebgl then does nothing or waits.
-      loadWebglAddon()
-        .then(() => {
-          if (disposed || isHidden() || webglAddon) return
-          loadWebgl()
-          try { terminal.refresh(0, terminal.rows - 1) } catch { /* disposed */ }
-        })
-        .catch((err: unknown) => { console.warn('[OXESpace] WebGL renderer did not load, using DOM renderer', err) })
-    } else if (supportsWebgl2()) {
-      try {
-        const WebglAddonClass = loadedWebglAddon()!
-        const addon = new WebglAddonClass()
-        addon.onContextLoss(() => {
-          try { addon.dispose() } catch { /* already torn down */ }
-          if (webglAddon === addon) {
-             webglAddon = null
-             if (webglContextCounted) {
-               activeWebglContexts--
-               webglContextCounted = false
-             }
-             
-             // The WebGL canvas has just been removed. We need to force xterm
-             // to fall back to the DOM renderer immediately, otherwise the
-             // terminal stays completely blank.
-             setTimeout(() => {
-               try {
-                 const t = terminalRef.current
-                 if (t) {
-                   // Re-apply a cloned theme to trigger xterm's DOM-renderer
-                   // color rebuild without a no-op self-assignment.
-                   t.options.theme = { ...(t.options.theme ?? {}) }
-                   t.refresh(0, t.rows - 1)
-                 }
-               } catch { /* ignore if already unmounted */ }
-             }, 50)
-          }
-        })
-        terminal.loadAddon(addon)
-        webglAddon = addon
-        activeWebglContexts++
-        webglContextCounted = true
-      } catch (err) {
-        console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
-        webglAddon = null
-      }
-    } else {
-      console.warn('[OXESpace] WebGL2 not available, using DOM renderer')
-    }
-    }
-    if (!isHidden()) loadWebgl()
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -719,23 +634,60 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       if (!isHidden()) unpark()
     }
 
-    // OXE-349 + OXE-411 + OXE-443: hidden panes release WebGL, pause writes, and park; reveal runs post-layout.
-    const revealScheduler = createRevealScheduler(() => { if (!disposed && !isHidden()) { if (!webglAddon) loadWebgl(); fitTerminal(true) } })
+    // OXE-349 + OXE-411 + OXE-443 + OXE-451: warm WebGL2 LRU pool keeps recent hidden panes warm
+    // with paused writes and 1-frame reveal; LRU/idle eviction (or standalone views) releases WebGL & parks.
+    const webgl = createTerminalWebglController({
+      terminal,
+      isDisposed: () => disposed,
+      isHidden,
+      warmPool,
+      onContextLost: () => warmPool?.remove(paneId)
+    })
+    const evictFromWarmPool = (): void => {
+      if (disposed || !isHidden()) return
+      webgl.release()
+      void park()
+    }
+    if (!isHidden()) {
+      warmPool?.touchVisible(paneId, evictFromWarmPool)
+      webgl.load()
+    }
+    let warmRevealFrame: number | null = null
+    const cancelWarmReveal = (): void => {
+      if (warmRevealFrame !== null) {
+        window.cancelAnimationFrame(warmRevealFrame)
+        warmRevealFrame = null
+      }
+    }
+    const revealScheduler = createRevealScheduler(() => { if (!disposed && !isHidden()) { if (!webgl.hasAddon()) webgl.load(); fitTerminal(true) } })
     const stopObservingVisibility = observeTerminalVisibility(hostRef.current, (hidden) => {
       if (disposed) return
       if (hidden) {
         revealScheduler.cancel()
-        releaseWebgl()
+        cancelWarmReveal()
         writeScheduler.setPaused(true)
         if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
         if (fitFrameRef.current !== null) { window.cancelAnimationFrame(fitFrameRef.current); fitFrameRef.current = null }
         resizeDebouncer.cancel(); syncNotifiedGrid(notified, resizeDebouncer)
-        void park()
+        const keptWarm = warmPool ? warmPool.markHidden(paneId, evictFromWarmPool) : false
+        if (!keptWarm) {
+          webgl.release()
+          void park()
+        }
         return
       }
+      warmPool?.touchVisible(paneId, evictFromWarmPool)
       if (parked) unpark()
       else if (!attachPending && !parking) writeScheduler.setPaused(false)
-      revealScheduler.schedule()
+      if (warmPool && webgl.hasAddon()) {
+        cancelWarmReveal()
+        warmRevealFrame = window.requestAnimationFrame(() => {
+          warmRevealFrame = null
+          if (!disposed && !isHidden()) fitTerminal(true)
+        })
+      } else {
+        revealScheduler.schedule()
+      }
     })
     const unsubscribeData = bridge.onData(paneId, (event) => {
       if (parked) return
@@ -757,11 +709,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
 
     return () => {
       disposed = true
+      warmPool?.remove(paneId)
       // Release the session without killing it: the shell keeps running and
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
       void bridge.detach?.({ paneId })
-      revealScheduler.cancel(); resizeDebouncer.dispose()
+      revealScheduler.cancel(); cancelWarmReveal(); resizeDebouncer.dispose()
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
@@ -783,16 +736,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
       window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
       window.removeEventListener(UI_SCALE_EVENT, handleUiScale)
-      try { 
-        if (webglAddon) {
-          webglAddon.dispose()
-          webglAddon = null
-        }
-      } catch { /* WebGL addon teardown raced — ignore */ }
-      if (webglContextCounted) {
-        activeWebglContexts--
-        webglContextCounted = false
-      }
+      webgl.release()
       hostRef.current?.removeEventListener('paste', handlePaste, { capture: true })
       hostRef.current?.removeEventListener('copy', handleCopy, { capture: true })
       hostRef.current?.removeEventListener(TERMINAL_SELECT_ALL_EVENT, handleSelectAll)
@@ -808,7 +752,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       terminal.dispose()
       terminalRef.current = null
     }
-  }, [paneId, workspaceId, transport])
+  }, [paneId, workspaceId, transport, warmPool])
 
   const colorMode = useColorMode()
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
