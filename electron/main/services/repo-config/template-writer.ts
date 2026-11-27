@@ -1,24 +1,22 @@
 /**
- * Safe reader and atomic writer for `<primaryRoot>/oxe.yaml` and `<primaryRoot>/.worktreeinclude` (OXE-444).
+ * Safe reader and atomic writer for `<primaryRoot>/.worktreeinclude` and gated `<primaryRoot>/oxe.yaml` (OXE-444).
  *
  * Security invariants:
- * - Only touches the two fixed filenames (`oxe.yaml` and `.worktreeinclude`) directly under `primaryRoot`.
- * - Refuses to write through a symlink (`lstat` check on target and on `primaryRoot` parent containment).
- * - Preserves unrelated sections of `oxe.yaml` (`defaultTabs`, `thread`, etc.) intact.
- * - Uses temp file + atomic rename in `primaryRoot` so a partial write can never corrupt config.
+ * - Only touches the two fixed worktree template files directly under `primaryRoot`.
+ * - Refuses to write through a symlink (`lstat` check before any mutation).
+ * - Delegates `oxe.yaml` writes to `services/policy/worktree-template-writer.ts` so B7.4 policy-change gating applies.
+ * - Uses temp file + atomic rename so a partial write can never corrupt config.
  */
 import { randomUUID } from 'node:crypto'
-import { lstat, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { lstat, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { load } from 'js-yaml'
 import type { WorktreeTemplateConfig, WorktreeTemplateSaveInput } from '../../../../shared/types/repo-config'
+import { writeGatedOxeYaml } from '../policy/worktree-template-writer'
 import { loadWorktreeTemplate } from './loader'
 import {
   MAX_FIELD_CHARS,
-  MAX_FILE_BYTES,
   normalizeIncludePatterns,
   normalizeSharedDirectories,
-  OXE_YAML_FILE,
   WORKTREE_INCLUDE_FILE
 } from './parser'
 import { hashHookScript, hashSensitivePatterns, type RepoHookTrust } from './trust'
@@ -162,10 +160,7 @@ export async function saveWorktreeTemplate(
   input: WorktreeTemplateSaveInput,
   trust?: RepoHookTrust | null
 ): Promise<WorktreeTemplateConfig> {
-  const oxePath = join(primaryRoot, OXE_YAML_FILE)
   const includePath = join(primaryRoot, WORKTREE_INCLUDE_FILE)
-
-  await assertNotSymlink(oxePath)
   await assertNotSymlink(includePath)
 
   const sharedDirectories = normalizeSharedDirectories(input.sharedDirectories)
@@ -174,59 +169,44 @@ export async function saveWorktreeTemplate(
   const setupScript = typeof input.setupScript === 'string' ? input.setupScript.trim().slice(0, MAX_FIELD_CHARS) : undefined
   const archiveScript = typeof input.archiveScript === 'string' ? input.archiveScript.trim().slice(0, MAX_FIELD_CHARS) : undefined
 
-  // Read existing oxe.yaml to preserve unrelated top-level fields (`defaultTabs`, `thread`, etc.).
-  let existingDoc: Record<string, unknown> = {}
-  const existingInfo = await tryLstat(oxePath)
-  if (existingInfo) {
-    if (existingInfo.size > MAX_FILE_BYTES) {
-      throw new Error('Existing oxe.yaml exceeds maximum allowed size.')
-    }
-    const raw = await readFile(oxePath, 'utf8')
-    const parsed = raw.trim() ? load(raw) : {}
-    if (parsed !== null && parsed !== undefined) {
-      if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-        throw new Error('Existing oxe.yaml is not a YAML mapping.')
+  await writeGatedOxeYaml(
+    primaryRoot,
+    (existingDoc) => {
+      const nextDoc: Record<string, unknown> = { ...existingDoc }
+      const nextWorktree: Record<string, unknown> =
+        nextDoc.worktree && typeof nextDoc.worktree === 'object' && !Array.isArray(nextDoc.worktree)
+          ? { ...(nextDoc.worktree as Record<string, unknown>) }
+          : {}
+
+      if (sharedDirectories.length > 0) nextWorktree.sharedDirectories = sharedDirectories
+      else delete nextWorktree.sharedDirectories
+
+      if (copyFiles.length > 0) nextWorktree.copyFiles = copyFiles
+      else delete nextWorktree.copyFiles
+
+      if (Object.keys(nextWorktree).length > 0) nextDoc.worktree = nextWorktree
+      else delete nextDoc.worktree
+
+      if (setupScript !== undefined || archiveScript !== undefined) {
+        const nextScripts: Record<string, unknown> =
+          nextDoc.scripts && typeof nextDoc.scripts === 'object' && !Array.isArray(nextDoc.scripts)
+            ? { ...(nextDoc.scripts as Record<string, unknown>) }
+            : {}
+        if (setupScript !== undefined) {
+          if (setupScript) nextScripts.setup = setupScript
+          else delete nextScripts.setup
+        }
+        if (archiveScript !== undefined) {
+          if (archiveScript) nextScripts.archive = archiveScript
+          else delete nextScripts.archive
+        }
+        if (Object.keys(nextScripts).length > 0) nextDoc.scripts = nextScripts
+        else delete nextDoc.scripts
       }
-      existingDoc = { ...(parsed as Record<string, unknown>) }
-    }
-  }
-
-  const nextWorktree: Record<string, unknown> =
-    existingDoc.worktree && typeof existingDoc.worktree === 'object' && !Array.isArray(existingDoc.worktree)
-      ? { ...(existingDoc.worktree as Record<string, unknown>) }
-      : {}
-
-  if (sharedDirectories.length > 0) nextWorktree.sharedDirectories = sharedDirectories
-  else delete nextWorktree.sharedDirectories
-
-  if (copyFiles.length > 0) nextWorktree.copyFiles = copyFiles
-  else delete nextWorktree.copyFiles
-
-  if (Object.keys(nextWorktree).length > 0) existingDoc.worktree = nextWorktree
-  else delete existingDoc.worktree
-
-  if (setupScript !== undefined || archiveScript !== undefined) {
-    const nextScripts: Record<string, unknown> =
-      existingDoc.scripts && typeof existingDoc.scripts === 'object' && !Array.isArray(existingDoc.scripts)
-        ? { ...(existingDoc.scripts as Record<string, unknown>) }
-        : {}
-    if (setupScript !== undefined) {
-      if (setupScript) nextScripts.setup = setupScript
-      else delete nextScripts.setup
-    }
-    if (archiveScript !== undefined) {
-      if (archiveScript) nextScripts.archive = archiveScript
-      else delete nextScripts.archive
-    }
-    if (Object.keys(nextScripts).length > 0) existingDoc.scripts = nextScripts
-    else delete existingDoc.scripts
-  }
-
-  const shouldWriteOxe = existingInfo !== null || Object.keys(existingDoc).length > 0
-  if (shouldWriteOxe) {
-    const serialized = Object.keys(existingDoc).length > 0 ? dumpYamlDocument(existingDoc) : ''
-    await writeAtomic(oxePath, serialized)
-  }
+      return nextDoc
+    },
+    dumpYamlDocument
+  )
 
   const includeExists = (await tryLstat(includePath)) !== null
   if (worktreeInclude.length > 0 || includeExists) {

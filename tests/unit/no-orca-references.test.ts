@@ -27,6 +27,13 @@ const SCREEN_READER = [
   'docs/perf/terminal-renderer.md',
   'e2e/screen-reader-script.spec.ts',
 ]
+/** OXE-444 (the user, 26/11): declarative worktree template compatibility reads `orca.yaml` as a fallback to `oxe.yaml`. */
+const WORKTREE_COMPAT_YAML = [
+  'electron/main/services/repo-config/loader.ts',
+  'electron/main/services/repo-config/parser.ts',
+  'shared/types/repo-config.ts',
+  'tests/acceptance/oxe444/a1-template-loader-negation.test.ts',
+]
 const SELF = 'tests/unit/no-orca-references.test.ts'
 const NOT_MENTIONS = /connectorCatalog|editorCandidates/g
 const BINARY = /\.(png|jpe?g|gif|webp|ico|icns|woff2?|ttf|otf|zip|jar|apk|aab|keystore|jks|sqlite3?|wasm|node|exe|dll)$/i
@@ -43,7 +50,7 @@ function filesMentioningOrca(): string[] {
 
 describe('OXE-405 · Orca project notes and names', () => {
   it('only license attribution and the screen reader mention Orca', () => {
-    const allowed = new Set([...LICENSE_ATTRIBUTION, ...SCREEN_READER, SELF])
+    const allowed = new Set([...LICENSE_ATTRIBUTION, ...SCREEN_READER, ...WORKTREE_COMPAT_YAML, SELF])
     expect(filesMentioningOrca().filter(file => !allowed.has(file))).toEqual([])
     // The MIT attribution itself stays.
     expect(readFileSync('THIRD_PARTY_NOTICES.md', 'utf8')).toMatch(/^## Orca$/m)

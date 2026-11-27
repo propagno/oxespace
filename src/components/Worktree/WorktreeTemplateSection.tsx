@@ -249,7 +249,7 @@ export function WorktreeTemplateSection({
             rows={2}
             label={t('worktree.template.sharedDirsLabel')}
             hint={t('worktree.template.sharedDirsHint')}
-            placeholder="node_modules"
+            placeholder={t('worktree.template.sharedDirsPlaceholder')}
             value={sharedDirsText}
             onChange={(event) => {
               dirtyRef.current = true
@@ -265,7 +265,7 @@ export function WorktreeTemplateSection({
             rows={3}
             label={t('worktree.template.includeLabel')}
             hint={t('worktree.template.includeHint')}
-            placeholder={'.env.local\n!.env.production'}
+            placeholder={t('worktree.template.includePlaceholder')}
             value={includeText}
             onChange={(event) => {
               dirtyRef.current = true
@@ -280,7 +280,7 @@ export function WorktreeTemplateSection({
             mono
             label={t('worktree.template.setupLabel')}
             hint={t('worktree.template.setupHint')}
-            placeholder="npm run bootstrap"
+            placeholder={t('worktree.template.setupPlaceholder')}
             value={setupScript}
             onChange={(event) => {
               dirtyRef.current = true

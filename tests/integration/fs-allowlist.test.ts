@@ -164,8 +164,7 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/github/worktree-removal.ts',
   // B19 / OXE-444 worktree.copyFiles and template writer: copies declared gitignored files from the
   // main checkout into a just-created worktree (never following links, bounded), and template-writer.ts
-  // reads/atomically writes only the two fixed files `<primaryRoot>/oxe.yaml` and `<primaryRoot>/.worktreeinclude`
-  // after lstat checks confirm neither is a symlink.
+  // atomically writes only `<primaryRoot>/.worktreeinclude` after lstat checks confirm it is not a symlink.
   'electron/main/services/repo-config/worktree-include.ts',
   'electron/main/services/repo-config/template-writer.ts',
   // Cleanup scan: stat-only probes of a worktree's own git metadata (HEAD,
@@ -265,6 +264,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/policy/accepted-config.ts',
   // B7.4: stat and read of <root>/oxe.yaml (256 KiB at most) for its tool modes, like repo-config/loader.ts; never writes.
   'electron/main/services/policy/tool-config.ts',
+  // B7.4 / OXE-444: gated atomic writer for `<primaryRoot>/oxe.yaml` worktree template fields (lstat symlink guard +
+  // AcceptedConfig assertAccepted/markIntent/commitIntent around temp+rename write).
+  'electron/main/services/policy/worktree-template-writer.ts',
   // B7.4: reads the first characters of a gated policy file (fixed places only) for the request's untrusted text; never writes.
   'electron/main/ipc/policy-runtime.ts',
   // OXE integration: existsSync(`<root>/.oxe`) to decide onboarding vs status —
