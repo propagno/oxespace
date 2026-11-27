@@ -63,6 +63,9 @@ describe('design tokens', () => {
             expect.soft(contrast(roles['text-primary'], roles[fill]), `text-primary on ${fill}`).toBeGreaterThanOrEqual(7)
             expect.soft(contrast(roles['text-secondary'], roles[fill]), `text-secondary on ${fill}`).toBeGreaterThanOrEqual(4.5)
           }
+          for (const fill of ['fill-hover', 'fill-pressed', 'fill-selected', 'fill-selected-strong']) {
+            expect.soft(contrast(roles['text-muted'], roles[fill]), `text-muted on ${fill}`).toBeGreaterThanOrEqual(4.5)
+          }
         })
 
         it('labels on solid fills and intent colors are AA', () => {

@@ -51,8 +51,8 @@ export function surfaceColorRoles(mode: Mode, surface: SurfaceStyle): ColorRoles
   const fillSelectedStrong = light ? (pure ? '#e3e3e3' : s(n, 6)) : (pure ? '#2a2a2a' : s(n, 6))
 
   const textPrimary = light ? ink(0.22) : (pure ? '#d8d8d8' : ink(0.93))
-  const textSecondary = light ? ink(0.4) : (pure ? '#a3a3a3' : ink(0.79))
-  const textMuted = light ? ink(0.49) : (pure ? '#858585' : ink(0.68))
+  const textSecondary = light ? ink(0.4) : (pure ? '#adadad' : ink(0.82))
+  const textMuted = light ? ink(0.49) : (pure ? '#949494' : ink(0.72))
 
   return {
     // Surfaces: restrained Obsidian Minimal tonal hierarchy from chrome/sunken up to overlays.
