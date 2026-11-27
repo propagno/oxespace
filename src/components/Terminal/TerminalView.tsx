@@ -1,6 +1,6 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { TERMINAL_SELECT_ALL_EVENT } from '../Navigation/editTarget'
-import { useColorMode, useSurfaceStyle } from '../../design/useColorMode'
+import { useColorMode, useColorScheme, useSurfaceStyle } from '../../design/useColorMode'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { createTerminalLinksAddon } from './terminalLinks'
@@ -756,6 +756,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
 
   const colorMode = useColorMode()
   const surfaceStyle = useSurfaceStyle()
+  const colorScheme = useColorScheme()
   // Apply prefs + theme to the live terminal without recreating it. Font/cursor
   // changes are immediate; the theme is re-read on the next frame so the
   // workspace's `data-theme` (set by ThemeProvider) has already settled.
@@ -796,6 +797,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     themeId,
     colorMode,
     surfaceStyle,
+    colorScheme,
     prefs.fontFamily,
     prefs.fontSize,
     prefs.lineHeight,

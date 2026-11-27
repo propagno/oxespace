@@ -163,6 +163,20 @@
         "hint": "Superfícies escuras com detalhes em verde caatinga"
       }
     },
+    "scheme": {
+      "title": "Esquema de cores",
+      "hint": "Esquemas de cores oficiais do Obsidian Minimal para os modos claro e escuro.",
+      "options": {
+        "default": "Minimal",
+        "obsidian": "Obsidian",
+        "flexoki": "Flexoki",
+        "nord": "Nord",
+        "catppuccin": "Catppuccin",
+        "dracula": "Dracula",
+        "gruvbox": "Gruvbox",
+        "solarized": "Solarized"
+      }
+    },
     "surface": {
       "title": "Superfície",
       "default": {

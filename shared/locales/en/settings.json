@@ -161,6 +161,20 @@
         "hint": "Dark surfaces with caatinga green accents"
       }
     },
+    "scheme": {
+      "title": "Color scheme",
+      "hint": "Official Obsidian Minimal color schemes for light and dark mode.",
+      "options": {
+        "default": "Minimal",
+        "obsidian": "Obsidian",
+        "flexoki": "Flexoki",
+        "nord": "Nord",
+        "catppuccin": "Catppuccin",
+        "dracula": "Dracula",
+        "gruvbox": "Gruvbox",
+        "solarized": "Solarized"
+      }
+    },
     "surface": {
       "title": "Surface",
       "default": {

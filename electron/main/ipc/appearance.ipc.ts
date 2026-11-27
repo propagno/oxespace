@@ -7,10 +7,10 @@ import { clampUiScale } from '../../../shared/uiScale'
 
 export type AppearanceMode = 'system' | 'light' | 'dark'
 
-/** Window background and caption-button colors per resolved mode (surface-canvas and text-secondary). */
+/** Window background and caption-button colors per resolved mode (Minimal surface-canvas and text-secondary). */
 const WINDOW_COLORS = {
-  light: { background: '#ffffff', symbols: '#484848' },
-  dark: { background: '#1f1f1f', symbols: '#bababa' }
+  light: { background: '#ffffff', symbols: '#4e4e4e' },
+  dark: { background: '#262626', symbols: '#b8b8b8' }
 } as const
 
 /** The colors a new window starts with, before the renderer reports the person's choice. */

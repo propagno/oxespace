@@ -27,6 +27,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { moreContrastTokens, tokensCss } from '../../src/design/tokens/css'
+import { schemeColorRoles, type ColorScheme } from '../../src/design/tokens/schemes'
 import { surfaceColorRoles } from '../../src/design/tokens/semantic'
 import { TEXT } from '../../src/design/tokens/scales'
 
@@ -82,6 +83,8 @@ function expected(long: string, role: 'size' | 'color', selector: string): strin
     return /data-density=['"]?comfortable/.test(selector) ? `${step + 1}px` : `${step}px`
   }
   if (/prefers-contrast/.test(selector)) return moreContrastTokens(dark ? 'dark' : 'light', surface)[key]
+  const schemeMatch = /data-scheme=['"]?([\w-]+)/.exec(selector)
+  if (schemeMatch) return schemeColorRoles(schemeMatch[1] as ColorScheme, dark ? 'dark' : 'light', surface)[key]
   return surfaceColorRoles(dark ? 'dark' : 'light', surface)[key]
 }
 
@@ -103,8 +106,8 @@ describe('OXE-137 T18 · the last lot: short canonical names from the generator'
     for (const [long, short, role] of RENAMES) {
       if (role !== 'color') continue
       const selectors = blocks(short)
-      // OXE-459: light, dark, system-dark fallback, light pure (Light White) and dark pure (True Black OLED).
-      expect(selectors.filter(selector => !/prefers-contrast/.test(selector)).length, `${short} in light, dark, system-dark fallback, light pure and dark pure`).toBe(5)
+      // OXE-459 / OXE-468: base blocks are light, dark, system-dark fallback, light pure (Light White) and dark pure (True Black OLED); scheme diffs live under [data-scheme].
+      expect(selectors.filter(selector => !/prefers-contrast|data-scheme/.test(selector)).length, `${short} in light, dark, system-dark fallback, light pure and dark pure`).toBe(5)
       const raised = Object.keys(moreContrastTokens('light')).includes(long.slice(2))
       expect(selectors.filter(selector => /prefers-contrast/.test(selector)).length, `${short} under more contrast`).toBe(raised ? 4 : 0)
     }

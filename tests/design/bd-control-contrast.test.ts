@@ -57,10 +57,10 @@ describe('PB-01·2 · --bd-control, the generated edge of controls', () => {
     }
   })
 
-  // OXE-459: updated from violet-neutral (#c3c3d5 / #413e71) to achromatic Obsidian Minimal neutral (#cccccc / #444444).
+  // OXE-468: updated to authentic kepano/obsidian-minimal --ui3 strong border values (#c2c2c2 light / #595959 dark).
   test('--bd-strong keeps the calibrated neutral strong border values in both modes', () => {
     const css = tokensCss()
-    expect(block(css, LIGHT)['--bd-strong']).toBe('#cccccc')
-    expect(block(css, DARK)['--bd-strong']).toBe('#444444')
+    expect(block(css, LIGHT)['--bd-strong']).toBe('#c2c2c2')
+    expect(block(css, DARK)['--bd-strong']).toBe('#595959')
   })
 })

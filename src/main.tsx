@@ -1,8 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-// Mandacaru Noite typography, bundled so it loads offline: Instrument Sans (one variable file per subset, latin and
-// latin-ext, with weight and width axes) for interface and display, IBM Plex Mono for code (docs/design/brand.md).
-import '@fontsource-variable/instrument-sans/wdth.css'
+// Obsidian Minimal typography, bundled so it loads offline: Inter (variable weight) for interface and display,
+// IBM Plex Mono for code.
+import '@fontsource-variable/inter'
 import '@fontsource/ibm-plex-mono/400.css'
 import '@fontsource/ibm-plex-mono/500.css'
 import { App } from './App'
@@ -16,7 +16,7 @@ import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { TooltipProvider } from './ui'
 import { installRendererErrorReporting } from './lib/rendererErrorsBoot'
-import { applyMode, applySurfaceStyle, resolveMode, savedAppearance, savedSurfaceStyle } from './design/mode'
+import { applyColorScheme, applyMode, applySurfaceStyle, resolveMode, savedAppearance, savedColorScheme, savedSurfaceStyle } from './design/mode'
 import { initI18n } from './i18n'
 import { installCloseGuard } from './lib/closeGuard'
 import { applyMotion, resolveMotion, savedMotion } from './design/motion'
@@ -29,9 +29,10 @@ import '@xyflow/react/dist/style.css'
 
 // Crashes nothing caught reach the incident journal, as names and a stack hash only.
 installRendererErrorReporting()
-// Apply the saved light/dark, surface preset and motion choices before the first paint, so the window never flashes.
+// Apply the saved light/dark, surface preset, color scheme and motion choices before the first paint, so the window never flashes.
 applyMode(resolveMode(savedAppearance()))
 applySurfaceStyle(savedSurfaceStyle())
+applyColorScheme(savedColorScheme())
 applyMotion(resolveMotion(savedMotion()))
 // Lets the frameless title bar reserve room for macOS traffic lights.
 document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'

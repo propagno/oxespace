@@ -4,6 +4,7 @@
  * this source, so edit the tokens here and rebuild.
  */
 import { IDENTITY, LOGO, type Mode } from './palette'
+import { COLOR_SCHEMES, schemeTokenDiff, type ColorScheme } from './schemes'
 import { colorRoles, elevations, surfaceColorRoles, type SurfaceStyle } from './semantic'
 import { BAR, CHROME, CONTROL, FONT, LAYER, LEADING, MOTION, RADIUS, REDUCED_MOTION, ROW, SPACE, STRETCH, TARGET_MIN, TEXT, WEIGHT } from './scales'
 
@@ -20,7 +21,7 @@ const CSS_NAME = new Map<string, string>(SHORT_NAMES.flatMap(([long, short, suff
 const cssName = (name: string): string => CSS_NAME.get(name) ?? name
 
 const block = (selector: string, entries: Record<string, string | number>, extra: string[] = []): string =>
-  `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${cssName(name)}: ${value};`),...extra.map(line => `  ${line}`)].join('\n')}\n}`
+  `${selector} {\n${[...Object.entries(entries).map(([name, value]) => `  --${cssName(name)}: ${value};`), ...extra.map(line => `  ${line}`)].join('\n')}\n}`
 
 function modeTokens(mode: Mode, surface: SurfaceStyle = 'default'): Record<string, string> {
   return { ...surfaceColorRoles(mode, surface), ...elevations(mode, surface) }
@@ -62,6 +63,24 @@ function staticTokens(): Record<string, string | number> {
   return out
 }
 
+function schemeBlocks(): string[] {
+  const blocks: string[] = []
+  const nonDefault = COLOR_SCHEMES.filter((id): id is Exclude<ColorScheme, 'default'> => id !== 'default')
+  for (const id of nonDefault) {
+    for (const mode of ['light', 'dark'] as const) {
+      const diff = schemeTokenDiff(id, mode, 'default')
+      if (Object.keys(diff).length > 0) {
+        blocks.push(block(`:root[data-scheme='${id}'][data-mode='${mode}'], [data-scheme='${id}'][data-mode='${mode}']`, diff))
+      }
+      const pureDiff = schemeTokenDiff(id, mode, 'pure')
+      if (Object.keys(pureDiff).length > 0) {
+        blocks.push(block(`:root[data-scheme='${id}'][data-mode='${mode}'][data-surface='pure'], [data-scheme='${id}'][data-mode='${mode}'][data-surface='pure']`, pureDiff))
+      }
+    }
+  }
+  return blocks
+}
+
 export function tokensCss(): string {
   const comfortable: Record<string, string> = {}
   for (const [name, value] of Object.entries(TEXT)) if (name !== 'xl' && name !== 'display') comfortable[`text-${name}`] = `${value + 1}px`
@@ -79,6 +98,8 @@ export function tokensCss(): string {
     // Obsidian Minimal pure surface presets: Light White and True Black (OLED).
     block(":root[data-mode='light'][data-surface='pure'], [data-mode='light'][data-surface='pure']", modeTokens('light', 'pure'), ['color-scheme: light;']),
     block(":root[data-mode='dark'][data-surface='pure'], [data-mode='dark'][data-surface='pure']", modeTokens('dark', 'pure'), ['color-scheme: dark;']),
+    // Official kepano/obsidian-minimal color schemes (compact diff-only overrides).
+    ...schemeBlocks(),
     block(":root[data-density='comfortable']", comfortable),
     `@media (prefers-contrast: more) {\n${[
       block(":root, [data-mode='light']", moreContrastTokens('light')),
