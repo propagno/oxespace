@@ -174,8 +174,11 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     observer: agentState,
     resumeSession: (paneId, wanted, again) => paneAgentSessions.take(paneId, wanted, again),
     assignSession: (paneId, agent, sessionId) => paneAgentSessions.record(paneId, agent, sessionId, 'launch'),
+    recordSession: (paneId, agent, sessionId, source) => paneAgentSessions.record(paneId, agent, sessionId, source),
     clearSession: paneId => paneAgentSessions.clear(paneId),
     currentSession: paneId => paneAgentSessions.current(paneId),
+    claimedSessions: excludePaneId => paneAgentSessions.claimedSessionIds(excludePaneId),
+    paneAgent: paneId => agentState.agentOf(paneId),
     isManagedPane: paneId => delegationRef.current?.ownsPane(paneId) ?? false,
     onLaunchExit: (paneId) => {
       const ex = executions.forOwner({ kind: 'pane', id: paneId })

@@ -38,7 +38,10 @@ const ALLOWED_UNMOUNTED_FILES = new Set([
   'src/components/Threads/ThreadToolTabs.tsx',
   // OXE-463: ThreadTurnFold now formats its quiet fold summary directly via i18n; frozen f6/u62-u63 still tests
   // foldSummaryText directly.
-  'src/components/Threads/foldSummaryText.ts'
+  'src/components/Threads/foldSummaryText.ts',
+  // OXE-467: Terminal details no longer mounts the manual "Find Codex or Claude sessions" button/dialog (provider
+  // session IDs are captured automatically); frozen oxe153/code/oxe165-resume-partials still tests it directly.
+  'src/components/Grid/ProviderSessionFinder.tsx'
 ])
 
 function walk(dir: string, predicate: (fullPath: string) => boolean): string[] {

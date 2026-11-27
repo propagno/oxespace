@@ -2055,6 +2055,7 @@
       "sources": {
         "launch": "Set when OXESpace started the agent",
         "hook": "Reported by the agent’s status hook",
+        "discovered": "Detected automatically from local sessions",
         "recorded": "Remembered from an earlier run"
       },
       "state": "Last start",
@@ -2146,7 +2147,13 @@
     "close": "Close pane",
     "detailsTitle": "Terminal details",
     "detailsDescription": "Terminal state and agent sessions in this directory.",
-    "identityNote": "The terminal does not report which Codex or Claude conversation is open. Find the native session by the start of the conversation and its time to get the ID used to resume.",
+    "providerSessionId": "Provider session ID",
+    "detectingSession": "Detecting…",
+    "sessionNotReported": "Not reported yet",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copySessionIdAria": "Copy provider session ID",
+    "sessionIdCopiedToast": "Provider session ID copied",
     "status": "Status",
     "state": {
       "idle": "Not started",
@@ -2162,7 +2169,6 @@
     "shell": "Shell",
     "workspaceDefault": "Workspace default",
     "error": "Error",
-    "findSessions": "Find Codex or Claude sessions",
     "internal": "Internal IDs and terminal process",
     "ptyId": "PTY session ID (terminal)",
     "noSession": "No running session",

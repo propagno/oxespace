@@ -26,7 +26,6 @@ vi.mock('../../../src/components/Containers/ContainersPanel', () => ({ Container
 vi.mock('../../../src/components/Threads/ThreadMath', () => ({ MathView: ({ tex }: { tex: string }) => <span data-testid="mock-math-view">{tex}</span> }))
 vi.mock('../../../src/components/Threads/ThreadMermaid', () => ({ MermaidDiagram: ({ code }: { code: string }) => <div data-testid="mock-mermaid-view">{code}</div> }))
 vi.mock('../../../src/components/Workspace/UsagePopover', () => ({ UsagePopover: stub('mock-usage-popover') }))
-vi.mock('../../../src/components/Grid/ProviderSessionFinder', () => ({ ProviderSessionFinder: stub('mock-provider-session-finder') }))
 vi.mock('../../../src/components/Panes/PaneContent', () => ({ PaneContent: stub('mock-pane-content') }))
 vi.mock('../../../src/components/Workspace/WorkspaceHttpCallsPanel', () => ({ WorkspaceHttpCallsPanel: stub('mock-ws-http-calls-panel') }))
 vi.mock('../../../src/components/Workspace/WorkspaceAndroidPanel', () => ({ WorkspaceAndroidPanel: stub('mock-ws-android-panel') }))
@@ -353,7 +352,7 @@ describe('OXE-57 · lazyFrom shared chunks audit (OxeCode & OxeChat)', () => {
     }
   })
 
-  test('warms UsagePopover and ProviderSessionFinder only on pointer or focus intent, never on mount', async () => {
+  test('warms UsagePopover only on pointer or focus intent, never on mount', async () => {
     const { USAGE_POPOVER_CHUNK, UsageStatus } = await import('../../../src/components/Workspace/UsageStatus')
     const usageSpy = vi.spyOn(USAGE_POPOVER_CHUNK, 'load')
     useAgentCreditsStore.setState({ byProvider: { claude: makeUsageSnapshot() }, loading: {} })
@@ -367,30 +366,6 @@ describe('OXE-57 · lazyFrom shared chunks audit (OxeCode & OxeChat)', () => {
     fireEvent.focus(trigger)
     expect(usageSpy).toHaveBeenCalledTimes(2)
     cleanup()
-
-    const { PROVIDER_SESSION_FINDER_CHUNK, PaneContainer } = await import('../../../src/components/Grid/PaneContainer')
-    const finderSpy = vi.spyOn(PROVIDER_SESSION_FINDER_CHUNK, 'load')
-    const workspace = makeWorkspace()
-    render(
-      <PaneContainer
-        pane={workspace.panes[0]}
-        workspace={workspace}
-        agentProfile={null}
-        autoStart={false}
-        isMaximized={false}
-        onToggleMaximize={() => undefined}
-      />
-    )
-    expect(finderSpy).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByRole('button', { name: /More|Mais/i }))
-    fireEvent.click(screen.getByRole('menuitem', { name: /Details|Detalhes/i }))
-    const findBtn = await screen.findByRole('button', { name: /Find|Procurar|Buscar|sess/i })
-    expect(finderSpy).not.toHaveBeenCalled()
-    fireEvent.mouseEnter(findBtn)
-    expect(finderSpy).toHaveBeenCalledTimes(1)
-    fireEvent.focus(findBtn)
-    expect(finderSpy).toHaveBeenCalledTimes(2)
   })
 })
 

@@ -4,7 +4,7 @@
  */
 import { History, RotateCcw, TriangleAlert } from 'lucide-react'
 import { useState, type ReactElement } from 'react'
-import type { PaneAgentResume, PaneAgentSession } from '../../../shared/types/ipc/terminal'
+import type { PaneAgentResume, PaneAgentSession, PaneSessionAgent } from '../../../shared/types/ipc/terminal'
 import { i18n } from '../../i18n'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { useAgentResumeStore, type ResumeAgent } from '../../store/agent-resume.store'
@@ -14,7 +14,7 @@ import paneMenu from '../Grid/PaneMenu.module.css'
 import { answerHooksAndSay, AGENT_HOOK_NAME } from './agentHooksAnswer'
 
 const tc = i18n.getFixedT(null, 'code')
-const AGENT = { claude: 'Claude', codex: 'Codex' } as const
+const AGENT: Record<PaneSessionAgent, string> = { claude: 'Claude', codex: 'Codex', antigravity: 'Antigravity' }
 /** The person chose "Start fresh": not resumed on purpose, so neither a warning nor a notice. */
 const STARTED_FRESH = 'agents.resume.startedFresh'
 export const startedFresh = (outcome: PaneAgentResume | undefined): boolean => outcome?.outcome === 'notResumed' && outcome.message.code === STARTED_FRESH
@@ -69,7 +69,7 @@ export function PaneHooksNotice({ paneId }: { paneId: string }): ReactElement | 
 }
 
 /** "Start fresh" in a resumed pane's menu; the question opens outside the menu (StartFreshConfirm). */
-export function StartFreshMenuItem({ paneId, agent, onDone }: { paneId: string; agent: ResumeAgent; onDone: (action: () => void) => void }): ReactElement {
+export function StartFreshMenuItem({ paneId, agent, onDone }: { paneId: string; agent: PaneSessionAgent; onDone: (action: () => void) => void }): ReactElement {
   return <Button variant="ghost" role="menuitem" className={paneMenu.item} data-testid="pane-start-fresh"
     onClick={event => { event.stopPropagation(); onDone(() => useAgentResumeStore.getState().askFresh({ paneId, agent })) }}>
     <RotateCcw size={14} aria-hidden="true" />{tc('agentResume.startFresh')}
@@ -80,7 +80,7 @@ export function StartFreshMenuItem({ paneId, agent, onDone }: { paneId: string; 
  * "Start this pane fresh?": restarts the agent without its earlier session, and main forgets that session for the
  * pane. It ends what the agent is doing, so it asks first, with Cancel focused.
  */
-export function StartFreshConfirm({ paneId, agent }: { paneId: string; agent: ResumeAgent }): ReactElement {
+export function StartFreshConfirm({ paneId, agent }: { paneId: string; agent: PaneSessionAgent }): ReactElement {
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
   const name = AGENT[agent]

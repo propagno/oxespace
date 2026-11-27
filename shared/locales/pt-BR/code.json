@@ -2128,6 +2128,7 @@
       "sources": {
         "launch": "Definida quando o OXESpace iniciou o agente",
         "hook": "Informada pelo hook de status do agente",
+        "discovered": "Detectada automaticamente nas sessões locais",
         "recorded": "Lembrada de uma execução anterior"
       },
       "state": "Último início",
@@ -2220,7 +2221,13 @@
     "close": "Fechar o painel",
     "detailsTitle": "Detalhes do terminal",
     "detailsDescription": "Estado do terminal e sessões de agentes nesta pasta.",
-    "identityNote": "O terminal não informa qual conversa do Codex ou do Claude está aberta. Ache a sessão nativa pelo começo da conversa e pela hora para obter o ID usado para retomar.",
+    "providerSessionId": "ID da sessão do provedor",
+    "detectingSession": "Detectando…",
+    "sessionNotReported": "Ainda não informado",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copySessionIdAria": "Copiar o ID da sessão do provedor",
+    "sessionIdCopiedToast": "ID da sessão do provedor copiado",
     "status": "Status",
     "state": {
       "idle": "Não iniciado",
@@ -2236,7 +2243,6 @@
     "shell": "Shell",
     "workspaceDefault": "Padrão do workspace",
     "error": "Erro",
-    "findSessions": "Procurar sessões do Codex ou do Claude",
     "internal": "IDs internos e processo do terminal",
     "ptyId": "ID da sessão PTY (terminal)",
     "noSession": "Nenhuma sessão em execução",

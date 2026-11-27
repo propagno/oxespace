@@ -10,7 +10,10 @@ import { terminatePty } from '../utils/process-tree'
 import { PtyInputQueue } from './pty-input-queue'
 import { PtyOutputBatcher } from './pty-output-batcher'
 import { PtyRingBuffer } from './pty-ring-buffer'
-import { resumeCommand } from './agent-state/pane-sessions'
+import { isResumableAgent, resumeCommand, type PaneSessionSource, type ResumableAgent } from './agent-state/pane-sessions'
+import { agentFromCommand } from './agent-state/agents'
+import { discoverPaneProviderSession, TerminalTypedCommandTracker } from './agent-state/pane-session-resolver'
+import type { NativeSessionRoots } from './agent-state/native-session-files'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
 import { setTerminalAgentsFullAccess, terminalAgentsFullAccess } from './agent-state/agent-full-access'
@@ -95,6 +98,15 @@ export class TerminalManager {
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
   private readonly clearSession?: TerminalManagerOptions['clearSession']
   private readonly currentSession?: TerminalManagerOptions['currentSession']
+  private readonly assignSession?: TerminalManagerOptions['assignSession']
+  private readonly recordSession?: TerminalManagerOptions['recordSession']
+  private readonly claimedSessions?: TerminalManagerOptions['claimedSessions']
+  private readonly paneAgent?: TerminalManagerOptions['paneAgent']
+  private readonly nativeSessionRoots?: NativeSessionRoots
+  /** OXE-467 · Per-pane fallback store when callers construct TerminalManager without PaneAgentSessions hooks. */
+  private readonly localSessions = new Map<string, { agent: ResumableAgent; sessionId: string; source: 'launch' | 'discovered' }>()
+  /** OXE-467 · Passive typed-command tracker so agents launched inside plain shells are detected automatically. */
+  private readonly typedCommands = new Map<string, TerminalTypedCommandTracker>()
   /** B17 · What each pane's first start in this run did with its agent's session, for terminal.status. */
   private readonly agentResumes = new Map<string, PaneAgentResume>()
   private readonly emitSizeLease: (event: TerminalSizeLeaseEvent) => void
@@ -131,6 +143,11 @@ export class TerminalManager {
     this.resumeSession = options.resumeSession
     this.clearSession = options.clearSession
     this.currentSession = options.currentSession
+    this.assignSession = options.assignSession
+    this.recordSession = options.recordSession
+    this.claimedSessions = options.claimedSessions
+    this.paneAgent = options.paneAgent
+    this.nativeSessionRoots = options.nativeSessionRoots
     this.platform = options.platform ?? process.platform
     this.levers = terminalLevers((options.env ?? process.env)[TERMINAL_LEVERS_ENV])
     this.starter = new SessionStarter({
@@ -153,8 +170,11 @@ export class TerminalManager {
       remoteSshPane: options.remoteSshPane,
       resumeSession: options.resumeSession,
       assignSession: options.assignSession,
+      recordSession: options.recordSession,
       clearSession: options.clearSession,
       currentSession: options.currentSession,
+      claimedSessions: options.claimedSessions,
+      paneAgent: options.paneAgent,
       nativeSessionRoots: options.nativeSessionRoots,
       rootExists: options.rootExists
     })
@@ -188,9 +208,12 @@ export class TerminalManager {
   }
 
   /** The spawned process becomes the pane's session: its state, its output and its exit. */
-  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command, remote }: StartedProcess): void {
+  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, explicitSession, revokeProxy, command, remote }: StartedProcess): void {
     // A pane that is starting fresh must not inherit a dead session's output.
     this.exits.forget(input.paneId)
+    this.typedCommands.set(input.paneId, new TerminalTypedCommandTracker())
+    if (explicitSession) this.localSessions.set(input.paneId, { ...explicitSession, source: 'launch' })
+    else this.localSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
     this.exits.recordStart(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
@@ -263,6 +286,7 @@ export class TerminalManager {
       // A resume that ends at once could not load its session; forget it so it cannot loop resume → exit → resume.
       if (session && this.exits.recordFailedResume(session)) this.clearSession?.(input.paneId)
       this.sessions.delete(input.paneId)
+      this.typedCommands.delete(input.paneId)
       // A held pane's next start is at the desktop's size.
       keepDesktopSize(this.sizes, input.paneId, session)
       this.sizes.forget(input.paneId)
@@ -277,6 +301,14 @@ export class TerminalManager {
   async write(input: TerminalWriteInput): Promise<void> {
     const session = this.sessions.get(input.paneId)
     if (!session || !input.data) return
+
+    const tracker = this.typedCommands.get(input.paneId)
+    if (tracker) {
+      for (const detected of tracker.push(input.data)) {
+        session.detectedAgent = detected.agent
+        if (detected.sessionId) this.rememberPaneSession(input.paneId, detected.agent, detected.sessionId, 'launch')
+      }
+    }
 
     await session.inputQueue.enqueue(input.data)
   }
@@ -422,25 +454,106 @@ export class TerminalManager {
     const session = this.sessions.get(paneId)
     const resumed = this.agentResumes.get(paneId)
     const agentResume = resumed ? { agentResume: resumed } : {}
-    const agentSession = this.agentSessionOf(paneId, session?.executable, resumed)
+    const agentSession = this.agentSessionOf(paneId, session, resumed)
     if (!session) return { running: false, seq: 0, altScreen: false, ...agentResume, ...agentSession }
     const command = this.shellCwds.get(paneId)?.command.current()
     return { running: true, seq: session.ring.seq, altScreen: session.modes.altScreen, sessionId: session.sessionId, launchDirectory: session.launchDirectory, executable: session.executable, pid: session.pty.pid, startedAt: session.startedAt, ...(command ? { command } : {}), ...agentResume, ...agentSession }
   }
 
   /**
-   * Terminal details' "Agent session" (S2): the native session the pane is in, how OXESpace learned it, and the command
-   * that reopens it; `notFound` with a reason when the pane runs Claude Code or Codex and none was reported yet.
+   * Terminal details' "Agent session" (S2 / OXE-467): the native session the pane is in, how OXESpace learned it, and
+   * the command that reopens it. When a live pane runs Antigravity, Claude or Codex without a hook/launch record yet,
+   * automatically correlates the active local session on disk for this pane's working directory.
    */
-  private agentSessionOf(paneId: string, executable: string | undefined, resumed: PaneAgentResume | undefined): { agentSession?: PaneAgentSession } {
-    const current = this.currentSession?.(paneId) ?? null
-    if (current) {
+  private agentSessionOf(paneId: string, session: TerminalSession | undefined, resumed: PaneAgentResume | undefined): { agentSession?: PaneAgentSession } {
+    const detectedAgent = session ? this.detectActiveAgent(paneId, session) : null
+    const current = this.currentSession
+      ? (this.currentSession(paneId) ?? (this.recordSession ? null : this.localSessions.get(paneId) ?? null))
+      : (this.localSessions.get(paneId) ?? null)
+    if (current && (!session || !detectedAgent || current.agent === detectedAgent)) {
       // The session this run resumed was started by main, like one it named with --session-id.
       const source = resumed?.outcome === 'resumed' && resumed.sessionId === current.sessionId ? 'launch' : current.source
       return { agentSession: { agent: current.agent, sessionId: current.sessionId, source, resumeCommand: resumeCommand(current.agent, current.sessionId) } }
     }
-    const provider = executable ? basename(executable).replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase() : ''
-    return provider === 'claude' || provider === 'codex' ? { agentSession: { source: 'notFound', message: mainMessage('agents.session.notFound', {}) } } : {}
+    if (session && detectedAgent) {
+      const cwd = this.shellCwd(paneId) ?? session.launchDirectory
+      const discovered = discoverPaneProviderSession({
+        paneId,
+        agent: detectedAgent,
+        cwd,
+        startedAt: session.startedAt,
+        lastActivityAt: session.lastActivityAt,
+        claimedByOtherPanes: this.collectClaimedSessionIds(paneId),
+        roots: this.nativeSessionRoots
+      })
+      if (discovered) {
+        this.rememberPaneSession(paneId, discovered.agent, discovered.sessionId, 'discovered')
+        return {
+          agentSession: {
+            agent: discovered.agent,
+            sessionId: discovered.sessionId,
+            source: 'discovered',
+            resumeCommand: resumeCommand(discovered.agent, discovered.sessionId)
+          }
+        }
+      }
+      return { agentSession: { source: 'notFound', message: mainMessage('agents.session.notFound', {}) } }
+    }
+    return {}
+  }
+
+  private rememberPaneSession(paneId: string, agent: ResumableAgent, sessionId: string, source: Exclude<PaneSessionSource, 'recorded'>): void {
+    if (this.recordSession) {
+      this.recordSession(paneId, agent, sessionId, source)
+      return
+    }
+    if (source === 'launch' && this.assignSession) {
+      this.assignSession(paneId, agent, sessionId)
+      return
+    }
+    if (source === 'launch' || source === 'discovered') this.localSessions.set(paneId, { agent, sessionId, source })
+  }
+
+  private collectClaimedSessionIds(excludePaneId: string): Set<string> {
+    const claimed = new Set<string>()
+    const stored = this.claimedSessions?.(excludePaneId)
+    if (stored) for (const id of stored) claimed.add(id.toLowerCase())
+    for (const [paneId, entry] of this.localSessions) {
+      if (paneId !== excludePaneId) claimed.add(entry.sessionId.toLowerCase())
+    }
+    return claimed
+  }
+
+  private detectActiveAgent(paneId: string, session: TerminalSession): ResumableAgent | null {
+    const candidates: Array<string | null | undefined> = [
+      session.detectedAgent,
+      agentFromCommand(session.agentCommand),
+      agentFromCommand(session.executable),
+      this.paneAgent?.(paneId),
+      agentFromCommand(this.foregroundProcess(paneId)),
+      this.dbPaneAgent(paneId)
+    ]
+    for (const candidate of candidates) {
+      if (isResumableAgent(candidate)) return candidate
+    }
+    return null
+  }
+
+  private dbPaneAgent(paneId: string): ResumableAgent | null {
+    try {
+      const row = this.db.prepare(`
+        SELECT ap.provider AS provider, ap.parent_provider AS parent_provider, ap.command AS command
+        FROM panes p
+        JOIN agent_profiles ap ON ap.agent_profile_id = p.agent_profile_id
+        WHERE p.id = ?
+        LIMIT 1
+      `).get(paneId) as { provider?: string | null; parent_provider?: string | null; command?: string | null } | undefined
+      if (!row) return null
+      for (const candidate of [row.provider, row.parent_provider, agentFromCommand(row.command)]) {
+        if (isResumableAgent(candidate)) return candidate
+      }
+    } catch { /* panes/agent_profiles lookup is best effort */ }
+    return null
   }
 
   /**
@@ -491,6 +604,7 @@ export class TerminalManager {
     // The whole tree, not just the shell: an MCP server or `npm run dev` it started must not outlive the pane (BE-M-08).
     const ended = terminatePty(session.pty, this.quitting ? { graceMs: QUIT_TREE_GRACE_MS } : {})
     this.sessions.delete(input.paneId)
+    this.typedCommands.delete(input.paneId)
     this.sizes.forget(input.paneId)
     session.revokeProxy?.()
     this.notifyLaunchExit(input.paneId)
@@ -517,6 +631,7 @@ export class TerminalManager {
     let fresh: PaneAgentResume | undefined
     if (input.resume === false) {
       fresh = startedFreshStatus(this.resumeSession?.(input.paneId, false, true) ?? null)
+      this.localSessions.delete(input.paneId)
       this.clearSession?.(input.paneId)
     }
     this.stop(input)

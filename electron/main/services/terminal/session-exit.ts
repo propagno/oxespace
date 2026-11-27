@@ -1,4 +1,5 @@
 import { RESUME_LOAD_MS } from '../agent-state/pane-resume'
+import type { ResumableAgent } from '../agent-state/pane-sessions'
 import type { ExitedSession, TerminalSession } from './session-output'
 
 const EXITED_SESSION_LIMIT = 32
@@ -10,7 +11,7 @@ type LastStart = Pick<TerminalSession, 'workspaceId' | 'agentCommand' | 'cols' |
 export class SessionExits {
   private readonly exitedSessions = new Map<string, ExitedSession>()
   /** B17 · Panes whose resumed process exited within RESUME_LOAD_MS: their next start is fresh (failedToLoad). */
-  private readonly failedResumes = new Map<string, { agent: 'claude' | 'codex'; sessionId: string }>()
+  private readonly failedResumes = new Map<string, { agent: ResumableAgent; sessionId: string }>()
   /** How each pane last started, so a restart can bring back a pane whose process exited by itself. */
   private readonly lastStarts = new Map<string, LastStart>()
 
@@ -64,7 +65,7 @@ export class SessionExits {
     return true
   }
 
-  takeFailedResume(paneId: string): { agent: 'claude' | 'codex'; sessionId: string } | undefined {
+  takeFailedResume(paneId: string): { agent: ResumableAgent; sessionId: string } | undefined {
     const failed = this.failedResumes.get(paneId)
     this.failedResumes.delete(paneId)
     return failed

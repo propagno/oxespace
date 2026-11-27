@@ -1,14 +1,16 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, relative, isAbsolute } from 'node:path'
+import { antigravitySessionExists } from '../usage/antigravity-sessions'
 import { defaultClaudeProjectsRoot, encodeClaudeProjectPath } from '../usage/claude-project-path'
 
-/** Claude Code and Codex name a session with a UUID (Codex uses v7). Nothing else is ever resumed. */
+/** Claude Code, Codex and Antigravity name a session with a UUID. Nothing else is ever resumed. */
 export const NATIVE_SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export interface NativeSessionRoots {
   claudeProjects?: string
   codexSessions?: string
+  antigravityHome?: string
 }
 
 /** Seams for tests: the platform decides case folding, `realpath` the canonical form (native: 8.3 names expanded, case fixed, links resolved). */
@@ -34,9 +36,10 @@ async function list(dir: string): Promise<string[]> {
  * `<claude>/projects/<encoded cwd>/<id>.jsonl` (a resume only looks under the folder it starts in), Codex at
  * `<codex>/sessions/YYYY/MM/DD/rollout-…-<id>.jsonl`. Existence only: nothing is read from these files.
  */
-export async function nativeSessionExists(agent: 'claude' | 'codex', sessionId: string, cwd: string, roots: NativeSessionRoots = {}, fs: NativeSessionFs = {}): Promise<boolean> {
+export async function nativeSessionExists(agent: 'claude' | 'codex' | 'antigravity', sessionId: string, cwd: string, roots: NativeSessionRoots = {}, fs: NativeSessionFs = {}): Promise<boolean> {
   if (!NATIVE_SESSION_ID.test(sessionId)) return false
   if (agent === 'claude') return claudeSessionExists(sessionId, cwd, roots.claudeProjects ?? defaultClaudeProjectsRoot(), fs)
+  if (agent === 'antigravity') return antigravitySessionExists(sessionId, cwd, roots.antigravityHome)
   const root = roots.codexSessions ?? join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions')
   const suffix = `${sessionId.toLowerCase()}.jsonl`
   const dated = (names: string[]): string[] => names.filter(name => /^\d+$/.test(name)).sort().reverse()

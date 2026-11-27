@@ -33,10 +33,13 @@ export function bypassWithheld(mode: ClaudePermissionMode | undefined, command: 
 /** Arguments that already pick a session, or run something other than an interactive session, per provider. */
 const OWN_SESSION: Record<ResumableAgent, RegExp> = {
   claude: /^(-r|--resume|-c|--continue|--session-id|--fork-session|-p|--print)(=|$)/,
-  codex: /^(resume|fork|exec|e)$/
+  codex: /^(resume|fork|exec|e)$/,
+  antigravity: /^(-r|--resume|--conversation|-c|--continue|-p|--print|--prompt)(=|$)/
 }
 /** Claude Code subcommands: none of them is a conversation. */
 const CLAUDE_SUBCOMMANDS = new Set(['mcp', 'config', 'doctor', 'update', 'install', 'migrate-installer', 'setup-token', 'plugin', 'plugins', 'agents'])
+/** Antigravity CLI subcommands: none of them is an interactive conversation. */
+const ANTIGRAVITY_SUBCOMMANDS = new Set(['acp', 'agent', 'agents', 'changelog', 'help', 'install', 'mcp', 'mic-serve', 'models', 'plugin', 'plugins', 'remote-control', 'update'])
 
 export interface PaneResumeStart {
   agentCommand?: string
@@ -92,13 +95,16 @@ export async function planPaneResume(record: PaneResumeRecord | null, start: Pan
   if (start.agentArgs?.length || (!parts.length && start.initialPrompt)) return fail('launchOverride')
   if (parts.length && agentFromCommand(parts[0]) !== agent) return fail('otherAgent')
   if (parts.slice(1).some(part => OWN_SESSION[agent].test(part))) return fail('launchOverride')
+  if (agent === 'antigravity' && parts[1] && ANTIGRAVITY_SUBCOMMANDS.has(parts[1])) return fail('launchOverride')
+  if (agent === 'claude' && parts[1] && CLAUDE_SUBCOMMANDS.has(parts[1])) return fail('launchOverride')
   if (!deps.allowed(agent)) return fail('blocked')
   if (!(await deps.exists(agent, sessionId, cwd))) return fail('sessionMissing')
   const allowBypass = deps.allowBypass === true
   const modeArgs = agent === 'claude' ? permissionModeArgs(record.permissionMode, parts.slice(1), allowBypass) : []
   const withheld = agent === 'claude' && bypassWithheld(record.permissionMode, parts.slice(1), allowBypass)
+  const defaultCommand = agent === 'antigravity' ? 'agy' : agent
   return {
-    agentCommand: start.agentCommand ?? agent, extraArgs: [...modeArgs, ...resumeArgs(agent, sessionId)],
+    agentCommand: start.agentCommand ?? defaultCommand, extraArgs: [...modeArgs, ...resumeArgs(agent, sessionId)],
     status: { outcome: 'resumed', agent, sessionId, ...(withheld ? { note: mainMessage('agents.resume.bypassWithheld', {}) } : {}) }
   }
 }

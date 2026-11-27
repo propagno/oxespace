@@ -7,10 +7,11 @@ import type { PaneAgentResume, TerminalStartInput } from '../../../../shared/typ
 import { defaultSplitShellProfileId, POSIX_SHELL_PROFILE_ID, WINDOWS_SHELL_PROFILE_ID } from '../shell-profile.defaults'
 import { recordRuntime } from '../runtime-diagnostics'
 import type { PtyInputQueue } from '../pty-input-queue'
-import type { ClaudePermissionMode, PaneResumeRecord, PaneSessionSource } from '../agent-state/pane-sessions'
+import type { ClaudePermissionMode, PaneResumeRecord, PaneSessionSource, ResumableAgent } from '../agent-state/pane-sessions'
 import { resumeBypassAllowed } from '../agent-state/resume-bypass-setting'
 import { agentProgram, terminalAgentsFullAccess, withFullAccess } from '../agent-state/agent-full-access'
 import { bypassWithheld, claudeSessionToAssign, failedToLoadStatus, permissionModeArgs, planPaneResume } from '../agent-state/pane-resume'
+import { extractSessionFromCommandLine } from '../agent-state/pane-session-resolver'
 import { nativeSessionExists, type NativeSessionRoots } from '../agent-state/native-session-files'
 import { assertProviderAllowed, inheritedEnvironment } from '../policy'
 import { recordIncident } from '../diagnostics/incident-sink'
@@ -37,9 +38,15 @@ export interface SessionStartOptions {
   /** Forgets the pane's recorded session (a restart with `resume: false`). */
   clearSession?: (paneId: string) => void
   /** The pane's current agent session and where it came from (Terminal details, S2). */
-  currentSession?: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null
-  /** Records the session id main gave a Claude Code it started (`--session-id`), as the hooks would. */
-  assignSession?: (paneId: string, agent: 'claude', sessionId: string) => void
+  currentSession?: (paneId: string) => { agent: ResumableAgent; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null
+  /** Records the session id main gave a provider it started (`--session-id` or explicit `--resume`/`--conversation`), as the hooks would. */
+  assignSession?: (paneId: string, agent: ResumableAgent, sessionId: string) => void
+  /** OXE-467 · Records a session learned from any live source (`launch`, `hook`, or `discovered`). */
+  recordSession?: (paneId: string, agent: ResumableAgent, sessionId: string, source: Exclude<PaneSessionSource, 'recorded'>) => void
+  /** OXE-467 · Session IDs currently owned by other panes, so auto-discovery keeps each pane isolated. */
+  claimedSessions?: (excludePaneId?: string) => ReadonlySet<string>
+  /** OXE-467 · Active agent detected by AgentStateService for a live pane. */
+  paneAgent?: (paneId: string) => string | null
   /** OXE-367: whether a pane's working folder is there; a pane whose folder is gone is refused before any spawn. */
   rootExists?: (path: string) => boolean
   /** Where the providers keep their sessions; the user's own folders by default. For tests. */
@@ -61,7 +68,9 @@ export interface StartedProcess {
   executable: string
   cols: number
   rows: number
-  resumed?: { agent: 'claude' | 'codex'; sessionId: string }
+  resumed?: { agent: ResumableAgent; sessionId: string }
+  /** OXE-467 · Explicit session ID parsed from launch args (`--resume`, `--conversation`, `codex resume`, `--session-id`). */
+  explicitSession?: { agent: ResumableAgent; sessionId: string }
   revokeProxy?: () => void
   /** What the observer is told runs in the pane. */
   command: string
@@ -77,7 +86,7 @@ export interface SessionStartHost extends SessionStartOptions {
   exists: (path: string) => boolean
   sessions: ReadonlyMap<string, { inputQueue: PtyInputQueue }>
   agentResumes: Map<string, PaneAgentResume>
-  takeFailedResume: (paneId: string) => { agent: 'claude' | 'codex'; sessionId: string } | undefined
+  takeFailedResume: (paneId: string) => { agent: ResumableAgent; sessionId: string } | undefined
   notifyLaunchExit: (paneId: string) => void
   /** Called in the same tick as the spawn, before anything else listens to the process. */
   started: (process: StartedProcess) => void
@@ -236,6 +245,14 @@ export class SessionStarter {
     // A fresh Claude conversation gets a session id main knows, so the pane can resume it without the hooks.
     const assigned = this.host.assignSession && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length ? claudeSessionToAssign(agentParts?.[0] ?? launch.shell_executable, args) : null
     if (assigned) { args = ['--session-id', assigned, ...args]; this.host.assignSession?.(input.paneId, 'claude', assigned) }
+    // OXE-467 · Capture explicit native session IDs passed via CLI flags (`--resume`, `--conversation`, `--session-id`, `codex resume <id>`).
+    const explicitSession = !assigned && !threadShell && !oxeShell && !input.launch && !plan.extraArgs.length
+      ? extractSessionFromCommandLine(agentParts?.[0] ?? launch.shell_executable, args) ?? undefined
+      : undefined
+    if (explicitSession) {
+      if (this.host.recordSession) this.host.recordSession(input.paneId, explicitSession.agent, explicitSession.sessionId, 'launch')
+      else this.host.assignSession?.(input.paneId, explicitSession.agent, explicitSession.sessionId)
+    }
     let mcpEnv: Record<string, string> = {}
     if (!input.launch && this.host.agentMcpArgs) ({ args, env: mcpEnv = {} } = await this.host.agentMcpArgs(executable, args, input.workspaceId))
 
@@ -322,6 +339,7 @@ export class SessionStarter {
       cols,
       rows,
       resumed,
+      explicitSession,
       revokeProxy: proxyGrant?.revoke,
       command: input.launch ? [input.launch.executable, ...input.launch.args].join(' ') : agentCommand ?? executable
     })
