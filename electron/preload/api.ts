@@ -651,6 +651,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       clear: () => ipc.invoke(IPC_CHANNELS.hostsProxy.clear) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
       retry: () => ipc.invoke(IPC_CHANNELS.hostsProxy.retry) as Promise<import('../../shared/types/ipc').HostsProxyStatus>,
       onChanged: listener => subscribe<import('../../shared/types/ipc').HostsProxyStatus>(ipc, IPC_CHANNELS.hostsProxy.changed, listener)
+    },
+    repository: {
+      getWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.getWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>,
+      saveWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.saveWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>,
+      previewWorktreeTemplate: input => ipc.invoke(IPC_CHANNELS.repository.previewWorktreeTemplate, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateDryRun>,
+      trustWorktreeSensitiveCopy: input => ipc.invoke(IPC_CHANNELS.repository.trustWorktreeSensitiveCopy, input) as Promise<import('../../shared/types/repo-config').WorktreeTemplateConfig>
     }
   }
 }

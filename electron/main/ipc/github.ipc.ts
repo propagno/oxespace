@@ -26,7 +26,9 @@ import {
   parseRepoConfigInput,
   parseWorktreeCleanupScanInput,
   parseWorktreeCleanupRemoveInput,
-  parseApproveRepoHookInput
+  parseApproveRepoHookInput,
+  parseSaveWorktreeTemplateInput,
+  parseTrustWorktreeSensitiveCopyInput
 } from './validation'
 
 // The renderer's Git and Worktree panels are the person: their network calls name it (utils/safe-git-person.ts).
@@ -116,6 +118,20 @@ export function registerGitHubIpc(db: AppDatabase, service = new GitHubService(d
   ipcMain.handle(IPC_CHANNELS.github.approveRepoHook, (_event, input: unknown) => {
     const { rootPath, kind, contentHash } = parseApproveRepoHookInput(input)
     return service.approveRepoHook(rootPath, kind, contentHash)
+  })
+  ipcMain.handle(IPC_CHANNELS.repository.getWorktreeTemplate, (_event, input: unknown) =>
+    service.getWorktreeTemplate(parseRepoConfigInput(input).rootPath)
+  )
+  ipcMain.handle(IPC_CHANNELS.repository.saveWorktreeTemplate, (_event, input: unknown) => {
+    const { rootPath, ...rest } = parseSaveWorktreeTemplateInput(input)
+    return service.saveWorktreeTemplate(rootPath, rest)
+  })
+  ipcMain.handle(IPC_CHANNELS.repository.previewWorktreeTemplate, (_event, input: unknown) =>
+    service.previewWorktreeTemplate(parseRepoConfigInput(input).rootPath)
+  )
+  ipcMain.handle(IPC_CHANNELS.repository.trustWorktreeSensitiveCopy, (_event, input: unknown) => {
+    const { rootPath, contentHash, trusted } = parseTrustWorktreeSensitiveCopyInput(input)
+    return service.trustWorktreeSensitiveCopy(rootPath, contentHash, trusted)
   })
   ipcMain.handle(IPC_CHANNELS.github.listPullRequests, (_event, input: unknown) =>
     service.listPullRequests(parseGitHubPullRequestListInput(input))

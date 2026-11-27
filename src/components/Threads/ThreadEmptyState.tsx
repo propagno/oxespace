@@ -52,7 +52,7 @@ export function ThreadEmptyState({ thread, branch, onStarter }: { thread: Conver
       <li data-ui="context-picker" className={styles.picker}><Shield size={13} aria-hidden="true" />{t(`opening.access.${thread.access ?? 'read-only'}`)}</li>
       {thread.model && <li data-ui="context-picker" className={styles.picker}><Sparkles size={13} aria-hidden="true" />{thread.model}</li>}
     </ul>
-    <WorktreeCreationNotices notices={notices} onDismiss={dismiss} />
+    <WorktreeCreationNotices notices={notices} report={dismissed ? null : thread.ownedWorktree?.report ?? null} onDismiss={dismiss} />
     <div className="thread-opening-starters" role="group" aria-label={t('opening.starters')}>
       {threadStarters().map(starter => <Button key={starter.id} data-ui="starter" className="thread-opening-starter" title={starter.prompt} onClick={() => onStarter(starter.prompt)}>
         <strong>{starter.label}</strong><span>{starter.prompt}</span>

@@ -1,0 +1,115 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-base);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.headerMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1-5);
+}
+
+.sensitiveBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border: 1px solid var(--intent-warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--intent-warning-bg);
+  color: var(--intent-warning-fg);
+  font-size: var(--fs-2xs);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+
+.previewList {
+  margin: var(--space-0-5) 0 0;
+  padding-left: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-primary);
+}
+
+.previewMuted {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+
+.reportSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1-5);
+  padding-top: var(--space-1-5);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-2xs);
+}
+
+.reportMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+
+.hookOutput {
+  margin: var(--space-1-5) 0 0;
+  padding: var(--space-2);
+  border: 1px solid var(--intent-danger-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 12rem;
+  overflow-y: auto;
+}

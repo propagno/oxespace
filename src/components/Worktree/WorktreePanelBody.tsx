@@ -1,11 +1,12 @@
 import { AlertTriangle, Check, ChevronDown, ChevronRight, FolderOpen, FolderTree, GitBranch, Lock, Plus, RotateCw, Trash2, X } from 'lucide-react'
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react'
 import { parseWorktreeRemovalError, type GitHubWorktreeBase, type GitHubWorktreeStatus } from '../../../shared/types/github'
-import type { RepoConfigSnapshot, RepoHookKind } from '../../../shared/types/repo-config'
+import type { RepoConfigSnapshot, RepoHookKind, WorktreeProvisionReport } from '../../../shared/types/repo-config'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 import { selectWorktrees, useWorktreeStore } from '../../store/worktree.store'
 import { WorktreeCleanupPanel } from './WorktreeCleanupPanel'
 import { WorktreeCreationNotices } from './WorktreeCreationNotices'
+import { WorktreeTemplateSection } from './WorktreeTemplateSection'
 import type { MainMessage } from '../../../shared/messages'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useTranslation } from 'react-i18next'
@@ -79,8 +80,9 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
   const [localError, setLocalError] = useState<string | null>(null)
   /** What the last creation reported (worktree.created, git.hooks.skipped, worktree.copyFiles.*, worktree.setup.*). */
   const [createdNotices, setCreatedNotices] = useState<MainMessage[]>([])
+  const [createdReport, setCreatedReport] = useState<WorktreeProvisionReport | null>(null)
   // They belong to the workspace they were made in: another workspace starts with none (FRONTEND review #485).
-  useEffect(() => { setCreatedNotices([]) }, [workspaceId, workspaceRootPath])
+  useEffect(() => { setCreatedNotices([]); setCreatedReport(null) }, [workspaceId, workspaceRootPath])
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null)
   // Start point for the new branch. `resolvedBase` is what the repo says the
   // default is (origin/main and friends); `baseOverride` is the user typing
@@ -173,6 +175,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
     setBusy(true)
     setLocalError(null)
     setCreatedNotices([])
+    setCreatedReport(null)
     try {
       const result = await createWorktree(workspaceId, workspaceRootPath, branch, path, {
         createBranch: createNewBranch,
@@ -180,6 +183,7 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         fetchBase: createNewBranch && baseIsRemote && fetchBase
       })
       setCreatedNotices(result.notices ?? [])
+      setCreatedReport(result.report ?? null)
       setCreating(false)
       resetCreateForm()
     } catch (err) {
@@ -310,9 +314,11 @@ export function WorktreePanelBody({ activePane, workspaceId, workspaceRootPath }
         <ErrorState compact title={localError ?? error} actions={<Button size="sm" variant="ghost" icon={<X size={12} aria-hidden="true" />} onClick={dismissError}>{t('worktree.dismiss')}</Button>} />
       ) : null}
 
-      <WorktreeCreationNotices notices={createdNotices} onDismiss={() => setCreatedNotices([])} />
+      <WorktreeCreationNotices notices={createdNotices} report={createdReport} onDismiss={() => { setCreatedNotices([]); setCreatedReport(null) }} />
 
       <RepoHooksNotice rootPath={workspaceRootPath} />
+
+      <WorktreeTemplateSection rootPath={workspaceRootPath} />
 
       {showCleanup ? <WorktreeCleanupPanel workspaceId={workspaceId} rootPath={workspaceRootPath} /> : null}
 
