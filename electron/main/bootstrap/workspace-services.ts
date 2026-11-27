@@ -177,11 +177,27 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
   })
   app.once('before-quit', disposePaneConversationIpc)
 
-  // Schedules: the person's requests sent at a set time, through the same calls "New conversation" makes.
-  app.once('before-quit', startSchedules(db, {
+  // Schedules & Automations: cron/time + CI/PR/CLI events with mandatory isolated worktrees & unified Review Queue.
+  const schedulesRuntime = startSchedules(db, {
     service: () => threadManager.manager,
-    context: (projectId, rootPath) => threadManager.projects.context(projectId, rootPath)
-  }))
+    context: (projectId, rootPath) => threadManager.projects.context(projectId, rootPath),
+    worktrees: {
+      ...threadWorktrees,
+      pushBranch: async ({ rootPath }) => {
+        await gitHubService.push({ workspaceId: '', rootPath }, { reason: 'automation:push-branch' })
+      },
+      createPullRequest: async ({ rootPath, title, body, head, base }) => {
+        const res = await gitHubService.createPullRequest({ workspaceId: '', rootPath, title, body, head, base })
+        const match = /https?:\/\/\S+/.exec(res.message)
+        return { url: match?.[0] ?? res.message }
+      }
+    },
+    events: {
+      listWorkflowRuns: (rootPath) => gitHubService.listWorkflowRuns({ workspaceId: '', rootPath }),
+      listReviewRequestedPrs: (rootPath) => gitHubService.listPullRequests({ workspaceId: '', rootPath, state: 'open' })
+    }
+  })
+  app.once('before-quit', () => schedulesRuntime.stop())
 
   remotePairing.start = registerRemoteIpc(db, {
     threads: threadManager.manager,

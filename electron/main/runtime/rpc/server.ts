@@ -24,6 +24,7 @@ export interface StartRpcServerOptions {
   userDataPath: string
   instanceId?: string
   executionHost?: ExecutionHost
+  triggerAutomation?: (input: { scheduleId: string; eventKey?: string; detail?: string }) => Promise<unknown>
   onError?: (error: Error) => void
 }
 
@@ -41,7 +42,8 @@ export async function startRpcServer(options: StartRpcServerOptions): Promise<Rp
     db: options.db,
     gitHubService: options.gitHubService,
     executionHost,
-    appVersion: options.appVersion
+    appVersion: options.appVersion,
+    ...(options.triggerAutomation ? { triggerAutomation: options.triggerAutomation } : {})
   })
 
   const endpoint = defaultRpcEndpoint(instanceId, options.userDataPath)

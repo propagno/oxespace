@@ -23,6 +23,8 @@ export interface RpcMethodDeps {
   executionHost: ExecutionHost
   appVersion: string
   listMethods: () => string[]
+  /** Trigger-only seam for local CLI (`oxe automation trigger <id>`). Never creates, edits, or elevates automations. */
+  triggerAutomation?: (input: { scheduleId: string; eventKey?: string; detail?: string }) => Promise<unknown>
 }
 
 /**
@@ -85,7 +87,20 @@ export function buildRpcMethods(deps: RpcMethodDeps): Record<string, RpcMethod> 
       const cwd = optionalParamString(record, 'cwd') ?? resolveWorkspaceRoot(deps.db, workspaceId)
       const result = await deps.executionHost.exec(command, rawArgs as string[], { cwd })
       return result
-    }
+    },
+
+    ...(deps.triggerAutomation
+      ? {
+          /** Local CLI trigger for an existing enabled automation. Strictly trigger-only: never creates, edits, or elevates. */
+          'automation.trigger': async (params: unknown) => {
+            const record = expectParamsRecord(params, 'automation.trigger')
+            const scheduleId = expectParamString(record, 'scheduleId')
+            const eventKey = optionalParamString(record, 'eventKey')
+            const detail = optionalParamString(record, 'detail')
+            return deps.triggerAutomation!({ scheduleId, eventKey, detail })
+          }
+        }
+      : {})
   }
 }
 
