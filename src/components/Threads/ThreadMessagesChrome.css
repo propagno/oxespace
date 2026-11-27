@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
   width: fit-content;
   max-width: min(78%, 640px);
   margin-left: auto;
@@ -15,6 +16,7 @@
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
+  box-shadow: none;
 }
 .thread-view .thread-message-user:has(.thread-prompt-editor) {
   width: 100%;
@@ -59,14 +61,16 @@
 .thread-opening-mark { color: var(--tx-accent); flex: none; }
 .thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) {
   color: var(--tx-primary);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-regular);
+  line-height: 1.55;
 }
 
 .thread-agent-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-1-5);
+  max-width: min(100%, var(--thread-editorial-max, var(--measure-prose)));
+  margin-bottom: var(--space-1-5);
 }
 
 .thread-agent-avatar {
@@ -77,9 +81,9 @@
 }
 
 .thread-agent-name {
-  color: var(--tx-primary);
+  color: var(--tx-secondary);
   font-size: var(--fs-xs);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
 }
 
 .thread-view .thread-final-label {
@@ -90,6 +94,13 @@
   color: var(--tx-accent);
   font-size: var(--fs-2xs);
   font-weight: var(--weight-semibold);
+}
+
+.thread-message-assistant {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .thread-message-assistant > .thread-markdown {
@@ -103,7 +114,8 @@
 .collision-chips-more { font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-outside-file { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface-base); }
 .thread-outside-file-content { flex: 1; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; font-family: var(--font-mono); font-size: var(--fs-xs); }
-.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--tx-accent); font-family: var(--font-mono); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--tx-accent); font-family: var(--font-mono); font-size: inherit; text-decoration: none; cursor: pointer; }
+.thread-path-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 /* The project path link (F33) is a button. In a conversation the generic button rule gave it a button's box: 34 px tall
    in an 18 px line, 10 px of padding on each side of a path in a sentence, and a smaller font than the code beside it.
    It is text in the line. */

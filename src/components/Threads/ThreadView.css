@@ -32,7 +32,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: var(--measure-chat); --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
+.thread-view { --thread-canvas-max: var(--measure-chat); --thread-prose-max: 100%; --thread-editorial-max: max(var(--measure-prose), 48rem); --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
 /* Cockpit display header layout is governed by ThreadHeaderChrome.css. */
 .thread-heading-context { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-2xs); color: var(--tx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context svg { flex-shrink: 0; }
@@ -77,49 +77,49 @@
 .thread-native-link button { padding: 6px 10px; margin-bottom: 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-primary); }
 /* The virtualizer and "Load earlier" correct scrollTop themselves; native anchoring added the same correction again and made scrolling up jump. */
 .thread-timeline { flex: 1 1 0%; overflow-y: auto; overflow-x: hidden; min-height: 0; min-width: 0; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
-/* WCAG 2.4.11: a control focused by keyboard scrolls into view below the sticky prompt pill, never under it. */
-.thread-timeline { scroll-padding-top: 40px; }
+/* WCAG 2.4.11: a control focused by keyboard scrolls into view below the sticky prompt bar, never under it. */
+.thread-timeline { scroll-padding-top: var(--space-12); }
 .thread-timeline:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .thread-timeline[hidden] { display: none; }
 /* One column: its content box is the message box's box (the dock pads by the same gutter), at every width. Beside
    a second pane the canvas is a little narrower. */
 .thread-grid.is-split .thread-reading-column, .thread-grid.is-split .thread-composer-column { --thread-canvas-max: 760px; }
-/* One left axis (AG-10 §2.1, OXE-167, OXE-401): the reading column tracks --thread-canvas-max (defaulting to --measure-chat: 1200 px) so single and split modes stay aligned with the composer; the gutter is the timeline's. */
+/* One left axis (AG-10 §2.1, OXE-167, OXE-401): the reading column tracks --thread-canvas-max (defaulting to --measure-chat: 1080 px) so single and split modes stay aligned with the composer; the gutter is the timeline's. */
 .thread-timeline { padding-inline: var(--thread-gutter); }
-.thread-reading-column { width: 100%; max-width: var(--thread-canvas-max, var(--measure-chat)); padding: var(--space-5) 0; margin: 0 auto; }
+.thread-reading-column { width: 100%; min-width: 0; max-width: var(--thread-canvas-max, var(--measure-chat)); padding: var(--space-5) 0; margin: 0 auto; }
 /* The workbench's reading-column rule is older and more specific: the chat column keeps the unified canvas axis. */
-.thread-workbench .thread-timeline > .thread-reading-column[data-ui="chat-column"] { width: 100%; padding-inline: 0; max-width: var(--thread-canvas-max, var(--measure-chat)); }
-.thread-timeline-request { margin: 12px 0; }
-.thread-virtual-space { width: 100%; min-height: 1px; }
-.thread-virtual-row { display: flow-root; width: 100%; }
-.thread-virtual-turn { margin-bottom: 0; }
+.thread-workbench .thread-timeline > .thread-reading-column[data-ui="chat-column"] { width: 100%; min-width: 0; padding-inline: 0; max-width: var(--thread-canvas-max, var(--measure-chat)); }
+.thread-timeline-request { margin: var(--space-3) 0; }
+.thread-virtual-space { width: 100%; min-width: 0; max-width: 100%; min-height: 1px; }
+.thread-virtual-row { display: flow-root; width: 100%; min-width: 0; max-width: 100%; overflow-x: clip; }
+.thread-virtual-turn { min-width: 0; max-width: 100%; overflow-x: clip; margin-bottom: 0; }
 .thread-virtual-turn.is-turn-start { margin-top: var(--space-6); padding-top: 0; border-top: 0; }
 /* The very first row of the conversation, not the first mounted one: a row whose height changed with its mount position fed the virtualizer a new size on every scroll, and the conversation shook. */
 .thread-virtual-row[data-row-index="0"] .thread-virtual-turn.is-turn-start { margin-top: 0; padding-top: 0; border-top: 0; }
-.thread-virtual-turn.is-turn-end { margin-bottom: 12px; }
+.thread-virtual-turn.is-turn-end { margin-bottom: var(--space-3); }
 .thread-load-earlier { display: flex; align-items: center; gap: 6px; min-height: 30px; margin: 0 auto 14px; padding: 0 10px; border: 1px solid var(--bd-default) !important; border-radius: var(--radius-md) !important; color: var(--tx-secondary) !important; background: var(--surface-raised) !important; font-size: var(--fs-2xs) !important; }
 .thread-load-earlier:hover:not(:disabled) { color: var(--tx-primary) !important; background: var(--fill-hover) !important; }
 .thread-history-feedback { margin: 0 auto 14px; padding: 10px 12px; max-width: 100%; border: 1px solid var(--bd-default); border-radius: var(--radius-md); color: var(--tx-secondary); background: var(--surface-raised); font-size: var(--fs-xs); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-history-feedback[role="alert"] { color: var(--intent-danger-fg); }
-.thread-turn { margin-bottom: 20px; }
+.thread-turn { margin-bottom: var(--space-5); }
 .thread-turn:last-child { margin-bottom: 0; }
-.thread-message { font-size: var(--fs-md); font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; margin: 0 0 20px; }
-.thread-message-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
-.thread-view .thread-message-actions button { display: inline-flex; justify-content: center; width: 28px; height: 28px; padding: 0; color: var(--tx-secondary); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); }
-.thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--fill-hover); border-color: var(--tx-muted); }
-.thread-message-assistant { position: relative; padding-right: 36px; }
+.thread-message { font-size: var(--fs-md); font-weight: var(--weight-regular); line-height: 1.6; overflow-wrap: anywhere; margin: 0 0 var(--space-5); }
+.thread-message-actions { display: flex; justify-content: flex-end; gap: var(--space-1); margin-top: var(--space-2); }
+.thread-view .thread-message-actions button { display: inline-flex; justify-content: center; width: var(--control-md); height: var(--control-md); padding: 0; color: var(--tx-muted); background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); }
+.thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--fill-hover); border-color: var(--bd-subtle); }
+.thread-message-assistant { position: relative; min-width: 0; max-width: 100%; padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
 /* The closing answer of a turn reads as clean prose on the canvas, with compact actions. */
 .thread-message-assistant.is-final-response { padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 /* Quote and Copy of the final answer follow the rule of every answer (above and below): shown when the pointer or the
    keyboard is on it. They used to stay at 72% all the time, as two boxes beside the text. */
 .thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; }
-.thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: 28px; min-width: 28px; padding: 0; }
+.thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: var(--control-md); min-width: var(--control-md); padding: 0; }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
 .thread-message-assistant:hover .thread-message-actions, .thread-message-assistant:focus-within .thread-message-actions { opacity: 1; }
 @media (hover: none) { .thread-message-assistant .thread-message-actions { opacity: 1; } }
 .thread-message-assistant > :is(.thread-agent-label, .thread-markdown, .thread-long-prompt, .thread-message-attachments) { max-width: var(--thread-prose-max); }
-.thread-message-assistant > .thread-markdown { color: var(--tx-secondary); }
+.thread-message-assistant > .thread-markdown { color: var(--tx-primary); }
 .thread-message-outgoing-status { display: block; margin-top: 7px; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-delivery-note.is-rejected { color: var(--intent-danger-solid); }
@@ -142,15 +142,17 @@
 .thread-reasoning-body { margin: 4px 0 0; padding: 0 0 0 var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); color: var(--tx-secondary); font-family: var(--font-ui); }
 .thread-reasoning-body p { margin: 0; }
 .thread-reasoning-pulse { display: inline-block; width: var(--space-1-5); height: var(--space-1-5); border-radius: var(--radius-full); background: var(--accent); flex-shrink: 0; }
-.thread-step-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.thread-step-toggle { min-width: 0; text-align: left; }
+.thread-step-line { display: flex; align-items: center; gap: var(--space-2); min-width: 0; max-width: 100%; overflow: hidden; }
+.thread-step-toggle { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-align: left; }
+.thread-step-toggle > code { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-ui="step"] { min-width: 0; max-width: 100%; }
 [data-ui="explore-group"] [data-ui="step"] { display: flex; align-items: center; box-sizing: border-box; height: var(--bar-sm); min-height: var(--bar-sm); }
 [data-ui="explore-steps"] { display: flex; flex-direction: column; gap: var(--space-1-5); }
 [data-ui="turn-line"] { height: var(--row-1); min-height: var(--row-1); }
 [data-ui="file-pill"] { font-family: var(--font-mono); }
 [data-ui="step"][data-kind="run"] code { font-family: var(--font-mono); }
 [data-ui="step"][data-kind="run"][data-state="done"]:not([data-open="true"]) { height: var(--row-1); min-height: var(--row-1); }
-[data-ui="step-output"] { background-color: var(--term-bg); }
+[data-ui="step-output"] { background-color: var(--term-bg); max-width: 100%; overflow-x: auto; }
 [data-ui="kind-badge"][data-kind="query"] { color: var(--k-db); }
 [data-ui="kind-badge"][data-kind="http"] { color: var(--k-net); }
 [data-ui="kind-badge"][data-kind="container"] { color: var(--k-box); }
@@ -487,12 +489,12 @@
 .thread-grid.is-split .thread-cell.is-active .thread-heading-title-main { color: var(--tx-primary); }
 .thread-grid.is-split .thread-cell:not(.is-active) .thread-heading-title-main { color: var(--tx-secondary); }
 
-/* Reading scale stays independent from the terminal font and is shared by all threads. */
+/* Reading scale stays independent from the terminal font and is shared by all threads (Obsidian Minimal proportions). */
 .thread-view .thread-message, .thread-view .thread-markdown, .thread-view .thread-long-prompt-preview { font-size: var(--thread-reader-font-size); }
-.thread-view .thread-markdown h1 { font-size: calc(var(--thread-reader-font-size) * 1.5); }
-.thread-view .thread-markdown h2 { font-size: calc(var(--thread-reader-font-size) * 1.28); }
-.thread-view .thread-markdown h3 { font-size: calc(var(--thread-reader-font-size) * 1.14); }
-.thread-view .thread-markdown :is(h4,h5,h6) { font-size: var(--thread-reader-font-size); }
+.thread-view .thread-markdown h1 { font-size: calc(var(--thread-reader-font-size) * 1.25); }
+.thread-view .thread-markdown h2 { font-size: calc(var(--thread-reader-font-size) * 1.125); }
+.thread-view .thread-markdown h3 { font-size: calc(var(--thread-reader-font-size) * 1.025); }
+.thread-view .thread-markdown :is(h4, h5, h6) { font-size: calc(var(--thread-reader-font-size) * 0.95); }
 .thread-view .thread-composer textarea { font-size: var(--thread-reader-font-size); }
 .thread-font-popover { z-index: calc(var(--layer-dropdown) + 20); display: grid; gap: 6px; width: 210px; padding: 13px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-3); font-size: var(--fs-xs); }
 .thread-font-popover>strong { font-size: var(--fs-sm); }

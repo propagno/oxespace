@@ -80,8 +80,19 @@ export function ThreadPromptNavigator({ rows, scrollRef, scrollTo }: {
 
   const prompt = current >= 0 ? rows[current].event : undefined
   if (!inView?.hidden || prompt?.type !== 'message') return null
-  return <Button variant="ghost" size="sm" className="thread-sticky-prompt" data-testid="thread-sticky-prompt" onClick={() => scrollTo(current)}
-    title={t('navigator.back')} icon={<CornerUpLeft size={13} aria-hidden="true" />}>
-    <span>{prompt.text.trim().split(/\r?\n/)[0]}</span>
-  </Button>
+  return (
+    <div className="thread-sticky-prompt-bar" data-ui="sticky-prompt-bar">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="thread-sticky-prompt"
+        data-testid="thread-sticky-prompt"
+        onClick={() => scrollTo(current)}
+        title={t('navigator.back')}
+        icon={<CornerUpLeft size={13} aria-hidden="true" />}
+      >
+        <span>{prompt.text.trim().split(/\r?\n/)[0]}</span>
+      </Button>
+    </div>
+  )
 }

@@ -166,17 +166,75 @@
 .thread-dock-plan li.is-completed { color: var(--tx-muted); }
 .thread-dock-plan li.is-inProgress { color: var(--tx-primary); }
 
-/* The prompt of the turn being read, kept at the top edge once it has scrolled away. */
-.thread-sticky-prompt-anchor { position: sticky; top: 0; z-index: calc(var(--layer-raised) + 1); height: 0; margin-bottom: var(--space-2); }
-/* C-08: while the prompt sticks, an opaque band the pill's height sits behind it, so the row scrolling under it never
-   shows through or around it. The anchor stays zero-height (no jump while scrolling); scroll-padding-top keeps a focused
-   control below it. */
-.thread-sticky-prompt-anchor:has(.thread-sticky-prompt)::before { content: ''; position: absolute; top: 0; right: 0; left: 0; height: 40px; padding-bottom: var(--space-2); background: var(--surface-canvas); }
-/* Prefixed: `.thread-view button` would otherwise strip the strip's border and fill, and the text under it showed through. */
-.thread-view .thread-sticky-prompt { position: absolute; top: 4px; right: 0; left: 0; display: flex; align-items: center; justify-content: flex-start; gap: 8px; max-width: 100%; min-height: 28px; padding: 0 10px; border: 1px solid var(--bd-subtle, var(--bd-default)); border-radius: var(--radius-md); background: var(--surface-base); box-shadow: var(--elevation-1, 0 1px 3px rgb(0 0 0 / 0.08)); color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer; }
-.thread-view .thread-sticky-prompt span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-view .thread-sticky-prompt:hover { color: var(--tx-primary); background: var(--surface-raised); border-color: var(--bd-default); }
-.thread-view .thread-sticky-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The prompt of the turn being read, kept at the top edge once it has scrolled away (OXE-462). */
+.thread-sticky-prompt-anchor {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-sticky);
+  height: 0;
+  margin-bottom: var(--space-2);
+  isolation: isolate;
+}
+/* Full-width opaque canvas backing behind the sticky bar so scrolled rows never bleed behind or beside it. */
+.thread-sticky-prompt-anchor:has(.thread-sticky-prompt)::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: calc(-1 * var(--thread-gutter, 24px));
+  left: calc(-1 * var(--thread-gutter, 24px));
+  height: calc(var(--control-md) + var(--space-4));
+  background: var(--surface-canvas);
+  pointer-events: none;
+}
+.thread-sticky-prompt-bar {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--thread-gutter, 24px));
+  left: calc(-1 * var(--thread-gutter, 24px));
+  padding: var(--space-1-5) var(--thread-gutter, 24px) var(--space-2);
+  background: var(--surface-canvas);
+  border-bottom: 1px solid var(--bd-subtle);
+  overflow: hidden;
+}
+/* Scoped specificity beats Button.module.css ghost rules while preserving BRD-04.button.height (--control-md). */
+.thread-view .thread-sticky-prompt-bar .thread-sticky-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: var(--control-md);
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-chrome);
+  box-shadow: none;
+  color: var(--tx-secondary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.thread-view .thread-sticky-prompt-bar .thread-sticky-prompt span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-view .thread-sticky-prompt-bar .thread-sticky-prompt:hover {
+  color: var(--tx-primary);
+  background: var(--surface-raised);
+  border-color: var(--bd-default);
+}
+.thread-view .thread-sticky-prompt-bar .thread-sticky-prompt:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
 
 /* Files the agent changed that are not reviewed yet, across turns, above the composer. */
 .thread-dock-changes { margin: 0 0 6px; border: 1px solid var(--bd-subtle, var(--bd-default)); border-radius: var(--radius-md); background: var(--surface-raised); font-size: var(--fs-xs); }
