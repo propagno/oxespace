@@ -33,9 +33,9 @@ interface ForkRow {
 /**
  * Cross-provider session management — listing, forking, and metadata for resume.
  * Fork creation is currently Claude-only (the only provider that exposes a copyable
- * per-session JSONL transcript). Codex sessions can be listed and resumed via the CLI
- * directly but not forked at a specific message index since their file layout per-day
- * makes that lossy. Antigravity/Cursor are listed-only (provider stubs).
+ * per-session JSONL transcript). Codex and Antigravity sessions can be listed and resumed
+ * directly (Codex via CLI/rollouts, Antigravity via local brain/<uuid> discovery + ACP
+ * session/resume), not forked at a specific message index. Cursor remains a stub.
  */
 export class SessionService {
   constructor(

@@ -204,6 +204,9 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/services/usage/claudeProvider.ts',
   // OXE-157: /resume's list reads the same Claude transcripts asynchronously, in chunks (never a path from the renderer).
   'electron/main/services/usage/claude-transcript-scan.ts',
+  // OXE-449: read-only bounded discovery and verification of Antigravity CLI sessions under <antigravityHome>/brain/<uuid>
+  // (strict RFC 4122 UUID, safeJoin, symlink-escape rejection, sameRoot workspace check; never writes or accepts renderer paths).
+  'electron/main/services/usage/antigravity-sessions.ts',
   'electron/main/services/usage/codexProvider.ts',
   'electron/main/services/usage/copilotProvider.ts',
   // AI usage/credits chips: read account-wide quota from outside the
