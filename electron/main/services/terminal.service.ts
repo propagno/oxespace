@@ -1,4 +1,6 @@
 import { recordRuntime } from './runtime-diagnostics'
+import { managedAgentProcessRegistry } from './diagnostics/agent-process-registry'
+import { externalProviderForName } from './diagnostics/agent-processes'
 import { spawn } from 'node-pty'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -87,6 +89,7 @@ export class TerminalManager {
   private readonly exitDrain = new PtyExitDrain<StartedProcess['ptyProcess']>()
   private quitting = false
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
+  private readonly isManagedPane?: TerminalManagerOptions['isManagedPane']
   private readonly daemon?: DaemonPtyModule
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
@@ -122,6 +125,7 @@ export class TerminalManager {
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.onLaunchExit = options.onLaunchExit
+    this.isManagedPane = options.isManagedPane
     this.daemon = options.daemon
     this.observer = options.observer
     this.resumeSession = options.resumeSession
@@ -225,6 +229,20 @@ export class TerminalManager {
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
     if (this.platform === 'win32' && !remote) this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.exitDrain.track(ptyProcess)
+    const detectedProvider = externalProviderForName(input.agentCommand?.trim().split(/\s+/)[0] ?? executable)
+    if (!remote && ptyProcess.pid > 1 && (input.agentCommand || input.launch || detectedProvider)) {
+      const provider = detectedProvider ?? basename(executable).replace(/\.(exe|cmd|bat|ps1)$/i, '').toLowerCase()
+      const kind = this.isManagedPane?.(input.paneId) ? 'delegation' : 'terminal'
+      managedAgentProcessRegistry.register({
+        rootPid: ptyProcess.pid,
+        provider,
+        kind,
+        contextId: `pane:${input.paneId}`,
+        label: `${provider} terminal`,
+        state: 'active',
+        stop: () => this.end({ paneId: input.paneId })
+      })
+    }
     if (!remote) this.trackBranch(input.paneId, cwd)
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, command, remote ? { remote: true } : undefined)
     ptyProcess.onData((data) => {
@@ -234,6 +252,7 @@ export class TerminalManager {
       if (!this.levers.has('M') || input.agentCommand || remote) this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
+      managedAgentProcessRegistry.unregister(ptyProcess.pid)
       this.exitDrain.settle(ptyProcess)
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
@@ -461,6 +480,7 @@ export class TerminalManager {
     const session = this.sessions.get(input.paneId)
     if (!session) return Promise.resolve()
     recordRuntime('process-stop', { pane: input.paneId, pid: session.pty.pid })
+    managedAgentProcessRegistry.unregister(session.pty.pid)
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
     this.clearNudgeTimer(session)
