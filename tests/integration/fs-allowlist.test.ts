@@ -319,7 +319,11 @@ const ALLOWED_FS_IMPORTS = new Set([
   'electron/main/workers/pty-daemon.ts',
   // OXE-447: persists only <userData>/execution-bindings.json (atomic temp+rename, mode 0600, safeStorage-encrypted)
   // for PTY daemon restart reconciliation; never touches workspace files.
-  'electron/main/services/execution-binding-store.ts'
+  'electron/main/services/execution-binding-store.ts',
+  // OXE-447: read-only bounded read of ~/.ssh/config (<= 256 KiB) for assisted SSH host import; never writes.
+  'electron/main/services/ssh/ssh-config-parser.ts',
+  // OXE-447: read-only bounded read of a user-configured SSH private key file (<= 64 KiB) during SSH auth; never writes.
+  'electron/main/services/ssh/remote-ssh-hosts.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {
