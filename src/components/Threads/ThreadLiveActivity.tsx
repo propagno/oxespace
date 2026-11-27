@@ -145,7 +145,7 @@ export function ThreadLiveActivity({ snapshot }: { snapshot: ThreadSnapshot }) {
       setStopping(true)
       void Promise.allSettled(activity.taskIds.map(taskId => window.oxe.thread?.stopTask?.(snapshot.thread.id, taskId))).finally(() => setStopping(false))
     }}>{stopping ? t('live.stopping') : t('live.stopWaiting')}</Button>}
-    {(activity.stale || activity.reconnecting) && <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>{t('live.mayBeActive')}</span>}</>}</div>}
+    {diagnostics && <div className="thread-live-activity-meta"><span>{activity.signalAge}</span>{activity.stale && <>{!terminalObserved && <span>{t('live.mayBeActive')}</span>}</>}</div>}
     {activity.stale && <div className="thread-live-activity-meta" role="status">
       {check.checking ? <span>{t('live.checking')}</span> : check.observation && <span>{check.observation.state === 'running' ? t('live.confirmsActiveFull') : check.observation.state === 'awaiting-input' ? t('live.waitingInputFull') : check.observation.state === 'completed' || check.observation.state === 'failed' || check.observation.state === 'interrupted' ? t('live.reportsState', { state: t(`live.state.${check.observation.state}`) }) : t('live.notConfirmed')}</span>}
     </div>}
