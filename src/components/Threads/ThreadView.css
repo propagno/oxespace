@@ -2,7 +2,8 @@
 .app-shell.thread-shell { grid-template-columns: var(--thread-sidebar-width, 280px) minmax(0, 1fr); min-height: 0; overflow: hidden; }
 .workspace-surface.thread-workspace-surface { min-height: 0; overflow: hidden; }
 .thread-host { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
-.thread-navigation { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; background: var(--surface-chrome); color: var(--tx-primary); }
+.thread-navigation { position: relative; display: flex; flex-direction: row; min-height: 0; overflow: hidden; border-right: 1px solid var(--bd-subtle); background: var(--surface-chrome); color: var(--tx-primary); }
+.thread-navigation > .nav-panel { background: var(--surface-chrome); }
 /* These reset the region's plain buttons. Design-system Buttons (CSS-module class _button_…) keep their own variant:
    without the exclusion this (0,1,1) reset beat the variant's (0,1,0) and a secondary Button lost its border and fill,
    reading as plain text until hovered. :where() keeps the specificity the plain buttons' own rules were written against. */
@@ -198,17 +199,17 @@
 .thread-approval-actions button { border: 1px solid var(--bd-default); }
 /* Rows keep their content's height: in the request dock the card is height-capped, and boxes that clip (the command,
    the preview) would otherwise shrink to nothing instead of the card scrolling (P1-8: the "empty" preview). */
-.thread-approval-content { display: grid; grid-auto-rows: max-content; gap: 12px; min-width: 0; padding: 14px; border-bottom: 1px solid var(--bd-default); }
-.thread-approval-intent { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
-.thread-approval-intent > svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
-.thread-approval-intent > div { display: grid; gap: 4px; min-width: 0; }
+.thread-approval-content { display: grid; grid-auto-rows: max-content; gap: var(--space-3); min-width: 0; max-width: 100%; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--bd-subtle); }
+.thread-approval-intent { display: flex; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.thread-approval-intent > svg { flex-shrink: 0; margin-top: var(--space-0-5); color: var(--accent); }
+.thread-approval-intent > div { display: grid; gap: var(--space-1); min-width: 0; }
 .thread-approval-intent strong { font-size: var(--fs-sm); line-height: 1.45; }
 .thread-approval-intent span, .thread-approval-reason { color: var(--tx-muted); font-size: var(--fs-xs); overflow-wrap: anywhere; }
 .thread-approval-reason { margin: 0; }
-.thread-approval-preview, .thread-approval-exact { min-width: 0; overflow: hidden; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-canvas); }
-.thread-approval-preview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; padding: 8px 11px; border-bottom: 1px solid var(--bd-default); font-size: var(--fs-xs); }
+.thread-approval-preview, .thread-approval-exact { min-width: 0; max-width: 100%; overflow: hidden; border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-approval-preview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-chrome); font-size: var(--fs-xs); }
 .thread-approval-preview-heading small { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-approval-preview pre, .thread-approval-raw pre, .thread-approval-exact pre, .thread-approval-agent pre { max-height: 300px; margin: 0; padding: 12px; overflow: auto; color: var(--tx-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
+.thread-approval-preview pre, .thread-approval-raw pre, .thread-approval-exact pre, .thread-approval-agent pre { max-width: 100%; max-height: 300px; margin: 0; padding: var(--space-3); overflow-x: auto; overflow-y: auto; background: var(--surface-sunken); color: var(--tx-secondary); font: var(--fs-xs)/1.55 var(--font-mono); white-space: pre; tab-size: 2; }
 .thread-approval-preview pre.is-structured { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The exact command (P1-8): open, monospace, wrapped, scrollable; it is what runs. */
 .thread-approval-exact pre { max-height: 260px; color: var(--tx-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -218,14 +219,14 @@
    --request-cap below) and, past its cap, the details scroll as one; "Copy exact text" stays in view at their top. */
 /* Docked or inline in the timeline, a pending command is read whole: the box is as tall as the command, with no scroll of its own (T67). */
 .thread-pending-requests .thread-approval-exact, .thread-timeline-request .thread-approval-exact { overflow: clip; }
-.thread-pending-requests .thread-approval-exact pre, .thread-timeline-request .thread-approval-exact pre { max-height: none; overflow: visible; }
-.thread-pending-requests .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: -14px; z-index: var(--layer-raised); background: var(--surface-canvas); }
+.thread-pending-requests .thread-approval-exact pre, .thread-timeline-request .thread-approval-exact pre { max-height: none; overflow-x: auto; overflow-y: visible; }
+.thread-pending-requests .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: -14px; z-index: var(--layer-raised); background: var(--surface-chrome); }
 /* Inline, the timeline is what scrolls: the heading, with Copy, stays at its top edge while the command passes under it. */
-.thread-timeline-request .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: 0; z-index: var(--layer-raised); background: var(--surface-canvas); }
+.thread-timeline-request .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: 0; z-index: var(--layer-raised); background: var(--surface-chrome); }
 .thread-approval-content[data-more-below] { mask-image: linear-gradient(to bottom, currentColor calc(100% - 28px), transparent); }
-.thread-approval-exact > .thread-approval-preview-heading > button { display: inline-flex; flex: none; align-items: center; gap: 5px; margin-left: auto; padding: 5px 8px; font-size: var(--fs-2xs); }
+.thread-approval-exact > .thread-approval-preview-heading > button { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); margin-left: auto; padding: var(--space-1) var(--space-2); font-size: var(--fs-2xs); }
 /* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */
-.thread-approval-agent { min-width: 0; overflow: hidden; border: 1px dashed var(--bd-strong); border-radius: var(--radius-md); background: var(--surface-sunken); }
+.thread-approval-agent { min-width: 0; max-width: 100%; overflow: hidden; border: 1px dashed var(--bd-default); border-radius: var(--radius-md); background: var(--surface-sunken); }
 .thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-approval-plan { max-height: 320px; overflow: auto; padding: 0 12px; }
 /* In the conversation the plan is read whole, as the exact text of a command is: it is what the person approves. */
@@ -353,8 +354,8 @@
 .thread-queue-item > small { flex-shrink: 0; color: var(--tx-muted); }
 .thread-queue-item > p { order: 2; flex-basis: 100%; display: flex; align-items: center; gap: 6px; margin: 2px 0 0; color: var(--intent-warning-fg); font-size: var(--fs-2xs); }
 .thread-queue-item button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--tx-muted); }
-.thread-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.thread-attachments > div { display: inline-flex; align-items: center; gap: 6px; max-width: 240px; padding: 5px 7px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); font-size: var(--fs-2xs); }
+.thread-attachments { display: flex; flex-wrap: wrap; gap: var(--space-1-5); margin-bottom: var(--space-2); }
+.thread-attachments > div { display: inline-flex; align-items: center; gap: var(--space-1-5); max-width: 240px; padding: var(--space-1) var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-sunken); font-size: var(--fs-2xs); }
 .thread-message-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .thread-message-attachments > span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); color: var(--tx-secondary); font-size: var(--fs-2xs); }
 .thread-message-attachments small { color: var(--tx-muted); }
@@ -380,8 +381,8 @@
 .thread-composer .thread-command-popup>footer { display: flex; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--bd-default); color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-command-popup>p { margin: 0; padding: 10px 12px; font-size: var(--fs-xs); color: var(--tx-muted); }
 .thread-composer footer .thread-command-trigger { width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; color: var(--tx-muted); }
-.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
-.thread-composer:focus-within { border-color: var(--bd-focus); box-shadow: 0 0 0 1px var(--bd-focus); }
+.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: none; }
+.thread-composer:focus-within { border-color: var(--accent-border); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
 .thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); line-height: 1.5; }
 .thread-composer textarea::placeholder { color: var(--tx-muted); }
 .thread-composer footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 28px; }
@@ -737,9 +738,9 @@
 .thread-opening-context li { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-opening-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (max-width: 560px) { .thread-opening-starters { grid-template-columns: 1fr; } }
-.thread-view .thread-opening-starter { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; gap: 4px; padding: 12px 14px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); text-align: left; white-space: normal; }
-.thread-view .thread-opening-starter:hover { border-color: var(--accent-border); background: var(--fill-hover); }
-.thread-opening-starter strong { font-size: var(--fs-sm); font-weight: 600; }
+.thread-view .thread-opening-starter { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; height: auto; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-chrome); color: var(--tx-primary); text-align: left; white-space: normal; box-shadow: none; }
+.thread-view .thread-opening-starter:hover { border-color: var(--bd-default); background: var(--surface-raised); }
+.thread-opening-starter strong { font-size: var(--fs-sm); font-weight: var(--weight-medium); }
 .thread-opening-starter span { color: var(--tx-muted); font-size: var(--fs-xs); line-height: 1.4; }
 .thread-queue-confirm { display: -webkit-box; margin: 0; overflow: hidden; color: var(--tx-secondary); -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow-wrap: anywhere; }
 /* A background task's end, as Claude Code reports it to the agent: a note, not a message from the person. */

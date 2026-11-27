@@ -1,23 +1,27 @@
-/* The card an agent raises when it needs an answer: an approval, a question, a form or a permission. */
+/* The card an agent raises when it needs an answer: Obsidian Minimal raised card with subtle Sertão sun accent. */
 .root {
   max-width: min(100%, 1040px);
   margin: var(--space-2) 0 var(--space-3);
   /* clip, not hidden: the corners are still cut, and the card is no scroll container, so a heading inside it can stick to the timeline. */
   overflow: clip;
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
-  box-shadow: var(--elevation-1);
+  box-shadow: none;
   color: var(--tx-primary);
 }
-:global(.thread-pending-requests) .root { margin: 2px 0 4px; }
+.root:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+:global(.thread-pending-requests) .root { margin: var(--space-0-5) 0 var(--space-1); }
 
-/* Cockpit warm amber treatment for pending approvals and questions (#task-approval, #chat). */
+/* Calm Obsidian Minimal pending card: quiet surface, subtle Sertão sun accent edge strictly for needs-you approvals. */
 .amber {
-  border-color: var(--intent-warning-border);
-  background: var(--intent-warning-bg);
+  border-color: var(--bd-subtle);
+  background: var(--surface-raised);
 }
-/* The lean request: a 3 px --attn rule on the left, the rest of the border in --attn-border. */
+.amber:not(.question) {
+  border-left: 3px solid var(--attn);
+}
+/* The lean impact approval request: a 3 px --attn rule on the left, hairline --attn-border around the raised surface. */
 .impact {
   border: 1px solid var(--attn-border);
   border-left: 3px solid var(--attn);
@@ -35,28 +39,33 @@
 .question > header { color: var(--attn-fg); }
 
 .root > header { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--bd-subtle); }
-.amber > header { border-bottom-color: var(--intent-warning-border); }
-.root > header > svg { display: block; box-sizing: content-box; flex: none; width: 15px; height: 15px; padding: 6px; border-radius: 50%; background: var(--accent-soft); color: var(--tx-accent); }
-.amber > header > svg { background: var(--surface-raised); color: var(--intent-warning-fg); border: 1px solid var(--intent-warning-border); }
-.root > header > div { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.kicker { color: var(--intent-warning-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.amber > header { border-bottom-color: var(--bd-subtle); }
+.root > header > svg { display: block; box-sizing: content-box; flex: none; width: var(--space-3); height: var(--space-3); padding: var(--space-1-5); border-radius: 50%; background: var(--accent-soft); color: var(--tx-accent); }
+.amber > header > svg { background: var(--attn-bg); color: var(--attn-fg); border: 1px solid var(--attn-border); }
+.impact > header > svg { background: var(--attn-bg); color: var(--attn-fg); border: 1px solid var(--attn-border); }
+.root > header > div { display: grid; gap: var(--space-0-5); min-width: 0; flex: 1; }
+.kicker { color: var(--attn-fg); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
 .root > header strong { font-size: var(--fs-sm); font-weight: var(--weight-semibold); }
 /* P1-17: the change touches a file that steers agents; the word, not colour alone, says so. */
 .guarded { display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content; margin-left: var(--space-2); padding: 1px var(--space-2); border: 1px solid var(--intent-warning-solid); border-radius: var(--radius-full); background: var(--intent-warning-bg); color: var(--tx-primary); font-size: var(--fs-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.02em; vertical-align: middle; }
 .root > header p { margin: var(--space-1) 0 0; color: var(--tx-secondary); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .context { margin: var(--space-2) var(--space-4); color: var(--tx-secondary); font-size: var(--fs-xs); line-height: var(--leading-normal); overflow-wrap: anywhere; }
-.origin { margin: 0 var(--space-4) var(--space-2); color: var(--tx-secondary); font-size: var(--fs-xs); }
+.origin { margin: 0 var(--space-4) var(--space-2); color: var(--tx-muted); font-size: var(--fs-xs); }
 .command {
   position: relative;
+  max-width: 100%;
   margin: 0 var(--space-4) var(--space-2);
   padding: var(--space-3) var(--space-8) var(--space-3) var(--space-3);
+  overflow-x: auto;
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-sunken);
   color: var(--tx-primary);
 }
 .command code {
   display: block;
+  max-width: 100%;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   white-space: pre-wrap;
@@ -75,7 +84,7 @@
 
 /* Steps through several questions. */
 .steps { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin: 0; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--bd-subtle); }
-.amber .steps { border-bottom-color: var(--intent-warning-border); }
+.amber .steps { border-bottom-color: var(--bd-subtle); }
 .steps button { min-height: var(--control-sm); padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font: inherit; font-size: var(--fs-xs); cursor: pointer; }
 .steps button:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .steps button:disabled { opacity: 0.4; cursor: default; }
@@ -96,22 +105,55 @@
 .option {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--bd-default);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: var(--surface-canvas);
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
 }
-.option:hover { border-color: var(--accent-border); background: var(--fill-hover); }
-.option:has(input:checked) { border-color: var(--accent); background: var(--fill-selected); }
+.option:hover { border-color: var(--bd-default); background: var(--fill-hover); }
+.option:has(input:checked) { border-color: var(--accent-border); background: var(--fill-selected); }
 .option:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .option input { flex: none; margin: 0; accent-color: var(--accent); }
-.option span { display: grid; gap: 2px; }
+.option span { display: grid; gap: var(--space-0-5); min-width: 0; }
 .option strong { font-size: var(--fs-sm); font-weight: var(--weight-medium); }
 .option small { color: var(--tx-muted); font-size: var(--fs-xs); line-height: var(--leading-snug); }
+
+/* Quiet numeric keycap badges (1..9) for scannable options & approval choices (OXE-464). */
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--tx-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.keycap::before {
+  content: attr(data-option-key);
+}
+.option:has(input:checked) .keycap {
+  border-color: var(--accent-border);
+  background: var(--fill-selected);
+  color: var(--tx-accent);
+}
+.keycapOnAccent {
+  border-color: color-mix(in srgb, var(--tx-on-accent) 28%, transparent);
+  background: color-mix(in srgb, var(--tx-on-accent) 16%, transparent);
+  color: var(--tx-on-accent);
+}
 
 .field { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
 .field small { color: var(--tx-muted); }
@@ -144,16 +186,17 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.amber pre { border-top-color: var(--intent-warning-border); }
+.amber pre { border-top-color: var(--bd-subtle); }
 /* The plan to review, as prose on the card's own surface. */
 .plan { min-width: 0; padding: var(--space-1) var(--space-4); border-top: 1px solid var(--bd-subtle); }
-.amber .plan { border-top-color: var(--intent-warning-border); }
+.amber .plan { border-top-color: var(--bd-subtle); }
 .plan:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 .root > footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--bd-subtle); }
-.amber > footer { border-top-color: var(--intent-warning-border); }
+.amber > footer { border-top-color: var(--bd-subtle); }
 .root > footer > small { flex: 1 1 auto; color: var(--tx-secondary); font-size: var(--fs-xs); }
-.root > footer button { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-md); padding: 0 var(--space-3); border: 1px solid var(--bd-strong); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-primary); font: inherit; font-size: var(--fs-sm); font-weight: var(--weight-medium); cursor: pointer; }
+.root > footer button { display: inline-flex; align-items: center; gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); padding: 0 var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: var(--surface-raised); color: var(--tx-primary); font: inherit; font-size: var(--fs-xs); font-weight: var(--weight-medium); cursor: pointer; }
+.root > footer button[data-ui='allow-menu'] { width: var(--control-md); padding: 0; justify-content: center; }
 .root > footer button:hover:not(:disabled) { background: var(--fill-hover); }
 .root > footer button { transition: background var(--duration-fast) var(--ease-standard), scale var(--duration-fast) var(--ease-out); }
 :global([data-motion='full']) .root > footer button:active:not(:disabled) { scale: 0.97; }

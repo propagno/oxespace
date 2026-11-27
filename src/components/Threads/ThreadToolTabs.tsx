@@ -51,10 +51,12 @@ export function ThreadToolTabs(props: {
       choose(tab)
       return
     }
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return
     event.preventDefault()
     const index = tabs.indexOf(tab)
-    const next = tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]
+    const next = event.key === 'Home' ? tabs[0]
+      : event.key === 'End' ? tabs[tabs.length - 1]
+      : tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]
     choose(next)
     document.getElementById(tabId(next))?.focus()
   }

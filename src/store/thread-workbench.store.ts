@@ -6,7 +6,7 @@ export const REVIEW_DEFAULT_WIDTH = 420
 /** The conversation keeps at least this much beside the side panel. */
 export const CONVERSATION_MIN_WIDTH = 360
 
-export type ThreadPanel = 'session' | 'changes' | 'git' | 'files' | 'search' | 'background' | 'preview' | 'terminal' | 'network' | 'android' | 'queries' | 'containers'
+export type ThreadPanel = 'session' | 'changes' | 'plan' | 'git' | 'files' | 'search' | 'background' | 'preview' | 'terminal' | 'requests' | 'network' | 'android' | 'queries' | 'containers'
 /** `turnId`: Changes shows only what that turn changed, instead of the whole branch. `width`: this conversation's panel width (OXC-4). */
 export interface ThreadWorkbenchView { panel: ThreadPanel | null; selection?: string; turnId?: string; width?: number }
 interface WorkbenchState {

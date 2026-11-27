@@ -6,7 +6,7 @@
 .section .toggle svg { flex: none; color: var(--tx-muted); transition: transform var(--duration-fast) var(--ease-standard); }
 .section .toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.count { flex: none; margin-left: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-sm); background: var(--fill-hover); color: var(--tx-muted); font-size: var(--fs-2xs); font-weight: var(--weight-medium); text-align: center; }
+.count { flex: none; margin-left: var(--space-1); padding: 0; border-radius: var(--radius-sm); background: transparent; color: var(--tx-muted); font-family: var(--font-mono); font-size: var(--fs-2xs); font-weight: var(--weight-regular); font-variant-numeric: tabular-nums; text-align: center; }
 
 .rows { display: grid; gap: var(--space-0-5); }
 
