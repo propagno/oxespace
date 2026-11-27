@@ -10,6 +10,7 @@ import { attachTerminalPaths } from './terminalPaths'
 import { attachTerminalContextMenu } from './terminalContextMenu'
 import { sendTerminalSelectionToChat } from './terminalToChat'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
+import { createPtyResizeDebouncer, isValidPtyGrid, syncNotifiedGrid } from './resizeDebounce'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { ArrowDown, ArrowUp, X } from 'lucide-react'
@@ -532,6 +533,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
 
     const notified: HeldGrid = { cols: 0, rows: 0 }
+    const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; onResizeRef.current(cols, rows) } })
+    const reportResize = (cols: number, rows: number): void => { if (resizeDebouncer.report(cols, rows) === 'ignored') syncNotifiedGrid(notified, resizeDebouncer) }
     const fitTerminal = (forceRefresh = false): void => {
       if (isHidden()) return
       try {
@@ -540,7 +543,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         const viewportY = buf.viewportY
         const wasAtBottom = viewportY >= buf.baseY
 
-        const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, (cols, rows) => onResizeRef.current(cols, rows))
+        const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, reportResize)
 
         // Force full-screen repaint and scrollArea re-measure on resize or post-hidden reveal.
         if (dimensionsChanged || forceRefresh) terminal.refresh(0, Math.max(0, terminal.rows - 1))
@@ -689,7 +692,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       if (attached?.running && !delta && (attached.altScreen || attached.truncated)) {
         terminal.write('', () => {
           if (!disposed && attached.replay) terminal.scrollToBottom()
-          window.requestAnimationFrame(() => { if (!disposed && !isHidden() && notified.cols > 0 && notified.rows > 0) onResizeRef.current(terminal.cols, terminal.rows) })
+          window.requestAnimationFrame(() => { if (!disposed && !isHidden() && resizeDebouncer.lastEmitted() !== null && isValidPtyGrid(terminal.cols, terminal.rows)) onResizeRef.current(terminal.cols, terminal.rows) })
         })
       } else if (attached?.replay && !delta) {
         terminal.write('', () => { if (!disposed) terminal.scrollToBottom() })
@@ -726,6 +729,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         writeScheduler.setPaused(true)
         if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
         if (fitFrameRef.current !== null) { window.cancelAnimationFrame(fitFrameRef.current); fitFrameRef.current = null }
+        resizeDebouncer.cancel(); syncNotifiedGrid(notified, resizeDebouncer)
         void park()
         return
       }
@@ -757,7 +761,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
       void bridge.detach?.({ paneId })
-      revealScheduler.cancel()
+      revealScheduler.cancel(); resizeDebouncer.dispose()
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
