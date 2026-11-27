@@ -101,7 +101,7 @@ describe('OXE-464 · OxeChat unified composer, numbered cards, silent sidebar & 
     )
 
     const card = container.querySelector<HTMLElement>('[data-ui="request-card"]')!
-    const keycaps = [...card.querySelectorAll<HTMLElement>('[data-ui="option-key"]')].map(el => el.textContent)
+    const keycaps = [...card.querySelectorAll<HTMLElement>('[data-ui="option-key"]')].map(el => el.dataset.optionKey)
     expect(keycaps).toEqual(['1', '2', '3'])
 
     const radios = within(card).getAllByRole('radio') as HTMLInputElement[]
@@ -161,7 +161,7 @@ describe('OXE-464 · OxeChat unified composer, numbered cards, silent sidebar & 
       <ThreadRequestCard request={lowRequest} agent="Claude" disabled={false} conversationId="t-464" onRespond={lowRespond} />
     )
     const card = container.querySelector<HTMLElement>('[data-ui="request-card"]')!
-    expect([...card.querySelectorAll('[data-ui="option-key"]')].map(el => el.textContent)).toEqual(['1', '2'])
+    expect([...card.querySelectorAll<HTMLElement>('[data-ui="option-key"]')].map(el => el.dataset.optionKey)).toEqual(['1', '2'])
 
     const denyBtn = within(card).getByRole('button', { name: 'Deny' })
     denyBtn.focus()

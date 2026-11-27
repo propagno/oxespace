@@ -141,6 +141,9 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+.keycap::before {
+  content: attr(data-option-key);
+}
 .option:has(input:checked) .keycap {
   border-color: var(--accent-border);
   background: var(--fill-selected);
