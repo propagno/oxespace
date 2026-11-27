@@ -32,7 +32,7 @@
 .thread-resume-all { justify-self: start; }
 .thread-resume-native-label { display: grid; gap: 6px; min-width: 0; flex: 1; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-resume-native-label input { width: 100%; }
-.thread-view { --thread-canvas-max: var(--measure-chat); --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
+.thread-view { --thread-canvas-max: min(var(--measure-chat), 840px); --thread-prose-max: 100%; --thread-gutter: 24px; container-type: size; flex: 1; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; width: 100%; overflow: hidden; background: var(--surface-canvas); color: var(--tx-primary); }
 /* Cockpit display header layout is governed by ThreadHeaderChrome.css. */
 .thread-heading-context { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-2xs); color: var(--tx-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-heading-context svg { flex-shrink: 0; }
@@ -104,17 +104,15 @@
 .thread-turn { margin-bottom: 20px; }
 .thread-turn:last-child { margin-bottom: 0; }
 .thread-message { font-size: var(--fs-md); font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; margin: 0 0 20px; }
-.thread-message-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
-.thread-view .thread-message-actions button { display: inline-flex; justify-content: center; width: 28px; height: 28px; padding: 0; color: var(--tx-secondary); border: 1px solid var(--bd-default); border-radius: var(--radius-sm); }
-.thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--fill-hover); border-color: var(--tx-muted); }
-.thread-message-assistant { position: relative; padding-right: 36px; }
-.thread-message-assistant .thread-message-actions { position: absolute; top: 0; right: 0; margin: 0; opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard); }
+.thread-message-actions { display: flex; justify-content: flex-start; gap: var(--space-1); margin-top: var(--space-2); }
+.thread-view .thread-message-actions button { display: inline-flex; justify-content: center; width: var(--control-sm); height: var(--control-sm); padding: 0; color: var(--tx-muted); border: 0; border-radius: var(--radius-sm); }
+.thread-view .thread-message-actions button:hover, .thread-view .thread-message-actions button:focus-visible { color: var(--tx-primary); background: var(--fill-hover); }
+.thread-message-assistant { position: relative; padding-right: 0; }
+.thread-message-assistant .thread-message-actions { position: static; margin-top: var(--space-2); opacity: 0.6; transition: opacity var(--duration-fast) var(--ease-standard); }
 /* The closing answer of a turn reads as clean prose on the canvas, with compact actions. */
-.thread-message-assistant.is-final-response { padding: 0 36px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-/* Quote and Copy of the final answer follow the rule of every answer (above and below): shown when the pointer or the
-   keyboard is on it. They used to stay at 72% all the time, as two boxes beside the text. */
-.thread-message-assistant.is-final-response .thread-message-actions { top: 0; right: 0; }
-.thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: 28px; min-width: 28px; padding: 0; }
+.thread-message-assistant.is-final-response { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.thread-message-assistant.is-final-response .thread-message-actions { opacity: 0.72; }
+.thread-view .thread-message-assistant.is-final-response .thread-message-actions button { width: var(--control-sm); min-width: var(--control-sm); padding: 0; }
 .thread-final-label { margin-left: 5px; color: var(--accent); font-size: max(11px, calc(var(--thread-reader-font-size) - 4px)); font-weight: 600; }
 .thread-message-assistant:hover .thread-message-actions, .thread-message-assistant:focus-within .thread-message-actions { opacity: 1; }
 @media (hover: none) { .thread-message-assistant .thread-message-actions { opacity: 1; } }
@@ -136,8 +134,9 @@
 .thread-tool summary, .thread-approval summary, .thread-turn-error summary { display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; padding: 7px 10px; }
 .thread-tool summary::-webkit-details-marker, .thread-approval summary::-webkit-details-marker, .thread-turn-error summary::-webkit-details-marker { display: none; }
 .thread-tool:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
-.thread-reasoning, [data-ui="reasoning"] { margin: 0 0 12px; color: var(--tx-muted); font-size: var(--fs-xs); font-family: var(--font-ui); background: transparent; border: none; }
-[data-ui="reasoning"] button { height: var(--row-1); min-height: var(--row-1); }
+.thread-reasoning, [data-ui="reasoning"] { margin: 0 0 var(--space-1-5); color: var(--tx-muted); font-size: var(--fs-xs); font-family: var(--font-ui); background: transparent; border: none; }
+[data-ui="reasoning"] button { height: var(--row-1); min-height: var(--row-1); padding-inline: 0; color: var(--tx-muted); font-weight: var(--weight-regular); }
+[data-ui="reasoning"] button:hover { color: var(--tx-secondary); background: transparent; }
 .thread-reasoning-preview { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-family: var(--font-ui); white-space: pre-line; }
 .thread-reasoning-body { margin: 4px 0 0; padding: 0 0 0 var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); color: var(--tx-secondary); font-family: var(--font-ui); }
 .thread-reasoning-body p { margin: 0; }
@@ -349,8 +348,8 @@
 .thread-composer .thread-command-popup>footer { display: flex; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--bd-default); color: var(--tx-muted); font-size: var(--fs-2xs); }
 .thread-command-popup>p { margin: 0; padding: 10px 12px; font-size: var(--fs-xs); color: var(--tx-muted); }
 .thread-composer footer .thread-command-trigger { width: var(--control-sm); height: var(--control-sm); padding: 0; justify-content: center; color: var(--tx-muted); }
-.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-default); border-radius: var(--radius-lg); background: var(--surface-raised); }
-.thread-composer:focus-within { border-color: var(--bd-focus); box-shadow: 0 0 0 1px var(--bd-focus); }
+.thread-composer { padding: var(--space-3); border: 1px solid var(--bd-subtle); border-radius: var(--radius-xl); background: var(--surface-raised); }
+.thread-composer:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--bd-default)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
 .thread-composer textarea { display: block; width: 100%; border: 0; padding: 0; resize: none; field-sizing: content; min-height: 40px; max-height: 144px; overflow-y: auto; outline: none; background: transparent; color: var(--tx-primary); font: inherit; font-size: var(--fs-md); line-height: 1.5; }
 .thread-composer textarea::placeholder { color: var(--tx-muted); }
 .thread-composer footer { display: flex; align-items: center; gap: 10px; margin-top: 8px; min-height: 28px; }
@@ -407,16 +406,16 @@
 .thread-config-popover p { padding: 0 8px; color: var(--tx-secondary); line-height: 1.5; overflow-wrap: anywhere; }
 .thread-config-popover input { width: 100%; padding: 8px; border: 1px solid var(--bd-default); background: var(--surface-canvas); color: inherit; border-radius: var(--radius-sm); }
 .thread-config-pending { white-space: nowrap; padding: 0 4px; }
-.thread-activity-group, .thread-activity-single { width: 100%; min-width: 0; max-width: min(100%, var(--thread-prose-max)); margin: 6px 0 14px; color: var(--tx-muted); font-size: var(--fs-xs); }
-.thread-activity-single summary { display: flex; align-items: center; gap: 9px; min-height: 30px; padding: 3px 0; cursor: pointer; list-style: none; }
+.thread-activity-group, .thread-activity-single { width: 100%; min-width: 0; max-width: min(100%, var(--thread-prose-max)); margin: var(--space-1) 0 var(--space-2); color: var(--tx-muted); font-size: var(--fs-xs); }
+.thread-activity-single summary { display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%; min-height: var(--row-1); padding: var(--space-0-5) 0; cursor: pointer; list-style: none; }
 .thread-activity-single summary::-webkit-details-marker { display: none; }
-.thread-activity-single summary > span:not([aria-hidden]) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-activity-single summary small { margin-left: 8px; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-activity-single summary > svg:last-child { opacity: .65; transition: transform var(--duration-fast) var(--ease-standard); }
+.thread-activity-single summary > span:not([aria-hidden]) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-activity-single summary small { margin-left: var(--space-2); color: var(--tx-muted); font-size: var(--fs-2xs); }
+.thread-activity-single summary > svg:last-child { flex: none; opacity: .65; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-activity-single[open] summary > svg:last-child { transform: rotate(180deg); }
 .thread-activity-single summary:hover { color: var(--tx-primary); }
 .thread-activity-single.has-failure summary > svg:first-child { color: var(--intent-danger-solid); }
-.thread-activity-single .thread-tool-diagnostic { padding-left: 23px; }
+.thread-activity-single .thread-tool-diagnostic { padding-left: var(--space-5); }
 .thread-virtual-turn > :is(.thread-tool, .thread-approval, .thread-plan, .thread-reasoning, .thread-file-activity, .thread-change-summary) { max-width: var(--thread-prose-max); }
 /* Plan card (AG-11 5.1): the count is tabular, the bar is a hairline, the steps stay numbered. */
 .thread-view .thread-plan[data-ui="plan-card"] .thread-plan-head { display: flex; align-items: baseline; gap: var(--space-2); }
@@ -427,13 +426,13 @@
 .thread-view .thread-plan[data-ui="plan-card"] li { display: list-item; }
 .thread-plan-run { margin: var(--space-2) 0; }
 .thread-prompt-origin { margin: var(--space-1) 0 0; color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-activity-group summary { display: flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
+.thread-activity-group summary { display: inline-flex; align-items: center; gap: var(--space-2); max-width: 100%; min-height: var(--row-1); padding: 0 var(--space-1); cursor: pointer; list-style: none; border-radius: var(--radius-sm); }
 .thread-activity-group summary::-webkit-details-marker { display: none; }
 .thread-activity-group summary:hover { color: var(--tx-primary); background: var(--fill-hover); }
-.thread-activity-group>summary>svg:last-child { margin-left: auto; transition: transform var(--duration-fast) var(--ease-standard); }
+.thread-activity-group>summary>svg:last-child { margin-left: 0; opacity: .65; transition: transform var(--duration-fast) var(--ease-standard); }
 .thread-activity-group[open]>summary>svg:last-child { transform: rotate(180deg); }
 .thread-activity-group small { font-size: var(--fs-2xs); font-weight: 400; color: var(--tx-muted); }
-.thread-activity-items { margin: 0 0 10px 6px; padding-left: 14px; border-left: 1px solid var(--bd-default); }
+.thread-activity-items { margin: 0 0 var(--space-2) var(--space-1-5); padding-left: var(--space-3); border-left: 1px solid var(--bd-subtle); }
 .thread-activity-completed { margin: 4px 0 8px; }
 .thread-activity-completed > summary { display: flex; align-items: center; gap: 8px; min-height: 28px; color: var(--tx-muted); font-size: var(--fs-2xs); cursor: pointer; list-style: none; }
 .thread-activity-completed > summary::-webkit-details-marker { display: none; }

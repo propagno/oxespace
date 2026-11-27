@@ -8,12 +8,12 @@
   flex-direction: column;
   gap: var(--space-2);
   width: fit-content;
-  max-width: min(78%, 640px);
+  max-width: min(76%, 600px);
   margin-left: auto;
   margin-right: 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--bd-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--surface-raised);
 }
 .thread-view .thread-message-user:has(.thread-prompt-editor) {
@@ -59,14 +59,15 @@
 .thread-opening-mark { color: var(--tx-accent); flex: none; }
 .thread-view .thread-message-user > :is(.thread-markdown, .thread-long-prompt) {
   color: var(--tx-primary);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-regular);
 }
 
 .thread-agent-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1-5);
+  opacity: 0.78;
 }
 
 .thread-agent-avatar {
@@ -103,7 +104,8 @@
 .collision-chips-more { font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-outside-file { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface-base); }
 .thread-outside-file-content { flex: 1; min-height: 0; margin: 0; padding: var(--space-3); overflow: auto; font-family: var(--font-mono); font-size: var(--fs-xs); }
-.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--tx-accent); font-family: var(--font-mono); font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.thread-path-link { display: inline; padding: 0; border: 0; background: transparent; color: var(--tx-link); font-family: var(--font-mono); font-size: inherit; text-decoration: none; cursor: pointer; }
+.thread-path-link:hover { text-decoration: underline; text-underline-offset: 2px; }
 /* The project path link (F33) is a button. In a conversation the generic button rule gave it a button's box: 34 px tall
    in an 18 px line, 10 px of padding on each side of a path in a sentence, and a smaller font than the code beside it.
    It is text in the line. */

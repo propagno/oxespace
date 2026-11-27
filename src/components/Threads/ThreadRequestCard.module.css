@@ -97,16 +97,16 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--bd-default);
+  margin-bottom: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  background: transparent;
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
 }
-.option:hover { border-color: var(--accent-border); background: var(--fill-hover); }
-.option:has(input:checked) { border-color: var(--accent); background: var(--fill-selected); }
+.option:hover { background: var(--fill-hover); }
+.option:has(input:checked) { border-color: var(--accent-border); background: var(--fill-selected); }
 .option:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .option input { flex: none; margin: 0; accent-color: var(--accent); }
 .option span { display: grid; gap: 2px; }

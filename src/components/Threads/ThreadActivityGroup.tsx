@@ -3,7 +3,7 @@ import { isOxespaceMcpTool, oxespaceToolLabel } from '../../../shared/oxespace-m
 import { classifyToolRowKind, foldSummary, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
-import { Check, ChevronDown, CircleAlert, CircleHelp, TerminalSquare } from 'lucide-react'
+import { Check, ChevronDown, CircleAlert, CircleHelp, FileText, Pencil, Plug, Search, TerminalSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
@@ -25,6 +25,15 @@ const COMMANDS = new Set(['commandExecution', 'Bash', 'PowerShell'])
 const EDITS = new Set(['fileChange', 'Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
 const READS = new Set(['Read', 'LS'])
 const SEARCHES = new Set(['Glob', 'Grep'])
+
+/** Semantic icon for a tool event (OXE-455). */
+function ToolIcon({ name }: { name: string }) {
+  if (READS.has(name)) return <FileText size={14} aria-hidden="true" />
+  if (SEARCHES.has(name)) return <Search size={14} aria-hidden="true" />
+  if (EDITS.has(name)) return <Pencil size={14} aria-hidden="true" />
+  if (name === 'mcpToolCall' || name.startsWith('mcp__')) return <Plug size={14} aria-hidden="true" />
+  return <TerminalSquare size={14} aria-hidden="true" />
+}
 
 /** "Ran 4 commands, edited 2 files" — what happened, never the raw arguments. */
 export function summarizeActivity(events: Tool[]): string {
@@ -244,7 +253,7 @@ export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', t
   if (events.length === 1) {
     const event = events[0]
     return <details className={`thread-activity-single${event.state === 'failed' ? ' has-failure' : ''}`}>
-      <summary>{event.state === 'running' ? <Spinner size="sm" decorative /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <TerminalSquare size={14} />}
+      <summary>{event.state === 'running' ? <Spinner size="sm" decorative /> : event.state === 'failed' ? <CircleAlert size={14} /> : event.state === 'unknown' ? <CircleHelp size={14} /> : <ToolIcon name={event.name} />}
         <span>{mode === 'verbose' ? toolName(event.name) : summarizeActivity([event])}{mode === 'verbose' && <small>{toolSummary(event)}</small>}</span><ChevronDown size={14} /></summary>
       <ThreadToolDiagnostic event={event} onResolve={onResolveInterrupted} />
     </details>
@@ -264,7 +273,7 @@ export function ThreadActivityGroup({ events, mode = 'verbose', rootPath = '', t
 function ActivityItem({ event, onResolve }: { event: Tool; onResolve?: ResolveInterrupted }) {
   const { t } = useTranslation('thread')
   return <details className="thread-activity-item">
-    <summary><TerminalSquare size={14} /><span>{toolName(event.name)}<small>{toolSummary(event)}</small></span><span className="thread-activity-state">{t(`activity.state.${event.state === 'running' || event.state === 'failed' || event.state === 'unknown' ? event.state : 'completed'}`)}</span></summary>
+    <summary><ToolIcon name={event.name} /><span>{toolName(event.name)}<small>{toolSummary(event)}</small></span><span className="thread-activity-state">{t(`activity.state.${event.state === 'running' || event.state === 'failed' || event.state === 'unknown' ? event.state : 'completed'}`)}</span></summary>
     <ThreadToolDiagnostic event={event} onResolve={onResolve} />
   </details>
 }

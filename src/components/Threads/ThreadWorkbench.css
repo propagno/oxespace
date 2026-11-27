@@ -41,15 +41,15 @@
 .thread-file-stats { display: inline-flex; flex-shrink: 0; gap: 6px; font: 11px var(--font-mono); margin-left: auto; }
 .thread-file-stats > span:first-child { color: var(--intent-success-fg); }
 .thread-file-stats > span:last-child { color: var(--intent-danger-fg); }
-.thread-change-summary { margin: 14px 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
-.thread-change-summary > header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: var(--fs-xs); }
+.thread-change-summary { margin: var(--space-3) 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-raised); }
+.thread-change-summary > header { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--fs-xs); }
 .thread-change-summary > header > svg { flex: none; color: var(--tx-muted); }
-.thread-change-summary > header > span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
-.thread-change-summary > header strong { font-weight: 600; color: var(--tx-primary); }
+.thread-change-summary > header > span { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--space-2); }
+.thread-change-summary > header strong { font-weight: var(--weight-medium); color: var(--tx-primary); }
 .thread-change-summary > header small { color: var(--tx-muted); font-size: var(--fs-2xs); }
-.thread-change-summary .thread-change-view { flex: none; height: 26px; padding: 0 10px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); }
-.thread-change-summary .thread-change-view:hover { background: var(--fill-hover); }
-.thread-change-summary > div { border-top: 1px solid var(--bd-default); padding: 2px 4px; }
+.thread-change-summary .thread-change-view { flex: none; height: var(--control-sm); padding: 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font-size: var(--fs-xs); }
+.thread-change-summary .thread-change-view:hover { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-change-summary > div { border-top: 1px solid var(--bd-subtle); padding: var(--space-0-5) var(--space-1); }
 .thread-change-summary > div > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 30px; padding: 0 8px; border: 0; background: transparent; text-align: left; font-size: var(--fs-xs); color: var(--tx-secondary); }
 .thread-change-summary > div > button:hover { background: var(--fill-hover); color: var(--tx-primary); }
 /* A changed file with its own undo: the open button keeps the row look, actions sit beside it. */
