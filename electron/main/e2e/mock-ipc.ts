@@ -336,6 +336,12 @@ export function registerE2eMockIpcHandlers(): void {
     const seeded = (globalThis as { __oxeAgentResume?: Record<string, PaneAgentResume> }).__oxeAgentResume?.[String(paneId)]
     return { running: false, seq: 0, altScreen: false, ...(seeded ? { agentResume: seeded } : {}) }
   })
+  let mockQuitBehavior: 'detach' | 'kill' = 'kill'
+  ipcMain.handle(IPC_CHANNELS.terminal.quitBehavior, () => mockQuitBehavior)
+  ipcMain.handle(IPC_CHANNELS.terminal.setQuitBehavior, (_event: IpcMainInvokeEvent, mode: 'detach' | 'kill') => {
+    mockQuitBehavior = mode === 'detach' ? 'detach' : 'kill'
+    return mockQuitBehavior
+  })
   ipcMain.handle(IPC_CHANNELS.notifications.notify, () => false)
   // Offline is opted into per run, so a spec can check the offline state without unplugging the runner.
   ipcMain.handle(IPC_CHANNELS.app.connectivity, (): AppConnectivity => process.env.OXESPACE_E2E_OFFLINE === '1'

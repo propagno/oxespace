@@ -176,3 +176,6 @@ export interface UpdatePaneNameInput {
   paneId: string
   displayName: string | null
 }
+
+/** OXE-447 · Whether quitting OXESpace detaches from daemon PTY sessions or stops all terminals. */
+export type TerminalQuitBehavior = 'detach' | 'kill'

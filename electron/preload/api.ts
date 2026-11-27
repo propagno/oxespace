@@ -44,12 +44,12 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
 
   return {
     agentAccount: {
-      read: context => ipc.invoke(IPC_CHANNELS.agentAccount.read, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['read']>,
-      login: context => ipc.invoke(IPC_CHANNELS.agentAccount.login, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['login']>,
-      logout: context => ipc.invoke(IPC_CHANNELS.agentAccount.logout, context) as ReturnType<import('../../shared/types/agentAuth').AgentAccountApi['logout']>,
-      cancel: id => ipc.invoke(IPC_CHANNELS.agentAccount.cancel, id) as Promise<void>,
-      submitCode: (id, code) => ipc.invoke(IPC_CHANNELS.agentAccount.code, id, code) as Promise<void>,
-      openBrowser: id => ipc.invoke(IPC_CHANNELS.agentAccount.browser, id) as Promise<void>,
+      read: inv(IPC_CHANNELS.agentAccount.read),
+      login: inv(IPC_CHANNELS.agentAccount.login),
+      logout: inv(IPC_CHANNELS.agentAccount.logout),
+      cancel: inv(IPC_CHANNELS.agentAccount.cancel),
+      submitCode: inv(IPC_CHANNELS.agentAccount.code),
+      openBrowser: inv(IPC_CHANNELS.agentAccount.browser),
       onChanged: listener => subscribe(ipc, IPC_CHANNELS.agentAccount.changed, listener)
     },
     thread: {
@@ -201,27 +201,14 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
     workspace: bind<OxeApi['workspace']>(IPC_CHANNELS.workspace, {
       onChanged: sub(IPC_CHANNELS.workspace.onChanged)
     }),
-    terminal: {
-      start: (input) => ipc.invoke(IPC_CHANNELS.terminal.start, input) as Promise<void>,
-      write: (input) => ipc.invoke(IPC_CHANNELS.terminal.write, input) as Promise<void>,
-      resize: (input) => ipc.invoke(IPC_CHANNELS.terminal.resize, input) as Promise<void>,
-      stop: (input) => ipc.invoke(IPC_CHANNELS.terminal.stop, input) as Promise<void>,
-      restart: (input) => ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>,
-      attach: (input) => ipc.invoke(IPC_CHANNELS.terminal.attach, input) as Promise<TerminalAttachResult>,
-      detach: (input) => ipc.invoke(IPC_CHANNELS.terminal.detach, input) as Promise<import('../../shared/types/ipc').TerminalDetachResult | void>,
-      status: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.status, paneId) as Promise<TerminalStatusResult>,
-      resumeBypass: () => ipc.invoke(IPC_CHANNELS.terminal.resumeBypass) as Promise<boolean>,
-      setResumeBypass: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setResumeBypass, enabled) as Promise<boolean>,
-      agentsFullAccess: () => ipc.invoke(IPC_CHANNELS.terminal.agentsFullAccess) as Promise<boolean>,
-      setAgentsFullAccess: (enabled) => ipc.invoke(IPC_CHANNELS.terminal.setAgentsFullAccess, enabled) as Promise<boolean>,
+    terminal: bind<OxeApi['terminal']>(IPC_CHANNELS.terminal, {
       onData: terminalData,
       onExit: terminalExit,
-      branch: (paneId) => ipc.invoke(IPC_CHANNELS.terminal.branch, paneId) as Promise<TerminalPaneBranch | null>,
       onBranchChanged: terminalBranch,
-      sizeLease: (paneId, takeBack) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId, takeBack === true) as Promise<TerminalSizeLease | null>,
+      sizeLease: (paneId: string, takeBack?: boolean) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId, takeBack === true) as Promise<TerminalSizeLease | null>,
       onSizeLeaseChanged: terminalSizeLease,
       onActivity: terminalActivity
-    },
+    }),
     agent: {
       list: () => ipc.invoke(IPC_CHANNELS.agent.list) as Promise<AgentProfile[]>,
       create: (input) => ipc.invoke(IPC_CHANNELS.agent.create, input) as Promise<AgentProfile>,

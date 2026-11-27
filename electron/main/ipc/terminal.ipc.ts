@@ -10,7 +10,7 @@ import {
   parseTerminalStopInput,
   parseTerminalWriteInput
 } from './validation'
-import type { TerminalAttachResult, TerminalDetachResult, TerminalPaneBranch, TerminalStatusResult } from '../../../shared/types/ipc'
+import type { TerminalAttachResult, TerminalDetachResult, TerminalPaneBranch, TerminalQuitBehavior, TerminalStatusResult } from '../../../shared/types/ipc'
 
 export interface TerminalIpcController {
   start(input: ReturnType<typeof parseTerminalStartInput>): Promise<void> | void
@@ -30,6 +30,8 @@ export interface TerminalIpcController {
   setResumeBypass?(enabled: boolean): boolean
   agentsFullAccess?(): boolean
   setAgentsFullAccess?(enabled: boolean): boolean
+  quitBehavior?(): TerminalQuitBehavior
+  setQuitBehavior?(mode: TerminalQuitBehavior): TerminalQuitBehavior
 }
 
 export function registerTerminalIpc(controller: TerminalIpcController = createPendingTerminalController()): void {
@@ -57,6 +59,11 @@ export function registerTerminalIpc(controller: TerminalIpcController = createPe
   ipcMain.handle(IPC_CHANNELS.terminal.setAgentsFullAccess, (_event, enabled: unknown) => {
     if (typeof enabled !== 'boolean') throw new Error('Invalid agent access setting')
     return controller.setAgentsFullAccess?.(enabled) ?? false
+  })
+  ipcMain.handle(IPC_CHANNELS.terminal.quitBehavior, () => controller.quitBehavior?.() ?? 'kill')
+  ipcMain.handle(IPC_CHANNELS.terminal.setQuitBehavior, (_event, mode: unknown) => {
+    if (mode !== 'detach' && mode !== 'kill') throw new Error('Invalid terminal quit behavior')
+    return controller.setQuitBehavior?.(mode) ?? 'kill'
   })
 }
 

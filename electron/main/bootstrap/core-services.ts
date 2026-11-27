@@ -143,8 +143,15 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
   const oxeQueryShells: { shellFor?: (paneId: string) => { file: string; args: string[] } | undefined } = {}
   registerFeatureUsageIpc(db)
   const hostsProxy = registerHostsProxyIpc(db, log)
+  const ptyOption = await (await import('../services/terminal/utility-pty')).appPtyOption(
+    process.env,
+    join(app.getAppPath(), 'out', 'main', 'pty-host.js'),
+    message => log.warn(message),
+    { daemonEntry: join(app.getAppPath(), 'out', 'main', 'pty-daemon.js'), userDataPath: app.getPath('userData') }
+  )
+  const ptyDaemon = ptyOption.daemon ?? null
   const terminalManager: TerminalManager = new TerminalManager(db, {
-    ...(await (await import('../services/terminal/utility-pty')).appPtyOption(process.env, join(app.getAppPath(), 'out', 'main', 'pty-host.js'), message => log.warn(message))), // OXE-400: node-pty in a utility process (OXESPACE_PTY_HOST=main: in main)
+    ...ptyOption, // OXE-400/OXE-447: utility process (default), main, or detached PTY daemon
     rootExists, // OXE-367: a pane in a workspace folder that is gone is refused before any PTY is spawned
     oxeQueryShell: paneId => oxeQueryShells.shellFor?.(paneId),
     grantProxy: origin => hostsProxy.grant(origin),
@@ -229,6 +236,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     paneAgentCwd,
     oxeQueryShells,
     hostsProxy,
+    ptyDaemon,
     terminalManager,
     taskService
   }

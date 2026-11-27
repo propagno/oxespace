@@ -139,6 +139,7 @@ export const IPC_CHANNELS = {
     setResumeBypass: 'terminal:set-resume-bypass',
     agentsFullAccess: 'terminal:agents-full-access',
     setAgentsFullAccess: 'terminal:set-agents-full-access',
+    quitBehavior: 'terminal:quit-behavior', setQuitBehavior: 'terminal:set-quit-behavior',
     // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
@@ -546,6 +547,7 @@ export interface TerminalApi {
   /** Settings > Terminal: agents started in a pane skip their permission prompts (on by default). */
   agentsFullAccess?(): Promise<boolean>
   setAgentsFullAccess?(enabled: boolean): Promise<boolean>
+  quitBehavior?(): Promise<import('./ipc/terminal').TerminalQuitBehavior>; setQuitBehavior?(mode: import('./ipc/terminal').TerminalQuitBehavior): Promise<import('./ipc/terminal').TerminalQuitBehavior>
   write(input: TerminalWriteInput): Promise<void>
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
