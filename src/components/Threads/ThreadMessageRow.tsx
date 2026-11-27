@@ -8,7 +8,6 @@ import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
 import type { ThreadEvent, ThreadSnapshot } from '../../../shared/types/thread'
 import { formatNativeUserText, taskNotification } from '../../../shared/native-session-text'
-import { useThreadStore } from '../../store/thread.store'
 import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadMarkdown } from './ThreadMarkdown'
 import { ThreadDeliveryNote } from './ThreadDeliveryNote'
@@ -133,7 +132,7 @@ export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running,
     {showAvatar && (
       <div className="thread-agent-label">
         <span className="thread-agent-avatar" aria-hidden="true">
-          <AgentProviderIcon provider={provider} size={18} />
+          <AgentProviderIcon provider={provider} size={15} />
         </span>
         <span className="thread-agent-name">{threadAgentName(provider)}</span>
       </div>

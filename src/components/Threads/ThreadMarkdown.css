@@ -1,24 +1,27 @@
-.thread-markdown { min-width: 0; max-width: 100%; font-weight: 400; line-height: 1.7; }
+/* Obsidian Minimal editorial typography & wide block escape (OXE-462). */
+.thread-markdown { min-width: 0; max-width: 100%; color: var(--tx-primary); font-weight: var(--weight-regular); line-height: 1.6; }
+.thread-markdown > :is(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, .thread-alert, hr) { max-width: min(100%, var(--thread-editorial-max, var(--measure-prose))); }
 .thread-markdown-pending { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-markdown>:first-child { margin-top: 0; }
 .thread-markdown>:last-child { margin-bottom: 0; }
-.thread-markdown :is(h1,h2,h3,h4,h5,h6) { color: var(--tx-primary); font-weight: 600; line-height: 1.4; margin: 22px 0 10px; }
-.thread-markdown h1 { font-size: var(--fs-2xl); }
-.thread-markdown h2 { font-size: var(--fs-xl); }
-.thread-markdown h3 { font-size: var(--fs-lg); }
-.thread-markdown :is(h4,h5,h6) { font-size: var(--fs-md); }
-.thread-markdown p { margin: 0 0 15px; }
-.thread-markdown :is(ul,ol) { margin: 10px 0 14px; padding-left: 24px; }
+.thread-markdown :is(h1,h2,h3,h4,h5,h6) { color: var(--tx-primary); font-weight: var(--weight-semibold); letter-spacing: -0.015em; line-height: 1.35; margin: 1.35em 0 0.45em; }
+.thread-markdown h1 { font-size: 1.25em; font-weight: var(--weight-semibold); }
+.thread-markdown h2 { font-size: 1.125em; font-weight: var(--weight-semibold); }
+.thread-markdown h3 { font-size: 1.025em; font-weight: var(--weight-semibold); letter-spacing: -0.01em; }
+.thread-markdown :is(h4,h5,h6) { font-size: 0.95em; font-weight: var(--weight-medium); letter-spacing: 0; color: var(--tx-secondary); }
+.thread-markdown p { margin: 0 0 0.9em; }
+.thread-markdown :is(ul,ol) { margin: 0.65em 0 0.9em; padding-left: 1.5em; }
 .thread-markdown ul { list-style-type: disc; }
 .thread-markdown ol { list-style-type: decimal; }
 .thread-markdown ul ul { list-style-type: circle; }
-.thread-markdown strong { color: var(--tx-primary); font-weight: 600; }
-.thread-markdown li { margin: 5px 0; padding-left: 2px; }
-.thread-markdown li>p { margin: 6px 0; }
-.thread-markdown li :is(ul,ol) { margin: 6px 0; }
-.thread-markdown .contains-task-list { list-style: none; padding-left: 4px; }
-.thread-markdown .task-list-item>input { margin-right: 8px; accent-color: var(--accent); }
-.thread-markdown blockquote { margin: 14px 0; padding: 4px 14px; border-left: 3px solid var(--bd-default); color: var(--tx-secondary); }
+.thread-markdown strong { color: var(--tx-primary); font-weight: var(--weight-semibold); }
+.thread-markdown li { margin: 0.35em 0; padding-left: 0.15em; }
+.thread-markdown li::marker { color: var(--tx-muted); }
+.thread-markdown li>p { margin: 0.35em 0; }
+.thread-markdown li :is(ul,ol) { margin: 0.35em 0; }
+.thread-markdown .contains-task-list { list-style: none; padding-left: var(--space-1); }
+.thread-markdown .task-list-item>input { margin-right: var(--space-2); accent-color: var(--accent); }
+.thread-markdown blockquote { margin: 0.9em 0; padding: 0.15em 0 0.15em var(--space-3); border-left: 2px solid var(--bd-default); background: transparent; color: var(--tx-secondary); }
 .thread-markdown blockquote>:last-child { margin-bottom: 0; }
 /* A GitHub alert: the side rule, the icon and the label in the kind's intent (never the sun, which is only for "needs you"). */
 .thread-alert { margin: var(--space-3) 0; padding: var(--space-1) var(--space-3); border-inline-start: 3px solid var(--alert-color); }
@@ -27,27 +30,33 @@
 .thread-alert[data-kind="important"] { --alert-color: var(--accent); }
 .thread-alert[data-kind="warning"] { --alert-color: var(--intent-warning-fg); }
 .thread-alert[data-kind="caution"] { --alert-color: var(--intent-danger-fg); }
-.thread-alert-title { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); color: var(--alert-color); font-weight: 600; }
+.thread-alert-title { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); color: var(--alert-color); font-weight: var(--weight-semibold); }
 .thread-alert-icon { flex: none; color: var(--alert-color); }
 .thread-alert>:last-child { margin-bottom: 0; }
-.thread-markdown hr { margin: 22px 0; border: 0; border-top: 1px solid var(--bd-default); }
-.thread-markdown a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.thread-markdown hr { margin: var(--space-6) 0; border: 0; border-top: 1px solid var(--bd-subtle); }
+.thread-markdown a { color: var(--tx-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 3px; }
+.thread-markdown a:hover { text-decoration-color: currentColor; }
 .thread-markdown :is(a,.thread-table-scroll):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.thread-markdown code { font-family: var(--font-mono, monospace); font-size: .88em; }
-/* A term in a sentence, not a box: a faint fill and no border, so a paragraph that names five files is still a paragraph. */
-.thread-markdown :not(pre)>code { padding: 1px 4px; border-radius: var(--radius-sm); background: var(--surface-sunken); white-space: break-spaces; overflow-wrap: anywhere; }
-.thread-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; margin: 16px 0; border: 1px solid var(--bd-default); border-radius: var(--radius-md, 8px); scrollbar-width: thin; }
-.thread-markdown table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); line-height: 1.55; }
-.thread-markdown :is(th,td) { padding: 10px 12px; min-width: 120px; vertical-align: top; text-align: left; overflow-wrap: anywhere; border-bottom: 1px solid var(--bd-subtle); }
+.thread-markdown code { font-family: var(--font-mono); font-size: 0.875em; }
+/* Whisper-quiet Obsidian Minimal inline code: soft tonal chip, zero border, zero underline. */
+.thread-markdown :not(pre)>code { padding: 0.12em 0.42em; border: 0; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--tx-primary) 7%, transparent); color: var(--tx-primary); font-family: var(--font-mono); font-size: 0.875em; text-decoration: none; white-space: break-spaces; overflow-wrap: anywhere; }
+.thread-markdown .thread-path-link, .thread-markdown .path-link { text-decoration: none; }
+.thread-markdown .path-link > code { border: 0; color: var(--tx-accent); text-decoration: none; }
+.thread-markdown .path-link:hover > code, .thread-markdown .path-link:focus-visible > code { background: color-mix(in srgb, var(--accent) 12%, transparent); text-decoration: underline; text-underline-offset: 2px; }
+.thread-table-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; margin: var(--space-4) 0; border: 0; border-radius: 0; scrollbar-width: thin; }
+.thread-markdown table { border-collapse: collapse; width: 100%; font-size: var(--fs-sm); line-height: 1.5; }
+.thread-markdown :is(th,td) { padding: var(--space-2) var(--space-3); min-width: 112px; vertical-align: top; text-align: left; overflow-wrap: anywhere; border-left: 0; border-right: 0; border-bottom: 1px solid var(--bd-subtle); }
 .thread-markdown :is(th,td)[data-numeric='true'] { text-align: right; font-variant-numeric: tabular-nums; }
-.thread-markdown th { background: var(--surface-raised); font-weight: 600; color: var(--tx-primary); }
+.thread-markdown th { background: transparent; font-size: var(--fs-xs); font-weight: var(--weight-medium); color: var(--tx-secondary); border-bottom: 1px solid var(--bd-default); }
 .thread-markdown tbody tr:last-child td { border-bottom: 0; }
 .thread-markdown tbody tr:hover { background: var(--fill-hover); }
-.thread-code-block { margin: 16px 0; max-width: 100%; min-width: 0; overflow: hidden; background: var(--surface-raised); border: 1px solid var(--bd-default); border-radius: var(--radius-md, 8px); }
-.thread-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 10px; border-bottom: 1px solid var(--bd-default); font-size: var(--fs-2xs); color: var(--tx-muted); }
-.thread-code-toolbar button { font-size: var(--fs-2xs); }
-.thread-markdown .thread-code-block pre { margin: 0; padding: 12px 14px; border-radius: 0; overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.6; tab-size: 2; }
-.thread-code-block pre code { padding: 0; border: 0; background: transparent; font-size: var(--fs-xs); white-space: inherit; }
+.thread-code-block { margin: var(--space-4) 0; max-width: 100%; min-width: 0; overflow: hidden; background: var(--surface-raised); border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); }
+.thread-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-3); background: var(--surface-chrome); border-bottom: 1px solid var(--bd-subtle); font-size: var(--fs-2xs); color: var(--tx-muted); }
+.thread-code-block:not(.thread-diagram-block) .thread-code-toolbar > button:last-child { margin-left: auto; }
+.thread-code-toolbar button { font-size: var(--fs-2xs); color: var(--tx-muted); }
+.thread-code-toolbar button:hover { color: var(--tx-primary); }
+.thread-markdown .thread-code-block pre { margin: 0; padding: var(--space-3) var(--space-4); max-width: 100%; border-radius: 0; background: var(--surface-sunken); overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.55; tab-size: 2; }
+.thread-code-block pre code { padding: 0; border: 0; background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); white-space: inherit; text-decoration: none; }
 /* Colour for code: the syntax tokens (--syn-*), the same names in both themes. */
 .thread-code-block .tk-comment { color: var(--syn-cm); font-style: italic; }
 .thread-code-block .tk-string { color: var(--syn-str); }
