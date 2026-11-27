@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { registerDiagnosticsIpc } from '../ipc/diagnostics.ipc'
 import { registerOxeContextIpc } from '../ipc/oxe-context.ipc'
 import { registerPolicyIpc } from '../ipc/policy.ipc'
-import { agentMcpArguments } from '../services/agent-launch.service'
+import { agentMcpArguments, SUPPORTED_AGENT_PROVIDERS } from '../services/agent-launch.service'
+import { PaneBusService } from '../services/agent-state/pane-bus.service'
 import { approvalCenter } from '../services/approvals'
 import { policyStore } from '../services/policy'
 import { mainMessage } from '../../../shared/messages'
@@ -58,11 +59,12 @@ export async function bootstrapInternalMcpAndAudit({ core, workspace, delegation
     paneProcess: paneId => terminalManager.foregroundProcess(paneId)
   })
 
+  const paneBus = new PaneBusService(db)
   const internalMcp = createInternalMcpHandle({
     threads: threadManager.manager,
     delegation: delegationService,
     executions,
-    delegationAgents: () => delegationAgents.list().filter(p => ['claude', 'codex'].includes(p.parentProvider ?? p.provider)).map(p => {
+    delegationAgents: () => delegationAgents.list().filter(p => (SUPPORTED_AGENT_PROVIDERS as readonly string[]).includes(p.parentProvider ?? p.provider)).map(p => {
       try { launcher.resolve(p.agentProfileId); return { agentProfileId: p.agentProfileId, name: p.name, supported: true } }
       catch (e) { return { agentProfileId: p.agentProfileId, name: p.name, supported: false, reason: String(e) } }
     }),
@@ -81,6 +83,7 @@ export async function bootstrapInternalMcpAndAudit({ core, workspace, delegation
       notify: approvals.showAgentNotice,
       agents: {
         state: agentState,
+        bus: paneBus,
         terminal: terminalManager,
         profiles: () => delegationAgents.list(),
         resolve: id => launcher.resolve(id),

@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import log from 'electron-log/main.js'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import type { openDatabase } from '../db/index'
 import { registerAgentIpc } from '../ipc/agent.ipc'
 import { registerAgentHooksIpc } from '../ipc/agent-hooks.ipc'
@@ -163,7 +163,17 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     executionEnvironment: (input) => {
       const meta = db.prepare('SELECT port, token FROM internal_mcp_meta LIMIT 1').get() as { port: number; token: string } | undefined
       const hookPort = agentHookServer.port
-      return { ...executions.register(input), ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}), ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {}) }
+      const binDir = join(app.getPath('userData'), 'bin')
+      const pathKey = Object.keys(process.env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH'
+      const currentPath = process.env[pathKey] ?? ''
+      const pathEntries = currentPath.split(delimiter).filter(Boolean)
+      const nextPath = pathEntries.some((entry) => entry.toLowerCase() === binDir.toLowerCase()) ? currentPath : [binDir, ...pathEntries].join(delimiter)
+      return {
+        ...executions.register(input),
+        [pathKey]: nextPath,
+        ...(hookPort ? { OXESPACE_AGENT_HOOK_PORT: String(hookPort) } : {}),
+        ...(meta ? { OXESPACE_MCP_PORT: String(meta.port), OXESPACE_MCP_TOKEN: meta.token } : {})
+      }
     },
     agentMcpArgs: (executable, args, workspaceId) => codeAgentMcpLaunch(db, providerForExecutable(executable), join(app.getPath('userData'), 'bin', 'oxespace-mcp.cjs'), workspaceId, args),
     emitData: (event) => {

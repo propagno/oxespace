@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 109
+export const LATEST_DB_VERSION = 110
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -559,6 +559,7 @@ export function runMigrations(db: AppDatabase): void {
   if (startingVersion < 107) db.transaction(() => db.exec(readMigration('107_mcp_thread_handoff_trail.sql')))()
   if (startingVersion < 108) db.transaction(() => db.exec(withoutExistingColumns(db, readMigration('108_workspace_access_ceiling.sql'))))()
   if (startingVersion < 109) db.transaction(() => db.exec(readMigration('109_repo_hook_trust_sensitive.sql')))()
+  if (startingVersion < 110) db.transaction(() => db.exec(readMigration('110_pane_bus.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

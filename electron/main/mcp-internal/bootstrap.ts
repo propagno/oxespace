@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { app } from 'electron'
 import type { AppDatabase } from '../db/index'
@@ -133,8 +133,12 @@ export function createInternalMcpHandle(deps: InternalMcpDeps): InternalMcpHandl
     startedAtMs = Date.now()
     try {
       const meta = loadOrCreateMeta(deps.db)
-      // 1. Materialize bridge — needs to exist before the DB row references it.
+      // 1. Materialize bridge and local `oxe` CLI shims — needs to exist before the DB row references it.
       bridgePath = await ensureBridgeScript()
+      await ensureOxeCliScripts().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[internal-mcp] oxe CLI materialization skipped:', err instanceof Error ? err.message : String(err))
+      })
 
       // 2. Ensure the global mcp_servers row exists.
       serverRowId = ensureServerRow(deps.mcpManager, bridgePath, meta.port, meta.token, meta.server_row_id)
@@ -278,6 +282,28 @@ async function ensureBridgeScript(): Promise<string> {
   writeFileSync(tmp, bridgeSource, 'utf8')
   renameSync(tmp, destPath)
   return destPath
+}
+
+function writeAtomicIfChanged(destPath: string, content: string, mode?: number): void {
+  const current = existsSync(destPath) ? readFileSync(destPath, 'utf8') : ''
+  if (hash(content) === hash(current)) return
+  const tmp = destPath + '.tmp'
+  writeFileSync(tmp, content, 'utf8')
+  if (mode !== undefined && process.platform !== 'win32') {
+    try { chmodSync(tmp, mode) } catch { /* ignore */ }
+  }
+  renameSync(tmp, destPath)
+}
+
+/** OXE-445 · Materializes `<userData>/bin/oxe-cli.cjs` plus platform shims (`oxe.cmd` / `oxe`). */
+export async function ensureOxeCliScripts(destDir = join(app.getPath('userData'), BRIDGE_DEST_DIR)): Promise<string> {
+  const { default: cliSource } = await import('../../../resources/mcp-bridge/oxe-cli.cjs?raw')
+  mkdirSync(destDir, { recursive: true })
+  const cliPath = join(destDir, 'oxe-cli.cjs')
+  writeAtomicIfChanged(cliPath, cliSource, 0o755)
+  writeAtomicIfChanged(join(destDir, 'oxe.cmd'), '@echo off\r\nnode "%~dp0oxe-cli.cjs" %*\r\n')
+  writeAtomicIfChanged(join(destDir, 'oxe'), '#!/bin/sh\nexec node "$(dirname "$0")/oxe-cli.cjs" "$@"\n', 0o755)
+  return cliPath
 }
 
 function hash(value: string): string {

@@ -59,8 +59,12 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     ipc: ['workspace.createPane', 'workspace.closePane', 'workspace.setPaneAgent']
   },
   'code.agents': {
-    label: 'Agents running in panes: state, output, prompt, stop a turn',
-    tools: { ...each('oxespace_agents', 'read', ['list', 'read', 'explain', 'wait']), ...each('oxespace_agents_change', 'confirm', ['prompt', 'interrupt', 'transfer_attachments']) },
+    label: 'Agents running in panes: state, output, prompt, stop a turn, pane-bus',
+    tools: {
+      ...each('oxespace_agents', 'read', ['list', 'read', 'explain', 'wait', 'bus_inbox', 'bus_wait']),
+      ...each('oxespace_agents_change', 'write', ['bus_ack']),
+      ...each('oxespace_agents_change', 'confirm', ['prompt', 'interrupt', 'transfer_attachments', 'bus_send'])
+    },
     ipc: ['agentState.list', 'agentState.explain']
   },
   'code.activity': {
