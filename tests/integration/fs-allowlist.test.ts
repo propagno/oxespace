@@ -313,7 +313,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE-298 (CA-1): watches the parent directory of a validated workspace-contained handoff file (for atomic rename
   // saves) and reads bounded bytes (<= 2 MiB) after realpath containment check solely to compute a SHA-256 fingerprint
   // for debounced/deduped passive notices. Never writes files.
-  'electron/main/services/handoff/handoff-watcher.ts'
+  'electron/main/services/handoff/handoff-watcher.ts',
+  // OXE-447: detached local PTY daemon manages only its own POSIX Unix Domain Socket file (unlink stale socket +
+  // chmod 0600 on listen); never touches workspace files.
+  'electron/main/workers/pty-daemon.ts'
 ])
 
 describe('workspace fs allowlist', () => {
