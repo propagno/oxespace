@@ -28,7 +28,17 @@ export interface InlinePathContext {
   thread: Pick<ConversationThread, 'rootPath' | 'observedLocation'>
 }
 
-const slashes = (path: string): string => path.replace(/\\/g, '/')
+const slashes = (path: string): string => {
+  let value = path
+  if (/^file:\/\//i.test(value)) {
+    value = value.replace(/^file:\/\/(?:localhost)?/i, '')
+    try { value = decodeURIComponent(value) } catch { /* keep raw URI text */ }
+  }
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\/\/\?\/(?=[A-Za-z]:(?:\/|$))/, '')
+    .replace(/^\/+(?=[A-Za-z]:(?:\/|$))/, '')
+}
 const trimEnd = (path: string): string => slashes(path).replace(/(?<=.)\/+$/, '')
 const isAbsolute = (path: string): boolean => /^(?:[a-z]:)?\//i.test(path) || path.startsWith('//')
 const comparable = (path: string): string => /^[a-z]:\//i.test(path) || path.startsWith('//') ? path.toLowerCase() : path

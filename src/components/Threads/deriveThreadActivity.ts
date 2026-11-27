@@ -27,6 +27,19 @@ export function cutSafe(text: string, limit: number): string {
   return `${text.slice(0, end).replace(/[\s.,;:!?(\[{\-–—]+$/, '')}…`
 }
 
+function normalizeFsPath(rawPath: string): string {
+  if (!rawPath) return ''
+  let value = rawPath
+  if (/^file:\/\//i.test(value)) {
+    value = value.replace(/^file:\/\/(?:localhost)?/i, '')
+    try { value = decodeURIComponent(value) } catch { /* keep raw URI text */ }
+  }
+  return value
+    .replace(/\\/g, '/')
+    .replace(/^\/\/\?\/(?=[A-Za-z]:(?:\/|$))/, '')
+    .replace(/^\/+(?=[A-Za-z]:(?:\/|$))/, '')
+}
+
 function caseInsensitiveFor(base: string): boolean {
   if (/^[A-Za-z]:/.test(base)) return true
   if (typeof navigator !== 'undefined' && /Win|Mac/i.test(navigator.userAgent)) return true
@@ -35,9 +48,9 @@ function caseInsensitiveFor(base: string): boolean {
 
 function relativizePath(rawPath: string, root: string): string {
   if (!rawPath) return ''
-  const norm = rawPath.replace(/\\/g, '/')
+  const norm = normalizeFsPath(rawPath)
   if (!root) return norm.replace(/^\.\//, '')
-  const base = normalizeRootPath(root)
+  const base = normalizeRootPath(normalizeFsPath(root))
   if (base === '/') return norm
   const ci = caseInsensitiveFor(base)
   const key = ci ? norm.toLowerCase() : norm
@@ -52,14 +65,17 @@ function relativizePath(rawPath: string, root: string): string {
 
 function relativizeInText(text: string, root: string): string {
   if (!text || !root) return text
-  const base = normalizeRootPath(root)
+  const base = normalizeRootPath(normalizeFsPath(root))
   if (!base || base === '/') return text
   const ci = caseInsensitiveFor(base)
   const escaped = base
     .split('/')
     .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('[\\\\/]+')
-  const re = new RegExp(`${escaped}(?:[\\\\/]+([^\\s"'\`<>|\\u0000-\\u001f]+)|(?=$|[\\s"'\`<>|.,;:!?)\\]}]))`, ci ? 'gi' : 'g')
+  const lead = /^[A-Za-z]:/.test(base)
+    ? '(?:file:\\/\\/(?:localhost)?[\\\\/]+|(?:(?<=^|[\\s"\'`=(;,])[\\\\/]+))?'
+    : '(?:file:\\/\\/(?:localhost)?)?'
+  const re = new RegExp(`${lead}${escaped}(?:[\\\\/]+([^\\s"'\`<>|\\u0000-\\u001f]+)|(?=$|[\\s"'\`<>|.,;:!?)\\]}]))`, ci ? 'gi' : 'g')
   return text.replace(re, (_match, rest: string | undefined) => {
     if (!rest) return '.'
     const trail = TRAILING_PUNCT.exec(rest)?.[0] ?? ''

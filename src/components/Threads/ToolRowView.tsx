@@ -53,7 +53,7 @@ export function ToolRowView(props: { row: ToolRow; onSelect?: () => void; expand
         <span className={styles.bar} aria-hidden="true" />
         {row.running && <Spinner size="sm" decorative />}
         <span className={styles.kind}>{t(kindKey)}</span>
-        <span className={styles.target}>{row.target}</span>
+        <span className={styles.target} title={row.target || undefined}>{row.target}</span>
         {(row.meta.additions || row.meta.deletions || row.truncated) && (
           <span className={styles.meta} aria-hidden="true">
             {row.meta.additions ? `+${row.meta.additions}` : ''}

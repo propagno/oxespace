@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import { i18n } from '../../i18n'
@@ -36,7 +37,10 @@ export function ThreadReasoning({ event, running }: { event: Reasoning; running:
     onToggle={element => { const next = (element.currentTarget as HTMLDetailsElement).open; if (next !== open) setChosen(next) }}>
     <summary onClick={event => event.preventDefault()}>
       {streaming && <span className="thread-reasoning-pulse" data-ui="reasoning-pulse" aria-hidden="true" />}
-      <Button variant="ghost" size="sm" aria-expanded={open} onClick={click => { click.preventDefault(); setChosen(!open) }}>{reasoningLabel(event, streaming)}</Button>
+      <Button variant="ghost" size="sm" aria-expanded={open} onClick={click => { click.preventDefault(); setChosen(!open) }}>
+        {!streaming && <ChevronRight size={12} aria-hidden="true" className="thread-reasoning-chevron" />}
+        <span>{reasoningLabel(event, streaming)}</span>
+      </Button>
     </summary>
     {streaming && <div className="thread-reasoning-preview">{previewLines(event.text)}</div>}
     {open && !streaming && <div className="thread-reasoning-body">{paragraphs.map((line, index) => <p key={index}>{line}</p>)}</div>}

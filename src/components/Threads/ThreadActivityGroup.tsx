@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { isOxespaceMcpTool, oxespaceToolLabel } from '../../../shared/oxespace-mcp-tools'
-import { classifyToolRowKind, foldSummary, toolRow } from '../../../shared/thread-tool-rows'
+import { classifyToolRowKind, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
 import { threadActionFailure } from '../../../shared/threadActionFailure'
-import { Check, ChevronDown, CircleAlert, CircleHelp, TerminalSquare } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, TerminalSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
@@ -14,8 +14,8 @@ import { Button, Spinner, StatusSignal } from '../../ui'
 import { resolveToolOutputCut, useToolOutputCuts } from '../../store/tool-output-cut.store'
 import { ToolOutputCutBanner, stepOutputTail } from './toolOutputCut'
 import { ThreadInlineEvidence } from './ThreadFileActivity'
-import { foldSummaryText } from './foldSummaryText'
 import { PathLink } from './PathLink'
+import { extractRawToolTarget, summarizeShellCommand } from './toolStepFormat'
 type Tool = Extract<ThreadEvent, { type: 'tool' }>
 const NAMED = new Set(['commandExecution', 'fileChange', 'mcpToolCall', 'contextCompaction', 'Read', 'Glob', 'Grep', 'Bash', 'Edit', 'Write', 'Tool result'])
 /** What an action did, in words; a tool the app does not know keeps the provider's own name. */
@@ -139,15 +139,16 @@ function TargetLink({ threadId, raw, turnId }: { threadId?: string; raw: string;
 function ExploreStep({ event, root, threadId }: { event: Tool; root: string; threadId?: string }) {
   const { t } = useTranslation('thread')
   const target = toolRow(event, root).target
+  const fullTarget = extractRawToolTarget(event, 'read')
   const search = SEARCH_NAMES.has(event.name)
   const input = toolInput(event.detail)
   const from = typeof input?.offset === 'number' ? input.offset : undefined
   const limit = typeof input?.limit === 'number' ? input.limit : undefined
   const range = !search && from !== undefined && limit !== undefined ? t('explore.lines', { from, to: from + limit - 1 }) : ''
   const hits = search ? (event.output ?? '').split('\n').filter(line => line.length > 0).length : 0
-  return <div data-ui="step" data-kind={classifyToolRowKind(event.name)} data-state={stepState(event)}>
+  return <div data-ui="step" data-kind={classifyToolRowKind(event.name)} data-state={stepState(event)} title={fullTarget || target || undefined}>
     {search
-      ? <>{t('explore.searched')} "<TargetLink threadId={threadId} raw={target} turnId={event.turnId} />" · {t('explore.hits', { count: hits })}</>
+      ? <>{t('explore.searched')} &quot;<TargetLink threadId={threadId} raw={target} turnId={event.turnId} />&quot; · {t('explore.hits', { count: hits })}</>
       : <>{t('explore.read')} <TargetLink threadId={threadId} raw={target} turnId={event.turnId} />{range ? ` · ${range}` : ''}</>}
   </div>
 }
@@ -161,7 +162,10 @@ function ExploreGroup({ events, root, threadId }: { events: Tool[]; root: string
   const end = Math.max(...events.map(event => event.completedAt ?? event.startedAt ?? start))
   const label = t('explore.summary', { files: events.length - searches, searches, duration: formatExploreSpan(end - start, bundle.language) })
   return <div data-ui="explore-group">
-    <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => setOpen(value => !value)}>{label}</Button>
+    <Button variant="ghost" size="sm" className="thread-explore-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>
+      <ChevronRight size={12} aria-hidden="true" className="thread-explore-chevron" />
+      <span className="thread-step-label">{label}</span>
+    </Button>
     {open && <div data-ui="explore-steps">{events.map(event => <ExploreStep key={event.id} event={event} root={root} threadId={threadId} />)}</div>}
   </div>
 }
@@ -183,30 +187,59 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
   const table = row.kind === 'query' ? queryTable(event.output) : undefined
   const mcp = mcpTitle(event.name)
   const isShellRun = row.kind === 'run' && !event.name.startsWith('mcp__') && !isOxespaceMcpTool(event.name)
+  const fullTarget = extractRawToolTarget(event, row.kind)
+  const shellSummary = isShellRun ? (summarizeShellCommand(fullTarget || row.target, root) || row.target || toolName(event.name)) : ''
+  const showFullCommand = open && isShellRun && Boolean(fullTarget) && fullTarget !== shellSummary
   const sql = typeof input?.sql === 'string' ? input.sql : ''
   const headline = row.kind === 'http' ? [row.target, status].filter(Boolean).join(' ')
     : row.kind === 'other' && mcp ? mcp
       : row.kind === 'query' ? (sql || row.target || toolName(event.name))
         : row.target || toolName(event.name)
+  const isEditWithTarget = row.kind === 'edit' && Boolean(row.target)
+  const editFile = event.files?.[0]
+  const editVerbKey = editFile
+    ? (editFile.state === 'failed' || editFile.state === 'running' || editFile.state === 'unknown'
+        ? editFile.state
+        : editFile.kind === 'add' || editFile.kind === 'delete' || editFile.kind === 'rename'
+          ? editFile.kind
+          : 'update')
+    : null
+  const editLabel = editVerbKey ? t(`files.verb.${editVerbKey}`) : t('fold.kinds.edit')
   const openChanges = () => { if (threadId) useThreadWorkbenchStore.getState().setView(threadId, { panel: 'changes' }) }
   const artifactId = event.files?.find(file => file.artifactId)?.artifactId
   const showsPlainOutput = row.kind === 'http' || row.kind === 'other' || row.kind === 'container' || row.kind === 'read' || (row.kind === 'query' && !table) || (row.kind === 'edit' && !(threadId && artifactId))
   return <div data-ui="step" data-kind={row.kind} data-state={state} data-open={open ? 'true' : 'false'}>
     <div className="thread-step-line">
-      {state === 'running' ? <Spinner size="sm" decorative /> : <StatusSignal state={state === 'failed' ? 'failed' : 'done'} label={t(`activity.state.${state === 'failed' ? 'failed' : 'completed'}`)} size={14} />}
+      <span className="thread-step-signal">
+        {state === 'running' ? <Spinner size="sm" decorative /> : <StatusSignal state={state === 'failed' ? 'failed' : 'done'} label={t(`activity.state.${state === 'failed' ? 'failed' : 'completed'}`)} size={14} />}
+      </span>
       {BADGED.has(row.kind) && <span data-ui="kind-badge" data-kind={row.kind}>{t(`fold.kinds.${row.kind}`)}</span>}
-      {isShellRun ? (
-        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}><code>$ <span>{row.target}</span></code></Button>
+      {isEditWithTarget ? (
+        <>
+          <Button variant="ghost" size="sm" className="thread-step-toggle thread-step-edit-toggle" aria-expanded={open} title={t('files.expand', { path: row.target })} onClick={() => setOpen(value => !value)}>
+            <ChevronRight size={12} aria-hidden="true" className="thread-step-chevron" />
+            <span>{editLabel}</span>
+          </Button>
+          <Button variant="ghost" size="sm" data-ui="file-pill" title={fullTarget || row.target} onClick={openChanges}>
+            <span className="thread-step-label">{row.target}</span>
+          </Button>
+        </>
+      ) : isShellRun ? (
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || shellSummary} onClick={() => setOpen(value => !value)}>
+          <code>$ <span>{shellSummary}</span></code>
+        </Button>
       ) : (
-        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} onClick={() => setOpen(value => !value)}>{headline}</Button>
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || headline} onClick={() => setOpen(value => !value)}>
+          <span className="thread-step-label">{headline}</span>
+        </Button>
       )}
-      {row.kind === 'edit' && <Button variant="ghost" size="sm" data-ui="file-pill" onClick={openChanges}>{row.target}</Button>}
-      {(row.meta.additions || row.meta.deletions) ? <span>+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
+      {(row.meta.additions || row.meta.deletions) ? <span className="thread-step-stats">+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
     </div>
+    {showFullCommand && <pre data-ui="step-command">{fullTarget}</pre>}
     {open && row.kind === 'run' && output && <>
       {cut && <ToolOutputCutBanner cut={cut} fullOutput={rawOutput} toolLabel={headline} />}
       <pre data-ui="step-output">{shown}</pre>
-      {hidden > 0 && <Button variant="ghost" size="sm" onClick={() => setAllLines(true)}>{t('steps.showMoreLines', { count: hidden })}</Button>}
+      {hidden > 0 && <Button variant="ghost" size="sm" className="thread-step-more" onClick={() => setAllLines(true)}>{t('steps.showMoreLines', { count: hidden })}</Button>}
     </>}
     {open && row.kind === 'query' && table && <table>
       <thead><tr>{table.columns.map(column => <th key={column}>{column}</th>)}</tr></thead>

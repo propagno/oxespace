@@ -35,7 +35,10 @@ const ALLOWED_UNMOUNTED_FILES = new Set([
   'src/components/Threads/deriveThreadActivity.ts',
   // OXE-169 (F5 T17, A27): the conversation has no tab row; its Queries and Containers open from Mais painéis. The 1.5.0
   // frozen f4/u48 and f6/u61 still render ThreadToolTabs alone, so it stays until those tests are released with it.
-  'src/components/Threads/ThreadToolTabs.tsx'
+  'src/components/Threads/ThreadToolTabs.tsx',
+  // OXE-463: ThreadTurnFold now formats its quiet fold summary directly via i18n; frozen f6/u62-u63 still tests
+  // foldSummaryText directly.
+  'src/components/Threads/foldSummaryText.ts'
 ])
 
 function walk(dir: string, predicate: (fullPath: string) => boolean): string[] {
