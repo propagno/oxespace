@@ -163,6 +163,17 @@
         "hint": "Superfícies escuras com detalhes em verde caatinga"
       }
     },
+    "surface": {
+      "title": "Superfície",
+      "default": {
+        "label": "Padrão",
+        "hint": "Grafite suave no modo escuro e contraste sutil nas barras no modo claro."
+      },
+      "pure": {
+        "label": "Preto puro / Branco puro",
+        "hint": "Superfícies em preto absoluto no modo escuro e branco puro no modo claro."
+      }
+    },
     "language": {
       "title": "Idioma",
       "system": "Sistema ({{language}})",

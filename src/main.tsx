@@ -16,7 +16,7 @@ import { StartupInteractiveMark } from './lib/startupTiming'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { TooltipProvider } from './ui'
 import { installRendererErrorReporting } from './lib/rendererErrorsBoot'
-import { applyMode, resolveMode, savedAppearance } from './design/mode'
+import { applyMode, applySurfaceStyle, resolveMode, savedAppearance, savedSurfaceStyle } from './design/mode'
 import { initI18n } from './i18n'
 import { installCloseGuard } from './lib/closeGuard'
 import { applyMotion, resolveMotion, savedMotion } from './design/motion'
@@ -29,8 +29,9 @@ import '@xyflow/react/dist/style.css'
 
 // Crashes nothing caught reach the incident journal, as names and a stack hash only.
 installRendererErrorReporting()
-// Apply the saved light/dark and motion choices before the first paint, so the window never flashes the other mode.
+// Apply the saved light/dark, surface preset and motion choices before the first paint, so the window never flashes.
 applyMode(resolveMode(savedAppearance()))
+applySurfaceStyle(savedSurfaceStyle())
 applyMotion(resolveMotion(savedMotion()))
 // Lets the frameless title bar reserve room for macOS traffic lights.
 document.documentElement.dataset.platform = /Mac/i.test(navigator.platform) ? 'darwin' : /Win/i.test(navigator.platform) ? 'win32' : 'linux'

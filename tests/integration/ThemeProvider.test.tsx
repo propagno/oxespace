@@ -1,7 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { ThemeProvider } from '../../src/components/Theme/ThemeProvider'
-import { resolveMode, savedAppearance } from '../../src/design/mode'
+import { applySurfaceStyle, currentSurfaceStyle, onSurfaceStyleChange, resolveMode, savedAppearance, savedSurfaceStyle, surfaceStylePreference } from '../../src/design/mode'
 import { useSettingsStore } from '../../src/store/settings.store'
 import { UI_SCALE_EVENT } from '../../shared/uiScale'
 
@@ -16,9 +16,11 @@ describe('ThemeProvider', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     act(() => useSettingsStore.getState().setAppearance('system'))
+    act(() => useSettingsStore.getState().setSurfaceStyle('default'))
     act(() => { useSettingsStore.getState().setDensity('compact'); useSettingsStore.getState().setUiScale(1) })
     delete (window as { oxe?: unknown }).oxe
     delete document.documentElement.dataset.mode
+    delete document.documentElement.dataset.surface
     delete document.documentElement.dataset.density
   })
 
@@ -69,10 +71,29 @@ describe('ThemeProvider', () => {
   test('resolves and reads the saved choice', () => {
     expect(resolveMode('system', 'dark')).toBe('dark')
     expect(resolveMode('light', 'dark')).toBe('light')
-    window.localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: 'dark' }, version: 3 }))
+    window.localStorage.setItem('oxe-settings', JSON.stringify({ state: { appearance: 'dark', surfaceStyle: 'pure' }, version: 9 }))
     expect(savedAppearance()).toBe('dark')
+    expect(savedSurfaceStyle()).toBe('pure')
     window.localStorage.setItem('oxe-settings', 'not json')
     expect(savedAppearance()).toBe('system')
+    expect(savedSurfaceStyle()).toBe('default')
+    expect(surfaceStylePreference('unknown')).toBe('default')
     window.localStorage.removeItem('oxe-settings')
+  })
+
+  test('applies surfaceStyle to data-surface and notifies subscribers on change', async () => {
+    mockSystem(true)
+    const seen: string[] = []
+    const unsubscribe = onSurfaceStyleChange(surface => seen.push(surface))
+    render(<ThemeProvider><div /></ThemeProvider>)
+    expect(document.documentElement.dataset.surface).toBe('default')
+    expect(currentSurfaceStyle()).toBe('default')
+    act(() => useSettingsStore.getState().setSurfaceStyle('pure'))
+    expect(document.documentElement.dataset.surface).toBe('pure')
+    expect(currentSurfaceStyle()).toBe('pure')
+    await waitFor(() => expect(seen).toContain('pure'))
+    applySurfaceStyle('default')
+    expect(currentSurfaceStyle()).toBe('default')
+    unsubscribe()
   })
 })

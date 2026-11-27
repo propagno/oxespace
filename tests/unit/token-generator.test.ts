@@ -27,7 +27,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { moreContrastTokens, tokensCss } from '../../src/design/tokens/css'
-import { colorRoles } from '../../src/design/tokens/semantic'
+import { surfaceColorRoles } from '../../src/design/tokens/semantic'
 import { TEXT } from '../../src/design/tokens/scales'
 
 const root = process.cwd()
@@ -76,12 +76,13 @@ const TEXT_OF = new Map(SOURCES.map(path => [path, readFileSync(join(root, path)
 function expected(long: string, role: 'size' | 'color', selector: string): string | undefined {
   const key = long.slice(2)
   const dark = /dark/.test(selector)
+  const surface = /data-surface=['"]?pure/.test(selector) ? 'pure' : 'default'
   if (role === 'size') {
     const step = TEXT[key.slice('text-'.length) as keyof typeof TEXT]
     return /data-density=['"]?comfortable/.test(selector) ? `${step + 1}px` : `${step}px`
   }
-  if (/prefers-contrast/.test(selector)) return moreContrastTokens(dark ? 'dark' : 'light')[key]
-  return colorRoles(dark ? 'dark' : 'light')[key]
+  if (/prefers-contrast/.test(selector)) return moreContrastTokens(dark ? 'dark' : 'light', surface)[key]
+  return surfaceColorRoles(dark ? 'dark' : 'light', surface)[key]
 }
 
 describe('OXE-137 T18 · the last lot: short canonical names from the generator', () => {
@@ -102,9 +103,10 @@ describe('OXE-137 T18 · the last lot: short canonical names from the generator'
     for (const [long, short, role] of RENAMES) {
       if (role !== 'color') continue
       const selectors = blocks(short)
-      expect(selectors.filter(selector => !/prefers-contrast/.test(selector)).length, `${short} in light, dark and the system-dark fallback`).toBe(3)
+      // OXE-459: light, dark, system-dark fallback, light pure (Light White) and dark pure (True Black OLED).
+      expect(selectors.filter(selector => !/prefers-contrast/.test(selector)).length, `${short} in light, dark, system-dark fallback, light pure and dark pure`).toBe(5)
       const raised = Object.keys(moreContrastTokens('light')).includes(long.slice(2))
-      expect(selectors.filter(selector => /prefers-contrast/.test(selector)).length, `${short} under more contrast`).toBe(raised ? 2 : 0)
+      expect(selectors.filter(selector => /prefers-contrast/.test(selector)).length, `${short} under more contrast`).toBe(raised ? 4 : 0)
     }
     for (const intent of ['success', 'warning', 'danger', 'info']) expect(generatedNames.has(`--intent-${intent}-solid`), `--intent-${intent}-solid`).toBe(true)
     const aliases = [...generatedCss.matchAll(/(--[\w-]+)\s*:\s*var\(\s*--[\w-]+\s*\)\s*;/g)].map(found => found[1])

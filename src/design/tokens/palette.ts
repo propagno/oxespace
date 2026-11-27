@@ -18,12 +18,21 @@ interface ScaleSpec {
   chroma: number | Record<Mode, number>
   /** Lightness of the solid step (9) in each mode. */
   solid: Record<Mode, number>
+  /** Optional custom 12-step lightness ramp (used by the achromatic Obsidian Minimal neutral scale). */
+  lightness?: Record<Mode, number[]>
 }
 
 // Lightness and relative chroma per step; 9 and 10 come from the spec.
 const LIGHTNESS: Record<Mode, number[]> = {
   light: [0.992, 0.978, 0.955, 0.932, 0.905, 0.872, 0.822, 0.748, 0, 0, 0.49, 0.26],
   dark: [0.168, 0.198, 0.236, 0.266, 0.298, 0.338, 0.392, 0.47, 0, 0, 0.81, 0.945]
+}
+// Achromatic Obsidian Minimal neutral ramp:
+//   light: #ffffff, #f5f5f5, #f0f0f0, #ebebeb, #e5e5e5, #e0e0e0, #cccccc, #ababab, #808080, #717171, #606060, #242424
+//   dark:  #191919, #1f1f1f, #262626, #2c2c2c, #333333, #383838, #444444, #555555, #7a7a7a, #898989, #c1c1c1, #ededed
+const NEUTRAL_LIGHTNESS: Record<Mode, number[]> = {
+  light: [1.0, 0.97, 0.955, 0.94, 0.922, 0.906, 0.845, 0.74, 0, 0, 0.49, 0.26],
+  dark: [0.213, 0.239, 0.268, 0.295, 0.321, 0.34, 0.386, 0.45, 0, 0, 0.81, 0.945]
 }
 const CHROMA: Record<Mode, number[]> = {
   light: [0.06, 0.1, 0.2, 0.3, 0.4, 0.5, 0.62, 0.78, 1, 0.96, 0.86, 0.55],
@@ -34,7 +43,8 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
   const solid = spec.solid[mode]
   // The hover step moves away from the background: darker in light mode, lighter in dark.
   const hover = mode === 'light' ? solid - 0.05 : solid + 0.05
-  return LIGHTNESS[mode].map((l, index) => oklchToHex({
+  const ramp = (spec.lightness ?? LIGHTNESS)[mode]
+  return ramp.map((l, index) => oklchToHex({
     l: index === 8 ? solid : index === 9 ? hover : l,
     c: (typeof spec.chroma === 'number' ? spec.chroma : spec.chroma[mode]) * CHROMA[mode][index],
     h: spec.hue
@@ -42,8 +52,8 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
 }
 
 export const SCALE_SPECS = {
-  /** Night grey for surfaces, borders and text: violet, with more chroma in dark mode than in light (Mandacaru Noite). */
-  neutral: { hue: 285, chroma: { light: 0.04, dark: 0.13 }, solid: { light: 0.6, dark: 0.58 } },
+  /** Pure achromatic graphite/neutral for Obsidian Minimal surfaces, borders and text (OXE-459). */
+  neutral: { hue: 0, chroma: { light: 0, dark: 0 }, solid: { light: 0.6, dark: 0.58 }, lightness: NEUTRAL_LIGHTNESS },
   /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. Light solid 0.48, not the book's 0.5: white text
    *  on a 14% white tint over it (keys inside primary buttons) needs 4.5:1. */
   caatinga: { hue: 158, chroma: 0.135, solid: { light: 0.48, dark: 0.7 } },
@@ -76,7 +86,7 @@ export function palette(mode: Mode): Record<ScaleName, Scale> {
  * and only means "needs you" now (--attn). They are the
  * same in both modes, because the icon is the same on every desktop; resources/icon.svg uses exactly these.
  */
-export const LOGO = { tile: '#1b1925', mark: '#3fbf82' } as const
+export const LOGO = { tile: '#181818', mark: '#3fbf82' } as const
 
 export const IDENTITY = {
   provider: { claude: '#c2643f', codex: '#10a37f', copilot: '#24b2d5', antigravity: '#1a73e8', cursor: '#6366f1', grok: '#6b6b6b', custom: '#64748b' },

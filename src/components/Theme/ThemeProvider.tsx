@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, type ReactElement, type ReactNode } from 'r
 import type { WorkspaceDensity, WorkspaceThemeId } from '../../../shared/types/workspace'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
 import { resolveDensity } from '../../design/density'
-import { applyMode, resolveMode } from '../../design/mode'
+import { applyMode, applySurfaceStyle, resolveMode } from '../../design/mode'
 import { applyMotion, REDUCED_MOTION_QUERY, resolveMotion } from '../../design/motion'
 import { useSettingsStore } from '../../store/settings.store'
 
@@ -21,6 +21,7 @@ interface ThemeProviderProps {
  */
 export function ThemeProvider({ children, density }: ThemeProviderProps): ReactElement {
   const appearance = useSettingsStore(state => state.appearance)
+  const surfaceStyle = useSettingsStore(state => state.surfaceStyle)
   const appDensity = useSettingsStore(state => state.density)
   const uiScale = useSettingsStore(state => state.uiScale)
   const motion = useSettingsStore(state => state.motion)
@@ -34,6 +35,10 @@ export function ThemeProvider({ children, density }: ThemeProviderProps): ReactE
     query?.addEventListener('change', update)
     return () => query?.removeEventListener('change', update)
   }, [appearance])
+
+  useEffect(() => {
+    applySurfaceStyle(surfaceStyle)
+  }, [surfaceStyle])
 
   useEffect(() => {
     // System follows prefers-reduced-motion live; Reduced and Full ignore it.

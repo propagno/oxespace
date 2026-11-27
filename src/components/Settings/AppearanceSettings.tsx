@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { LANGUAGES, isLanguagePreference, resolveLanguage } from '../../../shared/i18n'
 import type { UiDensity } from '../../../shared/types/workspace'
 import { UI_SCALE_STEPS, UI_SCALE_DEFAULT } from '../../../shared/uiScale'
-import type { Appearance } from '../../design/mode'
+import type { Appearance, SurfaceStyle } from '../../design/mode'
 import type { MotionPreference } from '../../design/motion'
 import { systemLocale } from '../../i18n'
 import { useNavigationPrefs } from '../../store/navigation-prefs.store'
@@ -22,14 +22,15 @@ const MODES: Array<{ id: Appearance; icon: typeof Sun }> = [
 
 const percent = (factor: number): string => `${Math.round(factor * 100)}%`
 const SCALE_OPTIONS = UI_SCALE_STEPS.map(step => ({ value: String(step), label: percent(step) }))
+const SURFACE_STYLES: SurfaceStyle[] = ['default', 'pure']
 const MOTIONS: MotionPreference[] = ['system', 'reduce', 'full']
 const DENSITY_ICONS: Record<UiDensity, ReactElement> = {
   compact: <Minimize2 size={14} aria-hidden="true" />,
   comfortable: <Maximize2 size={14} aria-hidden="true" />
 }
 
-function Preview({ mode }: { mode: Appearance }): ReactElement {
-  const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
+function Preview({ mode, surface }: { mode: Appearance; surface: SurfaceStyle }): ReactElement {
+  const half = (tone: 'light' | 'dark') => <div className={styles.half} data-mode={tone} data-surface={surface}><div className={styles.side} /><div className={styles.body}><span className={styles.line} /><span className={styles.line} /></div></div>
   return <div className={styles.preview} data-preview={mode} aria-hidden="true">{mode === 'system' ? <>{half('light')}{half('dark')}</> : half(mode)}</div>
 }
 
@@ -38,13 +39,27 @@ function ModeOptions({ labelledBy }: { labelledBy?: string }): ReactElement {
   const { t } = useTranslation('settings')
   const appearance = useSettingsStore(state => state.appearance)
   const setAppearance = useSettingsStore(state => state.setAppearance)
+  const surfaceStyle = useSettingsStore(state => state.surfaceStyle)
   return <div className={styles.options} role="radiogroup" aria-labelledby={labelledBy} aria-label={labelledBy ? undefined : t('appearance.title')}>
     {MODES.map(({ id, icon: Icon }) => <button key={id} type="button" role="radio" aria-checked={appearance === id} className={styles.option} onClick={() => setAppearance(id)}>
-      <Preview mode={id} />
+      <Preview mode={id} surface={surfaceStyle} />
       <span className={styles.label}><Icon size={14} aria-hidden="true" />{t(`appearance.mode.${id}.label`)}{appearance === id && <Check size={14} aria-hidden="true" />}</span>
       <span className={styles.hint}>{t(`appearance.mode.${id}.hint`)}</span>
     </button>)}
   </div>
+}
+
+/** Minimal surface contrast preset: Default graphite/chrome vs True Black OLED / Pure White. */
+function SurfaceStyleOptions(): ReactElement {
+  const { t } = useTranslation('settings')
+  const surfaceStyle = useSettingsStore(state => state.surfaceStyle)
+  const setSurfaceStyle = useSettingsStore(state => state.setSurfaceStyle)
+  const options = SURFACE_STYLES.map(value => ({ value, label: t(`appearance.surface.${value}.label`) }))
+  return <section className={styles.group} aria-labelledby="appearance-surface-title">
+    <h3 id="appearance-surface-title" className={styles.groupTitle}>{t('appearance.surface.title')}</h3>
+    <p className={styles.hint}>{t(`appearance.surface.${surfaceStyle}.hint`)}</p>
+    <SegmentedControl label={t('appearance.surface.title')} value={surfaceStyle} options={options} onChange={setSurfaceStyle} />
+  </section>
 }
 
 /** Interface scale, app-wide density and motion; shown only in the app's Settings, not per workspace. */
@@ -119,6 +134,7 @@ export function AppearanceSettings({ global = false }: { global?: boolean }): Re
       <h3 id="appearance-mode-title" className={styles.groupTitle}>{t('appearance.mode.title')}</h3>
       <ModeOptions labelledBy="appearance-mode-title" />
     </section>
+    <SurfaceStyleOptions />
     <ScaleAndDensity />
     <LanguagePicker />
   </div>

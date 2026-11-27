@@ -9,8 +9,8 @@ export type AppearanceMode = 'system' | 'light' | 'dark'
 
 /** Window background and caption-button colors per resolved mode (surface-canvas and text-secondary). */
 const WINDOW_COLORS = {
-  light: { background: '#f7f7fa', symbols: '#44444d' },
-  dark: { background: '#0e0e18', symbols: '#c7c8e2' }
+  light: { background: '#ffffff', symbols: '#484848' },
+  dark: { background: '#1f1f1f', symbols: '#bababa' }
 } as const
 
 /** The colors a new window starts with, before the renderer reports the person's choice. */

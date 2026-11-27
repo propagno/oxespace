@@ -161,6 +161,17 @@
         "hint": "Dark surfaces with caatinga green accents"
       }
     },
+    "surface": {
+      "title": "Surface",
+      "default": {
+        "label": "Default",
+        "hint": "Soft graphite in dark mode and subtle chrome contrast in light mode."
+      },
+      "pure": {
+        "label": "True Black / Pure White",
+        "hint": "True black surfaces in dark mode and pure white surfaces in light mode."
+      }
+    },
     "language": {
       "title": "Language",
       "system": "System ({{language}})",
