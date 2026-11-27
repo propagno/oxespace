@@ -32,7 +32,7 @@ const SUPPORTED: Record<ThreadProvider, ReadonlySet<ParityFeature>> = {
   // error (measured in the app, 2026-11-12). The product owner chose to say so instead of building it.
   claude: new Set<ParityFeature>(PARITY_FEATURES.filter(feature => feature !== 'fork')),
   codex: new Set<ParityFeature>(['fork', 'paneConversation', 'effort']),
-  antigravity: new Set<ParityFeature>(['effort'])
+  antigravity: new Set<ParityFeature>(['effort', 'alwaysAllowBeyondSession'])
 }
 
 export function parityFor(provider: ThreadProvider, feature: ParityFeature): ParityAnswer {

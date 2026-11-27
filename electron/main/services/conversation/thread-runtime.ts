@@ -62,7 +62,8 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const env = { ...managed.env, ...prepared, ...toolSearchEnvironment(thread.provider), ...extraEnv }
       // Deny rules for MCP tools take effect when the session starts.
       // Policy denials by name too, so a server configured directly in the CLI is excluded as well.
-      const denied = [...deniedMcpTools(new ThreadPermissionStore(db).rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
+      const permissionStore = new ThreadPermissionStore(db)
+      const denied = [...deniedMcpTools(permissionStore.rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
       // So do tool groups: the role's, and each group by the project's mode; on demand ones load as needed (B7.2).
       // The accepted modes (B7.4); a launch is a review point, so a change whose request ended unanswered is asked again.
       const modes = effectiveToolModes(thread.rootPath)
@@ -72,7 +73,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       const deniedTools = policyDeniedToolNames(thread.rootPath)
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)
         // Antigravity is started once per access level, and takes its MCP servers when the session opens.
-        : thread.provider === 'antigravity' ? new AntigravityConversationAdapter(transport, { mcpServers: access => antigravityMcpServers(mcp.bridge, env, access, managed, denied, tools, deniedTools, enableable) })
+        : thread.provider === 'antigravity' ? new AntigravityConversationAdapter(transport, { mcpServers: access => antigravityMcpServers(mcp.bridge, env, access, managed, denied, tools, deniedTools, enableable), permissions: permissionStore })
           : new CodexConversationAdapter(transport(['app-server', '--listen', 'stdio://'], thread.rootPath))
       return bindThreadMcp(adapter, () => mcp.end(thread.id, executionId))
     } catch (error) { if (executionId) mcp.end(thread.id, executionId); throw error }

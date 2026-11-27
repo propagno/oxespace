@@ -1,12 +1,39 @@
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import type { AgentConversationAdapter, ConversationProtocolEvidence, ThreadAgentInput, ThreadAttachment, ThreadConfiguration, ThreadEvent, ThreadFailure, ThreadFileChange, ThreadModel, ThreadRequest, ThreadRequestResponse } from '../../../../shared/types/thread'
+import type {
+  AgentConversationAdapter,
+  ConversationProtocolEvidence,
+  ThreadAgentInput,
+  ThreadAttachment,
+  ThreadConfiguration,
+  ThreadEvent,
+  ThreadFailure,
+  ThreadFileChange,
+  ThreadModel,
+  ThreadPermissionRule,
+  ThreadQueuedInput,
+  ThreadRequest,
+  ThreadRequestQuestion,
+  ThreadRequestResponse
+} from '../../../../shared/types/thread'
 import { requestOutcome } from '../../../../shared/threadRequestOutcome'
 import { THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
 import type { ConversationTransport } from './codex-conversation'
 import { AgentRpcPeer, type AgentRpcMessage } from './rpc-peer'
 import { ReasoningStream } from './reasoning-stream'
 import { ThreadAgentError, threadFailure } from './thread-failure'
+import {
+  ANTIGRAVITY_FILE_KINDS,
+  deriveAntigravityPersistRules,
+  detectAntigravityBackgroundHoldMs,
+  evaluateAntigravityPermission,
+  extractAntigravityQuestions,
+  resolveAntigravityMode,
+  type AntigravityAccess,
+  type AntigravityModeConfiguration,
+  type AntigravityPermissionOption,
+  type AntigravityPermissionStore
+} from './antigravity-acp-policy'
 
 // A completed tool call carries its whole output in one frame; keep a finite ceiling.
 const MAX_ACP_FRAME_BYTES = 32 * 1024 * 1024
@@ -14,14 +41,33 @@ const MAX_ACP_FRAME_BYTES = 32 * 1024 * 1024
 const TERMINATED_BY_ERROR = /^[^\p{L}]*Agent execution terminated due to error\.?$/iu
 // A turn is one `session/prompt` request that answers only when the turn ends, which can take hours.
 const TURN_TIMEOUT_MS = 12 * 60 * 60 * 1000
-const WRITE_KINDS = new Set(['edit', 'delete', 'move', 'execute'])
-const FILE_KINDS = new Set(['edit', 'delete', 'move'])
+const REACTIVE_IDLE_SETTLE_MS = 1_500
+const STEER_CANCEL_GRACE_MS = 1_500
+const MAX_QUEUED_ITEMS = 100
+const REACTIVE_END_UPDATES = new Set(['turn_completed', 'turn_end', 'agent_turn_end', 'turn_finished'])
+const METADATA_UPDATES = new Set(['available_commands_update', 'config_option_update'])
 
 /** An MCP server as ACP's `session/new` takes it: the environment is a list, not an object. */
 export interface AntigravityMcpServer { name: string; command: string; args: string[]; env: { name: string; value: string }[] }
-type Access = NonNullable<ThreadConfiguration['access']>
-type NativeMode = 'default' | 'accept-edits' | 'auto' | 'plan'
+export interface AntigravityAdapterOptions {
+  mcpServers?: (access: AntigravityAccess) => AntigravityMcpServer[]
+  readImage?: (path: string) => Promise<Buffer>
+  permissions?: AntigravityPermissionStore
+  reactiveIdleMs?: number
+  steerCancelGraceMs?: number
+}
+
 interface ToolCall { id: string; title: string; kind: string; status: string; paths: string[]; command: string; output: string; diffs: { path: string; added: boolean }[]; startedAt: number }
+interface PendingRequest {
+  rpcId: string | number
+  method: string
+  kind: 'approval' | 'question'
+  options: AntigravityPermissionOption[]
+  request: ThreadRequest
+  guarded: boolean
+  questions?: ThreadRequestQuestion[]
+}
+interface QueuedPrompt { nativeId: string; text: string; attachments: ThreadAttachment[] }
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
@@ -36,12 +82,12 @@ export function antigravityLaunchArgs(configuration: Pick<ThreadConfiguration, '
   return ['acp', ...(full ? [] : ['--sandbox']), ...(full && configuration.approvalPolicy === 'never' ? ['--dangerously-skip-permissions'] : [])]
 }
 
-/** The native session mode a conversation's configuration maps to. */
-export function antigravityMode(configuration: Pick<ThreadConfiguration, 'access' | 'approvalPolicy' | 'mode'>): NativeMode {
-  if (configuration.mode === 'plan') return 'plan'
-  if (configuration.mode === 'acceptEdits') return 'accept-edits'
-  return configuration.approvalPolicy === 'never' && configuration.access === 'full-access' ? 'auto' : 'default'
+/** The native session mode a conversation's configuration maps to, optionally matched against advertised ACP `availableModes`. */
+export function antigravityMode(configuration: AntigravityModeConfiguration, availableModes?: readonly string[]): string {
+  return resolveAntigravityMode(configuration, availableModes)
 }
+
+export { resolveAntigravityMode }
 
 /**
  * `gemini-4-carbon-low|medium|high` are one model with three reasoning levels. A name with a single level
@@ -85,36 +131,66 @@ export const ANTIGRAVITY_FALLBACK_MODELS: ThreadModel[] = antigravityModels([
 
 /** Antigravity's Agent Client Protocol (v1, JSON-RPC 2.0 over stdio) through `agy acp`. */
 export class AntigravityConversationAdapter implements AgentConversationAdapter {
-  readonly capabilities = { resume: true, approvals: true, attachments: true, modelSelection: true, questions: false, permissions: false, elicitation: false, queue: false, steering: false, nativeSessions: true }
+  readonly capabilities = {
+    resume: true,
+    approvals: true,
+    attachments: true,
+    modelSelection: true,
+    questions: true,
+    permissions: true,
+    elicitation: false,
+    queue: true,
+    steering: true,
+    nativeSessions: true
+  }
   readonly evidence: ConversationProtocolEvidence = { transport: 'antigravity-acp-jsonrpc', verified: 'fixture' }
   private connection: { transport: ConversationTransport; rpc: AgentRpcPeer; args: string } | null = null
   private sessionId = ''
   private rootPath = ''
-  private access: Access = 'read-only'
+  private access: AntigravityAccess = 'read-only'
   private approvalPolicy: NonNullable<ThreadConfiguration['approvalPolicy']> = 'on-request'
   private mode: ThreadConfiguration['mode'] = 'default'
   private nativeMode = ''
+  private availableModes: string[] = []
+  private supportsNativeSteer = false
   private model = ''
   private effort = ''
   private models: ThreadModel[] = []
   private busy = false
+  private reactiveTurn = false
+  private steering = false
   private disposed = false
   /** Set while `session/load` replays the saved history as updates, which the conversation already has. */
   private replaying = false
-  /** A local id per `session/prompt`; ACP has no turn id, and a late answer must not end a newer turn. */
+  /** A local id per turn; ACP has no turn id, and a late answer must not end a newer turn. */
   private turn = ''
+  private promptDone: Promise<void> | null = null
+  private reactiveTimer: ReturnType<typeof setTimeout> | null = null
+  private pendingBackgroundUntil = 0
+  private scheduledDuringTurn = false
   private lastNativeSignalAt = 0
   private segment: { kind: 'message' | 'thought'; id: string; text: string } | null = null
   private readonly tools = new Map<string, ToolCall>()
-  private readonly approvals = new Map<string, { rpcId: string | number; options: { id: string; kind: string }[] }>()
+  private readonly approvals = new Map<string, PendingRequest>()
+  private readonly queued: QueuedPrompt[] = []
+  private readonly sessionRules: ThreadPermissionRule[] = []
+  private readonly sessionTools = new Set<string>()
   private emit: (event: ThreadEvent) => void = () => {}
   private readonly reasoning = new ReasoningStream(event => this.emit(event))
 
   get closed(): boolean { return this.disposed }
 
+  /** True while a reactive wakeup turn runs or a scheduled timer / async subagent wakeup is still pending. */
+  hasPendingBackground(now = Date.now()): boolean {
+    if (this.disposed) return false
+    return this.reactiveTurn || now < this.pendingBackgroundUntil
+  }
+
   /** `mcpServers` are attached when the session opens: `agy acp` takes them in `session/new`, not on the command line. */
-  constructor(private readonly createTransport: (args: string[], cwd: string) => ConversationTransport,
-    private readonly options: { mcpServers?: (access: Access) => AntigravityMcpServer[]; readImage?: (path: string) => Promise<Buffer> } = {}) {}
+  constructor(
+    private readonly createTransport: (args: string[], cwd: string) => ConversationTransport,
+    private readonly options: AntigravityAdapterOptions = {}
+  ) {}
 
   async start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void> {
     if (this.connection || this.disposed) throw new Error('Conversation adapter cannot be started twice')
@@ -163,6 +239,8 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     const agent = record(handshake.agentInfo)
     if (text(agent.version)) this.evidence.providerVersion = text(agent.version).slice(0, 120)
     if (handshake.protocolVersion !== undefined) this.evidence.protocolVersion = String(handshake.protocolVersion).slice(0, 80)
+    const agentCaps = record(handshake.agentCapabilities)
+    this.supportsNativeSteer = agentCaps.steer === true || record(agentCaps.promptCapabilities).steer === true
     this.evidence.verified = 'native'
     const mcpServers = this.options.mcpServers?.(this.access) ?? []
     let session: Record<string, unknown>
@@ -181,7 +259,9 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     if (!this.sessionId) throw new Error('Agent did not return a conversation identifier')
     const available = list(record(session.models).availableModels).map(value => ({ id: text(record(value).modelId), label: text(record(value).name) }))
     if (available.length) this.models = antigravityModels(available)
-    this.nativeMode = text(record(session.modes).currentModeId)
+    const modesInfo = record(session.modes)
+    this.nativeMode = text(modesInfo.currentModeId)
+    this.availableModes = list(modesInfo.availableModes).map(value => text(record(value).id)).filter(Boolean)
     if (this.model) await this.request(rpc, 'session/set_config_option', { sessionId: this.sessionId, configId: 'model', value: this.model })
     // A model without reasoning levels refuses the option; the conversation then reports no effort.
     if (this.effort) await this.request(rpc, 'session/set_config_option', { sessionId: this.sessionId, configId: 'thought_level', value: this.effort }).catch(() => { this.effort = '' })
@@ -189,10 +269,16 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
   }
 
   private async applyMode(rpc: AgentRpcPeer): Promise<void> {
-    const wanted = antigravityMode({ access: this.access, approvalPolicy: this.approvalPolicy, mode: this.mode })
-    if (wanted === this.nativeMode) return
-    await this.request(rpc, 'session/set_mode', { sessionId: this.sessionId, modeId: wanted })
-    this.nativeMode = wanted
+    const wanted = resolveAntigravityMode({ access: this.access, approvalPolicy: this.approvalPolicy, mode: this.mode }, this.availableModes)
+    if (!wanted || wanted === this.nativeMode) return
+    try {
+      await this.request(rpc, 'session/set_mode', { sessionId: this.sessionId, modeId: wanted })
+      this.nativeMode = wanted
+    } catch (error) {
+      if (this.availableModes.length > 0 || !/method not found|not supported|unsupported|unknown mode|invalid mode/i.test(errorText(error))) {
+        throw error
+      }
+    }
   }
 
   /** A request whose refusal for a missing sign-in reads as an authentication failure, whatever words the server used. */
@@ -205,30 +291,142 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     }
   }
 
+  private async buildPrompt(input: string, attachments: ThreadAttachment[] = []): Promise<Record<string, unknown>[]> {
+    return [{ type: 'text', text: input }, ...await Promise.all(attachments.map(async attachment => {
+      if (!attachment.path) throw Error('Attachment is unavailable')
+      return { type: 'image', mimeType: attachment.mimeType, data: (await (this.options.readImage ?? readFile)(attachment.path)).toString('base64') }
+    }))]
+  }
+
+  private dispatchPrompt(rpc: AgentRpcPeer, turn: string, prompt: Record<string, unknown>[]): void {
+    let resolveDone!: () => void
+    const settled = new Promise<void>(resolve => { resolveDone = resolve })
+    this.promptDone = settled
+    // Answered when the turn ends; everything in between arrives as `session/update`.
+    void this.request(rpc, 'session/prompt', { sessionId: this.sessionId, prompt }, TURN_TIMEOUT_MS).then(result => {
+      resolveDone()
+      if (this.promptDone === settled) this.promptDone = null
+      this.finish(turn, record(result))
+    }, error => {
+      resolveDone()
+      if (this.promptDone === settled) this.promptDone = null
+      if (this.turn !== turn) return
+      this.fail(error instanceof ThreadAgentError ? error.failure : threadFailure({ message: errorText(error) }))
+    })
+  }
+
   async send(input: string, skill?: ThreadAgentInput['skill'], attachments: ThreadAttachment[] = []): Promise<void> {
     const rpc = this.connection?.rpc
     if (!rpc || !this.sessionId || this.disposed) throw new Error('Conversation is not connected')
     if (this.busy) throw new Error('A conversation turn is already running')
     if (!input.trim() || input.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    this.clearReactiveTimer()
     this.busy = true
+    this.reactiveTurn = false
+    this.scheduledDuringTurn = false
     this.reset()
     const turn = this.turn = randomUUID()
     try {
       if (!skill && await this.slashCommand(rpc, input)) return
-      const prompt = [{ type: 'text', text: input }, ...await Promise.all(attachments.map(async attachment => {
-        if (!attachment.path) throw Error('Attachment is unavailable')
-        return { type: 'image', mimeType: attachment.mimeType, data: (await (this.options.readImage ?? readFile)(attachment.path)).toString('base64') }
-      }))]
-      // Answered when the turn ends; everything in between arrives as `session/update`.
-      void this.request(rpc, 'session/prompt', { sessionId: this.sessionId, prompt }, TURN_TIMEOUT_MS).then(result => this.finish(turn, record(result)), error => {
-        if (this.turn !== turn) return
-        this.fail(error instanceof ThreadAgentError ? error.failure : threadFailure({ message: errorText(error) }))
-      })
+      const prompt = await this.buildPrompt(input, attachments)
+      this.dispatchPrompt(rpc, turn, prompt)
     } catch (error) {
       const failure = error instanceof ThreadAgentError ? error.failure : threadFailure({ message: errorText(error) })
       this.fail(failure)
       throw new ThreadAgentError(failure)
     }
+  }
+
+  async enqueue(item: ThreadQueuedInput, attachments: ThreadAttachment[] = []): Promise<string | undefined> {
+    const rpc = this.connection?.rpc
+    if (!rpc || !this.sessionId || this.disposed) throw new Error('Conversation is not connected')
+    if (!item.text.trim() || item.text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    if (this.queued.length >= MAX_QUEUED_ITEMS) throw new Error('Conversation queue is full')
+    const nativeId = `agy-q:${randomUUID()}`
+    this.queued.push({ nativeId, text: item.text, attachments: [...attachments] })
+    return nativeId
+  }
+
+  async startQueued(nativeId?: string): Promise<void> {
+    const rpc = this.connection?.rpc
+    if (!rpc || !this.sessionId || this.disposed) throw new Error('Conversation is not connected')
+    if (this.busy) throw new Error('Conversation is not ready to start queued input')
+    const index = nativeId ? this.queued.findIndex(entry => entry.nativeId === nativeId) : 0
+    if (index < 0 || index >= this.queued.length) throw new Error('Queued input is unavailable')
+    const [entry] = this.queued.splice(index, 1)
+    await this.send(entry.text, undefined, entry.attachments)
+  }
+
+  async updateQueued(nativeId: string, item: ThreadQueuedInput, attachments: ThreadAttachment[] = []): Promise<void> {
+    if (!this.connection?.rpc || this.disposed) throw new Error('Conversation is not connected')
+    if (!item.text.trim() || item.text.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    const entry = this.queued.find(candidate => candidate.nativeId === nativeId)
+    if (!entry) return
+    entry.text = item.text
+    entry.attachments = [...attachments]
+  }
+
+  async deleteQueued(nativeId: string): Promise<void> {
+    if (!this.connection?.rpc || this.disposed) throw new Error('Conversation is not connected')
+    const index = this.queued.findIndex(candidate => candidate.nativeId === nativeId)
+    if (index >= 0) this.queued.splice(index, 1)
+  }
+
+  async reorderQueued(nativeIds: string[]): Promise<void> {
+    if (!this.connection?.rpc || this.disposed) throw new Error('Conversation is not connected')
+    const byId = new Map(this.queued.map(entry => [entry.nativeId, entry]))
+    const ordered: QueuedPrompt[] = []
+    for (const id of nativeIds) {
+      const entry = byId.get(id)
+      if (!entry) continue
+      ordered.push(entry)
+      byId.delete(id)
+    }
+    ordered.push(...byId.values())
+    this.queued.splice(0, this.queued.length, ...ordered)
+  }
+
+  /**
+   * Steers an active Antigravity turn without losing session context. Uses native `session/steer` when
+   * advertised; otherwise cleanly cancels the superseded prompt (without closing the active OXESpace turn)
+   * and immediately dispatches the steered instruction on the same ACP session.
+   */
+  async steer(input: string, attachments: ThreadAttachment[] = []): Promise<void> {
+    const rpc = this.connection?.rpc
+    if (!rpc || !this.sessionId || this.disposed || !this.busy) throw new Error('There is no active turn to steer')
+    if (!input.trim() || input.length > THREAD_PROMPT_MAX_CHARS) throw new Error('Invalid conversation input')
+    const prompt = await this.buildPrompt(input, attachments)
+    if (this.supportsNativeSteer) {
+      try {
+        await this.request(rpc, 'session/steer', { sessionId: this.sessionId, prompt })
+        return
+      } catch (error) {
+        if (!/method not found|not supported|unsupported|unknown method/i.test(errorText(error))) throw error
+        this.supportsNativeSteer = false
+      }
+    }
+    this.clearReactiveTimer()
+    this.reactiveTurn = false
+    this.closeSegment()
+    this.cancelOpenApprovals(rpc)
+    const previousDone = this.promptDone
+    const nextTurn = this.turn = randomUUID()
+    this.tools.clear()
+    this.steering = true
+    try {
+      rpc.notify('session/cancel', { sessionId: this.sessionId })
+      if (previousDone) {
+        await Promise.race([
+          previousDone,
+          new Promise<void>(resolve => setTimeout(resolve, this.options.steerCancelGraceMs ?? STEER_CANCEL_GRACE_MS))
+        ])
+      }
+    } finally {
+      this.steering = false
+    }
+    if (this.disposed || !this.busy || this.turn !== nextTurn || this.connection?.rpc !== rpc) return
+    this.dispatchPrompt(rpc, nextTurn, prompt)
+    this.emit({ type: 'activity', id: `steer:${nextTurn}`, phase: 'responding', at: Date.now() })
   }
 
   private reply(message: string): void {
@@ -291,11 +489,59 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     this.emit({ type: 'completed', status: reason === 'cancelled' ? 'interrupted' : 'completed' })
   }
 
+  /** Opens a synthetic continuation turn when reactive updates arrive after `schedule` or async subagents. */
+  private startReactiveTurn(): void {
+    this.clearReactiveTimer()
+    this.busy = true
+    this.reactiveTurn = true
+    this.scheduledDuringTurn = false
+    this.reset()
+    this.turn = randomUUID()
+    this.emit({ type: 'continuation-started', id: this.turn, at: Date.now() })
+  }
+
+  private finishReactiveTurn(reason = 'end_turn'): void {
+    if (!this.reactiveTurn || !this.busy || this.disposed) return
+    const rescheduled = this.scheduledDuringTurn
+    this.settle()
+    if (!rescheduled) this.pendingBackgroundUntil = 0
+    this.emit({ type: 'completed', status: reason === 'cancelled' ? 'interrupted' : 'completed' })
+  }
+
+  private clearReactiveTimer(): void {
+    if (!this.reactiveTimer) return
+    clearTimeout(this.reactiveTimer)
+    this.reactiveTimer = null
+  }
+
+  private hasRunningTools(): boolean {
+    for (const tool of this.tools.values()) {
+      if (tool.status !== 'completed' && tool.status !== 'failed') return true
+    }
+    return false
+  }
+
+  private armReactiveSettleTimer(): void {
+    this.clearReactiveTimer()
+    if (!this.reactiveTurn || !this.busy || this.disposed) return
+    if (this.approvals.size > 0 || this.hasRunningTools()) return
+    const turn = this.turn
+    this.reactiveTimer = setTimeout(() => {
+      this.reactiveTimer = null
+      if (this.turn !== turn || !this.reactiveTurn || !this.busy || this.disposed) return
+      if (this.approvals.size > 0 || this.hasRunningTools()) return
+      this.finishReactiveTurn('end_turn')
+    }, this.options.reactiveIdleMs ?? REACTIVE_IDLE_SETTLE_MS)
+    this.reactiveTimer.unref?.()
+  }
+
   /** Closes the open message and thought, and ends the turn's local state. */
   private settle(): void {
+    this.clearReactiveTimer()
     this.closeSegment()
     this.reasoning.completeAll()
     this.busy = false
+    this.reactiveTurn = false
     this.turn = ''
     this.tools.clear()
     // Requests the turn left open get no answer any more; the provider drops them with the turn.
@@ -316,17 +562,29 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     this.emit({ type: 'completed', status: 'failed', error: failure.message, errorCode: failure.code, failure })
   }
 
-  async interrupt(): Promise<void> {
-    const rpc = this.connection?.rpc
-    if (!this.busy || !rpc) return
-    // The protocol asks the client to cancel what it was asked before the turn answers `cancelled`.
+  private cancelOpenApprovals(rpc: AgentRpcPeer): void {
     for (const [id, pending] of [...this.approvals]) {
       this.approvals.delete(id)
-      rpc.respond(pending.rpcId, { outcome: { outcome: 'cancelled' } })
+      rpc.respond(pending.rpcId, pending.method === 'session/request_permission' ? { outcome: { outcome: 'cancelled' } } : { cancelled: true, answers: {} })
       this.emit({ type: 'request-resolved', id, state: 'cancelled', resolution: 'interrupted', resolvedAt: Date.now() })
       this.emit({ type: 'approval-resolved', id })
     }
+  }
+
+  async interrupt(): Promise<void> {
+    const rpc = this.connection?.rpc
+    this.pendingBackgroundUntil = 0
+    this.scheduledDuringTurn = false
+    if (!this.busy || !rpc) return
+    this.clearReactiveTimer()
+    // The protocol asks the client to cancel what it was asked before the turn answers `cancelled`.
+    this.cancelOpenApprovals(rpc)
     rpc.notify('session/cancel', { sessionId: this.sessionId })
+    if (this.reactiveTurn || this.steering || !this.promptDone) {
+      this.steering = false
+      this.settle()
+      this.emit({ type: 'completed', status: 'interrupted' })
+    }
   }
 
   async configure(configuration: ThreadConfiguration): Promise<void> {
@@ -358,20 +616,86 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
   async respondRequest(requestId: string, response: ThreadRequestResponse): Promise<void> {
     const pending = this.approvals.get(requestId), rpc = this.connection?.rpc
     if (!pending || !rpc || this.disposed) throw new Error('Request is no longer pending')
-    const decision = response.decision ?? 'decline'
     const option = (...kinds: string[]): string | undefined => kinds.map(kind => pending.options.find(entry => entry.kind === kind)?.id).find(Boolean)
-    const optionId = decision === 'accept' ? option('allow_once') : decision === 'acceptForSession' ? option('allow_always') : decision === 'decline' ? option('reject_once', 'reject_always') : undefined
+
+    if (pending.kind === 'question') {
+      const declineOrCancel = response.decision === 'decline' || response.decision === 'cancel'
+      if (declineOrCancel) {
+        if (pending.method === 'session/request_permission') {
+          const rejectId = response.decision === 'decline' ? option('reject_once', 'reject_always') : undefined
+          rpc.respond(pending.rpcId, { outcome: rejectId ? { outcome: 'selected', optionId: rejectId } : { outcome: 'cancelled' } })
+        } else {
+          rpc.respond(pending.rpcId, { cancelled: true, answers: {} })
+        }
+      } else {
+        const questions = pending.questions ?? []
+        const rawAnswers = response.answers ?? {}
+        if (questions.length && questions.some(question => !rawAnswers[question.id]?.some(value => value.trim()))) {
+          throw new Error('Answer every question before sending.')
+        }
+        const answers = Object.fromEntries(questions.map(question => [question.id, (rawAnswers[question.id] ?? []).map(value => value.trim()).filter(Boolean)]))
+        const firstChoice = Object.values(answers).flat()[0]
+        const matchedOption = firstChoice
+          ? pending.options.find(entry => entry.id === firstChoice || entry.name?.trim().toLowerCase() === firstChoice.toLowerCase())?.id
+          : undefined
+        if (pending.method === 'session/request_permission') {
+          const optionId = matchedOption ?? option('allow_once', 'allow_always')
+          rpc.respond(pending.rpcId, { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' }, answers })
+        } else {
+          rpc.respond(pending.rpcId, { answers })
+        }
+      }
+      this.approvals.delete(requestId)
+      this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome('question', response), resolvedAt: Date.now() })
+      this.emit({ type: 'approval-resolved', id: requestId })
+      if (this.reactiveTurn) this.armReactiveSettleTimer()
+      return
+    }
+
+    const decision = response.decision ?? 'decline'
+    if (decision === 'acceptForSession' && pending.guarded) {
+      throw new Error('A change to agent instructions, MCP settings or hooks is approved once, never for the session')
+    }
+    const optionId = decision === 'accept' ? option('allow_once')
+      : decision === 'acceptForSession' ? option('allow_always')
+        : decision === 'decline' ? option('reject_once', 'reject_always')
+          : undefined
     // An approval is never widened: without the exact option the provider offered, the answer is refused.
     if (!optionId && (decision === 'accept' || decision === 'acceptForSession')) throw new Error('The agent did not offer that answer for this request')
     rpc.respond(pending.rpcId, { outcome: optionId ? { outcome: 'selected', optionId } : { outcome: 'cancelled' } })
     this.approvals.delete(requestId)
+    if (decision === 'acceptForSession') this.persistAlwaysAllow(pending)
     this.emit({ type: 'request-resolved', id: requestId, ...requestOutcome('approval', response), resolvedAt: Date.now() })
     this.emit({ type: 'approval-resolved', id: requestId })
+    if (this.reactiveTurn) this.armReactiveSettleTimer()
+  }
+
+  private persistAlwaysAllow(pending: PendingRequest): void {
+    if (pending.guarded) return
+    const derived = deriveAntigravityPersistRules(this.rootPath, pending.request)
+    for (const rule of derived) {
+      let stored: ThreadPermissionRule | undefined
+      try {
+        stored = this.options.permissions?.add({ projectRoot: this.rootPath, kind: rule.kind, pattern: rule.pattern, decision: 'allow' })
+      } catch {
+        stored = undefined
+      }
+      if (!this.sessionRules.some(entry => entry.kind === rule.kind && entry.pattern === rule.pattern && entry.decision === 'allow')) {
+        this.sessionRules.push(stored ?? { id: `session:${rule.kind}:${rule.pattern}`, projectRoot: this.rootPath, kind: rule.kind, pattern: rule.pattern, decision: 'allow', createdAt: Date.now() })
+      }
+    }
+    if (!derived.length && !pending.request.command && !pending.request.paths?.length && pending.request.toolName) {
+      this.sessionTools.add(pending.request.toolName)
+    }
   }
 
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    this.clearReactiveTimer()
+    this.pendingBackgroundUntil = 0
+    this.scheduledDuringTurn = false
+    this.queued.length = 0
     this.emit({ type: 'connection-closed', at: Date.now() })
     this.approvals.clear()
     this.reasoning.completeAll()
@@ -391,12 +715,34 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
       if (used !== undefined && size) this.emit({ type: 'context-usage', report: { ...(this.model ? { model: this.model } : {}), usedTokens: used, windowTokens: size, percentage: Math.min(100, Math.round(used / size * 100)), categories: [], capturedAt: Date.now(), source: 'antigravity-usage' } })
       return
     }
-    if (!this.busy) return
+    if (kind === 'current_mode_update') {
+      const modeId = text(update.currentModeId) || text(update.modeId)
+      if (modeId) this.nativeMode = modeId
+      return
+    }
+    if (METADATA_UPDATES.has(kind)) return
+    if (REACTIVE_END_UPDATES.has(kind) || (this.reactiveTurn && text(update.stopReason))) {
+      if (this.reactiveTurn) this.finishReactiveTurn(text(update.stopReason) || 'end_turn')
+      return
+    }
+    const isChunk = kind === 'agent_message_chunk' || kind === 'agent_thought_chunk'
+    const isTool = kind === 'tool_call' || kind === 'tool_call_update'
+    const isPlan = kind === 'plan'
+    if (!isChunk && !isTool && !isPlan) return
+
+    if (!this.busy) {
+      const hasContent = isChunk ? Boolean(text(record(update.content).text))
+        : isTool ? Boolean(text(update.toolCallId))
+          : list(update.entries).length > 0
+      if (!hasContent) return
+      this.startReactiveTurn()
+    }
+
     if (Date.now() - this.lastNativeSignalAt >= 2_000) {
       this.lastNativeSignalAt = Date.now()
       this.emit({ type: 'native-signal', at: this.lastNativeSignalAt })
     }
-    if (kind === 'agent_message_chunk' || kind === 'agent_thought_chunk') {
+    if (isChunk) {
       const delta = text(record(update.content).text)
       if (!delta) return
       const wanted = kind === 'agent_message_chunk' ? 'message' as const : 'thought' as const
@@ -411,16 +757,22 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
       this.segment.text += delta
       if (wanted === 'message') this.emit({ type: 'delta', id: this.segment.id, text: delta })
       else this.reasoning.append(this.segment.id, delta)
-    } else if (kind === 'tool_call' || kind === 'tool_call_update') {
+    } else if (isTool) {
       this.closeSegment()
+      const holdMs = detectAntigravityBackgroundHoldMs(update)
+      if (holdMs > 0) {
+        this.scheduledDuringTurn = true
+        this.pendingBackgroundUntil = Math.max(this.pendingBackgroundUntil, Date.now() + holdMs)
+      }
       const call = this.mergeTool(update)
       if (call) this.emit(this.toolEvent(call))
-    } else if (kind === 'plan') {
+    } else if (isPlan) {
       this.emit({ type: 'plan', id: `plan:${this.turn}`, turnId: this.turn, steps: list(update.entries).slice(0, 100).map(value => {
         const entry = record(value)
         return { label: text(entry.content).slice(0, 2000), status: entry.status === 'completed' ? 'completed' as const : entry.status === 'in_progress' ? 'inProgress' as const : 'pending' as const }
       }).filter(step => Boolean(step.label)) })
     }
+    if (this.reactiveTurn) this.armReactiveSettleTimer()
   }
 
   /** A message is saved whole when something else starts; a thought is closed the same way. */
@@ -464,7 +816,7 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
 
   private toolEvent(call: ToolCall): ThreadEvent {
     const state = call.status === 'completed' ? 'completed' as const : call.status === 'failed' ? 'failed' as const : 'running' as const
-    const file = FILE_KINDS.has(call.kind)
+    const file = ANTIGRAVITY_FILE_KINDS.has(call.kind)
     const paths = [...new Set([...call.diffs.map(diff => diff.path), ...call.paths])]
     const files: ThreadFileChange[] = file ? paths.slice(0, 100).map(path => ({ path, kind: call.kind === 'delete' ? 'delete' as const : call.kind === 'move' ? 'rename' as const : call.diffs.some(diff => diff.path === path && diff.added) ? 'add' as const : 'update' as const,
       source: 'tool-input' as const, authorship: 'indeterminate' as const, state })) : []
@@ -478,42 +830,113 @@ export class AntigravityConversationAdapter implements AgentConversationAdapter 
     const rpc = this.connection?.rpc
     if (message.id === undefined || !rpc) return
     const params = record(message.params)
-    if (message.method !== 'session/request_permission' || params.sessionId !== this.sessionId || !this.busy || this.replaying) {
+    const method = message.method ?? ''
+    const supported = method === 'session/request_permission' || method === 'session/request_user_input' || method === 'session/ask_question'
+    if (!supported || params.sessionId !== this.sessionId || this.disposed || this.replaying) {
       rpc.rejectRequest(message.id)
       return
     }
+    if (!this.busy) this.startReactiveTurn()
+
     const call = record(params.toolCall)
-    const options = list(params.options).map(value => ({ id: text(record(value).optionId), kind: text(record(value).kind) })).filter(option => option.id && option.kind).slice(0, 20)
-    const known = this.tools.get(text(call.toolCallId))
-    const kind = text(call.kind) || known?.kind || 'other'
-    if (this.access === 'read-only' && WRITE_KINDS.has(kind)) {
-      // A read-only conversation never asks a person to approve a write: it is declined here.
-      const reject = options.find(option => option.kind === 'reject_once') ?? options.find(option => option.kind === 'reject_always')
-      rpc.respond(message.id, { outcome: reject ? { outcome: 'selected', optionId: reject.id } : { outcome: 'cancelled' } })
+    const options: AntigravityPermissionOption[] = list(params.options)
+      .map(value => ({ id: text(record(value).optionId), kind: text(record(value).kind), ...(text(record(value).name) ? { name: text(record(value).name) } : {}) }))
+      .filter(option => option.id && option.kind)
+      .slice(0, 20)
+
+    const questions = extractAntigravityQuestions(method, call, params)
+    if (questions.length) {
+      this.closeSegment()
+      this.clearReactiveTimer()
+      const id = String(message.id)
+      const request: ThreadRequest = {
+        id,
+        nativeId: text(call.toolCallId) || id,
+        nativeMethod: method,
+        kind: 'question',
+        title: text(call.title).slice(0, 200) || 'Antigravity needs your input',
+        generation: 0,
+        createdAt: Date.now(),
+        state: 'pending',
+        turnId: this.turn,
+        questions
+      }
+      this.approvals.set(id, { rpcId: message.id, method, kind: 'question', options, request, guarded: false, questions })
+      this.emit({ type: 'request', id, request })
       return
     }
-    this.closeSegment()
+
+    if (method !== 'session/request_permission') {
+      rpc.rejectRequest(message.id)
+      return
+    }
+
+    const known = this.tools.get(text(call.toolCallId))
+    const kind = text(call.kind) || known?.kind || 'other'
     const id = String(message.id)
-    this.approvals.set(id, { rpcId: message.id, options })
     const request = this.toRequest(id, call, kind, options, known)
+    const verdict = evaluateAntigravityPermission({
+      rootPath: this.rootPath,
+      access: this.access,
+      approvalPolicy: this.approvalPolicy,
+      mode: this.mode ?? 'default',
+      nativeMode: this.nativeMode,
+      kind,
+      request,
+      options,
+      permissions: this.options.permissions,
+      sessionRules: this.sessionRules,
+      sessionTools: this.sessionTools
+    })
+    if (verdict.action === 'reject') {
+      rpc.respond(message.id, { outcome: verdict.optionId ? { outcome: 'selected', optionId: verdict.optionId } : { outcome: 'cancelled' } })
+      if (this.reactiveTurn) this.armReactiveSettleTimer()
+      return
+    }
+    if (verdict.action === 'approve') {
+      rpc.respond(message.id, { outcome: { outcome: 'selected', optionId: verdict.optionId } })
+      if (this.reactiveTurn) this.armReactiveSettleTimer()
+      return
+    }
+
+    if (verdict.guarded && request.availableDecisions) {
+      request.availableDecisions = request.availableDecisions.filter(decision => decision !== 'acceptForSession')
+    }
+    this.closeSegment()
+    this.clearReactiveTimer()
+    this.approvals.set(id, { rpcId: message.id, method, kind: 'approval', options, request, guarded: verdict.guarded })
     this.emit({ type: 'request', id, request })
     this.emit({ type: 'approval', id, title: request.title, detail: request.detail ?? '' })
   }
 
-  private toRequest(id: string, call: Record<string, unknown>, kind: string, options: { id: string; kind: string }[], known?: ToolCall): ThreadRequest {
+  private toRequest(id: string, call: Record<string, unknown>, kind: string, options: AntigravityPermissionOption[], known?: ToolCall): ThreadRequest {
     const input = record(call.rawInput)
     const command = kind === 'execute' ? (commandText(input) || known?.command || '').slice(0, 12_000) : ''
     const paths = [...new Set([...list(call.locations).map(value => text(record(value).path)), text(input.path), text(input.file_path), text(input.filePath), ...(known?.paths ?? [])].filter(Boolean))].slice(0, 100).map(path => path.slice(0, 1000))
-    const file = FILE_KINDS.has(kind)
+    const file = ANTIGRAVITY_FILE_KINDS.has(kind)
     const title = text(call.title).slice(0, 2000) || known?.title || ''
     const cwd = text(input.cwd) || text(input.workdir)
-    return { id, nativeId: text(call.toolCallId) || id, nativeMethod: 'session/request_permission', kind: 'approval',
+    return {
+      id,
+      nativeId: text(call.toolCallId) || id,
+      nativeMethod: 'session/request_permission',
+      kind: 'approval',
       toolName: kind === 'execute' ? 'command' : file ? 'fileChange' : (title.slice(0, 80) || kind),
       title: kind === 'execute' ? 'Approve command' : file ? 'Approve file changes' : 'Approve tool use',
       detail: command || (file ? paths.join('\n') : '') || title || 'The agent requests your permission.',
-      ...(command ? { command } : {}), ...(file && paths.length ? { paths } : {}), ...(cwd ? { cwd: cwd.slice(0, 1000) } : {}),
-      generation: 0, createdAt: Date.now(), state: 'pending', turnId: this.turn,
-      availableDecisions: [...(options.some(option => option.kind === 'allow_once') ? ['accept' as const] : []), ...(options.some(option => option.kind === 'allow_always') ? ['acceptForSession' as const] : []), 'decline' as const] }
+      ...(command ? { command } : {}),
+      ...(file && paths.length ? { paths } : {}),
+      ...(cwd ? { cwd: cwd.slice(0, 1000) } : {}),
+      generation: 0,
+      createdAt: Date.now(),
+      state: 'pending',
+      turnId: this.turn,
+      availableDecisions: [
+        ...(options.some(option => option.kind === 'allow_once') ? ['accept' as const] : []),
+        ...(options.some(option => option.kind === 'allow_always') ? ['acceptForSession' as const] : []),
+        'decline' as const
+      ]
+    }
   }
 }
 

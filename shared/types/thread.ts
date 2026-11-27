@@ -579,6 +579,8 @@ export interface AgentConversationAdapter {
   readonly capabilities: ConversationCapabilities
   readonly evidence: ConversationProtocolEvidence
   readonly closed?: boolean
+  /** True while the adapter awaits a reactive wakeup (scheduled timer or async subagent) and must not be idle-suspended. */
+  hasPendingBackground?(now?: number): boolean
   start(context: { rootPath: string; nativeSessionId: string | null } & ThreadConfiguration, emit: (event: ThreadEvent) => void): Promise<void>
   configure?(configuration: ThreadConfiguration): Promise<void>
   command?(name: string, argument: string): Promise<ThreadCommandResult>
