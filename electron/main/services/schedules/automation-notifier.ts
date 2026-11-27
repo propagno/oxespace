@@ -22,7 +22,6 @@ export function createNativeAutomationNotifier(onClick?: (payload: AutomationNot
     if (!notificationsEnabled()) return false
     try {
       // Dynamic require keeps this module importable in pure Node/Vitest environments.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const electron = require('electron') as { Notification?: { isSupported?: () => boolean; new (opts: { title: string; body: string }): { on: (e: string, cb: () => void) => void; show: () => void } } }
       const NativeNotification = electron?.Notification
       if (!NativeNotification || typeof NativeNotification.isSupported !== 'function' || !NativeNotification.isSupported()) {

@@ -9,7 +9,6 @@ import type { SchedulerDeps, StartRunContext, StartRunResult } from './scheduler
 export interface ScheduleThreadService extends Pick<ThreadOrchestrator, 'create' | 'command' | 'configure' | 'send' | 'read'> {
   interrupt?: (id: string) => Promise<void>
   subscribe?: (id: string, listener: (id: string) => void) => () => void
-  usageSummary?: (id: string) => Promise<{ totalInputTokens?: number; totalOutputTokens?: number; totalCostUsd?: number } | null>
 }
 
 export interface ScheduleThreadHost {

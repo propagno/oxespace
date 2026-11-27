@@ -184,7 +184,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
     worktrees: {
       ...threadWorktrees,
       pushBranch: async ({ rootPath }) => {
-        await gitHubService.push({ workspaceId: '', rootPath }, { reason: 'automation:push-branch' })
+        await gitHubService.push({ workspaceId: '', rootPath }, { reason: 'git-panel:automation-push' })
       },
       createPullRequest: async ({ rootPath, title, body, head, base }) => {
         const res = await gitHubService.createPullRequest({ workspaceId: '', rootPath, title, body, head, base })

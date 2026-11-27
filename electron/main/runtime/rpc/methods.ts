@@ -95,8 +95,8 @@ export function buildRpcMethods(deps: RpcMethodDeps): Record<string, RpcMethod> 
           'automation.trigger': async (params: unknown) => {
             const record = expectParamsRecord(params, 'automation.trigger')
             const scheduleId = expectParamString(record, 'scheduleId')
-            const eventKey = optionalParamString(record, 'eventKey')
-            const detail = optionalParamString(record, 'detail')
+            const eventKey = optionalParamString(record, 'eventKey') ?? undefined
+            const detail = optionalParamString(record, 'detail') ?? undefined
             return deps.triggerAutomation!({ scheduleId, eventKey, detail })
           }
         }
