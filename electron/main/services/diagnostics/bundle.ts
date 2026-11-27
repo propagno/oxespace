@@ -36,13 +36,33 @@ export async function buildBundle(sources: BundleSources): Promise<Bundle> {
   // Check details can carry error text or a path; their id, label and tone say enough.
   const safeSnapshot = snapshot ? { ...snapshot, checks: snapshot.checks.map(({ id, label, tone }) => ({ id, label, tone })) } : null
   const metrics = await sources.metrics().catch(() => null)
+  // Strip any local label/contextId/PID identifiers from agentProcesses before writing the bundle.
+  const safeMetrics = metrics?.agentProcesses
+    ? {
+        ...metrics,
+        agentProcesses: {
+          collectedAt: metrics.agentProcesses.collectedAt,
+          totals: metrics.agentProcesses.totals,
+          ...(metrics.agentProcesses.antivirusHighCpu
+            ? { antivirusHighCpu: true, antivirusCpuPercent: metrics.agentProcesses.antivirusCpuPercent }
+            : {}),
+          policy: metrics.agentProcesses.policy,
+          managed: metrics.agentProcesses.managed.map(({ provider, kind, childCount, cpuPercent, memoryBytes, priority, state, jobGoverned }) => ({
+            provider, kind, childCount, cpuPercent, memoryBytes, priority, state, jobGoverned
+          })),
+          external: metrics.agentProcesses.external.map(({ provider, cpuPercent, memoryBytes }) => ({
+            provider, cpuPercent, memoryBytes
+          }))
+        }
+      }
+    : metrics
   const incidents = safe(() => sources.incidents(), [])
   const readTail = sources.readTail ?? tailOf
   let logText = ''
   for (const file of safe(() => sources.logFiles(), [])) logText += (await readTail(file, LOG_TAIL_BYTES).catch(() => '')) + '\n'
 
   const files: Array<{ name: string; summary: MainMessage; text: string }> = [
-    { name: 'snapshot.json', summary: { code: 'bundle.file.snapshot', params: {} }, text: json({ snapshot: safeSnapshot, metrics }) },
+    { name: 'snapshot.json', summary: { code: 'bundle.file.snapshot', params: {} }, text: json({ snapshot: safeSnapshot, metrics: safeMetrics }) },
     { name: 'incidents.json', summary: { code: 'bundle.file.incidents', params: {} }, text: json(incidents) },
     { name: 'runtime-events.jsonl', summary: { code: 'bundle.file.runtime', params: {} }, text: redactor.text(safe(() => sources.runtimeEvents(), '')) },
     { name: 'main-log-tail.txt', summary: { code: 'bundle.file.logTail', params: {} }, text: redactLogTail(logText, redactor) },

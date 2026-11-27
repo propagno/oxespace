@@ -159,7 +159,12 @@ export async function bootstrapInternalMcpAndAudit({ core, workspace, delegation
     workspaceRoots: () => internalMcpWorkspaceServ.list().map(workspace => workspace.rootPath),
     previousDbVersion
   })
-  registerDiagnosticsIpc(db, internalMcp, { terminals: terminalManager, mcp: mcpManager })
+  registerDiagnosticsIpc(db, internalMcp, {
+    terminals: terminalManager,
+    mcp: mcpManager,
+    enableAgentProcesses: true,
+    enableIdleReaperTimer: true
+  })
 
   // Loads the policy and the accepted-config gate and answers policy:get; the HTTP audit below reads policyStore().
   await registerPolicyIpc(id => internalMcpWorkspaceServ.get(id)?.rootPath, { db, files: fileSystemService, servers: mcpManager, executions })

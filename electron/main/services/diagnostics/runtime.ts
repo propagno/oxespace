@@ -5,12 +5,23 @@ import { APP_VERSION } from '../app-info'
 import { dirname, join } from 'node:path'
 import { mainMessage } from '../../../../shared/messages'
 import type { AppConnectivity } from '../../../../shared/types/app'
-import type { DiagnosticsMetrics, DiagnosticsSnapshot } from '../../../../shared/types/diagnostics'
+import type {
+  AgentProcessControlRequest,
+  AgentProcessControlResponse,
+  AgentProcessesSnapshot,
+  DiagnosticsMetrics,
+  DiagnosticsSnapshot
+} from '../../../../shared/types/diagnostics'
 import { IPC_CHANNELS } from '../../../../shared/types/ipc'
 import { getAppUpdateState } from '../../updater'
 import { sharedProjectMemoryEnabled } from '../experimental-features'
 import { exportRuntimeDiagnostics } from '../runtime-diagnostics'
 import { perfJournal, summarize } from '../perf/perf-journal'
+import { AgentIdleReaper } from './agent-idle-reaper'
+import { AgentProcessController, type ProcessGovernanceBackend } from './agent-process-control'
+import { AgentProcessPolicyStore } from './agent-process-policy'
+import { managedAgentProcessRegistry, type ManagedAgentProcessRecord, type ManagedAgentProcessRegistry } from './agent-process-registry'
+import { collectAgentProcesses, sampleOsProcesses, type OsProcessSampler } from './agent-processes'
 import { buildBundle, type Bundle } from './bundle'
 import { knownAccounts, knownCliVersion } from './facts'
 import type { IncidentJournal } from './incident-journal'
@@ -28,16 +39,52 @@ export interface DiagnosticsDependencies {
   terminals?(): { running: number; agents: number }
   mcpServers?(): McpCounts
   knownPids?: MetricsSources['knownPids']
+  agentProcessRegistry?: ManagedAgentProcessRegistry
+  agentProcessSampler?: OsProcessSampler
+  agentProcessGovernance?: ProcessGovernanceBackend
+  hibernateManagedAgent?: (entry: ManagedAgentProcessRecord) => Promise<boolean>
+  enableAgentProcesses?: boolean
+  enableIdleReaperTimer?: boolean
   databaseFile: string
   userData: string
 }
 
+const AGENT_SNAPSHOT_CACHE_MS = 1_500
+
 export class DiagnosticsRuntime {
   readonly watcher: MetricsWatcher
+  readonly policyStore: AgentProcessPolicyStore
+  readonly processController: AgentProcessController
+  readonly idleReaper: AgentIdleReaper
+  private readonly registry: ManagedAgentProcessRegistry
+  private readonly sampler: OsProcessSampler
+  private readonly detachAutoEco: () => void
   private readonly sources: MetricsSources
+  private policyLoaded = false
+  private cachedAgentSnapshot: { at: number; snapshot: AgentProcessesSnapshot } | null = null
 
   constructor(private readonly deps: DiagnosticsDependencies) {
     const clis = cliFinder(knownCliVersion)
+    this.registry = deps.agentProcessRegistry ?? managedAgentProcessRegistry
+    this.sampler = deps.agentProcessSampler ?? (() => sampleOsProcesses())
+    this.policyStore = new AgentProcessPolicyStore(join(deps.userData, 'agent-process-policy.json'))
+    this.processController = new AgentProcessController({
+      registry: this.registry,
+      sampler: this.sampler,
+      getPolicy: () => this.policyStore.get(),
+      governance: deps.agentProcessGovernance,
+      hibernateManaged: deps.hibernateManagedAgent
+    })
+    this.idleReaper = new AgentIdleReaper({
+      registry: this.registry,
+      getPolicy: () => this.policyStore.get(),
+      hibernateManaged: deps.hibernateManagedAgent ?? (async entry => {
+        if (entry.stop) { await entry.stop(); return true }
+        return false
+      })
+    })
+    this.detachAutoEco = this.processController.attachAutoEco()
+    if (deps.enableIdleReaperTimer) this.idleReaper.start()
     this.sources = {
       appMetrics: () => app.getAppMetrics(),
       knownPids: deps.knownPids,
@@ -46,9 +93,77 @@ export class DiagnosticsRuntime {
       storage: () => measureStorage({ dataDirectory: deps.userData, databaseFile: deps.databaseFile, logDirectories: [dirname(logFile()), join(deps.userData, 'diagnostics')] }),
       connectivity,
       clis: () => clis(),
-      accounts: knownAccounts
+      accounts: knownAccounts,
+      agentProcesses: () => this.sampleAgentProcessesOnDemand()
     }
     this.watcher = new MetricsWatcher(() => this.metrics(), IPC_CHANNELS.diagnostics.onMetrics)
+  }
+
+  private async ensurePolicyLoaded(): Promise<void> {
+    if (this.policyLoaded) return
+    this.policyLoaded = true
+    await this.policyStore.load()
+  }
+
+  private async sampleAgentProcessesOnDemand(force = false): Promise<AgentProcessesSnapshot | undefined> {
+    const enabled = this.deps.enableAgentProcesses === true || Boolean(this.deps.agentProcessSampler) || this.registry.listManaged().length > 0
+    if (!force && (!enabled || (this.watcher.size === 0 && this.registry.listManaged().length === 0 && !this.deps.agentProcessSampler))) {
+      return undefined
+    }
+    const now = Date.now()
+    if (!force && this.cachedAgentSnapshot && now - this.cachedAgentSnapshot.at < AGENT_SNAPSHOT_CACHE_MS) {
+      return this.cachedAgentSnapshot.snapshot
+    }
+    await this.ensurePolicyLoaded()
+    const snapshot = await collectAgentProcesses({
+      registry: this.registry,
+      sampler: this.sampler,
+      policy: this.policyStore.get(),
+      now
+    })
+    this.cachedAgentSnapshot = { at: now, snapshot }
+    return snapshot
+  }
+
+  async handleAgentProcesses(request: AgentProcessControlRequest): Promise<AgentProcessControlResponse> {
+    await this.ensurePolicyLoaded()
+    switch (request.op) {
+      case 'snapshot':
+        return (await this.sampleAgentProcessesOnDemand(true))!
+      case 'getPolicy':
+        return this.policyStore.get()
+      case 'setPolicy': {
+        const next = await this.policyStore.update(request.policy)
+        this.cachedAgentSnapshot = null
+        return next
+      }
+      case 'setPriority': {
+        const res = await this.processController.setPriority(request.rootPid, request.priority)
+        this.cachedAgentSnapshot = null
+        return res
+      }
+      case 'hibernate': {
+        const res = await this.processController.hibernate(request.rootPid)
+        this.cachedAgentSnapshot = null
+        return res
+      }
+      case 'killTree': {
+        const res = await this.processController.killTree(request.rootPid)
+        this.cachedAgentSnapshot = null
+        return res
+      }
+      case 'reapIdle': {
+        const report = await this.idleReaper.sweep()
+        this.cachedAgentSnapshot = null
+        return { ok: true, reapedPids: report.reaped.map(item => item.rootPid) }
+      }
+    }
+  }
+
+  dispose(): void {
+    this.watcher.stopAll()
+    this.idleReaper.stop()
+    this.detachAutoEco()
   }
 
   metrics(): Promise<DiagnosticsMetrics> { return collectMetrics(this.sources) }

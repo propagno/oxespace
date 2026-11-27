@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { resolveAppDatabasePath, type AppDatabase } from '../db'
 import type { InternalMcpHandle } from '../mcp-internal/bootstrap'
 import { IPC_CHANNELS } from '../../../shared/types/ipc'
-import { DIAGNOSTICS_LIMITS, RENDERER_ERROR_BOUNDARIES, RENDERER_ERROR_CODE, RENDERER_ERROR_IDENTIFIER, RENDERER_ERROR_KINDS, RENDERER_ERROR_STACK_HASH, type RendererErrorBoundary, type RendererErrorInput, type RendererErrorKind } from '../../../shared/types/diagnostics'
+import { DIAGNOSTICS_LIMITS, RENDERER_ERROR_BOUNDARIES, RENDERER_ERROR_CODE, RENDERER_ERROR_IDENTIFIER, RENDERER_ERROR_KINDS, RENDERER_ERROR_STACK_HASH, type AgentProcessControlRequest, type AgentProcessGovernancePolicy, type AgentProcessPriority, type RendererErrorBoundary, type RendererErrorInput, type RendererErrorKind } from '../../../shared/types/diagnostics'
 import { DiagnosticsService } from '../services/diagnostics.service'
 import { exportRuntimeDiagnostics, recordFirstAnswer } from '../services/runtime-diagnostics'
 import { connectIncidentJournal, flushIncidents, incidentRecorder, recordIncident } from '../services/diagnostics/incident-sink'
@@ -17,6 +17,11 @@ import type { IncidentJournal } from '../services/diagnostics/incident-journal'
 export interface DiagnosticsSources {
   terminals?: { counts(): { running: number; agents: number } }
   mcp?: { healthCounts(): { total: number; healthy: number; quarantined: number; failing: number } }
+  agentProcessSampler?: DiagnosticsDependencies['agentProcessSampler']
+  agentProcessRegistry?: DiagnosticsDependencies['agentProcessRegistry']
+  hibernateManagedAgent?: DiagnosticsDependencies['hibernateManagedAgent']
+  enableAgentProcesses?: boolean
+  enableIdleReaperTimer?: boolean
 }
 
 let runtime: Promise<DiagnosticsRuntime> | null = null
@@ -45,6 +50,11 @@ export function registerDiagnosticsIpc(
     journal,
     terminals: sources.terminals ? () => sources.terminals!.counts() : undefined,
     mcpServers: sources.mcp ? () => sources.mcp!.healthCounts() : undefined,
+    agentProcessSampler: sources.agentProcessSampler,
+    agentProcessRegistry: sources.agentProcessRegistry,
+    hibernateManagedAgent: sources.hibernateManagedAgent,
+    enableAgentProcesses: sources.enableAgentProcesses,
+    enableIdleReaperTimer: sources.enableIdleReaperTimer,
     databaseFile: resolveAppDatabasePath(),
     userData
   }
@@ -55,7 +65,7 @@ export function registerDiagnosticsIpc(
   // The performance journal (1.5.1): loaded off the startup path; until it is, nothing is measured.
   const perf = import('../services/perf/perf-journal').then(module => { module.startPerfJournal(join(userData, 'diagnostics'), measureIpcWith); return module })
     .catch(() => null)
-  app.once('will-quit', () => { flushIncidents(); void runtime?.then(value => value.watcher.stopAll()); void perf.then(module => module?.stopPerfJournal()) })
+  app.once('will-quit', () => { flushIncidents(); void runtime?.then(value => value.dispose()); void perf.then(module => module?.stopPerfJournal()) })
 
   ipcMain.handle(IPC_CHANNELS.diagnostics.getSnapshot, (event) => service.getSnapshot())
   ipcMain.handle(IPC_CHANNELS.diagnostics.exportReport, async (event) => {
@@ -127,6 +137,10 @@ export function registerDiagnosticsIpc(
     noInput(args)
     return (await load()).analysisSummary()
   })
+  ipcMain.handle(IPC_CHANNELS.diagnostics.agentProcesses, async (_event, ...args: unknown[]) => {
+    const request = agentProcessRequestInput(args)
+    return (await load()).handleAgentProcesses(request)
+  })
   return service
 }
 
@@ -168,6 +182,49 @@ function rendererErrorInput(args: unknown[]): RendererErrorInput {
 
 function noInput(args: unknown[]): void {
   if (args.length > 0 && !(args.length === 1 && args[0] === undefined)) throw new Error('This diagnostics call takes no input')
+}
+
+const AGENT_PROCESS_PRIORITIES = new Set<AgentProcessPriority>(['normal', 'belowNormal', 'low'])
+
+function agentProcessRequestInput(args: unknown[]): AgentProcessControlRequest {
+  if (args.length !== 1) throw new Error('Agent process request must be a single object')
+  const raw = parseRecord(args[0], 'input')
+  const op = raw.op
+  if (op === 'snapshot' || op === 'getPolicy' || op === 'reapIdle') {
+    const unknown = Object.keys(raw).filter(key => key !== 'op')
+    if (unknown.length) throw new Error(`Unknown diagnostics input: ${unknown.slice(0, 5).join(', ')}`)
+    return { op }
+  }
+  if (op === 'setPolicy') {
+    const unknown = Object.keys(raw).filter(key => key !== 'op' && key !== 'policy')
+    if (unknown.length) throw new Error(`Unknown diagnostics input: ${unknown.slice(0, 5).join(', ')}`)
+    const policy = parseRecord(raw.policy, 'policy')
+    const badPolicy = Object.keys(policy).filter(key => !['autoEcoBackground', 'idleReaperEnabled', 'idleTtlMinutes', 'maxConcurrentAgents'].includes(key))
+    if (badPolicy.length) throw new Error(`Unknown policy field: ${badPolicy.slice(0, 5).join(', ')}`)
+    if (policy.autoEcoBackground !== undefined && typeof policy.autoEcoBackground !== 'boolean') throw new Error('autoEcoBackground must be a boolean')
+    if (policy.idleReaperEnabled !== undefined && typeof policy.idleReaperEnabled !== 'boolean') throw new Error('idleReaperEnabled must be a boolean')
+    if (policy.idleTtlMinutes !== undefined && (typeof policy.idleTtlMinutes !== 'number' || !Number.isInteger(policy.idleTtlMinutes) || policy.idleTtlMinutes < 0 || policy.idleTtlMinutes > 240)) {
+      throw new Error('idleTtlMinutes must be a whole number from 0 to 240')
+    }
+    if (policy.maxConcurrentAgents !== undefined && (typeof policy.maxConcurrentAgents !== 'number' || !Number.isInteger(policy.maxConcurrentAgents) || policy.maxConcurrentAgents < 1 || policy.maxConcurrentAgents > 32)) {
+      throw new Error('maxConcurrentAgents must be a whole number from 1 to 32')
+    }
+    return { op, policy: policy as Partial<AgentProcessGovernancePolicy> }
+  }
+  if (op === 'setPriority') {
+    const unknown = Object.keys(raw).filter(key => !['op', 'rootPid', 'priority'].includes(key))
+    if (unknown.length) throw new Error(`Unknown diagnostics input: ${unknown.slice(0, 5).join(', ')}`)
+    if (typeof raw.rootPid !== 'number' || !Number.isInteger(raw.rootPid) || raw.rootPid <= 1) throw new Error('rootPid must be a valid process id')
+    if (typeof raw.priority !== 'string' || !AGENT_PROCESS_PRIORITIES.has(raw.priority as AgentProcessPriority)) throw new Error('priority must be normal, belowNormal, or low')
+    return { op, rootPid: raw.rootPid, priority: raw.priority as AgentProcessPriority }
+  }
+  if (op === 'hibernate' || op === 'killTree') {
+    const unknown = Object.keys(raw).filter(key => key !== 'op' && key !== 'rootPid')
+    if (unknown.length) throw new Error(`Unknown diagnostics input: ${unknown.slice(0, 5).join(', ')}`)
+    if (typeof raw.rootPid !== 'number' || !Number.isInteger(raw.rootPid) || raw.rootPid <= 1) throw new Error('rootPid must be a valid process id')
+    return { op, rootPid: raw.rootPid }
+  }
+  throw new Error('Unknown agent process operation')
 }
 
 let hooksInstalled = false

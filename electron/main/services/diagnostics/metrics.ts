@@ -2,7 +2,7 @@ import { readdir, stat, statfs } from 'node:fs/promises'
 import { totalmem } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { AppConnectivity } from '../../../../shared/types/app'
-import type { DiagnosticsMetrics, DiagnosticsProcess, DiagnosticsProcessKind } from '../../../../shared/types/diagnostics'
+import type { AgentProcessesSnapshot, DiagnosticsMetrics, DiagnosticsProcess, DiagnosticsProcessKind } from '../../../../shared/types/diagnostics'
 
 /**
  * One measurement for the diagnostics panel (B8.3). Built only when a window is subscribed or someone asks for the
@@ -29,6 +29,8 @@ export interface MetricsSources {
   clis(): Promise<DiagnosticsMetrics['clis']>
   accounts(): DiagnosticsMetrics['accounts']
   mcpServers?(): McpCounts
+  /** On-demand managed and read-only external agent process snapshot (OXE-450). */
+  agentProcesses?(): Promise<AgentProcessesSnapshot | undefined>
 }
 
 const ELECTRON_KINDS: Record<string, DiagnosticsProcessKind> = { Browser: 'main', Tab: 'renderer', GPU: 'gpu', Utility: 'utility' }
@@ -49,9 +51,10 @@ export async function collectMetrics(sources: MetricsSources, now = Date.now()):
     // Electron reports kilobytes.
     memoryBytes: Math.round(finite(metric.memory?.workingSetSize) * 1024)
   }))
-  const [storage, clis] = await Promise.all([
+  const [storage, clis, agentProcesses] = await Promise.all([
     sources.storage().catch(() => ({ freeBytes: null, diskTotalBytes: null, databaseBytes: 0, logsBytes: 0 })),
-    sources.clis().catch(() => [])
+    sources.clis().catch(() => []),
+    sources.agentProcesses ? sources.agentProcesses().catch(() => undefined) : Promise.resolve(undefined)
   ])
   return {
     at: now,
@@ -63,7 +66,8 @@ export async function collectMetrics(sources: MetricsSources, now = Date.now()):
     gateway: null, // no remote gateway in this build
     clis,
     accounts: safe(() => sources.accounts(), []),
-    mcpServers: safe(() => sources.mcpServers?.() ?? { total: 0, healthy: 0, quarantined: 0, failing: 0 }, { total: 0, healthy: 0, quarantined: 0, failing: 0 })
+    mcpServers: safe(() => sources.mcpServers?.() ?? { total: 0, healthy: 0, quarantined: 0, failing: 0 }, { total: 0, healthy: 0, quarantined: 0, failing: 0 }),
+    ...(agentProcesses ? { agentProcesses } : {})
   }
 }
 

@@ -49,6 +49,11 @@ export function buildAnalysisSummary(input: SummaryInput): string {
     `- total memory: ${size(totalMemory)}`,
     '- the OxeQuery worker runs inside the main process and is counted in it',
     `- terminals running: ${metrics.terminals.running}; with an agent: ${metrics.terminals.agents}`,
+    ...(metrics.agentProcesses ? [
+      `- managed agents: ${metrics.agentProcesses.totals.managedCount} (${metrics.agentProcesses.totals.activeCount} active, ${metrics.agentProcesses.totals.idleCount} idle), CPU ${metrics.agentProcesses.totals.managedCpuPercent.toFixed(1)}%, ${size(metrics.agentProcesses.totals.managedMemoryBytes)}`,
+      `- external agents detected: ${metrics.agentProcesses.totals.externalCount}`,
+      ...(metrics.agentProcesses.antivirusHighCpu ? ['- antivirus high CPU detected: yes'] : [])
+    ] : []),
     '',
     '## Storage',
     `- free on the data volume: ${size(metrics.storage.freeBytes)}`,
