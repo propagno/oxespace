@@ -41,8 +41,9 @@ export interface IdleHost {
   save(snapshot: ThreadSnapshot, options?: ThreadHistoryWriteOptions): void
 }
 
-function canSuspend(host: IdleHost, id: string): boolean {
+function canSuspend(host: IdleHost, id: string, adapter: AgentConversationAdapter, now: number): boolean {
   if (host.isHeld(id)) return false
+  if (adapter.hasPendingBackground?.(now)) return false
   let snapshot: ThreadSnapshot
   try { snapshot = host.read(id) } catch { return false }
   const thread = snapshot.thread
@@ -63,7 +64,7 @@ export async function suspendIdle(host: IdleHost, now = Date.now()): Promise<str
   for (const [id, adapter] of host.adapters()) {
     const since = host.lastActivity(id)
     if (since === undefined) { host.touch(id, now); continue }
-    if (now - since < minutes * 60_000 || !canSuspend(host, id)) continue
+    if (now - since < minutes * 60_000 || !canSuspend(host, id, adapter, now)) continue
     host.detach(id)
     const closing = adapter.dispose().catch(() => {})
     host.trackClosing(id, closing)

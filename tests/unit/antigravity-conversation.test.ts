@@ -77,8 +77,8 @@ describe('Antigravity conversation adapter', () => {
     expect(f.sent('session/new')[0].params).toEqual({ cwd: '/repo', mcpServers: servers })
     expect(f.sent('session/set_config_option').map(message => message.params)).toEqual([
       { sessionId: 'sess-A', configId: 'model', value: 'gemini-4-carbon' }, { sessionId: 'sess-A', configId: 'thought_level', value: 'high' }])
-    // The session already is in `default` mode, so no mode is set.
-    expect(f.sent('session/set_mode')).toEqual([])
+    // Writable workspace sessions advance to the advertised non-blocking `accept-edits` autonomy mode.
+    expect(f.sent('session/set_mode').map(message => message.params)).toEqual([{ sessionId: 'sess-A', modeId: 'accept-edits' }])
     expect(f.of('session')).toEqual([{ type: 'session', nativeSessionId: 'sess-A' }])
     expect(f.of('configuration')[0]).toMatchObject({ model: 'gemini-4-carbon', reasoningEffort: 'high', access: 'workspace-write', approvalPolicy: 'on-request', confirmed: true })
     expect(f.adapter.evidence).toMatchObject({ transport: 'antigravity-acp-jsonrpc', verified: 'native', providerVersion: '1.5.6', protocolVersion: '1' })
@@ -117,7 +117,8 @@ describe('Antigravity conversation adapter', () => {
     expect(antigravityLaunchArgs({ access: 'full-access', approvalPolicy: 'never' })).toEqual(['acp', '--dangerously-skip-permissions'])
     expect(antigravityMode({ mode: 'plan', access: 'full-access', approvalPolicy: 'never' })).toBe('plan')
     expect(antigravityMode({ mode: 'acceptEdits', access: 'workspace-write' })).toBe('accept-edits')
-    expect(antigravityMode({ mode: 'default', access: 'workspace-write', approvalPolicy: 'never' })).toBe('default')
+    expect(antigravityMode({ mode: 'default', access: 'read-only', approvalPolicy: 'never' })).toBe('default')
+    expect(antigravityMode({ mode: 'default', access: 'workspace-write', approvalPolicy: 'never' })).toBe('auto')
     expect(antigravityMode({ mode: 'default', access: 'full-access', approvalPolicy: 'never' })).toBe('auto')
     const f = fixture()
     await f.adapter.start(context({ mode: 'plan' }), f.emit)
