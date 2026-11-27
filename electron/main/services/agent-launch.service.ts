@@ -53,13 +53,17 @@ export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, brid
     return { args: [...own, ...args], env: search }
   }
 }
+export const SUPPORTED_AGENT_PROVIDERS = ['antigravity', 'claude', 'codex', 'copilot', 'cursor', 'grok'] as const
+
 export class AgentLaunchService {
   constructor(private terminal: TerminalManager, private profiles: () => AgentProfile[], private directory: string) {}
   resolve(id: string): { executable: string; provider: string; prompt: string } {
     const p = this.profiles().find(p => p.agentProfileId === id)
     if (!p) throw new Error('Unknown agent profile')
     const provider = p.parentProvider ?? p.provider
-    if (!['claude','codex'].includes(provider)) throw new Error('Delegation currently supports native Claude and Codex profiles')
+    if (!(SUPPORTED_AGENT_PROVIDERS as readonly string[]).includes(provider)) {
+      throw new Error(`Unsupported agent provider "${provider}". Supported providers: ${SUPPORTED_AGENT_PROVIDERS.join(', ')}`)
+    }
     const command = (p.parentProvider ? this.profiles().find(other => other.provider === p.parentProvider)?.command : p.command)?.trim() ?? ''
     const executable = command.replace(/^"(.*)"$/, '$1')
     if (!executable || /[\r\n\0]/.test(executable) || (!existsSync(executable) && /\s/.test(executable))) throw new Error('Delegation requires an agent executable path without embedded command arguments. Configure the agent profile first.')

@@ -164,6 +164,12 @@ export class AgentStateService {
     return this.panes.get(paneId)?.agent ?? null
   }
 
+  /** OXE-445 · Current headless terminal screen snapshot (ScreenMirror), or null if no screen is attached. */
+  readScreen(paneId: string): { screen: string; oscTitle: string; oscProgress: string } | null {
+    const record = this.panes.get(paneId)
+    return record?.screen ? record.screen.read() : null
+  }
+
   list(workspaceId?: string): PaneAgentState[] {
     return [...this.panes.values()].map(record => record.published).filter((state): state is PaneAgentState => Boolean(state) && (!workspaceId || state!.workspaceId === workspaceId))
   }
