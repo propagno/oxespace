@@ -1,16 +1,36 @@
 /**
- * Schedules: a request to an agent that OXESpace sends by itself, at a set time or on repeat, while the app is open.
- * Each run opens a new conversation in the schedule's project and sends the request there; from then on it is a
- * conversation like any other (approvals, notifications, the changes panel).
+ * Schedules & Automations: requests OXESpace sends to an agent on time/cron rules or CI/PR/CLI events while the app is
+ * open. `workspace-write` automations run in mandatory isolated git worktrees and surface completed runs in the
+ * dedicated Review Queue.
  *
- * What a schedule can never do, by construction: run with "full access" or without approvals, run more than once an
- * hour, pile up runs it missed while the app was closed (at most one is recovered), or be created by an agent.
+ * What an automation can never do, by construction: run with "full access" or without approvals, pile up runs missed
+ * while the app was closed (at most one is recovered), or be created/edited/elevated by an agent via MCP.
  */
+import { isValidCronExpression, nextCronRun, nextCronRuns } from './cron'
 import type { ThreadProvider } from './types/thread'
 
 export type ScheduleAccess = 'read-only' | 'workspace-write'
 
-/** When a schedule runs. Times are the computer's local time, as the person typed them. */
+export type ScheduleEventType = 'ci-failed' | 'pr-review-requested' | 'manual-cli'
+
+export type ScheduleTriggerKind = 'time' | 'cron' | 'event'
+
+export type ScheduleReviewStatus = 'pending' | 'approved' | 'merged' | 'discarded' | null
+
+export interface ScheduleEventConfig {
+  eventType: ScheduleEventType
+  cooldownMinutes?: number
+  branchFilter?: string
+}
+
+export interface ScheduleTokenUsage {
+  inputTokens?: number
+  outputTokens?: number
+  totalTokens?: number
+  costUsd?: number
+}
+
+/** When an automation runs. Times are the computer's local time, as the person typed them. */
 export type ScheduleRule =
   /** One time only, at this moment (epoch ms). */
   | { kind: 'once'; at: number }
@@ -18,6 +38,10 @@ export type ScheduleRule =
   | { kind: 'daily'; time: string; days: number[] }
   /** Every N hours (1 to 24), counted from `anchor` (epoch ms). */
   | { kind: 'hours'; every: number; anchor: number }
+  /** Standard 5-field local cron expression (`minute hour dom month dow`). */
+  | { kind: 'cron'; expression: string }
+  /** Event-driven trigger (`ci-failed`, `pr-review-requested`, `manual-cli`). */
+  | { kind: 'event'; eventType: ScheduleEventType; cooldownMinutes?: number; branchFilter?: string }
 
 export interface Schedule {
   id: string
@@ -30,12 +54,16 @@ export interface Schedule {
   access: ScheduleAccess
   prompt: string
   rule: ScheduleRule
+  triggerKind?: ScheduleTriggerKind
+  eventConfig?: ScheduleEventConfig | null
+  /** Per-run timeout in ms (default 20 minutes). */
+  timeoutMs?: number
   enabled: boolean
   /** The app was closed (or the computer asleep) at the time: run once when it is back, or let it pass. */
   catchUp: boolean
   createdAt: number
   updatedAt: number
-  /** The next time it is due, or null when it will not run again (off, or a single time already past). */
+  /** The next time it is due, or null when it will not run again (off, event trigger, or single time already past). */
   nextRunAt: number | null
   lastRunAt: number | null
   /** Runs that failed to start, in a row. */
@@ -45,10 +73,26 @@ export interface Schedule {
 }
 
 export type ScheduleRunOutcome =
-  /** A conversation was opened and the request sent. */
+  /** Legacy/direct run where a conversation was opened and the request sent. */
   | 'started'
-  /** The conversation could not be opened or the request could not be sent; `detail` says why. */
+  /** Waiting for a global concurrency slot under maxConcurrent. */
+  | 'queued'
+  /** Actively executing in a conversation/worktree. */
+  | 'running'
+  /** Waiting for human approval inside the conversation. */
+  | 'waiting_approval'
+  /** Completed and waiting in the Review Queue. */
+  | 'needs_review'
+  /** Reviewed and promoted via Pull Request. */
+  | 'approved'
+  /** Reviewed and applied/merged into main checkout. */
+  | 'merged'
+  /** Reviewed and discarded (worktree + local automation branch removed). */
+  | 'discarded'
+  /** The conversation could not be opened or execution failed; `detail` says why. */
   | 'failed'
+  /** Exceeded timeoutMs and was cancelled via interrupt(). */
+  | 'timed_out'
   /** The app was not open at the time and the schedule lets missed runs pass. */
   | 'missed'
   /** The run before it was still working, or waiting for an answer. */
@@ -66,12 +110,72 @@ export interface ScheduleRun {
   outcome: ScheduleRunOutcome
   threadId: string | null
   detail: string | null
+  worktreePath?: string | null
+  branchName?: string | null
+  baseSha?: string | null
+  finishedAt?: number | null
+  summaryMd?: string | null
+  filesChanged?: number
+  additions?: number
+  deletions?: number
+  prUrl?: string | null
+  errorCode?: string | null
+  eventKey?: string | null
+  tokenUsage?: ScheduleTokenUsage | null
+  reviewStatus?: ScheduleReviewStatus
 }
 
 export interface SchedulesState {
   /** "Pause all": nothing runs while this is on. */
   paused: boolean
+  /** Global concurrent execution cap (default 2). */
+  maxConcurrent?: number
+  /** Count of runs currently in `needs_review` (`review_status = 'pending'`). */
+  reviewPendingCount?: number
   schedules: Schedule[]
+}
+
+export interface ReviewDiffFile {
+  path: string
+  additions: number
+  deletions: number
+  binary?: boolean
+  status?: 'added' | 'modified' | 'deleted' | 'renamed'
+}
+
+export interface ReviewQueueItem {
+  run: ScheduleRun
+  scheduleName: string
+  projectId: string
+  rootPath: string
+  provider: ThreadProvider
+  access: ScheduleAccess
+}
+
+export interface ReviewQueueSummary {
+  count: number
+  items: ReviewQueueItem[]
+}
+
+export interface ReviewRunDiff {
+  runId: string
+  scheduleId: string
+  scheduleName: string
+  branchName: string | null
+  worktreePath: string | null
+  summaryMd: string | null
+  filesChanged: number
+  additions: number
+  deletions: number
+  files: ReviewDiffFile[]
+  unifiedDiff: string
+  prUrl: string | null
+}
+
+export interface ReviewActionResult {
+  run: ScheduleRun
+  prUrl?: string | null
+  message?: string
 }
 
 /** What the person fills in. `id` is there when an existing schedule is being changed. */
@@ -85,6 +189,7 @@ export interface ScheduleInput {
   access: ScheduleAccess
   prompt: string
   rule: ScheduleRule
+  timeoutMs?: number
   enabled?: boolean
   catchUp?: boolean
   /** The person's yes to "it will change files with no one watching": required for `workspace-write`. */
@@ -100,16 +205,64 @@ export const SCHEDULE_LIMITS = {
   runsPerDay: 24,
   /** Runs that fail to start in a row before OXESpace turns the schedule off and says why. */
   failuresBeforePause: 3,
-  /** The runs kept for each schedule's history. */
-  history: 30
+  /** The runs kept for each schedule's history (active / needs_review runs are preserved). */
+  history: 30,
+  /** Global concurrency cap default & ceiling. */
+  defaultMaxConcurrent: 2,
+  maxConcurrentLimit: 10,
+  /** Per-run timeout bounds (default 20 minutes). */
+  defaultTimeoutMs: 20 * 60_000,
+  minTimeoutMs: 1_000,
+  maxTimeoutMs: 4 * 3_600_000,
+  /** Event cooldown ceiling (24 hours). */
+  maxCooldownMinutes: 1440,
+  /** Branch filter string max length. */
+  branchFilterLength: 120
 } as const
 
 /** A run later than this was not "on time": the app was closed or the computer asleep, and it counts as missed. */
 export const SCHEDULE_LATE_MS = 2 * 60_000
 const HOUR = 3_600_000
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/
+const EVENT_TYPES = new Set<ScheduleEventType>(['ci-failed', 'pr-review-requested', 'manual-cli'])
 
-export type ScheduleRefusal = 'name' | 'prompt' | 'provider' | 'project' | 'access' | 'time' | 'days' | 'every' | 'past' | 'unconfirmedWrite' | 'rule'
+export type ScheduleRefusal =
+  | 'name'
+  | 'prompt'
+  | 'provider'
+  | 'project'
+  | 'access'
+  | 'time'
+  | 'days'
+  | 'every'
+  | 'past'
+  | 'unconfirmedWrite'
+  | 'rule'
+  | 'cron'
+  | 'event'
+  | 'cooldown'
+  | 'branchFilter'
+  | 'timeout'
+  | 'maxConcurrent'
+  | 'worktree'
+  | 'dirtyCheckout'
+  | 'notReviewable'
+  | 'prFailed'
+
+export function triggerKindOf(rule: ScheduleRule): ScheduleTriggerKind {
+  if (rule.kind === 'cron') return 'cron'
+  if (rule.kind === 'event') return 'event'
+  return 'time'
+}
+
+export function eventConfigOf(rule: ScheduleRule): ScheduleEventConfig | null {
+  if (rule.kind !== 'event') return null
+  return {
+    eventType: rule.eventType,
+    ...(typeof rule.cooldownMinutes === 'number' ? { cooldownMinutes: rule.cooldownMinutes } : {}),
+    ...(typeof rule.branchFilter === 'string' && rule.branchFilter.trim() ? { branchFilter: rule.branchFilter.trim() } : {})
+  }
+}
 
 /** Why what the person filled in cannot be saved, or null when it can. `now` decides whether a single time is past. */
 export function scheduleRefusal(input: unknown, now: number): ScheduleRefusal | null {
@@ -120,6 +273,9 @@ export function scheduleRefusal(input: unknown, now: number): ScheduleRefusal | 
   if (typeof value.projectId !== 'string' || !value.projectId || typeof value.rootPath !== 'string' || !value.rootPath) return 'project'
   if (value.access !== 'read-only' && value.access !== 'workspace-write') return 'access'
   if (value.access === 'workspace-write' && value.confirmedWrite !== true) return 'unconfirmedWrite'
+  if (value.timeoutMs !== undefined) {
+    if (!Number.isInteger(value.timeoutMs) || value.timeoutMs < SCHEDULE_LIMITS.minTimeoutMs || value.timeoutMs > SCHEDULE_LIMITS.maxTimeoutMs) return 'timeout'
+  }
   const rule = value.rule as ScheduleRule | undefined
   if (!rule || typeof rule !== 'object') return 'rule'
   if (rule.kind === 'once') return Number.isFinite(rule.at) ? (rule.at > now ? null : 'past') : 'time'
@@ -132,17 +288,25 @@ export function scheduleRefusal(input: unknown, now: number): ScheduleRefusal | 
     if (!Number.isInteger(rule.every) || rule.every < 1 || rule.every > 24) return 'every'
     return Number.isFinite(rule.anchor) ? null : 'time'
   }
+  if (rule.kind === 'cron') {
+    if (typeof rule.expression !== 'string' || !isValidCronExpression(rule.expression)) return 'cron'
+    return null
+  }
+  if (rule.kind === 'event') {
+    if (!EVENT_TYPES.has(rule.eventType)) return 'event'
+    if (rule.cooldownMinutes !== undefined && (!Number.isInteger(rule.cooldownMinutes) || rule.cooldownMinutes < 0 || rule.cooldownMinutes > SCHEDULE_LIMITS.maxCooldownMinutes)) return 'cooldown'
+    if (rule.branchFilter !== undefined && (typeof rule.branchFilter !== 'string' || rule.branchFilter.length > SCHEDULE_LIMITS.branchFilterLength)) return 'branchFilter'
+    return null
+  }
   return 'rule'
 }
 
 /**
- * The first time the rule is due strictly after `after`, or null when there is none (a single time already past).
- *
- * A daily time is local wall-clock time, worked out again from the rule each time: when the clocks change, 09:00 is
- * still 09:00. On the day an hour does not exist (02:30 when clocks jump from 02:00 to 03:00) the run is an hour
- * later by the clock (03:30), once; on the day an hour happens twice it runs the first time only.
+ * The first time the rule is due strictly after `after`, or null when there is none (event trigger, or single time past).
  */
 export function nextRun(rule: ScheduleRule, after: number): number | null {
+  if (rule.kind === 'event') return null
+  if (rule.kind === 'cron') return nextCronRun(rule.expression, after)
   if (rule.kind === 'once') return rule.at > after ? rule.at : null
   if (rule.kind === 'hours') {
     const step = rule.every * HOUR
@@ -156,6 +320,22 @@ export function nextRun(rule: ScheduleRule, after: number): number | null {
     if (rule.days.includes(at.getDay()) && at.getTime() > after) return at.getTime()
   }
   return null
+}
+
+/** Computes the next `count` local execution times strictly after `after` (for UI preview). */
+export function nextRuns(rule: ScheduleRule, after: number, count = 3): number[] {
+  if (!Number.isInteger(count) || count <= 0) return []
+  if (rule.kind === 'cron') return nextCronRuns(rule.expression, after, count)
+  if (rule.kind === 'event') return []
+  const results: number[] = []
+  let cursor = after
+  for (let i = 0; i < count; i++) {
+    const next = nextRun(rule, cursor)
+    if (next === null) break
+    results.push(next)
+    cursor = next
+  }
+  return results
 }
 
 /** Midnight that starts the local day `at` falls in: what "today" means for the daily limit. */
