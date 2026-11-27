@@ -35,6 +35,7 @@ const AndroidPanel = lazyFrom(SHARED_PANEL_CHUNKS.android, module => module.Andr
 const ActivityPanel = lazyFrom(SHARED_PANEL_CHUNKS.activity, module => module.ActivityPanel)
 const ContainersPanel = lazyFrom(SHARED_PANEL_CHUNKS.containers, module => module.ContainersPanel)
 const PANEL_ID: Record<ThreadPanel, WorkbenchPanelId> = { session: 'session', changes: 'changes', git: 'git', files: 'files', search: 'search', background: 'background', preview: 'browser', terminal: 'terminal', network: 'httpCalls', android: 'android', queries: 'queries', containers: 'containers' }
+const QUICK_PANELS: readonly ThreadPanel[] = ['changes', 'files', 'terminal', 'preview']
 
 export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSendToConversation, onCompact, maximized = false, onToggleMaximized }: { snapshot: ThreadSnapshot; workspace?: Workspace; panel: ThreadPanel; onClose(): void; onSendToConversation?(prompt: string, extra?: { images?: PreviewAttachment[]; elements?: PreviewElementRef[] }): void | boolean | Promise<void | boolean>; /** Runs /compact in the conversation; without it the session panel offers no Compact. */ onCompact?(): void; maximized?: boolean; onToggleMaximized?(): void }) {
   const { t } = useTranslation('thread')
@@ -62,6 +63,9 @@ export function ThreadChangesPanel({ snapshot, workspace, panel, onClose, onSend
   return <aside className="thread-review-panel" aria-label={t('workbench.label')}>
     <header className="thread-review-heading"><div className="thread-review-menu"><Menu label={t('workbench.panels')} items={[{ type: 'radio', value: panel, onValueChange: value => setPanel(value as ThreadPanel), options: radioOptions }]}
       trigger={<Button variant="ghost" size="sm" aria-label={t('workbench.select', { panel: currentLabel })}><ListTree size={14} aria-hidden="true" />{currentLabel}<ChevronDown size={12} aria-hidden="true" /></Button>} /></div>
+      <div className="thread-review-quick-tabs" role="group" aria-label={t('workbench.panels')}>
+        {QUICK_PANELS.map(item => <Button key={item} variant="ghost" size="sm" aria-pressed={panel === item} onClick={() => setPanel(item)}>{threadPanelLabel(PANEL_ID[item])}</Button>)}
+      </div>
       {onToggleMaximized && <IconButton size="sm" label={maximized ? t('workbench.restore') : t('workbench.maximize')} aria-pressed={maximized} title={maximized ? t('workbench.restoreTitle') : t('workbench.maximizeTitle')} icon={maximized ? <Minimize2 size={14} aria-hidden="true" /> : <Maximize2 size={14} aria-hidden="true" />} onClick={onToggleMaximized} />}
       <IconButton size="sm" label={t('workbench.close')} title={t('common.close')} icon={<X size={14} aria-hidden="true" />} onClick={onClose} /></header>
     {panel === 'session' ? <div className="thread-review-body thread-tool-surface"><ThreadSessionPanel snapshot={snapshot} workspace={workspace} running={snapshot.thread.status === 'running' || snapshot.thread.status === 'approval'} onOpenPanel={setPanel} onCompact={onCompact} /></div>

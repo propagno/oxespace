@@ -311,11 +311,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: var(--bar-sm);
   padding: 0 var(--chrome-inset);
-  border-bottom: 1px solid var(--bd-default);
+  border-bottom: 1px solid var(--bd-subtle);
   background: var(--surface-canvas);
 }
 
@@ -481,9 +481,9 @@
 
 .thread-background-shell {
   display: grid;
-  gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--bd-default);
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   font-size: var(--fs-xs);

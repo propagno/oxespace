@@ -70,8 +70,10 @@
 .thread-review-panel button:not([class*="_button_"]):hover { background: color-mix(in srgb, var(--tx-primary) 6%, transparent); color: var(--tx-primary); }
 .thread-review-panel button:focus-visible, .thread-change-summary button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .thread-review-panel button:disabled { opacity: .45; cursor: default; }
-.thread-review-heading { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--bd-default); background: var(--surface-chrome); }
-.thread-review-menu { position: relative; margin-right: auto; min-width: 0; }
+.thread-review-heading { height: var(--bar-lg); flex-shrink: 0; display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-bottom: 1px solid var(--bd-subtle); background: var(--surface-canvas); }
+.thread-review-menu { position: relative; min-width: 0; }
+.thread-review-quick-tabs { display: inline-flex; align-items: center; gap: var(--space-0-5); margin-right: auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.thread-review-quick-tabs button[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
 .thread-review-menu > button { color: var(--tx-primary); font-weight: 500; }
 .thread-review-menu-items { z-index: var(--layer-dropdown); width: 220px; padding: 5px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-primary); box-shadow: var(--elevation-3); font: var(--fs-xs) var(--font-ui); }
 .thread-review-menu-item { display: flex; align-items: center; min-height: 34px; padding: 6px 9px; border-radius: var(--radius-sm); cursor: pointer; outline: none; }
