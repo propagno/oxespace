@@ -12,6 +12,7 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import { useEditorStore } from '../../store/editor.store'
 import { useResolvedTerminalPrefs } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { sharedWarmWebglPool } from '../Terminal/webglPool'
 import { GitHubAuthCommandRow } from './GitHubAuthCommandRow'
 import { GITHUB_PANEL_TABS as TABS, buildStatusHeadline, describeSyncState } from './githubPanelModel'
 import { humanizeError } from '../../utils/humanizeError'
@@ -1728,6 +1729,7 @@ function GitHubEmbeddedTerminal({ command, workspaceId, onDismiss }: {
           isRunning={running}
           themeId={themeId}
           prefs={terminalPrefs}
+          warmPool={sharedWarmWebglPool}
           onInput={(data) => { void window.oxe.terminal.write({ paneId, data }) }}
           onResize={(cols, rows) => { void window.oxe.terminal.resize({ paneId, cols, rows }) }}
           onExit={() => setRunning(false)}

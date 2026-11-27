@@ -10,6 +10,7 @@ import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useResolvedTerminalPrefs, useTerminalPrefsStore } from '../../store/terminal-prefs.store'
 import { TerminalView } from '../Terminal/TerminalView'
+import { sharedWarmWebglPool } from '../Terminal/webglPool'
 import { estimateTerminalGrid } from '../Terminal/terminalViewHelpers'
 // The pane's usage chips read quotas and context after the terminal is up; they load on their own.
 // OXE-308: lazyFrom, so a chip whose chunk has arrived renders at once instead of holding the fallback.
@@ -402,6 +403,7 @@ export function TerminalPane({ autoStart, pane, workspaceId, workspaceRootPath }
             themeId={workspaceThemeId}
             prefs={terminalPrefs}
             fixedSize={sizeLease}
+            warmPool={sharedWarmWebglPool}
             onInput={(data) => {
               if (!isRunning) return
               identifyAgentFromInput(data)

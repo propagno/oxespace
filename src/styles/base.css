@@ -34,7 +34,8 @@ body {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  transition: grid-template-columns var(--duration-base) var(--ease-standard);
+  /* Snap sidebar columns in 1 frame (OXE-451): animating grid-template-columns
+     emits intermediate ResizeObserver ticks into embedded terminals. */
   /* Inset frame: the window chrome colour surrounds a raised, rounded work
      surface instead of every region being split by a 1px divider. */
   padding: 0;
