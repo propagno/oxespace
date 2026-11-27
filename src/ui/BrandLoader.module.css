@@ -1,5 +1,5 @@
 .loader { display: inline-grid; place-items: center; color: var(--brand-mark); }
-.loader svg { display: block; overflow: visible; }
-/* The arms grow out of the trunk and draw back, half a beat apart. */
-.arm { transform-box: view-box; --pulse-scale: 0.2; --pulse-opacity: 0.35; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }
+.spinner { display: block; animation: global(oxe-spin) var(--duration-spin) var(--ease-linear) infinite; }
+.track { opacity: 0.2; }
+.arc { opacity: 0.85; }
 .still { flex: none; display: block; color: var(--brand-mark); }

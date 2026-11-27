@@ -24,7 +24,7 @@
 .children { display: grid; }
 .rows { display: grid; gap: var(--space-0-5); }
 
-/* ── Conversation row: whisper-quiet Obsidian Minimal row on --surface-chrome, calm --fill-selected + Mandacaru cue ── */
+/* ── Conversation row: whisper-quiet Obsidian Minimal row on --surface-chrome, calm --fill-selected + accent cue ── */
 .row { position: relative; min-width: 0; }
 .row > .item { border-radius: var(--radius-md); }
 /* OXC-5 (OXE-170): a parallel chat is a one-line row under its parent, its text at 40 px (padding, lead and gap), on a
@@ -62,7 +62,7 @@
 .branch, .childGroup { display: grid; gap: var(--space-0-5); }
 @media (hover: none) { .actions { opacity: 1; } }
 
-/* ── Needs you: calm Obsidian Minimal mini card with subtle Sertão sun accent edge ── */
+/* ── Needs you: calm Obsidian Minimal mini card with subtle amber accent edge ── */
 .attention { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-0-5) 0 var(--space-1) var(--space-5); padding: var(--space-1-5) var(--space-2); border: 1px solid var(--bd-subtle); border-inline-start: 2px solid var(--attn); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--tx-secondary); font-size: var(--fs-xs); }
 .attentionText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attentionCommand { font-family: var(--font-mono); color: var(--tx-primary); }

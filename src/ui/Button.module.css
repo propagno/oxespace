@@ -34,7 +34,7 @@
 .button:where([data-size='sm']) { --button-h: var(--control-sm); padding: 0 var(--space-2); font-size: var(--fs-xs); gap: var(--space-1); }
 .button:where([data-size='lg']) { --button-h: var(--control-lg); padding: 0 var(--space-4); font-size: var(--fs-sm); }
 
-/* Primary: reserved for primary CTAs in Mandacaru caatinga green. */
+/* Primary: reserved for primary CTAs in the active Minimal accent. */
 .button:where([data-variant='primary']) { background: var(--accent); color: var(--tx-on-accent); }
 .button:where([data-variant='primary']):hover:not(:disabled) { background: var(--accent-hover); }
 .button:where([data-variant='primary']):active:not(:disabled) { background: color-mix(in srgb, var(--accent-hover) 88%, var(--tx-on-accent)); }

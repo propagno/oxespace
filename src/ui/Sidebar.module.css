@@ -1,6 +1,6 @@
 /* The sidebar anatomy (1.5.2): header and footer --bar-lg, filter --control-md, section 24, rows --row-1.
    Obsidian Minimal tone: quiet chrome, muted icons illuminating on hover/selection, neutral selection fill with
-   a subtle Mandacaru hairline accent indicator, actions revealed on hover. */
+   a subtle hairline accent indicator, actions revealed on hover. */
 .header { display: flex; align-items: center; gap: var(--space-0-5); height: var(--bar-lg); min-height: var(--bar-lg); padding: 0 var(--space-2) 0 var(--space-4); }
 .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: var(--weight-semibold); color: var(--tx-primary); }
 .headerActions { display: flex; align-items: center; gap: var(--space-0-5); color: var(--tx-muted); }

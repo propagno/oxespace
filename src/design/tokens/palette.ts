@@ -87,10 +87,10 @@ export function palette(mode: Mode): Record<ScaleName, Scale> {
 }
 
 /**
- * The app icon's colors (retained until OXE-469 replaces icon drawings); resources/icon.svg
+ * Monochrome Obsidian Minimal colors for the Mandacaru Ramo logo; resources/icon.svg
  * and Android's launcher drawables read directly from here.
  */
-export const LOGO = { tile: '#181818', mark: '#3fbf82' } as const
+export const LOGO = { tile: '#212121', mark: '#d8d8d8' } as const
 
 /** Identity colors; they mark a provider or an avatar and never style the interface. */
 export const IDENTITY = {

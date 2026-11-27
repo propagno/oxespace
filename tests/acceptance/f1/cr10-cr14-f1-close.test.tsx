@@ -6,8 +6,9 @@
 //         as the technical message, so a Portuguese reader knows why it isn't translated.
 // CR-13 (HML-F1-2): the screen's Quit/Sair is plain text at rest. Every text button has a visible shape at rest
 //         (playground rule), so Quit is a secondary button, never ghost or link.
-// CR-14 (HML-F1-3): Settings › Appearance › Dark still says "warm yellow accents" / "amarelo quente". C4 made the dark
-//         accent caatinga green.
+// CR-14 (HML-F1-3), amended by user decision 27/11 (OXE-469): retired Caatinga/Mandacaru copy in Settings › Appearance › Dark
+//         in favor of Obsidian Minimal palette copy in both locales.
+// liberação de teste congelado: decisão do usuário 27/11 (OXE-469): CR-14 agora valida o copy Obsidian Minimal nos dois idiomas.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { render, screen } from '@testing-library/react'
@@ -60,7 +61,7 @@ describe('CR-13 · Quit has a visible shape at rest', () => {
   })
 })
 
-describe('CR-14 · the Appearance copy names the caatinga accent', () => {
+describe('CR-14 · the Appearance copy names the Obsidian Minimal palette (amended OXE-469)', () => {
   const dark = (locale: string): string => {
     const settings = json(`shared/locales/${locale}/settings.json`)
     const found: string[] = []
@@ -71,12 +72,12 @@ describe('CR-14 · the Appearance copy names the caatinga accent', () => {
     walk(settings)
     return found.join('\n')
   }
-  test('no settings copy still promises yellow accents', () => {
-    expect(dark('en')).not.toMatch(/warm yellow accents/i)
-    expect(dark('pt-BR')).not.toMatch(/amarelo quente/i)
+  test('no settings copy still promises yellow accents or caatinga green', () => {
+    expect(dark('en')).not.toMatch(/warm yellow accents|caatinga|mandacaru/i)
+    expect(dark('pt-BR')).not.toMatch(/amarelo quente|caatinga|mandacaru/i)
   })
-  test('the dark theme hint names caatinga green in both languages', () => {
-    expect(read('shared/locales/en/settings.json')).toMatch(/"hint":\s*"Dark surfaces with caatinga green accents"/)
-    expect(read('shared/locales/pt-BR/settings.json')).toMatch(/"hint":\s*"Superfícies escuras com detalhes em verde caatinga"/)
+  test('the dark theme hint names Obsidian Minimal in both languages', () => {
+    expect(read('shared/locales/en/settings.json')).toMatch(/"hint":\s*"Quiet dark surfaces in the Obsidian Minimal palette"/)
+    expect(read('shared/locales/pt-BR/settings.json')).toMatch(/"hint":\s*"Superfícies escuras silenciosas no padrão Obsidian Minimal"/)
   })
 })

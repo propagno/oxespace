@@ -110,7 +110,7 @@
 }
 
 .thread-heading .thread-panel-toggle span { display: none; }
-/* OXC-4 + OXE-464: quiet resting panel toggles in --tx-muted illuminating on hover/active with subtle Mandacaru cue. */
+/* OXC-4 + OXE-464: quiet resting panel toggles in --tx-muted illuminating on hover/active with subtle accent cue. */
 .thread-heading .thread-header-panel { position: relative; flex-shrink: 0; color: var(--tx-muted); }
 .thread-heading .thread-header-panel:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
 .thread-heading .thread-header-panel[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); box-shadow: inset 0 -2px 0 var(--accent); }

@@ -4,7 +4,7 @@
  *
  * oxe-spin     busy indicators; reduced motion slows it (--duration-spin) instead of stopping it.
  * oxe-shimmer  skeleton bars.
- * oxe-pulse    the brand's beat: live status dots, the cursor blink and the mandacaru loader. It only touches
+ * oxe-pulse    the quiet pulse beat: live status dots, the cursor blink and the boot splash. It only touches
  *              opacity and scale, set per use with --pulse-opacity and --pulse-scale.
  */
 @keyframes oxe-spin { to { transform: rotate(360deg); } }

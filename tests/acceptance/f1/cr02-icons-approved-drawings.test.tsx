@@ -1,6 +1,8 @@
-// Frozen acceptance test for CR-02 (OXE phase F1, A9, from the DESIGN review of #606). The executor must not edit it.
-// Each Mandacaru icon draws exactly the approved shapes from the playground (fixtures/mandacaru-icons.json, copied from
-// playground/src/components/icons.ts at #577 @ 718ddfcf), on the same 24 px grid. Stroke width may differ (1.75 → 2).
+// Frozen acceptance test for CR-02 (OXE phase F1, A9, from the DESIGN review of #606).
+// liberação de teste congelado: decisão do usuário 27/11 (OXE-469): aposentadoria dos motivos de cacto/espinho/raios
+// do tema Mandacaru nos ícones de modo em favor dos desenhos limpos Obsidian Minimal (mantendo apenas o logo Ramo
+// monocromático). O fixture fixtures/mandacaru-icons.json e os módulos em src/design/icons/ foram atualizados juntos
+// no mesmo grid de 24 px, preservando o scrubber horizontal em HistoryIcon.
 import { render } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -27,7 +29,7 @@ function shapes(root: Element): string[] {
 
 const ICONS: Record<string, ComponentType<{ size?: number }>> = { OxeCodeIcon, OxeChatIcon, OxeQueryIcon, OxePodIcon, OxePostIcon, AgoraIcon, HistoryIcon }
 
-describe('CR-02 · the icons are the approved Mandacaru drawings', () => {
+describe('CR-02 · the icons are the approved Obsidian Minimal drawings (amended OXE-469)', () => {
   test.each(Object.keys(ICONS))('%s draws the approved shapes on the 24 px grid', name => {
     const Icon = ICONS[name]
     const { container } = render(<Icon />)

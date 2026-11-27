@@ -1,5 +1,5 @@
 /**
- * Kotlin design tokens for the Android app from the desktop's Mandacaru tokens (src/design/tokens, C4): every color
+ * Kotlin design tokens for the Android app from the desktop's Obsidian Minimal tokens (src/design/tokens, C4): every color
  * role in light and dark, spacing, radius, type sizes, weights, leading and motion. The app maps them onto Material 3
  * in OxeTheme.kt. When C4 exports tokens.json, this reads it instead of the modules.
  */

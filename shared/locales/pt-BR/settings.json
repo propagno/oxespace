@@ -156,11 +156,11 @@
       },
       "light": {
         "label": "Claro",
-        "hint": "Superfícies claras com detalhes em verde"
+        "hint": "Superfícies claras silenciosas no padrão Obsidian Minimal"
       },
       "dark": {
         "label": "Escuro",
-        "hint": "Superfícies escuras com detalhes em verde caatinga"
+        "hint": "Superfícies escuras silenciosas no padrão Obsidian Minimal"
       }
     },
     "scheme": {

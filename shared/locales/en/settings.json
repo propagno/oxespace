@@ -154,11 +154,11 @@
       },
       "light": {
         "label": "Light",
-        "hint": "Light surfaces with green accents"
+        "hint": "Quiet light surfaces in the Obsidian Minimal palette"
       },
       "dark": {
         "label": "Dark",
-        "hint": "Dark surfaces with caatinga green accents"
+        "hint": "Quiet dark surfaces in the Obsidian Minimal palette"
       }
     },
     "scheme": {

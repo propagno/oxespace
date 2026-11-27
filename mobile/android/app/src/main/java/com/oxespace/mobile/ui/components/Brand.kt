@@ -59,7 +59,7 @@ object OxeMark {
     const val TILE_RADIUS_RATIO = 0.23f
 }
 
-/** The app icon: the caatinga Ramo on the night tile, the same in both modes. Decorative (the screen's title names the app). */
+/** The app icon: the monochrome Minimal Ramo mark on the dark tile, the same in both modes. Decorative (the screen's title names the app). */
 @Composable
 fun OxeMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
     Box(

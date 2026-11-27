@@ -78,12 +78,12 @@ describe('success, offline and notices', () => {
 })
 
 describe('brand loader', () => {
-  it('is a labelled status drawn from the mark, or hidden when decorative', () => {
+  it('is a labelled status drawn as a quiet Minimal circular arc spinner, or hidden when decorative', () => {
     const { container, rerender } = render(<BrandLoader label="Loading OxePost" />)
     expect(screen.getByRole('status', { name: 'Loading OxePost' })).toBeInTheDocument()
-    // The trunk and two sprouting arms; the sun left the mark in 1.5.2 (it only means "needs you").
-    expect(container.querySelectorAll('path')).toHaveLength(3)
-    expect(container.querySelector('circle')).toBeNull()
+    // OXE-469: circular track + arc spinner replaces the sprouting cactus loader.
+    expect(container.querySelectorAll('circle')).toHaveLength(1)
+    expect(container.querySelectorAll('path')).toHaveLength(1)
     rerender(<BrandLoader decorative />)
     expect(screen.queryByRole('status')).toBeNull()
   })
