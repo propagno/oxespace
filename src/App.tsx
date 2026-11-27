@@ -542,15 +542,14 @@ export function App(): ReactElement {
       return
     }
 
-    void useWorkspaceStore
-      .getState()
-      .createPane(workspaceId)
+    const treeDirection = direction === 'vertical' ? 'horizontal' : 'vertical'
+    usePaneLayoutStore.getState().reserveSplit(workspaceId, paneId, treeDirection)
+    void useWorkspaceStore.getState().createPane(workspaceId)
       .then((newPaneId) => {
-        usePaneLayoutStore
-          .getState()
-          .split(workspaceId, paneId, newPaneId, direction === 'vertical' ? 'horizontal' : 'vertical')
+        usePaneLayoutStore.getState().split(workspaceId, paneId, newPaneId, treeDirection)
       })
       .catch((cause: unknown) => {
+        usePaneLayoutStore.getState().cancelReservedSplit(workspaceId, paneId, treeDirection)
         setAppNotice(humanizeError(cause, t('app.notice.splitFailed')))
       })
   }, [splitPane, t])

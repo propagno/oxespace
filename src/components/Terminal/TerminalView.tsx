@@ -9,6 +9,7 @@ import { attachTerminalContextMenu } from './terminalContextMenu'
 import { sendTerminalSelectionToChat } from './terminalToChat'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { createPtyResizeDebouncer, isValidPtyGrid, syncNotifiedGrid } from './resizeDebounce'
+import { createResizeRedrawGuard } from './resizeRedrawGuard'
 import { createTerminalWebglController, type WarmWebglPool } from './webglPool'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -157,6 +158,70 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
     terminal.open(hostRef.current)
     const isHidden = (): boolean => isTerminalHostHidden(hostRef.current)
+    let previewTimer: ReturnType<typeof setTimeout> | null = null
+    let disposed = false
+    const levers = terminalLevers(window.oxe?.app?.termLevers)
+    const writeToTerminal = (
+      chunk: string,
+      done: () => void,
+      meta: { truncated: boolean },
+      followBottom = false
+    ): void => {
+      if (disposed) {
+        done()
+        return
+      }
+      // Smart scrollback (normal buffer only): when scrolled up or selecting text,
+      // pin viewportY so streaming output never yanks rows out from under the user.
+      const preBuf = terminal.buffer.active
+      const isAltScreen = preBuf.type === 'alternate'
+      const preViewportY = preBuf.viewportY
+      const recentSelection = lastSelectionRef.current
+      const hasActiveOrRecentSelection =
+        !!terminal.getSelection() ||
+        (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
+      const wasAtBottom =
+        isAltScreen ||
+        (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
+      const payload = meta.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${chunk}` : chunk
+      terminal.write(payload, () => {
+        if (!disposed && terminal.buffer.active.type === 'normal') {
+          if (!wasAtBottom) {
+            const postBuf = terminal.buffer.active
+            terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
+          } else if (followBottom) {
+            terminal.scrollToBottom()
+          }
+        }
+        done()
+      })
+      if (transport) return
+      useTerminalStore.getState().updateActivity(paneId, chunk)
+      if (previewTimer) clearTimeout(previewTimer)
+      previewTimer = setTimeout(() => {
+        previewTimer = null
+        const preview = readAgentPreview(terminal)
+        if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
+      }, 300)
+    }
+    const writeScheduler = createTerminalWriteScheduler({
+      paused: isHidden(),
+      queue: levers.has('Q'),
+      activeMaxBufferedBytes: 2 * 1024 * 1024,
+      write: (chunk, done, meta) => writeToTerminal(chunk, done, meta)
+    })
+    const resizeRedrawGuard = createResizeRedrawGuard({
+      onFlush: (atomicPayload, meta) => {
+        if (disposed) return
+        if (writeScheduler.isPaused()) {
+          writeScheduler.enqueue(atomicPayload)
+          return
+        }
+        const pre = writeScheduler.takePending()
+        if (pre.data) terminal.write(pre.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${pre.data}` : pre.data)
+        writeToTerminal(atomicPayload, () => undefined, { truncated: meta.truncated }, true)
+      }
+    })
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
     // Vite-bundled dev builds the proposed-API check throws even with
     // allowProposedApi: true (xterm exports get duplicated across module
@@ -175,6 +240,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     // attach handshake below decides what the first line should be.
 
     const dataDisposable = terminal.onData((data) => {
+      resizeRedrawGuard.preemptOnInput()
       // The user typed into the PTY — any earlier selection is no longer a copy
       // candidate, so a later Ctrl+C correctly falls through to SIGINT.
       lastSelectionRef.current = null
@@ -448,7 +514,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
 
     const notified: HeldGrid = { cols: 0, rows: 0 }
-    const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; onResizeRef.current(cols, rows) } })
+    const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; resizeRedrawGuard.notifyPtyResize(cols, rows); onResizeRef.current(cols, rows) } })
     const reportResize = (cols: number, rows: number): void => { if (resizeDebouncer.report(cols, rows) === 'ignored') syncNotifiedGrid(notified, resizeDebouncer) }
     const fitTerminal = (forceRefresh = false): void => {
       if (isHidden()) return
@@ -503,63 +569,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       setTimeout(scheduleFit, 250)
     ]
 
-    let previewTimer: ReturnType<typeof setTimeout> | null = null
-
     // Attach handshake. The session may already be running in main, so we must
     // subscribe BEFORE asking for the backlog and hold anything that arrives
     // in between — otherwise output produced during the round trip is either
     // lost (written before the replay) or duplicated (present in both).
     let attachPending = true
-    let disposed = false
     const queuedWhileAttaching: string[] = []
-
     const bridge = transport ?? window.oxe.terminal
-    const levers = terminalLevers(window.oxe?.app?.termLevers)
-    const writeScheduler = createTerminalWriteScheduler({
-      paused: isHidden(),
-      queue: levers.has('Q'),
-      write: (chunk, done, meta) => {
-        if (disposed) {
-          done()
-          return
-        }
-        // Smart scrollback (normal buffer only): when the user has scrolled up to
-        // read history, new streaming output shouldn't yank them to the bottom.
-        // Skip this on the alternate screen (Grok/Claude TUIs) — those apps own
-        // the full viewport, have no scrollback, and continuous pin-restore
-        // fights their redraws so the mouse wheel appears broken.
-        //
-        // Same reasoning applies while the user is mid mouse-drag selecting text
-        // at the bottom of an actively streaming terminal: pin the viewport so
-        // new tokens don't fight an in-progress copy.
-        const preBuf = terminal.buffer.active
-        const isAltScreen = preBuf.type === 'alternate'
-        const preViewportY = preBuf.viewportY
-        const recentSelection = lastSelectionRef.current
-        const hasActiveOrRecentSelection =
-          !!terminal.getSelection() ||
-          (recentSelection !== null && Date.now() - recentSelection.at <= RECENT_SELECTION_MS)
-        const wasAtBottom =
-          isAltScreen ||
-          (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
-        const payload = meta.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${chunk}` : chunk
-        terminal.write(payload, () => {
-          if (!disposed && !wasAtBottom && terminal.buffer.active.type === 'normal') {
-            const postBuf = terminal.buffer.active
-            terminal.scrollToLine(Math.min(preViewportY, postBuf.baseY))
-          }
-          done()
-        })
-        if (transport) return
-        useTerminalStore.getState().updateActivity(paneId, chunk)
-        if (previewTimer) clearTimeout(previewTimer)
-        previewTimer = setTimeout(() => {
-          previewTimer = null
-          const preview = readAgentPreview(terminal)
-          if (preview) useTerminalStore.getState().updatePreview(paneId, preview)
-        }, 300)
-      }
-    })
     // OXE-411 lever H (on by default; OXESPACE_TERM_LEVERS=none turns it off): a pane in a hidden workspace parks.
     const detachHidden = !transport && levers.has('H')
     let parked = false
@@ -666,6 +682,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         revealScheduler.cancel()
         cancelWarmReveal()
         writeScheduler.setPaused(true)
+        resizeRedrawGuard.flush()
         if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
         if (fitFrameRef.current !== null) { window.cancelAnimationFrame(fitFrameRef.current); fitFrameRef.current = null }
         resizeDebouncer.cancel(); syncNotifiedGrid(notified, resizeDebouncer)
@@ -695,12 +712,17 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         queuedWhileAttaching.push(event.data)
         return
       }
+      if (!writeScheduler.isPaused() && resizeRedrawGuard.ingest(event.data)) {
+        if (!transport) useTerminalStore.getState().updateActivity(paneId, event.data)
+        return
+      }
       if (writeScheduler.isPaused() && !transport) {
         useTerminalStore.getState().updateActivity(paneId, event.data)
       }
       writeScheduler.enqueue(event.data)
     })
     const unsubscribeExit = bridge.onExit(paneId, (event) => {
+      resizeRedrawGuard.flush()
       terminal.write(`\r\n[process exited ${event.exitCode ?? ''}]\r\n`)
       onExitRef.current?.(event.exitCode)
     })
@@ -714,7 +736,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
       void bridge.detach?.({ paneId })
-      revealScheduler.cancel(); cancelWarmReveal(); resizeDebouncer.dispose()
+      revealScheduler.cancel(); cancelWarmReveal(); resizeDebouncer.dispose(); resizeRedrawGuard.dispose()
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
