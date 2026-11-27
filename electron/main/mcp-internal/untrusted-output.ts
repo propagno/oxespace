@@ -12,7 +12,7 @@ import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-intern
 const FENCED: Record<string, { source: string; actions?: readonly string[] }> = {
   oxespace_get_job_output: { source: 'a background job' },
   oxespace_terminal: { source: 'a terminal', actions: ['output'] },
-  oxespace_agents: { source: 'another agent\'s terminal', actions: ['read'] },
+  oxespace_agents: { source: 'another agent\'s terminal', actions: ['read', 'bus_inbox', 'bus_wait'] },
   oxespace_preview_interact: { source: 'a web page' },
   // Every action: titles, branch names, commit messages and logs are all written by whoever can push or comment.
   oxespace_github: { source: 'GitHub' },
