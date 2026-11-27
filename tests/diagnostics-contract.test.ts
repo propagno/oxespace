@@ -13,6 +13,7 @@ describe('diagnostics contract (B8.3)', () => {
       watch: 'diagnostics:watch', unwatch: 'diagnostics:unwatch', onMetrics: 'diagnostics:metrics', incidents: 'diagnostics:incidents',
       clearIncidents: 'diagnostics:clear-incidents', onIncidentsChanged: 'diagnostics:incidents-changed', previewBundle: 'diagnostics:preview-bundle',
       reportRendererError: 'diagnostics:report-renderer-error',
+      agentProcesses: 'diagnostics:agent-processes',
       exportBundle: 'diagnostics:export-bundle', analysisSummary: 'diagnostics:analysis-summary', reportPerf: 'diagnostics:report-perf'
     })
   })

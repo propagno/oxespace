@@ -221,7 +221,86 @@
     "healthy": "saudável",
     "platform": "Plataforma",
     "workspaces": "Workspaces",
-    "export": "Exportar relatório"
+    "export": "Exportar relatório",
+    "agentProcesses": {
+      "title": "Processos de agentes",
+      "description": "Uso em tempo real de CPU, memória, prioridade e ciclo de vida dos agentes e subagentes gerenciados pelo OXESpace. Coletado apenas com esta tela aberta.",
+      "loading": "Medindo processos de agentes…",
+      "loadFailed": "Não foi possível medir os processos de agentes.",
+      "actionFailed": "Não foi possível atualizar a política de governança.",
+      "priorityFailed": "Não foi possível alterar a prioridade do processo.",
+      "hibernateFailed": "Não foi possível hibernar este processo de agente.",
+      "stopFailed": "Não foi possível encerrar esta árvore de processos.",
+      "antivirusHint": "A verificação do antivírus (MsMpEng.exe) está usando {{percent}}% de CPU. Excluir pastas de cache de build na Segurança do Windows pode reduzir a lentidão.",
+      "managedTitle": "Gerenciados pelo OXESpace",
+      "managedEmpty": "Nenhum processo de agente gerenciado pelo OXESpace está em execução agora.",
+      "externalTitle": "Processos de agentes externos",
+      "externalReadOnly": "Somente leitura · iniciados fora do OXESpace",
+      "externalEmpty": "Nenhum processo de agente externo detectado nesta máquina.",
+      "externalBadge": "Externo",
+      "childrenCount_one": "+{{count}} filho",
+      "childrenCount_many": "+{{count}} filhos",
+      "childrenCount_other": "+{{count}} filhos",
+      "summary": {
+        "managedCpu": "CPU gerenciada",
+        "managedRam": "RAM gerenciada",
+        "activeIdle": "Ativos / Ociosos",
+        "activeIdleValue": "{{active}} ativos · {{idle}} ociosos",
+        "externalCount": "Agentes externos"
+      },
+      "units": {
+        "percent": "{{value}}%",
+        "mb": "{{value}} MB",
+        "gb": "{{value}} GB"
+      },
+      "policy": {
+        "autoEcoLabel": "Prioridade Eco para agentes em segundo plano",
+        "autoEcoHint": "Executa automaticamente árvores de delegações e execuções agendadas em prioridade Abaixo do Normal para não travar o trabalho interativo.",
+        "idleTtlLabel": "Encerramento de processos ociosos",
+        "idleTtlHint": "Encerra graciosamente processos gerenciados ociosos após inatividade, mantendo a sessão nativa para retomada transparente.",
+        "disabled": "Desativado",
+        "minutes_one": "{{count}} minuto",
+        "minutes_many": "{{count}} minutos",
+        "minutes_other": "{{count}} minutos"
+      },
+      "columns": {
+        "agent": "Agente",
+        "pid": "PID",
+        "cpu": "CPU",
+        "ram": "RAM",
+        "priority": "Prioridade",
+        "state": "Estado",
+        "actions": "Ações",
+        "ownership": "Origem"
+      },
+      "kinds": {
+        "chat": "OxeChat",
+        "terminal": "OxeCode",
+        "delegation": "Delegação",
+        "automation": "Agendado"
+      },
+      "priorities": {
+        "normal": "Normal",
+        "belowNormal": "Eco",
+        "low": "Baixa"
+      },
+      "states": {
+        "active": "Ativo",
+        "idle": "Ocioso"
+      },
+      "actions": {
+        "ecoPriority": "Eco",
+        "normalPriority": "Normal",
+        "hibernate": "Hibernar",
+        "stop": "Parar"
+      },
+      "confirmStop": {
+        "title": "Encerrar árvore de processos de {{provider}}?",
+        "description": "Encerra o PID raiz {{pid}} e {{children}} processo(s) filho(s). O trabalho ativo neste agente será interrompido.",
+        "cancel": "Cancelar",
+        "confirm": "Encerrar árvore"
+      }
+    }
   },
   "checked": {
     "justNow": "Verificado agora mesmo",

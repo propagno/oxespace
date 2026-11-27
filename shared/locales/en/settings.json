@@ -215,7 +215,84 @@
     "healthy": "healthy",
     "platform": "Platform",
     "workspaces": "Workspaces",
-    "export": "Export report"
+    "export": "Export report",
+    "agentProcesses": {
+      "title": "Agent processes",
+      "description": "Live CPU, memory, priority and lifecycle controls for OXESpace-managed agents and subagents. Collected only while this screen is open.",
+      "loading": "Measuring agent processes…",
+      "loadFailed": "Could not measure agent processes.",
+      "actionFailed": "Could not update process governance settings.",
+      "priorityFailed": "Could not change process priority.",
+      "hibernateFailed": "Could not hibernate this agent process.",
+      "stopFailed": "Could not stop this agent process tree.",
+      "antivirusHint": "Antivirus scanning (MsMpEng.exe) is using {{percent}}% CPU. Excluding your project build caches in Windows Security may reduce latency.",
+      "managedTitle": "Managed by OXESpace",
+      "managedEmpty": "No OXESpace-managed agent processes are running right now.",
+      "externalTitle": "External agent processes",
+      "externalReadOnly": "Read only · started outside OXESpace",
+      "externalEmpty": "No external agent processes detected on this machine.",
+      "externalBadge": "External",
+      "childrenCount_one": "+{{count}} child",
+      "childrenCount_other": "+{{count}} children",
+      "summary": {
+        "managedCpu": "Managed CPU",
+        "managedRam": "Managed RAM",
+        "activeIdle": "Active / Idle",
+        "activeIdleValue": "{{active}} active · {{idle}} idle",
+        "externalCount": "External agents"
+      },
+      "units": {
+        "percent": "{{value}}%",
+        "mb": "{{value}} MB",
+        "gb": "{{value}} GB"
+      },
+      "policy": {
+        "autoEcoLabel": "Eco priority for background agents",
+        "autoEcoHint": "Automatically run delegated and scheduled agent trees at Below Normal priority so they do not starve interactive work.",
+        "idleTtlLabel": "Idle process reaper",
+        "idleTtlHint": "Gracefully close idle managed agent processes after inactivity while preserving the native session for seamless resume.",
+        "disabled": "Disabled",
+        "minutes_one": "{{count}} minute",
+        "minutes_other": "{{count}} minutes"
+      },
+      "columns": {
+        "agent": "Agent",
+        "pid": "PID",
+        "cpu": "CPU",
+        "ram": "RAM",
+        "priority": "Priority",
+        "state": "State",
+        "actions": "Actions",
+        "ownership": "Scope"
+      },
+      "kinds": {
+        "chat": "OxeChat",
+        "terminal": "OxeCode",
+        "delegation": "Delegation",
+        "automation": "Scheduled"
+      },
+      "priorities": {
+        "normal": "Normal",
+        "belowNormal": "Eco",
+        "low": "Low"
+      },
+      "states": {
+        "active": "Active",
+        "idle": "Idle"
+      },
+      "actions": {
+        "ecoPriority": "Eco",
+        "normalPriority": "Normal",
+        "hibernate": "Hibernate",
+        "stop": "Stop"
+      },
+      "confirmStop": {
+        "title": "Stop {{provider}} process tree?",
+        "description": "Terminates root PID {{pid}} and {{children}} child process(es). Active work in this agent will be interrupted.",
+        "cancel": "Cancel",
+        "confirm": "Stop tree"
+      }
+    }
   },
   "checked": {
     "justNow": "Checked just now",

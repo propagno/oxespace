@@ -81,4 +81,19 @@ export function registerDiagnosticsMock(): void {
     ...incidents.map(incident => `- ${incident.code} (${incident.area}): ${incident.count}`),
     '', '## Snapshot', '- Processes: main 150 MB, renderer 220 MB, gpu 90 MB', '- Storage: 120 GB free; database 8 MB; logs 2 MB'
   ].join('\n').slice(0, DIAGNOSTICS_LIMITS.maxSummaryChars))
+  let mockPolicy = { autoEcoBackground: true, idleReaperEnabled: true, idleTtlMinutes: 15, maxConcurrentAgents: 8 }
+  ipcMain.handle(IPC_CHANNELS.diagnostics.agentProcesses, (_event, input?: { op?: string; policy?: Record<string, unknown>; rootPid?: number; priority?: string }) => {
+    const op = input?.op
+    if (op === 'getPolicy') return mockPolicy
+    if (op === 'setPolicy') { mockPolicy = { ...mockPolicy, ...(input?.policy ?? {}) }; return mockPolicy }
+    if (op === 'setPriority') return { ok: true, rootPid: input?.rootPid ?? 0, priority: input?.priority ?? 'belowNormal', appliedPids: [], failedPids: [], jobGoverned: false }
+    if (op === 'hibernate' || op === 'killTree' || op === 'reapIdle') return { ok: true, rootPid: input?.rootPid, reapedPids: [], terminatedPids: [] }
+    return {
+      collectedAt: Date.now(),
+      managed: [],
+      external: [],
+      totals: { managedCount: 0, activeCount: 0, idleCount: 0, externalCount: 0, managedCpuPercent: 0, managedMemoryBytes: 0, externalCpuPercent: 0, externalMemoryBytes: 0 },
+      policy: mockPolicy
+    }
+  })
 }

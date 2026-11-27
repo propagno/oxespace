@@ -21,6 +21,7 @@ import { ThreadPermissionStore } from './thread-permissions'
 import { readManagedMcp } from './thread-managed-mcp'
 import { ThreadAttachmentStore } from './thread-attachments'
 import { notifyAgentsChanged } from '../agents/agents-notifier'
+import { managedAgentProcessRegistry } from '../diagnostics/agent-process-registry'
 import { acceptedConfig, assertProviderAllowed, mcpServerAllowed, policyDeniedMcpNames, policyDeniedToolNames, policyStore } from '../policy'
 
 /** The agent profile a conversation runs with; a child profile runs its parent's executable. */
@@ -77,7 +78,14 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
     } catch (error) { if (executionId) mcp.end(thread.id, executionId); throw error }
   }, threadId => {
     const row = db.prepare('SELECT data_json FROM conversation_threads WHERE id = ?').get(threadId) as { data_json: string } | undefined
-    if (row) mcp.observed?.(JSON.parse(row.data_json))
+    if (row) {
+      const parsed = JSON.parse(row.data_json) as import('../../../../shared/types/thread').ConversationThread
+      mcp.observed?.(parsed)
+      const isBusy = parsed.status === 'running' || parsed.status === 'approval'
+      managedAgentProcessRegistry.markContextState(`thread:${threadId}`, isBusy ? 'active' : 'idle', Date.now(), {
+        nativeSessionId: parsed.nativeSessionId ?? null
+      })
+    }
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(IPC_CHANNELS.thread.changed, { threadId })
     notifyAgentsChanged()
   }, thread => accounts.requireSubscription({ provider: thread.provider, workspaceId: thread.workspaceId, threadId: thread.id }), commands, cli, new ThreadModelService(executable), new ThreadAttachmentStore(join(app.getPath('userData'), 'thread-attachments')), new CodexStateReader(executable), (snapshot, event) => mcp.memoryEvent?.(snapshot, event))

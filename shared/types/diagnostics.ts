@@ -48,6 +48,8 @@ export interface DiagnosticsApi {
    * any other text: main refuses a report with anything outside this contract. Nothing is sent anywhere.
    */
   reportRendererError?(input: RendererErrorInput): Promise<void>
+  /** Renderer-only agent/subagent process monitoring and resource governance dispatch (OXE-450). */
+  agentProcesses?(request: AgentProcessControlRequest): Promise<AgentProcessControlResponse>
 }
 
 /** Where a renderer crash was caught (an ErrorBoundary's `id`). `host` is one of the window's global hosts (OXE-366). */
@@ -116,7 +118,111 @@ export interface DiagnosticsMetrics {
   clis: { id: string; found: boolean; version?: string }[]
   accounts: { provider: string; signedIn: boolean }[]
   mcpServers: { total: number; healthy: number; quarantined: number; failing: number }
+  /** On-demand managed and read-only external agent process snapshot (OXE-450). */
+  agentProcesses?: AgentProcessesSnapshot
 }
+
+export type AgentProcessKind = 'chat' | 'terminal' | 'delegation' | 'automation'
+export type AgentProcessPriority = 'normal' | 'belowNormal' | 'low'
+export type AgentProcessState = 'active' | 'idle'
+
+export interface ManagedAgentProcessTree {
+  managed: true
+  rootPid: number
+  provider: string
+  kind: AgentProcessKind
+  contextId: string
+  label: string
+  childCount: number
+  childPids: number[]
+  cpuPercent: number
+  memoryBytes: number
+  priority: AgentProcessPriority
+  state: AgentProcessState
+  startedAt: number
+  idleSinceMs: number | null
+  jobGoverned: boolean
+}
+
+export interface ExternalAgentProcess {
+  managed: false
+  pid: number
+  parentPid: number
+  provider: string
+  name: string
+  cpuPercent: number
+  memoryBytes: number
+}
+
+export interface AgentProcessGovernancePolicy {
+  autoEcoBackground: boolean
+  idleReaperEnabled: boolean
+  idleTtlMinutes: number
+  maxConcurrentAgents: number
+}
+
+export const AGENT_IDLE_TTL_CHOICES = [0, 5, 10, 15, 30, 60] as const
+
+export const DEFAULT_AGENT_PROCESS_POLICY: AgentProcessGovernancePolicy = {
+  autoEcoBackground: true,
+  idleReaperEnabled: true,
+  idleTtlMinutes: 15,
+  maxConcurrentAgents: 8
+}
+
+export interface AgentProcessesTotals {
+  managedCount: number
+  activeCount: number
+  idleCount: number
+  externalCount: number
+  managedCpuPercent: number
+  managedMemoryBytes: number
+  externalCpuPercent: number
+  externalMemoryBytes: number
+}
+
+export interface AgentProcessesSnapshot {
+  collectedAt: number
+  managed: ManagedAgentProcessTree[]
+  external: ExternalAgentProcess[]
+  totals: AgentProcessesTotals
+  antivirusHighCpu?: boolean
+  antivirusCpuPercent?: number
+  policy: AgentProcessGovernancePolicy
+}
+
+export type AgentProcessControlRequest =
+  | { op: 'snapshot' }
+  | { op: 'getPolicy' }
+  | { op: 'setPolicy'; policy: Partial<AgentProcessGovernancePolicy> }
+  | { op: 'setPriority'; rootPid: number; priority: AgentProcessPriority }
+  | { op: 'hibernate'; rootPid: number }
+  | { op: 'killTree'; rootPid: number }
+  | { op: 'reapIdle' }
+
+export interface AgentProcessPriorityResult {
+  ok: boolean
+  rootPid: number
+  priority: AgentProcessPriority
+  appliedPids: number[]
+  failedPids: number[]
+  jobGoverned: boolean
+  error?: string
+}
+
+export interface AgentProcessActionResult {
+  ok: boolean
+  rootPid?: number
+  reapedPids?: number[]
+  terminatedPids?: number[]
+  error?: string
+}
+
+export type AgentProcessControlResponse =
+  | AgentProcessesSnapshot
+  | AgentProcessGovernancePolicy
+  | AgentProcessPriorityResult
+  | AgentProcessActionResult
 
 export const DIAGNOSTICS_AREAS = ['app', 'window', 'ipc', 'agent', 'mcp', 'database', 'oxequery', 'updater', 'interaction', 'policy'] as const
 export type DiagnosticsArea = typeof DIAGNOSTICS_AREAS[number]

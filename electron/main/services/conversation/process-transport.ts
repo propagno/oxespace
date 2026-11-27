@@ -4,6 +4,7 @@ import { delimiter, dirname, extname, isAbsolute, join, relative, resolve as res
 import type { ConversationTransport } from './codex-conversation'
 import { recordRuntime, type RuntimeDetail } from '../runtime-diagnostics'
 import { recordIncident } from '../diagnostics/incident-sink'
+import { managedAgentProcessRegistry } from '../diagnostics/agent-process-registry'
 import { MainRefusal } from '../main-refusal'
 import { killProcessTree } from '../../utils/process-tree'
 
@@ -139,7 +140,25 @@ export class AgentProcessTransport implements ConversationTransport {
     this.child = spawn(resolved.executable, resolved.args, { cwd, env: resolved.env, windowsHide: true, stdio: 'pipe',
       detached: process.platform !== 'win32' })
     const startedAt = Date.now()
-    this.child.once('spawn', () => recordRuntime('process-start', { ...diagnosticContext, kind: 'thread', pid: this.child.pid, parentPid: process.pid, executable: resolved.executable }))
+    const provider = agentName(command)
+    this.child.once('spawn', () => {
+      recordRuntime('process-start', { ...diagnosticContext, kind: 'thread', pid: this.child.pid, parentPid: process.pid, executable: resolved.executable })
+      if (this.child.pid) {
+        const threadId = typeof diagnosticContext.thread === 'string' ? diagnosticContext.thread : null
+        const rawKind = diagnosticContext.kind
+        const kind = rawKind === 'delegation' || rawKind === 'automation' ? rawKind : 'chat'
+        managedAgentProcessRegistry.register({
+          rootPid: this.child.pid,
+          provider,
+          kind,
+          contextId: threadId ? `thread:${threadId}` : `process:${this.child.pid}`,
+          label: `${provider} ${kind}`,
+          startedAt,
+          state: 'active',
+          stop: () => this.close()
+        })
+      }
+    })
     this.child.stdout.on('data', (chunk: Buffer) => this.dataListener(chunk))
     // Consume stderr without retaining potentially sensitive provider diagnostics.
     this.child.stderr.on('data', (chunk: Buffer) => this.diagnosticListener(chunk))
@@ -181,6 +200,7 @@ export class AgentProcessTransport implements ConversationTransport {
   }
 
   private end(): void {
+    if (this.child.pid) managedAgentProcessRegistry.unregister(this.child.pid)
     if (this.closed) return
     this.closed = true
     this.closeListener()
