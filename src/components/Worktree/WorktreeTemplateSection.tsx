@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Eye, Save, ShieldAlert, ShieldCheck, SlidersHorizontal } from 'lucide-react'
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { WorktreeTemplateConfig, WorktreeTemplateDryRun } from '../../../shared/types/repo-config'
 import { Badge, Button, ErrorState, Notice, SectionLabel, Spinner, TextArea, TextField } from '../../ui'
@@ -43,7 +43,7 @@ export function WorktreeTemplateSection({
   const { t } = useTranslation('code')
   const api = window.oxe?.repository
   const [open, setOpen] = useState(defaultOpen)
-  const [loading, setLoading] = useState(false)
+  const [loadedRoot, setLoadedRoot] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [trusting, setTrusting] = useState(false)
@@ -55,6 +55,8 @@ export function WorktreeTemplateSection({
   const [sharedDirsText, setSharedDirsText] = useState('')
   const [includeText, setIncludeText] = useState('')
   const [setupScript, setSetupScript] = useState('')
+  const dirtyRef = useRef(false)
+  const loading = open && loadedRoot !== rootPath && error === null
 
   const hydrate = useCallback((next: WorktreeTemplateConfig): void => {
     setConfig(next)
@@ -66,20 +68,24 @@ export function WorktreeTemplateSection({
   useEffect(() => {
     if (!open || !api) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    setPreview(null)
-    setSavedNotice(false)
+    dirtyRef.current = false
     void api
       .getWorktreeTemplate({ rootPath })
       .then((next) => {
-        if (!cancelled) hydrate(next)
+        if (cancelled) return
+        if (dirtyRef.current) {
+          setConfig(next)
+        } else {
+          hydrate(next)
+        }
+        setError(null)
+        setLoadedRoot(rootPath)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(humanizeError(err))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          setError(humanizeError(err))
+          setLoadedRoot(rootPath)
+        }
       })
     return () => {
       cancelled = true
@@ -89,16 +95,19 @@ export function WorktreeTemplateSection({
   if (!api) return null
 
   const applyNodePreset = (): void => {
+    dirtyRef.current = true
     setSharedDirsText((prev) => appendUniqueLine(prev, 'node_modules'))
     setSavedNotice(false)
   }
 
   const applyPythonPreset = (): void => {
+    dirtyRef.current = true
     setSharedDirsText((prev) => appendUniqueLine(prev, '.venv'))
     setSavedNotice(false)
   }
 
   const applyEnvPreset = (): void => {
+    dirtyRef.current = true
     setIncludeText((prev) => appendUniqueLine(prev, '.env.local'))
     setSavedNotice(false)
   }
@@ -115,6 +124,7 @@ export function WorktreeTemplateSection({
         worktreeInclude: includeText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
         setupScript: setupScript.trim()
       })
+      dirtyRef.current = false
       hydrate(next)
       setSavedNotice(true)
       onTemplateChanged?.()
@@ -152,6 +162,7 @@ export function WorktreeTemplateSection({
         contentHash: hash,
         trusted: nextTrusted
       })
+      dirtyRef.current = false
       hydrate(updated)
       if (preview) {
         setPreview(await api.previewWorktreeTemplate({ rootPath }))
@@ -170,7 +181,6 @@ export function WorktreeTemplateSection({
     (preview?.sensitivePending.length ?? 0) > 0 ||
     hasSensitivePatternText(includeLines)
   const sensitiveApproved = config?.sensitiveApproved === true
-  const busy = loading || saving || previewing || trusting
 
   return (
     <section className={styles.section} aria-label={t('worktree.template.title')}>
@@ -180,7 +190,12 @@ export function WorktreeTemplateSection({
           size="sm"
           icon={open ? <ChevronDown size={12} aria-hidden="true" /> : <ChevronRight size={12} aria-hidden="true" />}
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => {
+            setOpen((v) => !v)
+            setPreview(null)
+            setSavedNotice(false)
+            setError(null)
+          }}
           data-testid="wt-template-toggle"
         >
           <SlidersHorizontal size={12} aria-hidden="true" />
@@ -206,7 +221,6 @@ export function WorktreeTemplateSection({
             <Button
               variant="secondary"
               size="sm"
-              disabled={busy}
               onClick={applyNodePreset}
               data-testid="wt-preset-node"
             >
@@ -215,7 +229,6 @@ export function WorktreeTemplateSection({
             <Button
               variant="secondary"
               size="sm"
-              disabled={busy}
               onClick={applyPythonPreset}
               data-testid="wt-preset-python"
             >
@@ -224,7 +237,6 @@ export function WorktreeTemplateSection({
             <Button
               variant="secondary"
               size="sm"
-              disabled={busy}
               onClick={applyEnvPreset}
               data-testid="wt-preset-env"
             >
@@ -240,10 +252,11 @@ export function WorktreeTemplateSection({
             placeholder="node_modules"
             value={sharedDirsText}
             onChange={(event) => {
+              dirtyRef.current = true
               setSharedDirsText(event.currentTarget.value)
               setSavedNotice(false)
             }}
-            disabled={busy}
+            disabled={saving}
             data-testid="wt-template-shared-dirs"
           />
 
@@ -255,10 +268,11 @@ export function WorktreeTemplateSection({
             placeholder={'.env.local\n!.env.production'}
             value={includeText}
             onChange={(event) => {
+              dirtyRef.current = true
               setIncludeText(event.currentTarget.value)
               setSavedNotice(false)
             }}
-            disabled={busy}
+            disabled={saving}
             data-testid="wt-template-include"
           />
 
@@ -269,10 +283,11 @@ export function WorktreeTemplateSection({
             placeholder="npm run bootstrap"
             value={setupScript}
             onChange={(event) => {
+              dirtyRef.current = true
               setSetupScript(event.currentTarget.value)
               setSavedNotice(false)
             }}
-            disabled={busy}
+            disabled={saving}
             data-testid="wt-template-setup"
           />
 
@@ -288,7 +303,7 @@ export function WorktreeTemplateSection({
                   variant={sensitiveApproved ? 'ghost' : 'secondary'}
                   size="sm"
                   icon={sensitiveApproved ? <ShieldCheck size={12} aria-hidden="true" /> : <ShieldAlert size={12} aria-hidden="true" />}
-                  disabled={busy}
+                  disabled={trusting}
                   onClick={() => void handleToggleSensitiveTrust()}
                   data-testid="wt-template-sensitive-optin"
                 >
@@ -305,7 +320,7 @@ export function WorktreeTemplateSection({
               variant="secondary"
               size="sm"
               icon={<Eye size={12} aria-hidden="true" />}
-              disabled={busy}
+              disabled={previewing}
               onClick={() => void handlePreview()}
               data-testid="wt-template-preview"
             >
@@ -315,7 +330,7 @@ export function WorktreeTemplateSection({
               variant="primary"
               size="sm"
               icon={<Save size={12} aria-hidden="true" />}
-              disabled={busy}
+              disabled={saving}
               onClick={() => void handleSave()}
               data-testid="wt-template-save"
             >
