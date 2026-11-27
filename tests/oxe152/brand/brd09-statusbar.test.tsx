@@ -86,7 +86,9 @@ describe('OXE-72 BRD-09 status bar (A25)', () => {
     expect(bar()).toHaveTextContent('feat/pix-webhook')
     const usage = await within(bar()).findByTestId('usage-status')
     expect(within(bar()).getAllByTestId('usage-status')).toHaveLength(1)
-    expect(usage).toHaveTextContent(new RegExp(`${tc('workspace.usage.label')}\\s+42%`))
+    // OXE-470: when an active provider (codex / antigravity / claude) has a live reading, the chip surfaces that
+    // active provider's own usage (not an inactive provider's peak) while keeping the unified popover & summary.
+    expect(usage).toHaveTextContent(/Codex\s+17%/)
     expect(usage).toHaveAccessibleName(/Codex 17%.*Claude 42%/)
   })
 

@@ -198,7 +198,9 @@ export function UsageStatus({ provider, activeProvider, providers }: UsageStatus
     loading = Boolean(loadingMap[provider])
     popoverActive = provider
   } else {
-    // Unified mode (OXE-423): order active provider first, then remaining providers with available readings.
+    // Unified mode (OXE-423, OXE-470): order active provider first, then remaining providers with available readings.
+    // When the active provider has a live reading, surface its own usage so an inactive maxed-out provider never
+    // hijacks the chip; keep the multi-provider count, tooltip summary, and full UsagePopover intact.
     const ordered: UsageProvider[] = activeProvider && polled.includes(activeProvider)
       ? [activeProvider, ...polled.filter(each => each !== activeProvider)]
       : [...polled]
@@ -207,19 +209,29 @@ export function UsageStatus({ provider, activeProvider, providers }: UsageStatus
       .filter((snapshot): snapshot is AgentCreditsSnapshot => Boolean(snapshot?.available && Array.isArray(snapshot.windows) && snapshot.windows.length > 0))
       .map(snapshot => ({ snapshot, text: usageText(snapshot, now) }))
     if (!readings.length) return null
-    peak = Math.max(0, ...readings.map(item => item.text.peak))
-    const clamped = clampPct(peak)
-    // Do not let an inactive stale provider turn the unified bar orange while fresh readings exist (OXE-439).
-    const hasFresh = readings.some(item => !item.snapshot.stale)
     const activeReading = activeProvider ? readings.find(item => item.snapshot.provider === activeProvider) : undefined
-    stale = hasFresh ? Boolean(activeReading?.snapshot.stale) : readings.every(item => Boolean(item.snapshot.stale))
     const summary = readings.map(item => `${providerName(item.snapshot.provider)} ${clampPct(item.text.peak)}%`).join(', ')
     const detail = readings.map(item => item.text.detail).join('\n\n')
-    const labelText = tc('workspace.usage.label')
-    icon = <Gauge size={11} aria-hidden="true" />
-    chipText = `${labelText} ${clamped}%`
+    if (activeReading) {
+      const activeName = providerName(activeReading.snapshot.provider)
+      peak = activeReading.text.peak
+      const clamped = clampPct(peak)
+      stale = Boolean(activeReading.snapshot.stale)
+      icon = <AgentProviderIcon provider={activeReading.snapshot.provider} size={13} />
+      chipText = `${activeName} ${clamped}%`
+      ariaLabel = `${activeName} ${clamped}%: ${summary}`
+    } else {
+      peak = Math.max(0, ...readings.map(item => item.text.peak))
+      const clamped = clampPct(peak)
+      // Do not let an inactive stale provider turn the unified bar orange while fresh readings exist (OXE-439).
+      const hasFresh = readings.some(item => !item.snapshot.stale)
+      stale = hasFresh ? false : readings.every(item => Boolean(item.snapshot.stale))
+      const labelText = tc('workspace.usage.label')
+      icon = <Gauge size={11} aria-hidden="true" />
+      chipText = `${labelText} ${clamped}%`
+      ariaLabel = tc('workspace.usage.unifiedAria', { pct: clamped, summary })
+    }
     title = `${detail}\n\n${tc('workspace.usage.click')}`
-    ariaLabel = tc('workspace.usage.unifiedAria', { pct: clamped, summary })
     loading = polled.some(each => Boolean(loadingMap[each]))
     popoverActive = activeProvider ?? null
     providerCount = readings.length

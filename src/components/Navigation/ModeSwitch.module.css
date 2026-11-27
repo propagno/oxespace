@@ -3,7 +3,7 @@
 .switch {
   display: inline-flex;
   align-items: center;
-  justify-self: start;
+  justify-self: center;
   height: var(--bar-md);
   gap: var(--space-0-5);
   padding: 0 var(--space-0-5);
@@ -11,6 +11,12 @@
   background: var(--surface-canvas);
   box-shadow: 0 0 0 1px var(--bd-subtle);
   -webkit-app-region: no-drag;
+}
+
+@media (max-width: 1120px) {
+  .switch {
+    justify-self: start;
+  }
 }
 
 /* The icon, the name and the count sit in one line, spaced by --space-1. */

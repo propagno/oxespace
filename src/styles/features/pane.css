@@ -113,27 +113,28 @@
 .pane-agent-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
   flex-shrink: 0;
   max-width: 16ch;
   min-width: 0;
-  height: 24px;
-  padding: 0 8px 0 5px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--tx-primary) 5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--tx-primary) 8%, transparent);
-  color: var(--tx-primary);
+  height: var(--space-5);
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--fill-hover);
+  border: 1px solid var(--bd-subtle);
+  color: var(--tx-secondary);
   font-size: var(--fs-2xs);
-  font-weight: 620;
+  font-weight: var(--weight-medium);
+  line-height: 1;
   letter-spacing: 0.01em;
   text-transform: none;
-  transition: all var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
 .pane-agent-chip .agent-provider-icon {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-xs);
+  width: 13px;
+  height: 13px;
+  border-radius: 0;
   flex-shrink: 0;
 }
 
@@ -206,7 +207,7 @@
 }
 @container (max-width: 260px) {
   .pane-header .pane-agent-chip-label { display: none; }
-  .pane-header .pane-agent-chip { padding: 0 5px; }
+  .pane-header .pane-agent-chip { padding: 0 var(--space-1); }
 }
 /* Narrower still, the name has less room than its eight-character floor: without the floor it ends in "…" where its
    room ends. With it, the name ran on under the pane's buttons ("Termi" with the search icon over the rest). */
@@ -256,7 +257,7 @@
   transition: opacity var(--transition-base);
 }
 
-.pane-header:hover .pane-intent-edit-hint,
+.pane-intent-button:hover .pane-intent-edit-hint,
 .pane-intent-button:focus-visible .pane-intent-edit-hint {
   opacity: 0.7;
 }

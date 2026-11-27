@@ -1495,7 +1495,13 @@
       "panels": "Painéis do workspace",
       "openPanels": "Painéis abertos do workspace",
       "morePanels": "Mais painéis: {{count}}",
-      "addTerminal": "Novo terminal"
+      "addTerminal": "Novo terminal",
+      "addTerminalMenu": "Novo terminal",
+      "addTerminalRight": "Terminal à direita",
+      "addTerminalBelow": "Terminal abaixo",
+      "openPosition": "Posição",
+      "openRight": "Ao lado (direita)",
+      "openBelow": "Abaixo"
     }
   },
   "memory": {
