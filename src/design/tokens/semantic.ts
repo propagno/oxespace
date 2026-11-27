@@ -18,8 +18,8 @@ export function colorRoles(mode: Mode): ColorRoles {
   const light = mode === 'light'
   // The terminal reads the same in both modes (its own theme may override it).
   const terminal = palette('dark').neutral
-  // Text keeps less of the night's violet than the surfaces do, so long reading stays neutral.
-  const ink = (l: number) => oklchToHex({ l, c: (light ? 0.04 : 0.09) * 0.4, h: SCALE_SPECS.neutral.hue })
+  // Text stays crisp and neutral in both modes for long editorial reading (Mandacaru v2, OXE-453).
+  const ink = (l: number) => oklchToHex({ l, c: (light ? 0.025 : 0.012) * 0.4, h: SCALE_SPECS.neutral.hue })
   const intent = (name: 'success' | 'warning' | 'danger' | 'info') => ({
     [`intent-${name}-bg`]: s(p[name], 3),
     [`intent-${name}-bg-hover`]: s(p[name], 4),
@@ -33,7 +33,7 @@ export function colorRoles(mode: Mode): ColorRoles {
   return {
     // Surfaces, from the window background up to floating layers.
     'surface-canvas': surfaceCanvas,
-    'surface-sunken': light ? s(n, 3) : oklchToHex({ l: 0.145, c: 0.012, h: SCALE_SPECS.neutral.hue }),
+    'surface-sunken': light ? s(n, 3) : oklchToHex({ l: 0.112, c: 0.008, h: SCALE_SPECS.neutral.hue }),
     'surface-chrome': light ? s(n, 3) : s(n, 2),
     'surface-base': light ? s(n, 1) : s(n, 2),
     'surface-raised': surfaceRaised,

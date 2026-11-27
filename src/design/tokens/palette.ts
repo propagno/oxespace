@@ -23,7 +23,7 @@ interface ScaleSpec {
 // Lightness and relative chroma per step; 9 and 10 come from the spec.
 const LIGHTNESS: Record<Mode, number[]> = {
   light: [0.992, 0.978, 0.955, 0.932, 0.905, 0.872, 0.822, 0.748, 0, 0, 0.49, 0.26],
-  dark: [0.168, 0.198, 0.236, 0.266, 0.298, 0.338, 0.392, 0.47, 0, 0, 0.81, 0.945]
+  dark: [0.136, 0.162, 0.192, 0.224, 0.258, 0.3, 0.36, 0.455, 0, 0, 0.81, 0.945]
 }
 const CHROMA: Record<Mode, number[]> = {
   light: [0.06, 0.1, 0.2, 0.3, 0.4, 0.5, 0.62, 0.78, 1, 0.96, 0.86, 0.55],
@@ -42,8 +42,8 @@ export function generateScale(spec: ScaleSpec, mode: Mode): Scale {
 }
 
 export const SCALE_SPECS = {
-  /** Night grey for surfaces, borders and text: violet, with more chroma in dark mode than in light (Mandacaru Noite). */
-  neutral: { hue: 285, chroma: { light: 0.04, dark: 0.13 }, solid: { light: 0.6, dark: 0.58 } },
+  /** Obsidian grey for surfaces, borders and text: cool neutral with minimal chroma (Mandacaru v2, OXE-453). */
+  neutral: { hue: 265, chroma: { light: 0.025, dark: 0.015 }, solid: { light: 0.6, dark: 0.58 } },
   /** Caatinga green: the accent in both modes (1.5, C4) and the brand mark. Light solid 0.48, not the book's 0.5: white text
    *  on a 14% white tint over it (keys inside primary buttons) needs 4.5:1. */
   caatinga: { hue: 158, chroma: 0.135, solid: { light: 0.48, dark: 0.7 } },
