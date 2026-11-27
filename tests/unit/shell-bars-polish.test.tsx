@@ -19,15 +19,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('OXE-426 · title bar mode switch visual separation', () => {
-  it('separates brand/menu bar from ModeSwitch with a divider and wraps ModeSwitch in a pill container', () => {
+describe('OXE-426 / OXE-470 · title bar balanced 3-zone layout and ModeSwitch separation', () => {
+  it('balances brand left, ModeSwitch centered in a pill container, and trailing controls right', () => {
     const titleBarCss = readCss('src/components/Navigation/TitleBar.module.css')
     const modeSwitchCss = readCss('src/components/Navigation/ModeSwitch.module.css')
 
+    expect(titleBarCss).toMatch(/grid-template-columns\s*:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)/)
     expect(titleBarCss).toMatch(/column-gap\s*:\s*var\(--space-3\)/)
-    expect(titleBarCss).toMatch(/border-inline-end\s*:\s*1px\s+solid\s+var\(--bd-default\)/)
-    expect(titleBarCss).toMatch(/padding-inline-end\s*:\s*var\(--space-3\)/)
+    expect(titleBarCss).toMatch(/\.brand\s*\{[^}]*justify-self\s*:\s*start/)
+    expect(titleBarCss).toMatch(/\.trailing\s*\{[^}]*justify-self\s*:\s*end/)
 
+    expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*justify-self\s*:\s*center/)
     expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*height\s*:\s*var\(--bar-md\)/)
     expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*background\s*:\s*var\(--surface-canvas\)/)
     expect(modeSwitchCss).toMatch(/\.switch\s*\{[^}]*box-shadow\s*:\s*0\s+0\s+0\s+1px\s+var\(--bd-subtle\)/)

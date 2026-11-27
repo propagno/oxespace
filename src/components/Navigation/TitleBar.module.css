@@ -2,8 +2,8 @@
   grid-column: 1 / -1;
   grid-row: 1;
   display: grid;
-  /* Brand + inline menus on the left, mode switch next to them, command bar + attention + settings on the right. */
-  grid-template-columns: auto auto minmax(0, 1fr);
+  /* Balanced 3-zone header (OXE-470): brand + menus left, centered mode switch, command bar + attention right. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   column-gap: var(--space-3);
   align-items: center;
   /* Follows the density: 36 compact, 40 comfortable. */
@@ -13,7 +13,7 @@
   margin: 0;
   padding: 0 var(--space-3);
   /* Keep the title bar draggable and clear of the native caption buttons. */
-  padding-right: max(12px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)));
+  padding-right: max(16px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px));
   border-bottom: 1px solid var(--bd-subtle);
   background: var(--surface-chrome);
   color: var(--tx-muted);
@@ -26,15 +26,33 @@
 .brand {
   display: flex;
   align-items: center;
+  justify-self: start;
   gap: var(--space-1);
   min-width: 0;
   flex-shrink: 0;
-  padding-inline-end: var(--space-3);
-  border-inline-end: 1px solid var(--bd-default);
   color: var(--tx-primary);
 }
 
-.trailing { display: flex; align-items: center; justify-content: flex-end; justify-self: stretch; gap: var(--space-1-5, 6px); min-width: 0; padding-right: var(--space-1); }
+.trailing {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  width: 100%;
+  box-sizing: border-box;
+  gap: var(--space-2);
+  min-width: 0;
+  padding-right: var(--space-1);
+}
+
+@media (max-width: 1120px) {
+  .bar {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+  .trailing {
+    justify-self: stretch;
+  }
+}
 
 .needs {
   display: inline-flex;

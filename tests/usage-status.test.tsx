@@ -152,13 +152,16 @@ describe('usage in the status bar', () => {
       const triggers = screen.getAllByTestId('usage-status')
       expect(triggers).toHaveLength(1)
       const trigger = triggers[0]
-      expect(trigger).toHaveTextContent('Usage 100%')
-      expect(trigger).toHaveAccessibleName('Usage 100%: Codex 5%, Claude 100%')
+      // OXE-470: when an active provider (codex / antigravity / claude) has a live reading, the chip surfaces that
+      // active provider's own usage (not an inactive provider's peak) while keeping the unified popover & summary.
+      expect(trigger).toHaveTextContent('Codex 5%')
+      expect(trigger).toHaveAccessibleName('Codex 5%: Codex 5%, Claude 100%')
+      expect(trigger.querySelector('[data-provider="codex"]')).toBeTruthy()
       expect(trigger.getAttribute('title')).toContain('Codex (plus)')
       expect(trigger.getAttribute('title')).toContain('Claude (max)')
       expect(trigger.getAttribute('title')).toContain('13d ago')
       expect(trigger.getAttribute('title')).not.toMatch(/resets in 0m|\b0m\b/)
-      expect(trigger.className).toMatch(/usageCritical/)
+      expect(trigger.className).not.toMatch(/usageCritical|usageWarning/)
 
       vi.useRealTimers()
       const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
@@ -254,6 +257,45 @@ describe('usage in the status bar', () => {
       } finally {
         clock.mockRestore()
       }
+    })
+
+    it('active-provider focus (OXE-470): Antigravity at 20% is not hijacked by inactive Claude at 100%, and null activeProvider falls back to unified peak', async () => {
+      get.mockImplementation(async ({ provider }: { provider: string }) => {
+        if (provider === 'antigravity') {
+          return snapshot({
+            provider: 'antigravity',
+            planLabel: 'Google AI Ultra',
+            stale: false,
+            observedAtMs: now - 10_000,
+            windows: [{ kind: 'session', usedPct: 20, resetsAtMs: now + 3 * 3_600_000 }]
+          })
+        }
+        if (provider === 'claude') {
+          return snapshot({
+            provider: 'claude',
+            planLabel: 'max',
+            stale: false,
+            observedAtMs: now - 15_000,
+            windows: [{ kind: 'session', usedPct: 100, resetsAtMs: now + 3_600_000 }]
+          })
+        }
+        return snapshot({ provider: 'codex', available: false, installed: false, windows: [], display: null })
+      })
+
+      const { rerender } = render(<UsageStatus activeProvider="antigravity" />)
+      await act(async () => { await Promise.resolve() })
+
+      const activeTrigger = screen.getByTestId('usage-status')
+      expect(activeTrigger).toHaveTextContent('Antigravity 20%')
+      expect(activeTrigger).toHaveAccessibleName('Antigravity 20%: Antigravity 20%, Claude 100%')
+      expect(activeTrigger.querySelector('[data-provider="antigravity"]')).toBeTruthy()
+      expect(activeTrigger.className).not.toMatch(/usageCritical|usageWarning/)
+
+      rerender(<UsageStatus activeProvider={null} />)
+      const unifiedTrigger = screen.getByTestId('usage-status')
+      expect(unifiedTrigger).toHaveTextContent('Usage 100%')
+      expect(unifiedTrigger).toHaveAccessibleName('Usage 100%: Claude 100%, Antigravity 20%')
+      expect(unifiedTrigger.className).toMatch(/usageCritical/)
     })
 
     it('renders official AgentProviderIcon in single-provider mode', async () => {

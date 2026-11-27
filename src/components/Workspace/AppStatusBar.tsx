@@ -16,6 +16,16 @@ import { i18n } from '../../i18n'
 
 const tc = i18n.getFixedT(null, 'code')
 
+/** Infers a usage-tracked provider from a pane's runtime agent name, bound agentName, or profile id (OXE-470). */
+function inferUsageProviderFromName(value: string | null | undefined): UsageProvider | null {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized.includes('claude')) return 'claude'
+  if (normalized.includes('codex')) return 'codex'
+  if (normalized.includes('antigravity') || /(^|[\s:/\\_-])agy($|[\s:/\\_-])/.test(normalized)) return 'antigravity'
+  return null
+}
+
 interface AppStatusBarProps {
   workspace: Workspace | null
   activePaneId: string | null
@@ -32,13 +42,21 @@ interface AppStatusBarProps {
 
 export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath, docked, firstRun }: AppStatusBarProps): ReactElement {
   const activePane = workspace?.panes.find((pane) => pane.id === activePaneId) ?? null
+  const paneAgentName = activePane?.agentName ?? null
+  const paneAgentProfileId = activePane?.agentProfileId ?? null
   const profiles = useAgentStore((state) => state.allProfiles)
-  // The agent in use: Claude, Codex or Antigravity (directly or as a parent profile).
+  const panes = useTerminalStore((state) => state.panes)
+  const runtimeAgentName = activePaneId ? panes[activePaneId]?.agentName ?? null : null
+  // The agent in use: Claude, Codex or Antigravity (profile lookup first, then runtime/pane agent name fallback).
   const paneProvider = useMemo(() => {
-    const profile = activePane?.agentProfileId ? profiles.find((value) => value.agentProfileId === activePane.agentProfileId) : undefined
+    const profile = paneAgentProfileId ? profiles.find((value) => value.agentProfileId === paneAgentProfileId) : undefined
     const providers = [profile?.provider, profile?.parentProvider]
-    return USAGE_PROVIDERS.find(candidate => providers.includes(candidate)) ?? null
-  }, [activePane?.agentProfileId, profiles])
+    const fromProfile = USAGE_PROVIDERS.find(candidate => providers.includes(candidate)) ?? null
+    if (fromProfile) return fromProfile
+    return inferUsageProviderFromName(runtimeAgentName)
+      ?? inferUsageProviderFromName(paneAgentName)
+      ?? inferUsageProviderFromName(paneAgentProfileId)
+  }, [paneAgentName, paneAgentProfileId, profiles, runtimeAgentName])
   const provider = usageProvider === undefined ? paneProvider : usageProvider
   const path = rootPath ?? workspace?.rootPath ?? null
   const [settled, setSettled] = useState(false)
@@ -46,7 +64,6 @@ export function AppStatusBar({ activePaneId, workspace, usageProvider, rootPath,
   const branchStatus = useGitBranch(workspace?.id ?? 'statusbar', path, Boolean(path && !firstRun && settled))
   const branchLabel = branchStatus?.branch ?? branchStatus?.shortSha ?? null
 
-  const panes = useTerminalStore((state) => state.panes)
   const backgroundPaneIds = useMemo(
     () => Object.entries(panes).filter(([, entry]) => entry.detached).map(([paneId]) => paneId),
     [panes]

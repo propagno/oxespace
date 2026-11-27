@@ -44,10 +44,10 @@ describe('OXE-462 · OxeChat editorial prose, Obsidian Minimal Markdown & isolat
     const mdCss = readCss('src/components/Threads/ThreadMarkdown.css')
     const viewCss = readCss('src/components/Threads/ThreadView.css')
 
-    // Centered editorial measure on prose children while keeping .thread-markdown max-width: 100% for wide block escape.
+    // Full-column prose alignment inside the centered --measure-chat canvas (OXE-470) while keeping .thread-markdown max-width: 100%.
     expect(mdCss).toMatch(/\.thread-markdown\s*\{[^}]*max-width:\s*100%[^}]*line-height:\s*1\.6/)
     expect(mdCss).toMatch(/\.thread-markdown\s*>\s*:is\([^)]*p[^)]*\)\s*\{[^}]*max-width:\s*min\(100%,\s*var\(--thread-editorial-max,\s*var\(--measure-prose\)\)\)/)
-    expect(viewCss).toMatch(/--thread-editorial-max:\s*max\(var\(--measure-prose\),\s*48rem\)/)
+    expect(viewCss).toMatch(/--thread-editorial-max:\s*100%/)
 
     // Restrained Minimal headings in both ThreadMarkdown.css and ThreadView.css reader scale.
     expect(mdCss).toMatch(/\.thread-markdown h1\s*\{[^}]*font-size:\s*1\.25em/)
