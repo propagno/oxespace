@@ -61,7 +61,8 @@ export function colorRoles(mode: Mode): ColorRoles {
     // Borders.
     'border-subtle': s(n, 5),
     'border-default': s(n, 6),
-    'border-strong': s(n, 7),
+    // Preserved verbatim for the frozen OXE-193 (PB-01·2) contract on --bd-strong.
+    'border-strong': light ? '#c3c3d5' : '#413e71',
     'border-control': borderControl,
     'border-focus': s(accent, 9),
     // Accent.
