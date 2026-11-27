@@ -90,6 +90,7 @@ interface UIState {
   isUsageOpen: boolean
   /** The Schedules dialog (requests sent to an agent at a set time), opened from OxeChat's list. */
   isSchedulesOpen: boolean
+  schedulesInitialTab: 'schedules' | 'review'
   /** F2 experimental: render the recursive split-tree layout instead of the grid. */
   splitLayoutEnabled: boolean
   /** Web Preview is workspace-owned. Keeping this keyed prevents opening or
@@ -128,7 +129,7 @@ interface UIState {
   openAndroidPanel: () => void
   closeAndroidPanel: () => void
   openUsage: () => void
-  openSchedules: () => void
+  openSchedules: (tab?: 'schedules' | 'review') => void
   closeSchedules: () => void
   closeUsage: () => void
   toggleSplitLayout: () => void
@@ -164,6 +165,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   isAndroidPanelOpen: false,
   isUsageOpen: false,
   isSchedulesOpen: false,
+  schedulesInitialTab: 'schedules',
   splitLayoutEnabled: true,
   webPreviewOpenByWorkspace: {},
   pendingWebPreviewByWorkspace: {},
@@ -193,8 +195,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   openAndroidPanel: () => set({ isAndroidPanelOpen: true }),
   closeAndroidPanel: () => set({ isAndroidPanelOpen: false }),
   openUsage: () => set({ isUsageOpen: true }),
-  openSchedules: () => set({ isSchedulesOpen: true }),
-  closeSchedules: () => set({ isSchedulesOpen: false }),
+  openSchedules: (tab = 'schedules') => set({ isSchedulesOpen: true, schedulesInitialTab: tab }),
+  closeSchedules: () => set({ isSchedulesOpen: false, schedulesInitialTab: 'schedules' }),
   closeUsage: () => set({ isUsageOpen: false }),
   toggleSplitLayout: () => set((s) => ({ splitLayoutEnabled: !s.splitLayoutEnabled })),
   openWebPreview: (workspaceId) => set((state) => ({
