@@ -3,9 +3,10 @@
   border: 1px solid var(--bd-subtle);
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
+  box-shadow: none;
   color: var(--tx-primary);
   padding: var(--space-4);
-  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+  transition: background var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
 .card:where([data-surface='sunken']) {
@@ -40,6 +41,7 @@
 
 .interactive:active:not(:disabled) {
   background: var(--fill-pressed);
+  border-color: var(--bd-strong);
 }
 
 .interactive:focus-visible {
