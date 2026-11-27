@@ -29,13 +29,22 @@ import { mainMessage, type MainMessage } from '../../../../shared/messages'
 const HOOKS_SKIPPED: MainMessage = mainMessage('git.hooks.skipped', {})
 const withNotices = (result: GitHubMessageResult, notices: MainMessage[]): GitHubMessageResult => notices.length ? { ...result, notices } : result
 import type { GhExec } from './gh-exec'
-import { loadRepoConfig } from '../repo-config/loader'
-import { runHook } from '../repo-config/hook-runner'
-import { createSharedLinks } from '../repo-config/shared-dirs'
-import { copyIncludedFiles } from '../repo-config/worktree-include'
+import { loadRepoConfig, loadWorktreeTemplate } from '../repo-config/loader'
+import { formatHookOutputTail, runHook } from '../repo-config/hook-runner'
+import { createSharedLinksDetailed } from '../repo-config/shared-dirs'
+import { copyIncludedFiles, extractSensitivePatterns, type IgnoredFilter } from '../repo-config/worktree-include'
+import { planWorktreeTemplate } from '../repo-config/template-planner'
+import { readWorktreeTemplate, saveWorktreeTemplate } from '../repo-config/template-writer'
 import { englishText } from '../../agent-text'
 import type { RepoHookTrust } from '../repo-config/trust'
 import { longPath, removeWorktreeSafely } from './worktree-removal'
+import type {
+  WorktreeHookStatus,
+  WorktreeProvisionReport,
+  WorktreeTemplateConfig,
+  WorktreeTemplateDryRun,
+  WorktreeTemplateSaveInput
+} from '../../../../shared/types/repo-config'
 
 export interface WorktreeLifecycleDeps {
   trust: RepoHookTrust
@@ -333,47 +342,139 @@ export class GitHubRepositoryService {
     const created = baseRef
       ? mainMessage('worktree.createdFrom', { path: shownPath, branch: input.branch, base: baseRef })
       : mainMessage('worktree.created', { path: shownPath, branch: input.branch })
-    const notices = [created, ...earlier, ...(await this.prepareNewWorktree(input.rootPath, absolutePath))]
+    const prepared = await this.prepareNewWorktree(input.rootPath, absolutePath)
+    const notices = [created, ...earlier, ...prepared.notices]
     // C3 (FINDING L): the window words `notices` in the person's language; `message` is the English text, for agents
     // (the MCP tool) and logs.
-    return withNotices(ok(notices.map(englishText).join(' ')), notices)
+    return { ...withNotices(ok(notices.map(englishText).join(' ')), notices), report: prepared.report }
+  }
+
+  /** Resolves the canonical primary checkout for `rootPath` (never a linked worktree path when resolvable). */
+  async resolvePrimaryRoot(rootPath: string): Promise<string> {
+    return (await this.mainCheckout(rootPath)) ?? rootPath
+  }
+
+  /** Pure read-only dry-run of the declarative worktree template for `rootPath`'s canonical primary checkout. */
+  async previewWorktreeTemplate(rootPath: string): Promise<WorktreeTemplateDryRun> {
+    const primaryRoot = await this.resolvePrimaryRoot(rootPath)
+    return planWorktreeTemplate({
+      primaryRoot,
+      trust: this.lifecycle?.trust,
+      isSharedDirIgnored: this.isSharedDirsIgnored(primaryRoot),
+      isFileIgnored: this.isFilesIgnored(primaryRoot)
+    })
+  }
+
+  /** Reads declarative worktree template state (`oxe.yaml` / `.worktreeinclude` / merged sources) for the primary repo. */
+  async getWorktreeTemplate(rootPath: string): Promise<WorktreeTemplateConfig> {
+    const primaryRoot = await this.resolvePrimaryRoot(rootPath)
+    return readWorktreeTemplate(primaryRoot, this.lifecycle?.trust)
+  }
+
+  /** Saves `oxe.yaml` worktree fields and `.worktreeinclude` atomically on the canonical primary repo root. */
+  async saveWorktreeTemplate(rootPath: string, input: WorktreeTemplateSaveInput): Promise<WorktreeTemplateConfig> {
+    const primaryRoot = await this.resolvePrimaryRoot(rootPath)
+    return saveWorktreeTemplate(primaryRoot, input, this.lifecycle?.trust)
+  }
+
+  /** Approves or revokes sensitive-pattern copy opt-in for the canonical primary repo root, verified by content hash. */
+  async trustWorktreeSensitiveCopy(rootPath: string, contentHash: string, trusted: boolean): Promise<WorktreeTemplateConfig> {
+    const primaryRoot = await this.resolvePrimaryRoot(rootPath)
+    const trust = this.lifecycle?.trust
+    if (!trust) throw new Error('Worktree trust store is not configured.')
+    const current = await readWorktreeTemplate(primaryRoot, trust)
+    if (trusted) {
+      if (current.sensitivePatterns.length === 0 || current.sensitiveHash !== contentHash) {
+        throw new Error('The sensitive worktree patterns changed since they were shown. Review the template and approve again.')
+      }
+      trust.approveSensitiveCopy(primaryRoot, current.sensitivePatterns)
+    } else {
+      trust.revokeSensitiveCopy(primaryRoot)
+    }
+    return readWorktreeTemplate(primaryRoot, trust)
   }
 
   /**
-   * Applies the repo's oxe.yaml to a worktree that now exists: shared links
-   * first, then the `worktree.copyFiles` copies (so setup sees both), then the
-   * setup hook. Nothing here may fail the creation — the worktree is real by
-   * now — so every outcome becomes a C3 notice.
+   * Applies the repo's declarative template to a worktree that now exists: shared links
+   * first (validated via git check-ignore), then `worktree.copyFiles` / `.worktreeinclude`
+   * copies (with sensitive opt-in gate), then the setup hook (trust evaluated on canonical
+   * primary checkout). Nothing here may fail creation — every outcome becomes a C3 notice
+   * plus a structured `WorktreeProvisionReport`.
    */
-  private async prepareNewWorktree(rootPath: string, worktreePath: string): Promise<MainMessage[]> {
-    const config = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
-    const notes: MainMessage[] = []
-    // Shared links and copies both follow the person's main checkout: its oxe.yaml lists them and its folders are what
-    // they point to or come from, whatever checkout the worktree is made from (SECURITY #471 follow-up).
+  private async prepareNewWorktree(
+    rootPath: string,
+    worktreePath: string
+  ): Promise<{ notices: MainMessage[]; report: WorktreeProvisionReport }> {
+    const branchConfig = (await loadRepoConfig(worktreePath)) ?? (await loadRepoConfig(rootPath))
+    // Shared links, copied files, and trust all follow the canonical primary checkout,
+    // whatever checkout the worktree is made from (SECURITY #471 + OXE-444).
     const main = await this.mainCheckout(rootPath)
-    const mainConfig = main ? await loadRepoConfig(main) : null
-    if (main && mainConfig && mainConfig.worktree.sharedDirectories.length > 0) {
-      await createSharedLinks(main, worktreePath, mainConfig.worktree.sharedDirectories)
-    }
-    if (main && mainConfig) notes.push(...(await this.copyFromMainCheckout(main, mainConfig.worktree.copyFiles ?? [], worktreePath)))
-    if (!config) return notes
-    const setup = config.scripts.setup
-    if (!setup) return notes
-    if (!this.lifecycle?.trust.isTrusted(rootPath, 'setup', setup)) {
-      return [...notes, mainMessage('worktree.setup.notApproved', {})]
-    }
-    const outcome = await runHook(setup, {
-      cwd: worktreePath,
-      env: {
-        OXE_ROOT_PATH: rootPath,
-        OXE_WORKTREE_PATH: worktreePath,
-        OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
+    const trustRoot = main ?? rootPath
+    const mainLoaded = main ? await loadWorktreeTemplate(main) : null
+    const mainConfig = mainLoaded?.config ?? null
+
+    const sharedReport =
+      main && mainConfig && mainConfig.worktree.sharedDirectories.length > 0
+        ? await createSharedLinksDetailed(main, worktreePath, mainConfig.worktree.sharedDirectories, {
+            isIgnored: this.isSharedDirsIgnored(main)
+          })
+        : { linked: [], skipped: [], notices: [] }
+
+    const copyPatterns = mainConfig?.worktree.copyFiles ?? []
+    const sensitivePatterns = extractSensitivePatterns(copyPatterns)
+    const sensitiveApproved =
+      main && sensitivePatterns.length > 0
+        ? Boolean(this.lifecycle?.trust.isSensitiveCopyTrusted(main, sensitivePatterns))
+        : false
+    const copyReport =
+      main && copyPatterns.length > 0
+        ? await copyIncludedFiles(main, worktreePath, copyPatterns, this.isFilesIgnored(worktreePath), { sensitiveApproved })
+        : { copied: [], skipped: [], sensitivePending: [], notices: [] }
+
+    let hookStatus: WorktreeHookStatus = 'none'
+    let hookOutputTail: string | undefined
+    const hookNotices: MainMessage[] = []
+    const setup = mainConfig?.scripts.setup ?? branchConfig?.scripts.setup
+    if (setup) {
+      if (!this.lifecycle?.trust.isTrusted(trustRoot, 'setup', setup)) {
+        hookStatus = 'skipped-untrusted'
+        hookNotices.push(mainMessage('worktree.setup.notApproved', {}))
+      } else {
+        const outcome = await runHook(setup, {
+          cwd: worktreePath,
+          env: {
+            OXE_ROOT_PATH: trustRoot,
+            OXE_WORKTREE_PATH: worktreePath,
+            OXE_WORKSPACE_NAME: worktreePath.replace(/\\/g, '/').split('/').pop() ?? ''
+          }
+        })
+        if (outcome.status === 'passed') {
+          hookStatus = 'passed'
+          hookNotices.push(mainMessage('worktree.setup.complete', {}))
+        } else if (outcome.status === 'failed') {
+          hookStatus = 'failed'
+          hookOutputTail = formatHookOutputTail(outcome.output)
+          hookNotices.push(mainMessage('worktree.setup.failed', { exitCode: outcome.exitCode }))
+        } else {
+          hookStatus = 'unverifiable'
+          hookOutputTail = formatHookOutputTail(outcome.output)
+          hookNotices.push(mainMessage('worktree.setup.unverified', {}))
+        }
       }
-    })
-    if (outcome.status === 'passed') notes.push(mainMessage('worktree.setup.complete', {}))
-    else if (outcome.status === 'failed') notes.push(mainMessage('worktree.setup.failed', { exitCode: outcome.exitCode }))
-    else notes.push(mainMessage('worktree.setup.unverified', {}))
-    return notes
+    }
+
+    const notices = [...sharedReport.notices, ...copyReport.notices, ...hookNotices]
+    const report: WorktreeProvisionReport = {
+      sources: mainLoaded?.sources ?? branchConfig?.sources ?? [],
+      linked: sharedReport.linked,
+      copied: copyReport.copied,
+      skipped: [...sharedReport.skipped, ...copyReport.skipped],
+      sensitivePending: copyReport.sensitivePending,
+      hookStatus,
+      ...(hookOutputTail ? { hookOutputTail } : {}),
+      notices
+    }
+    return { notices, report }
   }
 
   /**
@@ -385,20 +486,46 @@ export class GitHubRepositoryService {
   }
 
   /**
-   * B19: `worktree.copyFiles` from the person's main checkout, whatever checkout the worktree is created from. Both the
-   * list and the files come from there: a branch, or an agent in another worktree, never chooses which of the person's
-   * files are copied, nor serves them (SECURITY review of #451; HML FINDING M on creating from inside a worktree). The
-   * main checkout is git's first `worktree list` entry; a bare main has none, and then nothing is copied.
+   * Checks which repo-relative file paths are ignored by Git (`git check-ignore -z --stdin`).
+   * Returns `null` when git could not tell so copy fails closed.
    */
-  private async copyFromMainCheckout(main: string, include: string[], worktreePath: string): Promise<MainMessage[]> {
-    if (!include.length) return []
-    // check-ignore exits 0 when some path is ignored, 1 when none is; anything else means git could not tell.
-    const ignored = async (paths: string[]): Promise<Set<string> | null> => {
-      const result = await this.gh.git(['check-ignore', '-z', '--stdin'], worktreePath, paths.join('\0') + '\0')
+  private isFilesIgnored(cwd: string): IgnoredFilter {
+    return async (paths: string[]): Promise<Set<string> | null> => {
+      const result = await this.gh.git(['check-ignore', '-z', '--stdin'], cwd, paths.join('\0') + '\0')
       if (result.status === 1) return new Set()
       return result.status === 0 ? new Set((result.stdout ?? '').split('\0').filter(Boolean)) : null
     }
-    return (await copyIncludedFiles(main, worktreePath, include, ignored)).notices
+  }
+
+  /**
+   * Checks which repo-relative directories are BOTH ignored by `git check-ignore` AND contain zero tracked files
+   * (`git ls-files`). Returns `null` when git cannot answer so linking fails closed.
+   */
+  private isSharedDirsIgnored(cwd: string): (directories: string[]) => Promise<Set<string> | null> {
+    return async (directories: string[]): Promise<Set<string> | null> => {
+      if (directories.length === 0) return new Set()
+      const stdin = directories.map((d) => `${d.replace(/\/+$/, '')}/`).join('\0') + '\0'
+      const ignoredRes = await this.gh.git(['check-ignore', '-z', '--stdin'], cwd, stdin)
+      if (ignoredRes.status !== 0 && ignoredRes.status !== 1) return null
+      const ignored = new Set(
+        ignoredRes.status === 0
+          ? (ignoredRes.stdout ?? '').split('\0').filter(Boolean).map((p) => p.replace(/\/+$/, ''))
+          : []
+      )
+      if (ignored.size === 0) return ignored
+
+      // Extra guard: a folder with already-committed files must never be symlinked even if added to .gitignore later.
+      const trackedRes = await this.gh.git(['ls-files', '-z', '--', ...ignored], cwd)
+      if (trackedRes.status !== 0) return null
+      const trackedFiles = (trackedRes.stdout ?? '').split('\0').filter(Boolean)
+      for (const dir of [...ignored]) {
+        const prefix = `${dir}/`
+        if (trackedFiles.some((file) => file === dir || file.startsWith(prefix))) {
+          ignored.delete(dir)
+        }
+      }
+      return ignored
+    }
   }
 
   /**

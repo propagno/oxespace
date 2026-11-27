@@ -15,7 +15,15 @@ import { classifyPreviewUrl, type PreviewUrl } from '../utils/preview-url'
 import type { Approval } from './domain-tool'
 import { discoverScripts } from '../services/scripts-discovery.service'
 import type { ToolContext } from './tool-registry'
-import { errorResult, textResult } from './tool-registry'
+
+function textResult(value: unknown): InternalMcpToolCallResult {
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+  return { content: [{ type: 'text', text }] }
+}
+
+function errorResult(message: string): InternalMcpToolCallResult {
+  return { content: [{ type: 'text', text: message }], isError: true }
+}
 import { requirePreviewExecution } from './preview-scope'
 import { PREVIEW_LOAD_WAIT_MS } from './web-preview-bus'
 import type { PreviewRequest } from '../services/browser-preview/preview-automation'

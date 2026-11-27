@@ -279,7 +279,15 @@ export function registerThreadIpc(
     try {
       threadProjects.addContext(context.projectId, created.rootPath)
       // What creating it reported goes with the conversation: the dialog closes as soon as it opens.
-      const ownedWorktree = { path: created.rootPath, branch: created.branch, projectRoot: context.rootPath, baseSha: created.baseSha, createdAt: Date.now(), ...(created.notices ? { notices: created.notices.slice(0, 20) } : {}) }
+      const ownedWorktree = {
+        path: created.rootPath,
+        branch: created.branch,
+        projectRoot: context.rootPath,
+        baseSha: created.baseSha,
+        createdAt: Date.now(),
+        ...(created.notices ? { notices: created.notices.slice(0, 20) } : {}),
+        ...(created.report ? { report: created.report } : {})
+      }
       return await service.create({ workspaceId: `thread:${context.projectId}`, projectId: context.projectId, rootPath: created.rootPath, provider: value.provider, ownedWorktree, access })
     } catch (error) {
       threadProjects.removeContext(context.projectId, created.rootPath)
