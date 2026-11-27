@@ -1,9 +1,10 @@
 import { closeSync, existsSync, lstatSync, openSync, readdirSync, readSync, realpathSync, statSync } from 'node:fs'
 import { lstat, open, readdir, realpath, stat } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import Database from 'better-sqlite3'
+import type Database from 'better-sqlite3'
 import { formatNativeUserText, taskNotification } from '../../../../shared/native-session-text'
 import type { ThreadEvent } from '../../../../shared/types/thread'
 import { EMPTY_CONTEXT_USAGE, type ContextUsageSnapshot } from '../../../../shared/types/usage'
@@ -159,13 +160,31 @@ function compactText(value: string | null | undefined, maxChars: number): string
   return cleaned.length > maxChars ? `${cleaned.slice(0, maxChars - 1)}…` : cleaned
 }
 
+type SqliteConstructor = typeof Database
+let sqliteCtor: SqliteConstructor | null | undefined
+
+/** Load better-sqlite3 lazily so standalone worker bundles (native-history-worker) never fail at module load. */
+function loadSqlite(): SqliteConstructor | null {
+  if (sqliteCtor !== undefined) return sqliteCtor
+  try {
+    const req = createRequire(import.meta.url)
+    const mod = req('better-sqlite3') as SqliteConstructor | { default?: SqliteConstructor }
+    sqliteCtor = typeof mod === 'function' ? mod : mod?.default ?? null
+  } catch {
+    sqliteCtor = null
+  }
+  return sqliteCtor
+}
+
 function readSummariesIndex(antigravityHome: string): Map<string, SummaryEntry> {
   const result = new Map<string, SummaryEntry>()
   const dbPath = join(antigravityHome, 'conversation_summaries.db')
   if (!existsSync(dbPath)) return result
+  const Sqlite = loadSqlite()
+  if (!Sqlite) return result
   let db: Database.Database | undefined
   try {
-    db = new Database(dbPath, { readonly: true, fileMustExist: true })
+    db = new Sqlite(dbPath, { readonly: true, fileMustExist: true })
     const cols = new Set((db.prepare('PRAGMA table_info(conversation_summaries)').all() as Array<{ name: string }>).map(row => row.name))
     if (!cols.has('conversation_id')) return result
     const col = (name: string, fallback: string) => cols.has(name) ? name : fallback

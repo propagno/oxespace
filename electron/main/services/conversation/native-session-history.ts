@@ -8,7 +8,6 @@ import type { ConversationTransport } from './codex-conversation'
 import { AgentProcessTransport } from './process-transport'
 import { AgentRpcPeer } from './rpc-peer'
 import { encodeClaudeProjectPath } from '../usage/claude-project-path'
-import { verifyAndReadAntigravitySession } from '../usage/antigravity-sessions'
 import { readNativeHistoryPage, type NativeHistoryCursor } from './native-history-page'
 
 export interface NativeSessionHistory { events: ThreadEvent[]; title?: string; truncated?: boolean; cursor?: NativeHistoryCursor }
@@ -69,6 +68,7 @@ export class NativeSessionReader {
       return this.readClaudePage(thread, id, path, cursor)
     }
     if (thread.provider === 'antigravity') {
+      const { verifyAndReadAntigravitySession } = await import('../usage/antigravity-sessions')
       return verifyAndReadAntigravitySession(thread.rootPath, id, {
         antigravityHome: this.options.antigravityHome,
         cursor
