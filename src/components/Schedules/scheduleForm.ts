@@ -155,12 +155,15 @@ export function inputOf(form: ScheduleForm, now: number, confirmedWrite: boolean
 }
 
 /** Why the form cannot be saved yet (the write confirmation aside: that is asked on Save), and when it would first run. */
-export function formCheck(form: ScheduleForm, now: number): { refusal: ScheduleRefusal | null; firstRun: number | null; previewRuns: number[] } {
+export function formCheck(form: ScheduleForm, now: number): { refusal: ScheduleRefusal | null; firstRun: number | null } {
   const input = inputOf(form, now, true)
   const refusal = scheduleRefusal(input, now)
-  return {
-    refusal,
-    firstRun: refusal ? null : nextRun(input.rule, now),
-    previewRuns: refusal ? [] : nextRuns(input.rule, now, 3)
-  }
+  return { refusal, firstRun: refusal ? null : nextRun(input.rule, now) }
+}
+
+/** Upcoming local execution timestamps for the form's current rule (empty while invalid or event-triggered). */
+export function formNextRuns(form: ScheduleForm, now: number, count = 3): number[] {
+  const input = inputOf(form, now, true)
+  if (scheduleRefusal(input, now)) return []
+  return nextRuns(input.rule, now, count)
 }

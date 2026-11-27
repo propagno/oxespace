@@ -14,7 +14,7 @@ import { Dialog } from '../../ui/Overlay'
 import { toast } from '../../ui/Toast'
 import { formatDateTime } from '../../utils/formatTime'
 import { ReviewQueuePanel } from './ReviewQueuePanel'
-import { EVERY_DAY, formCheck, formOf, inputOf, newScheduleForm, type RuleKind, type ScheduleForm } from './scheduleForm'
+import { EVERY_DAY, formCheck, formNextRuns, formOf, inputOf, newScheduleForm, type RuleKind, type ScheduleForm } from './scheduleForm'
 import styles from './Schedules.module.css'
 
 const WHEN: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
@@ -106,12 +106,14 @@ export function SchedulesDialog({ initialTab = 'schedules', onClose, onOpenThrea
   useEffect(() => {
     void load()
     void useThreadStore.getState().loadProjects()
-    const off = window.oxe?.schedules?.onChanged(() => {
-      void load()
-    })
+    const off = typeof window.oxe?.schedules?.onChanged === 'function'
+      ? window.oxe.schedules.onChanged(() => {
+          void load()
+        })
+      : undefined
     const timer = window.setInterval(() => setNow(Date.now()), 30_000)
     return () => {
-      off?.()
+      if (typeof off === 'function') off()
       window.clearInterval(timer)
     }
   }, [load])
@@ -124,6 +126,7 @@ export function SchedulesDialog({ initialTab = 'schedules', onClose, onOpenThrea
     run.outcome === 'failed' && run.detail ? t('schedules.outcome.failedWith', { reason: run.detail }) : t(`schedules.outcome.${run.outcome}`)
 
   const check = form ? formCheck(form, now) : null
+  const previewRuns = form && form.kind === 'cron' ? formNextRuns(form, now, 3) : []
   const save = async (confirmedWrite: boolean): Promise<void> => {
     if (!form || !check || check.refusal) return
     // Changing files with no one watching: the person says yes each time such a schedule is saved.
@@ -328,11 +331,11 @@ export function SchedulesDialog({ initialTab = 'schedules', onClose, onOpenThrea
           </fieldset>
           {problem && <Notice intent="warning">{problem}</Notice>}
           {error && <Notice intent="danger">{error}</Notice>}
-          {form.kind === 'cron' && check && check.previewRuns.length > 0 && (
+          {form.kind === 'cron' && previewRuns.length > 0 && (
             <div className={styles.cronPreview} data-testid="cron-preview-runs">
               <span>{t('schedules.cronPreviewLabel')}</span>
               <ul className={styles.cronPreviewList}>
-                {check.previewRuns.map((ts) => (
+                {previewRuns.map((ts) => (
                   <li key={ts}>{formatDateTime(ts, WHEN)}</li>
                 ))}
               </ul>

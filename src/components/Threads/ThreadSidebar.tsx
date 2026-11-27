@@ -393,17 +393,27 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
   const [reviewPendingCount, setReviewPendingCount] = useState(0)
   useEffect(() => {
     const api = window.oxe?.schedules
-    if (!api?.reviewQueue) return
+    if (typeof api?.reviewQueue !== 'function') return
     let alive = true
     const refreshReviewCount = () => {
-      void api.reviewQueue?.().then(summary => { if (alive) setReviewPendingCount(summary.count) }).catch(() => undefined)
+      const pending = api.reviewQueue?.()
+      if (pending && typeof pending.then === 'function') {
+        void pending
+          .then(summary => { if (alive && typeof summary?.count === 'number') setReviewPendingCount(summary.count) })
+          .catch(() => undefined)
+      }
     }
     refreshReviewCount()
-    const off = api.onChanged?.(event => {
-      if (typeof event?.reviewPendingCount === 'number') setReviewPendingCount(event.reviewPendingCount)
-      else refreshReviewCount()
-    })
-    return () => { alive = false; off?.() }
+    const off = typeof api.onChanged === 'function'
+      ? api.onChanged(event => {
+          if (typeof event?.reviewPendingCount === 'number') setReviewPendingCount(event.reviewPendingCount)
+          else refreshReviewCount()
+        })
+      : undefined
+    return () => {
+      alive = false
+      if (typeof off === 'function') off()
+    }
   }, [])
   const railPrimary: RailAction[] = [
     { id: 'new-conversation', label: t('view.newConversation'), icon: Plus, disabled: !createTarget || unavailableProjects.includes(createTarget.id), onClick: () => { if (createTarget) onCreate(createTarget.id, createTarget.rootPath) } },

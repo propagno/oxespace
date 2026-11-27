@@ -1,6 +1,8 @@
 import type { ReviewDiffFile } from '../../../../shared/schedule'
 import type { WorktreeProvisionReport } from '../../../../shared/types/repo-config'
 import { createThreadWorktree, type ThreadWorktreeHost } from '../conversation/thread-worktree'
+import { loadRepoConfig } from '../repo-config/loader'
+import { findSharedLinks, isLink, safeRelativePath } from '../repo-config/shared-dirs'
 import { runGit } from '../../utils/safe-git'
 
 const MAX_UNTRACKED_FILES = 200
@@ -107,6 +109,40 @@ function truncateDiff(text: string): string {
   return `${text.slice(0, MAX_DIFF_BYTES)}\n... (diff truncated)`
 }
 
+function normalizeRelPath(entry: string): string {
+  return entry.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+function isOwnedLinkEntry(entry: string, links: string[]): boolean {
+  const normalized = normalizeRelPath(entry)
+  return links.some((link) => {
+    const normalizedLink = normalizeRelPath(link)
+    return normalized === normalizedLink || normalized.startsWith(`${normalizedLink}/`)
+  })
+}
+
+async function listOwnedSharedLinks(worktreePath: string): Promise<string[]> {
+  const config = await loadRepoConfig(worktreePath).catch(() => null)
+  const sharedDirs = config?.worktree.sharedDirectories ?? []
+  if (sharedDirs.length === 0) return []
+  return findSharedLinks(worktreePath, sharedDirs)
+}
+
+/**
+ * Excludes OXE-444 shared-directory links (e.g. `node_modules`) from untracked diff/staging.
+ * On POSIX, Git's trailing-slash `.gitignore` rules (like `node_modules/`) match real directories
+ * but not symlinks (`mode 120000`), whereas Windows directory junctions are ignored as directories.
+ */
+async function isIgnoredSharedLink(worktreePath: string, relPath: string, ownedLinks: string[]): Promise<boolean> {
+  const normalized = normalizeRelPath(relPath)
+  if (!normalized) return false
+  if (isOwnedLinkEntry(normalized, ownedLinks)) return true
+  const fullPath = safeRelativePath(worktreePath, normalized)
+  if (!fullPath || !(await isLink(fullPath))) return false
+  const ignoredAsDir = await runGit(worktreePath, ['check-ignore', '-q', '--', `${normalized}/`], { timeout: 10_000 })
+  return ignoredAsDir.ok
+}
+
 /**
  * Collects real git diff statistics (`filesChanged`, `additions`, `deletions`) and a readable unified diff
  * across tracked edits (committed, staged, unstaged since `baseSha`) plus untracked files inside `worktreePath`.
@@ -131,7 +167,14 @@ export async function collectAutomationDiff(
 
   const untrackedList = await runGit(worktreePath, ['ls-files', '--others', '--exclude-standard', '-z'], { timeout: 20_000 })
   if (untrackedList.ok && untrackedList.stdout) {
-    const untrackedPaths = untrackedList.stdout.split('\0').filter(Boolean).slice(0, MAX_UNTRACKED_FILES)
+    const ownedLinks = await listOwnedSharedLinks(worktreePath)
+    const rawUntracked = untrackedList.stdout.split('\0').filter(Boolean)
+    const untrackedPaths: string[] = []
+    for (const relPath of rawUntracked) {
+      if (untrackedPaths.length >= MAX_UNTRACKED_FILES) break
+      if (await isIgnoredSharedLink(worktreePath, relPath, ownedLinks)) continue
+      untrackedPaths.push(relPath)
+    }
     for (const relPath of untrackedPaths) {
       const statRes = await runGit(worktreePath, ['diff', '--no-index', '--numstat', '--', '/dev/null', relPath], { timeout: 15_000 })
       const firstLine = (statRes.stdout ?? '').split(/\r?\n/).find(line => line.trim().length > 0) ?? ''
@@ -160,9 +203,24 @@ export async function collectAutomationDiff(
 }
 
 async function commitWorktreeChangesIfDirty(worktreePath: string, message: string): Promise<void> {
-  const status = await runGit(worktreePath, ['status', '--porcelain=v1'], { timeout: 20_000 })
-  if (!status.ok || !status.stdout.trim()) return
-  const added = await runGit(worktreePath, ['add', '-A'], { timeout: 20_000 })
+  const status = await runGit(worktreePath, ['status', '--porcelain=v1', '-z'], { timeout: 20_000 })
+  if (!status.ok || !status.stdout) return
+  const ownedLinks = await listOwnedSharedLinks(worktreePath)
+  const excluded: string[] = []
+  let hasRealChanges = false
+  for (const entry of status.stdout.split('\0').filter((item) => item.length > 3)) {
+    const relPath = entry.slice(3)
+    if (entry.startsWith('?? ') && (await isIgnoredSharedLink(worktreePath, relPath, ownedLinks))) {
+      excluded.push(normalizeRelPath(relPath))
+      continue
+    }
+    hasRealChanges = true
+  }
+  if (!hasRealChanges) return
+  const addArgs = excluded.length > 0
+    ? ['add', '-A', '--', '.', ...excluded.map((p) => `:(exclude)${p}`)]
+    : ['add', '-A']
+  const added = await runGit(worktreePath, addArgs, { timeout: 20_000 })
   if (!added.ok) throw new Error(added.stderr || 'Failed to stage automation changes.')
   const committed = await runGit(worktreePath, ['commit', '-m', message], { timeout: 20_000 })
   if (!committed.ok) throw new Error(committed.stderr || 'Failed to commit automation changes.')
