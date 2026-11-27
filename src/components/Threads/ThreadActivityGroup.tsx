@@ -220,13 +220,13 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
             <ChevronRight size={12} aria-hidden="true" className="thread-step-chevron" />
             <span>{editLabel}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="thread-step-file-pill" data-ui="file-pill" title={fullTarget || row.target} onClick={openChanges}>
+          <Button variant="ghost" size="sm" data-ui="file-pill" title={fullTarget || row.target} onClick={openChanges}>
             <span className="thread-step-label">{row.target}</span>
           </Button>
         </>
       ) : isShellRun ? (
         <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || shellSummary} onClick={() => setOpen(value => !value)}>
-          <code className="thread-step-code">$ <span>{shellSummary}</span></code>
+          <code>$ <span>{shellSummary}</span></code>
         </Button>
       ) : (
         <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || headline} onClick={() => setOpen(value => !value)}>
@@ -235,7 +235,7 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
       )}
       {(row.meta.additions || row.meta.deletions) ? <span className="thread-step-stats">+{row.meta.additions ?? 0} −{row.meta.deletions ?? 0}</span> : null}
     </div>
-    {showFullCommand && <pre className="thread-step-command" data-ui="step-command">{fullTarget}</pre>}
+    {showFullCommand && <pre data-ui="step-command">{fullTarget}</pre>}
     {open && row.kind === 'run' && output && <>
       {cut && <ToolOutputCutBanner cut={cut} fullOutput={rawOutput} toolLabel={headline} />}
       <pre data-ui="step-output">{shown}</pre>
