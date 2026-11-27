@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent, ReactElement, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Circle, CircleCheck, CircleX, Pin, Square, Sun } from 'lucide-react'
+import { Check, Circle, CircleX, Pin, Square, Sun } from 'lucide-react'
 import { i18n } from '../../i18n'
 import { SidebarRow, cx } from '../../ui'
 import type { ConversationThread, ThreadPendingRequestSummary } from '../../../shared/types/thread'
@@ -58,7 +58,7 @@ export function ThreadSidebarRow({ thread, selected, unread, child = false, chan
     parts.push(<span key="read-only" data-meta-suffix="read-only">{t('sidebar.meta.readOnly')}</span>)
   }
   const line2 = parts.flatMap((part, index) => index ? [<span key={`separator-${index}`} aria-hidden="true"> · </span>, part] : [part])
-  const icon = status.kind === 'ready' ? <Circle size={10} fill="currentColor" /> : status.kind === 'completed' ? <CircleCheck size={14} /> : status.kind === 'attention' ? <Sun size={14} />
+  const icon = status.kind === 'ready' ? <Circle size={10} fill="currentColor" /> : status.kind === 'completed' ? <Check size={12} strokeWidth={2} /> : status.kind === 'attention' ? <Sun size={14} />
     : status.kind === 'failed' ? <CircleX size={14} /> : status.kind === 'interrupted' ? <Square size={11} /> : null
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.defaultPrevented) return
