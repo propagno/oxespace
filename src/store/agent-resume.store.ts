@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AgentHookAgent, AgentHooksStatus } from '../../shared/types/agent-hooks'
-import type { PaneAgentResume } from '../../shared/types/ipc/terminal'
+import type { PaneAgentResume, PaneSessionAgent } from '../../shared/types/ipc/terminal'
 
 /**
  * F32 · What became of each agent pane's earlier session when the app reopened (B17, `terminal.status().agentResume`:
@@ -43,8 +43,8 @@ interface AgentResumeState {
   /** Agents already asked about in this run ("Not now" lasts until the app restarts). */
   asked: Partial<Record<AgentHookAgent, true>>
   /** The pane whose "Start fresh" the window is confirming, outside the pane's menu (which closes). */
-  freshAsk: { paneId: string; agent: ResumeAgent } | null
-  askFresh: (ask: { paneId: string; agent: ResumeAgent } | null) => void
+  freshAsk: { paneId: string; agent: PaneSessionAgent } | null
+  askFresh: (ask: { paneId: string; agent: PaneSessionAgent } | null) => void
   /** Reads the pane's outcome once main has one; later calls are free. */
   load: (paneId: string) => Promise<PaneAgentResume | undefined>
   /** Forgets the pane's outcome and reads it again (after a restart). */

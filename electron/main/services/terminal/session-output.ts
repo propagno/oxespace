@@ -1,5 +1,6 @@
 import type { IPty } from 'node-pty'
 import type { TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult } from '../../../../shared/types/ipc'
+import type { ResumableAgent } from '../agent-state/pane-sessions'
 import type { PtyInputQueue } from '../pty-input-queue'
 import type { PtyOutputBatcher } from '../pty-output-batcher'
 import type { PtyRingBuffer } from '../pty-ring-buffer'
@@ -23,7 +24,9 @@ export interface TerminalSession {
   /** Whether the start that made this process wanted the agent's session back (a restart asks the same). */
   resumeAgent?: boolean
   /** B17 · The native session this process was started to resume, if any. */
-  resumed?: { agent: 'claude' | 'codex'; sessionId: string }
+  resumed?: { agent: ResumableAgent; sessionId: string }
+  /** OXE-467 · Resumable AI CLI started interactively inside a shell pane (e.g. typing `agy`, `claude`, `codex`). */
+  detectedAgent?: ResumableAgent
   revokeProxy?: () => void
   inputQueue: PtyInputQueue
   outputBatcher: PtyOutputBatcher

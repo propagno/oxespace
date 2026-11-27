@@ -1,9 +1,13 @@
 import type { AppDatabase } from '../../db'
+import type { PaneAgentSessionSource, PaneSessionAgent } from '../../../../shared/types/ipc/terminal'
 import { NATIVE_SESSION_ID } from './native-session-files'
 
-export type ResumableAgent = 'claude' | 'codex'
+export type ResumableAgent = PaneSessionAgent
+export const RESUMABLE_AGENTS = ['claude', 'codex', 'antigravity'] as const
+export const isResumableAgent = (value: unknown): value is ResumableAgent =>
+  value === 'claude' || value === 'codex' || value === 'antigravity'
 
-/** Session ids are provider-generated UUIDs (Claude Code, Codex); anything else is never recorded nor resumed. */
+/** Session ids are provider-generated UUIDs (Claude Code, Codex, Antigravity); anything else is never recorded nor resumed. */
 const SESSION_ID = NATIVE_SESSION_ID
 
 /** T54 · Claude Code's own permission modes, as its hooks report `permission_mode`; anything else is never stored. */
@@ -20,21 +24,23 @@ export type PaneResumeRecord = { agent: ResumableAgent; sessionId: string; wante
 
 /** The arguments that reopen a session, matching the pane's manual "restore session" action. */
 export function resumeArgs(agent: ResumableAgent, sessionId: string): string[] {
-  return agent === 'claude' ? ['--resume', sessionId] : ['resume', sessionId, '--no-alt-screen']
+  if (agent === 'codex') return ['resume', sessionId, '--no-alt-screen']
+  return ['--resume', sessionId]
 }
 
 /**
- * The native session of the agent in each Code pane, as its hooks report it, so
- * the pane can reopen it after the app restarts (herdr's "native agent session
- * restore"). A pane is resumed at most once per app run: a later restart of the
- * pane is the person's choice and starts fresh.
+ * The native session of the agent in each Code pane, as its hooks, launch args or
+ * local session discovery report it, so the pane can show its ID and reopen it after
+ * the app restarts (herdr's "native agent session restore"). A pane is resumed at most
+ * once per app run: a later restart of the pane is the person's choice and starts fresh.
  */
 /** The command that reopens a session from a terminal, for Terminal details' "Copy resume command" (ids are UUIDs). */
 export function resumeCommand(agent: ResumableAgent, sessionId: string): string {
-  return [agent, ...resumeArgs(agent, sessionId)].join(' ')
+  const bin = agent === 'antigravity' ? 'agy' : agent
+  return [bin, ...resumeArgs(agent, sessionId)].join(' ')
 }
 
-export type PaneSessionSource = 'launch' | 'hook' | 'recorded'
+export type PaneSessionSource = PaneAgentSessionSource
 
 export class PaneAgentSessions {
   private readonly resumedThisRun = new Set<string>()
@@ -49,7 +55,7 @@ export class PaneAgentSessions {
    * session starts with none until its own SessionStart.
    */
   record(paneId: string, agent: ResumableAgent, sessionId: string, source: Exclude<PaneSessionSource, 'recorded'> = 'hook', permissionMode?: ClaudePermissionMode): void {
-    if (!SESSION_ID.test(sessionId)) return
+    if (!isResumableAgent(agent) || !SESSION_ID.test(sessionId)) return
     const mode = agent === 'claude' && isClaudePermissionMode(permissionMode) ? permissionMode : null
     try {
       this.db.prepare(`INSERT INTO pane_agent_sessions (pane_id, agent, session_id, updated_at, permission_mode) VALUES (?, ?, ?, ?, ?)
@@ -67,10 +73,24 @@ export class PaneAgentSessions {
 
   /** The session the pane is in now and where it came from, for Terminal details; null when none is recorded. */
   current(paneId: string): { agent: ResumableAgent; sessionId: string; source: PaneSessionSource; permissionMode?: ClaudePermissionMode } | null {
-    let row: { agent: ResumableAgent; session_id: string; permission_mode: string | null } | undefined
+    let row: { agent: string; session_id: string; permission_mode: string | null } | undefined
     try { row = this.db.prepare('SELECT agent, session_id, permission_mode FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as typeof row } catch { return null }
-    if (!row || (row.agent !== 'claude' && row.agent !== 'codex') || !SESSION_ID.test(row.session_id)) return null
-    return { agent: row.agent, sessionId: row.session_id, source: this.sources.get(paneId) ?? 'recorded', ...modeOf(row) }
+    if (!row || !isResumableAgent(row.agent) || !SESSION_ID.test(row.session_id)) return null
+    return { agent: row.agent, sessionId: row.session_id, source: this.sources.get(paneId) ?? 'recorded', ...modeOf({ agent: row.agent, permission_mode: row.permission_mode }) }
+  }
+
+  /** Session IDs currently owned by other panes, so auto-discovery does not bind two panes to one conversation. */
+  claimedSessionIds(excludePaneId?: string): Set<string> {
+    const claimed = new Set<string>()
+    try {
+      const rows = (excludePaneId
+        ? this.db.prepare('SELECT session_id FROM pane_agent_sessions WHERE pane_id != ?').all(excludePaneId)
+        : this.db.prepare('SELECT session_id FROM pane_agent_sessions').all()) as Array<{ session_id: string }>
+      for (const row of rows) {
+        if (SESSION_ID.test(row.session_id)) claimed.add(row.session_id.toLowerCase())
+      }
+    } catch { /* best effort */ }
+    return claimed
   }
 
   /**
@@ -81,8 +101,10 @@ export class PaneAgentSessions {
     // `again`: a restart of the pane asks again (B17); a plain later start does not.
     if (this.resumedThisRun.has(paneId) && !again) return null
     this.resumedThisRun.add(paneId)
-    const row = this.db.prepare('SELECT agent, session_id, permission_mode FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { agent: ResumableAgent; session_id: string; permission_mode: string | null } | undefined
-    return row && (row.agent === 'claude' || row.agent === 'codex') && SESSION_ID.test(row.session_id) ? { agent: row.agent, sessionId: row.session_id, wanted, ...modeOf(row) } : 'none'
+    const row = this.db.prepare('SELECT agent, session_id, permission_mode FROM pane_agent_sessions WHERE pane_id = ?').get(paneId) as { agent: string; session_id: string; permission_mode: string | null } | undefined
+    return row && isResumableAgent(row.agent) && SESSION_ID.test(row.session_id)
+      ? { agent: row.agent, sessionId: row.session_id, wanted, ...modeOf({ agent: row.agent, permission_mode: row.permission_mode }) }
+      : 'none'
   }
 }
 

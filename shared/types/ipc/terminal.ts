@@ -130,25 +130,31 @@ export interface TerminalStatusResult {
   agentSession?: PaneAgentSession
 }
 
+/** Providers whose native sessions OXESpace tracks and resumes in OxeCode panes. */
+export type PaneSessionAgent = 'claude' | 'codex' | 'antigravity'
+
 /**
- * B17 · Where the pane's agent session came from:
- * - `launch`: main started the provider on it (`--session-id`, or a resume);
+ * B17 / OXE-467 · Where the pane's agent session came from:
+ * - `launch`: main started the provider on it (`--session-id`, `--resume`, `--conversation`, or a B17 resume);
  * - `hook`: the agent's status hook reported it;
+ * - `discovered`: matched automatically from the provider's native session storage in this directory;
  * - `recorded`: remembered from an earlier app run.
  */
+export type PaneAgentSessionSource = 'launch' | 'hook' | 'discovered' | 'recorded'
+
 export type PaneAgentSession =
-  | { agent: 'claude' | 'codex'; sessionId: string; source: 'launch' | 'hook' | 'recorded'; resumeCommand: string }
+  | { agent: PaneSessionAgent; sessionId: string; source: PaneAgentSessionSource; resumeCommand: string }
   | { source: 'notFound'; message: MainMessage }
 
 /**
- * B17 · The native session (Claude Code, Codex) a pane's first start after the app opened went back to:
+ * B17 · The native session (Claude Code, Codex, Antigravity) a pane's first start after the app opened went back to:
  * `resumed` (main started the provider on it), `notResumed` (one was recorded for the pane, and `message` says why it
  * was not used, C3 `agents.resume.*`), or `nothingRecorded`.
  */
 export type PaneAgentResume =
   /** `note` (T54): resumed, but without skipping permissions as the session had, since the setting is off. */
-  | { outcome: 'resumed'; agent: 'claude' | 'codex'; sessionId: string; note?: MainMessage }
-  | { outcome: 'notResumed'; agent: 'claude' | 'codex'; sessionId: string; message: MainMessage }
+  | { outcome: 'resumed'; agent: PaneSessionAgent; sessionId: string; note?: MainMessage }
+  | { outcome: 'notResumed'; agent: PaneSessionAgent; sessionId: string; message: MainMessage }
   | { outcome: 'nothingRecorded' }
 
 export interface SplitPaneInput {

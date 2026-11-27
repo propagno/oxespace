@@ -132,6 +132,28 @@ export function sameAntigravityRoot(a: string, b: string): boolean {
   return normalizeRoot(a) === normalizeRoot(b)
 }
 
+function canonicalRootsSync(workspaceRootPath: string): string[] {
+  const roots = [workspaceRootPath]
+  try {
+    const resolved = realpathSync.native ? realpathSync.native(workspaceRootPath) : realpathSync(workspaceRootPath)
+    if (resolved && !roots.some(r => sameAntigravityRoot(r, resolved))) roots.push(resolved)
+  } catch { /* folder may not exist or be virtual in tests */ }
+  return roots
+}
+
+async function canonicalRootsAsync(workspaceRootPath: string): Promise<string[]> {
+  const roots = [workspaceRootPath]
+  try {
+    const resolved = await realpath(workspaceRootPath)
+    if (resolved && !roots.some(r => sameAntigravityRoot(r, resolved))) roots.push(resolved)
+  } catch { /* folder may not exist or be virtual in tests */ }
+  return roots
+}
+
+function matchesAnyRoot(candidates: readonly string[], roots: readonly string[]): boolean {
+  return candidates.some(candidate => roots.some(root => sameAntigravityRoot(candidate, root)))
+}
+
 export function parseAntigravityTimestamp(raw: unknown): number | null {
   if (typeof raw === 'number') return Number.isFinite(raw) && raw > 0 ? raw : null
   if (typeof raw !== 'string') return null
@@ -642,6 +664,129 @@ function acceptPublicAntigravityEvent(value: Record<string, unknown>, offset: nu
     return { type: 'message', id, role: 'assistant', text }
   }
   return undefined
+}
+
+export interface RecentAntigravitySession {
+  sessionId: string
+  startedAtMs: number
+  lastUpdatedMs: number
+}
+
+const DEFAULT_RECENT_SCAN_LIMIT = 12
+
+/**
+ * Fast, bounded, read-only lookup of the newest Antigravity sessions for a workspace,
+ * used by automatic pane session ID capture (OXE-467). Avoids reading full transcripts
+ * when `conversation_summaries.db` or `history.jsonl` already verifies workspace ownership.
+ */
+export function findRecentAntigravitySessionsSync(
+  workspaceRootPath: string,
+  options: { antigravityHome?: string; limit?: number } = {}
+): RecentAntigravitySession[] {
+  const home = options.antigravityHome ?? defaultAntigravityHome()
+  const brainRoot = join(home, 'brain')
+  if (!existsSync(brainRoot)) return []
+  let entries
+  try {
+    entries = readdirSync(brainRoot, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const targetRoots = canonicalRootsSync(workspaceRootPath)
+  const summaries = readSummariesIndex(home)
+  const historyMap = readHistoryIndexSync(home)
+  const candidates: Array<{ id: string; sortHint: number }> = []
+
+  for (const entry of entries) {
+    if (!SESSION_ID_PATTERN.test(entry.name) || entry.isSymbolicLink() || !entry.isDirectory()) continue
+    const key = entry.name.toLowerCase()
+    const summary = summaries.get(key)
+    if (summary?.isSubagent) continue
+    if (summary && summary.workspacePaths.length > 0 && !matchesAnyRoot(summary.workspacePaths, targetRoots)) continue
+    const hist = historyMap.get(key)
+    let dirMtime: number
+    try { dirMtime = statSync(safeJoin(brainRoot, entry.name)).mtimeMs } catch { continue }
+    const sortHint = Math.max(summary?.lastModifiedMs ?? 0, hist?.lastTimestampMs ?? 0, dirMtime)
+    candidates.push({ id: entry.name, sortHint })
+  }
+  candidates.sort((a, b) => b.sortHint - a.sortHint || a.id.localeCompare(b.id))
+
+  const limit = Math.max(1, options.limit ?? DEFAULT_RECENT_SCAN_LIMIT)
+  const found: RecentAntigravitySession[] = []
+  for (const candidate of candidates.slice(0, limit)) {
+    const dirInfo = resolveContainedBrainDirSync(brainRoot, candidate.id)
+    if (!dirInfo) continue
+    const key = candidate.id.toLowerCase()
+    const summary = summaries.get(key)
+    const hist = historyMap.get(key)
+    let matched = matchesAnyRoot([...(summary?.workspacePaths ?? []), ...(hist?.workspacePaths ?? [])], targetRoots)
+    let meta: LocalMetadata | null = null
+    let transcript: TranscriptBounds | null = null
+    const transcriptPath = findTranscriptPath(dirInfo.dir)
+    if (!matched) {
+      meta = readMetadataSync(dirInfo.dir)
+      matched = Boolean(meta && matchesAnyRoot(meta.workspacePaths, targetRoots))
+    }
+    if (!matched && transcriptPath) {
+      transcript = scanTranscriptBoundsSync(transcriptPath)
+      matched = Boolean(transcript && matchesAnyRoot(transcript.workspacePaths, targetRoots))
+    }
+    if (!matched) continue
+    let transcriptMtime = transcript?.mtimeMs ?? 0
+    let transcriptBirth = transcript?.birthtimeMs ?? 0
+    if (transcriptPath && !transcript) {
+      try {
+        const info = statSync(transcriptPath)
+        transcriptMtime = info.mtimeMs
+        transcriptBirth = info.birthtimeMs || info.ctimeMs
+      } catch { /* ignore stat errors */ }
+    }
+    const lastUpdatedMs = Math.max(
+      summary?.lastModifiedMs ?? 0,
+      meta?.updatedAtMs ?? 0,
+      transcript?.lastAtMs ?? 0,
+      hist?.lastTimestampMs ?? 0,
+      transcriptMtime,
+      dirInfo.mtimeMs
+    )
+    const startedAtMs =
+      transcript?.startedAtMs ??
+      meta?.startedAtMs ??
+      hist?.firstTimestampMs ??
+      (transcriptBirth || dirInfo.birthtimeMs || lastUpdatedMs)
+    found.push({ sessionId: candidate.id, startedAtMs, lastUpdatedMs })
+  }
+  return found.sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs || a.sessionId.localeCompare(b.sessionId))
+}
+
+/**
+ * Checks whether an Antigravity native session exists in `<antigravityHome>/brain/<id>`,
+ * stays contained inside `brain/` (no symlinks), and belongs to `workspaceRootPath`.
+ */
+export async function antigravitySessionExists(
+  sessionId: string,
+  workspaceRootPath: string,
+  antigravityHome?: string
+): Promise<boolean> {
+  if (!SESSION_ID_PATTERN.test(sessionId)) return false
+  const home = antigravityHome ?? defaultAntigravityHome()
+  const brainRoot = join(home, 'brain')
+  const canonicalId = existsSync(safeJoin(brainRoot, sessionId)) ? sessionId : sessionId.toLowerCase()
+  const dirInfo = await resolveContainedBrainDirAsync(brainRoot, canonicalId, false)
+  if (!dirInfo) return false
+
+  const targetRoots = await canonicalRootsAsync(workspaceRootPath)
+  const key = canonicalId.toLowerCase()
+  const summary = readSummariesIndex(home).get(key)
+  if (summary && matchesAnyRoot(summary.workspacePaths, targetRoots)) return true
+  const hist = (await readHistoryIndexAsync(home)).get(key)
+  if (hist && matchesAnyRoot(hist.workspacePaths, targetRoots)) return true
+  const meta = await readMetadataAsync(dirInfo.dir)
+  if (meta && matchesAnyRoot(meta.workspacePaths, targetRoots)) return true
+  const transcriptPath = findTranscriptPath(dirInfo.dir)
+  const bounds = transcriptPath ? await scanTranscriptBoundsAsync(transcriptPath) : null
+  return Boolean(bounds && matchesAnyRoot(bounds.workspacePaths, targetRoots))
 }
 
 export async function verifyAndReadAntigravitySession(
