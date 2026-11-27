@@ -2844,5 +2844,61 @@
     },
     "unreadableTitle": "Couldn't read the containers",
     "unreadableBody": "The containers service did not answer. Check that Docker or Podman is installed and running, then try again."
+  },
+  "remoteHosts": {
+    "title": "Remote SSH hosts",
+    "addHost": "Add remote SSH host",
+    "importConfig": "Import from ~/.ssh/config",
+    "emptyHint": "Add a remote host or import from ~/.ssh/config to open SSH terminals here.",
+    "selectWorkspaceFirst": "Select a workspace before opening a remote SSH terminal.",
+    "importNone": "No new SSH hosts found in ~/.ssh/config.",
+    "importedCount_one": "Imported {{count}} SSH host from ~/.ssh/config.",
+    "importedCount_other": "Imported {{count}} SSH hosts from ~/.ssh/config.",
+    "openTerminal": "Open remote terminal on {{name}}",
+    "reconnect": "Reconnect remote SSH terminal",
+    "removeHost": "Remove {{name}}",
+    "status": {
+      "idle": "Idle",
+      "connecting": "Connecting",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "error": "Error",
+      "unpinned": "Unverified"
+    },
+    "dialog": {
+      "title": "Add remote SSH host",
+      "description": "Connect to a remote Linux or macOS host with SHA-256 host key verification.",
+      "nameLabel": "Display name",
+      "namePlaceholder": "prod-api",
+      "hostLabel": "Host",
+      "hostPlaceholder": "10.0.0.20",
+      "portLabel": "Port",
+      "portPlaceholder": "22",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "deploy",
+      "authLabel": "Authentication",
+      "authAgent": "SSH agent",
+      "authKey": "Private key file",
+      "authPassword": "Password",
+      "keyPathLabel": "Private key path",
+      "keyPathPlaceholder": "~/.ssh/id_ed25519",
+      "passwordLabel": "Password",
+      "passphraseLabel": "Key passphrase (optional)",
+      "secretPlaceholder": "Stored encrypted in system keychain",
+      "secretHint": "Encrypted with OS secure storage; never written in plaintext.",
+      "remoteDirLabel": "Default remote directory (optional)",
+      "remoteDirPlaceholder": "/srv/app",
+      "probeKey": "Verify host key",
+      "fingerprintLabel": "SHA-256 host key fingerprint",
+      "save": "Save host",
+      "cancel": "Cancel"
+    },
+    "pin": {
+      "unknownTitle": "Trust SSH host key?",
+      "changedTitle": "SSH host key changed",
+      "description": "Compare this SHA-256 fingerprint for {{host}} before connecting.",
+      "changedWarning": "Previously trusted fingerprint was {{previous}}. Confirm the host was intentionally rebuilt before continuing.",
+      "trustAndConnect": "Trust & connect"
+    }
   }
 }

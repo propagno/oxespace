@@ -229,7 +229,10 @@ async function registerIpcHandlers(): Promise<() => void> {
     event.preventDefault()
     if (memoryShutdownStarted) return
     memoryShutdownStarted = true
-    const terminalsDrained = core.terminalManager.stopAllAndDrain() // OXE-392: every terminal exit reaches JS before teardown
+    const detachOnQuit = Boolean(core.ptyDaemon) && core.terminalManager.quitBehavior() === 'detach'
+    const terminalsDrained = detachOnQuit
+      ? core.terminalManager.detachForQuit()
+      : core.terminalManager.stopAllAndDrain() // OXE-392/OXE-447: detach daemon PTYs or drain all exits before teardown
     // Quitting can still stall after the drain, for example on a native handle a terminal left
     // open on Windows; the window is gone by then, so end the process instead of lingering.
     const quit = (): void => {
@@ -251,7 +254,9 @@ async function registerIpcHandlers(): Promise<() => void> {
   app.once('before-quit', () => {
     for (const filePath of clipboardImageTempFiles) void cleanupTempFile(filePath)
     workspace.fileSystemService.closeAll()
-    core.terminalManager.stopAll()
+    if (!(Boolean(core.ptyDaemon) && core.terminalManager.quitBehavior() === 'detach')) {
+      core.terminalManager.stopAll()
+    }
     workspace.backgroundManager.stopAll()
     workspace.skillService.dispose()
     workspace.mcpManager.stopAll()

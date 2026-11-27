@@ -27,9 +27,14 @@ export type PtyHostEvent =
 /** The environment switch. The PTY host is the default since OXE-400 (23/11, the user's decision after the proof). */
 export const PTY_HOST_ENV = 'OXESPACE_PTY_HOST'
 
-/** Where node-pty runs: the PTY host utility process, unless OXESPACE_PTY_HOST=main asks for the main process. */
-export function ptyHostMode(env: NodeJS.ProcessEnv): 'utility' | 'main' {
-  return env[PTY_HOST_ENV]?.trim().toLowerCase() === 'main' ? 'main' : 'utility'
+export type PtyHostMode = 'utility' | 'main' | 'daemon'
+
+/** Where node-pty runs: the PTY host utility process by default, `main` in-process, or `daemon` detached. */
+export function ptyHostMode(env: NodeJS.ProcessEnv = process.env): PtyHostMode {
+  const value = env[PTY_HOST_ENV]?.trim().toLowerCase()
+  if (value === 'main') return 'main'
+  if (value === 'daemon') return 'daemon'
+  return 'utility'
 }
 
 /** The exit code a terminal reports when its host process ended under it (crash, kill, quit). */

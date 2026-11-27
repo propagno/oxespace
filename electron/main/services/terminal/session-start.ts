@@ -30,6 +30,8 @@ export interface SessionStartOptions {
   isManagedPane?: (paneId: string) => boolean
   /** Main-process-registered container shells (`oxequery-shell:*`); the renderer never supplies the command. */
   oxeQueryShell?: (paneId: string) => { file: string; args: string[] } | undefined
+  /** OXE-447 · Main-process-registered remote SSH panes (`SshHostedPty`); skips local shell spawn. */
+  remoteSshPane?: (paneId: string, geometry: { cols: number; rows: number }) => Promise<{ pty: IPty; cwd: string; label: string; command?: string } | undefined> | undefined
   /** The agent session recorded for a pane, answered on its first start in this app run only (see PaneAgentSessions). */
   resumeSession?: (paneId: string, wanted: boolean, again?: boolean) => PaneResumeRecord | null
   /** Forgets the pane's recorded session (a restart with `resume: false`). */
@@ -63,6 +65,8 @@ export interface StartedProcess {
   revokeProxy?: () => void
   /** What the observer is told runs in the pane. */
   command: string
+  /** OXE-447 · True when backed by a remote SSH shell (`SshHostedPty`). */
+  remote?: boolean
 }
 
 export interface SessionStartHost extends SessionStartOptions {
@@ -118,6 +122,31 @@ export class SessionStarter {
   async start(input: ManagedTerminalStart, signal: AbortSignal): Promise<void> {
     if (this.host.sessions.has(input.paneId)) return
     if (!input.launch && this.host.isManagedPane?.(input.paneId)) throw new Error('Delegated terminal is managed by its task. Use Retry in Workspace settings > Agent delegation.')
+
+    if (this.host.remoteSshPane) {
+      const cols = clampDimension(input.cols, 80)
+      const rows = clampDimension(input.rows, 24)
+      const remote = await this.host.remoteSshPane(input.paneId, { cols, rows })
+      if (remote) {
+        if (signal.aborted) {
+          remote.pty.kill()
+          this.host.notifyLaunchExit(input.paneId)
+          return
+        }
+        recordRuntime('process-start', { pane: input.paneId, pid: remote.pty.pid, parentPid: process.pid, executable: remote.label, kind: 'code' })
+        this.host.started({
+          input,
+          ptyProcess: remote.pty,
+          cwd: remote.cwd,
+          executable: remote.label,
+          cols,
+          rows,
+          command: input.agentCommand ?? remote.command ?? remote.label,
+          remote: true
+        })
+        return
+      }
+    }
 
     const threadShell = /^thread-shell:([a-f0-9-]{36}):([1-8])$/i.exec(input.paneId)
     let launch = this.launchContextStatement.get({

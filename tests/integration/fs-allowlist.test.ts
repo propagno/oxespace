@@ -313,7 +313,17 @@ const ALLOWED_FS_IMPORTS = new Set([
   // OXE-298 (CA-1): watches the parent directory of a validated workspace-contained handoff file (for atomic rename
   // saves) and reads bounded bytes (<= 2 MiB) after realpath containment check solely to compute a SHA-256 fingerprint
   // for debounced/deduped passive notices. Never writes files.
-  'electron/main/services/handoff/handoff-watcher.ts'
+  'electron/main/services/handoff/handoff-watcher.ts',
+  // OXE-447: detached local PTY daemon manages only its own POSIX Unix Domain Socket file (unlink stale socket +
+  // chmod 0600 on listen); never touches workspace files.
+  'electron/main/workers/pty-daemon.ts',
+  // OXE-447: persists only <userData>/execution-bindings.json (atomic temp+rename, mode 0600, safeStorage-encrypted)
+  // for PTY daemon restart reconciliation; never touches workspace files.
+  'electron/main/services/execution-binding-store.ts',
+  // OXE-447: read-only bounded read of ~/.ssh/config (<= 256 KiB) for assisted SSH host import; never writes.
+  'electron/main/services/ssh/ssh-config-parser.ts',
+  // OXE-447: read-only bounded read of a user-configured SSH private key file (<= 64 KiB) during SSH auth; never writes.
+  'electron/main/services/ssh/remote-ssh-hosts.service.ts'
 ])
 
 describe('workspace fs allowlist', () => {

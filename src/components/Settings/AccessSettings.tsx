@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isThreadAccess, THREAD_ACCESS_LEVELS, type ThreadAccess } from '../../../shared/threadAccess'
+import type { TerminalQuitBehavior } from '../../../shared/types/ipc/terminal'
 import { applyWithUndo, Notice, Select, Switch } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 
@@ -70,12 +71,50 @@ export function AgentsFullAccessSetting(): ReactElement | null {
   }
 
   return (
-    <div className="settings-toggle-row" data-testid="terminal-agents-full-access">
-      <span>
-        <strong>{t('terminal.agentsFullAccess')}</strong>
-        <small>{t('terminal.agentsFullAccessHint')}</small>
-      </span>
-      <Switch checked={enabled} onChange={change} ariaLabel={t('terminal.agentsFullAccess')} />
-    </div>
+    <>
+      <div className="settings-toggle-row" data-testid="terminal-agents-full-access">
+        <span>
+          <strong>{t('terminal.agentsFullAccess')}</strong>
+          <small>{t('terminal.agentsFullAccessHint')}</small>
+        </span>
+        <Switch checked={enabled} onChange={change} ariaLabel={t('terminal.agentsFullAccess')} />
+      </div>
+      <TerminalQuitBehaviorSetting />
+    </>
+  )
+}
+
+/**
+ * OXE-447 · Settings > Terminal: choose whether quitting OXESpace detaches from daemon PTY sessions
+ * (so terminals survive app restarts) or stops all active terminals.
+ */
+export function TerminalQuitBehaviorSetting(): ReactElement | null {
+  const { t } = useTranslation('settings')
+  const [mode, setMode] = useState<TerminalQuitBehavior | null>(null)
+
+  useEffect(() => {
+    let live = true
+    void window.oxe?.terminal?.quitBehavior?.().then(value => {
+      if (live && (value === 'detach' || value === 'kill')) setMode(value)
+    }, () => undefined)
+    return () => { live = false }
+  }, [])
+
+  if (mode === null || !window.oxe?.terminal?.setQuitBehavior) return null
+
+  const change = (next: string): void => {
+    if (next !== 'detach' && next !== 'kill') return
+    void window.oxe.terminal.setQuitBehavior!(next).then(setMode, () => undefined)
+  }
+
+  return (
+    <label className="settings-field" data-testid="terminal-quit-behavior">
+      <span>{t('terminal.quitBehavior')}</span>
+      <Select aria-label={t('terminal.quitBehavior')} value={mode} onChange={(event) => change(event.target.value)}>
+        <option value="detach">{t('terminal.quitBehaviorOptions.detach')}</option>
+        <option value="kill">{t('terminal.quitBehaviorOptions.kill')}</option>
+      </Select>
+      <span className="settings-field-hint">{t('terminal.quitBehaviorHint')}</span>
+    </label>
   )
 }

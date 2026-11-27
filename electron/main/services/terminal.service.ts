@@ -12,6 +12,9 @@ import { resumeCommand } from './agent-state/pane-sessions'
 import { mainMessage } from '../../../shared/messages'
 import { resumeBypassAllowed, setResumeBypassAllowed } from './agent-state/resume-bypass-setting'
 import { setTerminalAgentsFullAccess, terminalAgentsFullAccess } from './agent-state/agent-full-access'
+import { setTerminalQuitBehavior, terminalQuitBehavior } from './terminal/quit-behavior-setting'
+import type { DaemonPtyModule } from './terminal/daemon-pty'
+import type { PtyDaemonSessionInfo } from './terminal/pty-daemon-protocol'
 import { startedFreshStatus } from './agent-state/pane-resume'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { resolveExecutable as resolveWithProbe } from './terminal/executable'
@@ -26,7 +29,7 @@ import { SizeLeases } from './terminal/size-lease'
 import { desktopStartSize, keepDesktopSize } from './terminal/restart-size'
 import { Da1Filter } from './pty-da1'
 import { LEVER_I_FLUSH_BYTES, LEVER_I_FLUSH_MS, TERMINAL_LEVERS_ENV, terminalLevers, type TerminalLever } from '../../../shared/terminal-levers'
-import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult, TerminalExitEvent, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
+import type { TerminalActivityEvent, TerminalSizeLeaseEvent, TerminalAttachInput, TerminalAttachResult, TerminalDataEvent, TerminalDetachInput, TerminalDetachResult, TerminalExitEvent, TerminalQuitBehavior, TerminalResizeInput, TerminalStatusResult, TerminalStopInput, TerminalWriteInput, PaneAgentResume, PaneAgentSession, TerminalBranchChangedEvent, TerminalPaneBranch } from '../../../shared/types/ipc'
 
 export { __resetExecutableCacheForTests } from './terminal/executable'
 export { CONPTY_START_SCREEN }
@@ -41,6 +44,8 @@ export const NUDGE_REDRAW_DELAY_MS = 65
 
 interface TerminalManagerOptions extends SessionStartOptions {
   pty?: PtyModule
+  /** OXE-447 · Optional detached PTY daemon client module for restart survival and explicit shutdown. */
+  daemon?: DaemonPtyModule
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
   userDataPath?: string
@@ -57,7 +62,7 @@ interface TerminalManagerOptions extends SessionStartOptions {
 }
 
 export interface TerminalObserver {
-  start(paneId: string, workspaceId: string, cols: number, rows: number, command: string | null): void
+  start(paneId: string, workspaceId: string, cols: number, rows: number, command: string | null, options?: { remote?: boolean }): void
   output(paneId: string, data: string): void
   resize(paneId: string, cols: number, rows: number): void
   exit(paneId: string): void
@@ -82,6 +87,7 @@ export class TerminalManager {
   private readonly exitDrain = new PtyExitDrain<StartedProcess['ptyProcess']>()
   private quitting = false
   private readonly onLaunchExit?: TerminalManagerOptions['onLaunchExit']
+  private readonly daemon?: DaemonPtyModule
   private readonly observer?: TerminalObserver
   private readonly resumeSession?: TerminalManagerOptions['resumeSession']
   private readonly clearSession?: TerminalManagerOptions['clearSession']
@@ -116,6 +122,7 @@ export class TerminalManager {
 
   constructor(private readonly db: AppDatabase, options: TerminalManagerOptions = {}) {
     this.onLaunchExit = options.onLaunchExit
+    this.daemon = options.daemon
     this.observer = options.observer
     this.resumeSession = options.resumeSession
     this.clearSession = options.clearSession
@@ -139,6 +146,7 @@ export class TerminalManager {
       agentMcpArgs: options.agentMcpArgs,
       isManagedPane: options.isManagedPane,
       oxeQueryShell: options.oxeQueryShell,
+      remoteSshPane: options.remoteSshPane,
       resumeSession: options.resumeSession,
       assignSession: options.assignSession,
       clearSession: options.clearSession,
@@ -176,7 +184,7 @@ export class TerminalManager {
   }
 
   /** The spawned process becomes the pane's session: its state, its output and its exit. */
-  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command }: StartedProcess): void {
+  private onStarted({ input, ptyProcess, cwd, executable, cols, rows, resumed, revokeProxy, command, remote }: StartedProcess): void {
     // A pane that is starting fresh must not inherit a dead session's output.
     this.exits.forget(input.paneId)
     this.reclaimIdleSession()
@@ -215,15 +223,15 @@ export class TerminalManager {
     // The bundled ConPTY (useConptyDll) never clears the screen on start, unlike the system one (ESC[2J ESC[m ESC[H),
     // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
     // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
-    if (this.platform === 'win32') this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    if (this.platform === 'win32' && !remote) this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
     this.exitDrain.track(ptyProcess)
-    this.trackBranch(input.paneId, cwd)
-    this.observer?.start(input.paneId, input.workspaceId, cols, rows, command)
+    if (!remote) this.trackBranch(input.paneId, cwd)
+    this.observer?.start(input.paneId, input.workspaceId, cols, rows, command, remote ? { remote: true } : undefined)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
       if (session) this.output.receive(session, data)
-      // OXE-411 lever M: the headless screen mirror only for panes started as an agent.
-      if (!this.levers.has('M') || input.agentCommand) this.observer?.output(input.paneId, data)
+      // OXE-411 lever M: the headless screen mirror runs for agent panes and remote SSH panes (OXE-447).
+      if (!this.levers.has('M') || input.agentCommand || remote) this.observer?.output(input.paneId, data)
     })
     ptyProcess.onExit(({ exitCode }) => {
       this.exitDrain.settle(ptyProcess)
@@ -532,14 +540,50 @@ export class TerminalManager {
     }
   }
 
+  /** OXE-447 · Quit behavior (`detach` keeps daemon PTYs alive; `kill` terminates all terminals). */
+  quitBehavior(): TerminalQuitBehavior {
+    return terminalQuitBehavior(this.db)
+  }
+
+  setQuitBehavior(mode: TerminalQuitBehavior): TerminalQuitBehavior {
+    return setTerminalQuitBehavior(this.db, mode)
+  }
+
+  /** Lists live sessions currently owned by the detached PTY daemon (empty when not in daemon mode). */
+  async listDaemonSessions(): Promise<PtyDaemonSessionInfo[]> {
+    if (!this.daemon) return []
+    return this.daemon.listSessions().catch(() => [])
+  }
+
+  /** Detaches from the PTY daemon cleanly on quit without killing daemon-owned sessions. */
+  async detachForQuit(): Promise<void> {
+    this.quitting = true
+    for (const controller of this.launchControllers.values()) controller.abort()
+    for (const session of this.sessions.values()) {
+      this.clearNudgeTimer(session)
+      this.output.releaseDa1(session)
+      session.outputBatcher.flush()
+      session.inputQueue.dispose()
+      session.outputBatcher.dispose()
+    }
+    this.sessions.clear()
+    if (this.daemon) {
+      await this.daemon.detachClient().catch(() => undefined)
+    }
+  }
+
   /**
    * OXE-392, on quit: no new start, every launch aborted and every terminal stopped, then each exit awaited while JS
    * still runs (see quit-drain.ts). A terminal that exits on its signal at once is drained in milliseconds.
    */
-  stopAllAndDrain(options: Partial<QuitDrainOptions<StartedProcess['ptyProcess']>> = {}): Promise<QuitDrainResult> {
+  async stopAllAndDrain(options: Partial<QuitDrainOptions<StartedProcess['ptyProcess']>> = {}): Promise<QuitDrainResult> {
     this.quitting = true
     this.stopAll()
-    return this.exitDrain.drain({ ...options, forceKill: options.forceKill ?? (pty => this.forceKill(pty)) })
+    const drained = await this.exitDrain.drain({ ...options, forceKill: options.forceKill ?? (pty => this.forceKill(pty)) })
+    if (this.daemon) {
+      await this.daemon.shutdown().catch(() => undefined)
+    }
+    return drained
   }
 
   private forceKill(pty: StartedProcess['ptyProcess']): void {

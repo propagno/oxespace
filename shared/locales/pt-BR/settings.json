@@ -377,7 +377,13 @@
     "agentsFullAccessHint": "Claude Code, Codex e Antigravity iniciados pelo OXESpace em um terminal rodam comandos e editam arquivos sem perguntar. Desligado: cada agente pergunta do jeito do próprio CLI. Um comando que já escolhe o modo fica com o dele.",
     "resumeBypass": "Retomar do mesmo jeito as sessões que ignoravam os pedidos de permissão",
     "resumeBypassOn": "Sessões retomadas agora pulam os pedidos de permissão quando já pulavam antes",
-    "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão."
+    "resumeBypassHint": "Uma sessão do Claude Code iniciada ignorando os pedidos de permissão é retomada do mesmo jeito depois de reiniciar ou de Restaurar sessão. Desligado: ela é retomada pedindo permissão.",
+    "quitBehavior": "Ao encerrar o OXESpace",
+    "quitBehaviorHint": "Desconectar mantém os terminais do daemon PTY rodando entre reinicializações. Encerrar e parar terminais finaliza todos os processos de terminal.",
+    "quitBehaviorOptions": {
+      "detach": "Desconectar ao sair (manter terminais rodando)",
+      "kill": "Encerrar e parar terminais"
+    }
   },
   "hooks": {
     "title": "Hooks de status dos agentes",

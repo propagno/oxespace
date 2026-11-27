@@ -177,7 +177,9 @@ export default defineConfig({
           'native-history-worker': resolve(__dirname, 'electron/main/workers/native-history-worker.ts'),
           'oxequery-worker': resolve(__dirname, 'electron/main/workers/oxequery-worker.ts'),
           // OXE-400 · node-pty in a utility process, started only when OXESPACE_PTY_HOST=utility.
-          'pty-host': resolve(__dirname, 'electron/main/workers/pty-host.ts')
+          'pty-host': resolve(__dirname, 'electron/main/workers/pty-host.ts'),
+          // OXE-447 · Detached local-only PTY daemon for restart survival (OXESPACE_PTY_HOST=daemon).
+          'pty-daemon': resolve(__dirname, 'electron/main/workers/pty-daemon.ts')
         }
       }
     }

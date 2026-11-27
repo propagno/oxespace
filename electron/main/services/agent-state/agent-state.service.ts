@@ -1,5 +1,5 @@
 import { agentFromCommand } from './agents'
-import { detect, manifestFor, type AgentManifest, type Detection } from './manifest'
+import { detect, loadManifests, manifestFor, type AgentManifest, type Detection } from './manifest'
 import { PaneScreen } from './screen'
 
 /**
@@ -47,6 +47,8 @@ interface PaneRecord {
   agent: string | null
   manifest?: AgentManifest
   screen?: PaneScreen
+  /** OXE-447 · Remote SSH panes cannot reach localhost lifecycle hooks, so screen detection opens immediately. */
+  remote: boolean
   /** A hook arrived from this agent: its screen is never read. */
   hooked: boolean
   /** Runs from the agent's first output until a hook arrives or the screen takes over. */
@@ -70,9 +72,10 @@ export class AgentStateService {
   private readonly waiters = new Set<Waiter>()
   private readonly now: () => number
   private seq = 0
+  private cachedManifests?: { raw: unknown; parsed: Map<string, AgentManifest> }
 
   constructor(private readonly deps: {
-    manifests: () => Map<string, AgentManifest>
+    manifests: () => Map<string, AgentManifest> | Array<{ file: string; text: string }>
     emit: (event: PaneAgentStateEvent) => void
     /** Output the pane already printed, to seed a screen created after the agent started. */
     history?: (paneId: string) => string | null
@@ -82,9 +85,9 @@ export class AgentStateService {
   }
 
   /** A terminal started. `command` is the agent command or executable it runs, when known. */
-  start(paneId: string, workspaceId: string, cols: number, rows: number, command?: string | null): void {
+  start(paneId: string, workspaceId: string, cols: number, rows: number, command?: string | null, options?: { remote?: boolean }): void {
     this.forget(paneId)
-    const record: PaneRecord = { paneId, workspaceId, agent: null, hooked: false, cols, rows, hook: null, detection: null, published: null, raw: null, seen: true, pendingIdle: null, lastEvalAt: 0 }
+    const record: PaneRecord = { paneId, workspaceId, agent: null, remote: Boolean(options?.remote), hooked: false, cols, rows, hook: null, detection: null, published: null, raw: null, seen: true, pendingIdle: null, lastEvalAt: 0 }
     this.panes.set(paneId, record)
     const agent = agentFromCommand(command)
     if (agent) this.identify(paneId, agent, false)
@@ -95,10 +98,10 @@ export class AgentStateService {
     const record = this.panes.get(paneId)
     if (!record || record.agent === agent) return
     record.agent = agent
-    record.manifest = manifestFor(this.deps.manifests(), agent)
+    record.manifest = manifestFor(this.resolveManifests(), agent)
     record.hooked = false
     this.releaseScreen(record)
-    if (record.manifest && !HOOK_AGENTS.has(agent)) this.openScreen(record, seed)
+    if (record.manifest && (!HOOK_AGENTS.has(agent) || record.remote)) this.openScreen(record, seed)
     else this.schedule(record)
   }
 
@@ -195,6 +198,15 @@ export class AgentStateService {
   }
 
   // ---- screen ----------------------------------------------------------------
+
+  private resolveManifests(): Map<string, AgentManifest> {
+    const raw = this.deps.manifests()
+    if (raw instanceof Map) return raw
+    if (this.cachedManifests?.raw === raw) return this.cachedManifests.parsed
+    const parsed = loadManifests(raw).manifests
+    this.cachedManifests = { raw, parsed }
+    return parsed
+  }
 
   private openScreen(record: PaneRecord, seed: boolean): void {
     const screen = new PaneScreen(record.cols, record.rows)

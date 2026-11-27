@@ -1,0 +1,96 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--bd-subtle);
+}
+
+.sectionActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+
+.rowTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hostName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--tx-primary);
+  font-size: var(--fs-sm);
+}
+
+.hostMeta {
+  color: var(--tx-muted);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+
+.hintRow {
+  padding: var(--space-1) var(--space-3);
+  color: var(--tx-muted);
+  font-size: var(--fs-xs);
+}
+
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-2);
+}
+
+.fingerprintBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bd-default);
+  background: var(--surface-sunken);
+}
+
+.fingerprintHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.fingerprintLabel {
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+}
+
+.fingerprintValue {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--tx-primary);
+  word-break: break-all;
+}
+
+.pinPrompt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

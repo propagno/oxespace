@@ -354,7 +354,13 @@
     "agentsFullAccessHint": "Claude Code, Codex and Antigravity started by OXESpace in a terminal run commands and edit files without asking. Off: each agent asks the way its own CLI does. A command that already chooses its mode keeps it.",
     "resumeBypass": "Resume sessions that skipped permission prompts the same way",
     "resumeBypassOn": "Resumed sessions now skip permission prompts when they did before",
-    "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission."
+    "resumeBypassHint": "A Claude Code session started with its permission prompts skipped resumes the same way after a restart or Restore session. Off: it resumes asking for permission.",
+    "quitBehavior": "When quitting OXESpace",
+    "quitBehaviorHint": "Detach leaves PTY daemon terminals running across app restarts. Quit & stop terminals ends every running terminal process.",
+    "quitBehaviorOptions": {
+      "detach": "Detach on quit (keep terminals running)",
+      "kill": "Quit & stop terminals"
+    }
   },
   "hooks": {
     "title": "Agent status hooks",

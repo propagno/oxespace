@@ -12,6 +12,7 @@
  */
 import type { IDisposable, IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
 import type { PtyModule } from './session-start'
+import type { DaemonPtyModule } from './daemon-pty'
 import { HOST_GONE_EXIT_CODE, ptyHostMode, type PtyHostEvent, type PtyHostRequest } from './pty-host-protocol'
 
 /** What this module needs of the host process: Electron's UtilityProcess in the app, a fake in tests. */
@@ -145,10 +146,30 @@ export function utilityPtyModule(forkHost: () => PtyHostProcess, onHostExit?: (c
 
 /**
  * The TerminalManager option electron/main/index.ts spreads: the PTY host (the built worker at `entry`) by default,
- * nothing (node-pty in main) when OXESPACE_PTY_HOST=main. The host process itself starts with the first terminal.
+ * nothing (node-pty in main) when OXESPACE_PTY_HOST=main, or the detached PTY daemon when OXESPACE_PTY_HOST=daemon.
  */
-export async function appPtyOption(env: NodeJS.ProcessEnv, entry: string, warn: (message: string) => void): Promise<{ pty?: UtilityPtyModule }> {
-  return ptyHostMode(env) === 'main' ? {} : { pty: await appPtyHost(entry, warn) }
+export async function appPtyOption(
+  env: NodeJS.ProcessEnv,
+  entry: string,
+  warn: (message: string) => void,
+  daemonOptions?: { daemonEntry: string; userDataPath: string }
+): Promise<{ pty?: UtilityPtyModule | DaemonPtyModule; daemon?: DaemonPtyModule }> {
+  const mode = ptyHostMode(env)
+  if (mode === 'main') return {}
+  if (mode === 'daemon' && daemonOptions) {
+    try {
+      const { connectOrStartPtyDaemon, createDaemonPtyModule } = await import('./daemon-pty')
+      const client = await connectOrStartPtyDaemon({
+        userDataPath: daemonOptions.userDataPath,
+        entryPath: daemonOptions.daemonEntry
+      })
+      const daemon = createDaemonPtyModule(client)
+      return { pty: daemon, daemon }
+    } catch (error) {
+      warn(`[terminal] detached PTY daemon unavailable, falling back to utility host: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  return { pty: await appPtyHost(entry, warn) }
 }
 
 /** The app's PtyModule over the built worker at `entry`. */

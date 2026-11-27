@@ -62,7 +62,7 @@ export type { GitHubBranch, GitHubCheckpoint, GitHubCliStatus, GitHubCommit, Git
 export type { IntegrationGroup, IntegrationMember, IntegrationHandoff, IntegrationRole, IntegrationSession, IntegrationStatus } from './integration'
 export type { FileSystemApi, FileSystemFileChangedEvent, FileSystemListTreeInput, FileSystemReadBinaryInput, FileSystemReadBinaryResult, FileSystemReadFileInput, FileSystemReadFileResult, FileSystemUnwatchFileInput, FileSystemWatchFileInput, FileSystemWatchFileResult, FileSystemWriteFileInput, FileSystemWriteFileResult, FileTreeNode, FileTreeNodeType } from './filesystem'
 import type { TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDetachInput, TerminalDetachResult, TerminalStatusResult, TerminalSizeLease, TerminalSizeLeaseEvent, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
-export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDetachInput, TerminalDetachResult, TerminalStatusResult, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
+export type { TerminalSizeLease, TerminalSizeLeaseEvent, TerminalStartInput, TerminalWriteInput, TerminalResizeInput, TerminalStopInput, TerminalDataEvent, TerminalExitEvent, TerminalActivityEvent, TerminalAttachInput, TerminalAttachResult, TerminalDetachInput, TerminalDetachResult, TerminalStatusResult, TerminalQuitBehavior, PaneAgentResume, PaneAgentSession, SplitPaneInput, UpdatePaneTypeInput, UpdatePaneNameInput } from './ipc/terminal'
 
 import { AGENTS_CHANNELS } from './ipc/agents'
 export type { AgentsApi } from './ipc/agents'
@@ -139,6 +139,7 @@ export const IPC_CHANNELS = {
     setResumeBypass: 'terminal:set-resume-bypass',
     agentsFullAccess: 'terminal:agents-full-access',
     setAgentsFullAccess: 'terminal:set-agents-full-access',
+    quitBehavior: 'terminal:quit-behavior', setQuitBehavior: 'terminal:set-quit-behavior',
     // A18 (T73) · The pane's branch and where it started, for the pane header; read, then pushed on change.
     branch: 'terminal:branch',
     branchChanged: 'terminal:branch-changed',
@@ -484,12 +485,10 @@ export const IPC_CHANNELS = {
     changed: 'feature-usage:changed'
   },
   hostsProxy: {
-    state: 'hosts-proxy:state',
-    setEnabled: 'hosts-proxy:set-enabled',
-    clear: 'hosts-proxy:clear',
-    retry: 'hosts-proxy:retry',
-    changed: 'hosts-proxy:changed'
+    state: 'hosts-proxy:state', setEnabled: 'hosts-proxy:set-enabled',
+    clear: 'hosts-proxy:clear', retry: 'hosts-proxy:retry', changed: 'hosts-proxy:changed'
   },
+  remoteHosts: { call: 'remote-hosts:call', changed: 'remote-hosts:changed' },
 } as const
 
 export interface WorkspaceApi {
@@ -546,6 +545,7 @@ export interface TerminalApi {
   /** Settings > Terminal: agents started in a pane skip their permission prompts (on by default). */
   agentsFullAccess?(): Promise<boolean>
   setAgentsFullAccess?(enabled: boolean): Promise<boolean>
+  quitBehavior?(): Promise<import('./ipc/terminal').TerminalQuitBehavior>; setQuitBehavior?(mode: import('./ipc/terminal').TerminalQuitBehavior): Promise<import('./ipc/terminal').TerminalQuitBehavior>
   write(input: TerminalWriteInput): Promise<void>
   resize(input: TerminalResizeInput): Promise<void>
   stop(input: TerminalStopInput): Promise<void>
@@ -829,6 +829,7 @@ export interface OxeApi {
   featureUsage: FeatureUsageApi
   hostsProxy: HostsProxyApi
   repository?: import('./repo-config').RepositoryWorktreeTemplateApi
+  remoteHosts?: import('./remote-hosts').RemoteHostsApi
 }
 
 export type PaneConversationPageResult =
