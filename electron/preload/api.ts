@@ -463,16 +463,9 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       onFrame: (listener) => subscribe<import('../../shared/types/ipc').AndroidMirrorFrame>(ipc, IPC_CHANNELS.android.frame, listener),
       onOpenPanel: (listener) => subscribe<import('../../shared/types/android').AndroidOpenPanelRequest>(ipc, IPC_CHANNELS.android.openPanel, listener)
     },
-    schedules: {
-      state: () => ipc.invoke(IPC_CHANNELS.schedules.state) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['state']>,
-      runs: (id) => ipc.invoke(IPC_CHANNELS.schedules.runs, id) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['runs']>,
-      save: (input) => ipc.invoke(IPC_CHANNELS.schedules.save, input) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['save']>,
-      remove: (id) => ipc.invoke(IPC_CHANNELS.schedules.remove, id) as Promise<void>,
-      setEnabled: (input) => ipc.invoke(IPC_CHANNELS.schedules.setEnabled, input) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['setEnabled']>,
-      setPaused: (paused) => ipc.invoke(IPC_CHANNELS.schedules.setPaused, paused) as Promise<void>,
-      runNow: (id) => ipc.invoke(IPC_CHANNELS.schedules.runNow, id) as ReturnType<import('../../shared/types/schedules-api').SchedulesApi['runNow']>,
-      onChanged: (listener) => subscribe<import('../../shared/types/schedules-api').ScheduleEvent | undefined>(ipc, IPC_CHANNELS.schedules.changed, listener)
-    },
+    schedules: bind<OxeApi['schedules']>(IPC_CHANNELS.schedules, {
+      onChanged: sub(IPC_CHANNELS.schedules.changed)
+    }),
     agentActivity: {
       list: (query) => ipc.invoke(IPC_CHANNELS.agentActivity.list, query) as Promise<import('../../shared/types/agent-activity').AgentActivityPage>,
       detail: (id) => ipc.invoke(IPC_CHANNELS.agentActivity.detail, id) as Promise<Record<string, unknown> | null>,

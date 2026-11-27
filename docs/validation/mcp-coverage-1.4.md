@@ -41,7 +41,7 @@ The standing rule: approvals or raising access, sign-in and tokens, secrets, MCP
 | `web_preview.access` | `browserPreview.setAccess`, `browserPreview.revokeGrant` (external sites and ending an agent browser grant) |
 | `android.controls` | `android.*` (the person's Android mirror, input and Agents can see switch) |
 | `android.device_actions` | `androidActions.*` (install an APK, open a link, send the pairing link: the person's own actions on their device) |
-| `schedules.admin` | `schedules.*` (the person's schedules: requests sent to an agent at a set time) |
+| `schedules.admin` | `schedules.*` (the person's automations, cron/event schedules, concurrency cap, and Review Queue actions) |
 | `code.resume_bypass` | `terminal.resumeBypass`, `terminal.setResumeBypass` (T54: whether a Claude session that skipped permissions resumes that way; only the person turns it on, in Settings › Terminal), `terminal.agentsFullAccess`, `terminal.setAgentsFullAccess` (1.5.0: whether agents the person starts in a pane skip their permission prompts; on as installed, and only the person changes it, in Settings › Terminal) |
 | `git.repo_hook_approval` | `github.getRepoConfig`, `github.approveRepoHook` |
 | `accounts.sign_in` | `agentAccount.*` |

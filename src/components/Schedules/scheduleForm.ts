@@ -1,5 +1,15 @@
 /** What the Schedules form holds while the person types, and how it becomes a schedule and back. No React here. */
-import { nextRun, scheduleRefusal, type Schedule, type ScheduleInput, type ScheduleRefusal, type ScheduleRule } from '../../../shared/schedule'
+import {
+  SCHEDULE_LIMITS,
+  nextRun,
+  nextRuns,
+  scheduleRefusal,
+  type Schedule,
+  type ScheduleEventType,
+  type ScheduleInput,
+  type ScheduleRefusal,
+  type ScheduleRule
+} from '../../../shared/schedule'
 import type { ThreadProvider } from '../../../shared/types/thread'
 
 export type RuleKind = ScheduleRule['kind']
@@ -20,6 +30,16 @@ export interface ScheduleForm {
   days: number[]
   /** `hours`: every N hours, as typed. */
   every: string
+  /** `cron`: standard 5-field local cron expression (`minute hour dom month dow`). */
+  cronExpression: string
+  /** `event`: trigger kind (`ci-failed` | `pr-review-requested` | `manual-cli`). */
+  eventType: ScheduleEventType
+  /** `event`: optional cooldown minutes as typed. */
+  cooldownMinutes: string
+  /** `event`: optional branch filter (exact or prefix*). */
+  branchFilter: string
+  /** Per-run timeout in minutes (default 20). */
+  timeoutMinutes: string
   catchUp: boolean
 }
 
@@ -42,32 +62,105 @@ export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
 /** An empty form for a project: every day at nine, read only, the first agent. */
 export function newScheduleForm(project: { projectId: string; rootPath: string } | null, now: number): ScheduleForm {
   // The next full hour, at least an hour away: a time the person can accept as it is.
-  const soon = new Date(now + 2 * 3_600_000); soon.setMinutes(0, 0, 0)
-  return { name: '', projectId: project?.projectId ?? '', rootPath: project?.rootPath ?? '', provider: 'claude', access: 'read-only', prompt: '', kind: 'daily', onceAt: localFieldValue(soon.getTime()), time: '09:00', days: [...EVERY_DAY], every: '4', catchUp: false }
+  const soon = new Date(now + 2 * 3_600_000)
+  soon.setMinutes(0, 0, 0)
+  return {
+    name: '',
+    projectId: project?.projectId ?? '',
+    rootPath: project?.rootPath ?? '',
+    provider: 'claude',
+    access: 'read-only',
+    prompt: '',
+    kind: 'daily',
+    onceAt: localFieldValue(soon.getTime()),
+    time: '09:00',
+    days: [...EVERY_DAY],
+    every: '4',
+    cronExpression: '0 9 * * 1-5',
+    eventType: 'ci-failed',
+    cooldownMinutes: '15',
+    branchFilter: '',
+    timeoutMinutes: String(Math.round(SCHEDULE_LIMITS.defaultTimeoutMs / 60_000)),
+    catchUp: false
+  }
 }
 
 export function formOf(schedule: Schedule, now: number): ScheduleForm {
   const base = newScheduleForm({ projectId: schedule.projectId, rootPath: schedule.rootPath }, now)
   const rule = schedule.rule
+  const timeoutMinutes = String(Math.max(1, Math.round((schedule.timeoutMs ?? SCHEDULE_LIMITS.defaultTimeoutMs) / 60_000)))
   return {
-    ...base, id: schedule.id, name: schedule.name, provider: schedule.provider, access: schedule.access, prompt: schedule.prompt, catchUp: schedule.catchUp, kind: rule.kind,
-    ...(rule.kind === 'once' ? { onceAt: localFieldValue(rule.at) } : rule.kind === 'daily' ? { time: rule.time, days: [...rule.days].sort((a, b) => a - b) } : { every: String(rule.every) })
+    ...base,
+    id: schedule.id,
+    name: schedule.name,
+    provider: schedule.provider,
+    access: schedule.access,
+    prompt: schedule.prompt,
+    catchUp: schedule.catchUp,
+    timeoutMinutes,
+    kind: rule.kind,
+    ...(rule.kind === 'once'
+      ? { onceAt: localFieldValue(rule.at) }
+      : rule.kind === 'daily'
+        ? { time: rule.time, days: [...rule.days].sort((a, b) => a - b) }
+        : rule.kind === 'hours'
+          ? { every: String(rule.every) }
+          : rule.kind === 'cron'
+            ? { cronExpression: rule.expression }
+            : {
+                eventType: rule.eventType,
+                cooldownMinutes: rule.cooldownMinutes !== undefined ? String(rule.cooldownMinutes) : '0',
+                branchFilter: rule.branchFilter ?? ''
+              })
   }
 }
 
 export function ruleOf(form: ScheduleForm, now: number): ScheduleRule {
   if (form.kind === 'once') return { kind: 'once', at: fieldMoment(form.onceAt) }
   if (form.kind === 'daily') return { kind: 'daily', time: form.time, days: [...form.days].sort((a, b) => a - b) }
-  return { kind: 'hours', every: Number(form.every), anchor: now + Number(form.every) * 3_600_000 }
+  if (form.kind === 'hours') return { kind: 'hours', every: Number(form.every), anchor: now + Number(form.every) * 3_600_000 }
+  if (form.kind === 'cron') return { kind: 'cron', expression: form.cronExpression.trim() }
+  const cooldownRaw = form.cooldownMinutes.trim()
+  const cooldown = cooldownRaw ? Number(cooldownRaw) : 0
+  const branchFilter = form.branchFilter.trim()
+  return {
+    kind: 'event',
+    eventType: form.eventType,
+    ...(cooldownRaw ? { cooldownMinutes: cooldown } : {}),
+    ...(branchFilter ? { branchFilter } : {})
+  }
 }
 
 export function inputOf(form: ScheduleForm, now: number, confirmedWrite: boolean): ScheduleInput {
-  return { ...(form.id ? { id: form.id } : {}), name: form.name, projectId: form.projectId, rootPath: form.rootPath, provider: form.provider, access: form.access, prompt: form.prompt, rule: ruleOf(form, now), catchUp: form.catchUp, ...(confirmedWrite ? { confirmedWrite: true } : {}) }
+  const timeoutMinRaw = form.timeoutMinutes.trim()
+  const timeoutMinutes = Number(timeoutMinRaw)
+  const defaultMin = Math.round(SCHEDULE_LIMITS.defaultTimeoutMs / 60_000)
+  const timeoutMs =
+    timeoutMinRaw && timeoutMinutes !== defaultMin
+      ? (Number.isInteger(timeoutMinutes) ? timeoutMinutes * 60_000 : Number.NaN)
+      : undefined
+  return {
+    ...(form.id ? { id: form.id } : {}),
+    name: form.name,
+    projectId: form.projectId,
+    rootPath: form.rootPath,
+    provider: form.provider,
+    access: form.access,
+    prompt: form.prompt,
+    rule: ruleOf(form, now),
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    catchUp: form.catchUp,
+    ...(confirmedWrite ? { confirmedWrite: true } : {})
+  }
 }
 
 /** Why the form cannot be saved yet (the write confirmation aside: that is asked on Save), and when it would first run. */
-export function formCheck(form: ScheduleForm, now: number): { refusal: ScheduleRefusal | null; firstRun: number | null } {
+export function formCheck(form: ScheduleForm, now: number): { refusal: ScheduleRefusal | null; firstRun: number | null; previewRuns: number[] } {
   const input = inputOf(form, now, true)
   const refusal = scheduleRefusal(input, now)
-  return { refusal, firstRun: refusal ? null : nextRun(input.rule, now) }
+  return {
+    refusal,
+    firstRun: refusal ? null : nextRun(input.rule, now),
+    previewRuns: refusal ? [] : nextRuns(input.rule, now, 3)
+  }
 }

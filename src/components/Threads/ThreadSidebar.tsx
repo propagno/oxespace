@@ -2,7 +2,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { i18n } from '../../i18n'
-import { Button, ConfirmDialog, Dialog, EmptyState, ErrorState, IconButton, LoadingState, Menu, Notice, SegmentedControl, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
+import { Badge, Button, ConfirmDialog, Dialog, EmptyState, ErrorState, IconButton, LoadingState, Menu, Notice, SegmentedControl, SidebarFilter, SidebarGroup, SidebarHeader, SidebarRow, SidebarSection, Skeleton, Spinner, Splitter, cx, TextField } from '../../ui'
 import styles from './ThreadSidebar.module.css'
 import { snippetParts, useThreadContentMatches } from '../../hooks/useThreadContentSearch'
 import { AlignJustify, Archive, ArchiveRestore, CalendarClock, Check, ChevronDown, Circle, Columns2, FolderPlus, MoreHorizontal, Pencil, Pin, Plus, Search, Trash2, UserRound } from 'lucide-react'
@@ -390,9 +390,24 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
   const syncedGroup = syncedProjectId ? groups.find(group => group.id === syncedProjectId) : undefined
   const codeGroup = activeCodeRoot ? groups.find(group => group.rootPath && isSameRootPath(group.rootPath, activeCodeRoot, platform)) : undefined
   const createTarget = syncedGroup ?? groups.find(group => group.id === selected?.projectId) ?? codeGroup ?? groups[0]
+  const [reviewPendingCount, setReviewPendingCount] = useState(0)
+  useEffect(() => {
+    const api = window.oxe?.schedules
+    if (!api?.reviewQueue) return
+    let alive = true
+    const refreshReviewCount = () => {
+      void api.reviewQueue?.().then(summary => { if (alive) setReviewPendingCount(summary.count) }).catch(() => undefined)
+    }
+    refreshReviewCount()
+    const off = api.onChanged?.(event => {
+      if (typeof event?.reviewPendingCount === 'number') setReviewPendingCount(event.reviewPendingCount)
+      else refreshReviewCount()
+    })
+    return () => { alive = false; off?.() }
+  }, [])
   const railPrimary: RailAction[] = [
     { id: 'new-conversation', label: t('view.newConversation'), icon: Plus, disabled: !createTarget || unavailableProjects.includes(createTarget.id), onClick: () => { if (createTarget) onCreate(createTarget.id, createTarget.rootPath) } },
-    { id: 'schedules', label: t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules() }
+    { id: 'schedules', label: reviewPendingCount > 0 ? t('schedules.titleWithReview', { count: reviewPendingCount }) : t('schedules.title'), icon: CalendarClock, onClick: () => useUIStore.getState().openSchedules(reviewPendingCount > 0 ? 'review' : 'schedules') }
   ]
   const railContext: RailAction = { id: 'accounts', label: t('sidebar.accounts'), ariaLabel: t('sidebar.agentAccounts'), icon: UserRound, onClick: onAccounts }
   return <aside className={`thread-navigation${collapsed ? ' thread-navigation-collapsed' : ''}`} style={active ? undefined : { display: 'none' }} aria-hidden={active ? undefined : true} data-density={density} data-list-source={listSource} aria-busy={coldSkeleton ? true : undefined} aria-label={t('sidebar.region')}>
@@ -407,7 +422,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
       onSelect={id => void select(id)}
       onArchived={() => { toggleCollapse(); setShowArchived(true) }} />}
     {!collapsed && <div className="nav-panel">
-      <SidebarHeader title={t('sidebar.conversations')} actions={<SidebarHeaderActions actions={railPrimary} />} collapse={<SidebarCollapseButton mode="thread" />} />
+      <SidebarHeader title={t('sidebar.conversations')} actions={<><SidebarHeaderActions actions={railPrimary} />{reviewPendingCount > 0 && <Badge intent="attention" data-testid="review-queue-badge">{reviewPendingCount}</Badge>}</>} collapse={<SidebarCollapseButton mode="thread" />} />
       <SidebarFilter ref={search} className="thread-nav-search" icon={<Search size={14} />} hint={query ? undefined : '/'} aria-label={t('sidebar.filter')} placeholder={t('sidebar.filterPlaceholder')}
         value={query} onChange={event => setQuery(event.target.value)} onClear={() => setQuery('')} clearLabel={i18n.t('common:nav.clearSearch')} autoComplete="off" spellCheck={false}
         // Escape clears the text first (the filter does), then the state selector.

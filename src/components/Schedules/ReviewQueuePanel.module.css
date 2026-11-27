@@ -1,0 +1,200 @@
+/* Review Queue split panel. Tokens only (zero pixel heights or pixel spacing). */
+.split {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  min-height: 22rem;
+}
+
+.listCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-right: 1px solid var(--bd-subtle);
+  padding-right: var(--space-2);
+  overflow-y: auto;
+  max-height: 55vh;
+}
+
+.runButton {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  height: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.runSelected {
+  background: var(--fill-selected);
+  border-color: var(--accent-border);
+}
+
+.runCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+  width: 100%;
+}
+
+.runTitle {
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--tx-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-size: var(--fs-2xs);
+  color: var(--tx-secondary);
+}
+
+.detailCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.detailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.detailTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--weight-semibold);
+  color: var(--tx-primary);
+}
+
+.branchCode {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--tx-secondary);
+  padding: var(--space-0-5) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.summaryBox {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--bd-subtle);
+  font-family: var(--font-mono);
+}
+
+.statAdd {
+  color: var(--intent-success-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.statDel {
+  color: var(--intent-danger-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.diffViewer {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: var(--leading-snug);
+  overflow-x: auto;
+}
+
+.diffLine {
+  display: block;
+  white-space: pre;
+  padding: 0 var(--space-1);
+}
+
+.diffAdd {
+  background: var(--diff-add-bg);
+  color: var(--intent-success-fg);
+}
+
+.diffDel {
+  background: var(--diff-del-bg);
+  color: var(--intent-danger-fg);
+}
+
+.diffHunk {
+  color: var(--tx-accent);
+  font-weight: var(--weight-semibold);
+}
+
+@media (max-width: 760px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .listCol {
+    border-right: none;
+    border-bottom: 1px solid var(--bd-subtle);
+    padding-right: 0;
+    padding-bottom: var(--space-2);
+  }
+}
