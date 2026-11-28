@@ -68,6 +68,8 @@ export interface ThreadConfiguration {
   mode?: 'default' | 'plan' | 'acceptEdits'
   /** Native provider hooks. Disabled by default and never allowed in read-only. */
   hooksEnabled?: boolean
+  /** Per-conversation MCP tool denials (`<serverKey>/*` or `<serverKey>/<toolName>`), merged with project rules at launch. */
+  disabledMcpTools?: string[]
 }
 /** `defaultKnown: false` means project or user settings may choose another model, so no default is named. */
 export interface ThreadModelCatalog { models: ThreadModel[]; defaultModel?: string; defaultEffort?: string; defaultKnown?: boolean }
@@ -481,6 +483,7 @@ export interface ConversationThread {
   /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
   mode?: 'default' | 'plan' | 'acceptEdits'
   hooksEnabled?: boolean
+  disabledMcpTools?: string[]
   configurationRevision?: number
   pendingConfiguration?: ThreadConfiguration
   archived?: boolean

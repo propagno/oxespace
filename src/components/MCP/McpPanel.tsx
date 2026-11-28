@@ -19,6 +19,7 @@ import { AGENT_STATE_HINT, AGENT_STATE_LABEL, agentStatusFor, type McpAgentState
 import { formatClock } from '../../utils/formatTime'
 import { RichText } from '../../i18n/RichText'
 import { McpServerSafety } from './McpServerSafety'
+import { McpOAuthAction } from './McpOAuthAction'
 import { isQuarantined, quarantinedCount } from './mcpQuarantine'
 
 interface FormInitial { name: string; command: string; argsText: string; envText: string; note?: string; requiredEnv?: string[]; /** Came from the curated catalog: trusted and tested as soon as it is saved. */ fromCatalog?: boolean; /** A remote catalog server: the values fill its headers. */ remote?: McpCatalogEntry }
@@ -436,6 +437,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
             <span className={`mcp-server-tag mcp-agent-state is-${agentState}`} title={AGENT_STATE_HINT[agentState]}>{AGENT_STATE_LABEL[agentState]}</span>
             <span className="mcp-server-tag" title={server.testedAtMs ? tc('mcp.testedAt', { time: formatClock(server.testedAtMs) }) : tc('mcp.notTested')}>{testLabel(server.health)}</span>
             <span className="mcp-server-tag">{server.transport}</span>
+            {server.oauthConnected ? <span className="mcp-server-tag" data-testid="mcp-oauth-badge">{tc('mcp.oauth.connectedBadge')}</span> : null}
             {server.workspaceId ? <span className="mcp-server-tag scope-ws">{tc('mcp.scope.workspace')}</span> : <span className="mcp-server-tag scope-global">{tc('mcp.scope.global')}</span>}
             {server.trusted ? <span className="mcp-server-tag">{tc('mcp.trusted')}</span>
               : quarantined ? <span className="mcp-server-tag is-quarantined" data-testid="mcp-quarantine-chip"><ShieldAlert size={11} aria-hidden="true" />{tc('mcp.quarantined')}</span>
@@ -455,6 +457,7 @@ function McpServerRow({ server, agentState, busy, expanded, trustPrompt, removeP
           ariaLabel={server.enabled ? tc('mcp.disableLabel', { name: server.name }) : tc('mcp.enableLabel', { name: server.name })}
           onChange={() => onToggleEnabled()}
         />
+        <McpOAuthAction server={server} disabled={busy} />
         {testing ? (
           <Button variant="ghost" size="sm" onClick={onStop} title={tc('mcp.stopTest')}>
             <Square size={12} aria-hidden="true" /> {tc('background.stop')}

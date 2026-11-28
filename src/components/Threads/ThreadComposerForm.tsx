@@ -1,5 +1,5 @@
-import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ArrowUp, AtSign, CornerDownLeft, Folder, GitCompareArrows, MessageSquareText, Paperclip, Plug, Plus, Slash, Square, TerminalSquare, X } from 'lucide-react'
+import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { ArrowUp, AtSign, CornerDownLeft, Database, Folder, GitCompareArrows, MessageSquareText, Paperclip, Plug, Plus, Slash, Square, TerminalSquare, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PreviewElementRef } from '../../../shared/types/design-mode'
 import {
@@ -9,8 +9,14 @@ import {
   createTerminalContextItem,
   type ComposerContextItem
 } from '../../../shared/types/composer-context'
+import type { McpResourceAttachment } from '../../../shared/types/mcp'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
+import type { McpPickerTab } from '../MCP/McpToolPickerPopover'
+
+const LazyMcpToolPickerPopover = lazy(() => import('../MCP/McpToolPickerPopover').then(m => ({ default: m.McpToolPickerPopover })))
+const LazyMcpResourceChips = lazy(() => import('../MCP/McpResourceChips').then(m => ({ default: m.McpResourceChips })))
 import { useThreadStore } from '../../store/thread.store'
+import { useMcpPickerStore } from '../../store/mcp-picker.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, ErrorState, IconButton, Menu } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
@@ -46,6 +52,7 @@ const STOP_ESCAPE_WINDOW_MS = 2000
 const NO_ATTACHMENTS: ThreadAttachment[] = []
 const NO_PREVIEW_ELEMENTS: PreviewElementRef[] = []
 const NO_CONTEXT_ITEMS: ComposerContextItem[] = []
+const NO_MCP_RESOURCES: McpResourceAttachment[] = []
 
 /** Imperative bridge from ThreadView to the composer's slash-command state without lifting keystroke state up (OXE-348). */
 export interface ThreadComposerCommandsHandle {
@@ -102,6 +109,8 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   const attachments = useThreadStore(state => threadId ? state.attachments[threadId] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const previewElements = useThreadStore(state => threadId ? state.previewElements[threadId] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
   const contextItems = useThreadStore(state => threadId ? state.contextItems[threadId] ?? NO_CONTEXT_ITEMS : NO_CONTEXT_ITEMS)
+  const mcpResources = useMcpPickerStore(state => threadId ? state.mcpResourcesByThread[threadId] ?? NO_MCP_RESOURCES : NO_MCP_RESOURCES)
+  const [mcpPickerTab, setMcpPickerTab] = useState<McpPickerTab | null>(null)
   const [caret, setCaret] = useState(0)
   const [dropActive, setDropActive] = useState(false)
   const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: onRunAction, onNewThread, onAccounts, onRunCommand, onSideChat, onError })
@@ -196,7 +205,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
   const totalLength = composerContentLength(draft, contextItems)
   const tooLong = totalLength > THREAD_MESSAGE_MAX_CHARS
-  const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length || contextItems.length)
+  const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length || contextItems.length || mcpResources.length)
   const canSteer = Boolean(snapshot?.thread.capabilities?.features.steering?.enabled)
   const hints = composerHints({
     status: deriveComposerHintStatus(snapshot?.thread, running, (snapshot?.pendingRequests?.length ?? 0) > 0),
@@ -280,6 +289,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
     {workingSet}
     {previewElements.length > 0 && onRemovePreviewElement && <PreviewElementChips elements={previewElements} disabled={pending} onRemove={onRemovePreviewElement} />}
     {contextItems.length > 0 && <ComposerContextChips items={contextItems} disabled={pending} onRemove={removeContext} onInlinePaste={inlinePastedItem} />}
+    {mcpResources.length > 0 && threadId && <Suspense fallback={null}><LazyMcpResourceChips resources={mcpResources} disabled={pending} onRemove={resourceId => useMcpPickerStore.getState().removeMcpResource(threadId, resourceId)} /></Suspense>}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><IconButton size="sm" label={t('composer.remove', { name: attachment.name })} title={t('composer.remove', { name: attachment.name })} disabled={pending} icon={<X size={12} aria-hidden="true" />} onClick={() => onRemoveAttachment(attachment.id)} /></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
@@ -301,8 +311,11 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
         { label: t('composer.contextSources.thread'), hint: CONTEXT_SOURCE_HINT.thread, icon: <MessageSquareText size={14} />, onSelect: () => insertToken('@thread:') },
         { type: 'separator' },
         { label: t('composer.commands'), icon: <Slash size={14} />, shortcut: 'Ctrl+/', disabled: blocked, onSelect: commands.show },
+        { label: t('mcpPicker.menuTools'), icon: <Wrench size={14} />, disabled: !snapshot, onSelect: () => setMcpPickerTab('tools') },
+        { label: t('mcpPicker.menuResources'), icon: <Database size={14} />, disabled: !snapshot, onSelect: () => setMcpPickerTab('resources') },
         { label: t('moreActions.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
       ]} trigger={<Button type="button" variant="ghost" size="sm" className="thread-context-trigger" aria-label={t('composer.context')} title={t('composer.addTitle')} disabled={!snapshot || pending} icon={<Plus size={14} aria-hidden="true" />}><span className="thread-context-label">{t('composer.context')}</span></Button>} />
+      {snapshot && mcpPickerTab !== null && <Suspense fallback={null}><LazyMcpToolPickerPopover workspaceId={snapshot.thread.workspaceId} threadId={snapshot.thread.id} snapshot={snapshot} open initialTab={mcpPickerTab} onOpenChange={open => { if (!open) setMcpPickerTab(null) }} onError={onError} trigger={<span aria-hidden="true" />} /></Suspense>}
       <div className="thread-composer-right">
         {compactChips
           ? <ComposerChips {...compactChips} />

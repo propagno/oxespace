@@ -63,7 +63,15 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       // Deny rules for MCP tools take effect when the session starts.
       // Policy denials by name too, so a server configured directly in the CLI is excluded as well.
       const permissionStore = new ThreadPermissionStore(db)
-      const denied = [...deniedMcpTools(permissionStore.rules(thread.rootPath)), ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' }))]
+      const threadDisabled = (thread.disabledMcpTools ?? []).map(pattern => {
+        const [server, tool] = pattern.split('/')
+        return { server, tool }
+      }).filter(rule => rule.server && rule.tool)
+      const denied = [
+        ...deniedMcpTools(permissionStore.rules(thread.rootPath)),
+        ...policyDeniedMcpNames(thread.rootPath).map(server => ({ server, tool: '*' })),
+        ...threadDisabled
+      ]
       // So do tool groups: the role's, and each group by the project's mode; on demand ones load as needed (B7.2).
       // The accepted modes (B7.4); a launch is a review point, so a change whose request ended unanswered is asked again.
       const modes = effectiveToolModes(thread.rootPath)

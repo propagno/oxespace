@@ -388,6 +388,11 @@ export function createOxeApi(ipc: PreloadIpc, getPathForFile?: (file: File) => s
       discover: (workspaceId) => ipc.invoke(IPC_CHANNELS.mcp.discover, workspaceId) as Promise<import('../../shared/types/mcp').McpDiscoverySource[]>,
       importDiscovered: (input) => ipc.invoke(IPC_CHANNELS.mcp.importDiscovered, input) as Promise<import('../../shared/types/mcp').McpImportResult>,
       callTool: (input) => ipc.invoke(IPC_CHANNELS.mcp.callTool, input) as Promise<import('../../shared/types/mcp').McpCallToolResult>,
+      listResources: (serverId) => ipc.invoke(IPC_CHANNELS.mcp.listResources, serverId) as Promise<import('../../shared/types/mcp').McpResourceDescriptor[]>,
+      readResource: (input) => ipc.invoke(IPC_CHANNELS.mcp.readResource, input) as Promise<import('../../shared/types/mcp').McpReadResourceResult>,
+      connectOAuth: (serverId) => ipc.invoke(IPC_CHANNELS.mcp.connectOAuth, serverId) as Promise<import('../../shared/types/mcp').McpOAuthConnectResult>,
+      disconnectOAuth: (serverId) => ipc.invoke(IPC_CHANNELS.mcp.disconnectOAuth, serverId) as Promise<import('../../shared/types/mcp').McpOAuthStatus>,
+      oauthStatus: (serverId) => ipc.invoke(IPC_CHANNELS.mcp.oauthStatus, serverId) as Promise<import('../../shared/types/mcp').McpOAuthStatus>,
       onHealth: (listener) => subscribe<import('../../shared/types/mcp').McpServerHealthEvent>(ipc, IPC_CHANNELS.mcp.onHealth, listener)
     },
     agents: createAgentsApi(ipc),

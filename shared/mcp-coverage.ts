@@ -398,10 +398,10 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
   },
   'mcp.server_trust': {
     label: 'Add, edit, import, trust (also again after a quarantine) or sign in to MCP servers',
-    forbidden: 'MCP server trust, including trusting a quarantined server again; commands, environment and headers carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list).',
-    ipc: ['mcp.create', 'mcp.update', 'mcp.delete', 'mcp.discover', 'mcp.importDiscovered', 'mcp.openSignIn']
+    forbidden: 'MCP server trust, including trusting a quarantined server again and OAuth keychain sign-in; commands, environment, headers and OAuth tokens carry secrets. An agent can only read that a server is quarantined (oxespace_mcp_servers#list).',
+    ipc: ['mcp.create', 'mcp.update', 'mcp.delete', 'mcp.discover', 'mcp.importDiscovered', 'mcp.openSignIn', 'mcp.connectOAuth', 'mcp.disconnectOAuth', 'mcp.oauthStatus']
   },
-  'mcp.call_tool': { label: 'Call another server\'s tool from the app', excluded: 'Agents reach those servers through their own MCP client, as the person trusted them.', ipc: ['mcp.callTool'] },
+  'mcp.call_tool': { label: 'Call another server\'s tool or read its resources from the app', excluded: 'Agents reach those servers through their own MCP client, as the person trusted them.', ipc: ['mcp.callTool', 'mcp.listResources', 'mcp.readResource'] },
 
   // ---- usage, settings, accounts ---------------------------------------------------------
   'usage.read': {

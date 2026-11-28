@@ -1,4 +1,4 @@
-import { execFile, spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { openExternalOrRecord } from '../utils/external-open'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
@@ -10,6 +10,12 @@ import type {
   McpCallToolResult,
   McpHealthStatus,
   McpHttpConfig,
+  McpOAuthConnectResult,
+  McpOAuthStatus,
+  McpReadResourceInput,
+  McpReadResourceResult,
+  McpResourceContent,
+  McpResourceDescriptor,
   McpServer,
   McpServerConfig,
   McpServerHealthEvent,
@@ -18,9 +24,23 @@ import type {
   McpTransport,
   UpdateMcpServerInput
 } from '../../../shared/types/mcp'
+import { redactSecrets } from '../../../shared/secrets'
+import type { SecretCipher } from './oxequery/connection-store'
+import type { McpFetch, McpHttpClient } from './mcp-http-transport'
+import type { McpOAuthManager } from './mcp-oauth'
 import { mcpServerKeys } from './mcp-keys'
 import { McpConfigSync } from './mcp-sync.service'
-import { inheritedEnvironment } from './policy'
+import {
+  buildProcessEnv,
+  formatExitMessage,
+  formatSpawnError,
+  isMethodNotFoundError,
+  killProcessTree,
+  resolveExecutable,
+  shouldUseWindowsCommandShell,
+  timeout,
+  validateConfig
+} from './mcp-stdio-helpers'
 import { unbridgeRemoteMcpServers, upgradeRetiredMcpEndpoints } from './mcp-retired-endpoints'
 import { probeHttpServer } from './mcp-http-probe'
 import { recordIncident } from './diagnostics/incident-sink'
@@ -42,6 +62,7 @@ interface McpServerRow {
 interface RuntimeServer {
   server: McpServer
   process: ChildProcessWithoutNullStreams | null
+  httpClient: McpHttpClient | null
   buffer: string
   pending: Map<number, { resolve: (value: unknown) => void; reject: (err: Error) => void }>
   requestSeq: number
@@ -65,9 +86,17 @@ interface TestResult { health: McpHealthStatus; message: string | null; messageC
 
 const STDERR_RING_SIZE = 10
 const STDERR_LINE_MAX = 240
+const MAX_RESOURCE_CHARS = 64_000
+const MAX_RESOURCE_ITEMS = 16
+const OAUTH_CREDENTIAL_PREFIX = 'mcp:oauth:'
 
 interface McpManagerOptions {
   emitHealth?: (event: McpServerHealthEvent) => void
+  cipher?: SecretCipher
+  getCipher?: () => Promise<SecretCipher>
+  fetchImpl?: McpFetch
+  openBrowser?: (url: string) => boolean
+  oauthCallbackTimeoutMs?: number
 }
 
 const PROTOCOL_VERSION = '2025-06-18'
@@ -78,7 +107,6 @@ export const PACKAGE_RUNNER_INIT_TIMEOUT_MS = 60_000
 const AUTH_INIT_TIMEOUT_MS = 5 * 60_000
 const REQUEST_TIMEOUT_MS = 30_000
 const SLEEP_TIMEOUT_MS = 15 * 60 * 1000
-const WINDOWS_EXECUTABLE_EXTENSIONS = ['.cmd', '.exe', '.bat', '.ps1']
 // Anti-OOM guard for the line-delimited stdout buffer: a misbehaving server that
 // streams a huge blob without a newline would otherwise grow `runtime.buffer`
 // unbounded. If an incomplete line passes this, we drop it and resync on the
@@ -102,8 +130,11 @@ export class McpManager {
   private readonly said = new Map<string, McpToolDescriptor[]>()
   private readonly emitHealth: (event: McpServerHealthEvent) => void
   private readonly configSync: McpConfigSync
+  private readonly options: McpManagerOptions
+  private oauthPromise: Promise<McpOAuthManager> | null = null
 
   constructor(private readonly db: AppDatabase, options: McpManagerOptions = {}) {
+    this.options = options
     this.emitHealth = options.emitHealth ?? (() => undefined)
     this.configSync = new McpConfigSync(db)
     // NOTE: the initial .mcp.json sync is deferred — see primeConfigs(), called
@@ -229,23 +260,22 @@ export class McpManager {
     this.stopRuntime(id)
     this.tested.delete(id)
     this.said.delete(id)
+    try { this.db.prepare('DELETE FROM secure_credentials WHERE provider = ?').run(`${OAUTH_CREDENTIAL_PREFIX}${id}`) } catch { /* ignore */ }
     this.db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
     if (current) this.syncFile(current.workspaceId)
   }
 
-  /** Starts (or restarts) a server and runs its handshake. Returns the live tools list. */
+  /** Starts (or restarts) a server (stdio, Streamable HTTP, or SSE) and runs its handshake. Returns the live tools list. */
   async start(id: string): Promise<McpToolDescriptor[]> {
     const server = this.get(id)
     if (!server) throw new Error(`MCP server ${id} not found`)
     if (!server.trusted) throw new Error(server.guard?.quarantine ? quarantineMessage(server.guard.quarantine.reasons) : 'MCP server is not trusted. Review its command/env and mark it trusted before starting.')
     this.verify(server, checkConfig(this.guardOf(id), server.config, Date.now()))
-    if (server.transport !== 'stdio') {
-      throw new Error('Only the stdio transport is supported in this version. HTTP and SSE are not available yet.')
-    }
     const inFlight = this.starting.get(id)
     if (inFlight) return inFlight
     if (this.runtimes.has(id)) this.stopRuntime(id)
-    const run = this.startStdio(server).finally(() => { this.starting.delete(id) })
+    const runner = server.transport === 'stdio' ? this.startStdio(server) : this.startHttp(server)
+    const run = runner.finally(() => { this.starting.delete(id) })
     this.starting.set(id, run)
     return run
   }
@@ -269,13 +299,29 @@ export class McpManager {
     if (server.transport !== 'stdio') {
       this.emitHealth({ serverId: id, status: 'starting', message: null })
       try {
-        this.verify(server, checkConfig(this.guardOf(id), server.config, Date.now()))
-        const result = await probeHttpServer(server.config as McpHttpConfig)
-        if (result.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. The agent opens it on first use.')
-        if (result.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
-        await this.verifyTools(server, result.tools)
-        return record('healthy', `${result.tools.length} tool(s)`, result.tools)
+        const tools = await this.start(id)
+        this.stopRuntime(id, true)
+        return record('healthy', `${tools.length} tool(s)`, tools)
       } catch (err) {
+        const { McpHttpAuthError } = await import('./mcp-http-transport')
+        if (err instanceof McpHttpAuthError && !err.hadAuthorization) {
+          return record('needs-auth', 'Answers and asks for a sign-in. Connect OAuth or sign in on first use.')
+        }
+        // Fallback probe for legacy SSE endpoints that only expose stream reachability without MCP endpoint handshake.
+        if (server.transport === 'sse') {
+          try {
+            const authHeader = await this.authHeaderFor(server.id)
+            const cfg = server.config as McpHttpConfig
+            const probed = await probeHttpServer(
+              authHeader ? { ...cfg, headers: { ...cfg.headers, Authorization: authHeader } } : cfg,
+              this.options.fetchImpl
+            )
+            if (probed.status === 'needs-auth') return record('needs-auth', 'Answers and asks for a sign-in. Connect OAuth or sign in on first use.')
+            if (probed.status === 'reachable') return record('healthy', 'Answers. Its tools show once the agent connects.')
+          } catch {
+            // Fall through and surface the primary transport error below
+          }
+        }
         return record('unhealthy', err instanceof Error ? err.message : String(err))
       }
     }
@@ -340,28 +386,182 @@ export class McpManager {
     // Detach first: the exit handler of a process stopped on purpose must not report it as a crash.
     this.runtimes.delete(id)
     killProcessTree(runtime.process)
+    if (runtime.httpClient) void runtime.httpClient.close().catch(() => undefined)
     runtime.pending.forEach(({ reject }) => reject(new Error('MCP server stopped')))
     runtime.pending.clear()
     if (!quiet) this.emitHealth({ serverId: id, status: 'unknown', message: null })
   }
 
-  async callTool(input: McpCallToolInput): Promise<McpCallToolResult> {
-    let runtime = this.runtimes.get(input.serverId)
+  private async ensureRuntime(serverId: string): Promise<RuntimeServer> {
+    let runtime = this.runtimes.get(serverId)
     if (!runtime) {
-      // Lazy start on demand
-      await this.start(input.serverId)
-      runtime = this.runtimes.get(input.serverId)
+      await this.start(serverId)
+      runtime = this.runtimes.get(serverId)
     }
     if (!runtime || !runtime.initialized) throw new Error('MCP server not initialized')
     if (!runtime.server.trusted) throw new Error('MCP server is not trusted')
-
     this.touchRuntime(runtime)
+    return runtime
+  }
 
-    const result = await this.request<McpCallToolResult>(runtime, 'tools/call', {
+  async callTool(input: McpCallToolInput): Promise<McpCallToolResult> {
+    const runtime = await this.ensureRuntime(input.serverId)
+    return this.request<McpCallToolResult>(runtime, 'tools/call', {
       name: input.toolName,
       arguments: input.arguments
     })
+  }
+
+  /** Lists MCP resources (`resources/list`) on stdio, Streamable HTTP, or SSE servers. */
+  async listResources(serverId: string): Promise<McpResourceDescriptor[]> {
+    const runtime = await this.ensureRuntime(serverId)
+    try {
+      const res = await this.request<{ resources?: unknown[] }>(runtime, 'resources/list', {})
+      if (!Array.isArray(res?.resources)) return []
+      return res.resources
+        .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+        .filter(item => typeof item.uri === 'string' && item.uri.trim().length > 0)
+        .map(item => ({
+          uri: String(item.uri),
+          name: typeof item.name === 'string' && item.name.trim() ? item.name.trim() : String(item.uri),
+          ...(typeof item.description === 'string' ? { description: item.description } : {}),
+          ...(typeof item.mimeType === 'string' ? { mimeType: item.mimeType } : {}),
+          ...(typeof item.size === 'number' && Number.isFinite(item.size) ? { size: item.size } : {})
+        }))
+    } catch (err) {
+      // Servers without resource capability often reply JSON-RPC -32601 (Method not found).
+      if (isMethodNotFoundError(err)) return []
+      throw err
+    }
+  }
+
+  /** Reads an MCP resource (`resources/read`), bounding size and redacting secrets before returning. */
+  async readResource(input: McpReadResourceInput): Promise<McpReadResourceResult> {
+    const uri = input.uri.trim()
+    if (!uri || uri.length > 4096 || uri.includes('\0')) throw new Error('Invalid MCP resource URI')
+    const runtime = await this.ensureRuntime(input.serverId)
+    const raw = await this.request<{ contents?: unknown[] }>(runtime, 'resources/read', { uri })
+    const items = Array.isArray(raw?.contents) ? raw.contents.slice(0, MAX_RESOURCE_ITEMS) : []
+    const contents: McpResourceContent[] = []
+    let remaining = MAX_RESOURCE_CHARS
+    for (const entry of items) {
+      if (!entry || typeof entry !== 'object') continue
+      const item = entry as Record<string, unknown>
+      const itemUri = typeof item.uri === 'string' && item.uri ? item.uri : uri
+      const mimeType = typeof item.mimeType === 'string' ? item.mimeType : undefined
+      if (typeof item.text === 'string') {
+        const redacted = redactSecrets(item.text)
+        const truncated = redacted.length > remaining
+        const text = truncated ? redacted.slice(0, Math.max(0, remaining)) : redacted
+        remaining = Math.max(0, remaining - text.length)
+        contents.push({ uri: itemUri, ...(mimeType ? { mimeType } : {}), text, ...(truncated ? { truncated: true } : {}) })
+      } else if (typeof item.blob === 'string') {
+        const blobBytes = Math.floor((item.blob.length * 3) / 4)
+        contents.push({ uri: itemUri, ...(mimeType ? { mimeType } : {}), blobBytes })
+      }
+    }
+    return { contents }
+  }
+
+  /** Starts native OAuth 2.1 + PKCE sign-in for a remote MCP server and stores tokens in OS keychain. */
+  async connectOAuth(serverId: string): Promise<McpOAuthConnectResult> {
+    const server = this.get(serverId)
+    if (!server) throw new Error(`MCP server ${serverId} not found`)
+    if (server.transport === 'stdio') throw new Error('OAuth is only supported for remote HTTP/SSE MCP servers.')
+    const oauth = await this.oauthManager()
+    const result = await oauth.connect(server.id, (server.config as McpHttpConfig).url, server.name)
+    if (result.ok) {
+      this.stopRuntime(server.id, true)
+      this.tested.delete(server.id)
+    }
     return result
+  }
+
+  async disconnectOAuth(serverId: string): Promise<McpOAuthStatus> {
+    const oauth = await this.oauthManager()
+    this.stopRuntime(serverId, true)
+    this.tested.delete(serverId)
+    return oauth.disconnect(serverId)
+  }
+
+  async oauthStatus(serverId: string): Promise<McpOAuthStatus> {
+    const oauth = await this.oauthManager()
+    return oauth.status(serverId)
+  }
+
+  private async oauthManager(): Promise<McpOAuthManager> {
+    if (!this.oauthPromise) {
+      this.oauthPromise = (async () => {
+        const { McpOAuthManager } = await import('./mcp-oauth')
+        const cipher = this.options.cipher ?? (this.options.getCipher ? await this.options.getCipher() : undefined)
+        return new McpOAuthManager({
+          db: this.db,
+          cipher,
+          fetchImpl: this.options.fetchImpl,
+          openBrowser: this.options.openBrowser,
+          callbackTimeoutMs: this.options.oauthCallbackTimeoutMs
+        })
+      })()
+    }
+    return this.oauthPromise
+  }
+
+  private async authHeaderFor(serverId: string): Promise<string | null> {
+    if (!this.hasStoredOAuthToken(serverId)) return null
+    const oauth = await this.oauthManager()
+    return oauth.getAuthorizationHeader(serverId)
+  }
+
+  private hasStoredOAuthToken(serverId: string): boolean {
+    try {
+      const row = this.db.prepare('SELECT 1 FROM secure_credentials WHERE provider = ? AND encrypted = 1').get(`${OAUTH_CREDENTIAL_PREFIX}${serverId}`)
+      return Boolean(row)
+    } catch {
+      return false
+    }
+  }
+
+  private async startHttp(server: McpServer): Promise<McpToolDescriptor[]> {
+    if (server.transport === 'stdio') throw new Error('Not a remote HTTP/SSE server')
+    const config = server.config as McpHttpConfig
+    this.emitHealth({ serverId: server.id, status: 'starting', message: null })
+    const { createMcpHttpClient, McpHttpAuthError } = await import('./mcp-http-transport')
+    const client = createMcpHttpClient(config, {
+      fetchImpl: this.options.fetchImpl,
+      getAuthHeader: () => this.authHeaderFor(server.id)
+    })
+    const runtime: RuntimeServer = {
+      server,
+      process: null,
+      httpClient: client,
+      buffer: '',
+      pending: new Map(),
+      requestSeq: 0,
+      initialized: false,
+      stderr: [],
+      lastActivity: Date.now()
+    }
+    this.runtimes.set(server.id, runtime)
+    this.touchRuntime(runtime)
+    try {
+      await client.connect(INIT_TIMEOUT_MS)
+      runtime.initialized = true
+      const toolsResult = await this.request<{ tools?: McpToolDescriptor[] }>(runtime, 'tools/list', {})
+      const tools = Array.isArray(toolsResult?.tools) ? toolsResult.tools : []
+      // Enforce identical MCP Pinning / anti-rug-pull quarantine across remote HTTP/SSE servers!
+      await this.verifyTools(server, tools)
+      runtime.server = { ...runtime.server, tools, health: 'healthy', healthMessage: null }
+      this.emitHealth({ serverId: server.id, status: 'healthy', message: `${tools.length} tool(s)` })
+      return tools
+    } catch (err) {
+      this.stopRuntime(server.id, true)
+      if (err instanceof McpHttpAuthError && !err.hadAuthorization) {
+        this.emitHealth({ serverId: server.id, status: 'needs-auth', message: err.message })
+      } else {
+        this.emitHealth({ serverId: server.id, status: 'unhealthy', message: err instanceof Error ? err.message : String(err) })
+      }
+      throw err
+    }
   }
 
   private async startStdio(server: McpServer): Promise<McpToolDescriptor[]> {
@@ -392,6 +592,7 @@ export class McpManager {
     const runtime: RuntimeServer = {
       server,
       process: child,
+      httpClient: null,
       buffer: '',
       pending: new Map(),
       requestSeq: 0,
@@ -548,21 +749,26 @@ export class McpManager {
   }
 
   private hydrateServer(server: McpServer): McpServer {
+    const oauthConnected = server.transport !== 'stdio' ? this.hasStoredOAuthToken(server.id) : undefined
+    const base = oauthConnected !== undefined ? { ...server, oauthConnected } : server
     const runtime = this.runtimes.get(server.id)
     if (runtime && runtime.initialized) {
-      return { ...server, health: 'healthy', tools: runtime.server.tools }
+      return { ...base, health: 'healthy', tools: runtime.server.tools }
     }
     if (runtime) {
-      return { ...server, health: 'starting' }
+      return { ...base, health: 'starting' }
     }
     const tested = this.tested.get(server.id)
-    const hydrated = tested ? { ...server, health: tested.health, healthMessage: tested.message, ...(tested.messageCode ? { healthMessageCode: tested.messageCode } : {}), tools: tested.tools, testedAtMs: tested.at } : server
+    const hydrated = tested ? { ...base, health: tested.health, healthMessage: tested.message, ...(tested.messageCode ? { healthMessageCode: tested.messageCode } : {}), tools: tested.tools, testedAtMs: tested.at } : base
     // A quarantined server shows what it said, so the person can read it before trusting it again.
     const said = server.guard?.quarantine ? this.said.get(server.id) : undefined
     return said ? { ...hydrated, tools: said } : hydrated
   }
 
   private request<T>(runtime: RuntimeServer, method: string, params: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+    if (runtime.httpClient) {
+      return runtime.httpClient.request<T>(method, params, timeoutMs)
+    }
     return new Promise((resolve, reject) => {
       runtime.requestSeq += 1
       const id = runtime.requestSeq
@@ -665,144 +871,4 @@ export function isPackageRunnerCommand(command: string): boolean {
 export function initTimeoutMsFor(config: McpStdioConfig): number {
   if (usesOAuthBridge(config)) return AUTH_INIT_TIMEOUT_MS
   return isPackageRunnerCommand(config.command) ? PACKAGE_RUNNER_INIT_TIMEOUT_MS : INIT_TIMEOUT_MS
-}
-
-/**
- * Stops a server and everything it spawned. On Windows the command runs through
- * a shell wrapper, so killing only the wrapper leaves the real server (and, for
- * mcp-remote, its OAuth callback port) alive and blocks the next start.
- */
-function killProcessTree(child: ChildProcessWithoutNullStreams | null): void {
-  if (!child) return
-  try {
-    if (process.platform === 'win32' && child.pid) {
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
-    } else {
-      child.kill()
-    }
-  } catch { /* already gone */ }
-}
-
-function validateConfig(transport: McpTransport, config: McpServerConfig, trusted = false): void {
-  if (config.transport !== transport) {
-    throw new Error(`Config transport "${config.transport}" does not match server transport "${transport}"`)
-  }
-  if (config.transport === 'stdio') {
-    if (!config.command?.trim()) throw new Error('stdio requer command')
-    if (!Array.isArray(config.args)) throw new Error('stdio requer args como array')
-    if (!trusted) {
-      const sensitiveKeys = Object.keys(config.env ?? {}).filter((key) => /(token|secret|password|key|credential)/i.test(key))
-      if (sensitiveKeys.length > 0) {
-        throw new Error(`Sensitive environment blocked on an untrusted MCP server: ${sensitiveKeys.join(', ')}`)
-      }
-    }
-  } else {
-    if (!config.url?.trim()) throw new Error(`${transport} requer url`)
-  }
-}
-
-function buildProcessEnv(extraEnv: Record<string, string>): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...inheritedEnvironment('mcp'), ...extraEnv }
-  const pathKey = getPathKey(env)
-  env[pathKey] = mergePathEntries(env[pathKey] ?? process.env[pathKey] ?? process.env.PATH ?? '', commonExecutableDirs(env))
-  return env
-}
-
-function getPathKey(env: NodeJS.ProcessEnv): string {
-  return Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH'
-}
-
-function mergePathEntries(currentPath: string, entries: string[]): string {
-  const seen = new Set<string>()
-  const merged: string[] = []
-  for (const entry of [...entries, ...currentPath.split(path.delimiter)]) {
-    const trimmed = entry.trim()
-    if (!trimmed) continue
-    const key = process.platform === 'win32' ? trimmed.toLowerCase() : trimmed
-    if (seen.has(key)) continue
-    seen.add(key)
-    merged.push(trimmed)
-  }
-  return merged.join(path.delimiter)
-}
-
-function commonExecutableDirs(env: NodeJS.ProcessEnv): string[] {
-  if (process.platform !== 'win32') return []
-  return [
-    env.ProgramFiles ? path.join(env.ProgramFiles, 'nodejs') : null,
-    env['ProgramFiles(x86)'] ? path.join(env['ProgramFiles(x86)']!, 'nodejs') : null,
-    env.APPDATA ? path.join(env.APPDATA, 'npm') : null,
-    env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'Programs', 'nodejs') : null,
-    env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'pnpm') : null
-  ].filter((entry): entry is string => Boolean(entry))
-}
-
-function resolveExecutable(command: string, env: NodeJS.ProcessEnv): string {
-  const trimmed = command.trim()
-  if (!trimmed) return command
-  if (process.platform !== 'win32') return trimmed
-  if (path.isAbsolute(trimmed) || trimmed.includes('\\') || trimmed.includes('/')) {
-    return trimmed
-  }
-
-  return findWindowsExecutable(trimmed, env) ?? trimmed
-}
-
-function findWindowsExecutable(command: string, env: NodeJS.ProcessEnv): string | null {
-  const result = spawnSync('where.exe', [command], {
-    env,
-    windowsHide: true,
-    encoding: 'utf8'
-  })
-  if (result.status !== 0 || !result.stdout.trim()) return null
-  const matches = result.stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-  if (path.extname(command)) return matches[0] ?? null
-  return (
-    matches.find((candidate) => WINDOWS_EXECUTABLE_EXTENSIONS.includes(path.extname(candidate).toLowerCase())) ??
-    matches[0] ??
-    null
-  )
-}
-
-function shouldUseWindowsCommandShell(command: string): boolean {
-  if (process.platform !== 'win32') return false
-  const ext = path.extname(command).toLowerCase()
-  return ext === '.cmd' || ext === '.bat'
-}
-
-/**
- * Builds a useful exit message for the UI. `code === null` happens routinely
- * on Windows when spawn used `shell: true` — the wrapper cmd.exe consumed the
- * actual exit code on its way out. We swap the cryptic "exited (null)" for the
- * tail of stderr, which is usually the real cause (missing env var, missing
- * dep, etc.). Falls back to the original code+signal when nothing useful was
- * written to stderr.
- */
-function formatExitMessage(code: number | null, stderrLines: string[]): string {
-  const last = stderrLines.slice(-3).filter(Boolean)
-  if (last.length > 0) {
-    const joined = last.join(' | ')
-    return code === null ? `Exited unexpectedly — ${joined}` : `Exited with code ${code} — ${joined}`
-  }
-  if (code === null) {
-    return 'Exited without an explicit code (often: missing required env var or dependency). Check the server\'s stderr.'
-  }
-  return `Exited with code ${code}`
-}
-
-function formatSpawnError(command: string, err: unknown): string {
-  const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code?: unknown }).code) : null
-  const rawMessage = err instanceof Error ? err.message : String(err)
-  if (code === 'ENOENT') {
-    const suffix = process.platform === 'win32' && !path.extname(command) ? `. On Windows, OXESpace also looks for ${command}.cmd on the PATH.` : ''
-    return `Executable "${command}" not found${suffix} Install the required dependency or set the command's absolute path in the MCP server.`
-  }
-  return `Could not start "${command}": ${rawMessage}`
-}
-
-function timeout<T>(ms: number, message: string): Promise<T> {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
 }
