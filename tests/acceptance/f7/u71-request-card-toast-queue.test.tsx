@@ -61,7 +61,8 @@ describe('U7.1 · A request comes to you', () => {
   test('an irreversible card says it cannot be undone and offers See impact, never Allow', { timeout: 30_000 }, async () => {
     const onRespond = await renderCard(IRREVERSIBLE)
     expect(await screen.findByText("Can't be undone")).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Copy exact text', 'Deny', 'See impact'])
+    // OXE-477: shell-command approval blocks expose the inline Edit icon button beside Copy exact text.
+    expect(actionButtons()).toEqual(['Edit command', 'Copy exact text', 'Deny', 'See impact'])
     expect(screen.queryByRole('button', { name: /^(Allow|Approve)/ })).toBeNull()
     expect(onRespond).not.toHaveBeenCalled()
   })
@@ -102,7 +103,8 @@ describe('U7.1 · A request comes to you', () => {
     expect(await screen.findByText('Enviar ao remoto')).toBeInTheDocument()
     expect(screen.getByText('Claude')).toBeInTheDocument()
     expect(screen.getByText('Não dá para desfazer')).toBeInTheDocument()
-    expect(actionButtons()).toEqual(['Copiar o texto exato', 'Negar', 'Ver impacto'])
+    // OXE-477: shell-command approval blocks expose the inline Edit icon button beside Copy exact text.
+    expect(actionButtons()).toEqual(['Editar comando', 'Copiar o texto exato', 'Negar', 'Ver impacto'])
   })
 
   async function renderToast(impact: Props) {

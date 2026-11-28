@@ -225,6 +225,12 @@
 .thread-timeline-request .thread-approval-exact > .thread-approval-preview-heading { position: sticky; top: 0; z-index: var(--layer-raised); background: var(--surface-chrome); }
 .thread-approval-content[data-more-below] { mask-image: linear-gradient(to bottom, currentColor calc(100% - 28px), transparent); }
 .thread-approval-exact > .thread-approval-preview-heading > button { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); margin-left: auto; padding: var(--space-1) var(--space-2); font-size: var(--fs-2xs); }
+.thread-approval-exact-actions { display: inline-flex; flex: none; align-items: center; gap: var(--space-1); margin-left: auto; }
+.thread-approval-editor { display: block; width: 100%; min-height: calc(var(--row-2) + var(--space-4)); padding: var(--space-2) var(--space-3); border: 0; background: var(--surface-base); color: var(--tx-primary); font-family: var(--font-mono); font-size: var(--fs-xs); line-height: var(--leading-normal); resize: vertical; }
+.thread-approval-editor:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.thread-approval-editor-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1-5) var(--space-3); border-top: 1px solid var(--bd-subtle); background: var(--surface-chrome); color: var(--tx-secondary); font-size: var(--fs-2xs); }
+.thread-approval-edited-badge { display: inline-flex; align-items: center; padding: 0 var(--space-1-5); border: 1px solid var(--attn-border); border-radius: var(--radius-full); background: var(--attn-bg); color: var(--attn-fg); font-size: var(--fs-2xs); font-weight: var(--weight-medium); }
+.thread-approval-escalated { color: var(--intent-danger-fg); font-size: var(--fs-2xs); font-weight: var(--weight-medium); }
 /* The agent's own words: the same dashed, sunken box as the approval modal's agent block. */
 .thread-approval-agent { min-width: 0; max-width: 100%; overflow: hidden; border: 1px dashed var(--bd-default); border-radius: var(--radius-md); background: var(--surface-sunken); }
 .thread-approval-agent pre { max-height: 160px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -323,7 +329,8 @@
 .thread-pending-requests-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 28px; margin-top: 2px; color: var(--tx-secondary); font-size: var(--fs-xs); }
 .thread-pending-requests-bar > span:not(.thread-pending-requests-actions) { margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-pending-requests-bar button { display: inline-flex; flex: none; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px solid var(--bd-default); border-radius: var(--radius-sm); background: transparent; color: var(--tx-secondary); font: inherit; cursor: pointer; }
-.thread-pending-requests-bar button:hover { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-pending-requests-bar button:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-pending-requests-bar button:disabled { opacity: 0.4; cursor: default; }
 .thread-pending-requests-bar .thread-pending-requests-icon { justify-content: center; width: 28px; height: 28px; padding: 0; border-color: transparent; }
 .thread-pending-requests-bar button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .thread-pending-requests-bar button[aria-expanded='false'] svg { transform: rotate(180deg); }

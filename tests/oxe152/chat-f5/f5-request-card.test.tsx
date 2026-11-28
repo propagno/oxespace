@@ -310,8 +310,9 @@ function card(): HTMLElement {
   expect(node, 'the card carries data-ui="request-card"').toBeTruthy()
   return node!
 }
-/** The card's action buttons in DOM order, without the copy button. */
-const actions = (copy = cat('thread', 'f7.card.copyExact')): string[] => within(card()).getAllByRole('button').map(nameOf).filter(name => name && name !== copy)
+/** The card's action buttons in DOM order, without the command block's copy/edit icon buttons (OXE-477). */
+const actions = (copy = cat('thread', 'f7.card.copyExact'), edit = copy === 'Copiar o texto exato' ? cat('thread', 'request.editCommand', {}, 'pt-BR') : cat('thread', 'request.editCommand')): string[] =>
+  within(card()).getAllByRole('button').map(nameOf).filter(name => name && name !== copy && name !== edit)
 const riskLabels = (): HTMLElement[] => [...card().querySelectorAll<HTMLElement>('[data-ui="risk-label"]')]
 const noAllow = (root: HTMLElement): void => { expect(within(root).queryByRole('button', { name: /allow|approve|permitir|aprovar/i })).toBeNull() }
 

@@ -514,14 +514,18 @@ export class ClaudeConversationAdapter implements AgentConversationAdapter {
       return [question, values.map(value => value.trim()).filter(Boolean).join(', ')]
     })
     if (pending.questions && response.answers && [...pending.questions.keys()].some(id => !response.answers![id]?.some(value => value.trim()))) throw Error('Answer every question before sending.')
-    const updatedInput = pending.toolName === 'AskUserQuestion' ? { ...pending.input, answers: Object.fromEntries(answers) } : pending.input
+    const updatedInput = pending.toolName === 'AskUserQuestion'
+      ? { ...pending.input, answers: Object.fromEntries(answers) }
+      : response.updatedInput
+        ? { ...pending.input, ...response.updatedInput }
+        : pending.input
     const accept = response.decision ? ['accept', 'acceptForSession'].includes(response.decision) : Boolean(response.answers)
     // An approved plan leaves plan mode for the CLI's default mode, which asks before every
     // command. With full access the conversation goes back to bypass, as it was before planning.
     const afterPlan = pending.toolName === 'ExitPlanMode' && this.context?.access === 'full-access'
       ? [{ type: 'setMode', mode: 'bypassPermissions', destination: 'session' }]
       : []
-    const updatedPermissions = [...(response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
+    const updatedPermissions = [...(!response.updatedInput && response.decision === 'acceptForSession' ? pending.suggestions ?? [] : []), ...afterPlan]
     this.transport.write(JSON.stringify({ type: 'control_response', response: { subtype: 'success', request_id: requestId, response: accept ? { behavior: 'allow', updatedInput, ...(updatedPermissions.length ? { updatedPermissions } : {}), ...(pending.toolUseId ? { toolUseID: pending.toolUseId } : {}) } : { behavior: 'deny', message: response.reason?.slice(0, 1000) || (response.decision === 'cancel' ? 'Cancelled by the user' : 'Declined by the user') } } }) + '\n')
     this.approvals.delete(requestId)
     // The CLI left plan mode when the plan was approved. The conversation says so too: the switch stayed on Plan

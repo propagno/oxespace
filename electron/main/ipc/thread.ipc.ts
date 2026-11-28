@@ -52,7 +52,7 @@ function stringList(value: unknown, maximum: number): string[] {
 function requestResponse(value: unknown): ThreadRequestResponse {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid request response')
   const input = value as Record<string, unknown>
-  if (Object.keys(input).some(key => !['decision', 'answers', 'content', 'permissions', 'scope'].includes(key))) throw Error('Unknown request response field')
+  if (Object.keys(input).some(key => !['decision', 'answers', 'content', 'permissions', 'scope', 'updatedInput'].includes(key))) throw Error('Unknown request response field')
   const result: ThreadRequestResponse = {}
   if (input.decision !== undefined) {
     if (!['accept', 'acceptForSession', 'decline', 'cancel'].includes(String(input.decision))) throw Error('Invalid request decision')
@@ -72,6 +72,15 @@ function requestResponse(value: unknown): ThreadRequestResponse {
   for (const key of ['content', 'permissions'] as const) if (input[key] !== undefined) {
     if (!input[key] || typeof input[key] !== 'object' || Array.isArray(input[key]) || Buffer.byteLength(JSON.stringify(input[key])) > 64 * 1024) throw Error(`Invalid ${key}`)
     result[key] = input[key] as never
+  }
+  if (input.updatedInput !== undefined) {
+    if (!input.updatedInput || typeof input.updatedInput !== 'object' || Array.isArray(input.updatedInput) || Buffer.byteLength(JSON.stringify(input.updatedInput)) > 64 * 1024) throw Error('Invalid updatedInput')
+    const updated = input.updatedInput as Record<string, unknown>
+    if (updated.command !== undefined && (typeof updated.command !== 'string' || !updated.command.trim() || updated.command.length > 12000 || updated.command.includes('\0'))) throw Error('Invalid updatedInput command')
+    for (const val of Object.values(updated)) {
+      if (typeof val === 'string' && val.includes('\0')) throw Error('Invalid updatedInput')
+    }
+    result.updatedInput = updated
   }
   if (!Object.keys(result).length) throw Error('Empty request response')
   return result
