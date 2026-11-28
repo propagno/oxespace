@@ -9,6 +9,7 @@ import type { useSectionDrag } from './sections/useSectionDrag'
 import { threadNavigationStatus, threadRowStateWord } from './threadNavigationStatus'
 import { displayThreadTitle } from './threadTitle'
 import { ThreadRowAttention } from './ThreadRowAttention'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import styles from './ThreadSidebar.module.css'
 
 type DragRowProps = ReturnType<ReturnType<typeof useSectionDrag>['rowProps']>
@@ -71,7 +72,7 @@ export function ThreadSidebarRow({ thread, selected, unread, child = false, chan
   return <div className={cx('thread-navigation-row', styles.row, child && styles.child, unread && cx('is-unread', styles.unread))} data-thread-row={thread.id} data-parent-thread={child ? thread.parentThreadId : undefined} {...dragProps} onContextMenu={onContextMenu} onKeyDown={onKeyDown}>
     <SidebarRow className={cx('thread-navigation-item', styles.item)} data-list-item data-status={status.kind} selected={selected} onSelect={onSelect}
       lead={<span className={cx('thread-session-indicator', styles.indicator)} data-status={status.kind} aria-hidden="true">{icon}</span>}
-      title={<>{unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}<span data-ui="row-title" className={cx('thread-session-title', styles.title)}>{title}</span></>}
+      title={<>{unread && <span className={cx('thread-unread-marker', styles.unreadMark)} aria-label={t('sidebar.unread')} />}{unread && ' '}{thread.provider && <AgentProviderIcon provider={thread.provider} size={14} />}<span data-ui="row-title" className={cx('thread-session-title', styles.title)}>{title}</span></>}
       meta={<small className={styles.time}>{time}</small>}
       detail={child ? undefined : <span data-ui="row-meta" className={cx('thread-session-meta', styles.meta)}>{line2}{thread.pinned && <> <Pin size={11} aria-label={t('sidebar.pinned')} /></>}</span>} />
     {request ? <ThreadRowAttention request={request} onOpen={onOpenRequest} onAnswered={onAnswered} /> : null}

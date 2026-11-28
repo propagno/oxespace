@@ -1,6 +1,6 @@
 import { Check, ChevronDown, ChevronRight, CircleHelp, Copy, History, Info, Keyboard, LayoutGrid, Maximize2, Minimize2, MoreHorizontal, PanelBottom, PanelRight, Pencil, RotateCcw, Search, SquareTerminal, X } from 'lucide-react'
 import { Suspense, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
-import type { AgentProfile } from '../../../shared/types/agent'
+import type { AgentProfile, AgentProvider } from '../../../shared/types/agent'
 import type { TerminalStatusResult } from '../../../shared/types/ipc'
 import type { Workspace, WorkspacePane } from '../../../shared/types/workspace'
 import { useTerminalStore } from '../../store/terminal.store'
@@ -67,12 +67,6 @@ function elapsedLabel(ms: number): string {
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m`
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`
-}
-
-function statusClass(status: WorkspacePane['status']): string {
-  if (status === 'running') return 'running'
-  if (status === 'exited') return 'exited'
-  return ''
 }
 
 /**
@@ -398,6 +392,11 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
   const renameItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => startRename()) }}><Pencil size={14} aria-hidden="true" />{tc('paneMenu.rename')}</Button>
   const newSessionItem = <Button variant="ghost" role="menuitem" className={paneMenu.item} onClick={event => { event.stopPropagation(); runMenuAction(() => { window.dispatchEvent(new CustomEvent('oxe:terminal-new-session', { detail: { paneId: pane.id } })) }) }}><RotateCcw size={14} aria-hidden="true" />{tc('paneMenu.newSession')}</Button>
 
+  const providerIconKey: AgentProvider | null = agentProfile?.provider
+    ?? (display.providerKey !== 'shell' && display.providerKey !== 'local'
+      ? (display.providerKey as AgentProvider)
+      : null)
+
   return (
     <section className={`pane-container${isActive ? ' active' : ''}`} data-testid="pane-container" data-pane-id={pane.id} data-tone={display.statusTone} tabIndex={-1} onFocus={() => { if (!isAutoFocusingTerminal()) onActivate?.(pane.id) }} onPointerDown={() => onActivate?.(pane.id)} onKeyDown={() => { if (showAttentionRing) setRingDismissed(true) }}>
       <PaneHeader
@@ -407,23 +406,21 @@ export function PaneContainer({ agentProfile, autoStart, hasPreviousPane = true,
         data-attention={showAttentionRing ? 'true' : undefined}
         onContextMenu={openMenuFromContext}
         status={<>
-          <span className={`pane-status-dot ${statusClass(pane.status)} activity-${display.statusTone}${display.statusEstimated ? ' is-estimated' : ''}`} aria-hidden="true" title={statusText} data-testid="pane-status-dot" data-origin={display.statusOrigin ?? undefined} />
+          <span
+            className={`pane-provider-mark provider-${display.providerKey}`}
+            title={display.subtitle || display.providerLabel}
+            data-testid="pane-provider-chip"
+            data-provider={display.providerKey}
+          >
+            {providerIconKey ? (
+              <AgentProviderIcon provider={providerIconKey} size={14} />
+            ) : <SquareTerminal size={14} aria-hidden="true" />}
+          </span>
           <span className="sr-only" data-testid="pane-status-text">{statusText}</span>
           {/* Polite and once: the text appears when the pane enters the state and stays while it holds. */}
           <span className="sr-only" role="status" data-testid="pane-decision-live">{needsDecision ? tc('pane.decisionAnnounce', { agent: display.providerLabel, reason: display.attentionReason ?? display.statusLabel }) : ''}</span>
         </>}
         provider={<>
-          <span
-            className={`pane-agent-chip provider-${display.providerKey}`}
-            title={display.subtitle}
-            data-testid="pane-provider-chip"
-            data-provider={display.providerKey}
-          >
-            {agentProfile ? (
-              <AgentProviderIcon provider={agentProfile.provider} />
-            ) : <SquareTerminal size={14} aria-hidden="true" />}
-            <span className="pane-agent-chip-label">{display.providerLabel}</span>
-          </span>
           {needsDecision && (
             <span className="pane-decision-chip" title={display.attentionReason ? `${display.attentionReason} · ${statusText}` : statusText} data-testid="pane-decision-chip" aria-hidden="true">
               <StatusSignal state="needs-you" label="" size={12} />

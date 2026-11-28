@@ -48,20 +48,12 @@
 /* The wrapper keeps the bar's data-ui (BRD-03 measures its buttons) without adding a layout box. */
 .workspace-topbar-host { display: contents; }
 
-/* Left creation & layout group in OxeCode topbar (OXE-470). */
+/* Left creation group in OxeCode topbar (OXE-470, OXE-472). */
 .workspace-topbar-create-group {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-}
-
-.workspace-topbar-sep {
-  width: 1px;
-  height: var(--space-4);
-  margin: 0 var(--space-0-5);
-  background: var(--bd-subtle);
-  flex-shrink: 0;
 }
 
 /* The panel group: square md IconButtons side by side; size and pressed fill are the primitive's (BRD-13). */
@@ -79,19 +71,18 @@
 .workspace-integrations-icon { position: relative; display: inline-grid; place-items: center; }
 .workspace-integrations-icon .workspace-integrations-health { position: absolute; top: -2px; right: -3px; }
 
-/* Quiet Obsidian Minimal metadata tags in pane headers (OXE-470). */
-.pane-agent-chip,
-.pane-agent-chip[class*='provider-'] {
-  height: var(--space-5);
-  padding: 0 var(--space-1-5);
-  gap: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--fill-hover);
-  border: 1px solid var(--bd-subtle);
-  color: var(--tx-secondary);
-  font-size: var(--fs-2xs);
-  font-weight: var(--weight-medium);
+/* Leading AI provider / shell symbol and quiet Obsidian Minimal metadata tags in pane headers (OXE-472). */
+.pane-provider-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--tx-muted);
   line-height: 1;
+}
+
+.pane-provider-mark .agent-provider-icon {
+  border-radius: var(--radius-xs);
 }
 
 .pane-header [data-testid='pane-resume-marker'] {

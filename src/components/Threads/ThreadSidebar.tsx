@@ -16,6 +16,7 @@ import { isSameRootPath } from '../../../shared/utils/path'
 import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { SidebarFooterBar, SidebarHeaderActions, type RailAction } from '../Navigation/NavigationChrome'
 import { SidebarCollapseButton } from '../Sidebar/SidebarCollapseButton'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadRail } from './ThreadRail'
 import { ThreadSidebarRow } from './ThreadSidebarRow'
 import { useNavigationSearch } from '../Navigation/useNavigationSearch'
@@ -508,7 +509,7 @@ export function ThreadSidebar({ active = true, onCreate, onCreateParallel, onAcc
           <SidebarGroup className={cx('thread-project-toggle', styles.groupRow)} data-list-item aria-expanded={query ? true : showArchived} aria-label={`${t('sidebar.archived')} ${archived.length}`}
             lead={<ChevronDown size={12} className={styles.chevron} aria-hidden="true" />} title={t('sidebar.archived')} meta={<span className={styles.count}>{archived.length}</span>} onSelect={() => setShowArchived(value => !value)} />
           {(query || showArchived) && <div className={styles.rows}>{archived.map(thread => <div key={thread.id} className={cx('thread-navigation-row thread-archived-row', styles.row, styles.archivedRow)}>
-            <SidebarRow className={cx('thread-navigation-item', styles.item)} data-list-item title={displayThreadTitle(thread.title)} meta={relativeTime(thread.updatedAt)} onSelect={restoringId !== null ? undefined : () => void restoreArchived(thread)}
+            <SidebarRow className={cx('thread-navigation-item', styles.item)} data-list-item title={<>{thread.provider && <AgentProviderIcon provider={thread.provider} size={14} />}{displayThreadTitle(thread.title)}</>} meta={relativeTime(thread.updatedAt)} onSelect={restoringId !== null ? undefined : () => void restoreArchived(thread)}
               actions={<IconButton size="sm" data-list-action data-testid="thread-row-action" label={t('sidebar.restoreNamed', { name: displayThreadTitle(thread.title) })} title={t('sidebar.restoreConversation')} disabled={restoringId !== null}
                 icon={restoringId === thread.id ? <Spinner size="sm" decorative /> : <ArchiveRestore size={14} aria-hidden="true" />} onClick={() => void restoreArchived(thread)} />} />
           </div>)}</div>}
