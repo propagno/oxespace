@@ -172,7 +172,11 @@ export function registerThreadIpc(
     },
     connected: async provider => { await (await manager).refreshAccounts(provider) }
   }))
-  const manager: Promise<ThreadManager> = import('../services/conversation/thread-runtime').then(async module => module.createThreadManager(db, await accounts, mcp))
+  const manager: Promise<ThreadManager> = import('../services/conversation/thread-runtime').then(async module => {
+    const service = module.createThreadManager(db, await accounts, mcp)
+    if (sideTerminal) service.configureTerminal(sideTerminal)
+    return service
+  })
   const accountContext = (value: unknown): AgentAccountContext => {
     if (!value || typeof value !== 'object') throw Error('Invalid account context')
     const input = value as Record<string, unknown>

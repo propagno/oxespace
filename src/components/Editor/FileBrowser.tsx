@@ -102,6 +102,7 @@ function FileNode({ node, level, position, siblings, onOpenFile, rootPath, selec
   const handleDragStart = (event: React.DragEvent): void => {
     event.dataTransfer.effectAllowed = 'copy'
     event.dataTransfer.setData('application/oxe-file-path', buildAbsolutePath(rootPath, node.relativePath))
+    event.dataTransfer.setData('application/oxe-file-kind', node.type)
     event.stopPropagation()
   }
 
