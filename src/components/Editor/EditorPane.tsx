@@ -281,7 +281,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
         <header className="editor-toolbar">
           <span className="editor-path">{activePath ?? t('editor.noFile')}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {activePath && (
+            {activePath && !file?.virtual && (
               <>
                 <span className="editor-readonly-notice">
                   {t('editor.readOnly', { defaultValue: 'Read only · edit in your editor' })}
@@ -291,7 +291,7 @@ export function EditorPane({ rootPath, workspaceId }: EditorPaneProps): ReactEle
                 </Button>
               </>
             )}
-            {activePath && !workspaceId.startsWith('thread:') ? (
+            {activePath && !file?.virtual && !workspaceId.startsWith('thread:') ? (
               <button
                 type="button"
                 className="tile-btn"

@@ -53,10 +53,33 @@
 .thread-code-block { margin: var(--space-4) 0; max-width: 100%; min-width: 0; overflow: hidden; background: var(--surface-raised); border: 1px solid var(--bd-subtle); border-radius: var(--radius-lg); }
 .thread-code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-1) var(--space-3); background: var(--surface-chrome); border-bottom: 1px solid var(--bd-subtle); font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-code-block:not(.thread-diagram-block) .thread-code-toolbar > button:last-child { margin-left: auto; }
+.thread-code-meta { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; overflow: hidden; }
+.thread-code-filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--tx-secondary); }
+.thread-code-actions { display: inline-flex; align-items: center; gap: var(--space-0-5); margin-left: auto; flex: none; }
+.thread-code-action { height: var(--control-sm); min-height: var(--control-sm); padding: 0 var(--space-1-5); gap: var(--space-1); }
+.thread-code-action-secondary { opacity: 0; transition: opacity var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard); }
+.thread-code-block:hover .thread-code-action-secondary,
+.thread-code-block:focus-within .thread-code-action-secondary,
+.thread-code-action-secondary[aria-pressed='true'] { opacity: 1; }
+.thread-code-action[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
+@media (hover: none) {
+  .thread-code-action-secondary { opacity: 1; }
+}
 .thread-code-toolbar button { font-size: var(--fs-2xs); color: var(--tx-muted); }
 .thread-code-toolbar button:hover { color: var(--tx-primary); }
 .thread-markdown .thread-code-block pre { margin: 0; padding: var(--space-3) var(--space-4); max-width: 100%; border-radius: 0; background: var(--surface-sunken); overflow-x: auto; white-space: pre; overflow-wrap: normal; line-height: 1.55; tab-size: 2; }
+.thread-markdown .thread-code-block[data-wrapped='true'] pre { overflow-x: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
 .thread-code-block pre code { padding: 0; border: 0; background: transparent; color: var(--tx-primary); font-size: var(--fs-xs); white-space: inherit; text-decoration: none; }
+/* Subtle per-line diff highlighting for diff/patch fences (OXE-476): semantic tokens only. */
+.thread-markdown .thread-code-block[data-diff='true'] pre { padding-inline: 0; }
+.thread-code-block pre code.thread-diff-code { display: inline-block; min-width: 100%; }
+.thread-code-block[data-wrapped='true'] pre code.thread-diff-code { display: block; width: 100%; }
+.thread-code-block .thread-diff-code-line { display: inline-block; width: 100%; min-height: 1.55em; padding-inline: var(--space-4); box-sizing: border-box; vertical-align: top; }
+.thread-code-block .thread-diff-code-line.is-added { background: var(--diff-add-bg); color: var(--intent-success-fg); }
+.thread-code-block .thread-diff-code-line.is-removed { background: var(--diff-del-bg); color: var(--intent-danger-fg); }
+.thread-code-block .thread-diff-code-line.is-hunk { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--tx-accent); }
+.thread-code-block .thread-diff-code-line.is-meta { color: var(--tx-muted); }
+.thread-code-block .thread-diff-code-line.is-context { color: var(--tx-primary); }
 /* Colour for code: the syntax tokens (--syn-*), the same names in both themes. */
 .thread-code-block .tk-comment { color: var(--syn-cm); font-style: italic; }
 .thread-code-block .tk-string { color: var(--syn-str); }

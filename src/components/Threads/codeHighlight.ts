@@ -41,8 +41,9 @@ add('scala', { name: 'Scala', family: 'clike', keywords: C_LIKE })
 add('groovy gradle', { name: 'Groovy', family: 'clike', keywords: C_LIKE })
 add('py python python3', { name: 'Python', family: 'hash', keywords: PYTHON })
 add('rb ruby', { name: 'Ruby', family: 'hash', keywords: RUBY })
-add('sh bash shell zsh console shellsession', { name: 'Shell', family: 'hash', keywords: SHELL, variables: true })
+add('sh bash shell zsh fish console shellsession', { name: 'Shell', family: 'hash', keywords: SHELL, variables: true })
 add('ps1 powershell pwsh', { name: 'PowerShell', family: 'hash', keywords: POWERSHELL, variables: true })
+add('cmd bat', { name: 'Batch', family: 'plain' })
 add('yaml yml', { name: 'YAML', family: 'hash' })
 add('toml', { name: 'TOML', family: 'hash' })
 add('ini conf properties env dotenv', { name: 'INI', family: 'hash', semicolonComments: true })
@@ -69,9 +70,9 @@ add('mermaid', { name: 'Mermaid', family: 'plain' })
 /** Past this size a block is shown without colour: it is a dump, and colouring it would cost more than it tells. */
 export const MAX_HIGHLIGHT_CHARS = 60_000
 
-/** The id written after the fence ("```ts"), as the Markdown parser hands it: `language-ts`. */
+/** The id written after the fence ("```ts" or "```ts:path"), as the Markdown parser hands it: `language-ts`. */
 export function languageId(className: string | undefined): string | null {
-  const match = /(?:^|\s)language-([^\s]+)/.exec(className ?? '')
+  const match = /(?:^|\s)language-([^\s:]+)/.exec(className ?? '')
   return match ? match[1].toLowerCase() : null
 }
 
@@ -172,7 +173,7 @@ function scanDiff(code: string): CodeToken[] {
   const out: CodeToken[] = []
   const lines = code.split('\n')
   lines.forEach((line, index) => {
-    const kind: TokenKind | null = /^(@@|diff |index |--- |\+\+\+ )/.test(line) ? 'meta' : line.startsWith('+') ? 'added' : line.startsWith('-') ? 'removed' : null
+    const kind: TokenKind | null = /^(?:@@|diff |index |---|\+\+\+)/.test(line) ? 'meta' : line.startsWith('+') ? 'added' : line.startsWith('-') ? 'removed' : null
     push(out, index < lines.length - 1 ? `${line}\n` : line, kind)
   })
   return out.filter(token => token.text.length > 0)

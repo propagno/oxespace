@@ -188,7 +188,7 @@ export function EditorTabs({
               <X size={12} aria-hidden="true" />{t('editor.tabs.close')}
             </button>
             {/* F33: the path menu's items, in its order; this is the editor, so no "open in OXESpace". */}
-            {pathScope ? <Suspense fallback={null}><TabPathItems request={{ ...pathScope, relativePath: tab.relativePath }} close={() => setMenu(null)} /></Suspense> : null}
+            {pathScope && !tab.virtual ? <Suspense fallback={null}><TabPathItems request={{ ...pathScope, relativePath: tab.relativePath }} close={() => setMenu(null)} /></Suspense> : null}
           </div>,
           document.body
         )

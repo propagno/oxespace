@@ -2,7 +2,7 @@ import { Children, Suspense, cloneElement, createContext, isValidElement, useCon
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { toJsxRuntime, type Jsx } from 'hast-util-to-jsx-runtime'
 import { defaultUrlTransform, type Components } from 'react-markdown'
-import { Check, Copy, Info, Lightbulb, MessageSquareWarning, OctagonAlert, TriangleAlert } from 'lucide-react'
+import { Check, Copy, FileCode2, Info, Lightbulb, MessageSquareWarning, OctagonAlert, Terminal, TriangleAlert, WrapText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, ErrorState } from '../../ui'
 import { ExternalAnchor } from '../ExternalLinks/ExternalAnchor'
@@ -17,6 +17,24 @@ import type { CodeToken } from './codeHighlight'
 import { sanitizeThreadHast, type ThreadHastElement, type ThreadHastRoot, type ThreadNodeData } from './threadMarkdownParse'
 import { getCachedThreadTree, hasRenderWorker, parseThreadMarkdownSync, requestThreadTree } from './threadRenderClient'
 import { chunk, lazyFrom } from '../../lib/chunk'
+import {
+  classifyDiffLine,
+  extractLanguageId,
+  isDiffLanguage,
+  isShellLanguage,
+  prepareShellSnippet,
+  ThreadCodeBlockActionsContext,
+  type CodeBlockOpenInEditorInput,
+  type CodeBlockRunInTerminalInput,
+  type ThreadCodeBlockActions
+} from './threadCodeBlockActions'
+
+export {
+  ThreadCodeBlockActionsContext,
+  type CodeBlockOpenInEditorInput,
+  type CodeBlockRunInTerminalInput,
+  type ThreadCodeBlockActions
+}
 
 // Formulas and diagrams are drawn by libraries far larger than this file: each loads only for an answer that has one.
 export const THREAD_MATH_CHUNK = chunk(() => import('./ThreadMath'))
@@ -87,27 +105,114 @@ function fencedCodeDataOf(preNode: unknown): ThreadNodeData | undefined {
 
 /** The text of a fenced block, coloured by tokens precomputed in the worker (or fallback highlighter). Copy copies the same characters. */
 function FencedCode({ className, text, tokens: precomputed }: { className?: string; text: string; tokens?: CodeToken[] }): ReactElement {
-  const lib = useHighlighter(Boolean(className) && !precomputed)
-  const tokens = useMemo(() => precomputed ?? (lib ? lib.highlightCode(text, lib.languageId(className)) : null), [precomputed, lib, text, className])
+  const diff = isDiffLanguage(extractLanguageId(className))
+  const lib = useHighlighter(Boolean(className) && !precomputed && !diff)
+  const tokens = useMemo(() => (diff ? null : (precomputed ?? (lib ? lib.highlightCode(text, lib.languageId(className)) : null))), [diff, precomputed, lib, text, className])
+  const diffLines = useMemo(() => {
+    if (!diff) return null
+    const trailingNewline = text.endsWith('\n')
+    const lines = (trailingNewline ? text.slice(0, -1) : text).split('\n')
+    return { lines, trailingNewline }
+  }, [diff, text])
+
+  if (diffLines) {
+    const codeClassName = className ? `${className} thread-diff-code` : 'thread-diff-code'
+    return <code className={codeClassName}>{diffLines.lines.map((line, index) => {
+      const kind = classifyDiffLine(line)
+      const needsNewline = index < diffLines.lines.length - 1 || diffLines.trailingNewline
+      const tokenClass = kind === 'added' || kind === 'removed' ? ` tk-${kind}` : ''
+      return <Fragment key={index}><span className={`thread-diff-code-line is-${kind}${tokenClass}`} data-diff-line={kind}>{line}</span>{needsNewline ? '\n' : null}</Fragment>
+    })}</code>
+  }
+
   return <code className={className}>{tokens ? tokens.map((token, index) => token.kind ? <span key={index} className={`tk-${token.kind}`}>{token.text}</span> : token.text) : text}</code>
 }
 
-function CodeBlock({ children, language, languageName: precomputedName, ...props }: ComponentPropsWithoutRef<'pre'> & { language?: string; languageName?: string | null }) {
+function CodeBlock({ children, language, languageName: precomputedName, filename, rawText, ...props }: ComponentPropsWithoutRef<'pre'> & { language?: string; languageName?: string | null; filename?: string | null; rawText?: string | null }) {
   const { t } = useTranslation('thread')
+  const actions = useContext(ThreadCodeBlockActionsContext)
+  const langId = extractLanguageId(language)
+  const isShell = isShellLanguage(langId)
+  const isDiff = isDiffLanguage(langId)
   const lib = useHighlighter(Boolean(language) && precomputedName === undefined)
   const name = precomputedName !== undefined ? precomputedName : (lib ? lib.languageName(lib.languageId(language)) : null)
-  const [copied, setCopied] = useState(false), [error, setError] = useState(false)
+  const [wrapped, setWrapped] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [ran, setRan] = useState(false)
+  const [error, setError] = useState(false)
+
   useEffect(() => {
     if (!copied) return
     const timer = setTimeout(() => setCopied(false), 2000)
     return () => clearTimeout(timer)
   }, [copied])
-  return <div className="thread-code-block">
-    <div className="thread-code-toolbar">{name ? <span data-testid="thread-code-language">{name}</span> : null}<Button variant="ghost" size="sm" aria-label={t('markdown.copyCode')} onClick={async event => {
-      const code = (event.currentTarget.closest('.thread-code-block')?.querySelector('code')?.textContent ?? '').replace(/\n$/, '')
-      try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
-      catch { setError(true); setCopied(false) }
-    }}>{copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}<span role="status" aria-live="polite">{copied ? t('markdown.copied') : t('markdown.copy')}</span></Button></div>
+
+  useEffect(() => {
+    if (!ran) return
+    const timer = setTimeout(() => setRan(false), 1800)
+    return () => clearTimeout(timer)
+  }, [ran])
+
+  const readCode = (target: HTMLElement): string => {
+    if (typeof rawText === 'string') return rawText
+    return (target.closest('.thread-code-block')?.querySelector('code')?.textContent ?? '').replace(/\n$/, '')
+  }
+
+  const showRun = isShell && Boolean(actions?.onRunInTerminal)
+  const showOpenInEditor = (!isShell || Boolean(filename)) && Boolean(actions?.onOpenInEditor)
+
+  return <div className="thread-code-block" data-wrapped={wrapped ? 'true' : 'false'} data-diff={isDiff ? 'true' : undefined}>
+    <div className="thread-code-toolbar">
+      {(name || filename) ? <span className="thread-code-meta">
+        {name ? <span data-testid="thread-code-language">{name}</span> : null}
+        {filename ? <span className="thread-code-filename" data-testid="thread-code-filename" title={filename}>{filename}</span> : null}
+      </span> : null}
+      <div className="thread-code-actions" role="group" aria-label={t('markdown.codeActions')}>
+        {showRun ? <Button
+          variant="ghost"
+          size="sm"
+          className="thread-code-action thread-code-action-secondary"
+          aria-label={t('markdown.runInTerminal')}
+          title={t('markdown.runInTerminal')}
+          onClick={event => {
+            const code = readCode(event.currentTarget)
+            const command = prepareShellSnippet(code, langId)
+            void Promise.resolve(actions?.onRunInTerminal?.({ code, command, language: langId })).then(() => setRan(true), () => undefined)
+          }}
+        >{ran ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Terminal size={12} aria-hidden="true" />}<span>{ran ? t('markdown.sentToTerminal') : t('markdown.runInTerminalShort')}</span></Button> : null}
+        {showOpenInEditor ? <Button
+          variant="ghost"
+          size="sm"
+          className="thread-code-action thread-code-action-secondary"
+          aria-label={t('markdown.openInEditor')}
+          title={t('markdown.openInEditor')}
+          onClick={event => {
+            const code = readCode(event.currentTarget)
+            void actions?.onOpenInEditor?.({ code, language: langId, languageName: name ?? null, filename: filename ?? null })
+          }}
+        ><FileCode2 size={12} aria-hidden="true" /><span>{t('markdown.openInEditorShort')}</span></Button> : null}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="thread-code-action thread-code-action-secondary"
+          aria-pressed={wrapped}
+          aria-label={t('markdown.wrapCode')}
+          title={t('markdown.wrapCode')}
+          onClick={() => setWrapped(value => !value)}
+        ><WrapText size={12} aria-hidden="true" /><span>{t('markdown.wrap')}</span></Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="thread-code-action"
+          aria-label={t('markdown.copyCode')}
+          onClick={async event => {
+            const code = readCode(event.currentTarget)
+            try { await navigator.clipboard.writeText(code); setCopied(true); setError(false) }
+            catch { setError(true); setCopied(false) }
+          }}
+        >{copied ? <Check size={12} className="oxe-confirm" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}<span role="status" aria-live="polite">{copied ? t('markdown.copied') : t('markdown.copy')}</span></Button>
+      </div>
+    </div>
     <pre {...props}>{children}</pre>
     {error && <ErrorState compact title={t('markdown.copyFailed')} />}
   </div>
@@ -147,9 +252,9 @@ function Fence({ children, node }: { children?: ReactNode; node?: unknown }): Re
   const streaming = useContext(StreamingContext)
   const language = fenceLanguage(children)
   const kind = /(?:^|\s)language-(math|mermaid)(?:\s|$)/.exec(language ?? '')?.[1]
-  const text = kind ? fenceText(children) : null
+  const text = fenceText(children)
   const data = fencedCodeDataOf(node)
-  const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language} languageName={data?.threadLanguageName}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
+  const code = <InCodeBlockContext.Provider value><FencedContext.Provider value><CodeBlock language={language} languageName={data?.threadLanguageName} filename={data?.threadFilename} rawText={text}>{children}</CodeBlock></FencedContext.Provider></InCodeBlockContext.Provider>
   if (kind === 'math' && text) return <Suspense fallback={code}><MathView tex={text} display html={data?.threadMathHtml} /></Suspense>
   if (kind === 'mermaid' && text) return <Suspense fallback={code}><MermaidDiagram code={text} streaming={streaming} /></Suspense>
   return code

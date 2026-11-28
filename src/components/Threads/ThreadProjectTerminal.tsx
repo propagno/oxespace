@@ -1,19 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { OctagonX, Play, Plus, Power, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, ErrorState, IconButton } from '../../ui'
 import { TerminalPane } from '../Panes/TerminalPane'
 import { useTerminalStore } from '../../store/terminal.store'
+import { getActiveThreadShellSlot, setActiveThreadShellSlot, THREAD_SHELL_SLOTS, threadShellPane } from '../../lib/threadShell'
 import type { ConversationThread } from '../../../shared/types/thread'
 import type { WorkspacePane } from '../../../shared/types/workspace'
 
-const MAX_TERMINALS = 8
+const MAX_TERMINALS = THREAD_SHELL_SLOTS
 /** Terminal slot numbers per Thread; the shells themselves outlive the panel. */
 const slots = new Map<string, number[]>()
 /** Panes that already had their first automatic start (a stopped shell stays stopped). */
 const autoStarted = new Set<string>()
 
-const paneId = (threadId: string, slot: number): string => `thread-shell:${threadId}:${slot}`
+const paneId = threadShellPane
 
 function TerminalTab({ id, label, selected, closable, onSelect, onClose }: {
   id: string; label: string; selected: boolean; closable: boolean; onSelect(): void; onClose(): void
@@ -31,8 +32,13 @@ function TerminalTab({ id, label, selected, closable, onSelect, onClose }: {
 export function ThreadProjectTerminal({ thread }: { thread: ConversationThread }) {
   const { t } = useTranslation('thread')
   const [list, setList] = useState<number[]>(() => slots.get(thread.id) ?? [1])
-  const [selected, setSelected] = useState(list[0] ?? 1)
+  const [selected, setSelected] = useState(() => {
+    const active = getActiveThreadShellSlot(thread.id)
+    const available = slots.get(thread.id) ?? [1]
+    return available.includes(active) ? active : (available[0] ?? 1)
+  })
   const [error, setError] = useState('')
+  useEffect(() => { setActiveThreadShellSlot(thread.id, selected) }, [thread.id, selected])
   const update = (next: number[]): void => { slots.set(thread.id, next); setList(next) }
   const id = paneId(thread.id, selected)
   const act = (promise: Promise<unknown>): void => { void promise.catch(cause => setError(String(cause))) }

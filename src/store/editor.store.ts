@@ -16,6 +16,8 @@ export interface EditorFileState {
   isLoading: boolean
   /** Why the file could not be opened or read. */
   error: string | null
+  /** Virtual in-memory snippet (not backed by a file on disk; never watched or persisted across restarts). */
+  virtual?: boolean
 }
 
 /** Persisted per-tab metadata — content is never persisted, only re-read. */
@@ -25,6 +27,8 @@ export interface EditorTab {
   pinned: boolean
   /** Binary tabs render a preview instead of Monaco and are never read as text. */
   binary: boolean
+  /** Virtual snippet tab opened from chat; never persisted across restarts or watched on disk. */
+  virtual?: boolean
 }
 
 interface OpenFileInput {
@@ -33,6 +37,15 @@ interface OpenFileInput {
   relativePath: string
   /** 1-based line to show and put the cursor on once the file is open (a search match). */
   line?: number
+}
+
+export interface OpenVirtualFileInput {
+  workspaceId: string
+  rootPath: string
+  relativePath: string
+  content: string
+  /** Optional explicit Monaco language id; inferred from relativePath when omitted. */
+  language?: string
 }
 
 /** A line the editor still has to scroll to; `seq` makes asking twice for the same line count. */
@@ -54,6 +67,8 @@ interface EditorState {
   clearReveal: (workspaceId: string, seq: number) => void
   /** Opens (or re-activates) a tab. Activating a loaded tab never re-reads it. */
   openFile: (input: OpenFileInput) => Promise<void>
+  /** Opens (or updates) an in-memory read-only snippet buffer without touching the filesystem. */
+  openVirtualFile: (input: OpenVirtualFileInput) => void
   closeTab: (workspaceId: string, relativePath: string) => void
   closeOtherTabs: (workspaceId: string, relativePath: string) => void
   togglePin: (workspaceId: string, relativePath: string) => void
@@ -87,13 +102,15 @@ export const useEditorStore = create<EditorState>()(
       openFile: async (input) => {
         const kind = previewKind(input.relativePath)
         const binary = isBinaryPreview(kind)
-        const alreadyLoaded = Boolean(get().files[input.workspaceId]?.[input.relativePath]?.watchId)
+        const existing = get().files[input.workspaceId]?.[input.relativePath]
+        const alreadyLoaded = Boolean(existing?.watchId || existing?.virtual)
 
         set((state) => {
           const tabs = state.tabs[input.workspaceId] ?? []
           const nextTabs = tabs.some((tab) => tab.relativePath === input.relativePath)
             ? tabs
             : sortTabs([...tabs, { relativePath: input.relativePath, pinned: false, binary }])
+          const currentFile = state.files[input.workspaceId]?.[input.relativePath]
           return {
             reveal: input.line && !binary
               ? { ...state.reveal, [input.workspaceId]: { relativePath: input.relativePath, line: input.line, seq: (state.reveal[input.workspaceId]?.seq ?? 0) + 1 } }
@@ -105,14 +122,14 @@ export const useEditorStore = create<EditorState>()(
               [input.workspaceId]: {
                 ...(state.files[input.workspaceId] ?? {}),
                 [input.relativePath]: {
-                  ...(state.files[input.workspaceId]?.[input.relativePath] ?? {
+                  ...(currentFile ?? {
                     content: '',
                     watchId: null
                   }),
                   workspaceId: input.workspaceId,
                   rootPath: input.rootPath,
                   relativePath: input.relativePath,
-                  language: detectEditorLanguage(input.relativePath),
+                  language: currentFile?.virtual ? currentFile.language : detectEditorLanguage(input.relativePath),
                   isLoading: !binary && !alreadyLoaded,
                   error: null
                 } as EditorFileState
@@ -164,6 +181,36 @@ export const useEditorStore = create<EditorState>()(
         const loading = load().finally(() => pendingLoads.delete(key))
         pendingLoads.set(key, loading)
         await loading
+      },
+
+      openVirtualFile: (input) => {
+        set((state) => {
+          const tabs = state.tabs[input.workspaceId] ?? []
+          const nextTabs = tabs.some((tab) => tab.relativePath === input.relativePath)
+            ? tabs
+            : sortTabs([...tabs, { relativePath: input.relativePath, pinned: false, binary: false, virtual: true }])
+          return {
+            tabs: { ...state.tabs, [input.workspaceId]: nextTabs },
+            activePath: { ...state.activePath, [input.workspaceId]: input.relativePath },
+            files: {
+              ...state.files,
+              [input.workspaceId]: {
+                ...(state.files[input.workspaceId] ?? {}),
+                [input.relativePath]: {
+                  workspaceId: input.workspaceId,
+                  rootPath: input.rootPath,
+                  relativePath: input.relativePath,
+                  content: input.content,
+                  language: input.language ?? detectEditorLanguage(input.relativePath),
+                  watchId: null,
+                  isLoading: false,
+                  error: null,
+                  virtual: true
+                }
+              }
+            }
+          }
+        })
       },
 
       closeTab: (workspaceId, relativePath) => {
@@ -282,7 +329,19 @@ export const useEditorStore = create<EditorState>()(
     }),
     {
       name: 'oxe-editor-tabs-v1',
-      partialize: (state) => ({ tabs: state.tabs, activePath: state.activePath })
+      partialize: (state) => {
+        const tabs: Record<string, EditorTab[]> = {}
+        const activePath: Record<string, string | null> = {}
+        for (const [workspaceId, list] of Object.entries(state.tabs)) {
+          const persisted = list.filter((tab) => !tab.virtual)
+          tabs[workspaceId] = persisted
+          const current = state.activePath[workspaceId] ?? null
+          activePath[workspaceId] = current && persisted.some((tab) => tab.relativePath === current)
+            ? current
+            : (persisted[0]?.relativePath ?? null)
+        }
+        return { tabs, activePath }
+      }
     }
   )
 )
