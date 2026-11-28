@@ -291,6 +291,7 @@ describe('OXE-472 · Unified AI provider icon chrome across OxeCode and OxeChat'
 
     expect(icon).not.toBeNull()
     expect(isBefore(icon, title)).toBe(true)
+    expect(title.parentElement).toBe(icon.parentElement)
     expect(row).toHaveAttribute('data-lines', '2')
     expect(title.textContent).toBe('Oi')
     expect(row.textContent).not.toMatch(/\b(Claude|Codex|Antigravity)\b/i)
