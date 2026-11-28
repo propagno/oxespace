@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { createOxeApi } from './api'
 
 // Default EventEmitter cap is 10. Each TerminalView subscribes to `terminal:data`
@@ -8,4 +8,6 @@ import { createOxeApi } from './api'
 // MaxListenersExceededWarning that was masquerading as a leak.
 ipcRenderer.setMaxListeners(100)
 
-contextBridge.exposeInMainWorld('oxe', createOxeApi(ipcRenderer))
+contextBridge.exposeInMainWorld('oxe', createOxeApi(ipcRenderer, file => {
+  try { return webUtils.getPathForFile(file) } catch { return '' }
+}))

@@ -2,6 +2,7 @@ import { Button, cx, ErrorState, Skeleton, Spinner, toast } from '../../ui'
 import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
 import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
+import { composeMessageWithContext, type ComposerContextItem } from '../../../shared/types/composer-context'
 import { threadProductName, THREAD_PROVIDERS } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
@@ -33,6 +34,7 @@ const NO_REQUESTS: import('../../../shared/types/thread').ThreadRequest[] = []
 // A stable empty list: a fresh [] per store read makes zustand 5 re-render forever.
 const NO_ATTACHMENTS: import('../../../shared/types/thread').ThreadAttachment[] = []
 const NO_PREVIEW_ELEMENTS: PreviewElementRef[] = []
+const NO_CONTEXT_ITEMS: ComposerContextItem[] = []
 import { useThreadViewModeStore } from '../../store/thread-view-mode.store'
 import { ThreadTimelineWindow } from './ThreadTimeline'
 import { deriveThreadComposerState } from './threadComposerState'
@@ -333,17 +335,19 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const draft = storeState.drafts[id] ?? ''
     const attachments = storeState.attachments[id] ?? NO_ATTACHMENTS
     const previewElements = storeState.previewElements[id] ?? NO_PREVIEW_ELEMENTS
-    if (!draft.trim() && !attachments.length && !previewElements.length) return
+    const contextItems = storeState.contextItems[id] ?? NO_CONTEXT_ITEMS
+    if (!draft.trim() && !attachments.length && !previewElements.length && !contextItems.length) return
     const command = draft.trim().match(/^\/([\w:-]+)/)?.[1]
     if (command && hasDesktopCommand(snapshot.thread.provider, command) && api?.command) { void action(() => runCommand(draft)); return }
     if (commandsRef.current?.executeLocal(draft)) return
     if (snapshot.thread.cliActive) { setError(t('view.cliOwns')); return }
     const text = draft
     const keptElements = previewElements
+    const keptContext = contextItems
     const attachmentIds = attachments.map(value => value.id)
-    const composed = composeMessageWithElements(text, keptElements)
+    const composed = composeMessageWithContext(composeMessageWithElements(text, keptElements), keptContext)
     const message = composed || t('view.inspectImage')
-    // The person's authority is for what they typed, alone: not a selected element's text, not the image note.
+    // The person's authority is for what they typed, alone: not a selected element's text, not attached context, not the image note.
     const typed = Boolean(text.trim()) && message === text
     const deliver = mode === 'steer' ? (typed && api!.steerTyped) || api!.steer! : (typed && api!.sendTyped) || api!.send
     const dispatchSend = (): Promise<unknown> => {
@@ -363,6 +367,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         if (useThreadStore.getState().drafts[id] === text) useThreadStore.getState().setDraft(id, '')
         useThreadStore.getState().clearAttachments(id)
         useThreadStore.getState().clearPreviewElements(id)
+        useThreadStore.getState().clearContextItems(id)
         scrollEnd()
       })
       return
@@ -371,6 +376,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     useThreadStore.getState().setDraft(id, '')
     useThreadStore.getState().clearAttachments(id)
     useThreadStore.getState().clearPreviewElements(id)
+    useThreadStore.getState().clearContextItems(id)
     requestAnimationFrame(scrollEnd)
     void action(dispatchSend, sent => {
       if (!sent) {
@@ -378,6 +384,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         if (!store.drafts[id]) store.setDraft(id, text)
         for (const attachment of attachments) store.addAttachment(id, attachment)
         for (const element of keptElements) store.addPreviewElement(id, element)
+        for (const item of keptContext) store.addContextItem(id, item)
       }
       setOutgoing(null)
       if (sent) requestAnimationFrame(scrollEnd)

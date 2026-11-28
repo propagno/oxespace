@@ -13,6 +13,14 @@
   border-color: var(--accent-border);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
 }
+/* OXE-478: quiet Obsidian Minimal hairline dropzone highlight when dragging files or folders over the composer. */
+.thread-composer[data-ui='composer'][data-drop-active='true'] {
+  border-color: var(--accent-border);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised));
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+.thread-mention-menu .thread-mention-hint { direction: ltr; margin-left: auto; }
 .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); flex-wrap: nowrap; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
 /* OXE-338: the quiet line between the two Escapes that stop a running turn. */

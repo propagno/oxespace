@@ -6,6 +6,9 @@ export const THREAD_FONT_DEFAULT = 14
 export const THREAD_FONT_MIN = 12
 export const THREAD_FONT_MAX = 20
 export const SEND_KEY_DEFAULT: SendKeyMode = 'enter'
+/** Default character threshold above which pasted text collapses into a removable chip (0 disables). */
+export const PASTE_AS_ATTACHMENT_DEFAULT = 10_000
+export const PASTE_AS_ATTACHMENT_MAX = 1_000_000
 
 /** How OxeChat displays agent reasoning blocks (OXE-475): bounded streaming preview, collapsed, or expanded. */
 export type ThinkingStyle = 'preview' | 'collapsed' | 'expanded'
@@ -22,6 +25,12 @@ export function clampThreadFontSize(value: unknown): number {
     : THREAD_FONT_DEFAULT
 }
 
+export function clampPasteAsAttachmentThreshold(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return PASTE_AS_ATTACHMENT_DEFAULT
+  if (value <= 0) return 0
+  return Math.min(PASTE_AS_ATTACHMENT_MAX, Math.round(value))
+}
+
 interface ThreadPrefs {
   fontSize: number
   setFontSize: (size: number) => void
@@ -31,24 +40,35 @@ interface ThreadPrefs {
   /** Display mode for reasoning blocks (OXE-475); kept across restarts. */
   thinkingStyle: ThinkingStyle
   setThinkingStyle: (style: ThinkingStyle) => void
+  /** Auto-convert pasted text longer than this many chars into a removable attachment chip (0 = off, OXE-478). */
+  pasteAsAttachmentThreshold: number
+  setPasteAsAttachmentThreshold: (threshold: number) => void
 }
 
 export const useThreadPrefs = create<ThreadPrefs>()(persist(
   set => ({
     fontSize: THREAD_FONT_DEFAULT, setFontSize: size => set({ fontSize: clampThreadFontSize(size) }),
     sendKey: SEND_KEY_DEFAULT, setSendKey: mode => set({ sendKey: isSendKeyMode(mode) ? mode : SEND_KEY_DEFAULT }),
-    thinkingStyle: THINKING_STYLE_DEFAULT, setThinkingStyle: style => set({ thinkingStyle: isThinkingStyle(style) ? style : THINKING_STYLE_DEFAULT })
+    thinkingStyle: THINKING_STYLE_DEFAULT, setThinkingStyle: style => set({ thinkingStyle: isThinkingStyle(style) ? style : THINKING_STYLE_DEFAULT }),
+    pasteAsAttachmentThreshold: PASTE_AS_ATTACHMENT_DEFAULT,
+    setPasteAsAttachmentThreshold: threshold => set({ pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(threshold) })
   }),
   {
     name: 'oxe.thread-appearance',
-    partialize: state => ({ fontSize: state.fontSize, sendKey: state.sendKey, thinkingStyle: state.thinkingStyle }),
+    partialize: state => ({
+      fontSize: state.fontSize,
+      sendKey: state.sendKey,
+      thinkingStyle: state.thinkingStyle,
+      pasteAsAttachmentThreshold: state.pasteAsAttachmentThreshold
+    }),
     merge: (saved, current) => {
-      const value = saved as { fontSize?: unknown; sendKey?: unknown; thinkingStyle?: unknown } | null
+      const value = saved as { fontSize?: unknown; sendKey?: unknown; thinkingStyle?: unknown; pasteAsAttachmentThreshold?: unknown } | null
       return {
         ...current,
         fontSize: clampThreadFontSize(value?.fontSize),
         sendKey: isSendKeyMode(value?.sendKey) ? value.sendKey : SEND_KEY_DEFAULT,
-        thinkingStyle: isThinkingStyle(value?.thinkingStyle) ? value.thinkingStyle : THINKING_STYLE_DEFAULT
+        thinkingStyle: isThinkingStyle(value?.thinkingStyle) ? value.thinkingStyle : THINKING_STYLE_DEFAULT,
+        pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(value?.pasteAsAttachmentThreshold)
       }
     }
   }

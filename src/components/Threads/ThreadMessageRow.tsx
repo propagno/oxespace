@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { threadAgentName } from '../../../shared/threadProviders'
-import { Check, Clock3, Copy, FileText, Image as ImageIcon, Paperclip, Pencil, Quote } from 'lucide-react'
+import { Check, Clock3, Copy, FileText, Folder, GitCompareArrows, Image as ImageIcon, MessageSquareText, Paperclip, Pencil, Quote, TerminalSquare } from 'lucide-react'
 import { Button, Checkbox, IconButton, TextArea } from '../../ui'
 import { editablePrompt } from '../../../shared/threadPromptEdit'
 import { useTranslation } from 'react-i18next'
@@ -140,7 +140,10 @@ export function ThreadMessageRow({ event, turnId, turnEvents, snapshot, running,
     {event.role === 'user' && event.attachments?.length ? <ul className="thread-sent-attachments" aria-label={t('message.attachments')}>{event.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{kilobytes(attachment.bytes)}</small></li>)}</ul> : null}
     <ThreadMessageBody text={displayText} role={event.role} streaming={answerStreaming(event, turnEvents, running)} />
     {event.role === 'user' && event.origin === 'execute-plan' && <p className="thread-prompt-origin">{t('plan.run')}</p>}
-    {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label={t('message.context')}>{event.context.map(file => <li key={file.path} title={t(file.truncated ? 'message.bytesTruncated' : 'message.bytes', { bytes: formatNumber(file.bytes) })}><FileText size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>{t('message.truncated')}</small>}</li>)}</ul> : null}
+    {event.role === 'user' && event.context?.length ? <ul className="thread-sent-context" aria-label={t('message.context')}>{event.context.map(file => {
+      const ContextIcon = file.path === '@changes' ? GitCompareArrows : file.path.startsWith('@terminal') ? TerminalSquare : file.path.startsWith('@folder:') ? Folder : file.path.startsWith('@thread:') ? MessageSquareText : FileText
+      return <li key={file.path} title={t(file.truncated ? 'message.bytesTruncated' : 'message.bytes', { bytes: formatNumber(file.bytes) })}><ContextIcon size={12} aria-hidden="true" /><span>{file.path}</span>{file.truncated && <small>{t('message.truncated')}</small>}</li>
+    })}</ul> : null}
     {event.role === 'user' && event.brief ? <details className="thread-sent-brief"><summary>{t('message.brief')}</summary><pre>{event.brief}</pre></details> : null}
     {event.role === 'user' && snapshot?.deliveries?.[event.id] && snapshot.deliveries[event.id].state !== 'delivered' ? <ThreadDeliveryNote delivery={snapshot.deliveries[event.id]} disabled={pending} onResend={() => void action(() => api!.send(snapshot.thread.id, event.text, event.attachments?.map(attachment => attachment.id) ?? []))} /> : null}
     {event.historicalQuestions?.length ? <ThreadHistoricalQuestions questions={event.historicalQuestions} /> : null}

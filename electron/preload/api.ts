@@ -21,7 +21,7 @@ export interface PreloadIpc {
   removeListener(channel: string, listener: (event: IpcRendererEvent, payload: unknown) => void): void
 }
 
-export function createOxeApi(ipc: PreloadIpc): OxeApi {
+export function createOxeApi(ipc: PreloadIpc, getPathForFile?: (file: File) => string): OxeApi {
   const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
@@ -193,7 +193,8 @@ export function createOxeApi(ipc: PreloadIpc): OxeApi {
       openExternal: (url: string) => ipc.invoke(IPC_CHANNELS.app.openExternal, url) as Promise<{ opened: boolean }>,
       openIn: (input) => ipc.invoke(IPC_CHANNELS.app.openIn, input) as Promise<void>,
       openInTargets: () => ipc.invoke(IPC_CHANNELS.app.openInTargets) as Promise<import('../../shared/types/open-in').OpenInTargets>,
-      setOpenInPreference: (preference) => ipc.invoke(IPC_CHANNELS.app.setOpenInPreference, preference) as Promise<import('../../shared/types/open-in').OpenInTargets>
+      setOpenInPreference: (preference) => ipc.invoke(IPC_CHANNELS.app.setOpenInPreference, preference) as Promise<import('../../shared/types/open-in').OpenInTargets>,
+      getPathForFile: (file) => getPathForFile?.(file) ?? ''
     },
     workspace: bind<OxeApi['workspace']>(IPC_CHANNELS.workspace, {
       onChanged: sub(IPC_CHANNELS.workspace.onChanged)

@@ -1,13 +1,21 @@
 import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ArrowUp, AtSign, CornerDownLeft, Paperclip, Plug, Plus, Slash, Square, X } from 'lucide-react'
+import { ArrowUp, AtSign, CornerDownLeft, Folder, GitCompareArrows, MessageSquareText, Paperclip, Plug, Plus, Slash, Square, TerminalSquare, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PreviewElementRef } from '../../../shared/types/design-mode'
+import {
+  composerContentLength,
+  createChangesContextItem,
+  createPastedTextItem,
+  createTerminalContextItem,
+  type ComposerContextItem
+} from '../../../shared/types/composer-context'
 import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
 import { useThreadStore } from '../../store/thread.store'
 import { useUIStore } from '../../store/ui.store'
 import { Button, ErrorState, IconButton, Menu } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { ComposerChips } from './ComposerChips'
+import { ComposerContextChips } from './ComposerContextChips'
 import { PreviewElementChips } from './PreviewElementChips'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadUsageRing } from './ThreadUsageRing'
@@ -20,7 +28,16 @@ import { deriveComposerHintStatus } from './threadComposerState'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { isSendKey, sendKeyEvent, sendKeyLabel } from './sendKey'
 import { useThreadCommands } from './useThreadCommands'
-import { useFileMentions } from './useFileMentions'
+
+const CONTEXT_SOURCE_HINT = {
+  changes: '@changes',
+  terminal: '@terminal',
+  folder: '@folder',
+  thread: '@thread'
+} as const
+import { resolveActiveTerminalPaneId, useFileMentions } from './useFileMentions'
+import { extractDroppedPayload, hasDroppablePayload } from './composerDrop'
+import { threadWorkingRoot } from './threadChanges'
 
 /** How long a first Escape keeps the stop armed for the second one (OXE-338). */
 const STOP_ESCAPE_WINDOW_MS = 2000
@@ -28,6 +45,7 @@ const STOP_ESCAPE_WINDOW_MS = 2000
 // Stable empty references so Zustand selectors never return a fresh array on every read.
 const NO_ATTACHMENTS: ThreadAttachment[] = []
 const NO_PREVIEW_ELEMENTS: PreviewElementRef[] = []
+const NO_CONTEXT_ITEMS: ComposerContextItem[] = []
 
 /** Imperative bridge from ThreadView to the composer's slash-command state without lifting keystroke state up (OXE-348). */
 export interface ThreadComposerCommandsHandle {
@@ -47,7 +65,7 @@ export interface CompactComposerChipsConfig {
   onChange: (change: Record<string, unknown>) => void
 }
 
-/** The message box: text, attachments, commands, mentions, configuration and send/steer/stop. */
+/** The message box: text, attachments, context chips, commands, mentions, configuration and send/steer/stop. */
 export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onNewThread, onAccounts }: {
   snapshot: ThreadSnapshot | null
   pending: boolean
@@ -75,22 +93,65 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
 }) {
   const { t } = useTranslation('thread')
   const sendKey = useThreadPrefs(state => state.sendKey)
+  const pasteThreshold = useThreadPrefs(state => state.pasteAsAttachmentThreshold)
   const threadId = snapshot?.thread.id
+  const workingRoot = snapshot ? threadWorkingRoot(snapshot.thread) : undefined
   // Subscribing inside the composer isolates every keystroke, caret move, attachment and preview chip
   // from ThreadView so typing never re-renders the message timeline or header (OXE-348).
   const draft = useThreadStore(state => threadId ? state.drafts[threadId] ?? '' : '')
   const attachments = useThreadStore(state => threadId ? state.attachments[threadId] ?? NO_ATTACHMENTS : NO_ATTACHMENTS)
   const previewElements = useThreadStore(state => threadId ? state.previewElements[threadId] ?? NO_PREVIEW_ELEMENTS : NO_PREVIEW_ELEMENTS)
+  const contextItems = useThreadStore(state => threadId ? state.contextItems[threadId] ?? NO_CONTEXT_ITEMS : NO_CONTEXT_ITEMS)
   const [caret, setCaret] = useState(0)
+  const [dropActive, setDropActive] = useState(false)
   const commands = useThreadCommands({ snapshot, draft, textarea, pending, run: onRunAction, onNewThread, onAccounts, onRunCommand, onSideChat, onError })
   useImperativeHandle(commandsRef, () => ({
     isOpen: () => commands.open,
     show: commands.show,
     executeLocal: commands.executeLocal
   }))
+
+  const attachContext = (item: ComposerContextItem): void => {
+    if (!snapshot) return
+    useThreadStore.getState().addContextItem(snapshot.thread.id, item)
+  }
+
+  const removeContext = (itemId: string): void => {
+    if (!snapshot) return
+    useThreadStore.getState().removeContextItem(snapshot.thread.id, itemId)
+  }
+
+  const inlinePastedItem = (item: Extract<ComposerContextItem, { kind: 'pasted-text' }>): void => {
+    if (!snapshot) return
+    const current = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
+    const next = current ? `${current}\n${item.content}` : item.content
+    useThreadStore.getState().setDraft(snapshot.thread.id, next)
+    useThreadStore.getState().removeContextItem(snapshot.thread.id, item.id)
+    requestAnimationFrame(() => {
+      textarea.current?.focus()
+      textarea.current?.setSelectionRange(next.length, next.length)
+      setCaret(next.length)
+    })
+  }
+
+  const insertToken = (token: string): void => {
+    if (!snapshot) return
+    const field = textarea.current
+    const currentDraft = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
+    const position = field?.selectionStart ?? currentDraft.length
+    const needsSpace = position > 0 && !/\s/.test(currentDraft[position - 1] ?? '')
+    const inserted = (needsSpace ? ' ' : '') + token
+    const text = currentDraft.slice(0, position) + inserted + currentDraft.slice(position)
+    const next = position + inserted.length
+    useThreadStore.getState().setDraft(snapshot.thread.id, text)
+    requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(next, next); setCaret(next) })
+  }
+
   const mentions = useFileMentions({
     workspaceId: snapshot?.thread.workspaceId,
-    rootPath: snapshot?.thread.rootPath,
+    rootPath: workingRoot,
+    threadId,
+    projectId: snapshot?.thread.projectId,
     draft,
     caret,
     enabled: Boolean(snapshot) && !pending,
@@ -98,19 +159,11 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       if (!snapshot) return
       useThreadStore.getState().setDraft(snapshot.thread.id, text)
       requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(position, position); setCaret(position) })
-    }
+    },
+    onAttachContext: attachContext
   })
-  const insertMention = (): void => {
-    if (!snapshot) return
-    const field = textarea.current
-    const currentDraft = useThreadStore.getState().drafts[snapshot.thread.id] ?? ''
-    const position = field?.selectionStart ?? currentDraft.length
-    const needsSpace = position > 0 && !/\s/.test(currentDraft[position - 1] ?? '')
-    const text = currentDraft.slice(0, position) + (needsSpace ? ' @' : '@') + currentDraft.slice(position)
-    const next = position + (needsSpace ? 2 : 1)
-    useThreadStore.getState().setDraft(snapshot.thread.id, text)
-    requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(next, next); setCaret(next) })
-  }
+  const insertMention = (): void => insertToken('@')
+
   const formRef = useRef<HTMLFormElement>(null)
   const [narrow, setNarrow] = useState(false)
   const [compactModel, setCompactModel] = useState(false)
@@ -141,14 +194,15 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
     stopTimer.current = setTimeout(() => { stopTimer.current = null; setStopArmed(false) }, STOP_ESCAPE_WINDOW_MS)
   }
   const blocked = !snapshot || pending || Boolean(snapshot.thread.cliActive)
-  const tooLong = draft.length > THREAD_MESSAGE_MAX_CHARS
-  const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length)
+  const totalLength = composerContentLength(draft, contextItems)
+  const tooLong = totalLength > THREAD_MESSAGE_MAX_CHARS
+  const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length || contextItems.length)
   const canSteer = Boolean(snapshot?.thread.capabilities?.features.steering?.enabled)
   const hints = composerHints({
     status: deriveComposerHintStatus(snapshot?.thread, running, (snapshot?.pendingRequests?.length ?? 0) > 0),
     canSteer
   })
-  const showSteer = hints.steer || (running && snapshot?.thread.capabilities?.features?.steering?.enabled !== false && Boolean(draft.trim() || attachments.length))
+  const showSteer = hints.steer || (running && snapshot?.thread.capabilities?.features?.steering?.enabled !== false && Boolean(draft.trim() || attachments.length || contextItems.length))
   const desired = snapshot ? (snapshot.thread.pendingConfiguration ?? snapshot.thread) : null
   const planning = desired?.mode === 'plan'
   const setMode = async (plan: boolean) => {
@@ -166,16 +220,71 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
     : snapshot.thread.connection?.suspendedAt
       ? t('composer.placeholderSuspended')
       : hints.placeholder
-  return <form ref={formRef} className="thread-composer" data-ui="composer" data-state={composerState} aria-busy={pending} onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }} onDragOver={event => { if ([...event.dataTransfer.items].some(item => item.kind === 'file')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy' } }} onDrop={event => { const files = [...event.dataTransfer.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}>
+
+  const handleDragEnter = (event: React.DragEvent<HTMLFormElement>): void => {
+    if (blocked || !hasDroppablePayload(event.dataTransfer)) return
+    event.preventDefault()
+    setDropActive(true)
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLFormElement>): void => {
+    if (blocked || !hasDroppablePayload(event.dataTransfer)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+    if (!dropActive) setDropActive(true)
+  }
+
+  const handleDragLeave = (event: React.DragEvent<HTMLFormElement>): void => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setDropActive(false)
+    }
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLFormElement>): void => {
+    setDropActive(false)
+    if (blocked || !snapshot) return
+    const { images, contextItems: dropped } = extractDroppedPayload(
+      event.dataTransfer,
+      workingRoot,
+      window.oxe?.app?.getPathForFile
+    )
+    if (!images.length && !dropped.length) return
+    event.preventDefault()
+    if (images.length) onUpload(images)
+    for (const item of dropped) attachContext(item)
+  }
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>): void => {
+    const files = [...(event.clipboardData?.files ?? [])].filter(file => file.type.startsWith('image/'))
+    if (files.length) {
+      event.preventDefault()
+      onUpload(files)
+      return
+    }
+    if (!snapshot || pasteThreshold <= 0) return
+    const pastedText = event.clipboardData?.getData('text/plain') ?? ''
+    if (pastedText.length > pasteThreshold) {
+      event.preventDefault()
+      attachContext(createPastedTextItem(pastedText))
+    }
+  }
+
+  return <form ref={formRef} className="thread-composer" data-ui="composer" data-state={composerState} data-drop-active={dropActive ? 'true' : undefined} aria-busy={pending}
+    onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }}
+    onDragEnter={handleDragEnter}
+    onDragOver={handleDragOver}
+    onDragLeave={handleDragLeave}
+    onDrop={handleDrop}>
     {commands.popup}
     {mentions.popup}
     {workingSet}
     {previewElements.length > 0 && onRemovePreviewElement && <PreviewElementChips elements={previewElements} disabled={pending} onRemove={onRemovePreviewElement} />}
+    {contextItems.length > 0 && <ComposerContextChips items={contextItems} disabled={pending} onRemove={removeContext} onInlinePaste={inlinePastedItem} />}
     {attachments.length > 0 && <div className="thread-attachments" aria-label={t('composer.attachments')}>{attachments.map(attachment => <div key={attachment.id}><span>{attachment.name}</span><small>{t('message.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small><IconButton size="sm" label={t('composer.remove', { name: attachment.name })} title={t('composer.remove', { name: attachment.name })} disabled={pending} icon={<X size={12} aria-hidden="true" />} onClick={() => onRemoveAttachment(attachment.id)} /></div>)}</div>}
     <input ref={fileInput} type="file" hidden multiple accept="image/png,image/jpeg,image/webp,image/gif" onChange={event => { onUpload(Array.from(event.target.files ?? [])); event.target.value = '' }} />
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
       onChange={e => { setCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { setCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
-      onPaste={event => { const files = [...event.clipboardData.files].filter(file => file.type.startsWith('image/')); if (files.length) { event.preventDefault(); onUpload(files) } }}
+      onPaste={handlePaste}
       onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (isSendKey(sendKeyEvent(e), sendKey)) { e.preventDefault(); if (!tooLong) onSend() } else if (e.key === 'Escape' && running) { e.preventDefault(); e.stopPropagation(); escapeToStop() } }} />
     <footer data-ui="composer-toolbar" data-width={narrow ? 'narrow' : 'full'}>
       {!compactChips && <div className="thread-mode-toggle" data-ui="mode-switch" role="group" aria-label={t('config.mode')} title={t('config.modeTitle')}>
@@ -185,6 +294,12 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       <Menu label={t('composer.context')} side="top" items={[
         { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: insertMention },
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
+        { type: 'separator' },
+        { label: t('composer.contextSources.changes'), hint: CONTEXT_SOURCE_HINT.changes, icon: <GitCompareArrows size={14} />, onSelect: () => attachContext(createChangesContextItem()) },
+        { label: t('composer.contextSources.terminal'), hint: CONTEXT_SOURCE_HINT.terminal, icon: <TerminalSquare size={14} />, onSelect: () => attachContext(createTerminalContextItem(resolveActiveTerminalPaneId(threadId))) },
+        { label: t('composer.contextSources.folder'), hint: CONTEXT_SOURCE_HINT.folder, icon: <Folder size={14} />, onSelect: () => insertToken('@folder:') },
+        { label: t('composer.contextSources.thread'), hint: CONTEXT_SOURCE_HINT.thread, icon: <MessageSquareText size={14} />, onSelect: () => insertToken('@thread:') },
+        { type: 'separator' },
         { label: t('composer.commands'), icon: <Slash size={14} />, shortcut: 'Ctrl+/', disabled: blocked, onSelect: commands.show },
         { label: t('moreActions.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }
       ]} trigger={<Button type="button" variant="ghost" size="sm" className="thread-context-trigger" aria-label={t('composer.context')} title={t('composer.addTitle')} disabled={!snapshot || pending} icon={<Plus size={14} aria-hidden="true" />}><span className="thread-context-label">{t('composer.context')}</span></Button>} />
@@ -200,6 +315,6 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       </div>
     </footer>
     {running && stopArmed && <p className="thread-stop-hint" role="status">{t('composer.stopAgain')}</p>}
-    {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(draft.length), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
+    {tooLong && <ErrorState compact title={t('composer.tooLong', { length: formatNumber(totalLength), limit: formatNumber(THREAD_MESSAGE_MAX_CHARS) })} />}
   </form>
 }

@@ -99,6 +99,7 @@ export class ThreadOrchestrator {
   protected readonly placeObserver: ThreadPlaceObserver
   private readonly placeActions = new ThreadPlaceActions(() => this.db, id => this.places(id))
   private paneSource: () => ThreadPaneSource[] = () => []
+  private terminalHost?: import('./side-chat-context').ThreadSideTerminalHost
   private hostsProxy?: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }
   private readonly busy = new Set<string>()
   private readonly nativePageLoads = new Map<string, Promise<void>>()
@@ -190,6 +191,7 @@ export class ThreadOrchestrator {
   resolvePath(id: string, raw: string, at: { turnId?: string } = {}): Promise<ThreadPathResolution> { return this.placeObserver.resolvePath(id, raw, at) }
   /** The app's panes, for the places a pane works in; set once the pane registry is up. */
   configurePanes(source: () => ThreadPaneSource[]): void { this.paneSource = source }
+  configureTerminal(host: import('./side-chat-context').ThreadSideTerminalHost): void { this.terminalHost = host }
   configureHostsProxy(proxy: { grant(origin: { conversationId: string }): { env: Record<string, string>; revoke(): void } }): void { this.hostsProxy = proxy }
   paneSources(): ThreadPaneSource[] { try { return this.paneSource() } catch { return [] } }
   /** A18 · the task's Terminal tab: panes whose newest known cwd is in one of its places; computed, never stored. */
@@ -545,9 +547,9 @@ export class ThreadOrchestrator {
       if (snapshot.thread.cliNotice && blocksThreadInput(snapshot.thread)) throw Error(snapshot.thread.cliNotice)
       assertThreadMessage(input.text, THREAD_PROMPT_MAX_CHARS)
       await this.preflight?.(snapshot.thread)
-      // `@file` mentions become attached content; the stored message keeps the text as typed.
+      // `@file` and `@changes`/`@terminal`/`@folder`/`@thread` mentions become attached content; the stored message keeps the text as typed.
       if (origin !== 'execute-plan' && !text.trim().startsWith('/')) { // Run plan (OXE-167) sends exactly the card's text: nothing is appended
-        mentioned = await resolveMentionContext(snapshot.thread.rootPath, text).catch(() => mentioned)
+        mentioned = await resolveMentionContext(workingRootOf(snapshot.thread), text, this.contextOptions(id)).catch(() => mentioned)
         input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
         // The first message of a conversation carries a short orientation to the project.
         if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
@@ -704,11 +706,12 @@ export class ThreadOrchestrator {
     const snapshot = this.read(id), adapter = this.adapters.get(id)
     if (!this.busy.has(id) || !adapter?.steer) throw Error('This provider cannot steer the current turn')
     const attachments = await this.resolveAttachments(id, attachmentIds)
-    await adapter.steer(text, attachments)
+    const mentioned = text.trim().startsWith('/') ? { block: '', files: [] } : await resolveMentionContext(workingRootOf(snapshot.thread), text, this.contextOptions(id)).catch(() => ({ block: '', files: [] }))
+    await adapter.steer(text + (mentioned.block || ''), attachments)
     const turn = snapshot.turns?.at(-1)
     if (turn && attachmentIds.length) turn.attachmentIds = [...new Set([...(turn.attachmentIds ?? []), ...attachmentIds])]
     const eventsFrom = snapshot.events.length
-    snapshot.events.push({ type: 'message', id: randomUUID(), role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}) })
+    snapshot.events.push({ type: 'message', id: randomUUID(), role: 'user', text, ...(attachments.length ? { attachments: attachments.map(({ path: _path, ...attachment }) => attachment) } : {}), ...(mentioned.files.length ? { context: mentioned.files } : {}) })
     this.save(snapshot, { eventsFrom, ...(turn?.operationId ? { operationId: turn.operationId } : {}) })
   }
 
@@ -727,6 +730,10 @@ export class ThreadOrchestrator {
 
   /** Edits the latest prompt: the text goes as the next turn and the edited turn is marked (OXE-167, see thread-retry). */
   editPrompt(id: string, turnId: string, text: string, options: { restoreFiles?: boolean } = {}): Promise<{ restoredFiles: number }> { return editPrompt(this.retryHost(), id, turnId, text, options) }
+
+  private contextOptions(id: string) {
+    return { threadId: id, db: this.db, terminal: this.terminalHost, listThreadPanes: () => this.panes(id).catch(() => []), isAllowedPane: (paneId: string) => Boolean(this.db.prepare('SELECT 1 FROM panes WHERE id = ?').get(paneId)) }
+  }
 
   private retryHost(): RetryHost {
     return {

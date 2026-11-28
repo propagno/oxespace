@@ -77,6 +77,8 @@ export interface AppInfoApi {
   onCloseRequested?(listener: (request: CloseRequest) => void): () => void
   /** The window's answer to a `CloseRequest`. */
   answerClose?(input: CloseAnswerInput): Promise<void>
+  /** Resolves a dropped OS File object to its local path via Electron `webUtils.getPathForFile` (OXE-478). */
+  getPathForFile?(file: File): string
 }
 
 /** Why main asks: the main window is closing, or the whole app is quitting. */
