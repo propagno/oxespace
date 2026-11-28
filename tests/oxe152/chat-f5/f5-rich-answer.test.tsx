@@ -255,19 +255,21 @@ describe('A8 · code blocks (row 3.2)', () => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     render(<Markdown text={'```ts\nconst key = header()\n```'} />)
     const block = document.querySelector('.thread-code-block')!
-    await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copy')}`))
-    await userEvent.click(within(bar(block)).getByRole('button'))
-    await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copied')}`))
+    const expectedCopyBar = `TypeScript ${tt('markdown.wrap')}${tt('markdown.copy')}`
+    const expectedCopiedBar = `TypeScript ${tt('markdown.wrap')}${tt('markdown.copied')}`
+    await waitFor(() => expect(barWords(block)).toBe(expectedCopyBar))
+    await userEvent.click(within(bar(block)).getByRole('button', { name: tt('markdown.copyCode') }))
+    await waitFor(() => expect(barWords(block)).toBe(expectedCopiedBar))
     const live = [...block.querySelectorAll<HTMLElement>('[role="status"], [aria-live="polite"]')]
     expect(live.some(node => words(node).includes(tt('markdown.copied'))), 'Copied is announced politely').toBe(true)
-    await waitFor(() => expect(barWords(block)).toBe(`TypeScript ${tt('markdown.copy')}`), { timeout: 3_500 })
+    await waitFor(() => expect(barWords(block)).toBe(expectedCopyBar), { timeout: 3_500 })
     expect(writeText).toHaveBeenCalledWith('const key = header()')
   })
 
-  test('a fence without a language shows only Copy: never "Code", "Código" or "Code block"', () => {
+  test('a fence without a language shows only Wrap and Copy: never "Code", "Código" or "Code block"', () => {
     render(<Markdown text={'```\nnpm test\n```'} />)
     const block = document.querySelector('.thread-code-block')!
-    expect(barWords(block)).toBe(tt('markdown.copy'))
+    expect(barWords(block)).toBe(`${tt('markdown.wrap')}${tt('markdown.copy')}`)
     expect(block.textContent ?? '').not.toMatch(/\bCode\b|Código|Code block|Bloco de código/)
   })
 

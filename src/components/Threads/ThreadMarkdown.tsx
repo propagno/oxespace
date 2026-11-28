@@ -120,7 +120,8 @@ function FencedCode({ className, text, tokens: precomputed }: { className?: stri
     return <code className={codeClassName}>{diffLines.lines.map((line, index) => {
       const kind = classifyDiffLine(line)
       const needsNewline = index < diffLines.lines.length - 1 || diffLines.trailingNewline
-      return <Fragment key={index}><span className={`thread-diff-code-line is-${kind}`} data-diff-line={kind}>{line}</span>{needsNewline ? '\n' : null}</Fragment>
+      const tokenClass = kind === 'added' || kind === 'removed' ? ` tk-${kind}` : ''
+      return <Fragment key={index}><span className={`thread-diff-code-line is-${kind}${tokenClass}`} data-diff-line={kind}>{line}</span>{needsNewline ? '\n' : null}</Fragment>
     })}</code>
   }
 
