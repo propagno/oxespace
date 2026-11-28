@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react'
+import { observeElementResize } from './sharedResizeObserver'
 
 export interface ThreadVirtualItem {
   index: number
@@ -86,9 +87,8 @@ export function useThreadVirtualizer(keys: string[], scrollRef: RefObject<HTMLEl
     if (!scroll) return
     updateViewport()
     scroll.addEventListener('scroll', updateViewport, { passive: true })
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateViewport)
-    observer?.observe(scroll)
-    return () => { scroll.removeEventListener('scroll', updateViewport); observer?.disconnect() }
+    const unobserve = observeElementResize(scroll, updateViewport)
+    return () => { scroll.removeEventListener('scroll', updateViewport); unobserve() }
   }, [scrollRef, updateViewport, keys.length])
   useLayoutEffect(() => {
     // ThreadView restores scrollTop after this child mounts. A later content

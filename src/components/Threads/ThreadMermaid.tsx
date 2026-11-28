@@ -18,16 +18,30 @@ let queue: Promise<unknown> = Promise.resolve()
 export const MAX_DIAGRAM_CHARS = 20_000
 const SETTLE_MS = 250
 /**
- * The last drawings, by mode and text: a block that is built again (the list of messages is windowed, a conversation
- * is reopened) shows its drawing at once instead of its code and then its drawing.
+ * The last drawings, by mode and text (bounded LRU): a block that is built again (the list of messages is windowed,
+ * a conversation is reopened) shows its drawing at once instead of its code and then its drawing.
  */
 const drawings = new Map<string, string>()
-const MAX_DRAWINGS = 40
+export const MAX_MERMAID_SVG_CACHE = 40
 const drawingKey = (code: string, mode: ColorMode): string => `${mode}\u0000${code}`
+function readDrawing(code: string, mode: ColorMode): string | undefined {
+  const key = drawingKey(code, mode)
+  const hit = drawings.get(key)
+  if (hit === undefined) return undefined
+  // Refresh LRU recency on hit so frequently scrolled-past diagrams stay hot.
+  drawings.delete(key)
+  drawings.set(key, hit)
+  return hit
+}
 function remember(code: string, mode: ColorMode, svg: string): void {
-  drawings.delete(drawingKey(code, mode))
-  drawings.set(drawingKey(code, mode), svg)
-  for (const oldest of drawings.keys()) { if (drawings.size <= MAX_DRAWINGS) break; drawings.delete(oldest) }
+  const key = drawingKey(code, mode)
+  drawings.delete(key)
+  drawings.set(key, svg)
+  for (const oldest of drawings.keys()) { if (drawings.size <= MAX_MERMAID_SVG_CACHE) break; drawings.delete(oldest) }
+}
+/** Clears the in-memory Mermaid SVG LRU cache (for deterministic unit tests). */
+export function clearMermaidSvgCacheForTest(): void {
+  drawings.clear()
 }
 
 /**
@@ -66,7 +80,7 @@ function useColorMode(): ColorMode {
 export function MermaidDiagram({ code, streaming = false }: { code: string; streaming?: boolean }): ReactElement {
   const { t } = useTranslation('thread')
   const mode = useColorMode()
-  const [drawn, setDrawn] = useState<{ code: string; mode: ColorMode; svg: string } | null>(() => { const svg = drawings.get(drawingKey(code, mode)); return svg ? { code, mode, svg } : null })
+  const [drawn, setDrawn] = useState<{ code: string; mode: ColorMode; svg: string } | null>(() => { const svg = readDrawing(code, mode); return svg ? { code, mode, svg } : null })
   // The text that could not be drawn, not a flag: the verdict on one text never counts for the next.
   const [unreadable, setUnreadable] = useState<string | null>(null)
   const [showCode, setShowCode] = useState(false)
@@ -77,7 +91,7 @@ export function MermaidDiagram({ code, streaming = false }: { code: string; stre
   const labelId = useId()
   useEffect(() => {
     if (code.length > MAX_DIAGRAM_CHARS || !code.trim()) { setUnreadable(code); return }
-    const known = drawings.get(drawingKey(code, mode))
+    const known = readDrawing(code, mode)
     if (known) { setUnreadable(null); setDrawn(current => current?.code === code && current.mode === mode ? current : { code, mode, svg: known }); return }
     setUnreadable(null)
     let live = true
