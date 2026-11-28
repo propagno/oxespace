@@ -1,4 +1,4 @@
-import { Children, Suspense, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
+import { Children, Suspense, cloneElement, createContext, isValidElement, memo, useContext, useEffect, useMemo, useState, type ComponentPropsWithoutRef, type ReactElement, type ReactNode } from 'react'
 import { Fragment, jsx, jsxs } from 'react/jsx-runtime'
 import { toJsxRuntime, type Jsx } from 'hast-util-to-jsx-runtime'
 import { defaultUrlTransform, type Components } from 'react-markdown'
@@ -16,6 +16,7 @@ import { useThreadStore } from '../../store/thread.store'
 import type { CodeToken } from './codeHighlight'
 import { sanitizeThreadHast, type ThreadHastElement, type ThreadHastRoot, type ThreadNodeData } from './threadMarkdownParse'
 import { getCachedThreadTree, hasRenderWorker, parseThreadMarkdownSync, requestThreadTree } from './threadRenderClient'
+import { splitStreamingMarkdownBlocks } from './streamingMarkdownBlocks'
 import { chunk, lazyFrom } from '../../lib/chunk'
 import {
   classifyDiffLine,
@@ -339,14 +340,22 @@ function keepInlineImages(url: string, key: string): string {
   return key === 'src' && inlineImageSource(url) ? url : defaultUrlTransform(url)
 }
 
-/**
- * Settled answers parse Markdown, syntax highlight, diffs and KaTeX inside the dedicated render Web Worker and render
- * the sanitized hast tree through React (`hast-util-to-jsx-runtime`). Streaming answers and environments without
- * `Worker` (jsdom/tests) use the synchronous path with the exact same components and DOM output.
- */
-export function ThreadMarkdown({ text, threadId, turnId, streaming = false, className }: { text: string; threadId?: string; turnId?: string; streaming?: boolean; className?: string }) {
-  const { t } = useTranslation('thread')
-  const useWorker = !streaming && hasRenderWorker()
+function renderHastTree(tree: ThreadHastRoot, components: Components): ReactNode {
+  const safeTree = sanitizeThreadHast(tree, keepInlineImages)
+  return toJsxRuntime(safeTree as unknown as Parameters<typeof toJsxRuntime>[0], {
+    Fragment,
+    components: components as unknown as Parameters<typeof toJsxRuntime>[1]['components'],
+    development: false,
+    ignoreInvalidStyle: true,
+    jsx: jsx as unknown as Jsx,
+    jsxs: jsxs as unknown as Jsx,
+    passKeys: true,
+    passNode: true
+  })
+}
+
+function SettledMarkdownContent({ text, components }: { text: string; components: Components }): ReactElement {
+  const useWorker = hasRenderWorker()
   const cachedTree = useWorker ? getCachedThreadTree(text) : undefined
   const [workerResult, setWorkerResult] = useState<{ text: string; tree: ThreadHastRoot } | null>(null)
   const syncTree = useMemo(() => (useWorker ? null : parseThreadMarkdownSync(text)), [useWorker, text])
@@ -363,6 +372,39 @@ export function ThreadMarkdown({ text, threadId, turnId, streaming = false, clas
   const activeTree = useWorker
     ? (cachedTree ?? (workerResult && workerResult.text === text ? workerResult.tree : null))
     : syncTree
+
+  const content = useMemo(
+    () => (activeTree ? renderHastTree(activeTree, components) : null),
+    [activeTree, components]
+  )
+
+  return <>{content ?? <p className="thread-markdown-pending">{text}</p>}</>
+}
+
+const StableMarkdownBlock = memo(SettledMarkdownContent)
+
+function StreamingMarkdownContent({ text, components }: { text: string; components: Components }): ReactElement {
+  const { stableBlocks, activeTail } = useMemo(() => splitStreamingMarkdownBlocks(text), [text])
+  const tailContent = useMemo(
+    () => (activeTail ? renderHastTree(parseThreadMarkdownSync(activeTail), components) : null),
+    [activeTail, components]
+  )
+
+  return <>
+    {stableBlocks.map((block, index) => (
+      <StableMarkdownBlock key={index} text={block} components={components} />
+    ))}
+    {tailContent}
+  </>
+}
+
+/**
+ * Settled answers parse Markdown, syntax highlight, diffs and KaTeX inside the dedicated render Web Worker and render
+ * the sanitized hast tree through React (`hast-util-to-jsx-runtime`). Streaming answers split completed top-level
+ * blocks into memoized worker/LRU blocks and parse only the active tail synchronously on the main thread.
+ */
+export function ThreadMarkdown({ text, threadId, turnId, streaming = false, className }: { text: string; threadId?: string; turnId?: string; streaming?: boolean; className?: string }) {
+  const { t } = useTranslation('thread')
 
   // The same functions from one render to the next: a new one each time is, to React, a new kind of element, and
   // every block under it would be thrown away and built again (a diagram would lose its drawing while text streams).
@@ -386,24 +428,11 @@ export function ThreadMarkdown({ text, threadId, turnId, streaming = false, clas
     img: ({ alt, src }) => <MarkdownImage alt={alt} src={typeof src === 'string' ? src : undefined} threadId={threadId} />
   }), [t, threadId, turnId])
 
-  const content = useMemo(() => {
-    if (!activeTree) return null
-    const safeTree = sanitizeThreadHast(activeTree, keepInlineImages)
-    return toJsxRuntime(safeTree as unknown as Parameters<typeof toJsxRuntime>[0], {
-      Fragment,
-      components: components as unknown as Parameters<typeof toJsxRuntime>[1]['components'],
-      development: false,
-      ignoreInvalidStyle: true,
-      jsx: jsx as unknown as Jsx,
-      jsxs: jsxs as unknown as Jsx,
-      passKeys: true,
-      passNode: true
-    })
-  }, [activeTree, components])
-
   return <StreamingContext.Provider value={streaming}>
     <div className={className ? `thread-markdown ${className}` : 'thread-markdown'}>
-      {content ?? <p className="thread-markdown-pending">{text}</p>}
+      {streaming
+        ? <StreamingMarkdownContent text={text} components={components} />
+        : <SettledMarkdownContent text={text} components={components} />}
     </div>
   </StreamingContext.Provider>
 }

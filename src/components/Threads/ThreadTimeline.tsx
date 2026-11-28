@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, type MutableRefObject, type ReactNode, type RefObject } from 'react'
+import { observeElementResize } from './sharedResizeObserver'
 import { useThreadVirtualizer, type ThreadVirtualItem } from './useThreadVirtualizer'
 
 function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtualItem; onMeasure: (key: string, index: number, size: number) => void; children: ReactNode }) {
@@ -8,9 +9,7 @@ function MeasuredTimelineRow({ item, onMeasure, children }: { item: ThreadVirtua
     if (!node) return
     const measure = () => onMeasure(item.key, item.index, node.getBoundingClientRect().height)
     measure()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
-    observer?.observe(node)
-    return () => observer?.disconnect()
+    return observeElementResize(node, measure)
   }, [item.index, item.key, onMeasure])
   return <div ref={ref} className="thread-virtual-row" data-thread-row={item.key} data-row-index={item.index}>{children}</div>
 }
