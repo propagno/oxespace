@@ -35,6 +35,10 @@ interface RuntimeJob {
   ringBufferBytes: number
   /** Total lines emitted (monotonic), used for sequence numbers. */
   totalLines: number
+  /** Total characters emitted across the job's lifetime (line + newline). */
+  totalChars: number
+  /** Characters evicted from the front of the ring buffer. */
+  droppedChars: number
   stdoutPending: string
   stderrPending: string
   stdoutDecoder: StringDecoder
@@ -88,11 +92,13 @@ export class BackgroundManager {
 
   getOutput(jobId: string): BackgroundJobOutputChunk {
     const runtime = this.jobs.get(jobId)
-    if (!runtime) return { jobId, startSequence: 0, lines: [] }
+    if (!runtime) return { jobId, startSequence: 0, lines: [], startCharOffset: 0, totalChars: 0 }
     return {
       jobId,
       startSequence: Math.max(0, runtime.totalLines - runtime.ringBuffer.length),
-      lines: [...runtime.ringBuffer]
+      lines: [...runtime.ringBuffer],
+      startCharOffset: runtime.droppedChars,
+      totalChars: runtime.totalChars
     }
   }
 
@@ -145,6 +151,8 @@ export class BackgroundManager {
       ringBuffer: [],
       ringBufferBytes: 0,
       totalLines: 0,
+      totalChars: 0,
+      droppedChars: 0,
       stdoutPending: '',
       stderrPending: '',
       stdoutDecoder: new StringDecoder('utf8'),
@@ -160,10 +168,13 @@ export class BackgroundManager {
         ? rawLine.slice(0, MAX_LINE_LENGTH) + ' … (linha truncada)'
         : rawLine
       runtime.totalLines += 1
+      runtime.totalChars += line.length + 1
       runtime.ringBuffer.push(line)
       runtime.ringBufferBytes += Buffer.byteLength(line, 'utf8')
       while (runtime.ringBuffer.length > RING_BUFFER_LIMIT || runtime.ringBufferBytes > RING_BUFFER_BYTES_LIMIT) {
-        runtime.ringBufferBytes -= Buffer.byteLength(runtime.ringBuffer.shift()!, 'utf8')
+        const evicted = runtime.ringBuffer.shift()!
+        runtime.ringBufferBytes -= Buffer.byteLength(evicted, 'utf8')
+        runtime.droppedChars += evicted.length + 1
       }
       this.emitOutput({ jobId: id, data: line, sequence: runtime.totalLines })
     }

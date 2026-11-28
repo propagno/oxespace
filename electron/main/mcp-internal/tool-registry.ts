@@ -365,10 +365,14 @@ export const TOOL_REGISTRY: ToolEntry[] = [
   {
     descriptor: {
       name: 'oxespace_get_job_output',
-      description: 'Read the buffered stdout/stderr (last ~1000 lines) of a background job by id. Use after oxespace_run_script to check if a build/test passed.',
+      description: 'Read buffered stdout/stderr of a background job. Pass sinceOffset (from prior nextOffset) or delta: true to read only new output.',
       inputSchema: {
         type: 'object',
-        properties: { jobId: { type: 'string', description: 'Job id returned by oxespace_run_script.' } },
+        properties: {
+          jobId: { type: 'string', description: 'Job id returned by oxespace_run_script.' },
+          sinceOffset: { type: 'integer', minimum: 0, description: 'Char offset from prior nextOffset for incremental reads.' },
+          delta: { type: 'boolean', description: 'Return only output since your last poll of this job.' }
+        },
         required: ['jobId'],
         additionalProperties: false
       }

@@ -181,6 +181,10 @@ export interface StopBackgroundJobArgs {
 
 export interface GetJobOutputArgs {
   jobId: string
+  /** Optional character offset returned by a previous poll (`nextOffset`) to fetch only new output. */
+  sinceOffset?: number
+  /** When true, return only output produced since the caller's last poll of this job. */
+  delta?: boolean
 }
 
 export interface CreateWorktreeArgs {

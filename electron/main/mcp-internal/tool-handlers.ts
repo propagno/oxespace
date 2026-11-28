@@ -266,18 +266,104 @@ async function stopBackgroundJob(args: unknown, ctx: ToolContext): Promise<Inter
   return textResult({ stopped: true, jobId })
 }
 
+const MAX_JOB_OUTPUT_CURSORS = 512
+const jobOutputCursors = new Map<string, number>()
+
+export function resetJobOutputCursors(): void {
+  jobOutputCursors.clear()
+}
+
+function setJobOutputCursor(key: string, offset: number): void {
+  if (jobOutputCursors.has(key)) jobOutputCursors.delete(key)
+  jobOutputCursors.set(key, offset)
+  while (jobOutputCursors.size > MAX_JOB_OUTPUT_CURSORS) {
+    const oldest = jobOutputCursors.keys().next().value
+    if (oldest === undefined) break
+    jobOutputCursors.delete(oldest)
+  }
+}
+
 async function getJobOutput(args: unknown, ctx: ToolContext): Promise<InternalMcpToolCallResult> {
   const ws = await requireWorkspace(ctx)
   const input = asRecord(args) as Partial<GetJobOutputArgs>
   const jobId = expectString(input.jobId, 'jobId')
+  const sinceOffset = input.sinceOffset === undefined ? undefined : input.sinceOffset
+  if (sinceOffset !== undefined && (typeof sinceOffset !== 'number' || !Number.isInteger(sinceOffset) || sinceOffset < 0)) {
+    throw new Error('Argument "sinceOffset" must be a non-negative integer')
+  }
+  const delta = input.delta === undefined ? false : expectBoolean(input.delta, 'delta')
   // Same workspace-ownership guard as stopBackgroundJob — an agent in
   // workspace A must not read workspace B's job output by id.
-  const owned = ctx.background.list(ws.id).some((j) => j.id === jobId)
-  if (!owned) {
+  const job = ctx.background.list(ws.id).find((j) => j.id === jobId)
+  if (!job) {
     return errorResult(`Job ${jobId} not found in this workspace`)
   }
   const chunk = ctx.background.getOutput(jobId)
-  return textResult(chunk)
+  const baseOffset = typeof chunk.startCharOffset === 'number' && Number.isFinite(chunk.startCharOffset) && chunk.startCharOffset >= 0
+    ? chunk.startCharOffset
+    : 0
+  const computedTotal = baseOffset + chunk.lines.reduce((sum, line) => sum + line.length + 1, 0)
+  const totalOffset = typeof chunk.totalChars === 'number' && Number.isFinite(chunk.totalChars) && chunk.totalChars >= computedTotal
+    ? chunk.totalChars
+    : computedTotal
+  const isRunning = job.status === 'running' || job.status === 'pending'
+  const cursorKey = `${ctx.executionId ?? ws.id}:${jobId}`
+
+  if (sinceOffset === undefined && !delta) {
+    setJobOutputCursor(cursorKey, totalOffset)
+    return textResult({
+      ...chunk,
+      nextOffset: totalOffset,
+      hasMore: isRunning
+    })
+  }
+
+  const effectiveOffset = sinceOffset !== undefined ? sinceOffset : (jobOutputCursors.get(cursorKey) ?? 0)
+  let deltaLines: string[] = []
+  let deltaStartSequence: number
+  let truncatedBeforeOffset = false
+
+  if (effectiveOffset >= totalOffset) {
+    deltaLines = []
+    deltaStartSequence = chunk.startSequence + chunk.lines.length
+  } else if (effectiveOffset <= baseOffset) {
+    deltaLines = [...chunk.lines]
+    deltaStartSequence = chunk.startSequence
+    truncatedBeforeOffset = effectiveOffset < baseOffset
+  } else {
+    let pos = baseOffset
+    let skipped = 0
+    for (let i = 0; i < chunk.lines.length; i++) {
+      const line = chunk.lines[i]
+      const lineEnd = pos + line.length + 1
+      if (lineEnd <= effectiveOffset) {
+        pos = lineEnd
+        skipped++
+        continue
+      }
+      if (effectiveOffset > pos) {
+        const partial = line.slice(effectiveOffset - pos)
+        if (partial.length > 0) deltaLines.push(partial)
+        deltaLines.push(...chunk.lines.slice(i + 1))
+      } else {
+        deltaLines = chunk.lines.slice(i)
+      }
+      break
+    }
+    deltaStartSequence = chunk.startSequence + skipped
+  }
+
+  setJobOutputCursor(cursorKey, totalOffset)
+  return textResult({
+    jobId: chunk.jobId,
+    startSequence: deltaStartSequence,
+    lines: deltaLines,
+    sinceOffset: effectiveOffset,
+    nextOffset: totalOffset,
+    hasMore: isRunning,
+    delta: true,
+    ...(truncatedBeforeOffset ? { truncatedBeforeOffset: true } : {})
+  })
 }
 
 /** What the person approves before an agent opens a page that is not on this computer's loopback (B15). */

@@ -25,6 +25,10 @@ export interface BackgroundJobOutputChunk {
   jobId: string
   startSequence: number
   lines: string[]
+  /** Monotonic character offset at the beginning of `lines[0]` (accounts for lines evicted from the ring buffer). */
+  startCharOffset?: number
+  /** Monotonic total character offset emitted by this job so far. */
+  totalChars?: number
 }
 
 export interface BackgroundJobOutputEvent {

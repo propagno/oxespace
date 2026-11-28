@@ -8,6 +8,7 @@ import { INTERNAL_MCP_ERROR_CODES } from '../../../shared/types/mcp-internal'
 import { activeTools, findTool, type ToolContext } from './tool-registry'
 import { errorResult } from './tool-registry'
 import { boundToolResult, DEFAULT_TOOL_OUTPUT_LIMIT, toolOutputSaver } from './tool-result-bound'
+import { extractFreshFlag, getToolCachePolicy, ToolResultCache, type ToolCacheContext } from './tool-result-cache'
 
 /**
  * Localhost JSON-RPC server that backs the OXESpace MCP bridge.
@@ -32,6 +33,8 @@ const STARTED_AT = Date.now()
 export interface LocalRpcDeps extends Omit<ToolContext, 'workspaceId'> {
   /** Where a cut tool result keeps its full text. Without it, a cut result only says how much was left out. */
   toolOutputRoot?: string
+  /** Optional shared/custom read-through tool result cache (defaults to a per-server LRU cache). */
+  toolResultCache?: ToolResultCache
 }
 
 export interface LocalRpcServer {
@@ -45,6 +48,7 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
   let token: string | null = null
   let server: http.Server | null = null
   let actualPort: number | null = null
+  const toolResultCache = deps.toolResultCache ?? new ToolResultCache()
 
   const respond = (
     res: http.ServerResponse,
@@ -170,9 +174,67 @@ export function createLocalRpcServer(deps: LocalRpcDeps): LocalRpcServer {
         // A tool the project's, user's or organization's policy blocks never runs, whichever client calls it.
         const blocked = (await import('./tool-policy')).toolCallBlocked(tool.descriptor.name, ctx)
         if (blocked) return { jsonrpc: '2.0', id, result: errorResult(blocked) }
-        const result = await tool.handler(params.arguments, ctx)
+
+        const toolDefinesFresh = Object.hasOwn(tool.descriptor.inputSchema.properties, 'fresh')
+        const { fresh, sanitizedArgs } = extractFreshFlag(params.arguments, toolDefinesFresh)
+        const cachePolicy = getToolCachePolicy(name, sanitizedArgs)
+
+        let authFailedDuringCall = false
+        let resolvedWorkspaceScope = workspaceId ?? 'global'
+        let resolvedCwd: string | undefined
+        let resolvedSessionKey = executionId ?? `ws:${resolvedWorkspaceScope}`
+
+        if (deps.executions && (executionId !== undefined || executionToken !== undefined || cachePolicy?.requiresAuthCheck)) {
+          try {
+            const auth = deps.executions.authenticate(executionId, executionToken, workspaceId)
+            resolvedWorkspaceScope = auth.workspaceId
+            resolvedCwd = auth.canonicalRoot || auth.cwd
+            resolvedSessionKey = auth.id
+          } catch {
+            // Never bypass auth failures through the cache; let the tool handler reject the call.
+            authFailedDuringCall = true
+          }
+        } else {
+          const explicitWs = workspaceId ? deps.workspaceServ.get(workspaceId) : null
+          const activeWs = explicitWs ?? deps.workspaceServ.list().find((ws) => ws.isActive === true) ?? null
+          if (activeWs) {
+            resolvedWorkspaceScope = activeWs.id
+            resolvedCwd = activeWs.rootPath
+            if (!executionId) resolvedSessionKey = `ws:${activeWs.id}`
+          }
+        }
+
+        const cacheCtx: ToolCacheContext = {
+          sessionKey: resolvedSessionKey,
+          workspaceScope: resolvedWorkspaceScope,
+          ...(resolvedCwd ? { cwd: resolvedCwd } : {})
+        }
+
+        if (cachePolicy && !authFailedDuringCall) {
+          const hit = toolResultCache.lookup(name, sanitizedArgs, cacheCtx, { fresh })
+          if (hit.hit) {
+            return { jsonrpc: '2.0', id, result: hit.result }
+          }
+        }
+
+        const result = await tool.handler(sanitizedArgs, ctx)
         const save = deps.toolOutputRoot ? toolOutputSaver(deps.toolOutputRoot, name) : undefined
-        return { jsonrpc: '2.0', id, result: (await import('./untrusted-output')).fenceUntrusted(name, params.arguments, boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save)) }
+        const finalResult = (await import('./untrusted-output')).fenceUntrusted(
+          name,
+          sanitizedArgs,
+          boundToolResult(result, tool.outputLimit ?? DEFAULT_TOOL_OUTPUT_LIMIT, save)
+        )
+
+        if (cachePolicy && !authFailedDuringCall && !finalResult.isError) {
+          toolResultCache.set(name, sanitizedArgs, cacheCtx, cachePolicy, finalResult)
+        } else if (!cachePolicy) {
+          toolResultCache.invalidateForTool(name, sanitizedArgs, {
+            workspaceScope: resolvedWorkspaceScope,
+            cwd: resolvedCwd
+          })
+        }
+
+        return { jsonrpc: '2.0', id, result: finalResult }
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : String(caught)
         const errBlock = errorResult(message)
