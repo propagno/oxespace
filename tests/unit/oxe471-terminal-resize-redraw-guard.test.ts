@@ -109,6 +109,9 @@ vi.mock('@xterm/addon-search', () => ({
     }
   })
 }))
+vi.mock('../../src/components/Terminal/terminalPaths', () => ({
+  attachTerminalPaths: () => ({ dispose: vi.fn() })
+}))
 
 function makePane(id: string, row = 0, col = 0): WorkspacePane {
   return {
