@@ -137,15 +137,7 @@
 .thread-tool summary, .thread-approval summary, .thread-turn-error summary { display: flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; padding: 7px 10px; }
 .thread-tool summary::-webkit-details-marker, .thread-approval summary::-webkit-details-marker, .thread-turn-error summary::-webkit-details-marker { display: none; }
 .thread-tool:not([open]) summary>svg:first-child { transform: rotate(-90deg); }
-.thread-reasoning, [data-ui="reasoning"] { margin: 0 0 var(--space-2); color: var(--tx-muted); font-size: var(--fs-xs); font-family: var(--font-ui); background: transparent; border: none; }
-[data-ui="reasoning"] button { height: var(--row-1); min-height: var(--row-1); justify-content: flex-start; padding-inline: var(--space-1-5); color: var(--tx-muted); }
-[data-ui="reasoning"] button:hover { color: var(--tx-primary); }
-.thread-reasoning-chevron { flex-shrink: 0; transition: transform var(--duration-fast) var(--ease-standard); }
-.thread-reasoning[open] .thread-reasoning-chevron { transform: rotate(90deg); }
-.thread-reasoning-preview { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; padding-left: var(--space-4); color: var(--tx-muted); font-family: var(--font-ui); white-space: pre-line; }
-.thread-reasoning-body { margin: var(--space-1) 0 var(--space-1-5) var(--space-2); padding: 0 0 0 var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); color: var(--tx-secondary); font-family: var(--font-ui); }
-.thread-reasoning-body p { margin: 0; }
-.thread-reasoning-pulse { display: inline-block; width: var(--space-1-5); height: var(--space-1-5); border-radius: var(--radius-full); background: var(--accent); flex-shrink: 0; }
+/* Reasoning block styles live in ThreadReasoning.css (OXE-475). */
 .thread-step-line { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-width: 0; max-width: 100%; height: var(--row-1); min-height: var(--row-1); overflow: hidden; }
 .thread-step-signal { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--space-4); width: var(--space-4); height: var(--space-4); }
 .thread-step-toggle { flex: 1 1 0; min-width: 0; max-width: 100%; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; text-align: left; }
@@ -189,10 +181,6 @@
 .thread-subagent[data-ui="subagent-activity"] { border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--surface-chrome); padding: var(--space-2) var(--space-3); box-shadow: none; }
 .thread-subagent[data-ui="subagent-activity"].is-compact { margin: var(--space-1-5) 0 var(--space-2); background: transparent; }
 .thread-subagent[data-ui="subagent-activity"] [data-ui="subagent-connector"] { color: var(--bd-strong); }
-.thread-reasoning summary { display: inline-flex; align-items: center; gap: var(--space-1-5); list-style: none; cursor: pointer; padding: 0; }
-.thread-reasoning summary::-webkit-details-marker { display: none; }
-.thread-reasoning.is-streaming summary { color: var(--tx-secondary); }
-.thread-reasoning pre { max-height: 15rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: var(--space-1) 0 0; padding: var(--space-0-5) 0 var(--space-0-5) var(--space-3); border-left: var(--space-0-5) solid var(--bd-subtle); font-family: inherit; font-size: var(--fs-xs); font-style: italic; }
 .thread-tool small { color: var(--tx-muted); margin-left: auto; font-size: var(--fs-2xs); }
 .thread-tool pre, .thread-approval pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px 12px; margin: 0; border-top: 1px solid var(--bd-default); font-size: var(--fs-2xs); }
 .thread-approval-actions { display: flex; gap: 8px; padding: 8px 10px; }

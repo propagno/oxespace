@@ -305,12 +305,18 @@ describe('A6 · reasoning (rows 1.1 to 1.4)', () => {
     for (let node: HTMLElement | null = preview!; node && node !== block.parentElement; node = node.parentElement) expect(monoish(css(node, 'font-family')), 'never mono').toBe(false)
   })
 
-  test('[css] the live preview is 2 or 3 lines, in the interface font', () => {
+  // OXE-475: explicit product upgrade supersedes the hard 3-line clamp with a bounded 160px auto-scrolling
+  // Markdown preview in --font-ui with subtle top/bottom edge fade mask.
+  test('[css] the live preview is a bounded 160px scrollable region in the interface font (OXE-475)', () => {
     view(fixture([msg('u1', 'user', 'Make refunds idempotent'), reasoning('th1', THOUGHT, 1_000)], RUNNING))
     const block = one('[data-ui="reasoning"]')
-    const clamps = [...block.querySelectorAll<HTMLElement>('*'), block].map(node => css(node, ['-webkit-line-clamp', 'line-clamp'])).filter(Boolean)
-    expect(clamps.length, 'a line clamp on the preview').toBeGreaterThan(0)
-    expect(['2', '3']).toContain(clamps[0])
+    const preview = one('[data-ui="reasoning-preview"]', block)
+    expect(px(css(preview, 'max-height')), 'bounded 160px preview height').toBe(160)
+    expect(css(preview, 'overflow-y'), 'scrollable vertically').toBe('auto')
+    expect(css(preview, 'overflow-x'), 'no horizontal scroll').toBe('hidden')
+    expect(usesTok(css(preview, 'font-family'), 'font-ui'), 'interface font').toBe(true)
+    expect(css(preview, ['mask-image', '-webkit-mask-image']) ?? '', 'edge fade mask').toMatch(/linear-gradient/)
+    expect(css(preview, ['-webkit-line-clamp', 'line-clamp']), 'no hard line clamp').toBeUndefined()
   })
 
   test.each(['en', 'pt-BR'] as const)('(%s) thinking done: closed by itself in one "Thought for 6 s" line; opened, the text in paragraphs', async locale => {
@@ -321,10 +327,11 @@ describe('A6 · reasoning (rows 1.1 to 1.4)', () => {
     const toggle = toggleOf(block)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(words(toggle)).toBe(tt('reasoning.thoughtFor', { duration: tt('reasoning.seconds', { seconds: 6 }) }))
-    expect(within(block).queryByText('A retry can post the same refund twice.'), 'closed: the text waits').toBeNull()
+    expect(within(block).queryByText(/A retry can post the same refund twice\./), 'closed: the text waits').toBeNull()
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const paragraph = within(block).getByText('A retry can post the same refund twice.')
+    // OXE-475: expanded reasoning renders real Markdown (ThreadMarkdown), where single newlines join inside a <p>.
+    const paragraph = within(block).getByText(/A retry can post the same refund twice\./)
     expect(paragraph.closest('pre'), 'paragraphs, not a <pre>').toBeNull()
     expect(paragraph.tagName).toBe('P')
   })
@@ -337,7 +344,7 @@ describe('A6 · reasoning (rows 1.1 to 1.4)', () => {
     const toggle = toggleOf(block)
     expect(usesTok(css(toggle, ['height', 'min-height']), 'row-1'), 'the line is --row-1').toBe(true)
     await userEvent.click(toggle)
-    const body = within(block).getByText('A retry can post the same refund twice.').parentElement!
+    const body = within(block).getByText(/A retry can post the same refund twice\./).parentElement!
     const rule = [body, ...[...body.querySelectorAll('*')]].map(node => css(node, ['border-left', 'border-inline-start'])).find(Boolean)
     expect(px((rule ?? '').split(/\s+/)[0]), 'a 2 px rule on the left').toBe(2)
     const colour = [body, body.parentElement!].map(node => css(node, 'color')).find(Boolean)

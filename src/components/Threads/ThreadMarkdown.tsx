@@ -239,7 +239,7 @@ function keepInlineImages(url: string, key: string): string {
  * the sanitized hast tree through React (`hast-util-to-jsx-runtime`). Streaming answers and environments without
  * `Worker` (jsdom/tests) use the synchronous path with the exact same components and DOM output.
  */
-export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { text: string; threadId?: string; turnId?: string; streaming?: boolean }) {
+export function ThreadMarkdown({ text, threadId, turnId, streaming = false, className }: { text: string; threadId?: string; turnId?: string; streaming?: boolean; className?: string }) {
   const { t } = useTranslation('thread')
   const useWorker = !streaming && hasRenderWorker()
   const cachedTree = useWorker ? getCachedThreadTree(text) : undefined
@@ -297,7 +297,7 @@ export function ThreadMarkdown({ text, threadId, turnId, streaming = false }: { 
   }, [activeTree, components])
 
   return <StreamingContext.Provider value={streaming}>
-    <div className="thread-markdown">
+    <div className={className ? `thread-markdown ${className}` : 'thread-markdown'}>
       {content ?? <p className="thread-markdown-pending">{text}</p>}
     </div>
   </StreamingContext.Provider>
