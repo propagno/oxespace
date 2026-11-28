@@ -20,6 +20,27 @@ export const VISITED_WORKSPACES_CAP_MIN = 1
 export const VISITED_WORKSPACES_CAP_MAX = 8
 export const VISITED_WORKSPACES_CAP_DEFAULT = 5
 
+/** When a category of desktop notification should fire (OXE-479). */
+export type NotificationTriggerMode = 'off' | 'unfocused' | 'always'
+export const NOTIFICATION_TRIGGER_MODES: readonly NotificationTriggerMode[] = ['off', 'unfocused', 'always']
+export const APPROVAL_NOTIFY_DEFAULT: NotificationTriggerMode = 'unfocused'
+export const COMPLETION_NOTIFY_DEFAULT: NotificationTriggerMode = 'unfocused'
+
+export function isNotificationTriggerMode(value: unknown): value is NotificationTriggerMode {
+  return value === 'off' || value === 'unfocused' || value === 'always'
+}
+
+/** Evaluates master desktop notification switch + per-category trigger mode against whether the target is being watched. */
+export function shouldSendDesktopNotification(
+  notificationsEnabled: boolean,
+  mode: NotificationTriggerMode,
+  watching: boolean
+): boolean {
+  if (!notificationsEnabled || mode === 'off') return false
+  if (mode === 'always') return true
+  return !watching
+}
+
 function clampVisitedCap(n: number): number {
   if (!Number.isFinite(n)) return VISITED_WORKSPACES_CAP_DEFAULT
   return Math.min(VISITED_WORKSPACES_CAP_MAX, Math.max(VISITED_WORKSPACES_CAP_MIN, Math.round(n)))
@@ -36,6 +57,12 @@ interface SettingsState {
   /** Fire native desktop notifications when a background agent needs you. */
   notificationsEnabled: boolean
   setNotificationsEnabled: (enabled: boolean) => void
+  /** Desktop notification trigger when an agent needs approval or input (OXE-479). */
+  approvalNotifyMode: NotificationTriggerMode
+  setApprovalNotifyMode: (mode: NotificationTriggerMode) => void
+  /** Desktop notification trigger when a turn or agent finishes (OXE-479). */
+  completionNotifyMode: NotificationTriggerMode
+  setCompletionNotifyMode: (mode: NotificationTriggerMode) => void
   /** Play the sound when an agent finishes (OXE-130); "needs you" always plays it. Off by factory default. */
   finishSound: boolean
   setFinishSound: (enabled: boolean) => void
@@ -78,6 +105,10 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       notificationsEnabled: true,
       setNotificationsEnabled: (notificationsEnabled) => set({ notificationsEnabled }),
+      approvalNotifyMode: APPROVAL_NOTIFY_DEFAULT,
+      setApprovalNotifyMode: (approvalNotifyMode) => set({ approvalNotifyMode: isNotificationTriggerMode(approvalNotifyMode) ? approvalNotifyMode : APPROVAL_NOTIFY_DEFAULT }),
+      completionNotifyMode: COMPLETION_NOTIFY_DEFAULT,
+      setCompletionNotifyMode: (completionNotifyMode) => set({ completionNotifyMode: isNotificationTriggerMode(completionNotifyMode) ? completionNotifyMode : COMPLETION_NOTIFY_DEFAULT }),
       finishSound: false,
       setFinishSound: (finishSound) => set({ finishSound: finishSound === true }),
       visitedWorkspacesCap: VISITED_WORKSPACES_CAP_DEFAULT,
@@ -107,11 +138,13 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'oxe-settings',
-      version: 10,
+      version: 11,
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Partial<SettingsState>
         return {
           notificationsEnabled: s.notificationsEnabled ?? true,
+          approvalNotifyMode: isNotificationTriggerMode(s.approvalNotifyMode) ? s.approvalNotifyMode : APPROVAL_NOTIFY_DEFAULT,
+          completionNotifyMode: isNotificationTriggerMode(s.completionNotifyMode) ? s.completionNotifyMode : COMPLETION_NOTIFY_DEFAULT,
           finishSound: s.finishSound === true,
           visitedWorkspacesCap: clampVisitedCap(s.visitedWorkspacesCap ?? VISITED_WORKSPACES_CAP_DEFAULT),
           appearance: s.appearance === 'light' || s.appearance === 'dark' ? s.appearance : 'system',
@@ -129,6 +162,8 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...currentState,
           ...s,
+          approvalNotifyMode: isNotificationTriggerMode(s.approvalNotifyMode) ? s.approvalNotifyMode : APPROVAL_NOTIFY_DEFAULT,
+          completionNotifyMode: isNotificationTriggerMode(s.completionNotifyMode) ? s.completionNotifyMode : COMPLETION_NOTIFY_DEFAULT,
           surfaceStyle: surfaceStylePreference(s.surfaceStyle),
           colorScheme: colorSchemePreference(s.colorScheme),
           keybindingOverrides: cleanOverrides(s.keybindingOverrides)

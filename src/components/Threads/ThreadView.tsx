@@ -56,7 +56,7 @@ import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm, type ThreadComposerCommandsHandle } from './ThreadComposerForm'
 import { ThreadSideChat } from './side/ThreadSideChat'
-import { askSideChat, showSideChat, toggleSideChat, useSideChatStore } from './side/sideChatStore'
+import { askSideChat, openSideChatWithDraft, showSideChat, toggleSideChat, useSideChatStore } from './side/sideChatStore'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
 import { ThreadDockPlan } from './ThreadDockPlan'
 import { ThreadDockChanges } from './ThreadDockChanges'
@@ -94,6 +94,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   // (scroll position, review state, history feedback) follows the one shown, not the one selected.
   const shownId = snapshot?.thread.id ?? selectedId
   const threadFontSize = useThreadPrefs(state => state.fontSize)
+  const foldCompletedTurns = useThreadPrefs(state => state.foldCompletedTurns)
   const workbench = useRef<HTMLDivElement>(null)
   const [availableWidth, setAvailableWidth] = useState(0)
   const review = useThreadWorkbenchStore(state => shownId ? state.views[shownId] : undefined)
@@ -169,6 +170,10 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     if (question) void askSideChat(snapshot.thread.id, question)
     else showSideChat(snapshot.thread.id, true)
   }
+  const handleAskInSideChat = (question?: string): void => {
+    if (!snapshot) return
+    openSideChatWithDraft(snapshot.thread.id, question)
+  }
   useThreadShortcuts({ active, togglePanel, openControl: setOpenControl, onFind: () => setFinding(true), onSideChat: handleToggleSideChat, runCommand: text => action(() => runCommand(text)) })
   const closeReview = () => { if (snapshot) useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: null }); if (useThreadWorkbenchStore.getState().maximizedId === snapshot?.thread.id) useThreadWorkbenchStore.getState().setMaximized(null); requestAnimationFrame(() => textarea.current?.focus()) }
   const reviewMaximized = useThreadWorkbenchStore(state => Boolean(snapshot) && state.maximizedId === snapshot?.thread.id) && Boolean(review?.panel) && !drawer
@@ -215,9 +220,9 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const [buildTimeline] = useState(createThreadTimelineBuilder)
   const turns = useMemo(() => {
     const built = buildTimeline(events, viewMode)
-    if (viewMode === 'verbose' || finding) return built
+    if (viewMode === 'verbose' || finding || !foldCompletedTurns) return built
     return foldFinishedTurns(built, expandedFolds, new Set(pendingRequestKey ? pendingRequestKey.split('\n') : []))
-  }, [buildTimeline, events, viewMode, finding, expandedFolds, pendingRequestKey])
+  }, [buildTimeline, events, viewMode, finding, foldCompletedTurns, expandedFolds, pendingRequestKey])
   const timelineRows = useMemo(() => flattenThreadTimeline(turns), [turns])
   const pendingMessage = useMemo(() => outgoing && shownThreadId === outgoing.threadId && !events.some(event => event.type === 'message' && event.role === 'user' && event.text === outgoing.text && !outgoing.knownEvents.has(event.id)) ? outgoing : null, [outgoing, shownThreadId, events])
   const { lastResult, lastMessage: lastConversationMessage, lastPrompt } = summary
@@ -517,7 +522,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
       <ThreadComposerForm snapshot={snapshot} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput} commandsRef={commandsRef}
         workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={path => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', ...(path ? { selection: path } : {}) })} /> : undefined}
-        openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onSideChat={handleSlashSideChat} onNewThread={onNewThread} onAccounts={onAccounts}
+        openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onSideChat={handleSlashSideChat} onAskInSideChat={handleAskInSideChat} onNewThread={onNewThread} onAccounts={onAccounts}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInterrupt={stopTurn} />
     </div></div>}
     {panel && <Suspense fallback={null}><ThreadCommandDialog key={`${panel.surface ?? panel.kind}:${panel.title ?? ''}`} panel={panel} snapshot={snapshot} pending={pending} error={error} onError={setError} action={action} runCommand={runCommand} onDelegations={onDelegations}

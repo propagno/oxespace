@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { i18n } from '../i18n'
 import type { ConversationThread, ThreadPendingRequestSummary, ThreadStatus } from '../../shared/types/thread'
 import { useActivityStore, type ActivityKind } from '../store/activity.store'
-import { useSettingsStore } from '../store/settings.store'
+import { shouldSendDesktopNotification, useSettingsStore } from '../store/settings.store'
 import { useThreadStore } from '../store/thread.store'
 import { displayThreadTitle } from '../components/Threads/threadTitle'
 import { decideThreadAttention, threadAttentionText, type ThreadAttentionKind } from '../utils/threadAttention'
@@ -40,7 +40,7 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
       if (disposed) return
       const { selectedId, secondaryId, markUnread } = useThreadStore.getState()
       const focused = typeof document === 'undefined' ? true : document.hasFocus()
-      const notificationsEnabled = useSettingsStore.getState().notificationsEnabled
+      const { notificationsEnabled, approvalNotifyMode, completionNotifyMode } = useSettingsStore.getState()
 
       const activity = useActivityStore.getState()
       if (!seeded && api.pendingRequestsAll) void seedPending(() => api.pendingRequestsAll!(), threads, id => !disposed && known.get(id) === 'approval')
@@ -60,7 +60,12 @@ export function useThreadAttention(applicationView: import('../keyboard/keybindi
         const text = threadAttentionText(decision.kind, displayThreadTitle(thread.title), threadPlace(thread))
         activity.record({ source: 'thread', id: thread.id, kind: ACTIVITY_KIND[decision.kind], target: threadTarget(thread), title: displayThreadTitle(thread.title), detail: text.body, place: { project: threadPlace(thread), mode: 'chat' }, read: watching })
         if (decision.unread) markUnread(thread.id)
-        if (decision.notify && notificationsEnabled) {
+        const shouldNotify = decision.kind === 'needs-approval'
+          ? shouldSendDesktopNotification(notificationsEnabled, approvalNotifyMode, watching)
+          : decision.kind === 'finished'
+            ? shouldSendDesktopNotification(notificationsEnabled, completionNotifyMode, watching)
+            : decision.notify && notificationsEnabled
+        if (shouldNotify) {
           sendAgentNotice({
             ...text,
             kind: NOTICE_KIND[decision.kind],

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isOxespaceMcpTool, oxespaceToolLabel } from '../../../shared/oxespace-mcp-tools'
 import { classifyToolRowKind, toolRow } from '../../../shared/thread-tool-rows'
 import { threadToolSummary as toolSummary } from '../../../shared/threadToolSummary'
@@ -7,6 +7,7 @@ import { Check, ChevronDown, ChevronRight, CircleAlert, CircleHelp, TerminalSqua
 import { useTranslation } from 'react-i18next'
 import type { ThreadEvent } from '../../../shared/types/thread'
 import type { ThreadViewMode } from '../../store/thread-view-mode.store'
+import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { useThreadWorkbenchStore } from '../../store/thread-workbench.store'
 import { i18n } from '../../i18n'
 import { formatNumber } from '../../utils/formatTime'
@@ -173,9 +174,20 @@ function ExploreGroup({ events, root, threadId }: { events: Tool[]; root: string
 /** One tool that is not part of an exploration: its state signal, and the detail it keeps closed. */
 function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: string; threadId?: string; onDraft?: (text: string) => void }) {
   const { t } = useTranslation('thread')
+  const autoExpandFailures = useThreadPrefs(store => store.autoExpandFailures)
   const row = toolRow(event, root)
   const state = stepState(event)
-  const [open, setOpen] = useState(state === 'failed' && row.kind === 'run')
+  const userToggledRef = useRef(false)
+  const [open, setOpen] = useState(() => autoExpandFailures && state === 'failed' && row.kind === 'run')
+  useEffect(() => {
+    if (!userToggledRef.current && autoExpandFailures && state === 'failed' && row.kind === 'run') {
+      setOpen(true)
+    }
+  }, [autoExpandFailures, state, row.kind])
+  const toggleOpen = (): void => {
+    userToggledRef.current = true
+    setOpen(value => !value)
+  }
   const [allLines, setAllLines] = useState(false)
   const recordedCut = useToolOutputCuts(store => store.cuts[event.id])
   const rawOutput = event.output ?? ''
@@ -216,7 +228,7 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
       {BADGED.has(row.kind) && <span data-ui="kind-badge" data-kind={row.kind}>{t(`fold.kinds.${row.kind}`)}</span>}
       {isEditWithTarget ? (
         <>
-          <Button variant="ghost" size="sm" className="thread-step-toggle thread-step-edit-toggle" aria-expanded={open} title={t('files.expand', { path: row.target })} onClick={() => setOpen(value => !value)}>
+          <Button variant="ghost" size="sm" className="thread-step-toggle thread-step-edit-toggle" aria-expanded={open} title={t('files.expand', { path: row.target })} onClick={toggleOpen}>
             <ChevronRight size={12} aria-hidden="true" className="thread-step-chevron" />
             <span>{editLabel}</span>
           </Button>
@@ -225,11 +237,11 @@ function ToolStep({ event, root, threadId, onDraft }: { event: Tool; root: strin
           </Button>
         </>
       ) : isShellRun ? (
-        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || shellSummary} onClick={() => setOpen(value => !value)}>
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || shellSummary} onClick={toggleOpen}>
           <code>$ <span>{shellSummary}</span></code>
         </Button>
       ) : (
-        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || headline} onClick={() => setOpen(value => !value)}>
+        <Button variant="ghost" size="sm" className="thread-step-toggle" aria-expanded={open} title={fullTarget || headline} onClick={toggleOpen}>
           <span className="thread-step-label">{headline}</span>
         </Button>
       )}

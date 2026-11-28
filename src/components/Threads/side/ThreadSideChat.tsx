@@ -15,6 +15,7 @@ import {
   discardSideChat,
   ensureSideChat,
   sendSideChat,
+  setSideChatDraft,
   sideChatHasAnswers,
   switchSideChatProvider,
   useSideChatStore
@@ -29,9 +30,6 @@ export function sideChatCostLabel(cost: SideChatCost, t: (key: string, values?: 
   if (cost.pricedTurns) parts.unshift(t('spending.cost', { cost: formatThreadCost(cost.usd) }))
   return parts.join(' · ')
 }
-
-/** What was typed in each conversation's side chat and not sent yet; it survives closing the drawer, not the app. */
-const drafts = new Map<string, string>()
 
 /** Why main would refuse this question (the same rule: no NUL, at most THREAD_MESSAGE_MAX_CHARS), or null. */
 export function sideQuestionProblem(text: string): 'nul' | 'tooLong' | null {
@@ -95,12 +93,8 @@ export function ThreadSideChat({
   const [confirming, setConfirming] = useState(false)
   const actions = useRef<HTMLButtonElement>(null)
   const discard = (): void => { setConfirming(false); void discardSideChat(threadId); onClose() }
-  const [draft, setDraftState] = useState(() => drafts.get(threadId) ?? '')
-  const setDraft = (value: string): void => {
-    if (value) drafts.set(threadId, value)
-    else drafts.delete(threadId)
-    setDraftState(value)
-  }
+  const draft = useSideChatStore(store => store.drafts[threadId] ?? '')
+  const setDraft = (value: string): void => setSideChatDraft(threadId, value)
   const problem = sideQuestionProblem(draft)
   const input = useRef<HTMLTextAreaElement>(null)
   const log = useRef<HTMLOListElement>(null)

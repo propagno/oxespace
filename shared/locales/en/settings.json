@@ -419,6 +419,44 @@
     "hint": "Each open OxeChat conversation keeps an agent process and its MCP servers running. Closing idle ones frees memory; your next message resumes the same session. A conversation with a running turn, a question, queued messages, a background task or a permission allowed for the session stays open.",
     "saveFailed": "Could not save this setting"
   },
+  "conversation": {
+    "title": "Conversations",
+    "description": "Lean defaults for how OxeChat displays reasoning, tool output, and active turns.",
+    "thinkingStyle": {
+      "label": "Thinking style",
+      "hint": "Choose how agent reasoning appears while streaming and after it finishes.",
+      "options": {
+        "preview": "Auto-scroll preview",
+        "collapsed": "Collapsed",
+        "expanded": "Expanded"
+      }
+    },
+    "foldCompleted": {
+      "label": "Completed intermediate work",
+      "hint": "Keep finished turns quiet by folding intermediate steps behind one summary line.",
+      "fold": "Fold completed turns",
+      "expand": "Keep expanded"
+    },
+    "autoExpandFailures": {
+      "label": "Auto-expand failed commands",
+      "hint": "Open failed shell command output right away so errors are immediately visible."
+    },
+    "activeTurnAction": {
+      "label": "Action while agent is working",
+      "hint": "{{key}} runs the default action; {{altKey}} runs the opposite.",
+      "options": {
+        "queue": "Add to queue",
+        "steer": "Steer"
+      }
+    },
+    "pasteThreshold": {
+      "label": "Paste-as-attachment threshold",
+      "hint": "Long pasted text above this limit turns into a compact removable chip.",
+      "tenK": "10,000 chars",
+      "twentyFiveK": "25,000 chars",
+      "off": "Off"
+    }
+  },
   "sendKey": {
     "title": "Messages",
     "label": "Send message with",
@@ -483,6 +521,19 @@
     "onlyUnwatched": "Only for terminals you are <strong>not watching</strong>.",
     "sendTest": "Send test notification",
     "testBody": "Test notification",
+    "modes": {
+      "title": "When to notify",
+      "description": "Choose separately when approvals and completed turns raise desktop alerts.",
+      "approvalLabel": "Approval needed",
+      "approvalHint": "When an agent pauses to ask for permission or your input.",
+      "completionLabel": "Turn completed",
+      "completionHint": "When an agent finishes a turn and waits for your reply.",
+      "options": {
+        "off": "Off",
+        "unfocused": "When unfocused",
+        "always": "Always"
+      }
+    },
     "sound": {
       "title": "Sound",
       "label": "Play a sound when an agent finishes",

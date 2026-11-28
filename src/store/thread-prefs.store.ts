@@ -9,14 +9,27 @@ export const SEND_KEY_DEFAULT: SendKeyMode = 'enter'
 /** Default character threshold above which pasted text collapses into a removable chip (0 disables). */
 export const PASTE_AS_ATTACHMENT_DEFAULT = 10_000
 export const PASTE_AS_ATTACHMENT_MAX = 1_000_000
+export const PASTE_AS_ATTACHMENT_PRESETS = [10_000, 25_000, 0] as const
 
 /** How OxeChat displays agent reasoning blocks (OXE-475): bounded streaming preview, collapsed, or expanded. */
 export type ThinkingStyle = 'preview' | 'collapsed' | 'expanded'
 export const THINKING_STYLES: readonly ThinkingStyle[] = ['preview', 'collapsed', 'expanded']
 export const THINKING_STYLE_DEFAULT: ThinkingStyle = 'preview'
 
+/** Default action when submitting a message while an OxeChat turn is running (OXE-479). */
+export type ActiveTurnSendAction = 'queue' | 'steer'
+export const ACTIVE_TURN_SEND_ACTIONS: readonly ActiveTurnSendAction[] = ['queue', 'steer']
+export const ACTIVE_TURN_SEND_ACTION_DEFAULT: ActiveTurnSendAction = 'queue'
+
+export const FOLD_COMPLETED_TURNS_DEFAULT = true
+export const AUTO_EXPAND_FAILURES_DEFAULT = true
+
 export function isThinkingStyle(value: unknown): value is ThinkingStyle {
   return value === 'preview' || value === 'collapsed' || value === 'expanded'
+}
+
+export function isActiveTurnSendAction(value: unknown): value is ActiveTurnSendAction {
+  return value === 'queue' || value === 'steer'
 }
 
 export function clampThreadFontSize(value: unknown): number {
@@ -40,6 +53,15 @@ interface ThreadPrefs {
   /** Display mode for reasoning blocks (OXE-475); kept across restarts. */
   thinkingStyle: ThinkingStyle
   setThinkingStyle: (style: ThinkingStyle) => void
+  /** Collapse completed turns' intermediate tool rows behind one fold line (OXE-479). */
+  foldCompletedTurns: boolean
+  setFoldCompletedTurns: (fold: boolean) => void
+  /** Automatically open failed shell command steps so errors are visible immediately (OXE-479). */
+  autoExpandFailures: boolean
+  setAutoExpandFailures: (expand: boolean) => void
+  /** Default action when pressing the send key during a running turn; Alt+Enter runs the opposite (OXE-479). */
+  activeTurnSendAction: ActiveTurnSendAction
+  setActiveTurnSendAction: (action: ActiveTurnSendAction) => void
   /** Auto-convert pasted text longer than this many chars into a removable attachment chip (0 = off, OXE-478). */
   pasteAsAttachmentThreshold: number
   setPasteAsAttachmentThreshold: (threshold: number) => void
@@ -50,6 +72,12 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
     fontSize: THREAD_FONT_DEFAULT, setFontSize: size => set({ fontSize: clampThreadFontSize(size) }),
     sendKey: SEND_KEY_DEFAULT, setSendKey: mode => set({ sendKey: isSendKeyMode(mode) ? mode : SEND_KEY_DEFAULT }),
     thinkingStyle: THINKING_STYLE_DEFAULT, setThinkingStyle: style => set({ thinkingStyle: isThinkingStyle(style) ? style : THINKING_STYLE_DEFAULT }),
+    foldCompletedTurns: FOLD_COMPLETED_TURNS_DEFAULT,
+    setFoldCompletedTurns: fold => set({ foldCompletedTurns: fold !== false }),
+    autoExpandFailures: AUTO_EXPAND_FAILURES_DEFAULT,
+    setAutoExpandFailures: expand => set({ autoExpandFailures: expand !== false }),
+    activeTurnSendAction: ACTIVE_TURN_SEND_ACTION_DEFAULT,
+    setActiveTurnSendAction: action => set({ activeTurnSendAction: isActiveTurnSendAction(action) ? action : ACTIVE_TURN_SEND_ACTION_DEFAULT }),
     pasteAsAttachmentThreshold: PASTE_AS_ATTACHMENT_DEFAULT,
     setPasteAsAttachmentThreshold: threshold => set({ pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(threshold) })
   }),
@@ -59,15 +87,29 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
       fontSize: state.fontSize,
       sendKey: state.sendKey,
       thinkingStyle: state.thinkingStyle,
+      foldCompletedTurns: state.foldCompletedTurns,
+      autoExpandFailures: state.autoExpandFailures,
+      activeTurnSendAction: state.activeTurnSendAction,
       pasteAsAttachmentThreshold: state.pasteAsAttachmentThreshold
     }),
     merge: (saved, current) => {
-      const value = saved as { fontSize?: unknown; sendKey?: unknown; thinkingStyle?: unknown; pasteAsAttachmentThreshold?: unknown } | null
+      const value = saved as {
+        fontSize?: unknown
+        sendKey?: unknown
+        thinkingStyle?: unknown
+        foldCompletedTurns?: unknown
+        autoExpandFailures?: unknown
+        activeTurnSendAction?: unknown
+        pasteAsAttachmentThreshold?: unknown
+      } | null
       return {
         ...current,
         fontSize: clampThreadFontSize(value?.fontSize),
         sendKey: isSendKeyMode(value?.sendKey) ? value.sendKey : SEND_KEY_DEFAULT,
         thinkingStyle: isThinkingStyle(value?.thinkingStyle) ? value.thinkingStyle : THINKING_STYLE_DEFAULT,
+        foldCompletedTurns: typeof value?.foldCompletedTurns === 'boolean' ? value.foldCompletedTurns : FOLD_COMPLETED_TURNS_DEFAULT,
+        autoExpandFailures: typeof value?.autoExpandFailures === 'boolean' ? value.autoExpandFailures : AUTO_EXPAND_FAILURES_DEFAULT,
+        activeTurnSendAction: isActiveTurnSendAction(value?.activeTurnSendAction) ? value.activeTurnSendAction : ACTIVE_TURN_SEND_ACTION_DEFAULT,
         pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(value?.pasteAsAttachmentThreshold)
       }
     }

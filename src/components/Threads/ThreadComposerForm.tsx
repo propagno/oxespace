@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useImperativeHandle, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { ArrowUp, AtSign, CornerDownLeft, Database, Folder, GitCompareArrows, MessageSquareText, Paperclip, Plug, Plus, Slash, Square, TerminalSquare, Wrench, X } from 'lucide-react'
+import { ArrowUp, AtSign, ChevronDown, CornerDownLeft, Database, Folder, GitCompareArrows, MessageSquarePlus, MessageSquareText, Paperclip, Plug, Plus, Slash, Square, TerminalSquare, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PreviewElementRef } from '../../../shared/types/design-mode'
 import {
@@ -18,7 +18,7 @@ const LazyMcpResourceChips = lazy(() => import('../MCP/McpResourceChips').then(m
 import { useThreadStore } from '../../store/thread.store'
 import { useMcpPickerStore } from '../../store/mcp-picker.store'
 import { useUIStore } from '../../store/ui.store'
-import { Button, ErrorState, IconButton, Menu } from '../../ui'
+import { Button, ErrorState, IconButton, Menu, type MenuEntry } from '../../ui'
 import { humanizeError } from '../../utils/humanizeError'
 import { ComposerChips } from './ComposerChips'
 import { ComposerContextChips } from './ComposerContextChips'
@@ -32,7 +32,7 @@ import { formatNumber } from '../../utils/formatTime'
 import { composerHints } from './composerModel'
 import { deriveComposerHintStatus } from './threadComposerState'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
-import { isSendKey, sendKeyEvent, sendKeyLabel } from './sendKey'
+import { altSendKeyLabel, isAltSendKey, isSendKey, sendKeyEvent, sendKeyLabel } from './sendKey'
 import { useThreadCommands } from './useThreadCommands'
 
 const CONTEXT_SOURCE_HINT = {
@@ -73,7 +73,7 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, context chips, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onNewThread, onAccounts }: {
+export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onAskInSideChat, onNewThread, onAccounts }: {
   snapshot: ThreadSnapshot | null
   pending: boolean
   running: boolean
@@ -95,11 +95,13 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   onRunAction: (run: () => Promise<unknown>) => Promise<void>
   onRunCommand: (text: string) => void
   onSideChat?: (question?: string) => void
+  onAskInSideChat?: (question?: string) => void
   onNewThread?: () => void
   onAccounts?: () => void
 }) {
   const { t } = useTranslation('thread')
   const sendKey = useThreadPrefs(state => state.sendKey)
+  const activeTurnSendAction = useThreadPrefs(state => state.activeTurnSendAction)
   const pasteThreshold = useThreadPrefs(state => state.pasteAsAttachmentThreshold)
   const threadId = snapshot?.thread.id
   const workingRoot = snapshot ? threadWorkingRoot(snapshot.thread) : undefined
@@ -207,11 +209,46 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   const tooLong = totalLength > THREAD_MESSAGE_MAX_CHARS
   const hasContent = Boolean(draft.trim() || attachments.length || previewElements.length || contextItems.length || mcpResources.length)
   const canSteer = Boolean(snapshot?.thread.capabilities?.features.steering?.enabled)
+  const steerSupported = snapshot?.thread.capabilities?.features?.steering?.enabled !== false
+  const primaryActiveAction: 'queue' | 'steer' = activeTurnSendAction === 'steer' && steerSupported ? 'steer' : 'queue'
+  const oppositeActiveAction: 'queue' | 'steer' = primaryActiveAction === 'steer' ? 'queue' : (steerSupported ? 'steer' : 'queue')
   const hints = composerHints({
     status: deriveComposerHintStatus(snapshot?.thread, running, (snapshot?.pendingRequests?.length ?? 0) > 0),
     canSteer
   })
-  const showSteer = hints.steer || (running && snapshot?.thread.capabilities?.features?.steering?.enabled !== false && Boolean(draft.trim() || attachments.length || contextItems.length))
+  const showSteer = (hints.steer && steerSupported) || (running && steerSupported && Boolean(draft.trim() || attachments.length || contextItems.length))
+  const handleAskInSideChat = (): void => {
+    if (!snapshot || !onAskInSideChat) return
+    const currentDraft = (useThreadStore.getState().drafts[snapshot.thread.id] ?? '').trim()
+    const selected = typeof window !== 'undefined' ? (window.getSelection?.()?.toString() ?? '').trim() : ''
+    const question = currentDraft || selected
+    if (currentDraft) useThreadStore.getState().setDraft(snapshot.thread.id, '')
+    onAskInSideChat(question || undefined)
+  }
+  const activeSendMenuItems: MenuEntry[] = running
+    ? [
+        primaryActiveAction === 'steer'
+          ? { label: t('composer.steer'), icon: <CornerDownLeft size={14} />, shortcut: sendKeyLabel(sendKey), disabled: blocked || tooLong || !hasContent, onSelect: () => { if (!tooLong) onSend('steer') } }
+          : { label: t('composer.queue'), icon: <ArrowUp size={14} />, shortcut: sendKeyLabel(sendKey), disabled: blocked || tooLong || !hasContent, onSelect: () => { if (!tooLong) onSend('queue') } },
+        ...(steerSupported
+          ? [
+              oppositeActiveAction === 'steer'
+                ? { label: t('composer.steer'), icon: <CornerDownLeft size={14} />, shortcut: altSendKeyLabel(), disabled: blocked || tooLong || !hasContent, onSelect: () => { if (!tooLong) onSend('steer') } }
+                : { label: t('composer.queue'), icon: <ArrowUp size={14} />, shortcut: altSendKeyLabel(), disabled: blocked || tooLong || !hasContent, onSelect: () => { if (!tooLong) onSend('queue') } }
+            ]
+          : []),
+        { type: 'separator' },
+        { label: t('composer.askInSideChat'), hint: t('composer.askInSideChatHint'), icon: <MessageSquarePlus size={14} />, disabled: blocked || !onAskInSideChat, onSelect: handleAskInSideChat }
+      ]
+    : []
+  const primarySubmitLabel = running
+    ? (primaryActiveAction === 'steer' ? t('composer.steer') : t('composer.queue'))
+    : t('composer.send')
+  const primarySubmitTitle = running
+    ? (primaryActiveAction === 'steer'
+      ? t('composer.steerActiveTitle', { key: sendKeyLabel(sendKey) })
+      : t('composer.queueTitle', { key: sendKeyLabel(sendKey) }))
+    : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })
   const desired = snapshot ? (snapshot.thread.pendingConfiguration ?? snapshot.thread) : null
   const planning = desired?.mode === 'plan'
   const setMode = async (plan: boolean) => {
@@ -279,7 +316,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   }
 
   return <form ref={formRef} className="thread-composer" data-ui="composer" data-state={composerState} data-drop-active={dropActive ? 'true' : undefined} aria-busy={pending}
-    onSubmit={e => { e.preventDefault(); if (!tooLong) onSend() }}
+    onSubmit={e => { e.preventDefault(); if (!tooLong) onSend(running ? primaryActiveAction : 'queue') }}
     onDragEnter={handleDragEnter}
     onDragOver={handleDragOver}
     onDragLeave={handleDragLeave}
@@ -295,7 +332,22 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
     <textarea ref={textarea} data-thread-composer="true" data-dialog-return aria-label={active ? t('composer.message') : t('composer.messageIn', { title: snapshot ? displayThreadTitle(snapshot.thread.title) : t('composer.conversation') })} {...commands.inputProps} placeholder={placeholder} value={draft} disabled={blocked}
       onChange={e => { setCaret(e.target.selectionStart); commands.onChange(e.target.value, e.target.selectionStart) }} onSelect={e => { setCaret(e.currentTarget.selectionStart); commands.onSelect(e.currentTarget.selectionStart) }} onFocus={commands.onFocus} onBlur={commands.onBlur}
       onPaste={handlePaste}
-      onKeyDown={e => { if (mentions.onKeyDown(e)) return; if (commands.onKeyDown(e)) return; if (isSendKey(sendKeyEvent(e), sendKey)) { e.preventDefault(); if (!tooLong) onSend() } else if (e.key === 'Escape' && running) { e.preventDefault(); e.stopPropagation(); escapeToStop() } }} />
+      onKeyDown={e => {
+        if (mentions.onKeyDown(e)) return
+        if (commands.onKeyDown(e)) return
+        const keyEvent = sendKeyEvent(e)
+        if (running && isAltSendKey(keyEvent)) {
+          e.preventDefault()
+          if (!tooLong) onSend(oppositeActiveAction)
+        } else if (isSendKey(keyEvent, sendKey)) {
+          e.preventDefault()
+          if (!tooLong) onSend(running ? primaryActiveAction : 'queue')
+        } else if (e.key === 'Escape' && running) {
+          e.preventDefault()
+          e.stopPropagation()
+          escapeToStop()
+        }
+      }} />
     <footer data-ui="composer-toolbar" data-width={narrow ? 'narrow' : 'full'}>
       {!compactChips && <div className="thread-mode-toggle" data-ui="mode-switch" role="group" aria-label={t('config.mode')} title={t('config.modeTitle')}>
         <Button variant="ghost" size="sm" data-ui="segment" aria-pressed={!planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(false)}>{t('config.agent')}</Button>
@@ -321,10 +373,42 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
           ? <ComposerChips {...compactChips} />
           : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} narrow={narrow} compact={compactModel} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
         {!narrow && snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
-        {showSteer && <IconButton size="sm" variant="ghost" className="thread-command-trigger" label={t('composer.steer')} title={t('composer.steerTitle')} disabled={pending || !hasContent} onClick={() => onSend('steer')} icon={<CornerDownLeft size={14} />} />}
+        {showSteer && (
+          <IconButton
+            size="sm"
+            variant="ghost"
+            className="thread-command-trigger"
+            label={oppositeActiveAction === 'steer' ? t('composer.steer') : t('composer.queue')}
+            title={oppositeActiveAction === 'steer' ? t('composer.steerAltTitle', { key: altSendKeyLabel() }) : t('composer.queueTitle', { key: altSendKeyLabel() })}
+            disabled={pending || !hasContent}
+            onClick={() => onSend(oppositeActiveAction)}
+            icon={oppositeActiveAction === 'steer' ? <CornerDownLeft size={14} /> : <ArrowUp size={14} />}
+          />
+        )}
+        {running && (
+          <Menu
+            label={t('composer.sendOptions')}
+            align="end"
+            side="top"
+            items={activeSendMenuItems}
+            trigger={
+              <IconButton
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="thread-send-menu-trigger"
+                label={t('composer.sendOptions')}
+                title={t('composer.sendOptions')}
+                disabled={blocked}
+                icon={<ChevronDown size={13} aria-hidden="true" />}
+                data-testid="composer-send-options"
+              />
+            }
+          />
+        )}
         {/* T57: a labelled button in the danger color, never a second accent circle next to Send. */}
         {running && <Button size="sm" variant="danger" className="thread-stop" aria-label={t('composer.stop')} title={t('composer.stopTitle')} onClick={onInterrupt} icon={<Square size={12} fill="currentColor" aria-hidden="true" />}>{t('composer.stopShort')}</Button>}
-        <IconButton type="submit" size="sm" variant="primary" className="thread-send oxe-press" label={running ? t('composer.queue') : t('composer.send')} title={running ? t('composer.queueTitle', { key: sendKeyLabel(sendKey) }) : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })} disabled={blocked || tooLong || !hasContent} icon={<ArrowUp size={16} />} />
+        <IconButton type="submit" size="sm" variant="primary" className="thread-send oxe-press" label={primarySubmitLabel} title={primarySubmitTitle} disabled={blocked || tooLong || !hasContent} icon={running && primaryActiveAction === 'steer' ? <CornerDownLeft size={15} /> : <ArrowUp size={16} />} />
       </div>
     </footer>
     {running && stopArmed && <p className="thread-stop-hint" role="status">{t('composer.stopAgain')}</p>}
