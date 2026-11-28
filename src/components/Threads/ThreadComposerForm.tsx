@@ -28,6 +28,13 @@ import { deriveComposerHintStatus } from './threadComposerState'
 import { useThreadPrefs } from '../../store/thread-prefs.store'
 import { isSendKey, sendKeyEvent, sendKeyLabel } from './sendKey'
 import { useThreadCommands } from './useThreadCommands'
+
+const CONTEXT_SOURCE_HINT = {
+  changes: '@changes',
+  terminal: '@terminal',
+  folder: '@folder',
+  thread: '@thread'
+} as const
 import { resolveActiveTerminalPaneId, useFileMentions } from './useFileMentions'
 import { extractDroppedPayload, hasDroppablePayload } from './composerDrop'
 import { threadWorkingRoot } from './threadChanges'
@@ -288,10 +295,10 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
         { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: insertMention },
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },
         { type: 'separator' },
-        { label: t('composer.contextSources.changes'), hint: '@changes', icon: <GitCompareArrows size={14} />, onSelect: () => attachContext(createChangesContextItem()) },
-        { label: t('composer.contextSources.terminal'), hint: '@terminal', icon: <TerminalSquare size={14} />, onSelect: () => attachContext(createTerminalContextItem(resolveActiveTerminalPaneId(threadId))) },
-        { label: t('composer.contextSources.folder'), hint: '@folder', icon: <Folder size={14} />, onSelect: () => insertToken('@folder:') },
-        { label: t('composer.contextSources.thread'), hint: '@thread', icon: <MessageSquareText size={14} />, onSelect: () => insertToken('@thread:') },
+        { label: t('composer.contextSources.changes'), hint: CONTEXT_SOURCE_HINT.changes, icon: <GitCompareArrows size={14} />, onSelect: () => attachContext(createChangesContextItem()) },
+        { label: t('composer.contextSources.terminal'), hint: CONTEXT_SOURCE_HINT.terminal, icon: <TerminalSquare size={14} />, onSelect: () => attachContext(createTerminalContextItem(resolveActiveTerminalPaneId(threadId))) },
+        { label: t('composer.contextSources.folder'), hint: CONTEXT_SOURCE_HINT.folder, icon: <Folder size={14} />, onSelect: () => insertToken('@folder:') },
+        { label: t('composer.contextSources.thread'), hint: CONTEXT_SOURCE_HINT.thread, icon: <MessageSquareText size={14} />, onSelect: () => insertToken('@thread:') },
         { type: 'separator' },
         { label: t('composer.commands'), icon: <Slash size={14} />, shortcut: 'Ctrl+/', disabled: blocked, onSelect: commands.show },
         { label: t('moreActions.mcp'), icon: <Plug size={14} />, onSelect: () => useUIStore.getState().openMcpPanel() }

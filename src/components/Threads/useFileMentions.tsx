@@ -13,13 +13,14 @@ import type { ConversationThread } from '../../../shared/types/thread'
 import { getCachedFileList, getFileListCacheEpoch, setCachedFileList } from '../../lib/fileListCache'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useThreadStore } from '../../store/thread.store'
-import { Button } from '../../ui'
+import { Button, EmptyState } from '../../ui'
 import { displayThreadTitle } from './threadTitle'
 
 /** Matches the `@partial/path` or `@source:query` the caret is currently inside. */
 const MENTION = /(^|\s)@([^\s@]*)$/
 const MAX_RESULTS = 8
 const MAX_PICKER_RESULTS = 8
+const TERMINAL_MENTION_TAG = '@terminal'
 
 export type ContextSourceKey = 'changes' | 'terminal' | 'folder' | 'thread'
 
@@ -256,7 +257,7 @@ export function useFileMentions({ workspaceId, rootPath, threadId, projectId, dr
     if (mode === 'terminal') {
       const needle = subQuery.trim().toLowerCase()
       const list: Array<{ paneId?: string; label: string; detail: string }> = [
-        { label: t('composer.contextSources.terminalActive'), detail: '@terminal' }
+        { label: t('composer.contextSources.terminalActive'), detail: TERMINAL_MENTION_TAG }
       ]
       const seen = new Set<string>()
       if (threadId) {
@@ -401,7 +402,7 @@ export function useFileMentions({ workspaceId, rootPath, threadId, projectId, dr
 
   const popup = open ? <div className="thread-mention-menu" role="listbox" aria-label={listLabel} data-mention-mode={mode}>
     {options.length === 0 ? (
-      <p className="thread-mention-empty" role="status">{emptyMessage}</p>
+      <EmptyState compact title={emptyMessage} />
     ) : options.map((option, index) => {
       const isSelected = index === selected
       if (option.kind === 'source') {

@@ -21,7 +21,6 @@
   box-shadow: 0 0 0 1px var(--accent-border);
 }
 .thread-mention-menu .thread-mention-hint { direction: ltr; margin-left: auto; }
-.thread-mention-menu .thread-mention-empty { margin: 0; padding: var(--space-2) var(--space-3); color: var(--tx-muted); font-size: var(--fs-xs); }
 .thread-composer footer[data-ui='composer-toolbar'] { gap: var(--space-1-5); height: var(--control-md); min-height: var(--control-md); flex-wrap: nowrap; }
 .thread-composer footer .thread-config-trigger.is-permissions { margin-left: 0; }
 /* OXE-338: the quiet line between the two Escapes that stop a running turn. */
