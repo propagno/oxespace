@@ -1,4 +1,6 @@
 import type { LineHunk } from '../lineDiff'
+import type { CustomAgentDefinition } from './custom-agents'
+export type { CustomAgentDefinition, CustomAgentHandoff, CustomAgentMode, CustomAgentSource } from './custom-agents'
 /** Conversation identity is distinct from native session, memory run and pane IDs. */
 export type ThreadProvider = 'claude' | 'codex' | 'antigravity'
 export type ThreadStatus = 'idle' | 'running' | 'approval' | 'interrupted' | 'failed'
@@ -64,8 +66,10 @@ export interface ThreadConfiguration {
   access?: 'read-only' | 'workspace-write' | 'full-access'
   networkAccess?: boolean
   approvalPolicy?: 'untrusted' | 'on-request' | 'never'
-  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
-  mode?: 'default' | 'plan' | 'acceptEdits'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. `ask`: read-only Q&A mode. */
+  mode?: 'default' | 'plan' | 'acceptEdits' | 'ask'
+  /** Active custom agent id from `.oxe/agents` or `.github/agents`; `null` clears it in `configure`. */
+  customAgentId?: string | null
   /** Native provider hooks. Disabled by default and never allowed in read-only. */
   hooksEnabled?: boolean
   /** Per-conversation MCP tool denials (`<serverKey>/*` or `<serverKey>/<toolName>`), merged with project rules at launch. */
@@ -480,8 +484,10 @@ export interface ConversationThread {
   access?: ThreadConfiguration['access']
   networkAccess?: boolean
   approvalPolicy?: ThreadConfiguration['approvalPolicy']
-  /** `acceptEdits` (Claude): file edits in the project are approved without asking. */
-  mode?: 'default' | 'plan' | 'acceptEdits'
+  /** `acceptEdits` (Claude): file edits in the project are approved without asking. `ask`: read-only Q&A mode. */
+  mode?: 'default' | 'plan' | 'acceptEdits' | 'ask'
+  /** Active custom agent id from `.oxe/agents` or `.github/agents`. */
+  customAgentId?: string
   hooksEnabled?: boolean
   disabledMcpTools?: string[]
   configurationRevision?: number
@@ -729,6 +735,8 @@ export interface ThreadApi {
   recover?(id: string): Promise<void>
   observe?(id: string): Promise<ThreadProviderObservation>
   commands(id: string, forceRefresh?: boolean): Promise<ThreadCommandCatalog>
+  /** Read-only discovery of custom agents in `.oxe/agents`, `.github/agents`, `.claude/agents`, and `~/.oxe/agents`. */
+  listCustomAgents?(rootPath: string): Promise<CustomAgentDefinition[]>
   projects(): Promise<ThreadProjectCatalog>
   addProject(rootPath: string): Promise<ThreadProjectSummary>
   relinkProject(projectId: string, rootPath: string): Promise<ThreadProjectSummary>

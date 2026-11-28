@@ -36,6 +36,10 @@
 .thread-composer .thread-mode-toggle button[aria-pressed='true'] { background: var(--fill-selected); color: var(--tx-primary); }
 .thread-composer .thread-mode-toggle button[data-mode='plan'][aria-pressed='true'] { background: var(--intent-warning-bg); color: var(--intent-warning-fg); }
 .thread-composer .thread-mode-toggle button:hover:not([aria-pressed='true']) { color: var(--tx-primary); background: var(--fill-hover); }
+.thread-composer .thread-mode-more { flex: none; min-width: var(--control-sm); height: var(--control-sm); min-height: var(--control-sm); color: var(--tx-muted); font-size: var(--fs-xs); font-weight: var(--weight-medium); }
+.thread-composer .thread-mode-more:hover:not(:disabled) { background: var(--fill-hover); color: var(--tx-primary); }
+.thread-composer .thread-mode-more.is-active { gap: var(--space-1); padding: 0 var(--space-2); border: 1px solid var(--bd-subtle); border-radius: var(--radius-md); background: var(--fill-selected); color: var(--tx-primary); }
+.thread-composer .thread-mode-active-name { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Model, effort and permissions as ultra-quiet Minimal pills (T57, T58 §4, OXE-464): --control-sm, weightless
    at rest in --tx-secondary, illuminating to --tx-primary + --fill-hover on hover, zero boxy clutter.

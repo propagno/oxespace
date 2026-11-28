@@ -501,6 +501,14 @@
     "modeTitle": "Planejar: o agente planeja primeiro e não muda nada até você aprovar. Agente: ele trabalha na tarefa.",
     "plan": "Planejar",
     "agent": "Agente",
+    "ask": "Perguntar",
+    "builtInModes": "Modos",
+    "customAgents": "Agentes personalizados",
+    "moreModes": "Mais modos",
+    "moreModesTitle": "Escolher Perguntar ou um agente personalizado do projeto",
+    "agentHint": "Implementação completa e edições no projeto",
+    "planHint": "Planeja primeiro antes de alterar arquivos",
+    "askHint": "Perguntas somente leitura sem modificar arquivos",
     "selectModel": "Escolher modelo",
     "loadingModels": "Carregando modelos…",
     "providerDefault": "Padrão do provedor",
@@ -2771,5 +2779,10 @@
     "title": "Nova conversa paralela em {{title}}",
     "notice": "Esta conversa trabalha na mesma pasta e parte das alterações da sessão. As duas veem os mesmos arquivos.",
     "locked": "worktree da sessão"
+  },
+  "handoffs": {
+    "region": "Ações de continuação",
+    "proceedFrom": "Continuar a partir de {{name}}",
+    "implementPlan": "Implementar em Agente"
   }
 }

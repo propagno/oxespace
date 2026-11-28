@@ -278,13 +278,14 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.configure, (event, id: unknown, input: unknown, revision: unknown) => {
     if (!input || typeof input !== 'object' || !Number.isSafeInteger(revision) || Number(revision) < 0) throw Error('Invalid configuration')
     const value = input as Record<string, unknown>
-    if (Object.keys(value).some(key => !['model', 'reasoningEffort', 'access', 'networkAccess', 'approvalPolicy', 'mode', 'hooksEnabled', 'disabledMcpTools'].includes(key))) throw Error('Unknown configuration field')
+    if (Object.keys(value).some(key => !['model', 'reasoningEffort', 'access', 'networkAccess', 'approvalPolicy', 'mode', 'customAgentId', 'hooksEnabled', 'disabledMcpTools'].includes(key))) throw Error('Unknown configuration field')
     if (value.model !== undefined && (typeof value.model !== 'string' || !/^[a-z0-9][a-z0-9._:/\[\]-]{0,199}$/i.test(value.model))) throw Error('Invalid model')
     if (value.reasoningEffort !== undefined && (typeof value.reasoningEffort !== 'string' || !/^[a-z0-9_-]{1,30}$/i.test(value.reasoningEffort))) throw Error('Invalid effort')
     if (value.access !== undefined && !['read-only', 'workspace-write', 'full-access'].includes(String(value.access))) throw Error('Invalid access mode')
     if (value.networkAccess !== undefined && typeof value.networkAccess !== 'boolean') throw Error('Invalid network access')
     if (value.approvalPolicy !== undefined && !['untrusted', 'on-request', 'never'].includes(String(value.approvalPolicy))) throw Error('Invalid approval policy')
-    if (value.mode !== undefined && !['default', 'plan', 'acceptEdits'].includes(String(value.mode))) throw Error('Invalid collaboration mode')
+    if (value.mode !== undefined && !['default', 'plan', 'acceptEdits', 'ask'].includes(String(value.mode))) throw Error('Invalid collaboration mode')
+    if (value.customAgentId !== undefined && value.customAgentId !== null && value.customAgentId !== '' && (typeof value.customAgentId !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,79}$/i.test(value.customAgentId))) throw Error('Invalid custom agent')
     if (value.hooksEnabled !== undefined && typeof value.hooksEnabled !== 'boolean') throw Error('Invalid hooks setting')
     if (value.disabledMcpTools !== undefined) {
       if (!Array.isArray(value.disabledMcpTools) || value.disabledMcpTools.length > 500 || value.disabledMcpTools.some(item => typeof item !== 'string' || !/^[A-Za-z0-9_.-]{1,100}\/(\*|[A-Za-z0-9_.-]{1,200})$/.test(item))) {
@@ -296,6 +297,10 @@ export function registerThreadIpc(
   ipcMain.handle(IPC_CHANNELS.thread.commands, (event, id: unknown, forceRefresh: unknown) => {
     if (forceRefresh !== undefined && typeof forceRefresh !== 'boolean') throw Error('Invalid command refresh input')
     return manager.then(service => service.commands(string(id), forceRefresh === true))
+  })
+  ipcMain.handle(IPC_CHANNELS.thread.listCustomAgents, (_event, rootPath: unknown) => {
+    const folder = string(rootPath)
+    return import('../services/conversation/custom-agents.service').then(module => module.discoverCustomAgents(folder))
   })
   const dimension = (value: unknown): number => {
     if (!Number.isInteger(value) || Number(value) < 2 || Number(value) > 500) throw Error('Invalid terminal dimensions')

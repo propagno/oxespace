@@ -105,6 +105,10 @@ const ALLOWED_FS_IMPORTS = new Set([
   // would load and lists .claude/rules. For a rule it reads only the first 4 KiB
   // to find the `paths:` it is limited to. Never writes.
   'electron/main/services/conversation/instruction-sources.ts',
+  // OXE-481: read-only bounded discovery of custom agent Markdown files under fixed folders
+  // (.oxe/agents/*.md, .github/agents/*.agent.md, .claude/agents/*.md, ~/.oxe/agents/*.md);
+  // enforces canonical containment via checkWorkspacePath + realpathSync, <= 64 KiB/file, <= 50 agents. Never writes.
+  'electron/main/services/conversation/custom-agents.service.ts',
   // Agent state: reads detection manifests (*.toml) from the app's own
   // userData/agent-detection override folder, never the workspace. Never writes.
   'electron/main/services/agent-state/manifest.ts',
