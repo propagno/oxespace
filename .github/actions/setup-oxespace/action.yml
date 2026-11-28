@@ -103,7 +103,7 @@ runs:
     - name: Install dependencies without lifecycle scripts
       if: inputs.install-deps == 'true'
       shell: bash
-      run: npm ci --ignore-scripts
+      run: npm ci --ignore-scripts --prefer-offline --no-audit --no-fund
 
     - name: Electron version
       id: electron
@@ -123,10 +123,33 @@ runs:
       shell: bash
       run: npm rebuild electron
 
+    - name: Node runtime fingerprint for native cache (Linux)
+      id: node-native-key
+      if: (inputs.native == 'node' || inputs.native == 'both') && runner.os == 'Linux'
+      shell: bash
+      run: echo "runtime=$(node -p "process.version + '-abi' + process.versions.modules")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache node-pty native build (Linux)
+      id: node-pty-cache
+      if: (inputs.native == 'node' || inputs.native == 'both') && runner.os == 'Linux'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: node_modules/node-pty/build/Release
+        key: node-pty-${{ runner.os }}-${{ runner.arch }}-${{ steps.node-native-key.outputs.runtime }}-${{ hashFiles('package-lock.json') }}
+
     - name: Build native modules for Node
       if: inputs.native == 'node' || inputs.native == 'both'
       shell: bash
-      run: npm run rebuild:native:node
+      env:
+        PTY_CACHE_HIT: ${{ steps.node-pty-cache.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+        if [ "$RUNNER_OS" = "Linux" ] && [ "$PTY_CACHE_HIT" = "true" ] && [ -f node_modules/node-pty/build/Release/pty.node ]; then
+          echo "Restored node-pty build/Release from cache; rebuilding remaining Node native modules only."
+          npm rebuild better-sqlite3
+        else
+          npm run rebuild:native:node
+        fi
 
     - name: Prepare native modules for Electron
       if: inputs.native == 'electron' || inputs.native == 'both'
