@@ -1232,6 +1232,25 @@
     "inProgress": "Em andamento",
     "run": "Executar plano"
   },
+  "planReview": {
+    "commentsCount_one": "{{count}} comentário",
+    "commentsCount_many": "{{count}} comentários",
+    "commentsCount_other": "{{count}} comentários",
+    "addComment": "Comentar seção",
+    "addCommentOn": "Comentar em {{excerpt}}",
+    "commentLabel": "Comentário inline no plano",
+    "commentPlaceholder": "Sugira uma mudança para esta parte do plano…",
+    "saveComment": "Salvar comentário",
+    "editComment": "Editar comentário",
+    "editCommentLabel": "Editar comentário inline no plano",
+    "saveEdit": "Salvar",
+    "deleteComment": "Excluir comentário",
+    "addGeneralNote": "Adicionar observação geral",
+    "generalLabel": "Observação geral do plano",
+    "generalPlaceholder": "Nota geral ou orientação para revisar o plano…",
+    "requestChanges": "Pedir alterações",
+    "requestChangesCount": "Pedir alterações ({{count}})"
+  },
   "projectSettings": {
     "saveFailed": "Não foi possível salvar as configurações do projeto.",
     "title": "Projeto do OxeChat · {{name}}",

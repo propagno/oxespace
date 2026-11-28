@@ -290,6 +290,18 @@
 /* Approve above low risk (a write, a destructive command): the same weight as Decline, never the accent (P1-8). */
 .quiet { order: 2; }
 .decline { order: 1; border-color: var(--bd-default); background: var(--surface-raised); color: var(--tx-primary); }
+.root > footer button.requestChanges {
+  order: 2;
+  border-color: var(--attn-border);
+  background: var(--attn-bg);
+  color: var(--attn-fg);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.root > footer button.requestChanges:hover:not(:disabled) {
+  border-color: var(--attn);
+  background: var(--fill-hover);
+}
 .remember { order: 1; }
 
 /* A request that was answered, kept as a one-line record that expands. */

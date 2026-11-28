@@ -3,7 +3,8 @@ import { AlertCircle, Check, ChevronDown, Copy, Pencil, RotateCcw, Shield, Sun, 
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
 import { evaluateEditedShellCommand, maxApprovalRisk } from '../../../shared/shellCommandRisk'
 import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
-import { ThreadMarkdown } from './ThreadMarkdown'
+import { ThreadPlanReview } from './ThreadPlanReview'
+import { extractPlanText, formatPlanReviewFeedback, isPlanReviewRequest, type PlanInlineComment, type PlanSectionBlock } from './planReviewModel'
 import { isEditableShellApproval, threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
@@ -42,6 +43,8 @@ function isTextEntryTarget(target: EventTarget | null): boolean {
   const editable = target.closest('[contenteditable]')
   return editable !== null && editable.getAttribute('contenteditable') !== 'false'
 }
+
+const EMPTY_PLAN_COMMENTS: PlanInlineComment[] = []
 
 // In-memory only: preserve drafts across view remounts, never persist secrets.
 const drafts = new Map<string, Record<string, string[]>>()
@@ -110,8 +113,67 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
   const [savingRule, setSavingRule] = useState(false)
   const [error, setError] = useState('')
   const preview = request.kind === 'approval' ? request.preview : undefined
+  const isPlanRequest = isPlanReviewRequest(request)
+  const planText = useMemo(() => extractPlanText(request), [request])
+  const [planReview, setPlanReview] = useState<{ key: string; comments: PlanInlineComment[]; generalNote: string }>(() => ({
+    key: draftKey,
+    comments: [],
+    generalNote: ''
+  }))
+  const planComments = useMemo(
+    () => (isPlanRequest && planReview.key === draftKey ? planReview.comments : EMPTY_PLAN_COMMENTS),
+    [isPlanRequest, planReview, draftKey]
+  )
+  const planGeneralNote = isPlanRequest && planReview.key === draftKey ? planReview.generalNote : ''
+  const addPlanComment = (section: PlanSectionBlock, text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const nextComment: PlanInlineComment = {
+      id: `pc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      sectionIndex: section.index,
+      excerpt: section.excerpt,
+      lineRange: section.lineRange,
+      comment: trimmed
+    }
+    setPlanReview(current => {
+      const base = current.key === draftKey ? current : { key: draftKey, comments: [], generalNote: '' }
+      return { ...base, comments: [...base.comments, nextComment] }
+    })
+  }
+  const updatePlanComment = (commentId: string, text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setPlanReview(current => {
+      if (current.key !== draftKey) return current
+      return { ...current, comments: current.comments.map(item => item.id === commentId ? { ...item, comment: trimmed } : item) }
+    })
+  }
+  const deletePlanComment = (commentId: string) => {
+    setPlanReview(current => {
+      if (current.key !== draftKey) return current
+      return { ...current, comments: current.comments.filter(item => item.id !== commentId) }
+    })
+  }
+  const changePlanGeneralNote = (text: string) => {
+    setPlanReview(current => {
+      const base = current.key === draftKey ? current : { key: draftKey, comments: [], generalNote: '' }
+      return { ...base, generalNote: text }
+    })
+  }
+  const planFeedback = useMemo(
+    () => (isPlanRequest ? formatPlanReviewFeedback(planComments, planGeneralNote) : ''),
+    [isPlanRequest, planComments, planGeneralNote]
+  )
+  const hasPlanFeedback = planFeedback.length > 0
+  const requestChangesLabel = planComments.length > 0
+    ? t('planReview.requestChangesCount', { count: planComments.length })
+    : t('planReview.requestChanges')
+  const submitPlanChanges = () => {
+    if (!planFeedback) return
+    void submit({ decision: 'decline', reason: planFeedback })
+  }
   const requestLabel = preview ? t('previewApproval.title', { agent: preview.agentName || t('previewApproval.defaultAgent') })
-    : request.kind === 'approval' && request.nativeMethod === 'can_use_tool:ExitPlanMode' ? t('request.reviewPlan')
+    : isPlanRequest ? t('request.reviewPlan')
     : request.kind === 'approval' && request.nativeMethod?.startsWith('can_use_tool:mcp__') ? t('request.mcpApproval') : request.title
   const questionsAnswered = Boolean(request.questions?.length) && request.questions!.every(question => answers[question.id]?.some(value => value.trim()))
   const submit = async (response: ThreadRequestResponse) => {
@@ -275,7 +337,7 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       if (copiedTimer.current) clearTimeout(copiedTimer.current)
       copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     }
-    const copyButton = <IconButton className={canEditCommand ? undefined : styles.copy} label={t('f7.card.copyExact')} title={t('f7.card.copyExact')} icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={copyCommand} />
+    const copyButton = <IconButton className={canEditCommand || isPlanRequest ? undefined : styles.copy} label={t('f7.card.copyExact')} title={t('f7.card.copyExact')} icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={copyCommand} />
     const editButton = canEditCommand
       ? <IconButton data-action="edit-command" aria-pressed={editingCommand} disabled={disabled} label={editingCommand ? t('request.doneEditingCommand') : t('request.editCommand')} title={editingCommand ? t('request.doneEditingCommand') : t('request.editCommand')} icon={editingCommand ? <Check size={14} aria-hidden="true" /> : <Pencil size={14} aria-hidden="true" />} onClick={toggleEditingCommand} />
       : null
@@ -298,9 +360,22 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       {guarded ? <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p> : null}
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
       <div className={styles.factsWrap}><ImpactFacts impact={effectiveImpact} layout="chips" /></div>
-      {/* A plan is prose to read whole, not a command: rendered, with no box that scrolls inside the card. */}
-      {request.nativeMethod === 'can_use_tool:ExitPlanMode'
-        ? <div className={styles.plan} tabIndex={0} role="region" aria-label={t('approvalDetails.plan')} data-testid="request-plan"><ThreadMarkdown text={impact.text} />{copyButton}<span role="status" className={styles.live}>{copied ? t('markdown.copied') : ''}</span></div>
+      {/* A plan is prose to read whole, not a command: rendered with inline section comments (OXE-480). */}
+      {isPlanRequest && planText
+        ? <ThreadPlanReview
+            plan={planText}
+            comments={planComments}
+            generalNote={planGeneralNote}
+            disabled={disabled}
+            headerAction={copyButton}
+            statusText={copied ? t('markdown.copied') : ''}
+            testId="request-plan"
+            ariaLabel={t('approvalDetails.plan')}
+            onAddComment={addPlanComment}
+            onUpdateComment={updatePlanComment}
+            onDeleteComment={deletePlanComment}
+            onChangeGeneralNote={changePlanGeneralNote}
+          />
         : editingCommand
           ? <div className={cx(styles.command, styles.commandEditing)} data-ui="request-command">
               <div className={styles.commandEditingHeader}>
@@ -343,8 +418,9 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       {error && <ErrorState compact title={error} />}
       <footer>
         <Button ref={denyButtonRef} variant="secondary" aria-keyshortcuts="1" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><kbd className={styles.keycap} data-ui="option-key" data-option-key="1" aria-hidden="true" />{t('request.deny')}</Button>
+        {isPlanRequest && hasPlanFeedback && <Button variant="secondary" data-ui="plan-request-changes" className={styles.requestChanges} disabled={disabled} onClick={submitPlanChanges}>{requestChangesLabel}</Button>}
         {oneStep ? <>
-          <Button variant="primary" aria-keyshortcuts="2" className={styles.allowPrimary} disabled={disabled || editedCommandEmpty} onClick={() => void submit(withEditedCommand({ decision: 'accept' }))}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.allowOnce')}</Button>
+          <Button variant={hasPlanFeedback ? 'secondary' : 'primary'} aria-keyshortcuts="2" className={hasPlanFeedback ? styles.quiet : styles.allowPrimary} disabled={disabled || editedCommandEmpty} onClick={() => void submit(withEditedCommand({ decision: 'accept' }))}><kbd className={cx(styles.keycap, !hasPlanFeedback && styles.keycapOnAccent)} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.allowOnce')}</Button>
           <Menu label={t('request.allowMenu')} trigger={<IconButton data-ui="allow-menu" label={t('request.allowMenu')} title={t('request.allowMenu')} icon={<ChevronDown size={14} aria-hidden="true" />} />} items={[
             ...(offeredRule ? [{ label: alwaysAllowLabel, onSelect: () => setAlwaysAllowOpen(true) }] : []),
             { label: t('f7.card.seeImpact'), onSelect: openImpact }
@@ -435,6 +511,17 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       onToggleEdit={toggleEditingCommand}
       onChangeCommand={updateEditedCommand}
       onResetCommand={resetEditedCommand}
+      planReview={isPlanRequest && planText ? <ThreadPlanReview
+        plan={planText}
+        comments={planComments}
+        generalNote={planGeneralNote}
+        disabled={disabled}
+        embedded
+        onAddComment={addPlanComment}
+        onUpdateComment={updatePlanComment}
+        onDeleteComment={deletePlanComment}
+        onChangeGeneralNote={changePlanGeneralNote}
+      /> : undefined}
     />}
     {request.kind === 'approval' && policy?.decision === 'ask' && policy.reasons.length > 0 && <div className={cx('thread-request-policy', styles.policy, policy.risk && cx('is-high-risk', styles.highRisk))}>
       {policy.risk ? <strong>{t('request.highRisk')}</strong> : policy.level === 'red' ? <strong>{t('request.destructive')}</strong> : policy.level === 'orange' ? <strong>{t('request.changes')}</strong> : null}
@@ -485,8 +572,9 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
         <Button variant="primary" aria-keyshortcuts="2" disabled={disabled} onClick={() => void submit({ decision: 'accept' })}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" data-option-key="2" aria-hidden="true" />{preview.scope === 'session' ? t('previewApproval.allowSession') : t('previewApproval.allowOnce')}</Button>
       </> : <>
       {request.kind === 'approval' && critical && <small role="status" data-testid="approval-hold">{holdLeft > 0 ? t('request.holdWaiting', { seconds: Math.ceil(holdLeft / 1000) }) : t('request.holdReady')}</small>}
+      {isPlanRequest && hasPlanFeedback && <Button variant="secondary" data-ui="plan-request-changes" className={styles.requestChanges} disabled={disabled} onClick={submitPlanChanges}>{requestChangesLabel}</Button>}
       {approvalDecisions.map((decision, idx) => {
-        const quiet = decision === 'acceptForSession' || risk !== 'low' || guarded
+        const quiet = decision === 'acceptForSession' || risk !== 'low' || guarded || hasPlanFeedback
         const decisionLabel = decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')
         const shortcutNumber = !critical && idx + 2 <= 9 ? idx + 2 : null
         const allow = <Button key={decision} variant={quiet ? 'secondary' : 'primary'} aria-keyshortcuts={shortcutNumber ? String(shortcutNumber) : undefined} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={quiet ? styles.quiet : undefined} disabled={disabled || holdLeft > 0 || editedCommandEmpty} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0 && !editedCommandEmpty) void submit(withEditedCommand({ decision })) }}>{shortcutNumber !== null && <kbd className={cx(styles.keycap, !quiet && styles.keycapOnAccent)} data-ui="option-key" data-option-key={String(shortcutNumber)} aria-hidden="true" />}{decisionLabel}</Button>
