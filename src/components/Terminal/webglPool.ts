@@ -1,5 +1,6 @@
 import type { Terminal } from '@xterm/xterm'
 import type { WebglAddon } from '@xterm/addon-webgl'
+import { safeClearTextureAtlas } from './terminalSmoothScroll'
 import { loadWebglAddon, loadedWebglAddon, supportsWebgl2 } from './webglAddonLoader'
 import { MAX_WEBGL_CONTEXTS } from './webglBudget'
 
@@ -156,6 +157,8 @@ export interface TerminalWebglControllerOptions {
   isHidden: () => boolean
   warmPool?: WarmWebglPool
   onContextLost?: () => void
+  /** OXE-484 · Notified when the WebGL renderer activates (true) or falls back/releases to DOM (false). */
+  onWebglStateChange?: (active: boolean) => void
 }
 
 export interface TerminalWebglController {
@@ -182,6 +185,7 @@ export function createTerminalWebglController(options: TerminalWebglControllerOp
       activeWebglContexts--
       webglContextCounted = false
     }
+    if (addon) options.onWebglStateChange?.(false)
   }
 
   const load = (): void => {
@@ -191,6 +195,7 @@ export function createTerminalWebglController(options: TerminalWebglControllerOp
     }
     if (activeWebglContexts >= MAX_WEBGL_CONTEXTS) {
       console.warn(`[OXESpace] WebGL context limit reached (${MAX_WEBGL_CONTEXTS}), using DOM renderer`)
+      options.onWebglStateChange?.(false)
       return
     }
     if (supportsWebgl2() && !loadedWebglAddon()) {
@@ -202,11 +207,13 @@ export function createTerminalWebglController(options: TerminalWebglControllerOp
         })
         .catch((err: unknown) => {
           console.warn('[OXESpace] WebGL renderer did not load, using DOM renderer', err)
+          options.onWebglStateChange?.(false)
         })
       return
     }
     if (!supportsWebgl2()) {
       console.warn('[OXESpace] WebGL2 not available, using DOM renderer')
+      options.onWebglStateChange?.(false)
       return
     }
     try {
@@ -220,11 +227,13 @@ export function createTerminalWebglController(options: TerminalWebglControllerOp
             activeWebglContexts--
             webglContextCounted = false
           }
+          options.onWebglStateChange?.(false)
           options.onContextLost?.()
           setTimeout(() => {
             try {
               if (!options.isDisposed()) {
                 options.terminal.options.theme = { ...(options.terminal.options.theme ?? {}) }
+                safeClearTextureAtlas(options.terminal)
                 options.terminal.refresh(0, options.terminal.rows - 1)
               }
             } catch { /* ignore if already unmounted */ }
@@ -235,9 +244,12 @@ export function createTerminalWebglController(options: TerminalWebglControllerOp
       webglAddon = addon
       activeWebglContexts++
       webglContextCounted = true
+      safeClearTextureAtlas(options.terminal)
+      options.onWebglStateChange?.(true)
     } catch (err) {
       console.warn('[OXESpace] WebGL renderer unavailable, using DOM renderer', err)
       webglAddon = null
+      options.onWebglStateChange?.(false)
     }
   }
 

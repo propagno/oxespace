@@ -15,6 +15,7 @@ import { extractSessionFromCommandLine } from '../agent-state/pane-session-resol
 import { nativeSessionExists, type NativeSessionRoots } from '../agent-state/native-session-files'
 import { assertProviderAllowed, inheritedEnvironment } from '../policy'
 import { recordIncident } from '../diagnostics/incident-sink'
+import { windowsConptyForkOptions } from '../../workers/conptyProtections'
 import { resolveExecutable } from './executable'
 
 export interface PtyModule {
@@ -315,9 +316,9 @@ export class SessionStarter {
         cols,
         rows,
         env: finalEnv,
-        // Windows: the ConPTY that node-pty ships. Its kill never forks a helper; the system ConPTY's kill does
-        // child_process.fork(), which needs RunAsNode and would start a second OXESpace once that fuse is off.
-        ...(this.host.platform === 'win32' ? { useConptyDll: true } : {})
+        // Windows: bundled ConPTY (`useConptyDll`) avoids system ConPTY's fork()-based kill, and
+        // `conptyInheritCursor` avoids extra blank startup lines (OXE-484).
+        ...windowsConptyForkOptions(this.host.platform)
       })
     } catch (error) {
       recordRuntime('process-error', { pane: input.paneId, executable, state: 'launch-failed' })

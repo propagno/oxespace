@@ -49,12 +49,70 @@ function collapse(segments: string[]): string[] | null {
 }
 
 /**
+ * Strips Markdown inline wrappers (`**...**`, `__...__`, `*...*`, `_..._`, `` `...` ``)
+ * around a path token while returning how many leading characters were removed so
+ * terminal link providers can underline the exact path span.
+ */
+export function trimMarkdownPathToken(text: string): { cleaned: string; leadTrimmed: number } {
+  let start = 0
+  let end = text.length
+  while (start < end && /\s/.test(text[start])) start += 1
+  while (end > start && /\s/.test(text[end - 1])) end -= 1
+
+  let changed = true
+  while (changed && end - start >= 2) {
+    changed = false
+    const slice = text.slice(start, end)
+    if (slice.startsWith('**') && slice.endsWith('**') && slice.length > 4) {
+      start += 2
+      end -= 2
+      changed = true
+    } else if (slice.startsWith('__') && slice.endsWith('__') && slice.length > 4) {
+      start += 2
+      end -= 2
+      changed = true
+    } else if (slice.startsWith('`') && slice.endsWith('`') && slice.length > 2) {
+      start += 1
+      end -= 1
+      changed = true
+    } else if (slice.startsWith('*') && slice.endsWith('*') && slice.length > 2) {
+      start += 1
+      end -= 1
+      changed = true
+    } else if (slice.startsWith('_') && slice.endsWith('_') && slice.length > 2) {
+      start += 1
+      end -= 1
+      changed = true
+    }
+  }
+
+  // Strip stray unpaired leading/trailing backticks or Markdown bold/italic stars
+  // (e.g. `**~/foo/bar.ts` split across punctuation or line wraps), while preserving
+  // glob prefixes like `**/*.ts` or `*.ts` so they are rejected as wildcards.
+  while (start < end && text[start] === '`') start += 1
+  while (end > start && text[end - 1] === '`') end -= 1
+
+  const current = text.slice(start, end)
+  const isGlobPrefix = current.startsWith('**/') || current.startsWith('*./') || current.startsWith('*.')
+  if (!isGlobPrefix) {
+    while (start < end && text[start] === '*') start += 1
+    while (end > start && text[end - 1] === '*') end -= 1
+  }
+
+  return { cleaned: text.slice(start, end), leadTrimmed: start }
+}
+
+export function stripMarkdownPathWrappers(text: string): string {
+  return trimMarkdownPathToken(text).cleaned
+}
+
+/**
  * The project file `text` names, relative to `root`, or null when it isn't one: a URL, a command, an option, a path
  * outside the root, or text that doesn't look like a file (no folder and no extension).
  */
 export function parseProjectPath(text: string, root: string): ProjectPath | null {
-  const trimmed = text.trim()
-  if (!trimmed || trimmed.length > 4096 || /\s/.test(trimmed) || trimmed.includes('://') || /^[-~$%@]/.test(trimmed)) return null
+  const trimmed = stripMarkdownPathWrappers(text)
+  if (!trimmed || trimmed.length > 4096 || /\s/.test(trimmed) || trimmed.includes('://') || /[*`]/.test(trimmed) || /^[-~$%@]/.test(trimmed)) return null
   const split = splitPosition(trimmed)
   if (!split) return null
   const path = slashes(split.path)

@@ -7,6 +7,12 @@ import { PtyModeTracker } from '../services/pty-mode-tracker'
 import { PtyRingBuffer } from '../services/pty-ring-buffer'
 import { PtyOriginBatcher } from './ptyOriginBatcher'
 import {
+  CONPTY_DATA_FLUSH_TIMEOUT_MS,
+  ConptyKillSpawnThrottle,
+  drainWithTimeout,
+  windowsConptyForkOptions
+} from './conptyProtections'
+import {
   PTY_DAEMON_DEFAULT_IDLE_SHUTDOWN_MS,
   PTY_DAEMON_MAX_FRAME_BYTES,
   PTY_DAEMON_PROTOCOL_VERSION,
@@ -122,6 +128,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
 
   const ptyMod: PtyModule = options.pty ?? { spawn: nodePtySpawn }
   const idleShutdownMs = options.idleShutdownMs ?? PTY_DAEMON_DEFAULT_IDLE_SHUTDOWN_MS
+  const killSpawnThrottle = new ConptyKillSpawnThrottle({ platform })
   const sessions = new Map<string, DaemonSession>()
   const clients = new Map<Socket, ClientState>()
   let server: Server | null = null
@@ -176,6 +183,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
     if (existing && existing.alive) return toInfo(existing)
 
     cancelIdleTimer()
+    await killSpawnThrottle.waitForCooldown()
     const cols = Math.max(1, Math.min(1000, Math.floor(req.cols || 80)))
     const rows = Math.max(1, Math.min(1000, Math.floor(req.rows || 24)))
     const forkOptions: IPtyForkOptions | IWindowsPtyForkOptions = {
@@ -184,7 +192,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
       cols,
       rows,
       env: req.env ?? (process.env as Record<string, string>),
-      ...(platform === 'win32' ? { useConptyDll: true } : {})
+      ...windowsConptyForkOptions(platform)
     }
     const pty = ptyMod.spawn(req.file, req.args, forkOptions)
     const screen = new xtermHeadless.Terminal({
@@ -274,7 +282,9 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
           clients.get(subscriber)?.attachedSessions.delete(session.sessionId)
         }
         session.subscribers.clear()
-        try { session.screen.dispose() } catch { /* ignore */ }
+        void drainWithTimeout(session.writeQueue, CONPTY_DATA_FLUSH_TIMEOUT_MS).finally(() => {
+          try { session.screen.dispose() } catch { /* ignore */ }
+        })
         scheduleIdleShutdownIfEmpty()
       } catch {
         /* never let exit callbacks throw */
@@ -300,13 +310,24 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
     let terminated = 0
     for (const session of active) {
       terminated += 1
+      session.batcher.flush()
       session.batcher.dispose()
       session.alive = false
       sessions.delete(session.sessionId)
       session.subscribers.clear()
+      killSpawnThrottle.recordKill()
       try { session.pty.kill() } catch { /* already dead */ }
-      try { session.screen.dispose() } catch { /* ignore */ }
     }
+    if (active.length > 0) {
+      await drainWithTimeout(
+        Promise.allSettled(active.map(s => s.writeQueue)),
+        CONPTY_DATA_FLUSH_TIMEOUT_MS
+      )
+      for (const session of active) {
+        try { session.screen.dispose() } catch { /* ignore */ }
+      }
+    }
+    killSpawnThrottle.dispose()
     await closeServer()
     return { terminated }
   }
@@ -315,6 +336,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
     if (closed) return
     closed = true
     cancelIdleTimer()
+    killSpawnThrottle.dispose()
     for (const socket of [...clients.keys()]) {
       detachSocket(socket)
       socket.destroy()
@@ -417,6 +439,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
         const session = sessions.get(req.sessionId)
         if (session) {
           session.batcher.flush()
+          killSpawnThrottle.recordKill()
           try { session.pty.kill(req.signal) } catch { /* already dead */ }
         }
         sendFrame(socket, { id, ok: true, result: null })
@@ -427,12 +450,22 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
         let terminated = 0
         for (const session of active) {
           terminated += 1
+          session.batcher.flush()
           session.batcher.dispose()
           session.alive = false
           sessions.delete(session.sessionId)
           session.subscribers.clear()
+          killSpawnThrottle.recordKill()
           try { session.pty.kill() } catch { /* already dead */ }
-          try { session.screen.dispose() } catch { /* ignore */ }
+        }
+        if (active.length > 0) {
+          await drainWithTimeout(
+            Promise.allSettled(active.map(s => s.writeQueue)),
+            CONPTY_DATA_FLUSH_TIMEOUT_MS
+          )
+          for (const session of active) {
+            try { session.screen.dispose() } catch { /* ignore */ }
+          }
         }
         sendFrame(socket, { id, ok: true, result: { terminated } })
         setImmediate(() => { void closeServer() })

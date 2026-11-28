@@ -7,9 +7,16 @@ import { useWorkspaceStore } from '../../store/workspace.store'
 import PathMenuView from '../PathMenu/PathMenuView'
 import { menuPoint } from '../PathMenu/usePathMenu'
 import { hoverHint, openExternal, openInOxespace } from './terminalPathActions'
+import { createCachedAsyncResolver } from './terminalLinkCache'
 import { registerTerminalPathLinks, type TerminalPathScope } from './terminalPathLinks'
 
 const requestOf = (scope: TerminalPathScope, path: ProjectPath): OpenInRequest => ({ ...scope, relativePath: path.relativePath, line: path.line, column: path.column })
+
+const isCaselessRoot = (root: string): boolean => /^[a-z]:[\\/]/i.test(root) || root.startsWith('//') || root.startsWith('\\\\')
+const normalizeEntryKey = (path: string, caseless: boolean): string => {
+  const normalized = path.replace(/\\/g, '/')
+  return caseless ? normalized.toLowerCase() : normalized
+}
 
 /**
  * Loaded on a pane's first render (terminalPaths.ts). Links project paths in the pane's output and, on a right click
@@ -22,13 +29,40 @@ export function attach(terminal: Terminal, host: HTMLElement, workspaceId: strin
     const rootPath = useWorkspaceStore.getState().workspaces.find(workspace => workspace.id === workspaceId)?.rootPath
     return rootPath ? { workspaceId, rootPath } : null
   }
+  const dirCache = createCachedAsyncResolver<Set<string> | null>({
+    resolve: async (key) => {
+      const list = window.oxe?.fs?.listTree
+      if (typeof list !== 'function') return null
+      const [wsId, rootPath, parent] = key.split('\0')
+      try {
+        const nodes = await list({ workspaceId: wsId, rootPath, ...(parent ? { relativePath: parent } : {}) })
+        const caseless = isCaselessRoot(rootPath)
+        const files = new Set<string>()
+        for (const node of nodes) {
+          if (node.type === 'file') files.add(normalizeEntryKey(node.relativePath, caseless))
+        }
+        return files
+      } catch {
+        return null
+      }
+    }
+  })
+  const exists = async (where: TerminalPathScope, path: ProjectPath): Promise<boolean> => {
+    if (typeof window.oxe?.fs?.listTree !== 'function') return true
+    const slashIdx = path.relativePath.lastIndexOf('/')
+    const parent = slashIdx >= 0 ? path.relativePath.slice(0, slashIdx) : ''
+    const files = await dirCache.resolve(`${where.workspaceId}\0${where.rootPath}\0${parent}`)
+    if (!files) return true
+    return files.has(normalizeEntryKey(path.relativePath, isCaselessRoot(where.rootPath)))
+  }
   let hovered: { scope: TerminalPathScope; path: ProjectPath } | null = null
   const provider = registerTerminalPathLinks(terminal, {
     scope,
     openInOxespace: (where, path) => openInOxespace(requestOf(where, path)),
     openExternal: (where, path) => { void openExternal(requestOf(where, path)) },
     hovered: link => { hovered = link },
-    hint: hoverHint
+    hint: hoverHint,
+    exists
   })
 
   let mount: HTMLDivElement | null = null
@@ -48,6 +82,7 @@ export function attach(terminal: Terminal, host: HTMLElement, workspaceId: strin
   return {
     dispose: () => {
       provider.dispose()
+      dirCache.clear()
       host.removeEventListener('contextmenu', onContextMenu)
       const done = root, node = mount
       root = null

@@ -82,6 +82,7 @@ const UI_TS_TESTS: string[] = [
   'tests/unit/git-store-compare.test.ts',
   'tests/unit/input-timer.test.ts',
   'tests/unit/oxe471-terminal-resize-redraw-guard.test.ts',
+  'tests/unit/oxe484-perf-terminal-a2.test.ts',
   'tests/unit/oxepod-engine-advice.test.ts',
   'tests/unit/oxepod-model.test.ts',
   'tests/unit/oxequery-completion.test.ts',

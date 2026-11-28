@@ -1,6 +1,37 @@
-import type { ITheme } from '@xterm/xterm'
+import type { ITheme, Terminal } from '@xterm/xterm'
 import { currentColorScheme, currentMode, currentSurfaceStyle, type ColorScheme } from '../../design/mode'
 import type { TerminalCursorStyle, TerminalPrefs } from '../../store/terminal-prefs.store'
+
+// Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
+const AGENT_MARKERS = ['⏺', '●']
+
+// readAgentPreview only needs the most recent agent line. Cap how far back it
+// scans so it stays O(1) regardless of scrollback depth — without this it walks
+// the entire buffer (up to 100k lines) on every output burst when no marker is
+// found, janking the renderer and making selection/copy unreliable over time.
+const AGENT_PREVIEW_SCAN_LINES = 300
+
+export function readAgentPreview(terminal: Terminal): string {
+  const buf = terminal.buffer.active
+  const top = buf.baseY + buf.cursorY
+  const stop = Math.max(0, top - AGENT_PREVIEW_SCAN_LINES)
+  for (let y = top; y >= stop; y--) {
+    const line = buf.getLine(y)
+    if (!line) continue
+    let text = ''
+    for (let x = 0; x < line.length; x++) {
+      text += line.getCell(x)?.getChars() ?? ' '
+    }
+    text = text.trimEnd()
+    const trimmed = text.trimStart()
+    if (!trimmed) continue
+    const marker = AGENT_MARKERS.find(m => trimmed.startsWith(m))
+    if (!marker) continue
+    const content = trimmed.slice(marker.length).trim()
+    if (content) return content
+  }
+  return ''
+}
 
 /**
  * Matches unfocused cursor shape to the user's `cursorStyle` so a bar caret

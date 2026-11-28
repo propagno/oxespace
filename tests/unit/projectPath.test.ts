@@ -39,6 +39,23 @@ describe('parseProjectPath', () => {
       expect(parseProjectPath(text, POSIX), text).toBeNull()
     }
   })
+
+  it('OXE-484: strips Markdown wrappers (**...**, *...*, _..._, `...`) and rejects wrapped ~/ or globs', () => {
+    expect(parseProjectPath('**~/foo/bar.ts**', POSIX)).toBeNull()
+    expect(parseProjectPath('**~/project/file.ts**', POSIX)).toBeNull()
+    expect(parseProjectPath('**~/foo/bar.ts', POSIX)).toBeNull()
+    expect(parseProjectPath('**./file.ts**', POSIX)).toEqual({ relativePath: 'file.ts' })
+    expect(parseProjectPath('**src/app.ts:42**', POSIX)).toEqual({ relativePath: 'src/app.ts', line: 42 })
+    expect(parseProjectPath('*src/app.ts*', POSIX)).toEqual({ relativePath: 'src/app.ts' })
+    expect(parseProjectPath('_src/app.ts_', POSIX)).toEqual({ relativePath: 'src/app.ts' })
+    expect(parseProjectPath('`src/app.ts:10:2`', POSIX)).toEqual({ relativePath: 'src/app.ts', line: 10, column: 2 })
+    expect(parseProjectPath('**`src/app.ts:42`**', POSIX)).toEqual({ relativePath: 'src/app.ts', line: 42 })
+    expect(parseProjectPath('__init__.py', POSIX)).toEqual({ relativePath: '__init__.py' })
+    expect(parseProjectPath('src/_utils/index.ts', POSIX)).toEqual({ relativePath: 'src/_utils/index.ts' })
+    expect(parseProjectPath('*.ts', POSIX)).toBeNull()
+    expect(parseProjectPath('**/*.ts', POSIX)).toBeNull()
+    expect(parseProjectPath('src/*.ts', POSIX)).toBeNull()
+  })
 })
 
 describe('splitPosition', () => {
