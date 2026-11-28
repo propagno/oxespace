@@ -9,7 +9,7 @@ import { attachTerminalContextMenu } from './terminalContextMenu'
 import { sendTerminalSelectionToChat } from './terminalToChat'
 import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
 import { createPtyResizeDebouncer, isValidPtyGrid, syncNotifiedGrid } from './resizeDebounce'
-import { createResizeRedrawGuard } from './resizeRedrawGuard'
+import { captureViewportAnchor, createResizeRedrawGuard } from './resizeRedrawGuard'
 import { createTerminalWebglController, type WarmWebglPool } from './webglPool'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -211,15 +211,19 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       write: (chunk, done, meta) => writeToTerminal(chunk, done, meta)
     })
     const resizeRedrawGuard = createResizeRedrawGuard({
-      onFlush: (atomicPayload, meta) => {
+      onFlush: (atomicPayload) => {
         if (disposed) return
         if (writeScheduler.isPaused()) {
           writeScheduler.enqueue(atomicPayload)
           return
         }
         const pre = writeScheduler.takePending()
-        if (pre.data) terminal.write(pre.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${pre.data}` : pre.data)
-        writeToTerminal(atomicPayload, () => undefined, { truncated: meta.truncated }, true)
+        // If the atomic redraw clears scrollback, pending pre-clear bytes would be wiped immediately anyway.
+        if (pre.data && !atomicPayload.includes('\x1b[3J')) {
+          terminal.write(pre.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${pre.data}` : pre.data)
+        }
+        // Any truncation clear is already embedded inside atomicPayload's DEC 2026 envelope.
+        writeToTerminal(atomicPayload, () => undefined, { truncated: false }, true)
       }
     })
     // Unicode 11 width tables live behind xterm's "proposed API" gate. In some
@@ -514,7 +518,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     }
 
     const notified: HeldGrid = { cols: 0, rows: 0 }
-    const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; resizeRedrawGuard.notifyPtyResize(cols, rows); onResizeRef.current(cols, rows) } })
+    const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; resizeRedrawGuard.notifyPtyResize(cols, rows, captureViewportAnchor(terminal)); onResizeRef.current(cols, rows) } })
     const reportResize = (cols: number, rows: number): void => { if (resizeDebouncer.report(cols, rows) === 'ignored') syncNotifiedGrid(notified, resizeDebouncer) }
     const fitTerminal = (forceRefresh = false): void => {
       if (isHidden()) return
