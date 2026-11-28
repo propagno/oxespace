@@ -1,5 +1,6 @@
 import { resolve } from 'node:path'
 import type { DelegationTask } from '../../../../shared/types/delegation'
+import type { ThreadProvider } from '../../../../shared/types/thread'
 import type { ThreadManager } from '../conversation/thread-manager'
 import type { ExecutionRegistry } from '../execution-registry'
 import { delegationBootstrap } from '../agent-launch.service'
@@ -8,7 +9,7 @@ export interface DelegationHostResult {
   threadId: string
   executionId: string
   nativeSessionId: string
-  provider: 'claude' | 'codex'
+  provider: ThreadProvider
   generation: number
 }
 
@@ -16,7 +17,7 @@ export class ThreadDelegationHost {
   constructor(
     private readonly manager: Promise<ThreadManager>,
     private readonly executions: ExecutionRegistry,
-    private readonly provider: (agentProfileId: string) => 'claude' | 'codex',
+    private readonly provider: (agentProfileId: string) => ThreadProvider,
     private readonly profile?: (agentProfileId: string) => { model?: string; systemPrompt?: string },
     private readonly projectForPath?: (rootPath: string) => Promise<string>
   ) {}
@@ -32,7 +33,7 @@ export class ThreadDelegationHost {
     const manager = await this.manager
     const thread = manager.read(task.destinationThreadId).thread
     this.assertIdentity(task, thread.rootPath, thread.provider)
-    if (!thread.nativeSessionId || thread.provider === 'antigravity') return undefined
+    if (!thread.nativeSessionId) return undefined
     if (task.nativeSession && task.nativeSession.nativeSessionId !== thread.nativeSessionId) throw new Error('NATIVE_SESSION_MISMATCH')
     return { provider: thread.provider, nativeSessionId: thread.nativeSessionId, canonicalRoot: task.path,
       generation: task.nativeSession?.generation ?? 1, observedAt: Date.now(), resumable: true }

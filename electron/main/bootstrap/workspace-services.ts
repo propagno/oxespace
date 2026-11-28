@@ -289,7 +289,7 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
     executions,
     agentProfileId => {
       const provider = launcher.resolve(agentProfileId).provider
-      if (provider !== 'claude' && provider !== 'codex') throw new Error('Unsupported delegation provider')
+      if (provider !== 'claude' && provider !== 'codex' && provider !== 'antigravity') throw new Error('Unsupported delegation provider')
       return provider
     },
     agentProfileId => delegationAgents.list().find(profile => profile.agentProfileId === agentProfileId) ?? {},

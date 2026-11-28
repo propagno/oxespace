@@ -38,7 +38,7 @@ export interface DelegationCheckout {
 }
 
 export interface DelegationNativeSession {
-  provider: 'claude' | 'codex'
+  provider: 'claude' | 'codex' | 'antigravity'
   nativeSessionId: string
   canonicalRoot: string
   generation: number

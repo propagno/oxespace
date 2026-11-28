@@ -17,7 +17,7 @@ const SKILLS_CHANGE = domainTool('oxespace_skills_change', 'Add a skill (a reusa
     properties: {
       name: { type: 'string', maxLength: 64, description: 'kebab-case, e.g. review-sql.' }, description: { type: 'string', maxLength: 300 },
       body: { type: 'string', maxLength: 5000, description: 'The instructions, in Markdown.' }, scope: { type: 'string', enum: ['workspace', 'user'], description: 'Default workspace.' },
-      agents: { type: 'array', items: { type: 'string', enum: ['claude', 'codex'] }, maxItems: 2, description: 'Empty for every agent.' }
+      agents: { type: 'array', items: { type: 'string', enum: ['claude', 'codex', 'antigravity'] }, maxItems: 3, description: 'Empty for every agent.' }
     },
     required: ['name', 'description', 'body'],
     confirm: (args, scope) => ({
@@ -26,7 +26,7 @@ const SKILLS_CHANGE = domainTool('oxespace_skills_change', 'Add a skill (a reusa
       notes: [mainMessage('approvals.note.skill.followed', {})]
     }),
     run: async (args, scope, ctx) => {
-      const agents = Array.isArray(args.agents) ? args.agents.filter((agent): agent is 'claude' | 'codex' => agent === 'claude' || agent === 'codex') : []
+      const agents = Array.isArray(args.agents) ? args.agents.filter((agent): agent is 'claude' | 'codex' | 'antigravity' => agent === 'claude' || agent === 'codex' || agent === 'antigravity') : []
       const user = str(args, 'scope', 10) === 'user'
       const skill = service(ctx, 'skills').createSkill({ name: str(args, 'name', 64)!, description: str(args, 'description', 300)!, body: str(args, 'body', 5000)!, agents, scope: user ? 'user' : 'workspace', workspaceRootPath: user ? undefined : scope.rootPath })
       return { name: skill.name, filePath: skill.filePath, source: skill.source }

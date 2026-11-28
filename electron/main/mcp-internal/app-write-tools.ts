@@ -148,6 +148,14 @@ const GITHUB_CHANGE = domainTool('oxespace_github_change', 'Act on GitHub for yo
 
 // ---- Threads --------------------------------------------------------------
 
+function normalizeRoot(value: string): string {
+  return value.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+}
+
+function sameRoot(a: string | undefined, b: string | undefined): boolean {
+  return Boolean(a && b && normalizeRoot(a) === normalizeRoot(b))
+}
+
 async function targetThread(args: Args, scope: ActionScope, ctx: ToolContext): Promise<{ thread: ConversationThread; owned: boolean }> {
   if (!ctx.threads) throw new ActionRefused('Threads are unavailable right now.', 'unavailable')
   const manager = await ctx.threads
@@ -155,8 +163,7 @@ async function targetThread(args: Args, scope: ActionScope, ctx: ToolContext): P
   if (scope.owner?.kind === 'thread' && scope.owner.id === threadId) throw new ActionRefused('A Thread cannot act on itself through this tool.', 'invalid')
   const all = manager.list()
   const self = scope.owner?.kind === 'thread' ? all.find(thread => thread.id === scope.owner!.id) : undefined
-  const root = scope.rootPath.replace(/[\\/]+$/, '').toLowerCase()
-  const thread = all.find(item => item.id === threadId && (self ? item.projectId === self.projectId : item.rootPath.replace(/[\\/]+$/, '').toLowerCase() === root))
+  const thread = all.find(item => item.id === threadId && (self ? (item.projectId === self.projectId || sameRoot(item.rootPath, self.rootPath)) : sameRoot(item.rootPath, scope.rootPath)))
   if (!thread) throw new ActionRefused('No Thread with that id in this project. Use oxespace_threads list.', 'not-found')
   // A Thread this caller created (handoff) or one of its Agent Work workers is the caller's own to drive.
   const owned = Boolean(self && ctx.db && (ctx.db.prepare('SELECT 1 FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND destination_thread_id = ?').get(self.id, thread.id)
@@ -173,7 +180,7 @@ function ownedOrAsk(verb: (thread: ConversationThread, args: Args) => { summary:
   }
 }
 
-const THREADS_CHANGE = domainTool('oxespace_threads_change', 'Drive other Threads of your project: send, steer, stop, set the model, rename, archive. Never their access level, approvals or permission rules: those stay with the person.', {
+const THREADS_CHANGE = domainTool('oxespace_threads_change', 'Communicate with and drive other OxeChat conversations (Claude Code, Codex, and Antigravity) in your project: send, steer, interrupt, configure, rename, archive. Never their access level, approvals or permission rules: those stay with the person.', {
   send: {
     level: 'confirm', description: 'Send a message (queued if the Thread is working).', approvalNote: ownedNote,
     properties: { threadId: { type: 'string', maxLength: 200 }, text: { type: 'string', minLength: 1, maxLength: 20_000 } }, required: ['threadId', 'text'],
