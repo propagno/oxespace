@@ -659,6 +659,8 @@
 .thread-usage-ring-track { stroke: var(--ov-3); }
 .thread-usage-ring-value { stroke: currentColor; transition: stroke-dashoffset var(--duration-slow) var(--ease-standard); }
 .thread-usage-ring[data-high='true'] { color: var(--intent-danger-solid); }
+.thread-usage-ring-cache-dot { fill: var(--intent-warning-solid); }
+.thread-usage-cache-note[data-cache-state='stale'], .thread-usage-cache-note[data-cache-state='broken'] { color: var(--intent-warning-fg); }
 .thread-mention-menu { position: absolute; z-index: var(--layer-dropdown); bottom: calc(100% + 6px); left: 8px; right: 8px; display: grid; padding: 4px; border: 1px solid var(--bd-default); border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--elevation-3); }
 .thread-mention-menu button { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; height: auto; min-height: var(--control-sm); padding: 6px 8px; border-radius: var(--radius-sm); text-align: left; }
 .thread-mention-menu button.is-selected { background: var(--fill-selected); }

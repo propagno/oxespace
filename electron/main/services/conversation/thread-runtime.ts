@@ -76,7 +76,7 @@ export function createThreadManager(db: AppDatabase, accounts: NativeAccountServ
       // The accepted modes (B7.4); a launch is a review point, so a change whose request ended unanswered is asked again.
       const modes = effectiveToolModes(thread.rootPath)
       acceptedConfig()?.reviewPoint([toolConfigSubject(thread.rootPath), ...(policyStore()?.subjects(thread.rootPath) ?? [])].filter(subject => subject !== null))
-      const { tools, enableable } = sessionToolPlan(usesToolSearch(thread.provider, { ...process.env, ...env }), threadToolRoles(db, thread.id), modes)
+      const { tools, enableable } = sessionToolPlan(usesToolSearch(thread.provider, { ...process.env, ...env }), threadToolRoles(db, thread.id), modes, { provider: thread.provider })
       const transport = (args: string[], cwd: string) => new AgentProcessTransport(profile.command, threadMcpArguments(thread.provider, args, mcp.bridge, managed, denied, tools, policyDeniedToolNames(thread.rootPath), enableable), cwd, env, { thread: thread.id, generation: thread.generation })
       const deniedTools = policyDeniedToolNames(thread.rootPath)
       const adapter = thread.provider === 'claude' ? new ClaudeConversationAdapter(transport)

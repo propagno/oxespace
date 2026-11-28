@@ -10,7 +10,9 @@ import { Badge, Button, EmptyState, Meter, Notice } from '../../ui'
 import { formatMainMessage } from '../../i18n/mainMessage'
 import { worktreeNoticeIntent } from '../Worktree/WorktreeCreationNotices'
 import { formatClock, formatNumber } from '../../utils/formatTime'
+import { evaluatePromptCacheStatus } from '../../../shared/prompt-cache'
 import { compactTokens } from './ThreadUsagePanel'
+import { formatPromptCacheHint } from './promptCacheLabel'
 import { formatThreadCost } from './threadCost'
 import { ThreadMcpServerList } from './ThreadMcpServerList'
 import { ThreadIntegratedTools } from './ThreadIntegratedTools'
@@ -69,6 +71,7 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
   const { t } = useTranslation('thread')
   const thread = snapshot.thread
   const [fresh, setFresh] = useState<typeof thread.contextReport | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const read = window.oxe?.thread?.contextUsage
     if (running || !read) return
@@ -76,9 +79,16 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
     void read(thread.id).then(value => { if (live && value) setFresh(value) }, () => undefined)
     return () => { live = false }
   }, [thread.id, running])
+  useEffect(() => {
+    if (running || !thread.promptCache) return
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [running, thread.promptCache])
   const stored = thread.contextReport
   const report = fresh && (!stored || fresh.capturedAt >= stored.capturedAt) ? fresh : stored
   const context = useMemo(() => sessionContext(report), [report])
+  const cacheStatus = evaluatePromptCacheStatus(thread.promptCache, now)
+  const cacheHint = formatPromptCacheHint(cacheStatus, t)
   const cost = thread.costReport
   const compactBlocked = running ? t('sessionPanel.context.compactBusy') : !context?.used ? t('sessionPanel.context.compactEmpty') : ''
   const compactButton = onCompact && <div className={styles.actions}>
@@ -105,6 +115,7 @@ export function SessionContextSection({ snapshot, running, onCompact }: SessionS
     {!context.itemized && <p className={styles.note}>{t('sessionPanel.context.notItemized', { provider: threadProductName(thread.provider) })}</p>}
     {context.deferred > 0 && <p className={styles.note}>{t('sessionPanel.context.deferred', { tokens: compactTokens(context.deferred) })}</p>}
     {context.autoCompactAt !== undefined && <p className={styles.note}>{t('sessionPanel.context.autoCompact', { tokens: compactTokens(context.autoCompactAt) })}</p>}
+    {cacheHint && <p className={styles.note} data-testid="session-prompt-cache-status" data-cache-state={cacheStatus.kind}>{cacheHint}</p>}
     {cost && cost.turns > 0 && <p className={styles.note}>{t(cost.source === 'codex-token-usage' || cost.source === 'antigravity-usage' ? 'sessionPanel.context.cost' : 'sessionPanel.context.costReported', { cost: formatThreadCost(cost.totalUsd), count: cost.turns })}</p>}
     <p className={styles.note}>{t('sessionPanel.context.capturedAt', { time: formatClock(context.capturedAt, { hour: '2-digit', minute: '2-digit' }) })}</p>
     </div>

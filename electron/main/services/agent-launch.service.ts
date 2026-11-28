@@ -39,7 +39,7 @@ export async function codeAgentMcpLaunch(db: AppDatabase, provider: string, brid
   if (root) acceptedConfig()?.reviewPoint([toolConfigSubject(root), ...(policyStore()?.subjects(root) ?? [])].filter(subject => subject !== null))
   const search = provider === 'claude' || provider === 'codex' ? toolSearchEnvironment(provider, source) : {}
   // Other agents read the workspace's .mcp.json and get no bridge arguments here; the plan only matters for these two.
-  const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes)
+  const plan = sessionToolPlan(provider === 'claude' || provider === 'codex' ? usesToolSearch(provider, { ...source, ...search }) : false, { code: true }, modes, provider === 'codex' ? { provider } : undefined)
   const own = agentMcpArguments(provider, bridge, plan)
   // Claude Code also loads the workspace's .mcp.json entry; with this launch's token, that entry lists nothing (one
   // server). A fresh token per launch, so a claude this agent starts itself keeps its tools (oxespace-mcp.cjs).

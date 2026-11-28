@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { isSendKeyMode, type SendKeyMode } from '../components/Threads/sendKey'
+import { normalizeUtilityModel } from '../../shared/utility-model'
 
 export const THREAD_FONT_DEFAULT = 14
 export const THREAD_FONT_MIN = 12
 export const THREAD_FONT_MAX = 20
 export const SEND_KEY_DEFAULT: SendKeyMode = 'enter'
+export const UTILITY_MODEL_DEFAULT = ''
 /** Default character threshold above which pasted text collapses into a removable chip (0 disables). */
 export const PASTE_AS_ATTACHMENT_DEFAULT = 10_000
 export const PASTE_AS_ATTACHMENT_MAX = 1_000_000
@@ -65,6 +67,9 @@ interface ThreadPrefs {
   /** Auto-convert pasted text longer than this many chars into a removable attachment chip (0 = off, OXE-478). */
   pasteAsAttachmentThreshold: number
   setPasteAsAttachmentThreshold: (threshold: number) => void
+  /** Optional lightweight utility model for auxiliary tasks ('' = Auto, 'primary' = keep primary, or model id; OXE-487). */
+  utilityModel: string
+  setUtilityModel: (model: string) => void
 }
 
 export const useThreadPrefs = create<ThreadPrefs>()(persist(
@@ -79,7 +84,9 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
     activeTurnSendAction: ACTIVE_TURN_SEND_ACTION_DEFAULT,
     setActiveTurnSendAction: action => set({ activeTurnSendAction: isActiveTurnSendAction(action) ? action : ACTIVE_TURN_SEND_ACTION_DEFAULT }),
     pasteAsAttachmentThreshold: PASTE_AS_ATTACHMENT_DEFAULT,
-    setPasteAsAttachmentThreshold: threshold => set({ pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(threshold) })
+    setPasteAsAttachmentThreshold: threshold => set({ pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(threshold) }),
+    utilityModel: UTILITY_MODEL_DEFAULT,
+    setUtilityModel: model => set({ utilityModel: normalizeUtilityModel(model) })
   }),
   {
     name: 'oxe.thread-appearance',
@@ -90,7 +97,8 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
       foldCompletedTurns: state.foldCompletedTurns,
       autoExpandFailures: state.autoExpandFailures,
       activeTurnSendAction: state.activeTurnSendAction,
-      pasteAsAttachmentThreshold: state.pasteAsAttachmentThreshold
+      pasteAsAttachmentThreshold: state.pasteAsAttachmentThreshold,
+      utilityModel: state.utilityModel
     }),
     merge: (saved, current) => {
       const value = saved as {
@@ -101,6 +109,7 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
         autoExpandFailures?: unknown
         activeTurnSendAction?: unknown
         pasteAsAttachmentThreshold?: unknown
+        utilityModel?: unknown
       } | null
       return {
         ...current,
@@ -110,7 +119,8 @@ export const useThreadPrefs = create<ThreadPrefs>()(persist(
         foldCompletedTurns: typeof value?.foldCompletedTurns === 'boolean' ? value.foldCompletedTurns : FOLD_COMPLETED_TURNS_DEFAULT,
         autoExpandFailures: typeof value?.autoExpandFailures === 'boolean' ? value.autoExpandFailures : AUTO_EXPAND_FAILURES_DEFAULT,
         activeTurnSendAction: isActiveTurnSendAction(value?.activeTurnSendAction) ? value.activeTurnSendAction : ACTIVE_TURN_SEND_ACTION_DEFAULT,
-        pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(value?.pasteAsAttachmentThreshold)
+        pasteAsAttachmentThreshold: clampPasteAsAttachmentThreshold(value?.pasteAsAttachmentThreshold),
+        utilityModel: normalizeUtilityModel(value?.utilityModel)
       }
     }
   }

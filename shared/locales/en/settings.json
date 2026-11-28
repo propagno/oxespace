@@ -457,6 +457,12 @@
       "off": "Off"
     }
   },
+  "utilityModel": {
+    "title": "Auxiliary tasks",
+    "label": "Utility model",
+    "hint": "Optional fast model for side chats and quick helpers. Leave blank for Auto (falls back to the main model if unavailable), or enter \"primary\" to always keep the main model.",
+    "placeholder": "Auto (fast default)"
+  },
   "sendKey": {
     "title": "Messages",
     "label": "Send message with",

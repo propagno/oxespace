@@ -21,8 +21,9 @@ describe('Settings › Tools contract (F10)', () => {
 
   it('puts every registered tool in a group, and keeps the Code terminal\'s group out of OxeChat', () => {
     const grouped = new Set<string>(Object.values(MCP_TOOL_GROUPS).flat())
-    // The enable tool belongs to no group: a session is given it only when it has something to turn on (B7.2).
-    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => !grouped.has(name) && name !== 'oxespace_tools_enable')).toEqual([])
+    // Meta-discovery tools belong to no group: `oxespace_tools_enable` is offered when groups can be turned on (B7.2)
+    // and `oxespace_tools_search` is offered to providers needing deferred tool search (OXE-487).
+    expect(TOOL_REGISTRY.map(entry => entry.descriptor.name).filter(name => !grouped.has(name) && name !== 'oxespace_tools_enable' && name !== 'oxespace_tools_search')).toEqual([])
     const thread = new Set<string>(Object.values(THREAD_TOOL_GROUPS).flat())
     expect(CODE_TOOL_GROUP.filter(tool => thread.has(tool))).toEqual([])
     expect(Object.keys(THREAD_TOOL_GROUPS)).not.toContain('code')

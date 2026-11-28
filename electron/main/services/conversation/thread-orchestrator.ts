@@ -20,6 +20,7 @@ import { executePlan, type PlanExecuteHost } from './thread-plan-execute'
 import { mainLanguage } from '../../i18n'
 import { deleteQueued, drainQueue, reorderQueued, resumeQueue, sendQueuedNow, steerQueued, updateQueued, type QueueHost } from './thread-queue'
 import { addTurnCost } from './thread-cost'
+import { updateThreadPromptCacheOnConfig, updateThreadPromptCacheOnCost } from './thread-prompt-cache'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
@@ -831,10 +832,10 @@ export class ThreadOrchestrator {
       else {
         const adapter = this.adapters.get(id)
         const mcpChanged = JSON.stringify(before.disabledMcpTools ?? []) !== JSON.stringify(configuration.disabledMcpTools ?? [])
-        // An idle process that cannot change its configuration in place (or whose MCP tool exclusions changed) is closed; the next turn resumes it with the new one.
         if (adapter && (!adapter.configure || mcpChanged)) { this.adapters.delete(id); await adapter.dispose().catch(() => {}) }
         else await adapter?.configure?.(effectiveAdapterConfiguration(snapshot.thread, configuration))
         snapshot = this.read(id)
+        updateThreadPromptCacheOnConfig(snapshot.thread, before, configuration, Date.now())
         Object.assign(snapshot.thread, configuration)
         if (!configuration.disabledMcpTools) delete snapshot.thread.disabledMcpTools; delete snapshot.thread.pendingConfiguration
       }
@@ -962,10 +963,9 @@ export class ThreadOrchestrator {
 
   private storeCost(id: string, turn: Extract<ThreadEvent, { type: 'turn-cost' }>): void {
     try {
-      const snapshot = this.read(id)
-      const { type: _type, ...cost } = turn
-      const now = Date.now()
+      const snapshot = this.read(id), { type: _type, ...cost } = turn, now = Date.now()
       snapshot.thread.costReport = addTurnCost(repairLegacyCost(snapshot.thread.costReport), cost, now, snapshot.thread.provider === 'codex' ? 'codex-token-usage' : snapshot.thread.provider === 'antigravity' ? 'antigravity-usage' : 'claude-result-step')
+      updateThreadPromptCacheOnCost(snapshot.thread, cost, now)
       this.save(snapshot, { eventsFrom: snapshot.events.length })
       const model = snapshot.thread.model ?? snapshot.thread.contextReport?.model
       try { this.usage.record({ ...cost, ...turnSteps(snapshot), threadId: id, projectRoot: snapshot.thread.rootPath, provider: snapshot.thread.provider, ...(model ? { model } : {}), at: now }) } catch { /* The ledger is best effort; the conversation keeps its own total. */ }

@@ -95,7 +95,7 @@ function parseSideOpenOptions(value: unknown): import('../../../shared/types/thr
   if (value === undefined || value === null) return undefined
   if (typeof value !== 'object' || Array.isArray(value)) throw new MainRefusal('thread.side.invalidInput', {})
   const input = value as Record<string, unknown>
-  const allowed = new Set(['provider', 'model', 'source', 'paneId', 'workspaceId', 'rootPath'])
+  const allowed = new Set(['provider', 'model', 'utilityModel', 'source', 'paneId', 'workspaceId', 'rootPath'])
   if (Object.keys(input).some(key => !allowed.has(key))) throw new MainRefusal('thread.side.invalidInput', {})
   const out: import('../../../shared/types/thread').ThreadSideOpenOptions = {}
   if (input.provider !== undefined) {
@@ -105,6 +105,12 @@ function parseSideOpenOptions(value: unknown): import('../../../shared/types/thr
   if (input.model !== undefined) {
     if (typeof input.model !== 'string' || !/^[a-z0-9][a-z0-9._:/\[\]-]{0,199}$/i.test(input.model)) throw new MainRefusal('thread.side.invalidInput', {})
     out.model = input.model
+  }
+  if (input.utilityModel !== undefined) {
+    if (typeof input.utilityModel !== 'string' || input.utilityModel.length > 120 || (input.utilityModel.trim() !== '' && !/^[a-z0-9][a-z0-9._:/\[\]-]{0,119}$/i.test(input.utilityModel.trim()))) {
+      throw new MainRefusal('thread.side.invalidInput', {})
+    }
+    out.utilityModel = input.utilityModel.trim()
   }
   if (input.source !== undefined) {
     if (input.source !== 'thread' && input.source !== 'terminal') throw new MainRefusal('thread.side.invalidInput', {})

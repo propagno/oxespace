@@ -380,6 +380,24 @@ export interface ThreadContextReport {
   source: 'claude-control' | 'codex-token-usage' | 'antigravity-usage'
 }
 
+export type PromptCacheBreakReason =
+  | 'model-changed'
+  | 'mcp-tools-changed'
+  | 'configuration-changed'
+  | 'prefix-drop'
+
+/** Per-thread prompt cache liveness & prefix-invalidation telemetry (OXE-487). */
+export interface ThreadPromptCacheState {
+  fingerprint: string
+  lastCachedAt: number
+  ttlMs: number
+  lastCacheReadTokens: number
+  lastCacheCreationTokens?: number
+  baselineCacheReadTokens: number
+  breakReason?: PromptCacheBreakReason
+  brokenAt?: number
+}
+
 export interface ThreadQueuePause {
   reason: 'interrupted' | 'failed'
   since: number
@@ -509,6 +527,8 @@ export interface ConversationThread {
   contextReport?: ThreadContextReport
   /** Running cost estimate; never part of the timeline. */
   costReport?: ThreadCostReport
+  /** Prompt-cache TTL & prefix-break telemetry; never part of the timeline (OXE-487). */
+  promptCache?: ThreadPromptCacheState
   /** MCP servers the provider reported when its session started. */
   mcpServers?: { servers: ThreadMcpServerStatus[]; checkedAt: number }
   capabilities?: ThreadCapabilityManifest
@@ -696,6 +716,8 @@ export type ThreadSideMode = 'native-fork' | 'ephemeral-context' | 'terminal-con
 export interface ThreadSideOpenOptions {
   provider?: ThreadProvider
   model?: string
+  /** Optional utility model preference (`''`/`'auto'` = fast default, `'primary'` = primary model, or explicit model id; OXE-487). */
+  utilityModel?: string
   source?: 'thread' | 'terminal'
   paneId?: string
   workspaceId?: string
@@ -716,6 +738,10 @@ export interface ThreadSideChat {
   source?: 'thread' | 'terminal'
   sourceProvider?: ThreadProvider
   paneId?: string
+  /** Effective model started for this side chat, when explicitly routed (OXE-487). */
+  model?: string
+  /** True when the utility model failed and side chat gracefully fell back to the primary model (OXE-487). */
+  utilityModelFallback?: boolean
 }
 
 /** What a side chat sends to the window: the same events a conversation shows, usage included so its cost is visible. */

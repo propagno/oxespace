@@ -4,7 +4,7 @@
  * Thread can still search the project. Kept apart from
  * thread-mcp.ts so the pure permission kernel reads it without the launch code.
  */
-export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
+export const THREAD_READ_ONLY_MCP_TOOLS = ['oxespace_capabilities', 'oxespace_tools_search', 'oxespace_execution_context', 'oxespace_project_context',
   'oxespace_list_agents', 'oxespace_list_workspaces', 'oxespace_git',
   'oxespace_github', 'oxespace_threads', 'oxespace_skills', 'oxespace_mcp_servers', 'oxespace_search', 'oxespace_usage', 'oxespace_settings', 'oxespace_diagnostics',
   'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result',
@@ -22,7 +22,7 @@ export const OXESPACE_BRIDGE_KEY = 'oxespace-delegation'
  * delegation lookups, which also record the waiting executor.
  */
 export const AUTO_APPROVED_LOOKUPS = [
-  'oxespace_capabilities', 'oxespace_execution_context', 'oxespace_project_context',
+  'oxespace_capabilities', 'oxespace_tools_search', 'oxespace_execution_context', 'oxespace_project_context',
   'oxespace_search', 'oxespace_git', 'oxespace_threads',
   'oxespace_thread_read', 'oxespace_work_status', 'oxespace_work_result'
 ] as const satisfies readonly (typeof THREAD_READ_ONLY_MCP_TOOLS)[number][]

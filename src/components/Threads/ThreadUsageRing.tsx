@@ -1,15 +1,18 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AgentCreditsSnapshot } from '../../../shared/types/agentCredits'
-import type { ThreadContextReport, ThreadProvider } from '../../../shared/types/thread'
+import type { ThreadContextReport, ThreadPromptCacheState, ThreadProvider } from '../../../shared/types/thread'
+import { evaluatePromptCacheStatus } from '../../../shared/prompt-cache'
 import { useUIStore } from '../../store/ui.store'
 import { usageResetIn } from './ThreadFailureCard'
+import { formatPromptCacheHint } from './promptCacheLabel'
 import { Button, Popover } from '../../ui'
 import { toast } from '../../ui/Toast'
 
 const RADIUS = 7
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 const REFRESH_MS = 5 * 60_000
+const CACHE_TICK_MS = 30_000
 const DEFAULT_CONTEXT_WINDOW = 200_000
 
 const compact = (tokens: number): string => tokens >= 1_000_000 ? `${(tokens / 1_000_000).toFixed(1)}M` : tokens >= 1_000 ? `${Math.round(tokens / 1_000)}k` : String(tokens)
@@ -20,11 +23,12 @@ const compact = (tokens: number): string => tokens >= 1_000_000 ? `${(tokens / 1
  * to the plan window when available, and shows an initial 0% context ring
  * while a conversation is open so the cockpit meter is always present.
  */
-export function ThreadUsageRing({ provider, idle, threadId, context }: { provider: ThreadProvider; idle: boolean; threadId?: string; context?: ThreadContextReport }): ReactElement | null {
+export function ThreadUsageRing({ provider, idle, threadId, context, promptCache }: { provider: ThreadProvider; idle: boolean; threadId?: string; context?: ThreadContextReport; promptCache?: ThreadPromptCacheState }): ReactElement | null {
   const { t } = useTranslation('thread')
   const [snapshot, setSnapshot] = useState<AgentCreditsSnapshot | null>(null)
   const [open, setOpen] = useState(false)
   const [fresh, setFresh] = useState<ThreadContextReport | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     let active = true
     const load = (): void => {
@@ -41,6 +45,11 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
     void window.oxe.thread?.contextUsage?.(threadId).then(value => { if (active && value) setFresh(value) }, () => undefined)
     return () => { active = false }
   }, [open, idle, threadId])
+  useEffect(() => {
+    if (!idle || !promptCache) return
+    const timer = window.setInterval(() => setNow(Date.now()), CACHE_TICK_MS)
+    return () => window.clearInterval(timer)
+  }, [idle, promptCache])
 
   const rawReport = fresh && (!context || fresh.capturedAt >= context.capturedAt) ? fresh : context
   const windows = snapshot?.available ? snapshot.windows ?? [] : []
@@ -53,7 +62,11 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
   const planUsed = worst ? t(worst.kind === 'session' ? 'usage.planLabelSession' : 'usage.planLabelWeek', { percent: Math.round(planPercent) }) : ''
   const planLabel = worst?.resetsAtMs ? t('usage.resetsIn', { label: planUsed, time: usageResetIn(worst.resetsAtMs) }) : planUsed
   const percent = report ? report.percentage : planPercent
-  const label = report ? t('usage.contextLabel', { percent: report.percentage, used: compact(report.usedTokens), total: compact(report.windowTokens) }) : planLabel
+  const baseLabel = report ? t('usage.contextLabel', { percent: report.percentage, used: compact(report.usedTokens), total: compact(report.windowTokens) }) : planLabel
+  const cacheStatus = evaluatePromptCacheStatus(promptCache, now)
+  const cacheHint = formatPromptCacheHint(cacheStatus, t)
+  const cacheAlert = cacheStatus.kind === 'stale' || cacheStatus.kind === 'broken'
+  const label = cacheAlert && cacheHint ? `${baseLabel} · ${cacheHint}` : baseLabel
   const high = report ? percent >= 85 : percent >= 90
   const visible = report?.categories.filter(category => category.kind === 'used' || category.kind === 'deferred') ?? []
   // OXE-379: /compact in one click from the context it frees. Claude and Codex run it; Antigravity's is not verified.
@@ -65,11 +78,12 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
       toast({ intent: 'danger', title: t('usage.compactFailed'), description: error instanceof Error ? error.message : undefined }))
   }
   return <Popover open={open} onOpenChange={setOpen} side="top" align="end" label={t('usage.details')}
-    trigger={<Button type="button" variant="ghost" size="sm" square className="thread-usage-ring" aria-label={t('usage.trigger', { label: report ? t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage }) : planLabel })} title={label} data-high={high ? 'true' : undefined}>
+    trigger={<Button type="button" variant="ghost" size="sm" square className="thread-usage-ring" aria-label={t('usage.trigger', { label: report ? t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage }) : planLabel })} title={label} data-high={high ? 'true' : undefined} data-cache-state={cacheStatus.kind !== 'none' ? cacheStatus.kind : undefined}>
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" className="thread-usage-ring-track" />
         <circle cx="9" cy="9" r={RADIUS} fill="none" strokeWidth="2" strokeLinecap="round" className="thread-usage-ring-value"
           strokeDasharray={CIRCUMFERENCE} strokeDashoffset={CIRCUMFERENCE * (1 - Math.max(0, Math.min(100, percent)) / 100)} transform="rotate(-90 9 9)" />
+        {cacheAlert && <circle cx="15" cy="3" r="2" className="thread-usage-ring-cache-dot" />}
       </svg>
     </Button>}>
     <div className="thread-usage-popover">
@@ -77,6 +91,7 @@ export function ThreadUsageRing({ provider, idle, threadId, context }: { provide
         <h4>{t('usage.context')}</h4>
         <div className="thread-usage-bar" role="img" aria-label={t('usage.used', { percent: report.percentage })}><span style={{ width: `${Math.min(100, report.percentage)}%` }} /></div>
         <p>{t('usage.tokens', { used: compact(report.usedTokens), total: compact(report.windowTokens), percent: report.percentage })}</p>
+        {cacheHint && <p className="thread-usage-cache-note" data-cache-state={cacheStatus.kind} data-testid="usage-prompt-cache-hint">{cacheHint}</p>}
         {report.autoCompactAtTokens !== undefined && <p>{t('usage.autoCompact', { tokens: compact(report.autoCompactAtTokens) })}</p>}
         {canCompact && <Button size="sm" variant={high ? 'primary' : 'secondary'} disabled={!idle} title={t('usage.compactTitle')} onClick={runCompact}>{t('usage.compact')}</Button>}
         {visible.length > 0 && <table><tbody>{visible.map(category => <tr key={category.name}><th scope="row">{category.kind === 'deferred' ? t('usage.deferred', { name: category.name }) : category.name}</th><td>{compact(category.tokens)}</td></tr>)}</tbody></table>}

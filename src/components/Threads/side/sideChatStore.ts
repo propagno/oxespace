@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { mainMessage } from '../../../../shared/messages'
 import type { ThreadProvider, ThreadSideOpenOptions } from '../../../../shared/types/thread'
 import { useThreadStore } from '../../../store/thread.store'
+import { useThreadPrefs } from '../../../store/thread-prefs.store'
 import { applySideEvent, initialSideChat, SIDE_SEND_FAILED, withQuestion, type SideChatState } from './sideChatModel'
 
 /**
@@ -126,7 +127,13 @@ export function ensureSideChat(threadId: string, options?: ThreadSideOpenOptions
     return Promise.resolve(null)
   }
   const still = () => useSideChatStore.getState().chats[threadId] === opening
-  const call = options !== undefined ? thread.sideOpen(threadId, options) : thread.sideOpen(threadId)
+  const configuredUtility = useThreadPrefs.getState().utilityModel
+  const effectiveOptions = options?.model
+    ? options
+    : configuredUtility
+      ? { ...options, utilityModel: options?.utilityModel ?? configuredUtility }
+      : options
+  const call = effectiveOptions !== undefined ? thread.sideOpen(threadId, effectiveOptions) : thread.sideOpen(threadId)
   const pending = call.then(result => {
     if (pendingOpens.get(threadId) === pending) pendingOpens.delete(threadId)
     // Discarded or switched while opening: let main throw the stale copy away at once.
