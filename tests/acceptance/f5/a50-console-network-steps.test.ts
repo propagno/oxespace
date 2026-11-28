@@ -47,7 +47,7 @@ describe('A50 · the Network drawer', () => {
     log.add({ method: 'Network.loadingFailed', params: { requestId: 'r2', timestamp: 1.5, errorText: 'net::ERR_CONNECTION_REFUSED' } })
     log.add({ method: 'Network.requestWillBeSent', params: { requestId: 'r3', timestamp: 2, type: 'Script', request: { method: 'GET', url: 'http://localhost:3000/app.js' } } })
     expect(log.rows()).toEqual([
-      { method: 'GET', url: 'http://localhost:3000/', status: null, type: 'document', ms: 500, failed: 'error' },
+      { method: 'GET', url: 'http://localhost:3000/', status: null, type: 'document', ms: 500, failed: 'error', errorText: 'net::ERR_CONNECTION_REFUSED' },
       { method: 'GET', url: 'http://localhost:3000/app.js', status: null, type: 'script', ms: null }
     ])
   })
