@@ -6,6 +6,15 @@ import type { PtyOutputBatcher } from '../pty-output-batcher'
 import type { PtyRingBuffer } from '../pty-ring-buffer'
 import type { PtyModeTracker } from '../pty-mode-tracker'
 import { DA1_CARRY_MS, DA1_REPLY, stripDa1, type Da1Filter } from '../pty-da1'
+import { PtyFlowControl } from '../../workers/ptyFlowControl'
+
+interface FlowControlHostedPty extends IPty {
+  ackData(chars: number): void
+}
+
+function isFlowControlHostedPty(pty: IPty): pty is FlowControlHostedPty {
+  return typeof (pty as Partial<FlowControlHostedPty>).ackData === 'function'
+}
 
 /** What the system ConPTY wrote first: clear, reset attributes, home. The bundled one writes none of it (B13). */
 export const CONPTY_START_SCREEN = '\x1b[2J\x1b[m\x1b[H'
@@ -55,6 +64,8 @@ export interface TerminalSession {
   nudgeTimer?: ReturnType<typeof setTimeout> | null
   da1: Da1Filter
   da1Timer: ReturnType<typeof setTimeout> | null
+  /** OXE-483 · Local flow-control watermark tracker used when node-pty runs in-process (non-HostedPty). */
+  flowControl?: PtyFlowControl
   lastActivityAt: number
   /** Last size the view reported; used for the alt-screen redraw nudge. */
   cols: number
@@ -99,6 +110,7 @@ export class SessionOutput {
    */
   receive(session: TerminalSession, chunk: string): void {
     this.host.scanShellCwd(session.paneId, chunk)
+    if (!isFlowControlHostedPty(session.pty)) session.flowControl?.onData(chunk.length)
     const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
     for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
     if (data) session.outputBatcher.push(data)
@@ -115,6 +127,21 @@ export class SessionOutput {
     if (session.da1Timer) { clearTimeout(session.da1Timer); session.da1Timer = null }
     const held = session.da1.release()
     if (held) session.outputBatcher.push(held)
+  }
+
+  /** Releases pending DA1 state and disposes any local flow-control timers on exit/stop. */
+  cleanup(session: TerminalSession): void {
+    this.releaseDa1(session)
+    session.flowControl?.dispose()
+    session.flowControl = undefined
+  }
+
+  /** Forward renderer xterm parse acknowledgement for end-to-end node-pty backpressure (OXE-483). */
+  ack(paneId: string, chars: number): void {
+    const session = this.host.sessions.get(paneId)
+    if (!session || !Number.isFinite(chars) || chars <= 0) return
+    if (isFlowControlHostedPty(session.pty)) session.pty.ackData(chars)
+    else session.flowControl?.ack(chars)
   }
 
   /**
@@ -176,6 +203,12 @@ export class SessionOutput {
     session.attached = true
     session.viewAttached = true
     session.parked = false
+    if (isFlowControlHostedPty(session.pty)) {
+      session.pty.handleFlowControl = true
+    } else {
+      session.flowControl ??= new PtyFlowControl(session.pty, { attached: false })
+      session.flowControl.setAttached(true)
+    }
 
     // On a fresh or overflowed alt-screen attach, retained bytes cannot be trusted because `\x1b[?1049h`
     // may have been evicted; ask the app for a clean repaint instead. On a contiguous Lever H delta reattach
@@ -222,6 +255,11 @@ export class SessionOutput {
     session.attached = false
     session.viewAttached = false
     session.parked = input.parked === true
+    if (isFlowControlHostedPty(session.pty)) {
+      session.pty.handleFlowControl = false
+    } else {
+      session.flowControl?.setAttached(false)
+    }
     session.pendingRedrawNudge = false
     if (session.nudgeTimer) {
       clearTimeout(session.nudgeTimer)

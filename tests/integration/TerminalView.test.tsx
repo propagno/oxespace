@@ -812,4 +812,56 @@ describe('TerminalView', () => {
     expect(writes).toContain('tail frame')
     host.remove()
   })
+
+  test('OXE-483: sends flow-control ACKs inside xterm.write completion callbacks at 5,000-char thresholds and flushes on unmount', async () => {
+    const callbacks: Array<() => void> = []
+    terminalState.write.mockImplementation((_data: string, done?: () => void) => {
+      if (done) callbacks.push(done)
+    })
+    let dataListener: ((event: { paneId: string; data: string }) => void) | null = null
+    const ack = vi.fn().mockResolvedValue(undefined)
+    const transport = {
+      onData: vi.fn((_paneId: string, cb: (event: { paneId: string; data: string }) => void) => {
+        dataListener = cb
+        return () => { dataListener = null }
+      }),
+      onExit: vi.fn(() => () => {}),
+      attach: vi.fn(async () => ({ running: true, seq: 0, prologue: '', replay: '', truncated: false, altScreen: false })),
+      detach: vi.fn(async () => {}),
+      ack
+    }
+
+    const view = render(
+      <TerminalView
+        paneId="pane-ack-live"
+        transport={transport}
+        isRunning
+        themeId="dracula"
+        prefs={TERMINAL_PREFS_DEFAULTS}
+        onInput={vi.fn()}
+        onResize={vi.fn()}
+      />
+    )
+    await waitFor(() => expect(transport.attach).toHaveBeenCalledWith({ paneId: 'pane-ack-live' }))
+    await act(async () => { await Promise.resolve() })
+
+    // Deliver 6,000 chars: ACK must wait until xterm invokes the write completion callback.
+    act(() => { dataListener?.({ paneId: 'pane-ack-live', data: 'A'.repeat(6_000) }) })
+    await waitFor(() => expect(callbacks.length).toBeGreaterThanOrEqual(1))
+    expect(ack).not.toHaveBeenCalled()
+
+    act(() => { callbacks.shift()!() })
+    expect(ack).toHaveBeenCalledTimes(1)
+    expect(ack).toHaveBeenCalledWith('pane-ack-live', 6_000)
+
+    // Deliver 400 chars (below 5,000 threshold), complete write, then unmount -> flushes remaining 400.
+    act(() => { dataListener?.({ paneId: 'pane-ack-live', data: 'B'.repeat(400) }) })
+    await waitFor(() => expect(callbacks.length).toBeGreaterThanOrEqual(1))
+    act(() => { callbacks.shift()!() })
+    expect(ack).toHaveBeenCalledTimes(1)
+
+    view.unmount()
+    expect(ack).toHaveBeenCalledTimes(2)
+    expect(ack).toHaveBeenLastCalledWith('pane-ack-live', 400)
+  })
 })

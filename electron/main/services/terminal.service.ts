@@ -280,7 +280,7 @@ export class TerminalManager {
       recordRuntime('process-exit', { pane: input.paneId, pid: ptyProcess.pid, exitCode })
       const session = this.sessions.get(input.paneId)
       if (session?.pty !== ptyProcess) return // A late exit cannot remove a restarted process.
-      if (session) this.output.releaseDa1(session)
+      if (session) this.output.cleanup(session)
       session?.outputBatcher.flush()
       if (session) this.exits.remember(session, exitCode)
       // A resume that ends at once could not load its session; forget it so it cannot loop resume → exit → resume.
@@ -386,6 +386,9 @@ export class TerminalManager {
   detach(input: TerminalDetachInput): TerminalDetachResult | undefined {
     return this.output.detach(input)
   }
+
+  /** OXE-483 · Renderer flow-control acknowledgement for xterm-parsed character counts. */
+  ack(paneId: string, chars: number): void { this.output.ack(paneId, chars) }
 
   /** The retained output for a reader that is not a view. Nothing is attached or consumed. */
   peek(paneId: string): { running: boolean; data: string; altScreen: boolean } | null {
@@ -597,7 +600,7 @@ export class TerminalManager {
     // Flush before disposing: the batcher discards `pending`, so an exiting
     // process used to lose its last words (often the error that killed it).
     this.clearNudgeTimer(session)
-    this.output.releaseDa1(session)
+    this.output.cleanup(session)
     session.outputBatcher.flush()
     session.inputQueue.dispose()
     session.outputBatcher.dispose()
@@ -696,7 +699,7 @@ export class TerminalManager {
     for (const controller of this.launchControllers.values()) controller.abort()
     for (const session of this.sessions.values()) {
       this.clearNudgeTimer(session)
-      this.output.releaseDa1(session)
+      this.output.cleanup(session)
       session.outputBatcher.flush()
       session.inputQueue.dispose()
       session.outputBatcher.dispose()

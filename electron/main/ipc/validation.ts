@@ -185,6 +185,14 @@ export function parseTerminalDetachInput(value: unknown): TerminalDetachInput {
   return { paneId: expectNonEmptyString(input.paneId, 'paneId'), ...(input.parked === true ? { parked: true } : {}) }
 }
 
+/** terminal:ack · flow-control character count acknowledgement from renderer xterm (OXE-483). */
+export function parseTerminalAckInput(paneId: unknown, chars: unknown): { paneId: string; chars: number } {
+  return {
+    paneId: expectNonEmptyString(paneId, 'paneId'),
+    chars: expectPositiveInteger(chars, 'chars')
+  }
+}
+
 /** terminal:restart · `resume` is absent or the literal `false` (start fresh); anything else is refused. */
 export function parseTerminalRestartInput(value: unknown): TerminalStopInput {
   const input = expectRecord(value, 'terminal:restart input')
