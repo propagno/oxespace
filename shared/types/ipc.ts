@@ -556,7 +556,7 @@ export interface TerminalApi {
   stop(input: TerminalStopInput): Promise<void>
   restart(input: TerminalStopInput): Promise<void>
   attach(input: TerminalAttachInput): Promise<TerminalAttachResult>
-  detach(input: TerminalDetachInput): Promise<TerminalDetachResult | void>; ack?(paneId: string, chars: number): Promise<void> | void
+  detach(input: TerminalDetachInput): Promise<TerminalDetachResult | void>; ack?(paneId: string, chars: number): Promise<void> | void; getTransportStats?(): import('./ipc/terminal').TerminalTransportStats
   status(paneId: string): Promise<TerminalStatusResult>
   onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
   onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void

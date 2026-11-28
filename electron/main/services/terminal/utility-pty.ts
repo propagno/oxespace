@@ -11,21 +11,37 @@
  *   next spawn starts a new host. The main process carries on (CA-1).
  */
 import type { IDisposable, IPty, IPtyForkOptions, IWindowsPtyForkOptions } from 'node-pty'
+import type { BrowserWindow } from 'electron'
 import type { PtyModule } from './session-start'
 import type { DaemonPtyModule } from './daemon-pty'
 import { HOST_GONE_EXIT_CODE, ptyHostMode, type PtyHostEvent, type PtyHostRequest } from './pty-host-protocol'
+import { TERMINAL_PTY_PORT_CHANNEL } from '../../../../shared/types/ipc/terminal'
 
 /** What this module needs of the host process: Electron's UtilityProcess in the app, a fake in tests. */
 export interface PtyHostProcess {
-  postMessage(request: PtyHostRequest): void
+  postMessage(request: PtyHostRequest, transfer?: unknown[]): void
   onMessage(listener: (event: PtyHostEvent) => void): void
   onExit(listener: (code: number) => void): void
   kill(): void
 }
 
+export interface DirectPortChannelPair {
+  port1: unknown
+  port2: unknown
+}
+
 export interface UtilityPtyModule extends PtyModule {
   /** The host's pid once it has reported it, for diagnostics; 0 before. */
   hostPid(): number
+  /**
+   * OXE-488 · Registers a renderer window for direct ptyHost <-> Renderer MessagePort transfer.
+   * Transfers immediately if the host is already running, and re-transfers automatically if the host restarts.
+   */
+  attachWindow?(
+    windowId: number,
+    sendPortToRenderer: (port2: unknown) => void,
+    createChannel: () => DirectPortChannelPair
+  ): () => void
   dispose(): void
 }
 
@@ -52,11 +68,15 @@ export class HostedPty implements IPty {
   cols: number
   rows: number
   private _handleFlowControl = false
+  private _lastDataMeta: { seq?: number; direct?: boolean } | null = null
   private readonly data = new Emitter<string>()
   private readonly exit = new Emitter<ExitEvent>()
   private ended = false
   readonly onData = this.data.event
   readonly onExit = this.exit.event
+
+  get hostSessionId(): number { return this.id }
+  get lastDataMeta(): { seq?: number; direct?: boolean } | null { return this._lastDataMeta }
 
   get handleFlowControl(): boolean { return this._handleFlowControl }
   set handleFlowControl(enabled: boolean) {
@@ -70,6 +90,16 @@ export class HostedPty implements IPty {
   ackData(chars: number): void {
     if (!Number.isFinite(chars) || chars <= 0) return
     this.post({ t: 'ack', id: this.id, chars: Math.floor(chars) })
+  }
+
+  /** OXE-488 · Associates this hosted PTY session with its paneId so pty-host can route frames directly. */
+  bindPane(paneId: string): void {
+    this.post({ t: 'bind-pane', id: this.id, paneId })
+  }
+
+  /** OXE-488 · Toggles direct ptyHost -> Renderer MessagePort routing for an attached pane. */
+  setDirectRoute(paneId: string, enabled: boolean): void {
+    this.post({ t: 'direct-route', id: this.id, paneId, enabled })
   }
 
   constructor(private readonly id: number, private readonly send: (request: PtyHostRequest) => void, file: string, cols: number, rows: number) {
@@ -95,7 +125,12 @@ export class HostedPty implements IPty {
     if (this.ended) return
     if (event.t === 'spawned') { this.pid = event.pid; if (event.process) this.process = event.process }
     else if (event.t === 'process') this.process = event.process
-    else if (event.t === 'data') this.data.fire(event.data)
+    else if (event.t === 'data') {
+      this._lastDataMeta = (event.seq !== undefined || event.direct !== undefined)
+        ? { seq: event.seq, direct: event.direct }
+        : null
+      try { this.data.fire(event.data) } finally { this._lastDataMeta = null }
+    }
     else if (event.t === 'spawn-failed') { this.data.fire(`\r\n${event.message}\r\n`); this.end({ exitCode: 1 }) }
     else if (event.t === 'exit') this.end({ exitCode: event.exitCode, ...(event.signal ? { signal: event.signal } : {}) })
   }
@@ -118,6 +153,15 @@ export function utilityPtyModule(forkHost: () => PtyHostProcess, onHostExit?: (c
   let pid = 0
   let nextId = 1
   const terms = new Map<number, HostedPty>()
+  const windows = new Map<number, { sendPort: (port2: unknown) => void; createChannel: () => DirectPortChannelPair }>()
+
+  const transferPortToWindow = (current: PtyHostProcess, windowId: number, entry: { sendPort: (port2: unknown) => void; createChannel: () => DirectPortChannelPair }): void => {
+    try {
+      const { port1, port2 } = entry.createChannel()
+      current.postMessage({ t: 'attach-renderer-port', windowId }, [port1])
+      entry.sendPort(port2)
+    } catch { /* graceful fallback to IPC when MessagePort transfer is unavailable */ }
+  }
 
   const connect = (): PtyHostProcess => {
     if (host) return host
@@ -137,6 +181,8 @@ export function utilityPtyModule(forkHost: () => PtyHostProcess, onHostExit?: (c
       for (const term of gone) term.end({ exitCode: HOST_GONE_EXIT_CODE })
       onHostExit?.(code)
     })
+    // Establish direct MessagePort channels for all registered windows whenever the host starts or restarts.
+    for (const [windowId, entry] of windows) transferPortToWindow(current, windowId, entry)
     return current
   }
 
@@ -150,12 +196,86 @@ export function utilityPtyModule(forkHost: () => PtyHostProcess, onHostExit?: (c
       return term
     },
     hostPid: () => pid,
+    attachWindow(windowId, sendPort, createChannel) {
+      const entry = { sendPort, createChannel }
+      windows.set(windowId, entry)
+      if (host) transferPortToWindow(host, windowId, entry)
+      return () => {
+        if (windows.get(windowId) === entry) {
+          windows.delete(windowId)
+          try { host?.postMessage({ t: 'detach-renderer-port', windowId }) } catch { /* host already gone */ }
+        }
+      }
+    },
     dispose() {
       const current = host
       host = null
+      windows.clear()
       current?.kill()
     }
   }
+}
+
+/**
+ * OXE-488 · Wires an Electron BrowserWindow to the utility PTY host via MessageChannelMain.
+ * Re-establishes a fresh port on every `dom-ready` (initial load + reloads) and cleanly
+ * detaches on `render-process-gone` or window close so no ports leak and no PTY deadlocks.
+ */
+export async function attachBrowserWindowToUtilityPty(
+  utilityPty: UtilityPtyModule,
+  window: BrowserWindow
+): Promise<() => void> {
+  if (typeof utilityPty.attachWindow !== 'function') return () => undefined
+  const { MessageChannelMain } = await import('electron')
+  if (typeof MessageChannelMain !== 'function') return () => undefined
+
+  const windowId = window.webContents.id
+  let detachCurrent: (() => void) | null = null
+  let disposed = false
+
+  const detach = (): void => {
+    detachCurrent?.()
+    detachCurrent = null
+  }
+
+  const establish = (): void => {
+    if (disposed || window.isDestroyed()) return
+    detach()
+    detachCurrent = utilityPty.attachWindow!(
+      windowId,
+      (port2) => {
+        if (disposed || window.isDestroyed()) return
+        try {
+          window.webContents.postMessage(
+            TERMINAL_PTY_PORT_CHANNEL,
+            { windowId },
+            [port2 as Electron.MessagePortMain]
+          )
+        } catch { /* renderer navigated away; next dom-ready re-establishes */ }
+      },
+      () => new MessageChannelMain()
+    )
+  }
+
+  const onDomReady = (): void => establish()
+  const onGone = (): void => detach()
+  const onClosed = (): void => cleanup()
+
+  window.webContents.on('dom-ready', onDomReady)
+  window.webContents.on('render-process-gone', onGone)
+  window.once('closed', onClosed)
+  if (!window.isDestroyed() && !window.webContents.isLoadingMainFrame()) establish()
+
+  const cleanup = (): void => {
+    if (disposed) return
+    disposed = true
+    detach()
+    if (!window.isDestroyed()) {
+      window.webContents.removeListener('dom-ready', onDomReady)
+      window.webContents.removeListener('render-process-gone', onGone)
+    }
+  }
+  return cleanup
 }
 
 /**
@@ -167,7 +287,7 @@ export async function appPtyOption(
   entry: string,
   warn: (message: string) => void,
   daemonOptions?: { daemonEntry: string; userDataPath: string }
-): Promise<{ pty?: UtilityPtyModule | DaemonPtyModule; daemon?: DaemonPtyModule }> {
+): Promise<{ pty?: UtilityPtyModule | DaemonPtyModule; utilityPty?: UtilityPtyModule; daemon?: DaemonPtyModule }> {
   const mode = ptyHostMode(env)
   if (mode === 'main') return {}
   if (mode === 'daemon' && daemonOptions) {
@@ -183,7 +303,8 @@ export async function appPtyOption(
       warn(`[terminal] detached PTY daemon unavailable, falling back to utility host: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
-  return { pty: await appPtyHost(entry, warn) }
+  const utilityPty = await appPtyHost(entry, warn)
+  return { pty: utilityPty, utilityPty }
 }
 
 /** The app's PtyModule over the built worker at `entry`. */
@@ -197,7 +318,11 @@ export async function forkUtilityPtyHost(entry: string): Promise<() => PtyHostPr
   return () => {
     const child = utilityProcess.fork(entry, [], { serviceName: 'oxespace-pty-host' })
     return {
-      postMessage: request => child.postMessage(request),
+      postMessage: (request, transfer) => (
+        transfer && transfer.length > 0
+          ? child.postMessage(request, transfer as Electron.MessagePortMain[])
+          : child.postMessage(request)
+      ),
       onMessage: listener => { child.on('message', listener) },
       onExit: listener => { child.on('exit', listener) },
       kill: () => { child.kill() }

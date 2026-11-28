@@ -74,6 +74,7 @@ if (isDev && !process.env.OXESPACE_DB_PATH) {
   app.setPath('userData', join(app.getPath('appData'), 'oxespace-dev'))
 }
 let ipcRegistered = false
+let onMainWindowCreated: ((window: BrowserWindow) => void) | null = null
 const clipboardImageTempFiles = new Set<string>()
 const CLIPBOARD_IMAGE_TTL_MS = 30 * 60 * 1000
 
@@ -135,6 +136,14 @@ async function registerIpcHandlers(): Promise<() => void> {
   configureExperimentalFeatures(app.getPath('userData'))
   const delegationRef: DelegationHandleRef = {}
   const core = await bootstrapCoreServices({ db, rootExists: existsSync, delegationRef })
+  if (core.utilityPty) {
+    const utilityPty = core.utilityPty
+    onMainWindowCreated = (window: BrowserWindow) => {
+      void import('./services/terminal/utility-pty')
+        .then(({ attachBrowserWindowToUtilityPty }) => attachBrowserWindowToUtilityPty(utilityPty, window))
+        .catch(() => undefined)
+    }
+  }
   const workspace = await bootstrapWorkspaceServices(core)
   ipcMain.handle(IPC_CHANNELS.clipboard.saveImageToTemp, async () => {
     const item = (await clipboard.read()).find(value => value.types.includes('image/png'))
@@ -484,6 +493,8 @@ function createMainWindow(): BrowserWindow {
   mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     if (isDev && level >= 2) console.error(`[OXESpace renderer:${level}] ${message} (${sourceId}:${line})`)
   })
+
+  onMainWindowCreated?.(mainWindow)
 
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
     const rendererUrl = process.env.ELECTRON_RENDERER_URL

@@ -24,7 +24,7 @@ import { startedFreshStatus } from './agent-state/pane-resume'
 import { PtyModeTracker } from './pty-mode-tracker'
 import { resolveExecutable as resolveWithProbe } from './terminal/executable'
 import { SessionStarter, type ManagedTerminalStart, type PtyModule, type SessionStartOptions, type StartedProcess } from './terminal/session-start'
-import { CONPTY_START_SCREEN, SessionOutput, type TerminalSession } from './terminal/session-output'
+import { CONPTY_START_SCREEN, isDirectHostedPty, SessionOutput, type TerminalSession } from './terminal/session-output'
 import { SessionExits } from './terminal/session-exit'
 import { PtyExitDrain, QUIT_TREE_GRACE_MS, type QuitDrainOptions, type QuitDrainResult } from './terminal/quit-drain'
 import { ShellCwdScanner } from './terminal/shell-cwd'
@@ -216,6 +216,9 @@ export class TerminalManager {
     else this.localSessions.delete(input.paneId)
     this.reclaimIdleSession()
 
+    const directHosted = isDirectHostedPty(ptyProcess) ? ptyProcess : null
+    if (directHosted) directHosted.bindPane(input.paneId)
+
     this.exits.recordStart(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
       sessionId: randomUUID(),
@@ -225,6 +228,7 @@ export class TerminalManager {
       paneId: input.paneId,
       workspaceId: input.workspaceId,
       pty: ptyProcess,
+      ...(directHosted ? { directHostId: directHosted.hostSessionId } : {}),
       agentCommand: input.agentCommand,
       resumeAgent: input.resumeAgent,
       resumed,
@@ -270,7 +274,7 @@ export class TerminalManager {
     this.observer?.start(input.paneId, input.workspaceId, cols, rows, command, remote ? { remote: true } : undefined)
     ptyProcess.onData((data) => {
       const session = this.sessions.get(input.paneId)
-      if (session) this.output.receive(session, data)
+      if (session) this.output.receive(session, data, directHosted?.lastDataMeta)
       // OXE-411 lever M: the headless screen mirror runs for agent panes and remote SSH panes (OXE-447).
       if (!this.levers.has('M') || input.agentCommand || remote) this.observer?.output(input.paneId, data)
     })

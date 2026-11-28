@@ -40,6 +40,27 @@ export interface TerminalStopInput {
 export interface TerminalDataEvent {
   paneId: string
   data: string
+  /** OXE-488 · Utility PTY host session id (present when originating from pty-host). */
+  ptyId?: number
+  /** OXE-488 · Monotonic per-ptyId frame sequence for deduplication and cross-transport ordering. */
+  seq?: number
+}
+
+/** OXE-488 · Internal Main -> Preload channel used to transfer the direct pty-host MessagePort. */
+export const TERMINAL_PTY_PORT_CHANNEL = 'terminal:pty-port'
+
+/** OXE-488 · Live transport diagnostics reported by the preload direct MessagePort bridge. */
+export interface TerminalTransportStats {
+  transport: 'message-port' | 'ipc-fallback'
+  portConnected: boolean
+  directFrames: number
+  directBytes: number
+  directAcks: number
+  fallbackFrames: number
+  fallbackBytes: number
+  fallbackAcks: number
+  dedupedFrames: number
+  reorderedFrames: number
 }
 
 export interface TerminalExitEvent {
@@ -80,6 +101,10 @@ export interface TerminalDetachInput {
 export interface TerminalDetachResult {
   /** The ring's cursor at the detach: attaching with it as `sinceSeq` returns only what came after. */
   seq: number
+  /** OXE-488 · Utility PTY host session id at detach time, when backed by pty-host. */
+  ptyId?: number
+  /** OXE-488 · Highest pty-host frame sequence already captured in the ring at detach time. */
+  frameSeq?: number
 }
 
 export interface TerminalAttachInput {
@@ -92,6 +117,10 @@ export interface TerminalAttachResult {
   running: boolean
   /** Cursor to hand back on the next attach. */
   seq: number
+  /** OXE-488 · Utility PTY host session id, when backed by pty-host. */
+  ptyId?: number
+  /** OXE-488 · Highest pty-host frame sequence already captured in the replay/ring at attach time. */
+  frameSeq?: number
   /** Mode-restoring sequences to write before anything else. */
   prologue: string
   /** Retained output to replay. Empty when `altScreen` is true. */

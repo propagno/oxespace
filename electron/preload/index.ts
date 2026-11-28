@@ -10,4 +10,4 @@ ipcRenderer.setMaxListeners(100)
 
 contextBridge.exposeInMainWorld('oxe', createOxeApi(ipcRenderer, file => {
   try { return webUtils.getPathForFile(file) } catch { return '' }
-}))
+}, { listenPortChannel: true }))
