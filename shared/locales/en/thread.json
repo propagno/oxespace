@@ -1199,6 +1199,24 @@
     "inProgress": "In progress",
     "run": "Run plan"
   },
+  "planReview": {
+    "commentsCount_one": "{{count}} comment",
+    "commentsCount_other": "{{count}} comments",
+    "addComment": "Comment on section",
+    "addCommentOn": "Comment on {{excerpt}}",
+    "commentLabel": "Inline plan comment",
+    "commentPlaceholder": "Suggest a change for this part of the plan…",
+    "saveComment": "Save comment",
+    "editComment": "Edit comment",
+    "editCommentLabel": "Edit inline plan comment",
+    "saveEdit": "Save",
+    "deleteComment": "Delete comment",
+    "addGeneralNote": "Add general feedback",
+    "generalLabel": "General plan feedback",
+    "generalPlaceholder": "Overall note or guidance for revising the plan…",
+    "requestChanges": "Request changes",
+    "requestChangesCount": "Request changes ({{count}})"
+  },
   "projectSettings": {
     "saveFailed": "Could not save project settings.",
     "title": "OxeChat project · {{name}}",

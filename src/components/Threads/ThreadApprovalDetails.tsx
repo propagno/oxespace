@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Check, Copy, FilePenLine, Pencil, RotateCcw, TerminalSquare, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { extractCdPrefix, presentInlineScript } from '../../../shared/commandPresenters'
@@ -38,7 +38,8 @@ export function ThreadApprovalDetails({
   disabled = false,
   onToggleEdit,
   onChangeCommand,
-  onResetCommand
+  onResetCommand,
+  planReview
 }: {
   command: string
   cwd?: string
@@ -54,6 +55,7 @@ export function ThreadApprovalDetails({
   onToggleEdit?: () => void
   onChangeCommand?: (next: string) => void
   onResetCommand?: () => void
+  planReview?: ReactNode
 }) {
   const { t } = useTranslation('thread')
   const [copied, setCopied] = useState(false)
@@ -111,7 +113,7 @@ export function ThreadApprovalDetails({
         {onResetCommand && <Button size="sm" variant="ghost" icon={<RotateCcw size={12} aria-hidden="true" />} disabled={disabled || !isModified} onClick={onResetCommand}>{t('request.resetCommand')}</Button>}
       </div>}
     </section>}
-    {showPreview && <div className="thread-approval-preview" data-testid="approval-readable"><div className="thread-approval-preview-heading"><strong>{isPlan ? t('approvalDetails.plan') : isToolRequest ? t('approvalDetails.toolInput') : fileChanges ? t('approvalDetails.proposedChange') : t('approvalDetails.readable')}</strong>{planIsExact ? copy : <small>{t('approvalDetails.readableHint')}</small>}</div>{plan ? <div className="thread-approval-plan" tabIndex={0}><ThreadMarkdown text={plan} /></div> : <pre className={isToolRequest ? 'is-structured' : undefined}>{structured ?? display.preview}</pre>}</div>}
+    {showPreview && <div className="thread-approval-preview" data-testid="approval-readable"><div className="thread-approval-preview-heading"><strong>{isPlan ? t('approvalDetails.plan') : isToolRequest ? t('approvalDetails.toolInput') : fileChanges ? t('approvalDetails.proposedChange') : t('approvalDetails.readable')}</strong>{planIsExact ? copy : <small>{t('approvalDetails.readableHint')}</small>}</div>{plan ? (planReview ?? <div className="thread-approval-plan" tabIndex={0}><ThreadMarkdown text={plan} /></div>) : <pre className={isToolRequest ? 'is-structured' : undefined}>{structured ?? display.preview}</pre>}</div>}
     {/* The agent's own words, below the command and marked as such: a claim, not something OXESpace checked. */}
     {reason && reason !== command && <section className="thread-approval-agent" aria-label={t('approvalDetails.reason')} data-testid="approval-agent-reason">
       <div className="thread-approval-preview-heading"><strong>{t('approvalDetails.reason')}</strong><small>{t('approvalDetails.reasonHint')}</small></div>
