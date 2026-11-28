@@ -75,4 +75,17 @@ describe('ThreadRequestRegistry', () => {
       expect(registry.list('thread')).toEqual([])
     } finally { vi.useRealTimers() }
   })
+
+  it('refuses inline updatedInput on guarded approvals and refuses acceptForSession with updatedInput (OXE-477)', async () => {
+    const registry = new ThreadRequestRegistry(), respond = vi.fn(async () => {})
+    const guarded = request({ id: 'g1', kind: 'approval', policy: { decision: 'ask', reasons: ['Guarded'], guarded: true } })
+    const normal = request({ id: 'n1', kind: 'approval', policy: { decision: 'ask', reasons: [], level: 'green' } })
+    registry.register('thread', guarded, respond)
+    registry.register('thread', normal, respond)
+    await expect(registry.resolve('thread', 'g1', 2, { decision: 'accept', updatedInput: { command: 'ls' } })).rejects.toThrow(/guarded/i)
+    await expect(registry.resolve('thread', 'n1', 2, { decision: 'acceptForSession', updatedInput: { command: 'ls -la' } })).rejects.toThrow(/once/i)
+    expect(respond).not.toHaveBeenCalled()
+    await registry.resolve('thread', 'n1', 2, { decision: 'accept', updatedInput: { command: 'ls -la' } })
+    expect(respond).toHaveBeenCalledWith({ decision: 'accept', updatedInput: { command: 'ls -la' } })
+  })
 })

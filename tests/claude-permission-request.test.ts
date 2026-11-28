@@ -135,6 +135,22 @@ describe('Claude approval scope', () => {
     await f.adapter.dispose()
   })
 
+  it('merges updatedInput on inline-edited command approvals and never sends updatedPermissions (OXE-477)', async () => {
+    const f = fixture()
+    await f.adapter.start({ rootPath: '/p', nativeSessionId: 'n' }, (e) => f.events.push(e))
+    await f.adapter.send('Check status')
+    f.emit({ type: 'control_request', request_id: 'r2-edit', request: { subtype: 'can_use_tool', tool_name: 'Bash', input: { command: 'git status', description: 'Check status' }, permission_suggestions: [suggestion], tool_use_id: 'toolu_edit' } })
+    await f.adapter.respondRequest('r2-edit', { decision: 'accept', updatedInput: { command: 'git status --short' } })
+    const response = f.turns[0].writes.at(-1) as { response: { response: Record<string, unknown> } }
+    expect(response.response.response).toMatchObject({
+      behavior: 'allow',
+      updatedInput: { command: 'git status --short', description: 'Check status' },
+      toolUseID: 'toolu_edit'
+    })
+    expect(response.response.response).not.toHaveProperty('updatedPermissions')
+    await f.adapter.dispose()
+  })
+
   it('without suggestions only accept/decline are offered', async () => {
     const f = fixture()
     await f.adapter.start({ rootPath: '/p', nativeSessionId: 'n' }, (e) => f.events.push(e))

@@ -1,0 +1,34 @@
+/* Calm kepano/obsidian-minimal 1 / N carousel bar for multiple pending requests (OXE-477). */
+.dock {
+  min-width: 0;
+}
+
+.carouselNav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: auto;
+  min-width: 0;
+}
+
+.counter {
+  padding: 0 var(--space-1-5);
+  color: var(--tx-secondary);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.allowSafe {
+  height: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--tx-primary);
+  font-size: var(--fs-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}

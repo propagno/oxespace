@@ -327,6 +327,8 @@ export interface ThreadRequestResponse {
   scope?: 'turn' | 'session'
   /** Told to the agent when the request is declined, where the provider supports it. */
   reason?: string
+  /** Edited tool input (e.g. `{ command }` after inline editing) merged by providers that support updatedInput. */
+  updatedInput?: Record<string, unknown>
 }
 
 export interface ThreadQueuedInput {

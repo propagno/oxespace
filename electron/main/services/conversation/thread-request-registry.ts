@@ -19,9 +19,11 @@ export function attachPolicy(request: ThreadRequest, policy: ThreadRequestPolicy
   if (request.availableDecisions) request.availableDecisions = guardedDecisions(request.availableDecisions, policy)
 }
 
-/** A guarded request is approved once or declined; a session answer (a stale window, a forged one) is refused, still pending. */
+/** A guarded request is approved once or declined; a session answer or inline modification is refused, still pending. */
 export function assertSessionAllowed(request: Pick<ThreadRequest, 'policy'> | undefined, response: ThreadRequestResponse): void {
   if (response.decision === 'acceptForSession' && request?.policy?.guarded) throw new ThreadRequestRefusalError('guardedDecision', 'A change to agent instructions, MCP settings or hooks is approved once, never for the session')
+  if (response.updatedInput && request?.policy?.guarded) throw new ThreadRequestRefusalError('guardedDecision', 'A guarded request cannot be modified inline')
+  if (response.updatedInput && response.decision === 'acceptForSession') throw new ThreadRequestRefusalError('guardedDecision', 'An edited command is approved once, never for the session')
 }
 
 interface PendingEntry {

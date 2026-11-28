@@ -31,7 +31,8 @@ async function renderCard(alwaysAllow: Props, text?: string) {
   render(<><Card request={request(alwaysAllow, text)} agent="Claude" disabled={false} onRespond={onRespond} conversationId="t-1" /><Toaster /></>)
   return onRespond
 }
-const actionButtons = () => screen.getAllByRole('button').map(button => (button.textContent?.trim() || button.getAttribute('aria-label') || '').replace(/\s+[DA]$/, '').trim()).filter(label => label !== 'Copy exact text')
+// OXE-477: shell-command approval blocks now include the inline Edit icon button beside Copy exact text.
+const actionButtons = () => screen.getAllByRole('button').map(button => (button.textContent?.trim() || button.getAttribute('aria-label') || '').replace(/\s+[DA]$/, '').trim()).filter(label => label !== 'Copy exact text' && label !== 'Edit command')
 
 async function openAlwaysAllow(label = 'Always allow in this project…') {
   const menuTrigger = await screen.findByRole('button', { name: /More ways to allow|Mais opções para permitir/ })

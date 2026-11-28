@@ -691,8 +691,10 @@ export class ThreadOrchestrator {
     this.lastActivity.set(id, Date.now())
     if (response.decision === 'acceptForSession') this.sessionGrants.add(id)
     if (request && (request.kind === 'approval' || request.kind === 'permissions')) {
+      const editedCommand = typeof response.updatedInput?.command === 'string' ? response.updatedInput.command : undefined
       const verb = response.decision === 'acceptForSession' ? 'Allowed for the session' : response.decision === 'accept' || response.permissions ? 'Allowed' : 'Declined'
-      this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${requestSubject(request)}` })
+      const subject = editedCommand ? `command (edited): ${editedCommand.slice(0, 500)}` : requestSubject(request)
+      this.audit(id, { action: 'approval', actor: 'user', summary: `${verb} ${subject}` })
     }
     return request
   }

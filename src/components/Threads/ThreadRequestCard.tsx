@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { AlertCircle, Check, ChevronDown, Copy, Shield, Sun, X } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, Copy, Pencil, RotateCcw, Shield, Sun, X } from 'lucide-react'
 import type { ThreadPermissionSuggestion, ThreadRequest, ThreadRequestResponse } from '../../../shared/types/thread'
+import { evaluateEditedShellCommand, maxApprovalRisk } from '../../../shared/shellCommandRisk'
 import { approvalCommandPreview, ThreadApprovalDetails } from './ThreadApprovalDetails'
 import { ThreadMarkdown } from './ThreadMarkdown'
-import { threadApprovalRisk } from './threadApprovalRisk'
+import { isEditableShellApproval, threadApprovalRisk } from './threadApprovalRisk'
 import { useAllowHold } from '../Approvals/useAllowHold'
 import { useTranslation } from 'react-i18next'
 import { elicitationContent, elicitationDefaults, elicitationFields, validateElicitationField, type ElicitationValue } from '../../../shared/elicitationForm'
@@ -147,16 +148,52 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
   // B10 risk rules on the card too (P1-8): Approve is quiet above low risk; at critical risk it waits 2 s, Enter never
   // activates it and nothing is remembered; "allow session" only at low risk.
   const approvalCommand = request.command ?? request.detail ?? ''
+  // OXE-477: inline command editing for shell command approvals (never guarded, never file/db/plan/MCP).
+  const canEditCommand = isEditableShellApproval(request)
+  const originalCommand = request.command ?? (request.impact ? request.impact.text : '')
+  const [commandEdit, setCommandEdit] = useState<{ key: string; editing: boolean; value: string }>(() => ({
+    key: draftKey,
+    editing: false,
+    value: originalCommand
+  }))
+  const editingCommand = canEditCommand && commandEdit.key === draftKey ? commandEdit.editing : false
+  const editedCommand = canEditCommand && commandEdit.key === draftKey ? commandEdit.value : originalCommand
+  const toggleEditingCommand = () => {
+    setCommandEdit(current => {
+      const base = current.key === draftKey ? current : { key: draftKey, editing: false, value: originalCommand }
+      return { ...base, editing: !base.editing }
+    })
+  }
+  const updateEditedCommand = (value: string) => {
+    setCommandEdit({ key: draftKey, editing: true, value })
+  }
+  const resetEditedCommand = () => {
+    setCommandEdit(current => ({ key: draftKey, editing: current.key === draftKey ? current.editing : false, value: originalCommand }))
+  }
+  const isCommandModified = canEditCommand && editedCommand !== originalCommand
+  const editedCommandEmpty = canEditCommand && editedCommand.trim().length === 0
+  const editedEval = useMemo(
+    () => (isCommandModified ? evaluateEditedShellCommand(editedCommand) : null),
+    [isCommandModified, editedCommand]
+  )
+  const withEditedCommand = (response: ThreadRequestResponse): ThreadRequestResponse => {
+    if (!isCommandModified) return response
+    if (response.decision !== 'accept' && response.decision !== 'acceptForSession') return response
+    return { ...response, decision: 'accept', updatedInput: { command: editedCommand } }
+  }
   // From the request's structure, never its title: titles become translated C3 text (FE-M-11).
   const fileChanges = request.kind === 'approval' && request.toolName === 'fileChange'
-  const risk = request.kind === 'approval' ? threadApprovalRisk(request, fileChanges || approvalCommandPreview(approvalCommand).writesFiles) : 'low'
+  const baseRisk = request.kind === 'approval' ? threadApprovalRisk(request, fileChanges || approvalCommandPreview(approvalCommand).writesFiles) : 'low'
+  const risk = editedEval ? maxApprovalRisk(baseRisk, editedEval.risk) : baseRisk
   const critical = risk === 'critical'
   // P1-17: a change to a file that steers agents (.mcp.json, AGENTS.md, hooks) is answered by a person each time:
   // no "allow session", nothing remembered, Approve never the primary button, whatever the provider offers.
-  const guarded = request.kind === 'approval' && policy?.guarded === true
-  const holdLeft = useAllowHold(request.kind === 'approval' && request.state === 'pending' && critical, draftKey)
+  const guarded = request.kind === 'approval' && (policy?.guarded === true || Boolean(editedEval?.guarded))
+  const plainRiskEscalated = Boolean(editedEval) && (risk !== baseRisk || Boolean(editedEval?.guarded))
+  const holdKey = critical && isCommandModified ? `${draftKey}:${editedCommand}` : draftKey
+  const holdLeft = useAllowHold(request.kind === 'approval' && request.state === 'pending' && critical, holdKey)
   const guardEnter = critical ? (event: KeyboardEvent<HTMLButtonElement>) => { if (event.key === 'Enter') event.preventDefault() } : undefined
-  const remember = !critical && !guarded && policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
+  const remember = !critical && !guarded && !isCommandModified && policy?.decision === 'ask' && policy.suggestions?.length && onRemember && request.availableDecisions?.includes('accept') !== false ? policy.suggestions : undefined
   const rememberAndApprove = async (suggestions: ThreadPermissionSuggestion[]) => {
     if (inFlight.current === request.id) return
     setError('')
@@ -196,7 +233,7 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
     const impact = request.impact
     const agentName = agent ?? t('f7.card.defaultAgent')
     const offer = request.alwaysAllow
-    const offeredRule = offer?.offered ? offer.rule : undefined
+    const offeredRule = !isCommandModified && !guarded && offer?.offered ? offer.rule : undefined
     // The label promises no more than the rule gives: a Codex rule lasts for its session, never the whole project.
     const alwaysAllowLabel = offeredRule?.scope === 'session' ? t('f7.card.alwaysAllowEllipsis') : t('request.alwaysAllowProject')
     const confirmAlwaysAllow = async (): Promise<void> => {
@@ -219,13 +256,18 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
         setSavingRule(false)
       }
     }
-    const level = risk === 'critical' ? 'critical' : impact.risk
-    const oneStep = impact.reversible && (level === 'low' || level === 'medium')
+    const baseLevel = baseRisk === 'critical' ? 'critical' : impact.risk
+    const level = editedEval ? maxApprovalRisk(baseLevel, editedEval.risk) : baseLevel
+    const effectiveReversible = editedEval ? impact.reversible && editedEval.reversible : impact.reversible
+    const effectiveText = isCommandModified ? editedCommand : impact.text
+    const effectiveImpact = isCommandModified ? { ...impact, text: editedCommand, risk: level, reversible: effectiveReversible } : impact
+    const impactRiskEscalated = Boolean(editedEval) && (level !== baseLevel || (!effectiveReversible && impact.reversible) || guarded)
+    const oneStep = effectiveReversible && (level === 'low' || level === 'medium') && !guarded
     const kindLabel = t(`request.kind.${impact.kind}`)
     const origin = [agentName, place].filter(Boolean).join(' · ')
-    const openImpact = () => { if (onSeeImpact) onSeeImpact(); else setPreviewOpen(true) }
+    const openImpact = () => { if (onSeeImpact && !isCommandModified) onSeeImpact(); else setPreviewOpen(true) }
     const copyCommand = () => {
-      const text = impact.text
+      const text = effectiveText
       const write = navigator.clipboard?.writeText
       if (write) void write.call(navigator.clipboard, text)
       else void copyText(text, t('f7.card.copyWhat'))
@@ -233,7 +275,10 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       if (copiedTimer.current) clearTimeout(copiedTimer.current)
       copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     }
-    const copyButton = <IconButton className={styles.copy} label={t('f7.card.copyExact')} title={t('f7.card.copyExact')} icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={copyCommand} />
+    const copyButton = <IconButton className={canEditCommand ? undefined : styles.copy} label={t('f7.card.copyExact')} title={t('f7.card.copyExact')} icon={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={copyCommand} />
+    const editButton = canEditCommand
+      ? <IconButton data-action="edit-command" aria-pressed={editingCommand} disabled={disabled} label={editingCommand ? t('request.doneEditingCommand') : t('request.editCommand')} title={editingCommand ? t('request.doneEditingCommand') : t('request.editCommand')} icon={editingCommand ? <Check size={14} aria-hidden="true" /> : <Pencil size={14} aria-hidden="true" />} onClick={toggleEditingCommand} />
+      : null
     const onImpactKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
       if (disabled || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return
       if (isTextEntryTarget(event.target)) return
@@ -241,34 +286,73 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
         event.preventDefault()
         void submit({ decision: 'decline' })
       } else if (event.key === '2') {
+        if (editedCommandEmpty) return
         event.preventDefault()
-        if (oneStep) void submit({ decision: 'accept' })
+        if (oneStep) void submit(withEditedCommand({ decision: 'accept' }))
         else openImpact()
       }
     }
     return <section ref={card} tabIndex={-1} onKeyDown={onImpactKeyDown} className={cx('thread-request thread-request-approval', styles.root, styles.impact)} data-ui="request-card" data-risk={level} aria-label={kindLabel}>
-      <header><Sun size={14} aria-hidden="true" /><div><strong>{kindLabel}</strong></div><span data-ui="risk-label" data-risk={level}>{tCommon('approvals.risk.label', { level: tCommon(`approvals.risk.${level}`) })}</span></header>
+      <header><Sun size={14} aria-hidden="true" /><div><strong>{kindLabel}</strong>{guarded && <span className={cx('thread-request-guarded', styles.guarded)} data-testid="approval-guarded" title={t('request.guardedHint')}><Shield size={12} aria-hidden="true" />{t('request.guarded')}</span>}</div><span data-ui="risk-label" data-risk={level}>{tCommon('approvals.risk.label', { level: tCommon(`approvals.risk.${level}`) })}</span></header>
       {origin ? <p data-ui="request-origin" className={styles.origin}>{origin}</p> : null}
+      {guarded ? <p className={styles.context} data-testid="approval-guarded-hint">{t('request.guardedHint')}</p> : null}
       {impact.why ? <p className={styles.context}>{impact.why}</p> : null}
-      <div className={styles.factsWrap}><ImpactFacts impact={impact} layout="chips" /></div>
+      <div className={styles.factsWrap}><ImpactFacts impact={effectiveImpact} layout="chips" /></div>
       {/* A plan is prose to read whole, not a command: rendered, with no box that scrolls inside the card. */}
       {request.nativeMethod === 'can_use_tool:ExitPlanMode'
         ? <div className={styles.plan} tabIndex={0} role="region" aria-label={t('approvalDetails.plan')} data-testid="request-plan"><ThreadMarkdown text={impact.text} />{copyButton}<span role="status" className={styles.live}>{copied ? t('markdown.copied') : ''}</span></div>
-        : <div className={styles.command} data-ui="request-command"><code>{impact.text}</code>{copyButton}<span role="status" className={styles.live}>{copied ? t('markdown.copied') : ''}</span></div>}
+        : editingCommand
+          ? <div className={cx(styles.command, styles.commandEditing)} data-ui="request-command">
+              <div className={styles.commandEditingHeader}>
+                {isCommandModified && <span className={styles.commandEditedBadge} data-ui="command-edited">{t('request.commandEdited')}</span>}
+                <span className={styles.commandEditingActions}>{editButton}{copyButton}</span>
+              </div>
+              <textarea
+                className={styles.commandEditor}
+                data-testid="approval-command-editor"
+                aria-label={t('request.editCommandInput')}
+                value={editedCommand}
+                disabled={disabled}
+                spellCheck={false}
+                onChange={event => updateEditedCommand(event.target.value)}
+                onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); toggleEditingCommand() } }}
+              />
+              <div className={styles.commandEditorBar}>
+                <span className={styles.commandEditorStatus}>
+                  {editedCommandEmpty && <span className={styles.commandEscalated} role="status">{t('request.commandEmpty')}</span>}
+                  {!editedCommandEmpty && impactRiskEscalated && <span className={styles.commandEscalated} role="status">{t('request.commandRiskEscalated')}</span>}
+                </span>
+                <Button size="sm" variant="ghost" icon={<RotateCcw size={12} aria-hidden="true" />} disabled={disabled || !isCommandModified} onClick={resetEditedCommand}>{t('request.resetCommand')}</Button>
+              </div>
+              <span role="status" className={styles.live}>{copied ? t('markdown.copied') : ''}</span>
+            </div>
+          : <div className={cx(styles.command, canEditCommand && styles.commandEditable)} data-ui="request-command">
+              <code>{effectiveText}</code>
+              {canEditCommand ? <span className={styles.commandActions}>{editButton}{copyButton}</span> : copyButton}
+              {isCommandModified && <div className={styles.commandEditorBar}>
+                <span className={styles.commandEditorStatus}>
+                  <span className={styles.commandEditedBadge} data-ui="command-edited">{t('request.commandEdited')}</span>
+                  {editedCommandEmpty && <span className={styles.commandEscalated} role="status">{t('request.commandEmpty')}</span>}
+                  {!editedCommandEmpty && impactRiskEscalated && <span className={styles.commandEscalated} role="status">{t('request.commandRiskEscalated')}</span>}
+                </span>
+                <Button size="sm" variant="ghost" icon={<RotateCcw size={12} aria-hidden="true" />} disabled={disabled} onClick={resetEditedCommand}>{t('request.resetCommand')}</Button>
+              </div>}
+              <span role="status" className={styles.live}>{copied ? t('markdown.copied') : ''}</span>
+            </div>}
       {offer && !offer.offered ? <AlwaysAllowReason reasonKind={offer.reasonKind} className={styles.context} /> : null}
       {error && <ErrorState compact title={error} />}
       <footer>
         <Button ref={denyButtonRef} variant="secondary" aria-keyshortcuts="1" className={cx('thread-request-decline', styles.decline)} disabled={disabled} onClick={() => void submit({ decision: 'decline' })}><kbd className={styles.keycap} data-ui="option-key" data-option-key="1" aria-hidden="true" />{t('request.deny')}</Button>
         {oneStep ? <>
-          <Button variant="primary" aria-keyshortcuts="2" className={styles.allowPrimary} disabled={disabled} onClick={() => void submit({ decision: 'accept' })}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.allowOnce')}</Button>
+          <Button variant="primary" aria-keyshortcuts="2" className={styles.allowPrimary} disabled={disabled || editedCommandEmpty} onClick={() => void submit(withEditedCommand({ decision: 'accept' }))}><kbd className={cx(styles.keycap, styles.keycapOnAccent)} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.allowOnce')}</Button>
           <Menu label={t('request.allowMenu')} trigger={<IconButton data-ui="allow-menu" label={t('request.allowMenu')} title={t('request.allowMenu')} icon={<ChevronDown size={14} aria-hidden="true" />} />} items={[
             ...(offeredRule ? [{ label: alwaysAllowLabel, onSelect: () => setAlwaysAllowOpen(true) }] : []),
             { label: t('f7.card.seeImpact'), onSelect: openImpact }
           ]} />
-        </> : <Button variant="secondary" aria-keyshortcuts="2" className={styles.quiet} disabled={disabled} title={t('f7.card.seeImpactHint')} onClick={openImpact}><kbd className={styles.keycap} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.seeImpact')}</Button>}
+        </> : <Button variant="secondary" aria-keyshortcuts="2" className={styles.quiet} disabled={disabled || editedCommandEmpty} title={t('f7.card.seeImpactHint')} onClick={openImpact}><kbd className={styles.keycap} data-ui="option-key" data-option-key="2" aria-hidden="true" />{t('f7.card.seeImpact')}</Button>}
       </footer>
-      {previewOpen ? <ImpactPreview request={request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(response) }} onClose={() => setPreviewOpen(false)} /> : null}
-      {alwaysAllowOpen && offer?.offered ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}
+      {previewOpen ? <ImpactPreview request={isCommandModified ? { ...request, command: editedCommand, impact: effectiveImpact } : request} agent={agentName} onRespond={async response => { setPreviewOpen(false); await submit(withEditedCommand(response)) }} onClose={() => setPreviewOpen(false)} /> : null}
+      {alwaysAllowOpen && offer?.offered && !isCommandModified ? <AlwaysAllowConfirm rule={offer.rule} runsProjectCode={offer.runsProjectCode} definedIn={offer.definedIn} busy={savingRule} onCancel={() => setAlwaysAllowOpen(false)} onConfirm={() => void confirmAlwaysAllow()} /> : null}
     </section>
   }
   const warmAmber = request.kind === 'approval' || request.kind === 'question'
@@ -277,7 +361,7 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
   const denyFirst = request.kind === 'approval' || request.kind === 'permissions' || (request.kind === 'elicitation' && !elicitation.length)
   const declineLabel = request.availableDecisions?.includes('cancel') ? t('request.cancel') : denyFirst ? t('request.deny') : t('request.decline')
   const approvalDecisions = request.kind === 'approval' && !preview
-    ? (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded))
+    ? (request.availableDecisions ?? ['accept', 'decline']).filter(decision => decision === 'accept' || (decision === 'acceptForSession' && risk === 'low' && !guarded && !isCommandModified))
     : []
   const rememberGroups = request.kind === 'approval' && !preview && remember
     ? (remember.every(item => item.kind === 'tool') ? remember.map(item => [item]) : [remember])
@@ -309,11 +393,11 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
         return
       }
       // Critical approvals keep the 2 s wait and never allow one-keystroke approval (safety invariant).
-      if (critical || holdLeft > 0) return
+      if (critical || holdLeft > 0 || editedCommandEmpty) return
       const choiceIndex = index - 1
       if (choiceIndex < approvalDecisions.length) {
         event.preventDefault()
-        void submit({ decision: approvalDecisions[choiceIndex] })
+        void submit(withEditedCommand({ decision: approvalDecisions[choiceIndex] }))
         return
       }
       const rememberIndex = choiceIndex - approvalDecisions.length
@@ -336,7 +420,22 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
       <p>{preview.scope === 'session' ? t('previewApproval.scopeSession', { origin: preview.origin }) : t('previewApproval.scopeAction')}</p>
       {preview.scope === 'action' && preview.action.kind === 'navigate' && isLoopbackOrigin(preview.origin) && <p>{t('previewApproval.leavingLocalhost')}</p>}
     </div>}
-    {request.kind === 'approval' && !preview && <ThreadApprovalDetails command={approvalCommand} cwd={request.cwd} reason={request.reason} fileChanges={fileChanges} toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined} />}
+    {request.kind === 'approval' && !preview && <ThreadApprovalDetails
+      command={canEditCommand ? editedCommand : approvalCommand}
+      cwd={request.cwd}
+      reason={request.reason}
+      fileChanges={fileChanges}
+      toolName={request.nativeMethod?.startsWith('can_use_tool:') ? request.nativeMethod.slice('can_use_tool:'.length) : undefined}
+      editable={canEditCommand}
+      editing={editingCommand}
+      isModified={isCommandModified}
+      riskEscalated={plainRiskEscalated}
+      commandEmpty={editedCommandEmpty}
+      disabled={disabled}
+      onToggleEdit={toggleEditingCommand}
+      onChangeCommand={updateEditedCommand}
+      onResetCommand={resetEditedCommand}
+    />}
     {request.kind === 'approval' && policy?.decision === 'ask' && policy.reasons.length > 0 && <div className={cx('thread-request-policy', styles.policy, policy.risk && cx('is-high-risk', styles.highRisk))}>
       {policy.risk ? <strong>{t('request.highRisk')}</strong> : policy.level === 'red' ? <strong>{t('request.destructive')}</strong> : policy.level === 'orange' ? <strong>{t('request.changes')}</strong> : null}
       <ul>{policy.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>
@@ -390,7 +489,7 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
         const quiet = decision === 'acceptForSession' || risk !== 'low' || guarded
         const decisionLabel = decision === 'acceptForSession' ? t('request.allowSession') : t('request.approve')
         const shortcutNumber = !critical && idx + 2 <= 9 ? idx + 2 : null
-        const allow = <Button key={decision} variant={quiet ? 'secondary' : 'primary'} aria-keyshortcuts={shortcutNumber ? String(shortcutNumber) : undefined} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={quiet ? styles.quiet : undefined} disabled={disabled || holdLeft > 0} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0) void submit({ decision }) }}>{shortcutNumber !== null && <kbd className={cx(styles.keycap, !quiet && styles.keycapOnAccent)} data-ui="option-key" data-option-key={String(shortcutNumber)} aria-hidden="true" />}{decisionLabel}</Button>
+        const allow = <Button key={decision} variant={quiet ? 'secondary' : 'primary'} aria-keyshortcuts={shortcutNumber ? String(shortcutNumber) : undefined} data-risk={risk} data-guarded={guarded ? 'true' : undefined} className={quiet ? styles.quiet : undefined} disabled={disabled || holdLeft > 0 || editedCommandEmpty} onKeyDown={guardEnter} onClick={() => { if (holdLeft <= 0 && !editedCommandEmpty) void submit(withEditedCommand({ decision })) }}>{shortcutNumber !== null && <kbd className={cx(styles.keycap, !quiet && styles.keycapOnAccent)} data-ui="option-key" data-option-key={String(shortcutNumber)} aria-hidden="true" />}{decisionLabel}</Button>
         return decision === 'accept' ? <span key={decision} className={styles.quiet}>{allow}</span> : allow
       })}
       {/* MCP tool suggestions are alternatives (the tool, or its whole server); the others must all be saved together. */}
