@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
  *  pre-migration backup (only back up when an upgrade will actually run).
  *  Exported so the migrations test can catch a constant that drifts from the
  *  version the SQL actually sets. */
-export const LATEST_DB_VERSION = 113
+export const LATEST_DB_VERSION = 114
 /** How many pre-migration backups to retain. */
 const MAX_DB_BACKUPS = 3
 
@@ -566,6 +566,7 @@ export function runMigrations(db: AppDatabase): void {
     else db.exec(withoutExistingColumns(db, readMigration('112_automations_review_queue.sql')))
   })()
   if (startingVersion < 113) db.transaction(() => db.exec(readMigration('113_pane_agent_sessions_antigravity.sql')))()
+  if (startingVersion < 114) db.transaction(() => db.exec(readMigration('114_delegation_session_bindings_antigravity.sql')))()
 }
 
 /** Rebuild the parent without cascading its children or rewriting their IDs. */

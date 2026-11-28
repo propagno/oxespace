@@ -130,9 +130,9 @@ function startLaunch(profile: AgentProfile, ctx: ToolContext): { executable: str
 
 function modelArguments(provider: string, model: string | undefined): string[] {
   if (!model) return []
-  if (provider === 'claude') return ['--model', model]
+  if (provider === 'claude' || provider === 'antigravity') return ['--model', model]
   if (provider === 'codex') return ['-m', model]
-  throw new ActionRefused('model can be chosen only for claude and codex. Start this provider without it.', 'invalid')
+  throw new ActionRefused('model can be chosen only for claude, codex, and antigravity. Start this provider without it.', 'invalid')
 }
 
 function startTimeoutNote(provider: string, state: PaneAgentState | null): string {
@@ -420,7 +420,7 @@ export const AGENT_CHANGE_TOOLS: ToolEntry[] = [
       level: 'write', description: 'Start a configured agent in a new pane.',
       properties: {
         agent: { type: 'string', maxLength: PROVIDER_MAX, description: 'Provider id.' },
-        model: { type: 'string', maxLength: 100, description: 'Model (claude/codex).' },
+        model: { type: 'string', maxLength: 100, description: 'Model (claude/codex/antigravity).' },
         name: { type: 'string', maxLength: 60 },
         worktree: { type: 'string', maxLength: 500 },
         gitRef: { type: 'string', maxLength: 200 }

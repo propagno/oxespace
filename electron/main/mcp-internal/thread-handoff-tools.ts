@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { ToolContext, ToolEntry } from './tool-registry'
 import { ThreadProjectService } from '../services/conversation/thread-projects'
 import { turnVerdict } from '../../../shared/threadTurnVerdict'
-import type { ThreadSnapshot } from '../../../shared/types/thread'
+import type { ThreadProvider, ThreadSnapshot } from '../../../shared/types/thread'
 
 function input(args: unknown): Record<string, unknown> {
   if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Arguments must be an object')
@@ -101,10 +101,11 @@ const requestKey = { type: 'string', minLength: 8, maxLength: 100, description: 
 
 export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
   {
-    descriptor: { name: 'oxespace_thread_create', description: 'Create a new normal Thread in the same project and provider as this live Thread. Requires a stable key; retrying the key returns the same destination.', inputSchema: {
+    descriptor: { name: 'oxespace_thread_create', description: 'Create a new OxeChat conversation in this project (same provider by default, or pass provider: claude, codex, or antigravity). Requires a stable key; retrying the key returns the same destination.', inputSchema: {
       type: 'object',
       properties: {
         key: requestKey,
+        provider: { type: 'string', enum: ['claude', 'codex', 'antigravity'], description: 'Optional provider (defaults to this conversation\'s provider).' },
         worktree: { type: 'string', maxLength: 500, description: 'Optional existing Git worktree path.' },
         gitRef: { type: 'string', maxLength: 200, description: 'Optional Git branch, tag, or commit ref.' }
       },
@@ -119,6 +120,13 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const manager = await ctx.threads
       const author = manager.read(originId)
       const source = author.thread
+      let targetProvider: ThreadProvider = source.provider
+      if (values.provider !== undefined) {
+        if (values.provider !== 'claude' && values.provider !== 'codex' && values.provider !== 'antigravity') {
+          throw new Error('provider must be claude, codex, or antigravity')
+        }
+        targetProvider = values.provider
+      }
       const project = new ThreadProjectService(ctx.db).context(source.projectId, source.rootPath)
       const existing = ctx.db.prepare('SELECT destination_thread_id FROM mcp_thread_handoffs WHERE origin_thread_id = ? AND request_key = ?')
         .get(originId, requestKey) as { destination_thread_id: string } | undefined
@@ -131,7 +139,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
       const count = ctx.db.prepare('SELECT COUNT(*) AS value FROM mcp_thread_handoffs WHERE origin_thread_id = ?').get(originId) as { value: number }
       if (count.value >= 5) throw new Error('This origin Thread has reached the limit of 5 MCP-created destinations')
       const created = ctx.db.transaction(() => {
-        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: target.worktreePath, provider: source.provider })
+        const snapshot = manager.create({ workspaceId: `thread:${project.projectId}`, projectId: project.projectId, rootPath: target.worktreePath, provider: targetProvider })
         ctx.db!.prepare('INSERT INTO mcp_thread_handoffs (origin_thread_id, request_key, destination_thread_id, created_at) VALUES (?, ?, ?, ?)')
           .run(originId, requestKey, snapshot.thread.id, Date.now())
         recordTrail(ctx.db!, snapshot.thread.id, 'create', author, null)
@@ -145,7 +153,7 @@ export const THREAD_HANDOFF_TOOLS: ToolEntry[] = [
           ...(target.commit ? { commit: target.commit } : {})
         }
         : {}
-      return result({ threadId: created, created: true, projectId: project.projectId, ...worktreeMeta, next: 'Use oxespace_thread_send with this threadId and a new idempotency key.' })
+      return result({ threadId: created, created: true, projectId: project.projectId, provider: targetProvider, ...worktreeMeta, next: 'Use oxespace_thread_send with this threadId and a new idempotency key.' })
     }
   },
   {
