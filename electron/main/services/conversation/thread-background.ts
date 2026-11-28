@@ -4,6 +4,9 @@ import type { ThreadEvent } from '../../../../shared/types/thread'
 /** How long a running background shell may go without any signal before its state becomes unknown (T77). */
 export const BACKGROUND_SIGNAL_TIMEOUT_MS = 120_000
 
+/** Default silence threshold (5 min) after which a silent foreground command promotes cleanly to background. */
+export const DEFAULT_IDLE_SILENCE_TIMEOUT_MS = 300_000
+
 export interface BackgroundJobEntry {
   job: BackgroundJob
   tail: string[]
@@ -210,4 +213,121 @@ export function watchBackground(input: { source: () => BackgroundShellsInput; on
   }
 
   return stop
+}
+
+export interface IdleSilencePromotionOptions<TResult> {
+  /** Foreground command promise that resolves if the command finishes before going silent. */
+  run: Promise<TResult>
+  /** Invoked when no output arrives for `silenceTimeoutMs`; returns the promoted background `jobId`. */
+  promoteToBackground: () => string | Promise<string>
+  /** Configurable silence threshold in ms (default `DEFAULT_IDLE_SILENCE_TIMEOUT_MS` = 300_000). */
+  silenceTimeoutMs?: number
+  /** Optional abort signal to cancel the silence timer cleanly. */
+  signal?: AbortSignal
+}
+
+export type IdleSilencePromotionOutcome<TResult> =
+  | { promoted: false; result: TResult }
+  | { promoted: true; jobId: string; reason: 'idle_silence_timeout'; silenceTimeoutMs: number }
+
+export interface IdleSilenceController<TResult> {
+  /** Resets the silence deadline whenever foreground stdout/stderr activity is observed. */
+  touch(): void
+  /** Disarms the silence timer cleanly without promoting. */
+  cancel(): void
+  /** Resolves with either the foreground result or the promoted background `jobId`. */
+  promise: Promise<IdleSilencePromotionOutcome<TResult>>
+}
+
+/**
+ * Monitors a foreground command for prolonged output silence (`DEFAULT_IDLE_SILENCE_TIMEOUT_MS`).
+ * Calling `touch()` on output resets the timer; if silence exceeds the threshold, `promoteToBackground()`
+ * transitions the command to a background job and resolves with its `jobId` instead of stalling indefinitely.
+ */
+export function createIdleSilencePromoter<TResult>(
+  options: IdleSilencePromotionOptions<TResult>
+): IdleSilenceController<TResult> {
+  const rawTimeout = options.silenceTimeoutMs ?? DEFAULT_IDLE_SILENCE_TIMEOUT_MS
+  const silenceTimeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.trunc(rawTimeout) : DEFAULT_IDLE_SILENCE_TIMEOUT_MS
+
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let settled = false
+
+  const clearTimer = (): void => {
+    if (timer !== null) {
+      clearTimeout(timer)
+      timer = null
+    }
+  }
+
+  let resolvePromise!: (value: IdleSilencePromotionOutcome<TResult>) => void
+  let rejectPromise!: (reason?: unknown) => void
+  const promise = new Promise<IdleSilencePromotionOutcome<TResult>>((resolve, reject) => {
+    resolvePromise = resolve
+    rejectPromise = reject
+  })
+
+  const onAbort = (): void => {
+    clearTimer()
+  }
+
+  const cleanup = (): void => {
+    clearTimer()
+    options.signal?.removeEventListener('abort', onAbort)
+  }
+
+  const arm = (): void => {
+    clearTimer()
+    if (settled || options.signal?.aborted) return
+    timer = setTimeout(() => {
+      timer = null
+      if (settled || options.signal?.aborted) return
+      settled = true
+      cleanup()
+      // Suppress unhandled rejections if the detached foreground promise later rejects.
+      options.run.catch(() => undefined)
+      Promise.resolve()
+        .then(() => options.promoteToBackground())
+        .then(
+          (jobId) => resolvePromise({ promoted: true, jobId, reason: 'idle_silence_timeout', silenceTimeoutMs }),
+          (err) => rejectPromise(err)
+        )
+    }, silenceTimeoutMs)
+    timer.unref?.()
+  }
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimer()
+    } else {
+      options.signal.addEventListener('abort', onAbort, { once: true })
+    }
+  }
+
+  options.run.then(
+    (result) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolvePromise({ promoted: false, result })
+    },
+    (err) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      rejectPromise(err)
+    }
+  )
+
+  arm()
+
+  return {
+    touch(): void {
+      if (!settled) arm()
+    },
+    cancel(): void {
+      cleanup()
+    },
+    promise
+  }
 }
