@@ -51,12 +51,26 @@ export class HostedPty implements IPty {
   process: string
   cols: number
   rows: number
-  handleFlowControl = false
+  private _handleFlowControl = false
   private readonly data = new Emitter<string>()
   private readonly exit = new Emitter<ExitEvent>()
   private ended = false
   readonly onData = this.data.event
   readonly onExit = this.exit.event
+
+  get handleFlowControl(): boolean { return this._handleFlowControl }
+  set handleFlowControl(enabled: boolean) {
+    const next = Boolean(enabled)
+    if (this._handleFlowControl === next) return
+    this._handleFlowControl = next
+    this.post({ t: 'flow-control', id: this.id, enabled: next })
+  }
+
+  /** Acknowledge parsed characters from the renderer for flow-control backpressure (OXE-483). */
+  ackData(chars: number): void {
+    if (!Number.isFinite(chars) || chars <= 0) return
+    this.post({ t: 'ack', id: this.id, chars: Math.floor(chars) })
+  }
 
   constructor(private readonly id: number, private readonly send: (request: PtyHostRequest) => void, file: string, cols: number, rows: number) {
     this.process = file

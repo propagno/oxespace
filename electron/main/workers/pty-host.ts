@@ -6,72 +6,130 @@
  * Every node-pty callback here is guarded: an exception in one must neither stop the message that reports the
  * terminal's exit (the proof saw a terminal that never ended) nor reach node-pty's native callback.
  */
-import { spawn, type IPty } from 'node-pty'
+import { spawn, type IPty, type IPtyForkOptions, type IWindowsPtyForkOptions } from 'node-pty'
 import type { PtyHostEvent, PtyHostRequest } from '../services/terminal/pty-host-protocol'
+import { PtyFlowControl } from './ptyFlowControl'
+import { PtyOriginBatcher } from './ptyOriginBatcher'
 
-const port = process.parentPort
-const sessions = new Map<number, IPty>()
-/** The foreground process name last reported per session; refreshed at most every PROCESS_POLL_MS while data flows. */
-const lastProcess = new Map<number, { name: string; at: number }>()
+type SpawnPtyFn = (file: string, args: string[], options: IPtyForkOptions | IWindowsPtyForkOptions) => IPty
+
+interface HostedSession {
+  pty: IPty
+  batcher: PtyOriginBatcher
+  flowControl: PtyFlowControl
+}
+
+export interface PtyHostRuntime {
+  handle(request: PtyHostRequest): void
+  ready(): void
+  dispose(): void
+}
+
 const PROCESS_POLL_MS = 500
 
-function send(event: PtyHostEvent): void {
-  try { port.postMessage(event) } catch { /* the main process is gone; this process ends with it */ }
-}
+export function createPtyHostRuntime(
+  send: (event: PtyHostEvent) => void,
+  spawnPty: SpawnPtyFn = spawn,
+  options: { batchMs?: number; batchMaxBytes?: number; highWatermark?: number; lowWatermark?: number; watchdogMs?: number } = {}
+): PtyHostRuntime {
+  const sessions = new Map<number, HostedSession>()
+  /** The foreground process name last reported per session; refreshed at most every PROCESS_POLL_MS while data flows. */
+  const lastProcess = new Map<number, { name: string; at: number }>()
 
-function foreground(pty: IPty): string {
-  try { return pty.process } catch { return '' }
-}
-
-function reportProcess(id: number, pty: IPty): void {
-  const now = Date.now()
-  const last = lastProcess.get(id)
-  if (last && now - last.at < PROCESS_POLL_MS) return
-  const name = foreground(pty)
-  lastProcess.set(id, { name, at: now })
-  if (name !== last?.name) send({ t: 'process', id, process: name })
-}
-
-function start(request: Extract<PtyHostRequest, { t: 'spawn' }>): void {
-  let pty: IPty
-  try {
-    pty = spawn(request.file, request.args, request.options)
-  } catch (error) {
-    send({ t: 'spawn-failed', id: request.id, message: error instanceof Error ? error.message : String(error) })
-    return
+  function foreground(pty: IPty): string {
+    try { return pty.process } catch { return '' }
   }
-  sessions.set(request.id, pty)
-  const name = foreground(pty)
-  lastProcess.set(request.id, { name, at: Date.now() })
-  send({ t: 'spawned', id: request.id, pid: pty.pid, process: name })
-  pty.onData(data => {
+
+  function reportProcess(id: number, pty: IPty): void {
+    const now = Date.now()
+    const last = lastProcess.get(id)
+    if (last && now - last.at < PROCESS_POLL_MS) return
+    const name = foreground(pty)
+    lastProcess.set(id, { name, at: now })
+    if (name !== last?.name) send({ t: 'process', id, process: name })
+  }
+
+  function start(request: Extract<PtyHostRequest, { t: 'spawn' }>): void {
+    let pty: IPty
     try {
-      send({ t: 'data', id: request.id, data })
-      reportProcess(request.id, pty)
-    } catch { /* never into node-pty's callback */ }
-  })
-  pty.onExit(({ exitCode, signal }) => {
+      pty = spawnPty(request.file, request.args, request.options)
+    } catch (error) {
+      send({ t: 'spawn-failed', id: request.id, message: error instanceof Error ? error.message : String(error) })
+      return
+    }
+    const flowControl = new PtyFlowControl(pty, {
+      attached: false,
+      highWatermark: options.highWatermark,
+      lowWatermark: options.lowWatermark,
+      watchdogMs: options.watchdogMs
+    })
+    const batcher = new PtyOriginBatcher({
+      flushMs: options.batchMs,
+      maxBytes: options.batchMaxBytes,
+      onFlush: (data) => {
+        flowControl.onData(data.length)
+        send({ t: 'data', id: request.id, data })
+        reportProcess(request.id, pty)
+      }
+    })
+    sessions.set(request.id, { pty, batcher, flowControl })
+    const name = foreground(pty)
+    lastProcess.set(request.id, { name, at: Date.now() })
+    send({ t: 'spawned', id: request.id, pid: pty.pid, process: name })
+    pty.onData(data => {
+      try {
+        batcher.push(data)
+      } catch { /* never into node-pty's callback */ }
+    })
+    pty.onExit(({ exitCode, signal }) => {
+      try {
+        batcher.flush()
+        batcher.dispose()
+        flowControl.dispose()
+        sessions.delete(request.id)
+        lastProcess.delete(request.id)
+        send({ t: 'exit', id: request.id, exitCode, ...(signal ? { signal } : {}) })
+      } catch { /* never into node-pty's callback */ }
+    })
+  }
+
+  function handle(request: PtyHostRequest): void {
+    if (request.t === 'spawn') { start(request); return }
+    const session = sessions.get(request.id)
+    if (!session) return
     try {
-      sessions.delete(request.id)
-      lastProcess.delete(request.id)
-      send({ t: 'exit', id: request.id, exitCode, ...(signal ? { signal } : {}) })
-    } catch { /* never into node-pty's callback */ }
-  })
+      if (request.t === 'write') session.pty.write(request.data)
+      else if (request.t === 'resize') { session.batcher.flush(); session.pty.resize(request.cols, request.rows) }
+      else if (request.t === 'kill') { session.batcher.flush(); session.pty.kill(request.signal) }
+      else if (request.t === 'clear') { session.batcher.flush(); session.pty.clear() }
+      else if (request.t === 'pause') session.pty.pause()
+      else if (request.t === 'resume') session.pty.resume()
+      else if (request.t === 'ack') session.flowControl.ack(request.chars)
+      else if (request.t === 'flow-control') session.flowControl.setAttached(request.enabled)
+    } catch { /* the terminal is exiting; its exit message follows */ }
+  }
+
+  function dispose(): void {
+    for (const session of sessions.values()) {
+      session.batcher.dispose()
+      session.flowControl.dispose()
+    }
+    sessions.clear()
+    lastProcess.clear()
+  }
+
+  return {
+    handle,
+    ready: () => send({ t: 'ready', pid: process.pid }),
+    dispose
+  }
 }
 
-function handle(request: PtyHostRequest): void {
-  if (request.t === 'spawn') { start(request); return }
-  const pty = sessions.get(request.id)
-  if (!pty) return
-  try {
-    if (request.t === 'write') pty.write(request.data)
-    else if (request.t === 'resize') pty.resize(request.cols, request.rows)
-    else if (request.t === 'kill') pty.kill(request.signal)
-    else if (request.t === 'clear') pty.clear()
-    else if (request.t === 'pause') pty.pause()
-    else if (request.t === 'resume') pty.resume()
-  } catch { /* the terminal is exiting; its exit message follows */ }
+if (process.parentPort) {
+  const port = process.parentPort
+  const runtime = createPtyHostRuntime(event => {
+    try { port.postMessage(event) } catch { /* the main process is gone; this process ends with it */ }
+  })
+  port.on('message', ({ data }) => runtime.handle(data as PtyHostRequest))
+  runtime.ready()
 }
-
-port.on('message', ({ data }) => handle(data as PtyHostRequest))
-send({ t: 'ready', pid: process.pid })

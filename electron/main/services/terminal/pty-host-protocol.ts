@@ -14,6 +14,8 @@ export type PtyHostRequest =
   | { t: 'clear'; id: number }
   | { t: 'pause'; id: number }
   | { t: 'resume'; id: number }
+  | { t: 'ack'; id: number; chars: number }
+  | { t: 'flow-control'; id: number; enabled: boolean }
 
 export type PtyHostEvent =
   | { t: 'ready'; pid: number }

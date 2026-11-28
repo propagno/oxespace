@@ -132,7 +132,7 @@ export const IPC_CHANNELS = {
     // owned by the main process. Unmounting a pane no longer kills its shell,
     // so returning to a workspace does not pay a respawn.
     attach: 'terminal:attach',
-    detach: 'terminal:detach',
+    detach: 'terminal:detach', ack: 'terminal:ack',
     status: 'terminal:status',
     // T54 · Settings › Terminal: a session that skipped permissions resumes that way only with this on.
     resumeBypass: 'terminal:resume-bypass',
@@ -551,7 +551,7 @@ export interface TerminalApi {
   stop(input: TerminalStopInput): Promise<void>
   restart(input: TerminalStopInput): Promise<void>
   attach(input: TerminalAttachInput): Promise<TerminalAttachResult>
-  detach(input: TerminalDetachInput): Promise<TerminalDetachResult | void>
+  detach(input: TerminalDetachInput): Promise<TerminalDetachResult | void>; ack?(paneId: string, chars: number): Promise<void> | void
   status(paneId: string): Promise<TerminalStatusResult>
   onData(paneId: string, listener: (event: TerminalDataEvent) => void): () => void
   onExit(paneId: string, listener: (event: TerminalExitEvent) => void): () => void

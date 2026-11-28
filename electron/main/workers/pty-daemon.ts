@@ -5,6 +5,7 @@ import xtermHeadless from '@xterm/headless'
 import { DA1_REPLY, Da1Filter } from '../services/pty-da1'
 import { PtyModeTracker } from '../services/pty-mode-tracker'
 import { PtyRingBuffer } from '../services/pty-ring-buffer'
+import { PtyOriginBatcher } from './ptyOriginBatcher'
 import {
   PTY_DAEMON_DEFAULT_IDLE_SHUTDOWN_MS,
   PTY_DAEMON_MAX_FRAME_BYTES,
@@ -79,6 +80,7 @@ interface DaemonSession {
   screen: InstanceType<typeof xtermHeadless.Terminal>
   serializeAddon: SerializeAddonLike | null
   writeQueue: Promise<void>
+  batcher: PtyOriginBatcher
   subscribers: Set<Socket>
 }
 
@@ -98,13 +100,17 @@ function renderHeadlessFallback(terminal: InstanceType<typeof xtermHeadless.Term
   return lines.join('\r\n')
 }
 
-function sendFrame(socket: Socket, frame: PtyDaemonResponse | PtyDaemonEvent): void {
+function writeRawFrame(socket: Socket, serializedLine: string): void {
   if (socket.destroyed || !socket.writable) return
   try {
-    socket.write(`${JSON.stringify(frame)}\n`)
+    socket.write(serializedLine)
   } catch {
     /* client socket already closing */
   }
+}
+
+function sendFrame(socket: Socket, frame: PtyDaemonResponse | PtyDaemonEvent): void {
+  writeRawFrame(socket, `${JSON.stringify(frame)}\n`)
 }
 
 export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemonServer {
@@ -214,6 +220,25 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
       screen,
       serializeAddon,
       writeQueue: Promise.resolve(),
+      batcher: new PtyOriginBatcher({
+        onFlush: (data) => {
+          session.modes.consume(data)
+          session.ring.push(data)
+          session.writeQueue = session.writeQueue.then(
+            () => new Promise<void>(resolve => {
+              try {
+                session.screen.write(data, () => resolve())
+              } catch {
+                resolve()
+              }
+            })
+          )
+          if (session.subscribers.size > 0) {
+            const line = `${JSON.stringify({ event: 'data', sessionId: session.sessionId, data })}\n`
+            for (const subscriber of session.subscribers) writeRawFrame(subscriber, line)
+          }
+        }
+      }),
       subscribers: new Set<Socket>()
     }
     sessions.set(req.sessionId, session)
@@ -227,22 +252,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
             try { pty.write(DA1_REPLY) } catch { /* exiting */ }
           }
         }
-        const data = filtered.data
-        if (!data) return
-        session.modes.consume(data)
-        session.ring.push(data)
-        session.writeQueue = session.writeQueue.then(
-          () => new Promise<void>(resolve => {
-            try {
-              session.screen.write(data, () => resolve())
-            } catch {
-              resolve()
-            }
-          })
-        )
-        for (const subscriber of session.subscribers) {
-          sendFrame(subscriber, { event: 'data', sessionId: session.sessionId, data })
-        }
+        if (filtered.data) session.batcher.push(filtered.data)
       } catch {
         /* never let callback errors crash node-pty */
       }
@@ -250,6 +260,8 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
 
     pty.onExit(({ exitCode, signal }) => {
       try {
+        session.batcher.flush()
+        session.batcher.dispose()
         session.alive = false
         sessions.delete(session.sessionId)
         for (const subscriber of session.subscribers) {
@@ -288,6 +300,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
     let terminated = 0
     for (const session of active) {
       terminated += 1
+      session.batcher.dispose()
       session.alive = false
       sessions.delete(session.sessionId)
       session.subscribers.clear()
@@ -355,6 +368,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
           sendFrame(socket, { id, ok: false, error: `Session ${req.sessionId} not found` })
           return
         }
+        session.batcher.flush()
         session.subscribers.add(socket)
         state.attachedSessions.add(session.sessionId)
         const snapshot = await captureSnapshot(session)
@@ -391,6 +405,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
         }
         const cols = Math.max(1, Math.min(1000, Math.floor(req.cols)))
         const rows = Math.max(1, Math.min(1000, Math.floor(req.rows)))
+        session.batcher.flush()
         session.cols = cols
         session.rows = rows
         session.pty.resize(cols, rows)
@@ -401,6 +416,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
       if (req.type === 'killSession') {
         const session = sessions.get(req.sessionId)
         if (session) {
+          session.batcher.flush()
           try { session.pty.kill(req.signal) } catch { /* already dead */ }
         }
         sendFrame(socket, { id, ok: true, result: null })
@@ -411,6 +427,7 @@ export function createPtyDaemonServer(options: PtyDaemonServerOptions): PtyDaemo
         let terminated = 0
         for (const session of active) {
           terminated += 1
+          session.batcher.dispose()
           session.alive = false
           sessions.delete(session.sessionId)
           session.subscribers.clear()

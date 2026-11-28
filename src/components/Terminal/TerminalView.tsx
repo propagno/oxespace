@@ -25,6 +25,7 @@ import { wheelToTuiScrollKeys } from '../../utils/terminalWheel'
 import { personActedElsewhereSince, runWithTerminalAutoFocus, terminalKeyRoute, watchPersonInput } from '../../keyboard/terminalFocus'
 import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
+import { createTerminalAckBatcher } from './terminalFlowControlAck'
 import { createRevealScheduler, isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
 import { buildTerminalTheme, decodeOsc52ClipboardWrite, resolveInactiveCursorStyle, searchDecorations } from './terminalViewHelpers'
 import { resolveWindowsPty } from '../../../shared/windows-pty'
@@ -71,7 +72,7 @@ function readAgentPreview(terminal: Terminal): string {
 
 interface TerminalViewProps {
   /** Thread's native CLI uses its own transport and never subscribes to Code panes. */
-  transport?: Pick<TerminalApi, 'onData' | 'onExit' | 'attach' | 'detach'>
+  transport?: Pick<TerminalApi, 'onData' | 'onExit' | 'attach' | 'detach'> & Partial<Pick<TerminalApi, 'ack'>>
   paneId: string
   workspaceId?: string
   isRunning: boolean
@@ -160,6 +161,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const isHidden = (): boolean => isTerminalHostHidden(hostRef.current)
     let previewTimer: ReturnType<typeof setTimeout> | null = null
     let disposed = false
+    const bridge = transport ?? window.oxe.terminal
+    const ackBatcher = createTerminalAckBatcher({ paneId, sendAck: bridge.ack })
     const levers = terminalLevers(window.oxe?.app?.termLevers)
     const writeToTerminal = (
       chunk: string,
@@ -193,6 +196,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
             terminal.scrollToBottom()
           }
         }
+        ackBatcher.record(chunk.length)
         done()
       })
       if (transport) return
@@ -220,7 +224,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         const pre = writeScheduler.takePending()
         // If the atomic redraw clears scrollback, pending pre-clear bytes would be wiped immediately anyway.
         if (pre.data && !atomicPayload.includes('\x1b[3J')) {
-          terminal.write(pre.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${pre.data}` : pre.data)
+          terminal.write(pre.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${pre.data}` : pre.data, () => ackBatcher.record(pre.data.length))
+        } else if (pre.data) {
+          ackBatcher.record(pre.data.length)
         }
         // Any truncation clear is already embedded inside atomicPayload's DEC 2026 envelope.
         writeToTerminal(atomicPayload, () => undefined, { truncated: false }, true)
@@ -579,7 +585,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     // lost (written before the replay) or duplicated (present in both).
     let attachPending = true
     const queuedWhileAttaching: string[] = []
-    const bridge = transport ?? window.oxe.terminal
     // OXE-411 lever H (on by default; OXESPACE_TERM_LEVERS=none turns it off): a pane in a hidden workspace parks.
     const detachHidden = !transport && levers.has('H')
     let parked = false
@@ -643,6 +648,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const park = async (): Promise<void> => {
       if (!detachHidden || parked || parking || attachPending || disposed) return
       parking = true
+      ackBatcher.flush()
       let result: { seq: number } | void | undefined
       try { result = await bridge.detach?.({ paneId, parked: true }) } catch { result = undefined }
       parking = false
@@ -694,6 +700,10 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         if (!keptWarm) {
           webgl.release()
           void park()
+        } else {
+          const buffered = writeScheduler.pendingLength()
+          if (buffered > 0) ackBatcher.record(buffered)
+          ackBatcher.flush()
         }
         return
       }
@@ -720,8 +730,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         if (!transport) useTerminalStore.getState().updateActivity(paneId, event.data)
         return
       }
-      if (writeScheduler.isPaused() && !transport) {
-        useTerminalStore.getState().updateActivity(paneId, event.data)
+      if (writeScheduler.isPaused()) {
+        if (!transport) useTerminalStore.getState().updateActivity(paneId, event.data)
+        ackBatcher.record(event.data.length)
       }
       writeScheduler.enqueue(event.data)
     })
@@ -736,6 +747,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     return () => {
       disposed = true
       warmPool?.remove(paneId)
+      ackBatcher.flush()
       // Release the session without killing it: the shell keeps running and
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
