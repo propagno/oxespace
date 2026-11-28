@@ -39,6 +39,6 @@ describe('OXE-303: e2e under the strict typecheck', () => {
     expect(scripts.typecheck).toMatch(/tsc --noEmit -p tsconfig\.json/)
     expect(scripts.typecheck).toMatch(/tsc --noEmit -p tsconfig\.e2e\.json/)
     // Quick checks runs that script.
-    expect(readFileSync(join(root, '.github', 'workflows', 'ci.yml'), 'utf8')).toMatch(/run: npm run typecheck/)
+    expect(readFileSync(join(root, '.github', 'workflows', 'ci.yml'), 'utf8')).toMatch(/\bnpm run typecheck\b/)
   })
 })

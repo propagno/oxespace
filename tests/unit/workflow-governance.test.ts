@@ -245,7 +245,7 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
     expect(vitestConfig).toMatch(/retry:\s*process\.env\.CI\s*\?\s*1\s*:\s*0/)
   })
 
-  it('keeps ci.yml slimmed on composite actions with workflow_call, fast-gate, single build/OS, e2e-impacted, and 5W/4L shards', () => {
+  it('keeps ci.yml slimmed on composite actions with workflow_call, fast-gate, single build/OS, e2e-impacted, and 8W/4L shards', () => {
     const ci = loadWorkflow('ci.yml')
     expect(ci.on?.workflow_call, 'ci.yml must expose workflow_call for release.yml and nightly.yml').toBeDefined()
 
@@ -260,9 +260,28 @@ describe('OXE-434: GitHub Actions workflow & composite action governance', () =>
     expect(ci.jobs?.['brand-conformance'], 'ci.yml must have a dedicated brand-conformance job').toBeDefined()
     expect(ci.jobs?.['e2e-impacted'], 'ci.yml must have a PR e2e-impacted job').toBeDefined()
 
+    // OXE-474: build and unit-shard start in parallel with quick, while every downstream/gate job still requires quick.
+    expect(normalizeNeeds(ci.jobs?.build?.needs)).not.toContain('quick')
+    expect(normalizeNeeds(ci.jobs?.['unit-shard']?.needs)).not.toContain('quick')
+    for (const gated of ['unit', 'brand-conformance', 'e2e-impacted', 'e2e', 'a11y', 'oxequery-live', 'oxequery-live-versions', 'ci-result']) {
+      expect(normalizeNeeds(ci.jobs?.[gated]?.needs), `${gated} must stay gated on quick`).toContain('quick')
+    }
+
+    const buildActionStep = (ci.jobs?.build?.steps ?? []).find(step => step.uses === './.github/actions/build-oxespace') as { with?: Record<string, unknown> } | undefined
+    expect(String(buildActionStep?.with?.['rebuild-native-node'] ?? '')).toBe('false')
+
     const unitMatrix = (ci.jobs?.['unit-shard'] as { strategy?: { matrix?: { include?: Array<{ label: string; total: number }> } } })?.strategy?.matrix?.include ?? []
-    expect(unitMatrix.filter(entry => entry.label === 'windows-x64')).toHaveLength(5)
-    expect(unitMatrix.filter(entry => entry.label === 'linux-x64')).toHaveLength(4)
+    const winShards = unitMatrix.filter(entry => entry.label === 'windows-x64')
+    const linShards = unitMatrix.filter(entry => entry.label === 'linux-x64')
+    expect(winShards).toHaveLength(8)
+    expect(winShards.every(entry => entry.total === 8)).toBe(true)
+    expect(linShards).toHaveLength(4)
+    expect(linShards.every(entry => entry.total === 4)).toBe(true)
+
+    // OXE-474: unit-shard uses shallow checkout + explicit v1.3.3 tag fetch so upgrade-rehearsal.native.test.ts never skips.
+    const unitCheckout = (ci.jobs?.['unit-shard']?.steps?.[0] as { with?: { 'fetch-depth'?: unknown } } | undefined)?.with
+    expect(Number(unitCheckout?.['fetch-depth'])).toBe(1)
+    expect((ci.jobs?.['unit-shard']?.steps ?? []).some(step => step.run?.includes('refs/tags/v1.3.3:refs/tags/v1.3.3'))).toBe(true)
 
     const e2eShards = (ci.jobs?.e2e as { strategy?: { matrix?: { shard?: number[] } } })?.strategy?.matrix?.shard ?? []
     expect(e2eShards).toEqual([1, 2, 3, 4])

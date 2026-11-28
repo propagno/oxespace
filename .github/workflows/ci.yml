@@ -9,9 +9,9 @@ run-name: >-
 # Canonical CI pipeline (OXE-434): read-only verification (no release publishing or write tokens).
 # Release packaging and publishing live in .github/workflows/release.yml (which calls this workflow).
 #   1) changes — classifies PR paths and pins the single commit SHA every job checks out
-#   2) quick (fast-gate, <2m) — typecheck, lint, fast guardrail tests, notices, audits; gates PR fan-out
-#   3) build (Windows, Linux) — compiles out/ ONCE per OS (bundle budgets + import check + sourcemaps)
-#      unit-shard (5 Windows / 4 Linux) → unit (coverage merge + floors)
+#   2) quick (fast-gate, <2m) — typecheck, lint, fast guardrail tests, notices, audits (parallelized on 4-vCPU runner); gates downstream jobs
+#   3) build (Windows, Linux) — compiles out/ ONCE per OS (bundle budgets + import check + sourcemaps); runs in parallel with quick
+#      unit-shard (8 Windows / 4 Linux) → unit (coverage merge + floors); shards run in parallel with quick
 #   4) brand-conformance (Windows, Linux, enforced — never masked)
 #      e2e-impacted (Linux, PRs only — targeted smoke + acceptance via scripts/related-e2e.mjs)
 #      e2e (Windows, Linux, 4 shards each — main, dispatches, workflow_call) + perf-plan/perf-recheck
@@ -276,40 +276,67 @@ jobs:
       - name: Setup OXESpace
         uses: ./.github/actions/setup-oxespace
 
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Lint (file sizes & eslint)
-        run: npm run lint
-
-      - name: Fast guardrail tests
-        run: >-
-          npx vitest run
-          tests/unit/workflow-governance.test.ts
-          tests/unit/css-classes-guard.test.ts
-          tests/design-lint.test.ts
-          tests/design-lint-target-size.test.ts
-          tests/i18n-catalog.test.ts
-          tests/unit/migration-numbering.test.ts
-          --maxWorkers=1 --testTimeout=15000
-
-      - name: Check third-party notices and bundled licenses
-        run: npm run notices:check
-
-      - name: Verify Electron support window
-        run: node scripts/check-runtime-support.mjs
-
-      - name: Audit production, build-tool, and bundled dependencies
+      - name: Parallel quick checks (typecheck, lint, guardrails, notices & audits)
+        shell: bash
         run: |
-          set -euo pipefail
-          npm run security:audit
-          npm run security:audit:tools
-          npm run security:audit:bundled
+          set -uo pipefail
+          log_dir="$RUNNER_TEMP/quick-checks"
+          mkdir -p "$log_dir"
+
+          names=()
+          pids=()
+          launch() {
+            local name="$1"
+            shift
+            names+=("$name")
+            ( set -euo pipefail; "$@" ) >"$log_dir/$name.log" 2>&1 &
+            pids+=("$!")
+          }
+
+          launch "typecheck" npm run typecheck
+          launch "lint" npm run lint
+          launch "guardrails" npx vitest run \
+            tests/unit/workflow-governance.test.ts \
+            tests/unit/css-classes-guard.test.ts \
+            tests/design-lint.test.ts \
+            tests/design-lint-target-size.test.ts \
+            tests/i18n-catalog.test.ts \
+            tests/unit/migration-numbering.test.ts \
+            --maxWorkers=1 --testTimeout=15000
+          launch "notices-runtime-audit" bash -e -u -o pipefail -c '
+            npm run notices:check
+            node scripts/check-runtime-support.mjs
+            npm run security:audit
+            npm run security:audit:tools
+            npm run security:audit:bundled
+          '
+
+          failed=()
+          for i in "${!pids[@]}"; do
+            name="${names[$i]}"
+            status=0
+            wait "${pids[$i]}" || status=$?
+            if [ "$status" -eq 0 ]; then
+              echo "::group::PASS: $name"
+              cat "$log_dir/$name.log"
+              echo "::endgroup::"
+            else
+              echo "::error title=Quick check failed ($name)::$name exited with status $status"
+              echo "=== FAILED: $name (exit $status) ==="
+              cat "$log_dir/$name.log"
+              failed+=("$name($status)")
+            fi
+          done
+
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::error::Quick checks failed: ${failed[*]}"
+            exit 1
+          fi
 
   build:
     name: Build (${{ matrix.label }})
-    needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     permissions:
@@ -334,14 +361,15 @@ jobs:
         with:
           mode: build
           platform-label: ${{ matrix.label }}
+          rebuild-native-node: "false"
           check-windows-notices: "true"
           upload-build: "true"
           upload-sourcemaps: "true"
 
   unit-shard:
     name: Unit and integration tests (${{ matrix.label }}, ${{ matrix.shard }}/${{ matrix.total }})
-    needs: [changes, quick]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     permissions:
@@ -350,11 +378,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { label: windows-x64, os: windows-2022, shard: 1, total: 5 }
-          - { label: windows-x64, os: windows-2022, shard: 2, total: 5 }
-          - { label: windows-x64, os: windows-2022, shard: 3, total: 5 }
-          - { label: windows-x64, os: windows-2022, shard: 4, total: 5 }
-          - { label: windows-x64, os: windows-2022, shard: 5, total: 5 }
+          - { label: windows-x64, os: windows-2022, shard: 1, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 2, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 3, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 4, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 5, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 6, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 7, total: 8 }
+          - { label: windows-x64, os: windows-2022, shard: 8, total: 8 }
           - { label: linux-x64, os: ubuntu-22.04, shard: 1, total: 4 }
           - { label: linux-x64, os: ubuntu-22.04, shard: 2, total: 4 }
           - { label: linux-x64, os: ubuntu-22.04, shard: 3, total: 4 }
@@ -363,7 +394,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.changes.outputs.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+
+      - name: Fetch previous stable tag for upgrade rehearsal (v1.3.3)
+        shell: bash
+        run: git fetch --no-tags --depth=1 origin refs/tags/v1.3.3:refs/tags/v1.3.3
 
       - name: Setup OXESpace (Node native only)
         uses: ./.github/actions/setup-oxespace
@@ -445,7 +480,7 @@ jobs:
   brand-conformance:
     name: Brand conformance (${{ matrix.label }})
     needs: [changes, quick, build]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.code == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     permissions:
@@ -585,7 +620,7 @@ jobs:
   e2e:
     name: E2E and native tests (${{ matrix.label }}, ${{ matrix.shard }}/4)
     needs: [changes, quick, build]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.changes.result == 'success' && needs.build.result == 'success' }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.changes.result == 'success' && needs.quick.result == 'success' && needs.build.result == 'success' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     permissions:
@@ -829,7 +864,7 @@ jobs:
   a11y:
     name: axe scan (${{ matrix.label }})
     needs: [changes, quick, build]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.a11y == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.a11y == 'true') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -890,7 +925,7 @@ jobs:
   oxequery-live:
     name: OxeQuery live tests (${{ matrix.engine }}; PostgreSQL, MongoDB, SSH, TLS)
     needs: [changes, quick, build]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.oxequery == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -934,7 +969,7 @@ jobs:
   oxequery-live-versions:
     name: OxeQuery live tests (PostgreSQL ${{ matrix.pg }}, MongoDB ${{ matrix.mongo }})
     needs: [changes, quick, build]
-    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || (needs.changes.outputs.oxequery == 'true' && needs.quick.result == 'success')) }}
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.quick.result == 'success' && needs.build.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.oxequery == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
