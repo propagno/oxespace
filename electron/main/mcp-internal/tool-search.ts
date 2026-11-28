@@ -1,9 +1,10 @@
 import type { InternalMcpToolCallResult } from '../../../shared/types/mcp-internal'
 import type { McpServer, McpToolDescriptor } from '../../../shared/types/mcp'
+import { evaluatePolicy } from '../../../shared/policy'
 import { redactSecrets } from '../../../shared/secrets'
 import type { ToolContext, ToolEntry } from './tool-registry'
-import { toolCallBlocked } from './tool-policy'
-import { mcpServerAllowed } from '../services/policy'
+import { createToolCallBlocker } from './tool-policy'
+import { mcpServerAllowed, policyStore } from '../services/policy'
 import { MCP_TOOL_GROUPS } from '../services/conversation/thread-mcp'
 
 export const DEFAULT_TOOL_SEARCH_LIMIT = 8
@@ -230,13 +231,27 @@ export function filterSearchableExternalServers(
   servers: readonly McpServer[],
   rootPath?: string
 ): McpServer[] {
+  const policy = rootPath ? policyStore() : null
+  const loadedPolicy = rootPath && policy && typeof policy.load === 'function' ? policy.load(rootPath) : null
+  const hasIntegrationRules = loadedPolicy
+    ? loadedPolicy.sources.some(source => source.rules.some(rule => rule.action === 'integration.use'))
+    : false
+  const serverAllowed = (name: string): boolean => {
+    if (!rootPath || !policy) return true
+    if (loadedPolicy) {
+      if (!hasIntegrationRules) return true
+      return evaluatePolicy(loadedPolicy, 'integration.use', `mcp:${name}`).allowed
+    }
+    return mcpServerAllowed(name, rootPath, policy)
+  }
+
   return servers.filter(server => {
     if (!server.enabled || !server.trusted) return false
     if (server.guard?.quarantine) return false
     if (server.name.trim().toLowerCase() === 'oxespace') return false
     if (rootPath) {
-      if (!mcpServerAllowed(server.name, rootPath)) return false
-      if (server.key && !mcpServerAllowed(server.key, rootPath)) return false
+      if (!serverAllowed(server.name)) return false
+      if (server.key && !serverAllowed(server.key)) return false
     }
     return true
   })
@@ -361,10 +376,11 @@ export function createToolsSearchEntry(catalogue: () => ToolEntry[]): ToolEntry 
       const candidates: ToolSearchCandidate[] = []
 
       // 1. Internal OXESpace tools (respecting project group modes and org policy).
+      const isToolBlocked = createToolCallBlocker(ctx, undefined, undefined, { recordIncidents: false })
       for (const entry of catalogue()) {
         const name = entry.descriptor.name
         if (name === 'oxespace_tools_search') continue
-        if (toolCallBlocked(name, ctx)) continue
+        if (isToolBlocked(name)) continue
         candidates.push({
           name,
           server: 'oxespace',

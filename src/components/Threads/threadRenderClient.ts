@@ -23,6 +23,8 @@ interface WorkerConstructorWithRegistry {
 const cache = new Map<string, ThreadHastRoot>()
 let worker: Worker | null = null
 let workerCtor: WorkerConstructorWithRegistry | null = null
+let workerDisabledForCtor: WorkerConstructorWithRegistry | null = null
+let workerHasReplied = false
 let nextRequestId = 1
 const pendingById = new Map<number, PendingEntry>()
 const inflightIdByText = new Map<string, number>()
@@ -70,6 +72,7 @@ function clearPendingWithSyncFallback(): void {
 function handleMessage(event: MessageEvent<WorkerReply>): void {
   const payload = event.data
   if (!payload || typeof payload.id !== 'number') return
+  workerHasReplied = true
   const entry = pendingById.get(payload.id)
   if (!entry) return
   pendingById.delete(payload.id)
@@ -83,14 +86,27 @@ function ensureWorker(): Worker | null {
   if (!hasRenderWorker()) {
     worker = null
     workerCtor = null
+    workerDisabledForCtor = null
+    workerHasReplied = false
     return null
   }
   const CurrentCtor = globalThis.Worker as unknown as WorkerConstructorWithRegistry
+  if (workerDisabledForCtor !== null && workerDisabledForCtor !== CurrentCtor) {
+    workerDisabledForCtor = null
+  }
+  if (workerDisabledForCtor === CurrentCtor) {
+    // Allow fresh attempts if a test stub cleared its instance registry (e.g. `StubWorker.all = []`).
+    if (!Array.isArray(CurrentCtor.all) || CurrentCtor.all.length > 0) {
+      return null
+    }
+    workerDisabledForCtor = null
+  }
   const stubReset = worker !== null && Array.isArray(CurrentCtor.all) && !CurrentCtor.all.includes(worker)
   if (worker && (workerCtor !== CurrentCtor || stubReset)) {
     try { worker.terminate() } catch { /* ignore */ }
     worker = null
     workerCtor = null
+    workerHasReplied = false
     pendingById.clear()
     inflightIdByText.clear()
   }
@@ -99,11 +115,15 @@ function ensureWorker(): Worker | null {
     // Literal `new Worker(new URL(..., import.meta.url), { type: 'module' })` is required for Vite's static
     // worker bundling transform (calling through a local variable inlines raw `.ts` as `data:video/mp2t`).
     const instance = new Worker(new URL('../../workers/threadRender.worker.ts', import.meta.url), { type: 'module' })
+    workerHasReplied = false
     instance.onmessage = handleMessage
     instance.addEventListener?.('error', () => {
       if (worker !== instance) return
+      const failedBeforeReply = !workerHasReplied
       worker = null
       workerCtor = null
+      workerHasReplied = false
+      if (failedBeforeReply) workerDisabledForCtor = CurrentCtor
       try { instance.terminate() } catch { /* ignore */ }
       clearPendingWithSyncFallback()
     })
@@ -113,6 +133,8 @@ function ensureWorker(): Worker | null {
   } catch {
     worker = null
     workerCtor = null
+    workerHasReplied = false
+    workerDisabledForCtor = CurrentCtor
     return null
   }
 }
@@ -164,6 +186,8 @@ export function resetThreadRenderClientForTest(): void {
   }
   worker = null
   workerCtor = null
+  workerDisabledForCtor = null
+  workerHasReplied = false
   nextRequestId = 1
   pendingById.clear()
   inflightIdByText.clear()

@@ -1,4 +1,10 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { setPolicyStore } from '../../electron/main/services/policy'
+import { PolicyStore } from '../../electron/main/services/policy/policy-store'
+import { removeTempDir } from '../helpers/removeTempDir'
 import {
   computePromptCacheFingerprint,
   evaluatePromptCacheStatus,
@@ -433,5 +439,163 @@ describe('OXE-487 Pillar 3 · Multi-Provider Deferred Tool Search (oxespace_tool
     expect(names).not.toContain('untrusted_list_issues')
     // Must never leak env/command/secret metadata from server config
     expect((raw.content[0] as { text: string }).text).not.toContain('sk-ant-secret')
+  })
+
+  it('keeps end-to-end oxespace_tools_search handler fast (< 5 ms p50) over 250 internal+external tools with real PolicyStore and 0 forbidden/secret leaks (OXE-493)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'oxe493-tool-search-root-'))
+    const userData = mkdtempSync(join(tmpdir(), 'oxe493-tool-search-user-'))
+    const managed = join(userData, 'managed.json')
+    try {
+      mkdirSync(join(root, '.oxespace'), { recursive: true })
+      writeFileSync(join(root, '.oxespace', 'policy.json'), JSON.stringify({
+        rules: [
+          { effect: 'deny', action: 'tool.use', resource: 'mcp__oxespace__oxespace_db_execute' },
+          { effect: 'deny', action: 'integration.use', resource: 'mcp:policy-blocked-srv' }
+        ]
+      }))
+      setPolicyStore(new PolicyStore({ userData, managed }))
+
+      const internalCount = TOOL_REGISTRY.length
+      const externalNeeded = Math.max(160, 250 - internalCount + 10)
+      const serverCount = 10
+      const perServer = Math.ceil(externalNeeded / serverCount)
+
+      const servers: McpServer[] = Array.from({ length: serverCount }, (_, sIdx) => ({
+        id: `srv-${sIdx}`,
+        workspaceId: 'ws-1',
+        name: `ext-server-${sIdx}`,
+        key: `ext-server-${sIdx}`,
+        transport: 'stdio',
+        config: {
+          transport: 'stdio',
+          command: 'npx',
+          args: [],
+          env: { SECRET_TOKEN: `sk-ant-secret-server-${sIdx}-12345678901234567890` }
+        },
+        enabled: true,
+        trusted: true,
+        health: 'healthy',
+        healthMessage: null,
+        createdAtMs: 1,
+        updatedAtMs: 1,
+        tools: Array.from({ length: perServer }, (_, tIdx) => {
+          const globalIdx = sIdx * perServer + tIdx
+          return {
+            name: globalIdx === 42 ? 'postgres_query_database' : `ext_tool_${globalIdx}`,
+            description: `External database query helper ${globalIdx} token ghp_1234567890abcdefghijklmnopqrstuvwxyz1234`,
+            inputSchema: {
+              type: 'object',
+              required: ['query'],
+              properties: {
+                query: { type: 'string', description: `SQL query ${globalIdx} secret ghp_1234567890abcdefghijklmnopqrstuvwxyz1234` },
+                mode: { type: 'string', enum: ['fast', 'deep'] }
+              }
+            }
+          }
+        })
+      }))
+
+      // Add forbidden servers that must NEVER appear in results.
+      servers.push(
+        {
+          id: 'srv-policy-blocked',
+          workspaceId: 'ws-1',
+          name: 'policy-blocked-srv',
+          key: 'policy-blocked-srv',
+          transport: 'stdio',
+          config: { transport: 'stdio', command: 'npx', args: [] },
+          enabled: true,
+          trusted: true,
+          health: 'healthy',
+          healthMessage: null,
+          createdAtMs: 1,
+          updatedAtMs: 1,
+          tools: [{ name: 'policy_blocked_database_query', description: 'Database query on policy-denied server' }]
+        },
+        {
+          id: 'srv-quarantined',
+          workspaceId: 'ws-1',
+          name: 'quarantined-srv',
+          key: 'quarantined-srv',
+          transport: 'stdio',
+          config: { transport: 'stdio', command: 'npx', args: [] },
+          enabled: true,
+          trusted: true,
+          guard: { pinned: true, hash: 'h', quarantine: { at: 1, reasons: ['changed'] } },
+          health: 'unhealthy',
+          healthMessage: 'Quarantined',
+          createdAtMs: 1,
+          updatedAtMs: 1,
+          tools: [{ name: 'quarantined_database_query', description: 'Database query on quarantined server' }]
+        }
+      )
+
+      const searchEntry = createToolsSearchEntry(() => TOOL_REGISTRY)
+      const ctx = {
+        workspaceId: 'ws-1',
+        workspaceServ: {
+          get: () => ({ id: 'ws-1', name: 'Repo', rootPath: root, isActive: true, panes: [] }),
+          list: () => [{ id: 'ws-1', name: 'Repo', rootPath: root, isActive: true, panes: [] }]
+        },
+        app: {
+          mcpServers: {
+            list: () => servers,
+            start: vi.fn(),
+            stopRuntime: vi.fn()
+          }
+        }
+      } as unknown as ToolContext
+
+      // Verify policy-blocked internal tool and forbidden external servers are excluded.
+      const deniedCheck = await searchEntry.handler({ query: 'oxespace_db_execute', limit: 10 }, ctx)
+      const deniedPayload = JSON.parse((deniedCheck.content[0] as { text: string }).text) as {
+        status: string
+        data: { tools: Array<{ name: string }> }
+      }
+      expect(deniedPayload.status).toBe('ok')
+      expect(deniedPayload.data.tools.map(tool => tool.name)).not.toContain('oxespace_db_execute')
+
+      const forbiddenCheck = await searchEntry.handler({ query: 'policy_blocked_database_query', limit: 10 }, ctx)
+      const forbiddenPayload = JSON.parse((forbiddenCheck.content[0] as { text: string }).text) as {
+        status: string
+        data: { tools: Array<{ name: string }> }
+      }
+      expect(forbiddenPayload.status).toBe('ok')
+      expect(forbiddenPayload.data.tools.map(tool => tool.name)).not.toContain('policy_blocked_database_query')
+
+      // Warm up once, then measure 25 end-to-end handler invocations across 250+ tools.
+      await searchEntry.handler({ query: 'database query', limit: 8 }, ctx)
+      const timings: number[] = []
+      let lastRaw = await searchEntry.handler({ query: 'database query', limit: 8 }, ctx)
+      for (let i = 0; i < 25; i++) {
+        const start = performance.now()
+        lastRaw = await searchEntry.handler({ query: 'database query', limit: 8 }, ctx)
+        timings.push(performance.now() - start)
+      }
+      timings.sort((a, b) => a - b)
+      const p50 = timings[Math.floor(timings.length / 2)]
+
+      expect(lastRaw.isError).toBeUndefined()
+      const rawText = (lastRaw.content[0] as { text: string }).text
+      expect(rawText).not.toContain('ghp_1234567890')
+      expect(rawText).not.toContain('sk-ant-secret')
+      expect(rawText).not.toContain('oxespace_db_execute')
+      expect(rawText).not.toContain('policy_blocked_database_query')
+      expect(rawText).not.toContain('quarantined_database_query')
+
+      const payload = JSON.parse(rawText) as {
+        status: string
+        data: { totalMatches: number; returned: number; tools: Array<{ name: string }> }
+      }
+      expect(payload.status).toBe('ok')
+      expect(payload.data.totalMatches).toBeGreaterThanOrEqual(150)
+      expect(payload.data.returned).toBe(8)
+      expect(payload.data.tools[0].name).toBe('postgres_query_database')
+      expect(p50).toBeLessThan(5)
+    } finally {
+      setPolicyStore(null)
+      removeTempDir(root)
+      removeTempDir(userData)
+    }
   })
 })

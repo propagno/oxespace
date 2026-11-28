@@ -126,4 +126,49 @@ describe('OXE-125 · threadRenderClient worker singleton, deduplication and LRU'
     expect(received).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(received.mock.calls[0][0])).toContain('"tagName":"strong"')
   })
+
+  it('trips a session circuit breaker on startup crash before first reply and stops respawning until reset or constructor change', () => {
+    let spawns = 0
+    class StartupCrashWorker {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      private readonly errorListeners = new Set<(event: Event) => void>()
+      constructor() { spawns += 1 }
+      addEventListener(type: string, listener: (event: Event) => void): void {
+        if (type === 'error') this.errorListeners.add(listener)
+      }
+      postMessage(): void {
+        const event = new Event('error')
+        for (const listener of this.errorListeners) listener(event)
+      }
+      terminate(): void { /* noop */ }
+    }
+
+    vi.stubGlobal('Worker', StartupCrashWorker)
+
+    const first = vi.fn()
+    requestThreadTree('first **crash**', first)
+    expect(spawns).toBe(1)
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(first.mock.calls[0][0])).toContain('"tagName":"strong"')
+
+    // Subsequent requests must stay on sync fallback without spawning more crashing workers.
+    const second = vi.fn()
+    requestThreadTree('second **message**', second)
+    expect(spawns).toBe(1)
+    expect(second).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(second.mock.calls[0][0])).toContain('"tagName":"strong"')
+
+    // Reset helper re-enables attempts on the same constructor.
+    resetThreadRenderClientForTest()
+    const third = vi.fn()
+    requestThreadTree('third **after-reset**', third)
+    expect(spawns).toBe(2)
+
+    // Swapping globalThis.Worker to a healthy constructor also clears the circuit breaker.
+    installStubWorker()
+    const fourth = vi.fn()
+    requestThreadTree('fourth **healthy**', fourth)
+    expect(StubWorker.all).toHaveLength(1)
+    expect(renderWorker()!.posted).toHaveLength(1)
+  })
 })
