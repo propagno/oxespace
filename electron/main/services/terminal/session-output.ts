@@ -12,8 +12,23 @@ interface FlowControlHostedPty extends IPty {
   ackData(chars: number): void
 }
 
+interface DirectHostedPty extends FlowControlHostedPty {
+  readonly hostSessionId: number
+  readonly lastDataMeta: { seq?: number; direct?: boolean } | null
+  bindPane(paneId: string): void
+  setDirectRoute(paneId: string, enabled: boolean): void
+}
+
 function isFlowControlHostedPty(pty: IPty): pty is FlowControlHostedPty {
   return typeof (pty as Partial<FlowControlHostedPty>).ackData === 'function'
+}
+
+export function isDirectHostedPty(pty: IPty): pty is DirectHostedPty {
+  const candidate = pty as Partial<DirectHostedPty>
+  return typeof candidate.ackData === 'function'
+    && typeof candidate.bindPane === 'function'
+    && typeof candidate.setDirectRoute === 'function'
+    && typeof candidate.hostSessionId === 'number'
 }
 
 /** What the system ConPTY wrote first: clear, reset attributes, home. The bundled one writes none of it (B13). */
@@ -66,6 +81,12 @@ export interface TerminalSession {
   da1Timer: ReturnType<typeof setTimeout> | null
   /** OXE-483 · Local flow-control watermark tracker used when node-pty runs in-process (non-HostedPty). */
   flowControl?: PtyFlowControl
+  /** OXE-488 · Utility PTY host session id for direct MessagePort routing & dedup. */
+  directHostId?: number
+  /** OXE-488 · Highest pty-host frame sequence processed into `ring` for this session. */
+  lastFrameSeq?: number
+  /** OXE-488 · Highest frame sequence queued inside `outputBatcher` for non-direct IPC fallback chunks. */
+  pendingBatchSeq?: number
   lastActivityAt: number
   /** Last size the view reported; used for the alt-screen redraw nudge. */
   cols: number
@@ -108,9 +129,30 @@ export class SessionOutput {
    *   batcher first, so the view still gets it; a view torn down before parsing it leaves ConPTY to time out, never
    *   two replies.
    */
-  receive(session: TerminalSession, chunk: string): void {
+  receive(session: TerminalSession, chunk: string, meta?: { seq?: number; direct?: boolean } | null): void {
+    if (meta?.direct === true) {
+      // Flush any earlier non-direct IPC chunks before recording this direct-port frame so ordering stays strict.
+      this.releaseDa1(session)
+      session.outputBatcher.flush()
+      this.host.scanShellCwd(session.paneId, chunk)
+      session.ring.push(stripDa1(chunk))
+      session.modes.consume(chunk)
+      session.lastActivityAt = Date.now()
+      if (typeof meta.seq === 'number') session.lastFrameSeq = meta.seq
+      for (const listener of this.outputListeners) { try { listener(session.paneId) } catch { /* a reader never breaks the pane */ } }
+      // Direct MessagePort already delivered this chunk to the renderer — never duplicate via webContents.send!
+      if (!session.attached) {
+        if (session.lastActivityAt - session.activityNotifiedAt >= ACTIVITY_THROTTLE_MS) {
+          session.activityNotifiedAt = session.lastActivityAt
+          this.host.emitActivity({ paneId: session.paneId, at: session.lastActivityAt, bytes: chunk.length })
+        }
+      }
+      return
+    }
+
     this.host.scanShellCwd(session.paneId, chunk)
     if (!isFlowControlHostedPty(session.pty)) session.flowControl?.onData(chunk.length)
+    if (typeof meta?.seq === 'number') session.pendingBatchSeq = meta.seq
     const { data, answered } = session.da1.filter(chunk, !session.viewAttached)
     for (let i = 0; i < answered; i++) void session.inputQueue.enqueue(DA1_REPLY)
     if (data) session.outputBatcher.push(data)
@@ -153,6 +195,10 @@ export class SessionOutput {
     const session = this.host.sessions.get(event.paneId)
     if (!session) return
 
+    const batchSeq = session.pendingBatchSeq
+    session.pendingBatchSeq = undefined
+    if (typeof batchSeq === 'number') session.lastFrameSeq = batchSeq
+
     // A replayed DA1 would be answered again by the re-mounted view and typed into the shell as `?1;2c`. Whoever was
     // going to answer it has (main or the live view), so the ring keeps none. receive() never splits a query.
     session.ring.push(stripDa1(event.data))
@@ -161,7 +207,10 @@ export class SessionOutput {
     for (const listener of this.outputListeners) { try { listener(event.paneId) } catch { /* a reader never breaks the pane */ } }
 
     if (session.attached) {
-      this.host.emitData(event)
+      const payload: TerminalDataEvent = (session.directHostId !== undefined && typeof batchSeq === 'number')
+        ? { paneId: event.paneId, data: event.data, ptyId: session.directHostId, seq: batchSeq }
+        : event
+      this.host.emitData(payload)
       return
     }
 
@@ -203,7 +252,11 @@ export class SessionOutput {
     session.attached = true
     session.viewAttached = true
     session.parked = false
-    if (isFlowControlHostedPty(session.pty)) {
+    if (isDirectHostedPty(session.pty)) {
+      session.directHostId = session.pty.hostSessionId
+      session.pty.handleFlowControl = true
+      session.pty.setDirectRoute(input.paneId, true)
+    } else if (isFlowControlHostedPty(session.pty)) {
       session.pty.handleFlowControl = true
     } else {
       session.flowControl ??= new PtyFlowControl(session.pty, { attached: false })
@@ -220,6 +273,7 @@ export class SessionOutput {
     return {
       running: true,
       seq: session.ring.seq,
+      ...(session.directHostId !== undefined ? { ptyId: session.directHostId, frameSeq: session.lastFrameSeq ?? 0 } : {}),
       prologue: session.modes.prologue(),
       replay: altScreen && !hasContiguousDelta ? '' : slice.data,
       truncated,
@@ -255,7 +309,10 @@ export class SessionOutput {
     session.attached = false
     session.viewAttached = false
     session.parked = input.parked === true
-    if (isFlowControlHostedPty(session.pty)) {
+    if (isDirectHostedPty(session.pty)) {
+      session.pty.setDirectRoute(input.paneId, false)
+      session.pty.handleFlowControl = false
+    } else if (isFlowControlHostedPty(session.pty)) {
       session.pty.handleFlowControl = false
     } else {
       session.flowControl?.setAttached(false)
@@ -265,7 +322,10 @@ export class SessionOutput {
       clearTimeout(session.nudgeTimer)
       session.nudgeTimer = null
     }
-    return { seq: session.ring.seq }
+    return {
+      seq: session.ring.seq,
+      ...(session.directHostId !== undefined ? { ptyId: session.directHostId, frameSeq: session.lastFrameSeq ?? 0 } : {})
+    }
   }
 
   /**

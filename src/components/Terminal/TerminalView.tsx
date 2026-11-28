@@ -548,12 +548,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     // in between — otherwise output produced during the round trip is either
     // lost (written before the replay) or duplicated (present in both).
     let attachPending = true
-    const queuedWhileAttaching: string[] = []
+    const queuedWhileAttaching: Array<{ data: string; ptyId?: number; seq?: number }> = []
     // OXE-411 lever H (on by default; OXESPACE_TERM_LEVERS=none turns it off): a pane in a hidden workspace parks.
     const detachHidden = !transport && levers.has('H')
     let parked = false
     let parking = false
     let parkedSeq: number | null = null
+    let parkedPtyId: number | null = null
+    let parkedFrameSeq: number | null = null
 
     const attachView = async (sinceSeq: number | null = null): Promise<void> => {
       const reattach = sinceSeq !== null
@@ -584,10 +586,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         terminal.write('Idle\r\n')
       }
 
-      if (isHidden()) {
-        for (const chunk of queuedWhileAttaching) writeScheduler.enqueue(chunk)
-      } else {
-        for (const chunk of queuedWhileAttaching) terminal.write(chunk)
+      const attachedPtyId = attached?.ptyId
+      const attachedFrameSeq = attached?.frameSeq
+      for (const entry of queuedWhileAttaching) {
+        if (typeof attachedPtyId === 'number' && typeof attachedFrameSeq === 'number' && entry.ptyId === attachedPtyId && typeof entry.seq === 'number' && entry.seq <= attachedFrameSeq) continue
+        if (isHidden()) writeScheduler.enqueue(entry.data)
+        else terminal.write(entry.data)
       }
       queuedWhileAttaching.length = 0
       attachPending = false
@@ -605,6 +609,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const unpark = (): void => {
       if (!parked) return
       parked = false
+      parkedPtyId = null
+      parkedFrameSeq = null
       attachPending = true
       writeScheduler.setPaused(true)
       void attachView(parkedSeq)
@@ -613,12 +619,14 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       if (!detachHidden || parked || parking || attachPending || disposed) return
       parking = true
       ackBatcher.flush()
-      let result: { seq: number } | void | undefined
+      let result: { seq: number; ptyId?: number; frameSeq?: number } | void | undefined
       try { result = await bridge.detach?.({ paneId, parked: true }) } catch { result = undefined }
       parking = false
       if (disposed) return
       if (!result || typeof result.seq !== 'number') { if (!isHidden() && !attachPending) writeScheduler.setPaused(false); return }
       parkedSeq = result.seq
+      parkedPtyId = typeof result.ptyId === 'number' ? result.ptyId : null
+      parkedFrameSeq = typeof result.frameSeq === 'number' ? result.frameSeq : null
       parked = true
       if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
       if (!isHidden()) unpark()
@@ -686,9 +694,15 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       }
     })
     const unsubscribeData = bridge.onData(paneId, (event) => {
-      if (parked) return
+      if (parked) {
+        // Direct MessagePort chunk already accounted for in parkedSeq: keep it in paused writeScheduler (prePark).
+        if (parkedFrameSeq !== null && typeof event.seq === 'number' && event.ptyId === parkedPtyId && event.seq <= parkedFrameSeq) {
+          writeScheduler.enqueue(event.data)
+        }
+        return
+      }
       if (attachPending) {
-        queuedWhileAttaching.push(event.data)
+        queuedWhileAttaching.push({ data: event.data, ptyId: event.ptyId, seq: event.seq })
         return
       }
       if (!writeScheduler.isPaused() && resizeRedrawGuard.ingest(event.data)) {

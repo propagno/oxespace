@@ -13,6 +13,7 @@ import {
   type TerminalExitEvent
 } from '../../shared/types/ipc'
 import { createAgentsApi } from './agents'
+import { createTerminalPortBridge } from './terminalPortBridge'
 import { THREAD_TEXT_TYPED } from '../../shared/threadTextTyped'
 
 export interface PreloadIpc {
@@ -21,8 +22,12 @@ export interface PreloadIpc {
   removeListener(channel: string, listener: (event: IpcRendererEvent, payload: unknown) => void): void
 }
 
-export function createOxeApi(ipc: PreloadIpc, getPathForFile?: (file: File) => string): OxeApi {
-  const terminalData = createPaneSubscriber<TerminalDataEvent>(ipc, IPC_CHANNELS.terminal.onData)
+export function createOxeApi(
+  ipc: PreloadIpc,
+  getPathForFile?: (file: File) => string,
+  options: { listenPortChannel?: boolean } = {}
+): OxeApi {
+  const terminalBridge = createTerminalPortBridge(ipc, options)
   const terminalExit = createPaneSubscriber<TerminalExitEvent>(ipc, IPC_CHANNELS.terminal.onExit)
   const terminalActivity = createPaneSubscriber<TerminalActivityEvent>(ipc, IPC_CHANNELS.terminal.onActivity)
   const terminalBranch = createPaneSubscriber<TerminalBranchChangedEvent>(ipc, IPC_CHANNELS.terminal.branchChanged)
@@ -200,12 +205,30 @@ export function createOxeApi(ipc: PreloadIpc, getPathForFile?: (file: File) => s
       onChanged: sub(IPC_CHANNELS.workspace.onChanged)
     }),
     terminal: bind<OxeApi['terminal']>(IPC_CHANNELS.terminal, {
-      onData: terminalData,
-      onExit: terminalExit,
+      onData: terminalBridge.onData,
+      ack: terminalBridge.ack,
+      attach: async (input: import('../../shared/types/ipc').TerminalAttachInput) => {
+        const res = await ipc.invoke(IPC_CHANNELS.terminal.attach, input) as import('../../shared/types/ipc').TerminalAttachResult
+        if (res?.running && typeof res.ptyId === 'number' && typeof res.frameSeq === 'number') {
+          terminalBridge.syncCursor(input.paneId, res.ptyId, res.frameSeq)
+        }
+        return res
+      },
+      stop: (input: import('../../shared/types/ipc').TerminalStopInput) => {
+        terminalBridge.clearPane(input.paneId)
+        return ipc.invoke(IPC_CHANNELS.terminal.stop, input) as Promise<void>
+      },
+      restart: (input: import('../../shared/types/ipc').TerminalStopInput) => {
+        terminalBridge.clearPane(input.paneId)
+        return ipc.invoke(IPC_CHANNELS.terminal.restart, input) as Promise<void>
+      },
+      onExit: (paneId: string, listener: (event: TerminalExitEvent) => void) =>
+        terminalExit(paneId, (event) => { terminalBridge.clearPane(paneId); listener(event) }),
       onBranchChanged: terminalBranch,
       sizeLease: (paneId: string, takeBack?: boolean) => ipc.invoke(IPC_CHANNELS.terminal.sizeLease, paneId, takeBack === true) as Promise<TerminalSizeLease | null>,
       onSizeLeaseChanged: terminalSizeLease,
-      onActivity: terminalActivity
+      onActivity: terminalActivity,
+      getTransportStats: terminalBridge.getStats
     }),
     agent: {
       list: () => ipc.invoke(IPC_CHANNELS.agent.list) as Promise<AgentProfile[]>,

@@ -157,6 +157,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     { daemonEntry: join(app.getAppPath(), 'out', 'main', 'pty-daemon.js'), userDataPath: app.getPath('userData') }
   )
   const ptyDaemon = ptyOption.daemon ?? null
+  const utilityPty = ptyOption.utilityPty ?? null
   // OXE-447 · Reconcile persisted execution credentials ONLY against live daemon sessions (purging dead entries).
   if (ptyDaemon) {
     void ptyDaemon.listSessions()
@@ -257,6 +258,7 @@ export async function bootstrapCoreServices({ db, rootExists, delegationRef }: C
     remoteSshPanes,
     hostsProxy,
     ptyDaemon,
+    utilityPty,
     terminalManager,
     taskService
   }

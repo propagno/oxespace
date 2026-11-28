@@ -16,15 +16,28 @@ export type PtyHostRequest =
   | { t: 'resume'; id: number }
   | { t: 'ack'; id: number; chars: number }
   | { t: 'flow-control'; id: number; enabled: boolean }
+  | { t: 'bind-pane'; id: number; paneId: string }
+  | { t: 'direct-route'; id: number; paneId: string; enabled: boolean }
+  | { t: 'attach-renderer-port'; windowId: number }
+  | { t: 'detach-renderer-port'; windowId: number }
 
 export type PtyHostEvent =
   | { t: 'ready'; pid: number }
   | { t: 'spawned'; id: number; pid: number; process: string }
   | { t: 'spawn-failed'; id: number; message: string }
-  | { t: 'data'; id: number; data: string }
+  | { t: 'data'; id: number; data: string; seq?: number; direct?: boolean }
   /** The terminal's foreground process name, when it changed (node-pty's `process`). */
   | { t: 'process'; id: number; process: string }
   | { t: 'exit'; id: number; exitCode: number; signal?: number }
+
+/** OXE-488 · Direct MessagePort frames from pty-host utility process to Renderer preload (1 hop). */
+export type PtyDirectToRendererMessage =
+  | { t: 'data'; paneId: string; ptyId: number; seq: number; data: string }
+  | { t: 'bound'; paneId: string; ptyId: number; enabled: boolean }
+
+/** OXE-488 · Direct MessagePort frames from Renderer preload back to pty-host utility process (1 hop). */
+export type PtyDirectFromRendererMessage =
+  | { t: 'ack'; paneId: string; chars: number }
 
 /** The environment switch. The PTY host is the default since OXE-400 (23/11, the user's decision after the proof). */
 export const PTY_HOST_ENV = 'OXESPACE_PTY_HOST'
