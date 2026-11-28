@@ -1871,6 +1871,18 @@
       "uvTitle": "Runs with uv (uvx), which must be installed"
     },
     "signingIn": "Signing in…",
+    "oauth": {
+      "connectedBadge": "OAuth",
+      "connect": "Sign in",
+      "connecting": "Signing in…",
+      "connectTitle": "Connect with OAuth 2.1 (tokens saved in OS keychain)",
+      "disconnect": "Disconnect",
+      "disconnectTitle": "Remove OAuth token from OS keychain",
+      "connectedToast": "Connected OAuth for {{name}}",
+      "disconnectedToast": "Disconnected OAuth for {{name}}",
+      "connectFailed": "Could not complete OAuth sign-in",
+      "disconnectFailed": "Could not remove OAuth credentials"
+    },
     "finishSignIn": "Finish the sign-in in your browser to connect.",
     "agentSignsIn": "The agent opens the sign-in in your browser the first time it connects.",
     "openSignIn": "Open sign-in page",

@@ -77,6 +77,8 @@ export interface McpServer {
   healthMessage: string | null
   /** Tools cached after the most recent successful handshake. */
   tools: McpToolDescriptor[]
+  /** True when an OAuth token for this remote server is stored in the OS keychain. Never carries the token itself. */
+  oauthConnected?: boolean
   /** When OXESpace last tested the server in this run of the app; null when it has not. */
   testedAtMs?: number | null
   createdAtMs: number
@@ -155,4 +157,105 @@ export interface McpDiscoverySource {
   id: 'claude-desktop' | 'cursor' | 'windsurf'
   label: string
   servers: McpDiscoveredServer[]
+}
+
+/** An MCP resource advertised by a server via `resources/list`. */
+export interface McpResourceDescriptor {
+  uri: string
+  name: string
+  description?: string
+  mimeType?: string
+  size?: number
+}
+
+/** One content block returned by `resources/read`, already bounded and secret-redacted in main. */
+export interface McpResourceContent {
+  uri: string
+  mimeType?: string
+  text?: string
+  /** Set when the server returned binary data (base64 blob bytes) instead of text. */
+  blobBytes?: number
+  truncated?: boolean
+}
+
+export interface McpReadResourceInput {
+  serverId: string
+  uri: string
+}
+
+export interface McpReadResourceResult {
+  contents: McpResourceContent[]
+}
+
+/** An MCP resource attached to a conversation draft in OxeChat (bounded & secret-redacted). */
+export interface McpResourceAttachment {
+  id: string
+  serverId: string
+  serverName: string
+  uri: string
+  name: string
+  mimeType?: string
+  text: string
+  bytes: number
+  truncated?: boolean
+}
+
+/** Combines attached MCP resources with the user's message text at send time. */
+export function composeMessageWithMcpResources(draft: string, resources: readonly McpResourceAttachment[]): string {
+  if (resources.length === 0) return draft
+  const blocks = resources.map(item => {
+    const header = `MCP Resource [${item.serverName}] ${item.name} (${item.uri}${item.mimeType ? `, ${item.mimeType}` : ''})${item.truncated ? ' [truncated]' : ''}:`
+    return `${header}\n\`\`\`\n${item.text}\n\`\`\``
+  })
+  const trimmed = draft.trim()
+  if (trimmed) blocks.push(trimmed)
+  return blocks.join('\n\n')
+}
+
+/** Keychain-backed OAuth connection status for a remote MCP server. Never contains tokens or secrets. */
+export interface McpOAuthStatus {
+  serverId: string
+  connected: boolean
+  expiresAtMs?: number | null
+  hasRefreshToken?: boolean
+  scope?: string | null
+  authorizationServer?: string | null
+  keychainAvailable: boolean
+}
+
+export interface McpOAuthConnectResult {
+  ok: boolean
+  status: McpOAuthStatus
+  error?: string
+}
+
+export interface McpApi {
+  list(workspaceId: string | null): Promise<McpServer[]>
+  create(input: CreateMcpServerInput): Promise<McpServer>
+  update(input: UpdateMcpServerInput): Promise<McpServer>
+  delete(id: string): Promise<void>
+  start(id: string): Promise<McpToolDescriptor[]>
+  stop(id: string): Promise<void>
+  /** Handshake and tool list, then the server is let go; the outcome is on the returned server. */
+  test(id: string): Promise<McpServer>
+  /** A test plus the Node.js version the server would run on, to explain why it failed. */
+  diagnose?(id: string): Promise<McpDiagnosis>
+  /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
+  openSignIn(id: string): Promise<boolean>
+  callTool(input: McpCallToolInput): Promise<McpCallToolResult>
+  /** Lists resources exposed by a trusted MCP server (`resources/list`). */
+  listResources?(serverId: string): Promise<McpResourceDescriptor[]>
+  /** Reads a bounded, secret-redacted resource from a trusted MCP server (`resources/read`). */
+  readResource?(input: McpReadResourceInput): Promise<McpReadResourceResult>
+  /** Runs native OAuth 2.1 + PKCE sign-in and stores tokens encrypted in the OS keychain. */
+  connectOAuth?(serverId: string): Promise<McpOAuthConnectResult>
+  /** Removes stored OAuth tokens for this server from the OS keychain. */
+  disconnectOAuth?(serverId: string): Promise<McpOAuthStatus>
+  /** Reads keychain OAuth connection status for this server (never returns tokens). */
+  oauthStatus?(serverId: string): Promise<McpOAuthStatus>
+  /** Servers Claude Desktop, Cursor and Windsurf already have, without their secret values. */
+  discover?(workspaceId: string | null): Promise<McpDiscoverySource[]>
+  /** Creates the named servers of one source, untrusted, in the global or workspace scope. */
+  importDiscovered?(input: { workspaceId: string | null; source: McpDiscoverySource['id']; names: string[] }): Promise<McpImportResult>
+  onHealth(listener: (event: McpServerHealthEvent) => void): () => void
 }

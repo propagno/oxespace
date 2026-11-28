@@ -111,6 +111,34 @@ export function registerMcpIpc(manager: McpManager): void {
       arguments: (args && typeof args === 'object' ? args : {}) as Record<string, unknown>
     })
   })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.listResources, (_event, serverId: unknown) => {
+    if (typeof serverId !== 'string' || !serverId) throw new Error('serverId is required')
+    return manager.listResources(serverId)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.readResource, (_event, input: unknown) => {
+    if (!input || typeof input !== 'object') throw new Error('Invalid readResource input')
+    const { serverId, uri } = input as Record<string, unknown>
+    if (typeof serverId !== 'string' || !serverId) throw new Error('serverId is required')
+    if (typeof uri !== 'string' || !uri.trim()) throw new Error('uri is required')
+    return manager.readResource({ serverId, uri })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.connectOAuth, (_event, serverId: unknown) => {
+    if (typeof serverId !== 'string' || !serverId) throw new Error('serverId is required')
+    return manager.connectOAuth(serverId)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.disconnectOAuth, (_event, serverId: unknown) => {
+    if (typeof serverId !== 'string' || !serverId) throw new Error('serverId is required')
+    return manager.disconnectOAuth(serverId)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.mcp.oauthStatus, (_event, serverId: unknown) => {
+    if (typeof serverId !== 'string' || !serverId) throw new Error('serverId is required')
+    return manager.oauthStatus(serverId)
+  })
 }
 
 export function broadcastMcpHealth(event: McpServerHealthEvent): void {

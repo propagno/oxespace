@@ -164,7 +164,10 @@ export async function bootstrapWorkspaceServices(core: CoreServicesContext) {
 
   const skillService = new SkillService({ onChange: broadcastSkillChange })
   registerSkillIpc(skillService, (input) => terminalManager.write(input))
-  const mcpManager = new McpManager(db, { emitHealth: broadcastMcpHealth })
+  const mcpManager = new McpManager(db, {
+    emitHealth: broadcastMcpHealth,
+    getCipher: async () => (await import('../services/oxequery/secret-cipher')).createSecretCipher(safeStorage)
+  })
   registerMcpIpc(mcpManager)
   registerClipboardTextIpc()
   registerNotificationsIpc()

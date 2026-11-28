@@ -3,6 +3,8 @@ import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
 import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
 import { composeMessageWithContext, type ComposerContextItem } from '../../../shared/types/composer-context'
+import { composeMessageWithMcpResources, type McpResourceAttachment } from '../../../shared/types/mcp'
+import { useMcpPickerStore } from '../../store/mcp-picker.store'
 import { threadProductName, THREAD_PROVIDERS } from '../../../shared/threadProviders'
 import skeletonStyles from '../Navigation/ModeViews.module.css'
 import { useTranslation } from 'react-i18next'
@@ -336,7 +338,8 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const attachments = storeState.attachments[id] ?? NO_ATTACHMENTS
     const previewElements = storeState.previewElements[id] ?? NO_PREVIEW_ELEMENTS
     const contextItems = storeState.contextItems[id] ?? NO_CONTEXT_ITEMS
-    if (!draft.trim() && !attachments.length && !previewElements.length && !contextItems.length) return
+    const mcpResources: readonly McpResourceAttachment[] = useMcpPickerStore.getState().mcpResourcesByThread[id] ?? []
+    if (!draft.trim() && !attachments.length && !previewElements.length && !contextItems.length && !mcpResources.length) return
     const command = draft.trim().match(/^\/([\w:-]+)/)?.[1]
     if (command && hasDesktopCommand(snapshot.thread.provider, command) && api?.command) { void action(() => runCommand(draft)); return }
     if (commandsRef.current?.executeLocal(draft)) return
@@ -344,8 +347,9 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     const text = draft
     const keptElements = previewElements
     const keptContext = contextItems
+    const keptResources = mcpResources
     const attachmentIds = attachments.map(value => value.id)
-    const composed = composeMessageWithContext(composeMessageWithElements(text, keptElements), keptContext)
+    const composed = composeMessageWithMcpResources(composeMessageWithContext(composeMessageWithElements(text, keptElements), keptContext), keptResources)
     const message = composed || t('view.inspectImage')
     // The person's authority is for what they typed, alone: not a selected element's text, not attached context, not the image note.
     const typed = Boolean(text.trim()) && message === text
@@ -368,6 +372,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         useThreadStore.getState().clearAttachments(id)
         useThreadStore.getState().clearPreviewElements(id)
         useThreadStore.getState().clearContextItems(id)
+        useMcpPickerStore.getState().clearMcpResources(id)
         scrollEnd()
       })
       return
@@ -377,6 +382,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     useThreadStore.getState().clearAttachments(id)
     useThreadStore.getState().clearPreviewElements(id)
     useThreadStore.getState().clearContextItems(id)
+    useMcpPickerStore.getState().clearMcpResources(id)
     requestAnimationFrame(scrollEnd)
     void action(dispatchSend, sent => {
       if (!sent) {
@@ -385,6 +391,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         for (const attachment of attachments) store.addAttachment(id, attachment)
         for (const element of keptElements) store.addPreviewElement(id, element)
         for (const item of keptContext) store.addContextItem(id, item)
+        for (const resource of keptResources) useMcpPickerStore.getState().addMcpResource(id, resource)
       }
       setOutgoing(null)
       if (sent) requestAnimationFrame(scrollEnd)

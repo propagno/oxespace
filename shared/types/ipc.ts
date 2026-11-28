@@ -311,6 +311,11 @@ export const IPC_CHANNELS = {
     discover: 'mcp:discover',
     importDiscovered: 'mcp:import-discovered',
     callTool: 'mcp:call-tool',
+    listResources: 'mcp:list-resources',
+    readResource: 'mcp:read-resource',
+    connectOAuth: 'mcp:oauth-connect',
+    disconnectOAuth: 'mcp:oauth-disconnect',
+    oauthStatus: 'mcp:oauth-status',
     onHealth: 'mcp:on-health'
   },
   github: {
@@ -936,26 +941,8 @@ export interface SkillApi {
   onChange(listener: () => void): () => void
 }
 
-export interface McpApi {
-  list(workspaceId: string | null): Promise<import('./mcp').McpServer[]>
-  create(input: import('./mcp').CreateMcpServerInput): Promise<import('./mcp').McpServer>
-  update(input: import('./mcp').UpdateMcpServerInput): Promise<import('./mcp').McpServer>
-  delete(id: string): Promise<void>
-  start(id: string): Promise<import('./mcp').McpToolDescriptor[]>
-  stop(id: string): Promise<void>
-  /** Reopens the browser sign-in page of a server that is waiting to authenticate. */
-  /** Handshake and tool list, then the server is let go; the outcome is on the returned server. */
-  test(id: string): Promise<import('./mcp').McpServer>
-  /** A test plus the Node.js version the server would run on, to explain why it failed. */
-  diagnose?(id: string): Promise<import('./mcp').McpDiagnosis>
-  openSignIn(id: string): Promise<boolean>
-  callTool(input: import('./mcp').McpCallToolInput): Promise<import('./mcp').McpCallToolResult>
-  /** Servers Claude Desktop, Cursor and Windsurf already have, without their secret values. */
-  discover?(workspaceId: string | null): Promise<import('./mcp').McpDiscoverySource[]>
-  /** Creates the named servers of one source, untrusted, in the global or workspace scope. */
-  importDiscovered?(input: { workspaceId: string | null; source: import('./mcp').McpDiscoverySource['id']; names: string[] }): Promise<import('./mcp').McpImportResult>
-  onHealth(listener: (event: import('./mcp').McpServerHealthEvent) => void): () => void
-}
+export type { McpApi } from './mcp'
+import type { McpApi } from './mcp'
 
 export type { SchedulesApi } from './schedules-api'
 import type { SchedulesApi } from './schedules-api'

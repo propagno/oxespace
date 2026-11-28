@@ -1,0 +1,207 @@
+.panel {
+  width: min(24rem, calc(100vw - 1.5rem));
+  padding: 0;
+  border: 1px solid var(--bd-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-overlay);
+  color: var(--tx-primary);
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tabButton[aria-pressed='true'] {
+  background: var(--fill-selected);
+  color: var(--tx-primary);
+}
+
+.counter {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--tx-muted);
+  white-space: nowrap;
+}
+
+.searchWrap {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+.serverGroup {
+  border-bottom: 1px solid var(--bd-subtle);
+}
+
+.serverGroup:last-child {
+  border-bottom: none;
+}
+
+.serverHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-1);
+  padding: var(--space-1) var(--space-2);
+}
+
+.serverMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.serverName {
+  font-size: var(--fs-sm);
+  font-weight: var(--weight-medium);
+  color: var(--tx-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transportTag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+  border: 1px solid var(--bd-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.trustBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+  white-space: nowrap;
+}
+
+.trustBadge[data-trust='trusted'] {
+  color: var(--intent-success-fg);
+}
+
+.trustBadge[data-trust='quarantined'] {
+  color: var(--intent-danger-fg);
+}
+
+.trustBadge[data-trust='untrusted'] {
+  color: var(--intent-warning-fg);
+}
+
+.quarantineBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--intent-danger-fg);
+  background: var(--intent-danger-bg);
+}
+
+.toolList {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) var(--space-3) var(--space-2) var(--space-6);
+  gap: var(--space-1);
+  background: var(--surface-sunken);
+  border-top: 1px solid var(--bd-subtle);
+}
+
+.toolRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.toolLabel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.toolName {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolDesc {
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resourceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--row-1);
+  padding: var(--space-1) var(--space-3);
+  border-top: 1px solid var(--bd-subtle);
+}
+
+.resourceInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.resourceUri {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emptyHint {
+  padding: var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--tx-muted);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--bd-subtle);
+  background: var(--surface-sunken);
+}

@@ -1940,6 +1940,18 @@
       "uvTitle": "Roda com o uv (uvx), que precisa estar instalado"
     },
     "signingIn": "Entrando…",
+    "oauth": {
+      "connectedBadge": "OAuth",
+      "connect": "Entrar",
+      "connecting": "Entrando…",
+      "connectTitle": "Conectar com OAuth 2.1 (tokens salvos no chaveiro do sistema)",
+      "disconnect": "Desconectar",
+      "disconnectTitle": "Remover token OAuth do chaveiro do sistema",
+      "connectedToast": "OAuth conectado para {{name}}",
+      "disconnectedToast": "OAuth desconectado para {{name}}",
+      "connectFailed": "Não foi possível concluir o login OAuth",
+      "disconnectFailed": "Não foi possível remover as credenciais OAuth"
+    },
     "finishSignIn": "Termine de entrar no navegador para conectar.",
     "agentSignsIn": "O agente abre a entrada no seu navegador da primeira vez que conecta.",
     "openSignIn": "Abrir a página de entrada",

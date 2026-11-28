@@ -829,11 +829,13 @@ export class ThreadOrchestrator {
       if (this.busy.has(id)) snapshot.thread.pendingConfiguration = configuration
       else {
         const adapter = this.adapters.get(id)
-        // An idle process that cannot change its configuration in place is closed; the next turn resumes it with the new one.
-        if (adapter && !adapter.configure) { this.adapters.delete(id); await adapter.dispose().catch(() => {}) }
+        const mcpChanged = JSON.stringify(before.disabledMcpTools ?? []) !== JSON.stringify(configuration.disabledMcpTools ?? [])
+        // An idle process that cannot change its configuration in place (or whose MCP tool exclusions changed) is closed; the next turn resumes it with the new one.
+        if (adapter && (!adapter.configure || mcpChanged)) { this.adapters.delete(id); await adapter.dispose().catch(() => {}) }
         else await adapter?.configure?.(configuration)
         snapshot = this.read(id)
         Object.assign(snapshot.thread, configuration)
+        if (!configuration.disabledMcpTools) delete snapshot.thread.disabledMcpTools
         delete snapshot.thread.pendingConfiguration
       }
       snapshot.thread.configurationRevision = revision + 1
