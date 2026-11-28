@@ -1913,6 +1913,12 @@
     "tokens": "{{used}} / {{total}} tokens · {{percent}}%",
     "autoCompact": "Compactação automática perto de {{tokens}} tokens",
     "deferred": "{{name}} (adiado)",
+    "cacheWarm": "Cache de prompt aquecido · {{tokens}} em cache",
+    "cacheStale": "Cache de prompt expirou após {{minutes}} min ocioso · próximo turno reconstrói o prefixo",
+    "cacheBrokenModel": "Cache de prompt reiniciado (modelo alterado) · próximo turno reconstrói o prefixo",
+    "cacheBrokenMcp": "Cache de prompt reiniciado (ferramentas alteradas) · próximo turno reconstrói o prefixo",
+    "cacheBrokenConfig": "Cache de prompt reiniciado (configuração alterada) · próximo turno reconstrói o prefixo",
+    "cacheBrokenPrefix": "Cache de prompt caiu · próximo turno reconstrói o prefixo",
     "plan": "Uso do plano",
     "open": "Abrir os detalhes de uso"
   },

@@ -439,7 +439,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
         {compactChips
           ? <ComposerChips {...compactChips} />
           : snapshot && <ThreadConfigurationBar key={snapshot.thread.id} thread={snapshot.thread} narrow={narrow} compact={compactModel} openControl={openControl} onControlClosed={onControlClosed} onError={onError} onConfigured={value => useThreadStore.getState().updateSnapshot(value)} />}
-        {!narrow && snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} />}
+        {!narrow && snapshot && <ThreadUsageRing provider={snapshot.thread.provider} idle={!running} threadId={snapshot.thread.id} context={snapshot.thread.contextReport} promptCache={snapshot.thread.promptCache} />}
         {showSteer && (
           <IconButton
             size="sm"

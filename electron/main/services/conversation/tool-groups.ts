@@ -23,12 +23,25 @@ export function projectToolModes(thread: RepoConfig['thread'] | undefined): Proj
 
 /** Turns a group on for the session; answered by the bridge, which owns the session's tool list. */
 export const TOOLS_ENABLE = 'oxespace_tools_enable'
+/** Multi-provider deferred tool search for Codex, Antigravity, and optional Claude sessions (OXE-487). */
+export const TOOLS_SEARCH = 'oxespace_tools_search'
+
+export function shouldOfferToolSearch(provider: ThreadProvider): boolean {
+  return provider === 'codex' || provider === 'antigravity'
+}
 
 export interface SessionToolPlan {
   /** The tools the session is offered when it starts. */
   tools: string[]
   /** Groups the session may turn on with oxespace_tools_enable, with their tools; `code` only in a Code terminal. */
   enableable: Partial<Record<ConfigurableMcpToolGroup | 'code', string[]>>
+}
+
+export interface SessionToolPlanOptions {
+  /** Provider launching this session; Codex and Antigravity receive `oxespace_tools_search` for deferred discovery. */
+  provider?: ThreadProvider
+  /** Explicitly include `oxespace_tools_search` regardless of provider. */
+  includeToolSearch?: boolean
 }
 
 /**
@@ -39,7 +52,12 @@ export interface SessionToolPlan {
  * Without it (Claude with `auto:N` or tool search off), `always` groups are offered and `on-demand` ones wait for
  * oxespace_tools_enable. `off` is never offered.
  */
-export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { code?: boolean }, modes: ProjectToolModes): SessionToolPlan {
+export function sessionToolPlan(
+  toolSearch: boolean,
+  roles: ThreadToolRoles & { code?: boolean },
+  modes: ProjectToolModes,
+  options?: SessionToolPlanOptions
+): SessionToolPlan {
   const groups: (keyof typeof MCP_TOOL_GROUPS)[] = ['core', ...(roles.team ? ['team' as const] : []), ...(roles.worker ? ['worker' as const] : [])]
   const enableable: SessionToolPlan['enableable'] = {}
   // A Code terminal starts with its panes, terminal, scripts and jobs; its other tools follow tool search or wait (T8).
@@ -52,7 +70,13 @@ export function sessionToolPlan(toolSearch: boolean, roles: ThreadToolRoles & { 
     if (mode === 'always' || (mode === 'on-demand' && toolSearch)) groups.push(group)
     else if (mode === 'on-demand') enableable[group] = [...MCP_TOOL_GROUPS[group]]
   }
-  const tools = [...new Set([...MCP_TOOL_GROUPS.core, ...code, ...groups.slice(1).flatMap(group => MCP_TOOL_GROUPS[group])])]
+  const offerSearch = options?.includeToolSearch === true || (options?.provider !== undefined && shouldOfferToolSearch(options.provider))
+  const tools = [...new Set([
+    ...MCP_TOOL_GROUPS.core,
+    ...(offerSearch ? [TOOLS_SEARCH] : []),
+    ...code,
+    ...groups.slice(1).flatMap(group => MCP_TOOL_GROUPS[group])
+  ])]
   // Offered only when there is something to turn on, so a conversation that has nothing to enable pays nothing for it.
   return { tools: Object.keys(enableable).length ? [...tools, TOOLS_ENABLE] : tools, enableable }
 }

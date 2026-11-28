@@ -83,7 +83,7 @@ describe('OXESpace tools for an agent in a Code terminal (B2.2)', () => {
 
   it('gives Codex every group that is not off from the start, since it loads definitions as it needs them', async () => {
     const args = (await codeAgentMcpLaunch(db, 'codex', '/bridge.cjs', 'w1', [], {})).args
-    expect(new Set(allowed(args))).toEqual(new Set([...thread('core'), ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('android'), ...thread('app')]))
+    expect(new Set(allowed(args))).toEqual(new Set([...thread('core'), 'oxespace_tools_search', ...CODE_TOOL_GROUP, ...thread('orchestration'), ...thread('data'), ...thread('preview'), ...thread('android'), ...thread('app')]))
     expect(allowed(args)).not.toContain('oxespace_tools_enable')
     expect(enableable(args)).toEqual({})
   })

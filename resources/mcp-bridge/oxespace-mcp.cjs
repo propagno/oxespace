@@ -46,7 +46,7 @@ function stepsAside() {
 const STEPS_ASIDE = stepsAside()
 // Sent once per session in initialize: which OXESpace tools to reach for and how to find the rest (R3). Claude's tool search reads it to decide
 // when to look here (S5, docs/design/teardown-s7-s5.md). One line, at most 600 chars; the T8 test reads and measures it.
-const INSTRUCTIONS = 'OXESpace tools for this project and app: oxespace_project_context for the project at a glance, oxespace_search for exact text and the file list, oxespace_git for history and diffs. oxespace_capabilities lists what this session offers; turn a group on with oxespace_tools_enable, or find a tool with tool search.'
+const INSTRUCTIONS = 'OXESpace tools for this project and app: oxespace_project_context for the project at a glance, oxespace_search for exact text and the file list, oxespace_git for history and diffs. oxespace_capabilities lists what this session offers; search tools with oxespace_tools_search or turn a group on with oxespace_tools_enable.'
 const allowIndex = process.argv.indexOf('--allowed-tools')
 const allowedTools = allowIndex < 0 ? null : new Set(JSON.parse(process.argv[allowIndex + 1]))
 // Groups this session may turn on with oxespace_tools_enable: { group: [tool, ...] } (B7.2). Off groups are never here.
@@ -60,7 +60,7 @@ const MAX_READ_RETRIES = 2
 const READ_ONLY_TOOLS = new Set([
   'oxespace_ping', 'oxespace_list_workspaces', 'oxespace_list_panes', 'oxespace_list_scripts',
   'oxespace_list_background_jobs', 'oxespace_get_job_output', 'oxespace_list_worktrees',
-  'oxespace_capabilities', 'oxespace_execution_context',
+  'oxespace_capabilities', 'oxespace_tools_search', 'oxespace_execution_context',
   'oxespace_project_context', 'oxespace_quality_check',
   'oxespace_delegation_status', 'oxespace_delegation_result',
   'oxespace_delegation_inbox', 'oxespace_delegation_targets', 'oxespace_delegation_preflight',

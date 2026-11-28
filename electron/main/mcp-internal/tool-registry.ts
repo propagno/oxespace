@@ -38,6 +38,7 @@ import { APP_SETTINGS_TOOLS } from './app-settings-tools'
 import { gated } from './domain-tool'
 import { AGENT_CHANGE_TOOLS, AGENT_READ_TOOLS } from './agent-tools'
 import { ANDROID_LIFECYCLE_TOOLS } from './android-lifecycle-tools'
+import { createToolsSearchEntry } from './tool-search'
 
 export interface ToolContext {
   captureRoot?: string
@@ -187,7 +188,7 @@ export function discoveryTools(catalogue: () => ToolEntry[]): ToolEntry[] {
         launchCwd: execution.cwd, currentShellCwd: 'unknown', agentProfileId: pane?.agentProfileId ?? null,
         originPaneId: pane?.originPaneId ?? null, git })
     }
-  })), toolsEnable]
+  })), toolsEnable, createToolsSearchEntry(catalogue)]
 }
 
 /**

@@ -1857,6 +1857,12 @@
     "tokens": "{{used}} / {{total}} tokens · {{percent}}%",
     "autoCompact": "Auto-compact near {{tokens}} tokens",
     "deferred": "{{name}} (deferred)",
+    "cacheWarm": "Prompt cache warm · {{tokens}} cached",
+    "cacheStale": "Prompt cache expired after {{minutes}}m idle · next turn rebuilds the prefix",
+    "cacheBrokenModel": "Prompt cache reset (model changed) · next turn rebuilds the prefix",
+    "cacheBrokenMcp": "Prompt cache reset (tools changed) · next turn rebuilds the prefix",
+    "cacheBrokenConfig": "Prompt cache reset (settings changed) · next turn rebuilds the prefix",
+    "cacheBrokenPrefix": "Prompt cache dropped · next turn rebuilds the prefix",
     "plan": "Plan usage",
     "open": "Open usage details"
   },

@@ -12,6 +12,7 @@ import type {
 } from '../../../../shared/types/thread'
 import { mainMessage } from '../../../../shared/messages'
 import { THREAD_MESSAGE_MAX_CHARS, THREAD_PROMPT_MAX_CHARS } from '../../../../shared/threadLimits'
+import { resolveUtilityModel, runWithUtilityModelFallback, type UtilityModelResolution } from '../../../../shared/utility-model'
 import { MainRefusal } from '../main-refusal'
 import {
   buildSideChatContextBrief,
@@ -52,6 +53,8 @@ export interface ThreadSideHost {
   readTerminalContext?(input: { paneId: string; workspaceId?: string; rootPath?: string }): Promise<SideChatTerminalContextInput | null> | SideChatTerminalContextInput | null
   /** Optional default provider when opening a terminal side chat whose pane has no detected ThreadProvider. */
   defaultProvider?(): ThreadProvider
+  /** Optional host-configured utility model override for auxiliary side-chat sessions (OXE-487). */
+  utilityModel?(provider: ThreadProvider): string | undefined
   /** Called when the main conversation changes, so a side chat goes when it is archived or deleted. */
   subscribe(id: string, listener: () => void): () => void
   /** A provider connection; `forkId` is the copy's id where OXESpace chooses it. */
@@ -135,54 +138,97 @@ export class ThreadSideChats {
     }
 
     await this.closeThread(threadId)
-    const forkId = randomUUID()
-    let adapter: AgentConversationAdapter
-    try {
-      adapter = await this.host.connect(effectiveThread, forkId, { provider, model: effectiveThread.model, mode })
-    } catch (error) {
-      if (this.host.unavailable(error)) return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-      throw error
-    }
+    const utilityPreference = options?.model ? undefined : (options?.utilityModel ?? this.host.utilityModel?.(provider))
+    const primaryModel = effectiveThread.model
+    const resolution: UtilityModelResolution = utilityPreference !== undefined
+      ? resolveUtilityModel(provider, primaryModel, utilityPreference)
+      : { model: primaryModel, fallbackModel: undefined, isUtilityOverride: false, source: primaryModel ? 'primary' : 'default' }
 
-    const side: Side = {
-      sideId: randomUUID(),
+    const opened = await this.openWithFallback({
       targetId: threadId,
       source: 'thread',
       provider,
+      mode,
       mainNativeSessionId: thread.nativeSessionId,
-      thread: { ...effectiveThread },
-      adapter,
-      forkIds: new Set([forkId]),
+      baseThread: effectiveThread,
+      nativeSessionIdForStart: mode === 'native-fork' ? thread.nativeSessionId : null,
       contextBrief,
-      briefSent: false,
-      sentWrappedPrompt: null,
       emit,
-      release: () => {}
-    }
-    this.sides.set(side.sideId, side)
-    try {
-      await side.adapter.start(
-        { rootPath: effectiveThread.rootPath, nativeSessionId: mode === 'native-fork' ? thread.nativeSessionId : null, ...sideChatConfiguration(effectiveThread) },
-        event => this.forward(side, event)
-      )
-    } catch (error) {
-      await this.close(side.sideId)
-      if (this.host.unavailable(error)) return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-      throw error
-    }
-    if (!this.sides.has(side.sideId)) throw new MainRefusal('thread.side.closed', {})
-    side.release = this.host.subscribe(threadId, () => this.mainChanged(threadId))
+      resolution
+    })
+    if (!opened.ok) return opened.result
+    opened.side.release = this.host.subscribe(threadId, () => this.mainChanged(threadId))
     return {
       ok: true,
       side: {
-        sideId: side.sideId,
+        sideId: opened.side.sideId,
         threadId,
         provider,
         readOnly: true,
         mode,
         source: 'thread',
-        sourceProvider: thread.provider
+        sourceProvider: thread.provider,
+        ...(opened.modelUsed ? { model: opened.modelUsed } : {}),
+        ...(opened.usedFallback ? { utilityModelFallback: true } : {})
       }
+    }
+  }
+
+  private async openWithFallback(input: {
+    targetId: string
+    source: 'thread' | 'terminal'
+    provider: ThreadProvider
+    mode: ThreadSideMode
+    mainNativeSessionId: string | null
+    baseThread: ConversationThread
+    nativeSessionIdForStart: string | null
+    contextBrief: string | null
+    emit: (event: ThreadSideEvent) => void
+    resolution: UtilityModelResolution
+  }): Promise<
+    | { ok: true; side: Side; modelUsed: string | undefined; usedFallback: boolean }
+    | { ok: false; result: ThreadSideOpenResult }
+  > {
+    try {
+      const outcome = await runWithUtilityModelFallback(
+        input.resolution,
+        async (modelToUse) => {
+          const attemptThread: ConversationThread = { ...input.baseThread, model: modelToUse }
+          const forkId = randomUUID()
+          const adapter = await this.host.connect(attemptThread, forkId, { provider: input.provider, model: modelToUse, mode: input.mode })
+          const side: Side = {
+            sideId: randomUUID(),
+            targetId: input.targetId,
+            source: input.source,
+            provider: input.provider,
+            mainNativeSessionId: input.mainNativeSessionId,
+            thread: { ...attemptThread },
+            adapter,
+            forkIds: new Set([forkId]),
+            contextBrief: input.contextBrief,
+            briefSent: false,
+            sentWrappedPrompt: null,
+            emit: input.emit,
+            release: () => {}
+          }
+          this.sides.set(side.sideId, side)
+          try {
+            await side.adapter.start(
+              { rootPath: attemptThread.rootPath, nativeSessionId: input.nativeSessionIdForStart, ...sideChatConfiguration(attemptThread) },
+              event => this.forward(side, event)
+            )
+          } catch (error) {
+            await this.close(side.sideId)
+            throw error
+          }
+          if (!this.sides.has(side.sideId)) throw new MainRefusal('thread.side.closed', {})
+          return side
+        }
+      )
+      return { ok: true, side: outcome.value, modelUsed: outcome.modelUsed, usedFallback: outcome.usedFallback }
+    } catch (error) {
+      if (this.host.unavailable(error)) return { ok: false, result: { ok: false, message: mainMessage('thread.side.unavailable', {}) } }
+      throw error
     }
   }
 
@@ -214,52 +260,36 @@ export class ThreadSideChats {
     const contextBrief = buildTerminalSideChatContextBrief({ ...terminal, rootPath: terminal.rootPath || rootPath })
 
     await this.closeThread(targetId)
-    const forkId = randomUUID()
-    let adapter: AgentConversationAdapter
-    try {
-      adapter = await this.host.connect(stub, forkId, { provider, model: options.model, mode: 'terminal-context' })
-    } catch (error) {
-      if (this.host.unavailable(error)) return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-      throw error
-    }
+    const utilityPreference = options.model ? undefined : (options.utilityModel ?? this.host.utilityModel?.(provider))
+    const resolution: UtilityModelResolution = utilityPreference !== undefined
+      ? resolveUtilityModel(provider, options.model, utilityPreference)
+      : { model: options.model, fallbackModel: undefined, isUtilityOverride: false, source: options.model ? 'primary' : 'default' }
 
-    const side: Side = {
-      sideId: randomUUID(),
+    const opened = await this.openWithFallback({
       targetId,
       source: 'terminal',
       provider,
+      mode: 'terminal-context',
       mainNativeSessionId: null,
-      thread: { ...stub },
-      adapter,
-      forkIds: new Set([forkId]),
+      baseThread: stub,
+      nativeSessionIdForStart: null,
       contextBrief,
-      briefSent: false,
-      sentWrappedPrompt: null,
       emit,
-      release: () => {}
-    }
-    this.sides.set(side.sideId, side)
-    try {
-      await side.adapter.start(
-        { rootPath: stub.rootPath, nativeSessionId: null, ...sideChatConfiguration(stub) },
-        event => this.forward(side, event)
-      )
-    } catch (error) {
-      await this.close(side.sideId)
-      if (this.host.unavailable(error)) return { ok: false, message: mainMessage('thread.side.unavailable', {}) }
-      throw error
-    }
-    if (!this.sides.has(side.sideId)) throw new MainRefusal('thread.side.closed', {})
+      resolution
+    })
+    if (!opened.ok) return opened.result
     return {
       ok: true,
       side: {
-        sideId: side.sideId,
+        sideId: opened.side.sideId,
         threadId: targetId,
         provider,
         readOnly: true,
         mode: 'terminal-context',
         source: 'terminal',
-        paneId: terminal.paneId
+        paneId: terminal.paneId,
+        ...(opened.modelUsed ? { model: opened.modelUsed } : {}),
+        ...(opened.usedFallback ? { utilityModelFallback: true } : {})
       }
     }
   }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Notice, Select, SegmentedControl, SettingRow, SettingsSection, Switch } from '../../ui'
+import { Notice, Select, SegmentedControl, SettingRow, SettingsSection, Switch, TextField } from '../../ui'
 import { THREAD_IDLE_SUSPEND_CHOICES } from '../../../shared/threadLimits'
 import { humanizeError } from '../../utils/humanizeError'
 import {
@@ -22,11 +22,12 @@ function pastePresetOf(threshold: number): PastePreset {
   return '10000'
 }
 
-/** The conversation settings at the end of Settings › Agents: idle conversations, OxeChat preferences, and the send key (OXE-131, OXE-479). */
+/** The conversation settings at the end of Settings › Agents: idle conversations, OxeChat preferences, utility model and the send key (OXE-131, OXE-479, OXE-487). */
 export function ConversationSettings(): ReactElement {
   return <>
     <IdleConversationsSetting />
     <OxeChatPreferencesSetting />
+    <UtilityModelSetting />
     <SendKeySetting />
   </>
 }
@@ -116,6 +117,25 @@ function OxeChatPreferencesSetting(): ReactElement {
         />
       }
     />
+  </SettingsSection>
+}
+
+/** Optional fast/lightweight model for auxiliary tasks (side chats, quick helpers); empty = Auto with graceful fallback. */
+function UtilityModelSetting(): ReactElement {
+  const { t } = useTranslation('settings')
+  const utilityModel = useThreadPrefs(state => state.utilityModel)
+  const setUtilityModel = useThreadPrefs(state => state.setUtilityModel)
+  const [editing, setEditing] = useState<string | null>(null)
+  const commit = (): void => {
+    if (editing === null) return
+    setUtilityModel(editing)
+    setEditing(null)
+  }
+  return <SettingsSection title={t('utilityModel.title')}>
+    <SettingRow label={t('utilityModel.label')} description={t('utilityModel.hint')}
+      control={<TextField aria-label={t('utilityModel.label')} placeholder={t('utilityModel.placeholder')} value={editing ?? utilityModel}
+        onChange={event => setEditing(event.target.value)} onBlur={commit}
+        onKeyDown={event => { if (event.key === 'Enter') commit() }} />} />
   </SettingsSection>
 }
 

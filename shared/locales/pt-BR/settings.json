@@ -482,6 +482,12 @@
       "off": "Desligado"
     }
   },
+  "utilityModel": {
+    "title": "Tarefas auxiliares",
+    "label": "Modelo utilitário",
+    "hint": "Modelo rápido opcional para side chats e ajudantes rápidos. Deixe em branco para Automático (volta ao modelo principal se indisponível), ou digite \"primary\" para manter sempre o modelo principal.",
+    "placeholder": "Automático (padrão rápido)"
+  },
   "sendKey": {
     "title": "Mensagens",
     "label": "Enviar mensagem com",

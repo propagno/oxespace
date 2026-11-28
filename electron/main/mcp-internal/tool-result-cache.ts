@@ -263,7 +263,8 @@ export function getMutationInvalidation(toolName: string, args: unknown): Mutati
     toolName === 'oxespace_capture_web_preview' ||
     toolName === 'oxespace_device_screenshot' ||
     toolName === 'oxespace_android_logcat_tail' ||
-    toolName === 'oxespace_tools_enable'
+    toolName === 'oxespace_tools_enable' ||
+    toolName === 'oxespace_tools_search'
   ) {
     return null
   }
