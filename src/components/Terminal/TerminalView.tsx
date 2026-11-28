@@ -1,15 +1,17 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { TERMINAL_SELECT_ALL_EVENT } from '../Navigation/editTarget'
 import { useColorMode, useColorScheme, useSurfaceStyle } from '../../design/useColorMode'
-import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { createTerminalLinksAddon } from './terminalLinks'
 import { attachTerminalPaths } from './terminalPaths'
 import { attachTerminalContextMenu } from './terminalContextMenu'
 import { sendTerminalSelectionToChat } from './terminalToChat'
-import { fitTerminalGrid, useHeldGrid, type HeldGrid } from './heldGrid'
+import { useHeldGrid, type HeldGrid } from './heldGrid'
 import { createPtyResizeDebouncer, isValidPtyGrid, syncNotifiedGrid } from './resizeDebounce'
+import { createTerminalFitController } from './terminalReflowDebouncer'
 import { captureViewportAnchor, createResizeRedrawGuard } from './resizeRedrawGuard'
+import { createLazySearchAddon, type LazySearchAddonController } from './terminalSearchAddon'
+import { createAdaptiveSmoothScrollController, safeClearTextureAtlas } from './terminalSmoothScroll'
 import { createTerminalWebglController, type WarmWebglPool } from './webglPool'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
@@ -27,18 +29,9 @@ import { TabFocusBadge } from './TabFocusBadge'
 import { createTerminalWriteScheduler } from './terminalWriteScheduler'
 import { createTerminalAckBatcher } from './terminalFlowControlAck'
 import { createRevealScheduler, isTerminalHostHidden, observeTerminalVisibility } from './terminalVisibility'
-import { buildTerminalTheme, decodeOsc52ClipboardWrite, resolveInactiveCursorStyle, searchDecorations } from './terminalViewHelpers'
+import { buildTerminalTheme, decodeOsc52ClipboardWrite, readAgentPreview, resolveInactiveCursorStyle, searchDecorations } from './terminalViewHelpers'
 import { resolveWindowsPty } from '../../../shared/windows-pty'
 import { UI_SCALE_EVENT } from '../../../shared/uiScale'
-
-// Claude Code uses ⏺ (U+23FA) on Mac and ● (U+25CF) on Windows
-const AGENT_MARKERS = ['⏺', '●']
-
-// readAgentPreview only needs the most recent agent line. Cap how far back it
-// scans so it stays O(1) regardless of scrollback depth — without this it walks
-// the entire buffer (up to 100k lines) on every output burst when no marker is
-// found, janking the renderer and making selection/copy unreliable over time.
-const AGENT_PREVIEW_SCAN_LINES = 300
 
 // How long a just-cleared selection is still considered copyable. xterm wipes
 // the selection when the scrollback trims, the buffer toggles (TUI alt-screen),
@@ -47,28 +40,6 @@ const AGENT_PREVIEW_SCAN_LINES = 300
 // selection briefly so the copy still lands instead of silently turning into a
 // SIGINT. Reset whenever the user actually types into the PTY.
 const RECENT_SELECTION_MS = 2000
-
-function readAgentPreview(terminal: Terminal): string {
-  const buf = terminal.buffer.active
-  const top = buf.baseY + buf.cursorY
-  const stop = Math.max(0, top - AGENT_PREVIEW_SCAN_LINES)
-  for (let y = top; y >= stop; y--) {
-    const line = buf.getLine(y)
-    if (!line) continue
-    let text = ''
-    for (let x = 0; x < line.length; x++) {
-      text += line.getCell(x)?.getChars() ?? ' '
-    }
-    text = text.trimEnd()
-    const trimmed = text.trimStart()
-    if (!trimmed) continue
-    const marker = AGENT_MARKERS.find(m => trimmed.startsWith(m))
-    if (!marker) continue
-    const content = trimmed.slice(marker.length).trim()
-    if (content) return content
-  }
-  return ''
-}
 
 interface TerminalViewProps {
   /** Thread's native CLI uses its own transport and never subscribes to Code panes. */
@@ -106,8 +77,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   const fitFrameRef = useRef<number | null>(null)
   const settleFitTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([])
   const [isDragOver, setIsDragOver] = useState(false)
-  // Ctrl+F search overlay (powered by @xterm/addon-search).
-  const searchAddonRef = useRef<SearchAddon | null>(null)
+  // Ctrl+F search overlay (lazily loads @xterm/addon-search with highlightLimit: 1000 on first open).
+  const searchControllerRef = useRef<LazySearchAddonController | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -143,7 +114,6 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     })
     const fitAddon = new FitAddon()
     const unicodeAddon = new Unicode11Addon()
-    const searchAddon = new SearchAddon()
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(unicodeAddon)
@@ -154,9 +124,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         void sendTerminalSelectionToChat({ selection, workspaceId, paneId })
       }
     }) // CODE-8 + AG-08 (OXE-190): Copy, Paste, Select all, Clear, optional Send selection to OxeChat
-    terminal.loadAddon(searchAddon)
-    searchAddonRef.current = searchAddon
-    const searchResultsDisposable = searchAddon.onDidChangeResults((results) => setSearchResults(results))
+    const searchController = createLazySearchAddon({
+      terminal,
+      onResults: (results) => setSearchResults(results)
+    })
+    searchControllerRef.current = searchController
+    const smoothScroll = createAdaptiveSmoothScrollController({ terminal, webglActive: false })
     terminal.open(hostRef.current)
     const isHidden = (): boolean => isTerminalHostHidden(hostRef.current)
     let previewTimer: ReturnType<typeof setTimeout> | null = null
@@ -187,6 +160,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         isAltScreen ||
         (!hasActiveOrRecentSelection && preViewportY >= preBuf.baseY)
       const payload = meta.truncated ? `\x1b[2J\x1b[H\x1b[?2026l${chunk}` : chunk
+      smoothScroll.recordThroughput(chunk.length)
       terminal.write(payload, () => {
         if (!disposed && terminal.buffer.active.type === 'normal') {
           if (!wasAtBottom) {
@@ -368,6 +342,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     // scroll its own viewport. When the app enables mouse tracking, leave the
     // event to xterm so it is forwarded as mouse sequences.
     const handleTuiWheel = (event: WheelEvent): boolean => {
+      smoothScroll.onWheel(event)
       const keys = wheelToTuiScrollKeys({
         bufferType: terminal.buffer.active.type,
         mouseTrackingMode: terminal.modes.mouseTrackingMode,
@@ -408,6 +383,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       // the PTY. (Shift/Alt variants pass through for TUIs that bind them.)
       if ((event.ctrlKey || event.metaKey) && key === 'f' && event.type === 'keydown' && !event.altKey && !event.shiftKey) {
         event.preventDefault()
+        searchController.ensure()
         setSearchOpen(true)
         return false
       }
@@ -506,54 +482,38 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     const handleOpenSearchRequest = (event: Event): void => {
       const detail = (event as CustomEvent<{ paneId?: string }>).detail
       if (detail?.paneId !== paneId) return
+      searchController.ensure()
       setSearchOpen(true)
     }
     window.addEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
 
-    const syncViewportScrollArea = (): void => {
-      // Public API has no syncScrollArea; after maximize the private viewport can
-      // keep a stale scrollHeight so the wheel appears dead. Best-effort only.
-      try {
-        const core = (terminal as unknown as {
-          _core?: { viewport?: { syncScrollArea?: (immediate?: boolean) => void } }
-        })._core
-        core?.viewport?.syncScrollArea?.(true)
-      } catch {
-        /* private xterm surface — ignore if shape changes */
-      }
-    }
-
     const notified: HeldGrid = { cols: 0, rows: 0 }
     const resizeDebouncer = createPtyResizeDebouncer({ onEmit: (cols, rows) => { notified.cols = cols; notified.rows = rows; resizeRedrawGuard.notifyPtyResize(cols, rows, captureViewportAnchor(terminal)); onResizeRef.current(cols, rows) } })
     const reportResize = (cols: number, rows: number): void => { if (resizeDebouncer.report(cols, rows) === 'ignored') syncNotifiedGrid(notified, resizeDebouncer) }
-    const fitTerminal = (forceRefresh = false): void => {
-      if (isHidden()) return
-      try {
-        // Preserve absolute scroll position across reflows (e.g. wide tables).
-        const buf = terminal.buffer.active
-        const viewportY = buf.viewportY
-        const wasAtBottom = viewportY >= buf.baseY
-
-        const dimensionsChanged = fitTerminalGrid(terminal, fitAddon, fixedSizeRef.current, notified, reportResize)
-
-        // Force full-screen repaint and scrollArea re-measure on resize or post-hidden reveal.
-        if (dimensionsChanged || forceRefresh) terminal.refresh(0, Math.max(0, terminal.rows - 1))
-        syncViewportScrollArea()
-
-        if (buf.type === 'alternate') return
-        if (wasAtBottom) terminal.scrollToBottom()
-        else terminal.scrollToLine(Math.min(viewportY, terminal.buffer.active.baseY))
-      } catch {
-        // xterm may not have measurable dimensions during first layout.
-      }
-    }
+    const fitController = createTerminalFitController({
+      terminal,
+      fitAddon,
+      notified,
+      resizeDebouncer,
+      getFixedSize: () => fixedSizeRef.current,
+      isHidden,
+      isDisposed: () => disposed,
+      reportResize
+    })
+    const fitTerminal = (forceRefresh = false): void => fitController.fit(forceRefresh)
     refitRef.current = () => fitTerminal()
 
+    let lastDpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1
     const scheduleFit = (): void => {
       if (isHidden() || fitFrameRef.current !== null) return
       fitFrameRef.current = window.requestAnimationFrame(() => {
         fitFrameRef.current = null
-        if (!isHidden()) fitTerminal()
+        if (isHidden()) return
+        if (typeof window !== 'undefined' && window.devicePixelRatio !== lastDpr) {
+          lastDpr = window.devicePixelRatio
+          safeClearTextureAtlas(terminal)
+        }
+        fitTerminal()
       })
     }
 
@@ -564,8 +524,12 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       if (workspaceId && detail?.workspaceId === workspaceId) scheduleFit()
     }
     window.addEventListener('oxe:workspace-activated', handleWorkspaceActivated)
-    // A new interface scale changes the device pixel ratio; refit once now and once after xterm re-measures its cells.
-    const handleUiScale = (): void => { scheduleFit(); settleFitTimersRef.current.push(setTimeout(scheduleFit, 150)) }
+    // A new interface scale changes the device pixel ratio; clear glyph atlas and refit once now and once after xterm re-measures its cells.
+    const handleUiScale = (): void => {
+      safeClearTextureAtlas(terminal)
+      scheduleFit()
+      settleFitTimersRef.current.push(setTimeout(() => { safeClearTextureAtlas(terminal); scheduleFit() }, 150))
+    }
     window.addEventListener(UI_SCALE_EVENT, handleUiScale)
     scheduleFit()
     void document.fonts?.ready.then(scheduleFit).catch(() => undefined)
@@ -667,7 +631,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       isDisposed: () => disposed,
       isHidden,
       warmPool,
-      onContextLost: () => warmPool?.remove(paneId)
+      onContextLost: () => warmPool?.remove(paneId),
+      onWebglStateChange: (active) => smoothScroll.setWebglActive(active)
     })
     const evictFromWarmPool = (): void => {
       if (disposed || !isHidden()) return
@@ -695,7 +660,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         resizeRedrawGuard.flush()
         if (previewTimer) { clearTimeout(previewTimer); previewTimer = null }
         if (fitFrameRef.current !== null) { window.cancelAnimationFrame(fitFrameRef.current); fitFrameRef.current = null }
-        resizeDebouncer.cancel(); syncNotifiedGrid(notified, resizeDebouncer)
+        fitController.cancel(); resizeDebouncer.cancel(); syncNotifiedGrid(notified, resizeDebouncer)
         const keptWarm = warmPool ? warmPool.markHidden(paneId, evictFromWarmPool) : false
         if (!keptWarm) {
           webgl.release()
@@ -752,7 +717,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       // main keeps its output, so coming back costs a replay instead of a
       // respawn. This is the whole point of the attach model.
       void bridge.detach?.({ paneId })
-      revealScheduler.cancel(); cancelWarmReveal(); resizeDebouncer.dispose(); resizeRedrawGuard.dispose()
+      revealScheduler.cancel(); cancelWarmReveal(); fitController.dispose(); resizeDebouncer.dispose(); resizeRedrawGuard.dispose()
       if (fitFrameRef.current !== null) {
         window.cancelAnimationFrame(fitFrameRef.current)
         fitFrameRef.current = null
@@ -768,8 +733,9 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
       dataDisposable.dispose()
       selectionDisposable.dispose()
       osc52Disposable.dispose()
-      searchResultsDisposable.dispose()
-      searchAddonRef.current = null
+      searchController.dispose()
+      searchControllerRef.current = null
+      smoothScroll.dispose()
       window.removeEventListener('oxe:terminal-clear', handleClearRequest)
       window.removeEventListener('oxe:terminal-open-search', handleOpenSearchRequest)
       window.removeEventListener('oxe:workspace-activated', handleWorkspaceActivated)
@@ -825,8 +791,8 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
         if (t.options.allowTransparency !== translucent) t.options.allowTransparency = translucent
       } catch { /* applies on next terminal creation */ }
       t.options.theme = buildTerminalTheme(translucent)
-      // Font metrics changed → re-fit (recomputes cols/rows + notifies the PTY)
-      // and repaint so glyphs render at the new size.
+      // Font metrics or theme changed → flush glyph texture atlas, re-fit if font changed, and repaint.
+      safeClearTextureAtlas(t)
       if (fontChanged) refitRef.current?.()
       t.refresh(0, t.rows - 1)
     })
@@ -872,13 +838,13 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
   }, [searchOpen])
 
   const runSearch = useCallback((query: string, direction: 'next' | 'prev', incremental = false): void => {
-    const addon = searchAddonRef.current
-    if (!addon) return
     if (!query) {
-      addon.clearDecorations()
+      searchControllerRef.current?.current()?.clearDecorations()
       setSearchResults(null)
       return
     }
+    const addon = searchControllerRef.current?.ensure()
+    if (!addon) return
     const options = { decorations: searchDecorations(), incremental }
     if (direction === 'next') addon.findNext(query, options)
     else addon.findPrevious(query, options)
@@ -888,7 +854,7 @@ export function TerminalView({ isRunning, onExit, onInput, onResize, fixedSize =
     setSearchOpen(false)
     setSearchQuery('')
     setSearchResults(null)
-    searchAddonRef.current?.clearDecorations()
+    searchControllerRef.current?.current()?.clearDecorations()
     terminalRef.current?.focus()
   }, [])
 
