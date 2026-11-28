@@ -388,4 +388,48 @@ describe('Antigravity quota in the usage reading', () => {
     expect(snap.geminiWeeklyUnavailable).toBe(true)
     expect(snap.windows.map(w => `${w.group}:${w.kind}`)).toEqual(['gemini:session', 'claude-gpt:session', 'claude-gpt:weekly'])
   })
+
+  // OXE-491: live agy /usage showed Gemini 5h at 51.40% remaining (49% used, refreshes in 2h 1m) while
+  // retrieveUserQuotaSummary returned Gemini weekly (87%) + an unpopulated 5h bucket (0% with no resetTime).
+  test('supplements Gemini 5h session via retrieveUserQuota when summary returns weekly usage with empty 5h bucket', async () => {
+    const summaryWithEmpty5h = {
+      groups: [
+        {
+          displayName: 'Gemini models',
+          buckets: [
+            { bucketId: '1p-5h', window: '5h', remainingFraction: 1 },
+            { bucketId: '1p-weekly', window: 'weekly', resetTime: '2026-11-18T04:00:00Z', remainingFraction: 0.1246 }
+          ]
+        },
+        {
+          displayName: 'Claude and GPT models',
+          buckets: [
+            { bucketId: '3p-5h', window: '5h', remainingFraction: 1 },
+            { bucketId: '3p-weekly', window: 'weekly', remainingFraction: 1 }
+          ]
+        }
+      ]
+    }
+    const perModel5h = {
+      buckets: [
+        { modelId: 'gemini-4-neon', tokenType: 'REQUESTS', remainingFraction: 0.514, resetTime: '2026-11-12T22:01:00Z' }
+      ]
+    }
+    const { credits, request } = service({
+      store: [stored('2026-11-12T22:00:00Z')],
+      plan: () => answer({ ...plan, cloudaicompanionProject: 'proj-ultra-491' }),
+      quota: () => answer(summaryWithEmpty5h),
+      userQuota: () => answer(perModel5h)
+    })
+    const snap = await credits.getCredits()
+    expect(request.mock.calls.map(call => String(call[0]))).toEqual([ANTIGRAVITY_PLAN_URL, ANTIGRAVITY_QUOTA_URL, ANTIGRAVITY_USER_QUOTA_URL])
+    expect(snap.geminiWeeklyUnavailable).toBeUndefined()
+    expect(snap.display).toEqual({ kind: 'weekly', usedPct: 88, resetsAtMs: Date.parse('2026-11-18T04:00:00Z'), group: 'gemini' })
+    expect(snap.windows).toEqual([
+      { kind: 'session', usedPct: 49, resetsAtMs: Date.parse('2026-11-12T22:01:00Z'), group: 'gemini' },
+      { kind: 'weekly', usedPct: 88, resetsAtMs: Date.parse('2026-11-18T04:00:00Z'), group: 'gemini' },
+      { kind: 'session', usedPct: 0, resetsAtMs: null, group: 'claude-gpt' },
+      { kind: 'weekly', usedPct: 0, resetsAtMs: null, group: 'claude-gpt' }
+    ])
+  })
 })
