@@ -80,6 +80,7 @@ export interface BrowserPreviewNetworkRow {
   type: string
   ms: number | null
   failed?: 'canceled' | 'error'
+  errorText?: string
 }
 
 export interface BrowserPreviewEvent {

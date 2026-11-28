@@ -104,12 +104,13 @@ export class BrowserPreviewService {
       })
     })
     previewSession.webRequest.onErrorOccurred(details => {
-      if (!details.error || details.error === 'net::ERR_ABORTED') return
+      const errorText = typeof details.error === 'string' ? details.error.trim() : ''
+      if (!errorText || errorText === 'net::ERR_ABORTED' || errorText === 'net::ERR_BLOCKED_BY_CLIENT') return
       const tab = this.findByWebContentsId(details.webContentsId)
       if (!tab) return
       this.emit(tab, {
         type: 'network',
-        row: { method: details.method || 'GET', url: maskPreviewUrl(details.url), status: null, type: details.resourceType || 'other', ms: null, failed: 'error' },
+        row: { method: details.method || 'GET', url: maskPreviewUrl(details.url), status: null, type: details.resourceType || 'other', ms: null, failed: 'error', errorText },
         at: Date.now()
       })
     })
@@ -276,9 +277,10 @@ export class BrowserPreviewService {
       view.webContents.on('did-stop-loading', () => { if (!isCurrent()) return; meta.loading = false; this.emit(current,{type:'loading',loading:false}); if (inPage) { inPage = false; this.emit(current,{type:'ready'}) } })
       view.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => {
         if (!isCurrent() || code === -3) return
+        const errorText = typeof description === 'string' ? description.trim() : ''
         this.emit(current, {
           type: 'network',
-          row: { method: 'GET', url: maskPreviewUrl(failedUrl || meta.url || ''), status: null, type: isMainFrame ? 'document' : 'subFrame', ms: null, failed: 'error' },
+          row: { method: 'GET', url: maskPreviewUrl(failedUrl || meta.url || ''), status: null, type: isMainFrame ? 'document' : 'subFrame', ms: null, failed: 'error', ...(errorText ? { errorText } : {}) },
           at: Date.now()
         })
         if (isMainFrame) {

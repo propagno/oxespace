@@ -188,6 +188,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   const lastDesignMode = useRef<string | null>(null)
   const hydratedRef = useRef<string | null>(null)
   const activeOwnerRef = useRef(previewKey)
+  const activeUrlRef = useRef<string | null>(url)
   const applySession = useCallback((session: BrowserPreviewSessionState, hydrateOwner = false): void => {
     setTabs(current => session.tabs.map(tab => {
       const previous = current.find(item => item.id === tab.id)
@@ -228,12 +229,14 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
   useEffect(() => {
     let cancelled = false
     activeOwnerRef.current = previewKey
+    activeUrlRef.current = null
     hydratedRef.current = null
     lastAccessByTab.current.clear()
     readyTabs.current.clear()
     lastDesignMode.current = null
     void window.oxe.browserPreview.session({ownerKey:previewKey,action:'open'}).then(session => {
       if (cancelled) return
+      activeUrlRef.current = session.tabs.find(tab => tab.id === session.activeTabId)?.url ?? null
       const initial = hydratedRef.current !== previewKey
       if (initial) hydratedRef.current = previewKey
       applySession(session, initial)
@@ -313,6 +316,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
     return window.oxe.browserPreview.onEvent((event: BrowserPreviewEvent) => {
       if (event.ownerKey !== previewKey) return
       if (event.type === 'session' && event.session) {
+        activeUrlRef.current = event.session.tabs.find(tab => tab.id === event.session!.activeTabId)?.url ?? null
         const initial = hydratedRef.current !== previewKey
         if (initial) hydratedRef.current = previewKey
         applySession(event.session, initial)
@@ -320,14 +324,17 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
       }
       // Main took agent access away (T43): show it off; turning it on asks the person again.
       if (event.type === 'access') { if (event.agentAccess === false) { lastAccessByTab.current.clear(); setAgentAutomation(false) } return }
-      if (event.type === 'navigation' && event.url) updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
+      if (event.type === 'navigation' && event.url) {
+        if (event.tabId === activeTabId) activeUrlRef.current = event.url
+        updateTab(event.tabId, tab => ({...tab,draftUrl:event.url!,url:event.url!,error:null,canGoBack:event.canGoBack === true,canGoForward:event.canGoForward === true}))
+      }
       if (event.type === 'loading') updateTab(event.tabId, tab => ({...tab,loading:event.loading === true,error:event.loading ? null : tab.error}))
       if (event.type === 'failed') updateTab(event.tabId, tab => ({...tab,loading:false,error:event.message ?? tc('preview.pageFailed')}))
       if (event.tabId !== activeTabId) return
       if (event.type === 'ready') { readyTabs.current.add(event.tabId); setGuestReady(true) }
       if (event.type === 'loading' && event.loading) { readyTabs.current.delete(event.tabId); setGuestReady(false); setProblems(NO_PREVIEW_PROBLEMS) }
       if ((event.type === 'page-error' || event.type === 'console' || event.type === 'network') && event.row) {
-        setProblems(current => addPreviewProblem(current, event.row!))
+        setProblems(current => addPreviewProblem(current, event.row!, activeUrlRef.current ?? undefined))
         return
       }
       if (event.type === 'cancel') {
@@ -352,6 +359,7 @@ export function WebPreviewPanel({ embedded = false, onClose, onOpenFile, onSendT
 
   // A new document means a fresh guest with the picker off.
   useEffect(() => {
+    activeUrlRef.current = url
     setGuestReady(readyTabs.current.has(activeTabId))
     setDesignMode(false)
   }, [url, activeTabId])

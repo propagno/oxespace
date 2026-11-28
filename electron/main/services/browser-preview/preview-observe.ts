@@ -216,7 +216,17 @@ export class NetworkLog {
       if (entry.startTs !== null && ts !== null) {
         entry.row.ms = Math.max(0, Math.round((ts - entry.startTs) * 1000))
       }
-      entry.row.failed = params.canceled === true ? 'canceled' : 'error'
+      const errorText = typeof params.errorText === 'string' ? redactSecrets(params.errorText).trim() : ''
+      const isCanceled =
+        params.canceled === true ||
+        errorText === 'net::ERR_ABORTED' ||
+        errorText === 'net::ERR_BLOCKED_BY_CLIENT'
+      if (isCanceled) {
+        entry.row.failed = 'canceled'
+      } else {
+        entry.row.failed = 'error'
+        if (errorText) entry.row.errorText = errorText
+      }
       this.inFlight.delete(requestId)
       return { ...entry.row }
     }

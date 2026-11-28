@@ -94,7 +94,8 @@ export function AgentBrowserChrome({ ownerKey, tabId, agentName, footerLeft = nu
           status: event.row.status,
           type: event.row.type,
           ms: event.row.ms,
-          ...(event.row.failed ? { failed: event.row.failed } : {})
+          ...(event.row.failed ? { failed: event.row.failed } : {}),
+          ...(event.row.errorText ? { errorText: event.row.errorText } : {})
         }
         setNetworkRows(current => [...current, clean].slice(-MAX_NETWORK_ROWS))
       }
