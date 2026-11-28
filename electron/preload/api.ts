@@ -65,6 +65,7 @@ export function createOxeApi(
       observe: id => ipc.invoke(IPC_CHANNELS.thread.observe, id) as Promise<import('../../shared/types/thread').ThreadProviderObservation>,
       recover: id => ipc.invoke(IPC_CHANNELS.thread.recover, id) as Promise<void>,
       commands: (id, forceRefresh) => ipc.invoke(IPC_CHANNELS.thread.commands, id, forceRefresh) as ReturnType<import('../../shared/types/thread').ThreadApi['commands']>,
+      listCustomAgents: rootPath => ipc.invoke(IPC_CHANNELS.thread.listCustomAgents, rootPath) as Promise<import('../../shared/types/custom-agents').CustomAgentDefinition[]>,
       projects: () => ipc.invoke(IPC_CHANNELS.thread.projects) as ReturnType<import('../../shared/types/thread').ThreadApi['projects']>,
       addProject: rootPath => ipc.invoke(IPC_CHANNELS.thread.addProject, rootPath) as ReturnType<import('../../shared/types/thread').ThreadApi['addProject']>,
       relinkProject: (projectId, rootPath) => ipc.invoke(IPC_CHANNELS.thread.relinkProject, projectId, rootPath) as ReturnType<import('../../shared/types/thread').ThreadApi['relinkProject']>,

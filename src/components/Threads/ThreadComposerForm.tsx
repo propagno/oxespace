@@ -10,7 +10,8 @@ import {
   type ComposerContextItem
 } from '../../../shared/types/composer-context'
 import type { McpResourceAttachment } from '../../../shared/types/mcp'
-import type { ThreadAttachment, ThreadSnapshot } from '../../../shared/types/thread'
+import type { CustomAgentDefinition } from '../../../shared/types/custom-agents'
+import type { ThreadAttachment, ThreadConfiguration, ThreadSnapshot } from '../../../shared/types/thread'
 import type { McpPickerTab } from '../MCP/McpToolPickerPopover'
 
 const LazyMcpToolPickerPopover = lazy(() => import('../MCP/McpToolPickerPopover').then(m => ({ default: m.McpToolPickerPopover })))
@@ -25,6 +26,7 @@ import { ComposerContextChips } from './ComposerContextChips'
 import { PreviewElementChips } from './PreviewElementChips'
 import { ThreadConfigurationBar } from './ThreadConfigurationBar'
 import { ThreadUsageRing } from './ThreadUsageRing'
+import { NO_CUSTOM_AGENTS, toThreadMode } from './useCustomAgents'
 import { THREAD_MESSAGE_MAX_CHARS } from '../../../shared/threadLimits'
 import './ThreadComposerChrome.css'
 import { displayThreadTitle } from './threadTitle'
@@ -73,7 +75,7 @@ export interface CompactComposerChipsConfig {
 }
 
 /** The message box: text, attachments, context chips, commands, mentions, configuration and send/steer/stop. */
-export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onAskInSideChat, onNewThread, onAccounts }: {
+export function ThreadComposerForm({ snapshot, pending, running, active, composerState, textarea, fileInput, commandsRef, openControl, compactChips, customAgents = NO_CUSTOM_AGENTS, workingSet, onControlClosed, onError, onSend, onUpload, onRemoveAttachment, onRemovePreviewElement, onInterrupt, onRunAction, onRunCommand, onSideChat, onAskInSideChat, onNewThread, onAccounts }: {
   snapshot: ThreadSnapshot | null
   pending: boolean
   running: boolean
@@ -84,6 +86,7 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
   commandsRef?: RefObject<ThreadComposerCommandsHandle | null>
   openControl: 'model' | 'effort' | 'permissions' | null
   compactChips?: CompactComposerChipsConfig
+  customAgents?: CustomAgentDefinition[]
   workingSet?: ReactNode
   onControlClosed: () => void
   onError: (message: string) => void
@@ -250,17 +253,78 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       : t('composer.queueTitle', { key: sendKeyLabel(sendKey) }))
     : t('composer.sendTitle', { key: sendKeyLabel(sendKey) })
   const desired = snapshot ? (snapshot.thread.pendingConfiguration ?? snapshot.thread) : null
-  const planning = desired?.mode === 'plan'
-  const setMode = async (plan: boolean) => {
-    if (!snapshot || modeSaving || plan === planning) return
+  const activeCustomAgent = desired?.customAgentId ? customAgents.find(agent => agent.id === desired.customAgentId) ?? null : null
+  const asking = !activeCustomAgent && desired?.mode === 'ask'
+  const planning = !activeCustomAgent && desired?.mode === 'plan'
+  const agentActive = !activeCustomAgent && !planning && !asking
+  const applyModeConfig = async (patch: Pick<ThreadConfiguration, 'mode' | 'customAgentId'>) => {
+    if (!snapshot || modeSaving) return
     setModeSaving(true)
     try {
       if (!window.oxe.thread?.configure) throw Error(t('config.restart'))
-      const next = await window.oxe.thread.configure(snapshot.thread.id, { mode: plan ? 'plan' : desired?.mode === 'acceptEdits' ? 'acceptEdits' : 'default' }, snapshot.thread.configurationRevision ?? 0)
+      const next = await window.oxe.thread.configure(snapshot.thread.id, patch, snapshot.thread.configurationRevision ?? 0)
       useThreadStore.getState().updateSnapshot(next)
     } catch (error) { onError(humanizeError(error, t('config.applyFailed'))) }
     finally { setModeSaving(false) }
   }
+  const setMode = async (plan: boolean) => {
+    if (!snapshot || modeSaving) return
+    if (plan && planning) return
+    if (!plan && agentActive) return
+    await applyModeConfig({
+      mode: plan ? 'plan' : desired?.mode === 'acceptEdits' ? 'acceptEdits' : 'default',
+      customAgentId: null
+    })
+  }
+  const selectModeValue = (value: string): void => {
+    if (value === 'builtin:agent') {
+      void applyModeConfig({ mode: desired?.mode === 'acceptEdits' ? 'acceptEdits' : 'default', customAgentId: null })
+      return
+    }
+    if (value === 'builtin:plan') {
+      void applyModeConfig({ mode: 'plan', customAgentId: null })
+      return
+    }
+    if (value === 'builtin:ask') {
+      void applyModeConfig({ mode: 'ask', customAgentId: null })
+      return
+    }
+    if (value.startsWith('custom:')) {
+      const targetId = value.slice('custom:'.length)
+      const target = customAgents.find(agent => agent.id === targetId)
+      if (!target) return
+      void applyModeConfig({ mode: toThreadMode(target.mode), customAgentId: target.id })
+    }
+  }
+  const activeBuiltinValue = activeCustomAgent ? '' : planning ? 'builtin:plan' : asking ? 'builtin:ask' : 'builtin:agent'
+  const modeMenuItems: MenuEntry[] = [
+    { type: 'label', label: t('config.builtInModes') },
+    {
+      type: 'radio',
+      value: activeBuiltinValue,
+      onValueChange: selectModeValue,
+      options: [
+        { value: 'builtin:agent', label: t('config.agent'), hint: t('config.agentHint') },
+        { value: 'builtin:plan', label: t('config.plan'), hint: t('config.planHint') },
+        { value: 'builtin:ask', label: t('config.ask'), hint: t('config.askHint') }
+      ]
+    },
+    ...(customAgents.length > 0 ? [
+      { type: 'separator' } as MenuEntry,
+      { type: 'label', label: t('config.customAgents') } as MenuEntry,
+      {
+        type: 'radio',
+        value: activeCustomAgent ? `custom:${activeCustomAgent.id}` : '',
+        onValueChange: selectModeValue,
+        options: customAgents.map(agent => ({
+          value: `custom:${agent.id}`,
+          label: agent.name,
+          hint: agent.description || agent.sourcePath
+        }))
+      } as MenuEntry
+    ] : [])
+  ]
+  const activeModeLabel = activeCustomAgent ? activeCustomAgent.name : asking ? t('config.ask') : null
   const placeholder = !snapshot
     ? t('composer.placeholderNone')
     : snapshot.thread.connection?.suspendedAt
@@ -350,9 +414,12 @@ export function ThreadComposerForm({ snapshot, pending, running, active, compose
       }} />
     <footer data-ui="composer-toolbar" data-width={narrow ? 'narrow' : 'full'}>
       {!compactChips && <div className="thread-mode-toggle" data-ui="mode-switch" role="group" aria-label={t('config.mode')} title={t('config.modeTitle')}>
-        <Button variant="ghost" size="sm" data-ui="segment" aria-pressed={!planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(false)}>{t('config.agent')}</Button>
+        <Button variant="ghost" size="sm" data-ui="segment" aria-pressed={agentActive} disabled={!snapshot || modeSaving} onClick={() => void setMode(false)}>{t('config.agent')}</Button>
         <Button variant="ghost" size="sm" data-ui="segment" data-mode="plan" aria-pressed={planning} disabled={!snapshot || modeSaving} onClick={() => void setMode(true)}>{t('config.plan')}</Button>
       </div>}
+      {!compactChips && <Menu label={t('config.moreModes')} side="top" items={modeMenuItems} trigger={activeModeLabel
+        ? <Button type="button" variant="ghost" size="sm" className="thread-mode-more is-active" data-ui-mode={activeCustomAgent ? 'custom' : 'ask'} aria-label={`${t('config.moreModes')}: ${activeModeLabel}`} title={activeCustomAgent?.description || t('config.askHint')} disabled={!snapshot || modeSaving}><span className="thread-mode-active-name">{activeModeLabel}</span><ChevronDown size={12} aria-hidden="true" /></Button>
+        : <IconButton type="button" size="sm" variant="ghost" className="thread-mode-more" label={t('config.moreModes')} title={t('config.moreModesTitle')} disabled={!snapshot || modeSaving} icon={<ChevronDown size={12} aria-hidden="true" />} />} />}
       <Menu label={t('composer.context')} side="top" items={[
         { label: t('composer.mention'), icon: <AtSign size={14} />, onSelect: insertMention },
         { label: t('composer.attach'), icon: <Paperclip size={14} />, disabled: attachments.length >= 8 || !api?.attach, onSelect: () => fileInput.current?.click() },

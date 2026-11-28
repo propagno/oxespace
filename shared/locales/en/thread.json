@@ -492,6 +492,14 @@
     "modeTitle": "Plan: the agent plans first and changes nothing until you approve. Agent: it works on the task.",
     "plan": "Plan",
     "agent": "Agent",
+    "ask": "Ask",
+    "builtInModes": "Modes",
+    "customAgents": "Custom agents",
+    "moreModes": "More modes",
+    "moreModesTitle": "Choose Ask or a project custom agent",
+    "agentHint": "Full implementation and project edits",
+    "planHint": "Plan first before changing files",
+    "askHint": "Read-only questions without modifying files",
     "selectModel": "Select model",
     "loadingModels": "Loading models…",
     "providerDefault": "Provider default",
@@ -2690,5 +2698,10 @@
     "title": "New parallel conversation in {{title}}",
     "notice": "This conversation works in the same folder and starts from the session's changes. Both see the same files.",
     "locked": "session worktree"
+  },
+  "handoffs": {
+    "region": "Handoff actions",
+    "proceedFrom": "Proceed from {{name}}",
+    "implementPlan": "Implement in Agent"
   }
 }

@@ -55,6 +55,11 @@ import { ThreadAnnouncer } from './ThreadAnnouncer'
 import { ThreadTimelineEntry } from './ThreadTimelineEntry'
 import { requestThreadOpenInCode } from './threadMoreActions'
 import { ThreadComposerForm, type ThreadComposerCommandsHandle } from './ThreadComposerForm'
+import { ThreadHandoffBar } from './ThreadHandoffBar'
+import { resolveHandoffConfiguration, useCustomAgents } from './useCustomAgents'
+import { planOnlyTurn } from './ThreadPlanOnlyHint'
+import { executePlanPrompt, planExecution } from '../../../shared/threadPlanExecution'
+import type { CustomAgentHandoff } from '../../../shared/types/custom-agents'
 import { ThreadSideChat } from './side/ThreadSideChat'
 import { askSideChat, openSideChatWithDraft, showSideChat, toggleSideChat, useSideChatStore } from './side/sideChatStore'
 import { ThreadDockQueue, ThreadDockRequests } from './ThreadDockRequests'
@@ -432,6 +437,72 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
   const actionsThreadId = snapshot?.thread.id ?? null
   const actionsWorkspaceId = snapshot?.thread.workspaceId ?? null
   const actionsWorkingRoot = snapshot ? threadWorkingRoot(snapshot.thread) : null
+  const customAgents = useCustomAgents(actionsWorkingRoot ?? undefined)
+  const desiredConfig = snapshot ? (snapshot.thread.pendingConfiguration ?? snapshot.thread) : null
+  const desiredCustomAgentId = desiredConfig?.customAgentId ?? null
+  const desiredMode = desiredConfig?.mode
+  const desiredAccess = desiredConfig?.access
+  const activeCustomAgent = useMemo(
+    () => (desiredCustomAgentId ? customAgents.find(agent => agent.id === desiredCustomAgentId) ?? null : null),
+    [customAgents, desiredCustomAgentId]
+  )
+  const handoffBar = useMemo(() => {
+    if (!snapshot || running || pendingRequests.length > 0 || pendingMessage) return null
+    if (lastResult?.type !== 'completed' || lastResult.status !== 'completed') return null
+    const latestTurn = turns.at(-1)
+    const latestTurnId = latestTurn?.id
+    const latestTurnEvents = latestTurn?.events ?? NO_EVENTS
+    if (activeCustomAgent && activeCustomAgent.handoffs.length > 0) {
+      return { sourceLabel: activeCustomAgent.name, handoffs: activeCustomAgent.handoffs }
+    }
+    if (desiredMode === 'plan' && (desiredAccess ?? 'read-only') !== 'read-only') {
+      const runPlanShown = Boolean(
+        latestTurnId
+        && typeof api?.executePlan === 'function'
+        && planExecution(snapshot, latestTurnId).available
+        && (latestTurnEvents.some(event => event.type === 'plan' && event.steps.length > 0) || !snapshot.events.some(event => event.type === 'plan' && event.steps.length > 0))
+      )
+      const planOnlyShown = Boolean(latestTurnId && planOnlyTurn(snapshot, latestTurnId))
+      if (!runPlanShown && !planOnlyShown) {
+        return {
+          sourceLabel: t('config.plan'),
+          handoffs: [{ label: t('handoffs.implementPlan'), mode: 'agent' as const, prompt: executePlanPrompt(i18n.language), send: false }]
+        }
+      }
+    }
+    return null
+  }, [snapshot, running, pendingRequests.length, pendingMessage, lastResult, turns, activeCustomAgent, desiredMode, desiredAccess, api?.executePlan, t])
+  const [handoffBusy, setHandoffBusy] = useState(false)
+  const handleHandoff = async (handoff: CustomAgentHandoff): Promise<void> => {
+    if (!snapshot || handoffBusy) return
+    setHandoffBusy(true)
+    setError(''); setErrorDetail('')
+    try {
+      const id = snapshot.thread.id
+      const patch = resolveHandoffConfiguration(handoff, customAgents, desiredConfig)
+      if (api?.configure) {
+        const next = await api.configure(id, patch, snapshot.thread.configurationRevision ?? 0)
+        useThreadStore.getState().updateSnapshot(next)
+      }
+      const prompt = handoff.prompt?.trim() ?? ''
+      if (prompt) {
+        if (handoff.send === true && api?.send) {
+          await api.send(id, prompt, [])
+          await useThreadStore.getState().refresh(id)
+          requestAnimationFrame(scrollEnd)
+        } else {
+          useThreadStore.getState().setDraft(id, handoff.prompt ?? prompt)
+          requestAnimationFrame(() => textarea.current?.focus())
+        }
+      } else {
+        requestAnimationFrame(() => textarea.current?.focus())
+      }
+    } catch (cause) {
+      setError(humanizeError(cause, t('config.applyFailed')))
+    } finally {
+      setHandoffBusy(false)
+    }
+  }
   const codeBlockActions = useMemo<ThreadCodeBlockActions | null>(() => {
     if (!actionsThreadId || !actionsWorkspaceId || !actionsWorkingRoot) return null
     return {
@@ -504,6 +575,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
         {pendingMessage && <article className="thread-message thread-message-user thread-message-outgoing" aria-label={t('view.sendingMessage')}>{pendingMessage.attachments.length > 0 && <ul className="thread-sent-attachments" aria-label={t('view.attachments')}>{pendingMessage.attachments.map(attachment => <li key={attachment.id} title={attachment.name}><ImageIcon size={14} aria-hidden="true" /><span>{attachment.name}</span><small>{t('view.kilobytes', { size: formatNumber(Math.ceil(attachment.bytes / 1024)) })}</small></li>)}</ul>}<ThreadMessageBody text={pendingMessage.text} role="user" /><small className="thread-message-outgoing-status">{t('view.sending')}</small></article>}
         {snapshot && !pendingMessage && !snapshot.page?.hasMore && !lastPrompt && snapshot.thread.status === 'idle'
           && <ThreadEmptyState thread={snapshot.thread} branch={branch?.branch} onStarter={prompt => { useThreadStore.getState().setDraft(snapshot.thread.id, prompt); requestAnimationFrame(() => textarea.current?.focus()) }} />}
+        {handoffBar && <ThreadHandoffBar sourceLabel={handoffBar.sourceLabel} handoffs={handoffBar.handoffs} disabled={pending || handoffBusy} onSelect={handoff => void handleHandoff(handoff)} />}
         {snapshot && <ThreadLiveActivity snapshot={snapshot} />}
       </div>
     </div>
@@ -520,7 +592,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       {snapshot && <ThreadDockPlan events={snapshot.events} />}
       {snapshot && <ThreadDockQueue snapshot={snapshot} pending={pending} textarea={textarea} action={action} />}
       {snapshot && <PrStatusBar key={snapshot.thread.id} workspaceId={snapshot.thread.workspaceId} rootPath={snapshot.thread.rootPath} onFix={appendToConversation} onStatus={pr => { setPrOfThread(pr ? { threadId: snapshot.thread.id, url: pr.url ?? null } : null); onPrStatus(pr) }} />}
-      <ThreadComposerForm snapshot={snapshot} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput} commandsRef={commandsRef}
+      <ThreadComposerForm snapshot={snapshot} pending={pending} running={running} active={active} composerState={composerState} textarea={textarea} fileInput={fileInput} commandsRef={commandsRef} customAgents={customAgents}
         workingSet={snapshot ? <ThreadDockChanges snapshot={snapshot} running={running} onViewChanges={path => useThreadWorkbenchStore.getState().setView(snapshot.thread.id, { panel: 'changes', ...(path ? { selection: path } : {}) })} /> : undefined}
         openControl={openControl} onControlClosed={() => setOpenControl(null)} onError={setError} onSend={send} onRunAction={action} onRunCommand={text => { void action(() => runCommand(text)) }} onSideChat={handleSlashSideChat} onAskInSideChat={handleAskInSideChat} onNewThread={onNewThread} onAccounts={onAccounts}
         onUpload={files => void uploadFiles(files)} onRemoveAttachment={attachmentId => void removeAttachment(attachmentId)} onRemovePreviewElement={elementId => { if (snapshot) useThreadStore.getState().removePreviewElement(snapshot.thread.id, elementId) }} onInterrupt={stopTurn} />

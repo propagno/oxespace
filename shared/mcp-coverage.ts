@@ -255,7 +255,7 @@ export const MCP_COVERAGE: Readonly<Record<string, McpCapability>> = {
     label: 'List and read Threads, their usage, and CLI sessions of the folder',
     tools: { ...each('oxespace_threads', 'read', ['list', 'read', 'usage', 'native_sessions']), oxespace_thread_read: 'read' },
     ipc: ['thread.list', 'thread.read', 'thread.history', 'thread.readSince', 'thread.usageSummary', 'thread.contextUsage', 'thread.projects', 'thread.turnFiles',
-      'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'session.list']
+      'thread.turnFileHunks', 'thread.artifact', 'thread.models', 'thread.commands', 'thread.listCustomAgents', 'session.list']
   },
   'thread.sessions': {
     label: 'Sessions and their parallel chats: list, read, create a chat, open a chat (OXE-170)',

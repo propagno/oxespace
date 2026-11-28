@@ -23,6 +23,7 @@ import { addTurnCost } from './thread-cost'
 import { repairLegacyCost } from '../../../../shared/threadCostRepair'
 import { deriveThreadTitle, isUnnamedThreadTitle } from './thread-title'
 import { resolveMentionContext } from './thread-context-resolver'
+import { buildModeAndAgentPromptBlock, effectiveAdapterConfiguration } from './custom-agents.service'
 import { briefBlock, previewNoteFor, projectBrief } from './project-brief'
 import { reduceThreadEvent, type KernelEffect } from './kernel/event-reducer'
 import { mergeTurnConfiguration, turnConfiguration } from './kernel/turn-configuration'
@@ -550,7 +551,7 @@ export class ThreadOrchestrator {
       // `@file` and `@changes`/`@terminal`/`@folder`/`@thread` mentions become attached content; the stored message keeps the text as typed.
       if (origin !== 'execute-plan' && !text.trim().startsWith('/')) { // Run plan (OXE-167) sends exactly the card's text: nothing is appended
         mentioned = await resolveMentionContext(workingRootOf(snapshot.thread), text, this.contextOptions(id)).catch(() => mentioned)
-        input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) } // + what a visible preview asks the agent to check (Auto-verify)
+        input = { ...input, text: input.text + (mentioned.block || '') + previewNoteFor(id) + buildModeAndAgentPromptBlock(snapshot.thread).block } // + Auto-verify note + Ask/custom agent instructions
         // The first message of a conversation carries a short orientation to the project.
         if (!snapshot.turns?.length && !snapshot.thread.nativeSessionId) {
           brief = await projectBrief(snapshot.thread.rootPath, snapshot.thread.provider).catch(() => '')
@@ -832,15 +833,14 @@ export class ThreadOrchestrator {
         const mcpChanged = JSON.stringify(before.disabledMcpTools ?? []) !== JSON.stringify(configuration.disabledMcpTools ?? [])
         // An idle process that cannot change its configuration in place (or whose MCP tool exclusions changed) is closed; the next turn resumes it with the new one.
         if (adapter && (!adapter.configure || mcpChanged)) { this.adapters.delete(id); await adapter.dispose().catch(() => {}) }
-        else await adapter?.configure?.(configuration)
+        else await adapter?.configure?.(effectiveAdapterConfiguration(snapshot.thread, configuration))
         snapshot = this.read(id)
         Object.assign(snapshot.thread, configuration)
-        if (!configuration.disabledMcpTools) delete snapshot.thread.disabledMcpTools
-        delete snapshot.thread.pendingConfiguration
+        if (!configuration.disabledMcpTools) delete snapshot.thread.disabledMcpTools; delete snapshot.thread.pendingConfiguration
       }
       snapshot.thread.configurationRevision = revision + 1
       this.save(snapshot, { eventsFrom: snapshot.events.length })
-      const changed = (['access', 'mode', 'approvalPolicy', 'networkAccess', 'hooksEnabled'] as const).filter(key => before[key] !== configuration[key])
+      const changed = (['access', 'mode', 'customAgentId', 'approvalPolicy', 'networkAccess', 'hooksEnabled'] as const).filter(key => before[key] !== configuration[key])
       if (changed.length) this.audit(id, { action: 'configuration', actor: 'user', summary: `Changed ${changed.map(key => `${key} to ${String(configuration[key] ?? 'default')}`).join(', ')}${this.busy.has(id) ? ' (from the next turn)' : ''}` })
       return snapshot
     } finally { this.configuring.delete(id) }
@@ -1034,7 +1034,7 @@ export class ThreadOrchestrator {
     if (event.type === 'request') {
       const adapter = this.adapters.get(id)
       event.request.generation = snapshot.thread.generation ?? 1
-      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, snapshot.thread.access)
+      const policy = this.evaluatePolicy(snapshot.thread.rootPath, event.request, effectiveAdapterConfiguration(snapshot.thread, { access: snapshot.thread.access, mode: snapshot.thread.mode, customAgentId: snapshot.thread.customAgentId }).access)
       if (policy) attachPolicy(event.request, policy)
       if (adapter?.respondRequest) this.requests.register(id, event.request, response => adapter.respondRequest!(event.id, response), expired => {
         try { this.event(id, { type: 'request-resolved', id: expired.id, state: 'expired', resolution: 'unknown', resolvedAt: expired.resolvedAt }, expired.generation) }
@@ -1201,7 +1201,7 @@ export class ThreadOrchestrator {
       latest.thread.capabilities = threadCapabilityManifest(latest.thread.provider, adapter.capabilities, false, adapter.evidence, latest.thread)
       this.save(latest, { eventsFrom: latest.events.length })
       const owned = adapter, generation = latest.thread.generation ?? 1
-      await adapter.start({ rootPath: latest.thread.rootPath, nativeSessionId: latest.thread.nativeSessionId, model: latest.thread.model, reasoningEffort: latest.thread.reasoningEffort, access: latest.thread.access, networkAccess: latest.thread.networkAccess ?? false, approvalPolicy: latest.thread.approvalPolicy ?? 'on-request', mode: latest.thread.mode, hooksEnabled: latest.thread.hooksEnabled ?? false }, event => { if (this.adapters.get(id) === owned) this.event(id, event, generation) })
+      await adapter.start({ rootPath: latest.thread.rootPath, nativeSessionId: latest.thread.nativeSessionId, ...effectiveAdapterConfiguration(latest.thread, { model: latest.thread.model, reasoningEffort: latest.thread.reasoningEffort, access: latest.thread.access, networkAccess: latest.thread.networkAccess ?? false, approvalPolicy: latest.thread.approvalPolicy ?? 'on-request', mode: latest.thread.mode, hooksEnabled: latest.thread.hooksEnabled ?? false }) }, event => { if (this.adapters.get(id) === owned) this.event(id, event, generation) })
       const connected = this.read(id)
       connected.thread.capabilities = threadCapabilityManifest(connected.thread.provider, adapter.capabilities, true, adapter.evidence, connected.thread)
       connected.thread.connection = this.sessions.connected(id)
