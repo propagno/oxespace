@@ -8,7 +8,35 @@ import { mathOf, protectMath } from './mathSource'
 export interface ThreadNodeData {
   threadTokens?: CodeToken[]
   threadLanguageName?: string | null
+  threadFilename?: string | null
   threadMathHtml?: string | null
+}
+
+const SAFE_FENCE_FILENAME_RE = /^(?:[\w.@+-]+\/)*[\w.@+-]+\.[A-Za-z0-9]{1,12}$/
+const META_FILENAME_RE = /(?:^|\s)(?:title|file|filename|path)=["']?([^\s"']+)["']?/i
+const COLON_FILENAME_RE = /(?:^|\s)language-[^\s:]+:([^\s]+)/
+
+function sanitizeFenceFilename(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().replace(/\\/g, '/').replace(/^\.\//, '')
+  if (!normalized || normalized.length > 260) return null
+  if (/[\u0000-\u001f\u007f]/.test(normalized)) return null
+  const parts = normalized.split('/')
+  if (parts.some(part => !part || part === '.' || part === '..')) return null
+  return normalized
+}
+
+/** Extracts an optional filename annotation from fence metadata (`title="foo.ts"`, `file=...`) or `lang:path`. */
+export function extractFenceFilename(meta: unknown, className?: string): string | null {
+  if (typeof meta === 'string' && meta.trim()) {
+    const named = META_FILENAME_RE.exec(meta)
+    if (named?.[1]) return sanitizeFenceFilename(named[1])
+    const trimmed = meta.trim()
+    if (!/\s/.test(trimmed) && SAFE_FENCE_FILENAME_RE.test(trimmed)) return sanitizeFenceFilename(trimmed)
+  }
+  const colon = COLON_FILENAME_RE.exec(className ?? '')
+  if (colon?.[1]) return sanitizeFenceFilename(colon[1])
+  return null
 }
 
 export interface ThreadHastText {
@@ -82,7 +110,7 @@ function stripAndEnrich(
   renderMath?: (tex: string, display: boolean) => string | null
 ): ThreadHastChild | null {
   if (!node || typeof node !== 'object') return null
-  const record = node as { type?: unknown; value?: unknown; tagName?: unknown; properties?: Record<string, unknown>; children?: unknown[] }
+  const record = node as { type?: unknown; value?: unknown; tagName?: unknown; properties?: Record<string, unknown>; children?: unknown[]; data?: { meta?: unknown } }
   if (record.type === 'text') {
     return typeof record.value === 'string' ? { type: 'text', value: record.value } : null
   }
@@ -109,11 +137,17 @@ function stripAndEnrich(
       if (special === 'math') {
         const tex = text.replace(/\n$/, '')
         if (tex && renderMath) data = { threadMathHtml: renderMath(tex, true) }
-      } else if (special !== 'mermaid' && className) {
-        const id = languageId(className)
-        data = {
-          threadLanguageName: languageName(id),
-          threadTokens: highlightCode(text, id)
+      } else if (special !== 'mermaid') {
+        const filename = extractFenceFilename(record.data?.meta, className)
+        if (className) {
+          const id = languageId(className)
+          data = {
+            threadLanguageName: languageName(id),
+            threadTokens: highlightCode(text, id),
+            ...(filename ? { threadFilename: filename } : {})
+          }
+        } else if (filename) {
+          data = { threadFilename: filename }
         }
       }
     } else if (!inPre && !inLink && !className && text !== null) {
@@ -170,6 +204,17 @@ function sanitizeData(raw: unknown): ThreadNodeData | undefined {
   if (typeof source.threadLanguageName === 'string' || source.threadLanguageName === null) {
     out.threadLanguageName = source.threadLanguageName
     hasAny = true
+  }
+
+  if (source.threadFilename === null) {
+    out.threadFilename = null
+    hasAny = true
+  } else if (typeof source.threadFilename === 'string') {
+    const safeFilename = sanitizeFenceFilename(source.threadFilename)
+    if (safeFilename) {
+      out.threadFilename = safeFilename
+      hasAny = true
+    }
   }
 
   if (typeof source.threadMathHtml === 'string' || source.threadMathHtml === null) {

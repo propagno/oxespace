@@ -1,4 +1,4 @@
-import { Button, cx, ErrorState, Skeleton, Spinner } from '../../ui'
+import { Button, cx, ErrorState, Skeleton, Spinner, toast } from '../../ui'
 import type { PreviewAttachment } from '../WebPreview/WebPreviewPanel'
 import { attachmentFile } from '../WebPreview/previewAttachment'
 import { composeMessageWithElements, type PreviewElementRef } from '../../../shared/types/design-mode'
@@ -72,6 +72,10 @@ const ThreadReviewHost = lazyFrom(THREAD_REVIEW_HOST_CHUNK, module => module.def
 import { DelegationCreateDialog } from '../Delegation/DelegationCreateDialog'
 import { changeSummary, threadChanges, threadWorkingRoot } from './threadChanges'
 import { useThreadWorktreeFinishStore } from '../../store/thread-worktree-finish.store'
+import { useTerminalStore } from '../../store/terminal.store'
+import { getActiveThreadShellSlot, runInThreadShell, threadShellPane } from '../../lib/threadShell'
+import { openCodeBlockInEditor, ThreadCodeBlockActionsContext, type ThreadCodeBlockActions } from './threadCodeBlockActions'
+import { i18n } from '../../i18n'
 import './ThreadWorkbench.css'
 import './ThreadView.css'
 import { formatClock, formatNumber } from '../../utils/formatTime'
@@ -406,8 +410,46 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
     () => (snapshot ? pendingRequests.filter(req => !snapshot.events.some(ev => ev.type === 'request' && ev.request.id === req.id)) : NO_REQUESTS),
     [snapshot, pendingRequests]
   )
+  const actionsThreadId = snapshot?.thread.id ?? null
+  const actionsWorkspaceId = snapshot?.thread.workspaceId ?? null
+  const actionsWorkingRoot = snapshot ? threadWorkingRoot(snapshot.thread) : null
+  const codeBlockActions = useMemo<ThreadCodeBlockActions | null>(() => {
+    if (!actionsThreadId || !actionsWorkspaceId || !actionsWorkingRoot) return null
+    return {
+      onRunInTerminal: async ({ command }) => {
+        const trimmed = command.trim()
+        if (!trimmed) return
+        useThreadWorkbenchStore.getState().setView(actionsThreadId, { panel: 'terminal' })
+        if (!window.oxe?.terminal?.start || !window.oxe?.terminal?.write) return
+        const slot = getActiveThreadShellSlot(actionsThreadId)
+        const paneId = threadShellPane(actionsThreadId, slot)
+        try {
+          await runInThreadShell({
+            threadId: actionsThreadId,
+            workspaceId: actionsWorkspaceId,
+            slot,
+            command: trimmed.replace(/\r?\n/g, '\r')
+          })
+          useTerminalStore.getState().setStatus(paneId, 'running')
+        } catch {
+          toast({ title: i18n.t('thread:markdown.runFailed'), intent: 'danger' })
+        }
+      },
+      onOpenInEditor: async ({ code, language, filename }) => {
+        await openCodeBlockInEditor({
+          threadId: actionsThreadId,
+          workspaceId: actionsWorkspaceId,
+          rootPath: actionsWorkingRoot,
+          code,
+          language,
+          filename
+        })
+      }
+    }
+  }, [actionsThreadId, actionsWorkspaceId, actionsWorkingRoot])
   // Esc first gives a maximized panel its place back, then closes it.
   return <div ref={workbench} className={`thread-workbench${drawer ? ' is-drawer' : ''}${active ? ' is-active-cell' : ''}${reviewMaximized ? ' is-review-maximized' : ''}`} onPointerDown={onActivate} onKeyDown={event => { if (event.key === 'Escape' && review?.panel && !panel && !commandsRef.current?.isOpen() && !openControl && event.target instanceof Element && event.target.closest('.thread-review-host')) { event.preventDefault(); if (reviewMaximized) useThreadWorkbenchStore.getState().setMaximized(null); else { closeReview(); returnFocusFromPanel() } } }}>
+    <ThreadCodeBlockActionsContext.Provider value={codeBlockActions}>
     <section className="thread-view" aria-label={t('view.region')} style={{ '--thread-reader-font-size': `${threadFontSize}px` } as React.CSSProperties}>
     <ThreadContextMenu onQuote={text => appendToConversation(quoteMarkdown(text))} />
     <ThreadHeader thread={snapshot?.thread} workspace={workspace} branch={branch?.branch ?? undefined} pending={pending} running={running} activePanel={review?.panel} changesCount={changesCount} toolPanels={toolPanels} cell={cell}
@@ -468,6 +510,7 @@ export function ThreadView({ workspace, threadId, active = true, cell, onActivat
       onClose={() => { setPanel(null); requestAnimationFrame(() => textarea.current?.focus()) }} /></Suspense>}
     {delegationOpen && snapshot && <DelegationCreateDialog thread={snapshot.thread} onClose={() => setDelegationOpen(false)} />}
   </section>
+    </ThreadCodeBlockActionsContext.Provider>
     {snapshot && sideChatOpen && (
       <ThreadSideChat
         key={snapshot.thread.id}

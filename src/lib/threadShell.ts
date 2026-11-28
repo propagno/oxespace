@@ -9,6 +9,18 @@ export const THREAD_SHELL_SLOTS = 8
 
 export const threadShellPane = (threadId: string, slot: number): string => `thread-shell:${threadId}:${slot}`
 
+/** Remembers the active terminal tab slot per thread so contextual actions write to the visible shell. */
+const activeSlots = new Map<string, number>()
+
+export function getActiveThreadShellSlot(threadId: string): number {
+  const slot = activeSlots.get(threadId)
+  return slot && Number.isInteger(slot) && slot >= 1 && slot <= THREAD_SHELL_SLOTS ? slot : 1
+}
+
+export function setActiveThreadShellSlot(threadId: string, slot: number): void {
+  if (Number.isInteger(slot) && slot >= 1 && slot <= THREAD_SHELL_SLOTS) activeSlots.set(threadId, slot)
+}
+
 const joinPath = (root: string, relative: string): string => `${root.replace(/[\\/]+$/, '')}${root.includes('\\') ? '\\' : '/'}${root.includes('\\') ? relative.replace(/\//g, '\\') : relative}`
 
 export interface ThreadShellRun {
