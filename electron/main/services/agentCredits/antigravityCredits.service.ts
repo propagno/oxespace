@@ -320,9 +320,15 @@ export class AntigravityCreditsService implements AgentCreditsProvider {
 
     let windows = summaryWindows
     let supplementedGeminiFromUserQuota = false
-    // When the summary omits Gemini buckets (e.g. only Claude and GPT returned) and we have the bound project,
-    // supplement/fallback via v1internal:retrieveUserQuota so Gemini usage is still measured (OXE-420).
-    if (!summaryWindows.some(window => window.group === 'gemini') && project) {
+    // When the summary omits Gemini buckets OR leaves Gemini's 5h session window absent/empty
+    // (0% with no resetTime — observed when retrieveUserQuotaSummary reports weekly usage while
+    // per-model 5h usage lives in retrieveUserQuota, OXE-420/OXE-491) and we have the bound project,
+    // supplement/fallback via v1internal:retrieveUserQuota so both Gemini windows are measured.
+    const summaryGeminiSession = summaryWindows.find(window => window.group === 'gemini' && window.kind === 'session')
+    const needsGeminiSupplement = !summaryWindows.some(window => window.group === 'gemini')
+      || !summaryGeminiSession
+      || (summaryGeminiSession.usedPct === 0 && summaryGeminiSession.resetsAtMs === null)
+    if (needsGeminiSupplement && project) {
       const detail = await this.post(ANTIGRAVITY_USER_QUOTA_URL, { project }, headers).catch(() => null)
       if (detail?.status === 429) {
         this.applyBackoff(detail.retryAfter)
