@@ -38,6 +38,18 @@ export function sendKeyLabel(mode: SendKeyMode, mac: boolean = IS_MAC): string {
   return mac ? '⌘+Enter' : 'Ctrl+Enter'
 }
 
+/** Alt+Enter (Option+Enter on macOS) runs the opposite active-turn action (Steer vs Queue, OXE-479). */
+export function isAltSendKey(event: SendKeyEvent): boolean {
+  if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return false
+  if (event.shiftKey || event.ctrlKey || event.metaKey) return false
+  return Boolean(event.altKey)
+}
+
+/** Shortcut label for the alternate active-turn send key: "Alt+Enter", or "⌥+Enter" on macOS. */
+export function altSendKeyLabel(mac: boolean = IS_MAC): string {
+  return mac ? '⌥+Enter' : 'Alt+Enter'
+}
+
 export function isSendKeyMode(value: unknown): value is SendKeyMode {
   return value === 'enter' || value === 'ctrl-enter'
 }

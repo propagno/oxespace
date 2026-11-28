@@ -444,6 +444,44 @@
     "hint": "Cada conversa aberta do OxeChat mantém um processo de agente e os servidores MCP dele rodando. Encerrar as ociosas libera memória; sua próxima mensagem retoma a mesma sessão. Uma conversa com turno em andamento, pergunta, mensagens na fila, tarefa em segundo plano ou permissão liberada para a sessão continua aberta.",
     "saveFailed": "Não foi possível salvar esta configuração"
   },
+  "conversation": {
+    "title": "Conversas",
+    "description": "Padrões enxutos para como o OxeChat mostra raciocínio, comandos e turnos em andamento.",
+    "thinkingStyle": {
+      "label": "Estilo de raciocínio",
+      "hint": "Escolha como o raciocínio do agente aparece durante a resposta e após terminar.",
+      "options": {
+        "preview": "Prévia automática",
+        "collapsed": "Recolhido",
+        "expanded": "Expandido"
+      }
+    },
+    "foldCompleted": {
+      "label": "Trabalho intermediário concluído",
+      "hint": "Mantém turnos concluídos limpos recolhendo os passos intermediários em uma linha.",
+      "fold": "Recolher turnos concluídos",
+      "expand": "Manter expandido"
+    },
+    "autoExpandFailures": {
+      "label": "Expandir comandos que falharem",
+      "hint": "Abre automaticamente a saída de comandos com falha para destacar o erro."
+    },
+    "activeTurnAction": {
+      "label": "Ação enquanto o agente trabalha",
+      "hint": "{{key}} executa a ação padrão; {{altKey}} executa a oposta.",
+      "options": {
+        "queue": "Pôr na fila",
+        "steer": "Orientar"
+      }
+    },
+    "pasteThreshold": {
+      "label": "Limite para colar como anexo",
+      "hint": "Textos colados acima deste limite viram um chip compacto removível.",
+      "tenK": "10.000 caracteres",
+      "twentyFiveK": "25.000 caracteres",
+      "off": "Desligado"
+    }
+  },
   "sendKey": {
     "title": "Mensagens",
     "label": "Enviar mensagem com",
@@ -508,6 +546,19 @@
     "onlyUnwatched": "Só para os terminais que você <strong>não está olhando</strong>.",
     "sendTest": "Enviar notificação de teste",
     "testBody": "Notificação de teste",
+    "modes": {
+      "title": "Quando notificar",
+      "description": "Escolha separadamente quando aprovações e turnos concluídos geram alertas na área de trabalho.",
+      "approvalLabel": "Aprovação necessária",
+      "approvalHint": "Quando um agente pausa para pedir permissão ou uma resposta sua.",
+      "completionLabel": "Turno concluído",
+      "completionHint": "Quando um agente termina um turno e aguarda sua resposta.",
+      "options": {
+        "off": "Desligado",
+        "unfocused": "Fora de foco",
+        "always": "Sempre"
+      }
+    },
     "sound": {
       "title": "Som",
       "label": "Tocar um som quando um agente terminar",

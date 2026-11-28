@@ -71,7 +71,7 @@ describe('OXE-468 · Pure kepano/obsidian-minimal color schemes, Settings UI & l
   })
 
   it('persists colorScheme in settings.store (v10) and migrates safely from older versions', async () => {
-    expect(useSettingsStore.persist.getOptions().version).toBe(10)
+    expect(useSettingsStore.persist.getOptions().version).toBeGreaterThanOrEqual(10)
     const migrate = useSettingsStore.persist.getOptions().migrate!
     const fromV9 = await migrate({ appearance: 'dark', surfaceStyle: 'pure' }, 9) as { colorScheme: ColorScheme; surfaceStyle: string }
     expect(fromV9.colorScheme).toBe('default')

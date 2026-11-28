@@ -14,9 +14,11 @@ interface SideChatStore {
   /** The conversations or terminal panes whose drawer is showing. */
   shown: Record<string, true>
   chats: Record<string, SideChatState>
+  /** Unsent text per conversation or terminal side chat; survives closing the drawer (OXE-479 pre-fill). */
+  drafts: Record<string, string>
 }
 
-export const useSideChatStore = create<SideChatStore>(() => ({ shown: {}, chats: {} }))
+export const useSideChatStore = create<SideChatStore>(() => ({ shown: {}, chats: {}, drafts: {} }))
 
 const TERMINAL_PREFIX = 'terminal:'
 /** Stable side-chat store key for an OxeCode terminal pane so it never collides with conversation ids. */
@@ -70,7 +72,22 @@ export function resetSideChats(): void {
   unsubscribe?.()
   unsubscribe = null
   pendingOpens.clear()
-  useSideChatStore.setState({ shown: {}, chats: {} })
+  useSideChatStore.setState({ shown: {}, chats: {}, drafts: {} })
+}
+
+export function setSideChatDraft(threadId: string, text: string): void {
+  useSideChatStore.setState(store => {
+    const drafts = { ...store.drafts }
+    if (text) drafts[threadId] = text
+    else delete drafts[threadId]
+    return { drafts }
+  })
+}
+
+/** Opens the side chat drawer pre-filled with `text` (without sending or polluting the main conversation, OXE-479). */
+export function openSideChatWithDraft(threadId: string, text?: string): void {
+  if (text && text.trim()) setSideChatDraft(threadId, text)
+  showSideChat(threadId, true)
 }
 
 export function showSideChat(threadId: string, shown: boolean): void {

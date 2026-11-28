@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useTerminalStore } from '../store/terminal.store'
 import { useWorkspaceStore } from '../store/workspace.store'
-import { useSettingsStore } from '../store/settings.store'
+import { shouldSendDesktopNotification, useSettingsStore } from '../store/settings.store'
 import { useActivityStore } from '../store/activity.store'
 import { deriveStatusTone, resolvePaneIdentity, type PaneDisplayTone } from '../utils/paneDisplay'
 import type { WorkspacePane } from '../../shared/types/workspace'
@@ -76,7 +76,7 @@ export function useAgentNotifications(): void {
 
     // The activity center records every transition; the OS ping keeps its own gates.
     const tick = (): void => {
-      const notificationsEnabled = useSettingsStore.getState().notificationsEnabled
+      const { notificationsEnabled, approvalNotifyMode, completionNotifyMode } = useSettingsStore.getState()
       const activity = useActivityStore.getState()
       const { panes: termPanes, activePaneId } = useTerminalStore.getState()
       const { workspaces, shellProfiles } = useWorkspaceStore.getState()
@@ -133,7 +133,9 @@ export function useAgentNotifications(): void {
             if (existing.tone !== 'needs-decision') {
               existing.recordedDecision = true
               recordDecision()
-              if (notificationsEnabled && !isViewing) fire('needs-you', label, tc('pane.decisionNotice.place', { workspace: ws.name }), pane.id, ws.id)
+              if (shouldSendDesktopNotification(notificationsEnabled, approvalNotifyMode, isViewing)) {
+                fire('needs-you', label, tc('pane.decisionNotice.place', { workspace: ws.name }), pane.id, ws.id)
+              }
             }
           } else if (existing.recordedDecision) {
             existing.recordedDecision = false
@@ -154,8 +156,7 @@ export function useAgentNotifications(): void {
               !existing.notifiedAwaiting &&
               existing.awaitingSince !== null &&
               now - existing.awaitingSince >= AWAITING_STABLE_MS &&
-              // Away-only: while OXESpace is focused the status dots cover it.
-              !windowFocused
+              shouldSendDesktopNotification(notificationsEnabled, completionNotifyMode, windowFocused)
             ) {
               existing.notifiedAwaiting = true
               notify('finished', label, tc('pane.notice.finished', { workspace: ws.name }))
