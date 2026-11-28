@@ -325,7 +325,7 @@ export function ThreadRequestCard({ request, agent, disabled: disabledProp, turn
     const effectiveImpact = isCommandModified ? { ...impact, text: editedCommand, risk: level, reversible: effectiveReversible } : impact
     const impactRiskEscalated = Boolean(editedEval) && (level !== baseLevel || (!effectiveReversible && impact.reversible) || guarded)
     const oneStep = effectiveReversible && (level === 'low' || level === 'medium') && !guarded
-    const kindLabel = t(`request.kind.${impact.kind}`)
+    const kindLabel = isPlanRequest ? t('request.reviewPlan') : t(`request.kind.${impact.kind}`)
     const origin = [agentName, place].filter(Boolean).join(' · ')
     const openImpact = () => { if (onSeeImpact && !isCommandModified) onSeeImpact(); else setPreviewOpen(true) }
     const copyCommand = () => {

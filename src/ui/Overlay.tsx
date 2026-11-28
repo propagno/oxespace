@@ -421,7 +421,7 @@ export function Tooltip({ content, children, side = 'top' }: { content: ReactNod
   const root = <RadixTooltip.Root>
     {/* Inside a dialog a focus-opened tooltip would take the first Escape away from the dialog, so only hover opens it there. */}
     <RadixTooltip.Trigger asChild onFocus={event => { if (event.currentTarget.closest('[role="dialog"], [role="alertdialog"]')) event.preventDefault() }}>{children}</RadixTooltip.Trigger>
-    <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
+    <RadixTooltip.Portal><RadixTooltip.Content className={styles.tooltip} side={side} sideOffset={6} avoidCollisions={true} collisionPadding={8}>{content}</RadixTooltip.Content></RadixTooltip.Portal>
   </RadixTooltip.Root>
   // Fallback provider only when rendered in isolation (unit tests) without an ancestor TooltipProvider.
   return hasTooltipProvider ? root : <RadixTooltip.Provider delayDuration={400} skipDelayDuration={300}>{root}</RadixTooltip.Provider>

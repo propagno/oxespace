@@ -6,6 +6,9 @@ import type { DirectPortLike } from '../../electron/main/workers/ptyDirectPort'
 import type { PtyHostEvent, PtyHostRequest } from '../../electron/main/services/terminal/pty-host-protocol'
 import { HostedPty, utilityPtyModule, type PtyHostProcess } from '../../electron/main/services/terminal/utility-pty'
 import { SessionOutput, type TerminalSession } from '../../electron/main/services/terminal/session-output'
+import { TerminalManager } from '../../electron/main/services/terminal.service'
+import { openInMemoryDatabase } from '../../electron/main/db/index'
+import { WorkspaceService } from '../../electron/main/services/workspace.service'
 import { PtyInputQueue } from '../../electron/main/services/pty-input-queue'
 import { PtyOutputBatcher } from '../../electron/main/services/pty-output-batcher'
 import { PtyRingBuffer } from '../../electron/main/services/pty-ring-buffer'
@@ -508,5 +511,125 @@ describe('OXE-488 · Direct MessagePort ptyHost <-> Renderer', () => {
     expect(hostStats.connectedPorts).toBe(0)
     expect(hostStats.directFrames).toBe(0)
     expect(hostStats.fallbackFrames).toBeGreaterThanOrEqual(1)
+  })
+
+  test('6. OXE-492 · fresh-pane TerminalManager.start() activates direct MessagePort + flow control immediately without needing re-attach', async () => {
+    const db = openInMemoryDatabase()
+    cleanups.push(() => db.close())
+    const workspace = new WorkspaceService(db).create({ rootPath: 'C:/repo', layout: '1x1', autoStart: false })
+    const paneId = workspace.panes[0].id
+
+    const fakes: FakeNodePty[] = []
+    const runtimes: ReturnType<typeof createPtyHostRuntime>[] = []
+    const mainIpcEmitted: TerminalDataEvent[] = []
+    const openPorts: Array<{ close?: () => void }> = []
+
+    const mod = utilityPtyModule(() => {
+      let messageCb: (event: PtyHostEvent) => void = () => undefined
+      let exitCb: (code: number) => void = () => undefined
+      const runtime = createPtyHostRuntime(
+        (ev) => messageCb(ev),
+        () => {
+          const fake = createFakeNodePty(4100 + fakes.length)
+          fakes.push(fake)
+          return fake.pty
+        },
+        { batchMs: 1, highWatermark: 100_000, lowWatermark: 5_000 }
+      )
+      runtimes.push(runtime)
+      return {
+        postMessage(request: PtyHostRequest, transfer?: unknown[]) {
+          runtime.handle(request, transfer as DirectPortLike[] | undefined)
+        },
+        onMessage(cb) { messageCb = cb },
+        onExit(cb) { exitCb = cb },
+        kill() { runtime.dispose(); exitCb(0) }
+      }
+    })
+    cleanups.push(() => {
+      mod.dispose()
+      for (const p of openPorts) { try { p.close?.() } catch { /* closed */ } }
+    })
+
+    const manager = new TerminalManager(db, {
+      pty: mod,
+      platform: 'win32',
+      emitData: (ev) => {
+        mainIpcEmitted.push(ev)
+        preloadBus.emitIpc(IPC_CHANNELS.terminal.onData, ev)
+      }
+    })
+    cleanups.push(() => manager.stopAll())
+
+    const preloadBus = createFakePreloadBus({
+      [IPC_CHANNELS.terminal.attach]: (input) => manager.attach(input as { paneId: string; sinceSeq?: number }),
+      [IPC_CHANNELS.terminal.detach]: (input) => manager.detach(input as { paneId: string; parked?: boolean }),
+      [IPC_CHANNELS.terminal.ack]: (id, chars) => manager.ack(String(id), Number(chars))
+    })
+    const api = createOxeApi(preloadBus.ipc, undefined, { listenPortChannel: true })
+
+    // Renderer attaches window port on dom-ready BEFORE any pane spawns.
+    const detachWin = mod.attachWindow!(
+      1,
+      (port2) => preloadBus.emitIpc(TERMINAL_PTY_PORT_CHANNEL, { windowId: 1 }, [port2]),
+      () => {
+        const ch = new WorkerMessageChannel()
+        openPorts.push(ch.port1, ch.port2)
+        return { port1: ch.port1, port2: ch.port2 }
+      }
+    )
+    cleanups.push(detachWin)
+
+    // Simulate real TerminalView mount order: subscribe + attach() BEFORE terminal.start()!
+    const received: TerminalDataEvent[] = []
+    const unsub = api.terminal.onData(paneId, ev => received.push(ev))
+    cleanups.push(unsub)
+
+    const initialAttach = await api.terminal.attach({ paneId })
+    expect(initialAttach.running).toBe(false)
+
+    // Now start the fresh pane (NO second attach() call!).
+    await manager.start({ workspaceId: workspace.id, paneId, agentCommand: 'my-shell' })
+    const fake = fakes[0]
+    expect(fake).toBeDefined()
+
+    // Emit fresh prompt + heavy burst (>100k) to verify BOTH Direct MessagePort AND Flow Control are active immediately.
+    fake.emitData('PS C:\\repo> ')
+    await waitFor(() => received.map(r => r.data).join('').includes('PS C:\\repo> '))
+
+    expect(mainIpcEmitted).toHaveLength(0)
+    const afterPrompt = api.terminal.getTransportStats!()
+    expect(afterPrompt.transport).toBe('message-port')
+    expect(afterPrompt.directFrames).toBeGreaterThan(0)
+    expect(afterPrompt.fallbackFrames).toBe(0)
+
+    // Pump 110k chars -> pty-host MUST pause node-pty via Flow Control immediately on this fresh pane!
+    preloadBus.invoke.mockClear()
+    fake.emitData('X'.repeat(60_000))
+    fake.emitData('Y'.repeat(50_000))
+    await waitFor(() => fake.pause.mock.calls.length >= 1)
+    expect(fake.pause).toHaveBeenCalledTimes(1)
+
+    // ACKs travel directly over MessagePort and resume node-pty with zero Main IPC calls.
+    for (let i = 0; i < 22; i++) api.terminal.ack?.(paneId, 5_000)
+    await waitFor(() => fake.resume.mock.calls.length >= 1)
+    expect(fake.resume).toHaveBeenCalledTimes(1)
+    expect(preloadBus.invoke).not.toHaveBeenCalledWith(IPC_CHANNELS.terminal.ack, expect.anything(), expect.anything())
+
+    const stats = api.terminal.getTransportStats!()
+    expect(stats.directFrames).toBeGreaterThan(0)
+    expect(stats.directAcks).toBe(22)
+    expect(stats.fallbackFrames).toBe(0)
+    expect(stats.fallbackAcks).toBe(0)
+
+    // PtyRingBuffer continuity + parked detach/re-attach still work seamlessly.
+    expect(manager.peek(paneId)?.data).toContain('PS C:\\repo> ')
+    const detached = await api.terminal.detach({ paneId, parked: true })
+    expect(detached).toBeDefined()
+    fake.emitData('while-parked')
+    await waitFor(() => (manager.peek(paneId)?.data ?? '').includes('while-parked'))
+    const reattached = await api.terminal.attach({ paneId, sinceSeq: detached!.seq })
+    expect(reattached.running).toBe(true)
+    expect(reattached.replay).toContain('while-parked')
   })
 })

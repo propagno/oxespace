@@ -33,7 +33,7 @@
 /* An approval or form in the dock: the header and the buttons stay put and the details between them scroll. */
 :global(.thread-pending-requests) .root:not(.question) { display: flex; flex-direction: column; max-height: calc(var(--request-cap) - 6px); }
 :global(.thread-pending-requests) .root:not(.question) > * { flex-shrink: 0; }
-:global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .context, .policy, .factsWrap) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+:global(.thread-pending-requests) .root:not(.question) > :not(header, footer, .origin, .context, .policy, .factsWrap) { flex-shrink: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .question > header, .question > nav, .question > footer { flex-shrink: 0; }
 /* The question's sun: its title is text, so it takes the attention text token (--attn is 3.5:1 on the card, under AA). */
 .question > header { color: var(--attn-fg); }

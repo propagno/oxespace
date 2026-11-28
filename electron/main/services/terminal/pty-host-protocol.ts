@@ -17,7 +17,7 @@ export type PtyHostRequest =
   | { t: 'ack'; id: number; chars: number }
   | { t: 'flow-control'; id: number; enabled: boolean }
   | { t: 'bind-pane'; id: number; paneId: string }
-  | { t: 'direct-route'; id: number; paneId: string; enabled: boolean }
+  | { t: 'direct-route'; id: number; paneId: string; enabled: boolean; prologue?: string }
   | { t: 'attach-renderer-port'; windowId: number }
   | { t: 'detach-renderer-port'; windowId: number }
 

@@ -223,6 +223,9 @@ export function createPtyHostRuntime(
         directPorts.bindPane(request.id, request.paneId)
         session.directRoute = request.enabled
         directPorts.notifyBound(request.paneId, request.id, request.enabled)
+        if (request.enabled && request.prologue) {
+          session.batcher.push(request.prologue)
+        }
       }
     } catch { /* the terminal is exiting; its exit message follows */ }
   }

@@ -96,7 +96,9 @@ function ensureWorker(): Worker | null {
   }
   if (worker) return worker
   try {
-    const instance = new CurrentCtor(new URL('../../workers/threadRender.worker.ts', import.meta.url), { type: 'module' })
+    // Literal `new Worker(new URL(..., import.meta.url), { type: 'module' })` is required for Vite's static
+    // worker bundling transform (calling through a local variable inlines raw `.ts` as `data:video/mp2t`).
+    const instance = new Worker(new URL('../../workers/threadRender.worker.ts', import.meta.url), { type: 'module' })
     instance.onmessage = handleMessage
     instance.addEventListener?.('error', () => {
       if (worker !== instance) return

@@ -322,6 +322,48 @@ describe('OXE-487 Pillar 3 · Multi-Provider Deferred Tool Search (oxespace_tool
     expect(maxBounded.items).toHaveLength(20)
   })
 
+  it('defers redaction/schema compaction to top-K winners so 250-tool search stays fast (< 5 ms p50) while still redacting returned matches (OXE-492)', () => {
+    const catalog = Array.from({ length: 250 }, (_, i) => ({
+      name: i === 120 ? 'postgres_query_database' : `mcp_tool_service_${i}`,
+      server: `server-${i % 10}`,
+      source: 'external' as const,
+      group: `group-${i % 5}`,
+      description: `Tool ${i} handles records with secret ghp_1234567890abcdefghijklmnopqrstuvwxyz1234 for database workflows`,
+      inputSchema: {
+        type: 'object',
+        required: ['query'],
+        properties: {
+          query: { type: 'string', description: `SQL query param ${i} token ghp_1234567890abcdefghijklmnopqrstuvwxyz1234` },
+          mode: { type: 'string', enum: ['fast', 'deep', 'full'] },
+          limit: { type: 'integer', description: 'Row cap for query execution' },
+          timeoutMs: { type: 'integer', description: 'Timeout in milliseconds' }
+        }
+      }
+    }))
+
+    // Warm up JIT once, then measure 25 runs.
+    rankToolCandidates(catalog, { query: 'database query', limit: 8 })
+    const timings: number[] = []
+    let lastResult = rankToolCandidates(catalog, { query: 'database query', limit: 8 })
+    for (let run = 0; run < 25; run++) {
+      const start = performance.now()
+      lastResult = rankToolCandidates(catalog, { query: 'database query', limit: 8 })
+      timings.push(performance.now() - start)
+    }
+    timings.sort((a, b) => a - b)
+    const p50 = timings[Math.floor(timings.length / 2)]
+
+    expect(lastResult.totalMatches).toBe(250)
+    expect(lastResult.items).toHaveLength(8)
+    expect(lastResult.items[0].name).toBe('postgres_query_database')
+    // Returned top-K items MUST still be redacted and compacted.
+    for (const item of lastResult.items) {
+      expect(item.description).not.toContain('ghp_1234567890')
+      expect(item.inputSchema.properties.query.description).not.toContain('ghp_1234567890')
+    }
+    expect(p50).toBeLessThan(5)
+  })
+
   it('excludes disabled, untrusted, quarantined, and internal duplicate MCP servers from search results', async () => {
     const servers: McpServer[] = [
       {

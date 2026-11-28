@@ -166,6 +166,21 @@ describe('OXE-480 · planReviewModel parsing & formatting', () => {
 })
 
 describe('OXE-480 · ThreadPlanReview inside ThreadRequestCard', () => {
+  it('renders "Review plan" as the header title and aria-label when an ExitPlanMode request carries an impact object (OXE-492)', () => {
+    render(
+      <ThreadRequestCard
+        request={makeImpactPlanRequest()}
+        agent="Claude"
+        disabled={false}
+        conversationId="t-480-title"
+        onRespond={vi.fn(async () => undefined)}
+      />
+    )
+    const card = screen.getByRole('region', { name: 'Review plan' })
+    expect(card).toBeVisible()
+    expect(card.querySelector('header strong')?.textContent).toBe('Review plan')
+  })
+
   it('supports adding, editing, and deleting inline comments on sections without triggering 1/2 keyboard shortcuts while typing', async () => {
     const onRespond = vi.fn(async () => undefined)
     render(

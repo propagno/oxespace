@@ -16,7 +16,7 @@ interface DirectHostedPty extends FlowControlHostedPty {
   readonly hostSessionId: number
   readonly lastDataMeta: { seq?: number; direct?: boolean } | null
   bindPane(paneId: string): void
-  setDirectRoute(paneId: string, enabled: boolean): void
+  setDirectRoute(paneId: string, enabled: boolean, prologue?: string): void
 }
 
 function isFlowControlHostedPty(pty: IPty): pty is FlowControlHostedPty {

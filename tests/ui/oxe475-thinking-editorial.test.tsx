@@ -377,4 +377,25 @@ describe('OXE-475 · thinkingStyle prop and thread-prefs store', () => {
     expect(block.open).toBe(false)
     expect(block).toHaveAttribute('data-thinking-style', 'collapsed')
   })
+
+  it('toggles cleanly when clicking anywhere on the <summary> row without double-toggling the inner button (OXE-492)', async () => {
+    const user = userEvent.setup()
+    render(<ThreadReasoning event={reasoningEvent('**Checking lock**\nDetailed steps.', 4_000)} running={false} />)
+    const block = screen.getByTestId('thread-reasoning') as HTMLDetailsElement
+    const summary = block.querySelector('summary')!
+    const button = within(block).getByRole('button')
+
+    expect(block.open).toBe(false)
+    // Clicking the <summary> row outside the inner button opens it.
+    await user.click(summary)
+    expect(block.open).toBe(true)
+    // Clicking the <summary> row again closes it.
+    await user.click(summary)
+    expect(block.open).toBe(false)
+    // Clicking the inner button opens it once (no double-toggle from bubbling to <summary>).
+    await user.click(button)
+    expect(block.open).toBe(true)
+    await user.click(button)
+    expect(block.open).toBe(false)
+  })
 })
