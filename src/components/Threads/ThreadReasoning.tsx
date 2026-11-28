@@ -190,7 +190,10 @@ export function ThreadReasoning({ event, running, thinkingStyle }: ThreadReasoni
         if (next !== open) setChosen(next)
       }}
     >
-      <summary onClick={click => click.preventDefault()}>
+      <summary onClick={click => {
+        click.preventDefault()
+        setChosen(!open)
+      }}>
         {streaming && <span className="thread-reasoning-pulse" data-ui="reasoning-pulse" aria-hidden="true" />}
         <Button
           variant="ghost"
@@ -198,6 +201,7 @@ export function ThreadReasoning({ event, running, thinkingStyle }: ThreadReasoni
           aria-expanded={open}
           onClick={click => {
             click.preventDefault()
+            click.stopPropagation()
             setChosen(!open)
           }}
         >

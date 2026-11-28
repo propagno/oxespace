@@ -98,8 +98,8 @@ export class HostedPty implements IPty {
   }
 
   /** OXE-488 · Toggles direct ptyHost -> Renderer MessagePort routing for an attached pane. */
-  setDirectRoute(paneId: string, enabled: boolean): void {
-    this.post({ t: 'direct-route', id: this.id, paneId, enabled })
+  setDirectRoute(paneId: string, enabled: boolean, prologue?: string): void {
+    this.post({ t: 'direct-route', id: this.id, paneId, enabled, ...(prologue ? { prologue } : {}) })
   }
 
   constructor(private readonly id: number, private readonly send: (request: PtyHostRequest) => void, file: string, cols: number, rows: number) {

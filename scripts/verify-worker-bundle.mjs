@@ -4,10 +4,33 @@
  * module. Whether that works is only knowable by loading the built file, so this
  * starts it and asks it to ping. Run after `electron-vite build`.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
+
+// Guardrail (OXE-492 / OXE-485): verify Vite compiled threadRender.worker.ts into a real renderer JS asset
+// and never inlined raw TypeScript as `data:video/mp2t`.
+const rendererAssetsDir = join(process.cwd(), 'out', 'renderer', 'assets')
+if (!existsSync(rendererAssetsDir)) {
+  console.error(`[worker] ${rendererAssetsDir} does not exist. Build first.`)
+  process.exit(1)
+}
+const assetFiles = readdirSync(rendererAssetsDir)
+const threadWorkerAssets = assetFiles.filter(name => /^threadRender\.worker-.*\.js$/.test(name))
+if (threadWorkerAssets.length === 0) {
+  console.error(`[worker] compiled threadRender.worker-*.js asset missing from ${rendererAssetsDir}`)
+  process.exit(1)
+}
+for (const file of assetFiles) {
+  if (!file.endsWith('.js')) continue
+  const content = readFileSync(join(rendererAssetsDir, file), 'utf8')
+  if (content.includes('data:video/mp2t')) {
+    console.error(`[worker] found raw TypeScript data:video/mp2t inline worker in ${file}`)
+    process.exit(1)
+  }
+}
+console.log(`[worker] renderer threadRender worker compiled cleanly (${threadWorkerAssets.join(', ')}, 0 data:video/mp2t)`)
 
 const path = join(process.cwd(), 'out', 'main', 'oxequery-worker.js')
 if (!existsSync(path)) {

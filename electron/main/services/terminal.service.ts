@@ -217,44 +217,24 @@ export class TerminalManager {
     this.reclaimIdleSession()
 
     const directHosted = isDirectHostedPty(ptyProcess) ? ptyProcess : null
-    if (directHosted) directHosted.bindPane(input.paneId)
-
+    const startScreen = this.platform === 'win32' && !remote ? CONPTY_START_SCREEN : undefined
+    if (directHosted) { directHosted.bindPane(input.paneId); directHosted.handleFlowControl = true; directHosted.setDirectRoute(input.paneId, true, startScreen) }
     this.exits.recordStart(input.paneId, { workspaceId: input.workspaceId, agentCommand: input.agentCommand, cols, rows, resumeAgent: input.resumeAgent })
     this.sessions.set(input.paneId, {
-      sessionId: randomUUID(),
-      launchDirectory: cwd,
-      executable,
-      startedAt: Date.now(),
-      paneId: input.paneId,
-      workspaceId: input.workspaceId,
-      pty: ptyProcess,
+      sessionId: randomUUID(), launchDirectory: cwd, executable, startedAt: Date.now(),
+      paneId: input.paneId, workspaceId: input.workspaceId, pty: ptyProcess,
       ...(directHosted ? { directHostId: directHosted.hostSessionId } : {}),
-      agentCommand: input.agentCommand,
-      resumeAgent: input.resumeAgent,
-      resumed,
-      revokeProxy,
+      agentCommand: input.agentCommand, resumeAgent: input.resumeAgent, resumed, revokeProxy,
       inputQueue: new PtyInputQueue(ptyProcess),
       outputBatcher: this.levers.has('I')
         ? new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event), LEVER_I_FLUSH_MS, LEVER_I_FLUSH_BYTES)
         : new PtyOutputBatcher(input.paneId, (event) => this.output.onBatch(event)),
-      ring: new PtyRingBuffer(this.ringCapacityBytes),
-      modes: new PtyModeTracker(),
-      // A view always attaches right after starting; assuming attached here
-      // avoids dropping the first prompt into the ring only.
-      attached: true,
-      viewAttached: false,
-      da1: new Da1Filter(),
-      da1Timer: null,
-      lastActivityAt: Date.now(),
-      cols,
-      rows,
-      activityNotifiedAt: 0
+      ring: new PtyRingBuffer(this.ringCapacityBytes), modes: new PtyModeTracker(),
+      attached: true, viewAttached: false, da1: new Da1Filter(), da1Timer: null,
+      lastActivityAt: Date.now(), cols, rows, activityNotifiedAt: 0
     })
-
-    // The bundled ConPTY (useConptyDll) never clears the screen on start, unlike the system one (ESC[2J ESC[m ESC[H),
-    // yet positions absolutely from row 1. The view may already hold a line ("Idle"), so the first screen landed one row
-    // off. Start every Windows session from the same clean, homed screen the system ConPTY gave.
-    if (this.platform === 'win32' && !remote) this.sessions.get(input.paneId)?.outputBatcher.push(CONPTY_START_SCREEN)
+    // Windows bundled ConPTY needs an initial screen clear; direct-hosted panes queue it in pty-host's batcher above.
+    if (startScreen && !directHosted) this.sessions.get(input.paneId)?.outputBatcher.push(startScreen)
     this.exitDrain.track(ptyProcess)
     const detectedProvider = externalProviderForName(input.agentCommand?.trim().split(/\s+/)[0] ?? executable)
     if (!remote && ptyProcess.pid > 1 && (input.agentCommand || input.launch || detectedProvider)) {

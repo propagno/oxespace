@@ -4,6 +4,7 @@ import styles from './TitleTooltips.module.css'
 
 const DELAY_MS = 400
 const CHROME = 44
+const EDGE = 8
 const SKIP = '.xterm, iframe, webview, [data-native-title]'
 
 interface Tip { text: string; x: number; y: number; below: boolean }
@@ -40,70 +41,42 @@ export function TitleTooltips(): ReactElement | null {
       timer = window.setTimeout(() => {
         const rect = target.getBoundingClientRect()
         const below = rect.bottom + 40 < window.innerHeight
-        setTip({ text, x: Math.min(Math.max(rect.left + rect.width / 2, 12), window.innerWidth - 12), y: below ? rect.bottom + 6 : Math.max(rect.top - 6, CHROME), below })
+        setTip({ text, x: rect.left + rect.width / 2, y: below ? rect.bottom + 6 : Math.max(rect.top - 6, CHROME), below })
       }, DELAY_MS)
     }
-    const titled = (node: EventTarget | null): HTMLElement | null => {
-      const element = node instanceof Element ? node : null
-      return (element?.closest('[title]') as HTMLElement | null) ?? null
-    }
-    const onOver = (event: PointerEvent): void => {
-      if (event.pointerType === 'touch') return
-      const target = titled(event.target)
-      if (!target) return
-      begin(target)
-    }
-    const onOut = (event: PointerEvent): void => {
-      if (!current) return
-      const next = event.relatedTarget as Node | null
-      if (next && current.contains(next)) return
+    const titled = (node: EventTarget | null): HTMLElement | null =>
+      (node instanceof Element ? (node.closest('[title]') as HTMLElement | null) : null)
+    const leave = (next: EventTarget | null): void => {
+      if (!current || (next instanceof Node && current.contains(next))) return
       restore()
     }
-    const onFocusIn = (event: FocusEvent): void => {
-      if (!lastWasKey) return
-      const target = titled(event.target)
-      if (!target) return
-      begin(target)
-    }
-    const onFocusOut = (event: FocusEvent): void => {
-      if (!current) return
-      const next = event.relatedTarget as Node | null
-      if (next && current.contains(next)) return
-      restore()
-    }
-    const onKeyDown = (event: KeyboardEvent): void => {
-      lastWasKey = true
-      if (event.key === 'Tab') return
-      restore()
-    }
-    const onPointerDown = (): void => {
-      lastWasKey = false
-      restore()
-    }
-    document.addEventListener('pointerover', onOver, true)
-    document.addEventListener('pointerout', onOut, true)
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('keydown', onKeyDown, true)
-    document.addEventListener('focusin', onFocusIn, true)
-    document.addEventListener('focusout', onFocusOut, true)
+    const listeners: Array<[keyof DocumentEventMap, EventListener]> = [
+      ['pointerover', (e) => { const pe = e as PointerEvent; if (pe.pointerType !== 'touch') { const t = titled(pe.target); if (t) begin(t) } }],
+      ['pointerout', (e) => leave((e as PointerEvent).relatedTarget)],
+      ['pointerdown', () => { lastWasKey = false; restore() }],
+      ['keydown', (e) => { lastWasKey = true; if ((e as KeyboardEvent).key !== 'Tab') restore() }],
+      ['focusin', (e) => { if (lastWasKey) { const t = titled(e.target); if (t) begin(t) } }],
+      ['focusout', (e) => leave((e as FocusEvent).relatedTarget)],
+      ['scroll', restore]
+    ]
+    for (const [ev, fn] of listeners) document.addEventListener(ev, fn, true)
     window.addEventListener('blur', restore)
-    document.addEventListener('scroll', restore, true)
     return () => {
       restore()
-      document.removeEventListener('pointerover', onOver, true)
-      document.removeEventListener('pointerout', onOut, true)
-      document.removeEventListener('pointerdown', onPointerDown, true)
-      document.removeEventListener('keydown', onKeyDown, true)
-      document.removeEventListener('focusin', onFocusIn, true)
-      document.removeEventListener('focusout', onFocusOut, true)
+      for (const [ev, fn] of listeners) document.removeEventListener(ev, fn, true)
       window.removeEventListener('blur', restore)
-      document.removeEventListener('scroll', restore, true)
     }
   }, [])
 
   if (!tip) return null
+  const clamp = (el: HTMLDivElement | null): void => {
+    if (!el) return
+    const half = (el.getBoundingClientRect().width || el.offsetWidth) / 2
+    const min = EDGE + half
+    el.style.left = `${Math.min(Math.max(tip.x, min), Math.max(min, window.innerWidth - EDGE - half))}px`
+  }
   return createPortal(
-    <div role="tooltip" className={styles.tip} style={{ left: tip.x, top: tip.y, transform: tip.below ? 'translateX(-50%)' : 'translate(-50%, -100%)' }}>{tip.text}</div>,
+    <div ref={clamp} role="tooltip" className={styles.tip} style={{ left: Math.min(Math.max(tip.x, EDGE), Math.max(EDGE, window.innerWidth - EDGE)), top: tip.y, transform: tip.below ? 'translateX(-50%)' : 'translate(-50%, -100%)' }}>{tip.text}</div>,
     document.body
   )
 }
