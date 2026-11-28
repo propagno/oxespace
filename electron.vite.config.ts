@@ -207,6 +207,24 @@ export default defineConfig({
     // The installed version, for Settings › About (OXE-213); never a literal.
     define: { __APP_VERSION__: JSON.stringify(PACKAGE.version) },
     root: '.',
+    worker: {
+      format: 'es',
+      plugins: () => [
+        {
+          // decode-named-character-reference defaults to its `browser` export (`index.dom.js`), which executes
+          // `document.createElement('i')` at module top level and crashes Web Workers (`document is not defined`).
+          // Force its pure-JS `index.js` entry inside worker bundles only, keeping the renderer entry untouched.
+          name: 'worker-dom-free-resolve',
+          enforce: 'pre',
+          resolveId(source) {
+            if (source === 'decode-named-character-reference') {
+              return resolve(__dirname, 'node_modules/decode-named-character-reference/index.js')
+            }
+            return null
+          }
+        }
+      ]
+    },
     plugins: [
       react(),
       {

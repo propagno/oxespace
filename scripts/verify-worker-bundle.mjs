@@ -7,10 +7,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import vm from 'node:vm'
 import { Worker } from 'node:worker_threads'
 
-// Guardrail (OXE-492 / OXE-485): verify Vite compiled threadRender.worker.ts into a real renderer JS asset
-// and never inlined raw TypeScript as `data:video/mp2t`.
+// Guardrail (OXE-492 / OXE-493 / OXE-485): verify Vite compiled threadRender.worker.ts into a real renderer JS asset,
+// never inlined raw TypeScript as `data:video/mp2t`, and executes cleanly without `document` (Web Worker environment).
 const rendererAssetsDir = join(process.cwd(), 'out', 'renderer', 'assets')
 if (!existsSync(rendererAssetsDir)) {
   console.error(`[worker] ${rendererAssetsDir} does not exist. Build first.`)
@@ -30,7 +31,64 @@ for (const file of assetFiles) {
     process.exit(1)
   }
 }
-console.log(`[worker] renderer threadRender worker compiled cleanly (${threadWorkerAssets.join(', ')}, 0 data:video/mp2t)`)
+
+for (const workerAsset of threadWorkerAssets) {
+  const workerPath = join(rendererAssetsDir, workerAsset)
+  const workerSource = readFileSync(workerPath, 'utf8')
+  const replies = []
+  const sandbox = {
+    document: undefined,
+    window: undefined,
+    console,
+    URL,
+    TextEncoder,
+    TextDecoder,
+    setTimeout,
+    clearTimeout,
+    queueMicrotask,
+    structuredClone,
+    performance,
+    navigator: { userAgent: 'verify-worker-bundle' },
+    onmessage: null,
+    postMessage: message => replies.push(message)
+  }
+  sandbox.self = sandbox
+  sandbox.globalThis = sandbox
+
+  try {
+    vm.runInNewContext(workerSource, sandbox, { filename: workerPath, timeout: 10_000 })
+  } catch (error) {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    console.error(`[worker] ${workerAsset} threw on startup without document: ${message}`)
+    process.exit(1)
+  }
+
+  if (typeof sandbox.onmessage !== 'function') {
+    console.error(`[worker] ${workerAsset} did not register self.onmessage`)
+    process.exit(1)
+  }
+
+  const sampleMarkdown = '# Hello &amp; **world**\n\n```ts\nconst x = 1\n```\n\nInline $a + b$'
+  try {
+    sandbox.onmessage({ data: { id: 1, text: sampleMarkdown } })
+  } catch (error) {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    console.error(`[worker] ${workerAsset} threw while handling message without document: ${message}`)
+    process.exit(1)
+  }
+
+  const reply = replies.find(item => item && item.id === 1)
+  if (!reply || reply.tree?.type !== 'root' || !Array.isArray(reply.tree.children) || reply.tree.children.length < 2) {
+    console.error(`[worker] ${workerAsset} returned invalid reply: ${JSON.stringify(replies)}`)
+    process.exit(1)
+  }
+  const serialized = JSON.stringify(reply.tree)
+  if (!serialized.includes('Hello & ') || !serialized.includes('"tagName":"strong"') || !serialized.includes('"threadLanguageName":"TypeScript"') || !serialized.includes('katex')) {
+    console.error(`[worker] ${workerAsset} rendered incomplete tree: ${serialized.slice(0, 300)}`)
+    process.exit(1)
+  }
+}
+console.log(`[worker] renderer threadRender worker boots and renders without document (${threadWorkerAssets.join(', ')}, 0 data:video/mp2t)`)
 
 const path = join(process.cwd(), 'out', 'main', 'oxequery-worker.js')
 if (!existsSync(path)) {
