@@ -13,6 +13,7 @@ import { useUIStore } from '../../store/ui.store'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { THREAD_BAR_PANELS, THREAD_MENU_PANELS, WORKBENCH_PANELS, panelTitle, type WorkbenchPanelId } from '../Workbench/panelCatalog'
 import { parityState } from './parity'
+import { AgentProviderIcon } from '../Sidebar/AgentProviderIcon'
 import { ThreadCellClose } from './ThreadCellClose'
 import { CollisionChips } from './CollisionChips'
 import { THREAD_MORE_ACTION_GROUPS, THREAD_MORE_ACTIONS, type NowLineAction, type ThreadMoreActionId } from './threadMoreActions'
@@ -206,6 +207,15 @@ export function ThreadHeader({
       <div className="thread-heading-identity">
         <div className="thread-heading-title-row">
           <div className="thread-heading-title-main">
+            {thread?.provider && (
+              <span
+                className="thread-heading-provider-mark"
+                data-testid="thread-header-provider-icon"
+                data-provider={thread.provider}
+              >
+                <AgentProviderIcon provider={thread.provider} size={16} />
+              </span>
+            )}
             <h1 ref={headingRef} tabIndex={-1} title={heading} data-ui="chat-title">{heading}</h1>
             {thread?.ownedWorktree && (
               <span className="thread-heading-worktree" data-ui="chat-worktree" title={thread.ownedWorktree.path}>

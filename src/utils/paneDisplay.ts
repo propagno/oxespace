@@ -233,6 +233,17 @@ export function derivePaneDisplayState(input: {
   }
 }
 
+function resolveNamedAgent(raw: string): { label: string; key: string } {
+  const lower = raw.toLowerCase()
+  if (lower.includes('claude')) return { label: 'Claude', key: 'claude' }
+  if (lower.includes('copilot')) return { label: 'Copilot', key: 'copilot' }
+  if (lower.includes('codex')) return { label: 'Codex', key: 'codex' }
+  if (lower.includes('cursor')) return { label: 'Cursor', key: 'cursor' }
+  if (lower.includes('grok')) return { label: 'Grok', key: 'grok' }
+  if (lower.includes('antigravity') || lower === 'agy') return { label: 'Antigravity', key: 'antigravity' }
+  return { label: titleCase(raw), key: 'custom' }
+}
+
 /**
  * What runs in this pane for header chips: bound agent first, else shell.
  * Never prefer shell profile over agentProfileId/agentName.
@@ -251,20 +262,15 @@ export function resolvePaneIdentity(input: {
       key: profile.provider
     }
   }
-  if (pane.agentName?.trim()) {
-    return { label: pane.agentName.trim(), key: 'custom' }
+  const paneAgent = pane.agentName?.trim()
+  if (paneAgent) {
+    const resolved = resolveNamedAgent(paneAgent)
+    return { label: paneAgent, key: resolved.key }
   }
 
   const runtimeAgent = agent?.trim()
   if (runtimeAgent) {
-    const lower = runtimeAgent.toLowerCase()
-    if (lower.includes('claude')) return { label: 'Claude', key: 'claude' }
-    if (lower.includes('copilot')) return { label: 'Copilot', key: 'copilot' }
-    if (lower.includes('codex')) return { label: 'Codex', key: 'codex' }
-    if (lower.includes('cursor')) return { label: 'Cursor', key: 'cursor' }
-    if (lower.includes('grok')) return { label: 'Grok', key: 'grok' }
-    if (lower.includes('antigravity') || lower === 'agy') return { label: 'Antigravity', key: 'antigravity' }
-    return { label: titleCase(runtimeAgent), key: 'custom' }
+    return resolveNamedAgent(runtimeAgent)
   }
 
   const shellId = (pane.shellProfileId ?? '').toLowerCase()

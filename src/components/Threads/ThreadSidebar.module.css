@@ -41,7 +41,10 @@
 .indicator[data-status='failed'] { color: var(--intent-danger-solid); }
 :global([data-motion='full']) .indicator[data-status='running']::before { --pulse-opacity: 0.4; animation: global(oxe-pulse) var(--duration-pulse) var(--ease-in-out) infinite; }
 
-.title { color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: var(--weight-medium); transition: color var(--duration-fast) var(--ease-standard); }
+.titleRow { display: flex; align-items: center; gap: var(--space-1-5); min-width: 0; width: 100%; }
+.titleRow :global(.agent-provider-icon) { border-radius: var(--radius-xs); }
+.title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx-secondary); font-size: var(--fs-sm); font-weight: var(--weight-medium); transition: color var(--duration-fast) var(--ease-standard); }
+.archivedTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row:hover .title, .row:focus-within .title, .item[aria-current='page'] .title, .item[aria-current='true'] .title, .unread .title { color: var(--tx-primary); }
 .unread .title { font-weight: var(--weight-bold); }
 .unreadMark { position: absolute; inset-inline-start: 0; inset-block: var(--space-2); width: 3px; border-radius: var(--radius-sm); background: var(--accent); }

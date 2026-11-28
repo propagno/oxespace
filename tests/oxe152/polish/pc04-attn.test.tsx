@@ -158,10 +158,13 @@ describe('PC-04·2 · needs-decision uses --attn tokens and StatusSignal (OXE-25
     )
 
     const row = container.querySelector('[data-testid="pane-session-row"]')!
-    const dot = container.querySelector('[data-testid="pane-status-dot"]')!
+    const header = container.querySelector('[data-ui="pane-header"]')!
     const chip = container.querySelector('[data-testid="pane-decision-chip"]')!
     const preview = within(row as HTMLElement).getByTestId('pane-row-status')
     const railPip = container.querySelector('[data-testid="rail-pip"]')!
+
+    // OXE-472: header status dot was removed (status lives in the sidebar); the leading AI provider mark replaces it.
+    expect(container.querySelector('[data-testid="pane-status-dot"]')).toBeNull()
 
     // StatusSignal state="needs-you" present in both row and chip, without duplicating the chip's textContent
     expect(row.querySelector('[data-ui="status-signal"][data-state="needs-you"]')).not.toBeNull()
@@ -173,9 +176,8 @@ describe('PC-04·2 · needs-decision uses --attn tokens and StatusSignal (OXE-25
       expect(svgSignature(svg)).not.toBe(HAND_PATH)
     }
 
-    // --attn tokens on dot, chip, row preview, and collapsed rail pip
-    expect(cssValue(dot, 'border')).toContain('var(--attn)')
-    expect(cssValue(dot, 'background')).toBe('var(--attn-bg)')
+    // --attn tokens on header attention ring, chip, row preview, and collapsed rail pip
+    expect(cssValue(header, 'outline')).toContain('var(--attn)')
     expect(cssValue(chip, 'border')).toContain('var(--attn-border)')
     expect(cssValue(chip, 'background')).toBe('var(--attn-bg)')
     expect(cssValue(chip, 'color')).toBe('var(--attn-fg)')

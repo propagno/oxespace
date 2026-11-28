@@ -51,13 +51,15 @@ test('a blocked pane reads "Needs you"; a finished one keeps its look', async ()
     await setAgentState(app, { paneId: done, state: 'working', agent: 'claude' })
     expect(await setAgentState(app, { paneId: done, state: 'done', agent: 'claude' })).toMatchObject({ ok: true, explain: { state: { state: 'done' } } })
 
-    // Header: words, a different dot, and the origin.
+    // Header: decision chip, container tone, and origin (OXE-472: status dot moved to sidebar only).
     await expect(header(page, blocked).getByTestId('pane-decision-chip')).toHaveText('Needs you')
     await expect(header(page, done).getByTestId('pane-decision-chip')).toHaveCount(0)
     await expect(header(page, blocked)).toHaveAttribute('data-tone', 'needs-decision')
     await expect(header(page, done)).toHaveAttribute('data-tone', 'awaiting')
-    await expect(header(page, blocked).getByTestId('pane-status-dot')).toHaveClass(/activity-needs-decision/)
-    await expect(header(page, done).getByTestId('pane-status-dot')).toHaveClass(/activity-awaiting/)
+    await expect(header(page, blocked).getByTestId('pane-status-dot')).toHaveCount(0)
+    await expect(header(page, done).getByTestId('pane-status-dot')).toHaveCount(0)
+    await expect(row(page, blocked)).toHaveAttribute('data-tone', 'needs-decision')
+    await expect(row(page, done)).toHaveAttribute('data-tone', 'awaiting')
     await expect(header(page, blocked).getByTestId('pane-status-text')).toHaveText("Needs you · Reported by the agent's hooks")
     // Screen readers: a polite status region, filled once on entry.
     const live = header(page, blocked).getByTestId('pane-decision-live')

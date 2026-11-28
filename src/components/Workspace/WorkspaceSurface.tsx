@@ -1,6 +1,6 @@
 import { Suspense, memo, useEffect, useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from 'react-resizable-panels'
-import { Activity, Bot, LayoutGrid, MoreHorizontal, Network, PanelBottom, PanelRight, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
+import { Activity, Bot, MoreHorizontal, Network, PanelBottom, PanelRight, PanelsTopLeft, PlugZap, Plus, type LucideIcon } from 'lucide-react'
 import { Button, IconButton, Menu, Tabs } from '../../ui'
 import { WorkbenchPanelMenu, WorkbenchPanelToggle, type WorkbenchPanelItem } from '../Workbench/WorkbenchPanelMenu'
 import { CODE_BAR_PANELS, WORKBENCH_PANELS, panelTitle } from '../Workbench/panelCatalog'
@@ -12,7 +12,6 @@ import { workspaceColorAttrs } from '../../../shared/workspace-color'
 import { WorkspaceGrid } from '../Grid/WorkspaceGrid'
 import { WorkspaceSplitGrid } from '../Grid/WorkspaceSplitGrid'
 import { usePaneLayoutStore } from '../../store/pane-layout.store'
-import { gridShape } from '../../../shared/types/pane-tree'
 import { useUIStore } from '../../store/ui.store'
 import { useTerminalStore } from '../../store/terminal.store'
 import { useWorkspaceStore } from '../../store/workspace.store'
@@ -517,15 +516,6 @@ function WorkspaceSurfaceComponent({
   const folderName = workspace.rootPath ? workspace.rootPath.replace(/\\/g, '/').split('/').filter(Boolean).pop() : null
   const showSubPath = Boolean(folderName && folderName.toLowerCase() !== workspace.name.toLowerCase())
   const splitTargetPaneId = activePaneId ?? workspace.panes[0]?.id ?? null
-  // The chip names the grid the panes form now. A preset is only its starting point: after a split or a move the
-  // panes may form another grid, or none.
-  const PRESET_SHAPES: Record<number, string> = { 1: '1 × 1', 2: '1 × 2', 4: '2 × 2', 6: '2 × 3' }
-  const shape = splitLayoutEnabled && tree ? gridShape(tree) : null
-  const layoutLabel = splitLayoutEnabled && tree
-    ? shape ? `${shape.rows} × ${shape.columns}` : tc('workspace.topbar.layoutCustom')
-    : PRESET_SHAPES[workspace.layoutPreset ?? 4] ?? '2 × 2'
-  const layoutValue = Object.entries(PRESET_SHAPES).find(([, label]) => label === layoutLabel)?.[0] ?? ''
-  const hasCreateActions = Boolean((onSplitPane && splitTargetPaneId) || (agentProfiles && agentProfiles.length > 0))
 
   const toolbar = (
     <div className="workspace-topbar-host" data-ui="workspace-bar">
@@ -614,43 +604,6 @@ function WorkspaceSurfaceComponent({
             ]}
           />
         ) : null}
-        {hasCreateActions ? <span className="workspace-topbar-sep" aria-hidden="true" /> : null}
-        <Menu
-          label={tc('workspace.topbar.layoutMenu', { defaultValue: 'Terminal grid layout' })}
-          trigger={
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<LayoutGrid size={12} aria-hidden="true" />}
-            >
-              {maximizedPaneId
-                ? tc('workspace.topbar.layoutFocus', { defaultValue: 'Focus' })
-                : layoutLabel}
-            </Button>
-          }
-          items={[
-            {
-              type: 'radio',
-              value: maximizedPaneId ? 'focus' : layoutValue,
-              onValueChange: value => {
-                if (value === 'focus') {
-                  if (splitTargetPaneId && !maximizedPaneId) onToggleMaximize(splitTargetPaneId)
-                  return
-                }
-                if (maximizedPaneId) onToggleMaximize(maximizedPaneId)
-                const preset = Number(value) as 1 | 2 | 4 | 6
-                void useWorkspaceStore.getState().updateSettings({ workspaceId: workspace.id, layoutPreset: preset })
-              },
-              options: [
-                { value: '1', label: '1 × 1' },
-                { value: '2', label: '1 × 2' },
-                { value: '4', label: '2 × 2' },
-                { value: '6', label: '2 × 3' },
-                ...(splitTargetPaneId ? [{ value: 'focus', label: tc('workspace.topbar.layoutFocus', { defaultValue: 'Focus active pane' }) }] : [])
-              ]
-            }
-          ]}
-        />
       </div>
       <div className="workspace-topbar-spacer" />
       {/* The bar's icon actions are src/ui IconButtons at md (BRD-03): the name is the accessible name and the tooltip. */}

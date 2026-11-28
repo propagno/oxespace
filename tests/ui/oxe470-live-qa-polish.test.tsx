@@ -260,14 +260,13 @@ describe('OXE-470 · Live QA polish (OxeChat prose, Usage chip, 3-zone TitleBar,
 
     expect(headerCss).toMatch(/\.title\s*\{[^}]*display:\s*inline-flex[^}]*align-items:\s*center/)
     expect(headerCss).toMatch(/\.provider\s*\{[^}]*display:\s*inline-flex[^}]*align-items:\s*center[^}]*gap:\s*var\(--space-1-5\)/)
+    expect(headerCss).toMatch(/\.provider:empty\s*\{[^}]*display:\s*none/)
 
     expect(chromeCss).toMatch(/\.workspace-topbar-create-group\s*\{[^}]*display:\s*inline-flex[^}]*gap:\s*var\(--space-1\)/)
-    expect(chromeCss).toMatch(/\.workspace-topbar-sep\s*\{[^}]*background:\s*var\(--bd-subtle\)/)
-    expect(chromeCss).toMatch(/\.pane-agent-chip,\s*\.pane-agent-chip\[class\*='provider-'\]\s*\{[^}]*height:\s*var\(--space-5\)[^}]*border-radius:\s*var\(--radius-sm\)[^}]*background:\s*var\(--fill-hover\)[^}]*color:\s*var\(--tx-secondary\)/)
+    expect(chromeCss).toMatch(/\.pane-provider-mark\s*\{[^}]*display:\s*inline-flex[^}]*align-items:\s*center/)
     expect(chromeCss).toMatch(/\.pane-header \[data-testid='pane-resume-marker'\]\s*\{[^}]*height:\s*var\(--space-5\)[^}]*border-radius:\s*var\(--radius-sm\)[^}]*background:\s*transparent[^}]*color:\s*var\(--tx-muted\)/)
     expect(chromeCss).toMatch(/\.pane-header \[data-testid='pane-resume-marker'\]\[data-outcome='notResumed'\],\s*\.pane-header \[data-testid='pane-resume-marker'\]\[data-outcome='resumed-asking'\]\s*\{[^}]*color:\s*var\(--intent-warning-fg\)/)
 
-    expect(paneCss).toMatch(/\.pane-agent-chip \.agent-provider-icon\s*\{[^}]*width:\s*13px[^}]*height:\s*13px/)
     expect(paneCss).toMatch(/\.pane-intent-button:hover \.pane-intent-edit-hint,\s*\.pane-intent-button:focus-visible \.pane-intent-edit-hint/)
     expect(paneCss).not.toMatch(/\.pane-header:hover \.pane-intent-edit-hint/)
   })
